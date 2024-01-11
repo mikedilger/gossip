@@ -68,7 +68,7 @@ const DISCOVER_HOVER_TEXT: &str = "Where you discover other people's relays list
 const WRITE_HOVER_TEXT: &str =
     "Where you actually write your events to. It is recommended to have a few.";
 const OUTBOX_HOVER_TEXT: &str = "Where you tell others you write to. You should also check Write. It is recommended to have a few.";
-const ADVERTISE_HOVER_TEXT: &str = "Where you advertise your relay list (inbox/outbox) to. It is recommended to advertise to lots of relays so that you can be found.";
+const ADVERTISE_HOVER_TEXT: &str = "Your relay list will be advertised to this relay.";
 
 #[derive(Clone, PartialEq)]
 pub enum RelayEntryView {
@@ -81,7 +81,7 @@ pub enum RelayEntryView {
 struct UsageBits {
     read: bool,
     write: bool,
-    advertise: bool,
+    //advertise: bool,
     inbox: bool,
     outbox: bool,
     discover: bool,
@@ -92,7 +92,7 @@ impl UsageBits {
         Self {
             read: usage_bits & Relay::READ == Relay::READ,
             write: usage_bits & Relay::WRITE == Relay::WRITE,
-            advertise: usage_bits & Relay::ADVERTISE == Relay::ADVERTISE,
+            //advertise: usage_bits & Relay::ADVERTISE == Relay::ADVERTISE,
             inbox: usage_bits & Relay::INBOX == Relay::INBOX,
             outbox: usage_bits & Relay::OUTBOX == Relay::OUTBOX,
             discover: usage_bits & Relay::DISCOVER == Relay::DISCOVER,
@@ -147,7 +147,7 @@ pub struct RelayEntry {
 
 impl RelayEntry {
     pub(in crate::ui) fn new(relay: Relay, app: &mut GossipUi) -> Self {
-        let usage = UsageBits::from_usage_bits(relay.usage_bits);
+        let usage = UsageBits::from_usage_bits(relay.get_usage_bits());
         let accent = app.theme.accent_color();
         let mut hsva: ecolor::HsvaGamma = accent.into();
         hsva.v *= 0.8;
@@ -278,7 +278,7 @@ impl RelayEntry {
 
     fn paint_edit_btn(&mut self, ui: &mut Ui, rect: &Rect) -> Response {
         let id = self.make_id("edit_btn");
-        if self.relay.usage_bits == 0 {
+        if !self.relay.has_any_usage_bit() && !self.relay.is_good_for_advertise() {
             let pos = rect.right_top() + vec2(-TEXT_RIGHT, TEXT_TOP);
             let text = RichText::new("pick up & configure");
             let response =
@@ -356,7 +356,7 @@ impl RelayEntry {
     fn paint_lower_buttons(&self, ui: &mut Ui, rect: &Rect) -> Response {
         let line_height = ui.fonts(|f| f.row_height(&FontId::default()));
         let pos = rect.left_bottom() + vec2(TEXT_LEFT, -TEXT_BOTTOM - line_height);
-        let is_personal = self.relay.usage_bits != 0;
+        let is_personal = self.relay.has_any_usage_bit();
         let id = self.make_id("remove_link");
         let text = "Remove from personal list";
         let response = draw_link_at(
@@ -373,12 +373,8 @@ impl RelayEntry {
                 &self.relay.url,
                 |relay| {
                     relay.clear_usage_bits(
-                        Relay::ADVERTISE
-                            | Relay::DISCOVER
-                            | Relay::INBOX
-                            | Relay::OUTBOX
-                            | Relay::READ
-                            | Relay::WRITE,
+                        //Relay::ADVERTISE
+                        Relay::DISCOVER | Relay::INBOX | Relay::OUTBOX | Relay::READ | Relay::WRITE,
                     )
                 },
                 None,
@@ -600,7 +596,7 @@ impl RelayEntry {
 
         // ---- A ----
         let pos = right + vec2(RIGHT - 0.0 * SPACE, 0.0);
-        let (text, color) = switch(ui, "A", self.usage.advertise);
+        let (text, color) = switch(ui, "A", self.relay.is_good_for_advertise());
         let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("A"));
         draw_text_galley_at(ui, pos, galley, Some(color), None);
         response.on_hover_text(ADVERTISE_HOVER_TEXT);
@@ -911,6 +907,7 @@ impl RelayEntry {
                 None,
             );
         }
+        /*
         {
             // ---- advertise ----
             let pos = pos + vec2(USAGE_SWITCH_X_SPACING, 0.0);
@@ -943,6 +940,7 @@ impl RelayEntry {
                 None,
             );
         }
+        */
         let pos = pos + vec2(0.0, USAGE_SWITCH_Y_SPACING);
         {
             // ---- rank ----
@@ -1050,7 +1048,7 @@ impl RelayEntry {
             list_entry::paint_frame(ui, &rect, Some(self.bg_fill));
             self.paint_title(ui, &rect);
             response |= self.paint_edit_btn(ui, &rect);
-            if self.relay.usage_bits != 0 {
+            if self.relay.has_any_usage_bit() || self.relay.is_good_for_advertise() {
                 self.paint_usage(ui, &rect);
             }
             self.paint_reasons(ui, &rect);
@@ -1068,7 +1066,7 @@ impl RelayEntry {
             self.paint_title(ui, &rect);
             response |= self.paint_edit_btn(ui, &rect);
             self.paint_stats(ui, &rect);
-            if self.relay.usage_bits != 0 {
+            if self.relay.has_any_usage_bit() || self.relay.is_good_for_advertise() {
                 self.paint_usage(ui, &rect);
             }
             self.paint_reasons(ui, &rect);

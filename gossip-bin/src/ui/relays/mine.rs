@@ -53,7 +53,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 fn get_relays(app: &mut GossipUi) -> Vec<Relay> {
     let mut relays: Vec<Relay> = GLOBALS
         .storage
-        .filter_relays(|relay| relay.usage_bits != 0 && super::filter_relay(&app.relays, relay))
+        .filter_relays(|relay| relay.has_any_usage_bit() && super::filter_relay(&app.relays, relay))
         .unwrap_or_default();
 
     relays.sort_by(|a, b| super::sort_relay(&app.relays, a, b));

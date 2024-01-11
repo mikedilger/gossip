@@ -1054,7 +1054,7 @@ impl Storage {
                 // Clear all current read/write bits (within the transaction)
                 // note: inbox is kind10002 'read', outbox is kind10002 'write'
                 self.modify_all_relays(
-                    |relay| relay.usage_bits &= !(Relay::INBOX | Relay::OUTBOX),
+                    |relay| relay.clear_usage_bits(Relay::INBOX | Relay::OUTBOX),
                     Some(&mut txn),
                 )?;
             }

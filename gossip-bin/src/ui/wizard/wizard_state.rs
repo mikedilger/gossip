@@ -75,7 +75,7 @@ impl WizardState {
 
             self.relays = GLOBALS
                 .storage
-                .filter_relays(|relay| relay.usage_bits != 0)
+                .filter_relays(|relay| relay.has_any_usage_bit())
                 .unwrap_or_default();
         }
 

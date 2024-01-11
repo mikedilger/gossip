@@ -33,7 +33,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     // Get their relays
     let relays: Vec<Relay> = GLOBALS
         .storage
-        .filter_relays(|relay| relay.usage_bits != 0)
+        .filter_relays(|relay| relay.has_any_usage_bit())
         .unwrap_or_default();
 
     // Add their relays to the relay_options
@@ -132,7 +132,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                 ui.horizontal(|ui| {
                     if ui.button("🗑").clicked() {
                         let mut r = relay.clone();
-                        r.clear_usage_bits(Relay::DISCOVER | Relay::ADVERTISE);
+                        r.clear_usage_bits(Relay::DISCOVER);
                         let _ = GLOBALS.storage.write_relay(&r, None);
                     }
                     ui.label(relay.url.as_str());
@@ -209,7 +209,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                         relay_options.insert(rurl.clone(), read_relay(&rurl));
                     }
                     let r = relay_options.get_mut(&rurl).unwrap();
-                    r.set_usage_bits(Relay::DISCOVER | Relay::ADVERTISE);
+                    r.set_usage_bits(Relay::DISCOVER);
                     let _ = GLOBALS.storage.write_relay(r, None);
                 } else {
                     app.wizard_state.error = Some("ERROR: Invalid Relay URL".to_owned());

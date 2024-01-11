@@ -33,7 +33,9 @@ pub struct Relay1 {
     pub hidden: bool,
 
     /// What usage this relay provides to the user
-    pub usage_bits: u64,
+    /// (hidden because 'advertise' may be set which would interfere with simple
+    /// .cmp and zero tests)
+    usage_bits: u64,
 
     /// The NIP-11 for this relay
     pub nip11: Option<RelayInformationDocument>,
@@ -46,7 +48,7 @@ pub struct Relay1 {
 impl Relay1 {
     pub const READ: u64 = 1 << 0; // 1
     pub const WRITE: u64 = 1 << 1; // 2
-    pub const ADVERTISE: u64 = 1 << 2; // 4
+    const ADVERTISE: u64 = 1 << 2; // 4 // RETIRED
     pub const INBOX: u64 = 1 << 3; // 8            this is 'read' of kind 10002
     pub const OUTBOX: u64 = 1 << 4; // 16          this is 'write' of kind 10002
     pub const DISCOVER: u64 = 1 << 5; // 32
@@ -64,6 +66,14 @@ impl Relay1 {
             nip11: None,
             last_attempt_nip11: None,
         }
+    }
+
+    #[inline]
+    pub fn get_usage_bits(&self) -> u64 {
+        // Automatically clear any residual ADVERTISE bit
+        // ( so that simple cmp() and =0 still work... but you should use
+        //   the new has_any_usage_bit() instead to be safe )
+        self.usage_bits & !Relay1::ADVERTISE
     }
 
     #[inline]
@@ -91,6 +101,12 @@ impl Relay1 {
     }
 
     #[inline]
+    pub fn has_any_usage_bit(&self) -> bool {
+        let all = Self::READ | Self::WRITE | Self::INBOX | Self::OUTBOX | Self::DISCOVER;
+        self.usage_bits & all != 0
+    }
+
+    #[inline]
     pub fn attempts(&self) -> u64 {
         self.success_count + self.failure_count
     }
@@ -102,6 +118,10 @@ impl Relay1 {
             return 0.5;
         } // unknown, so we put it in the middle
         self.success_count as f32 / attempts as f32
+    }
+
+    pub fn is_good_for_advertise(&self) -> bool {
+        self.rank > 0 && self.success_rate() > 0.35 && self.success_count > 10
     }
 
     /// This generates a "recommended_relay_url" for an 'e' tag.

@@ -562,7 +562,7 @@ pub(super) fn sort_relay(rui: &RelayUi, a: &Relay, b: &Relay) -> Ordering {
         RelaySorting::Rank => b
             .rank
             .cmp(&a.rank)
-            .then(b.usage_bits.cmp(&a.usage_bits))
+            .then(b.get_usage_bits().cmp(&a.get_usage_bits()))
             .then(a.url.cmp(&b.url)),
         RelaySorting::Name => a.url.cmp(&b.url),
         RelaySorting::WriteRelays => b
@@ -570,8 +570,8 @@ pub(super) fn sort_relay(rui: &RelayUi, a: &Relay, b: &Relay) -> Ordering {
             .cmp(&a.has_usage_bits(Relay::WRITE))
             .then(a.url.cmp(&b.url)),
         RelaySorting::AdvertiseRelays => b
-            .has_usage_bits(Relay::ADVERTISE)
-            .cmp(&a.has_usage_bits(Relay::ADVERTISE))
+            .is_good_for_advertise()
+            .cmp(&a.is_good_for_advertise())
             .then(a.url.cmp(&b.url)),
         RelaySorting::HighestFollowing => GLOBALS
             .relay_picker
@@ -606,7 +606,7 @@ pub(super) fn filter_relay(rui: &RelayUi, ri: &Relay) -> bool {
         RelayFilter::All => true,
         RelayFilter::Write => ri.has_usage_bits(Relay::WRITE),
         RelayFilter::Read => ri.has_usage_bits(Relay::READ),
-        RelayFilter::Advertise => ri.has_usage_bits(Relay::ADVERTISE),
+        RelayFilter::Advertise => ri.is_good_for_advertise(),
         RelayFilter::Private => !ri.has_usage_bits(Relay::INBOX | Relay::OUTBOX),
     };
 

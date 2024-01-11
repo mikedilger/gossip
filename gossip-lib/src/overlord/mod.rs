@@ -787,7 +787,7 @@ impl Overlord {
 
         let advertise_to_relay_urls: Vec<RelayUrl> = GLOBALS
             .storage
-            .filter_relays(|r| r.has_usage_bits(Relay::ADVERTISE) && r.rank != 0)?
+            .filter_relays(|r| r.is_good_for_advertise() && r.rank != 0)?
             .iter()
             .map(|relay| relay.url.clone())
             .collect();
