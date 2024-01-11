@@ -60,6 +60,7 @@ impl RelayUi {
 #[derive(PartialEq, Default)]
 pub(super) enum RelaySorting {
     #[default]
+    Default,
     Rank,
     Name,
     WriteRelays,
@@ -72,6 +73,7 @@ pub(super) enum RelaySorting {
 impl RelaySorting {
     pub fn get_name(&self) -> &str {
         match self {
+            RelaySorting::Default => "Default",
             RelaySorting::Rank => "Rank",
             RelaySorting::Name => "Name",
             RelaySorting::WriteRelays => "Write Relays",
@@ -481,6 +483,11 @@ pub(super) fn relay_sort_combo(app: &mut GossipUi, ui: &mut Ui) {
         .show_ui(ui, |ui| {
             ui.selectable_value(
                 &mut app.relays.sort,
+                RelaySorting::Default,
+                RelaySorting::Default.get_name(),
+            );
+            ui.selectable_value(
+                &mut app.relays.sort,
                 RelaySorting::Rank,
                 RelaySorting::Rank.get_name(),
             );
@@ -557,33 +564,29 @@ pub(super) fn relay_filter_combo(app: &mut GossipUi, ui: &mut Ui) {
 /// Filter a relay entry
 /// - return: true if selected
 ///
+#[rustfmt::skip]
 pub(super) fn sort_relay(rui: &RelayUi, a: &Relay, b: &Relay) -> Ordering {
     match rui.sort {
-        RelaySorting::Rank => b
-            .rank
-            .cmp(&a.rank)
+        RelaySorting::Default => b.get_usage_bits().cmp(&a.get_usage_bits())
+            .then(b.is_good_for_advertise().cmp(&a.is_good_for_advertise()))
+            .then(b.rank.cmp(&a.rank))
+            .then(a.url.cmp(&b.url)),
+        RelaySorting::Rank => b.rank.cmp(&a.rank)
             .then(b.get_usage_bits().cmp(&a.get_usage_bits()))
+            .then(b.is_good_for_advertise().cmp(&a.is_good_for_advertise()))
             .then(a.url.cmp(&b.url)),
         RelaySorting::Name => a.url.cmp(&b.url),
-        RelaySorting::WriteRelays => b
-            .has_usage_bits(Relay::WRITE)
-            .cmp(&a.has_usage_bits(Relay::WRITE))
+        RelaySorting::WriteRelays => b.has_usage_bits(Relay::WRITE)
+                              .cmp(&a.has_usage_bits(Relay::WRITE))
             .then(a.url.cmp(&b.url)),
-        RelaySorting::AdvertiseRelays => b
-            .is_good_for_advertise()
-            .cmp(&a.is_good_for_advertise())
+        RelaySorting::AdvertiseRelays => b.is_good_for_advertise().cmp(&a.is_good_for_advertise())
             .then(a.url.cmp(&b.url)),
-        RelaySorting::HighestFollowing => GLOBALS
-            .relay_picker
-            .get_relay_following_count(&b.url)
-            .cmp(&GLOBALS.relay_picker.get_relay_following_count(&a.url)),
-        RelaySorting::HighestSuccessRate => b
-            .success_rate()
-            .total_cmp(&a.success_rate())
+        RelaySorting::HighestFollowing => GLOBALS.relay_picker.get_relay_following_count(&b.url)
+            .cmp(&GLOBALS.relay_picker.get_relay_following_count(&a.url))
             .then(a.url.cmp(&b.url)),
-        RelaySorting::LowestSuccessRate => a
-            .success_rate()
-            .total_cmp(&b.success_rate())
+        RelaySorting::HighestSuccessRate => b.success_rate().total_cmp(&a.success_rate())
+            .then(a.url.cmp(&b.url)),
+        RelaySorting::LowestSuccessRate => a.success_rate().total_cmp(&b.success_rate())
             .then(a.url.cmp(&b.url)),
     }
 }

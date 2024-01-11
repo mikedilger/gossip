@@ -278,38 +278,25 @@ impl RelayEntry {
 
     fn paint_edit_btn(&mut self, ui: &mut Ui, rect: &Rect) -> Response {
         let id = self.make_id("edit_btn");
-        if !self.relay.has_any_usage_bit() && !self.relay.is_good_for_advertise() {
-            let pos = rect.right_top() + vec2(-TEXT_RIGHT, TEXT_TOP);
-            let text = RichText::new("pick up & configure");
-            let response =
-                draw_link_at(ui, id, pos, text.into(), Align::RIGHT, self.enabled, false)
-                    .on_hover_cursor(CursorIcon::PointingHand)
-                    .on_hover_text("Configure this relay as one of your personal relays");
-            if self.enabled && response.clicked() {
-                self.view = RelayEntryView::Edit;
-            }
-            response
+        let pos = rect.right_top() + vec2(-EDIT_BTN_SIZE - TEXT_RIGHT, TEXT_TOP);
+        let btn_rect = Rect::from_min_size(pos, vec2(EDIT_BTN_SIZE, EDIT_BTN_SIZE));
+        let response = ui
+            .interact(btn_rect, id, Sense::click())
+            .on_hover_cursor(CursorIcon::PointingHand)
+            .on_hover_text("Configure Relay");
+        let color = if response.hovered() {
+            ui.visuals().text_color()
         } else {
-            let pos = rect.right_top() + vec2(-EDIT_BTN_SIZE - TEXT_RIGHT, TEXT_TOP);
-            let btn_rect = Rect::from_min_size(pos, vec2(EDIT_BTN_SIZE, EDIT_BTN_SIZE));
-            let response = ui
-                .interact(btn_rect, id, Sense::click())
-                .on_hover_cursor(CursorIcon::PointingHand)
-                .on_hover_text("Configure Relay");
-            let color = if response.hovered() {
-                ui.visuals().text_color()
-            } else {
-                self.accent
-            };
-            let mut mesh = Mesh::with_texture(self.option_symbol);
-            mesh.add_rect_with_uv(
-                btn_rect.shrink(2.0),
-                Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
-                color,
-            );
-            ui.painter().add(Shape::mesh(mesh));
-            response
-        }
+            self.accent
+        };
+        let mut mesh = Mesh::with_texture(self.option_symbol);
+        mesh.add_rect_with_uv(
+            btn_rect.shrink(2.0),
+            Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
+            color,
+        );
+        ui.painter().add(Shape::mesh(mesh));
+        response
     }
 
     fn paint_close_btn(&mut self, ui: &mut Ui, rect: &Rect) -> Response {
@@ -520,6 +507,19 @@ impl RelayEntry {
             Some(ui.visuals().text_color()),
             None,
         );
+    }
+
+    fn paint_low_quality(&self, ui: &mut Ui, rect: &Rect) {
+        let pos = pos2(rect.max.x - 99.0, rect.min.y + 23.0);
+        let (galley, response) = allocate_text_at(
+            ui,
+            pos,
+            "low quality".into(),
+            Align::Center,
+            self.make_id("lq")
+        );
+        draw_text_galley_at(ui, pos, galley, Some(egui::Color32::GRAY), None);
+        response.on_hover_text("The relay is not configured and either has low usage, poor success, or you have disabled it.");
     }
 
     fn paint_usage(&self, ui: &mut Ui, rect: &Rect) {
@@ -1050,6 +1050,8 @@ impl RelayEntry {
             response |= self.paint_edit_btn(ui, &rect);
             if self.relay.has_any_usage_bit() || self.relay.is_good_for_advertise() {
                 self.paint_usage(ui, &rect);
+            } else {
+                self.paint_low_quality(ui, &rect);
             }
             self.paint_reasons(ui, &rect);
         }
