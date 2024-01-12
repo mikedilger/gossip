@@ -31,6 +31,9 @@ pub use relationship_by_id1::RelationshipById1;
 mod relay1;
 pub use relay1::Relay1;
 
+mod relay2;
+pub use relay2::Relay2;
+
 mod settings1;
 pub(crate) use settings1::Settings1;
 

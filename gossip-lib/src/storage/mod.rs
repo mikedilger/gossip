@@ -36,6 +36,7 @@ mod relationships1;
 mod relationships_by_addr1;
 mod relationships_by_id1;
 mod relays1;
+mod relays2;
 mod reprel1;
 mod unindexed_giftwraps1;
 
@@ -324,7 +325,7 @@ impl Storage {
 
     #[inline]
     pub(crate) fn db_relays(&self) -> Result<RawDatabase, Error> {
-        self.db_relays1()
+        self.db_relays2()
     }
 
     #[inline]
@@ -371,7 +372,7 @@ impl Storage {
     /// The number of records in the relays table
     #[inline]
     pub fn get_relays_len(&self) -> Result<u64, Error> {
-        self.get_relays1_len()
+        self.get_relays2_len()
     }
 
     /// The number of records in the event table
@@ -960,7 +961,7 @@ impl Storage {
         relay: &Relay,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.write_relay1(relay, rw_txn)
+        self.write_relay2(relay, rw_txn)
     }
 
     /// Delete a relay record
@@ -971,7 +972,7 @@ impl Storage {
         url: &RelayUrl,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.delete_relay1(url, rw_txn)
+        self.delete_relay2(url, rw_txn)
     }
 
     /// Write a new relay record only if it is missing
@@ -998,7 +999,7 @@ impl Storage {
     where
         M: FnMut(&mut Relay),
     {
-        self.modify_relay1(url, modify, rw_txn)
+        self.modify_relay2(url, modify, rw_txn)
     }
 
     //// Modify all relay records
@@ -1011,13 +1012,13 @@ impl Storage {
     where
         M: FnMut(&mut Relay),
     {
-        self.modify_all_relays1(modify, rw_txn)
+        self.modify_all_relays2(modify, rw_txn)
     }
 
     /// Read a relay record
     #[inline]
     pub fn read_relay(&self, url: &RelayUrl) -> Result<Option<Relay>, Error> {
-        self.read_relay1(url)
+        self.read_relay2(url)
     }
 
     /// Read or create relay
@@ -1042,7 +1043,7 @@ impl Storage {
     where
         F: Fn(&Relay) -> bool,
     {
-        self.filter_relays1(f)
+        self.filter_relays2(f)
     }
 
     /// Process a relay list event
