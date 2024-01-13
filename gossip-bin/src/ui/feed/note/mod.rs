@@ -1077,8 +1077,13 @@ fn render_content(
                                 .text_style(TextStyle::Small),
                         );
                     } else if app.render_qr == Some(event.id) {
-                        app.render_qr(ui, ctx, "feedqr", event.content.trim());
-                    // FIXME should this be the unmodified content (event.content)?
+                        if note.event.kind == EventKind::EncryptedDirectMessage {
+                            if let Ok(m) = GLOBALS.signer.decrypt_message(&note.event) {
+                                app.render_qr(ui, ctx, "feedqr", m.trim());
+                            }
+                        } else {
+                            app.render_qr(ui, ctx, "feedqr", event.content.trim());
+                        }
                     } else if event.content_warning().is_some()
                         && !app.approved.contains(&event.id)
                         && !app.settings.approve_content_warning
