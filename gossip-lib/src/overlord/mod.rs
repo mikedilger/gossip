@@ -670,11 +670,14 @@ impl Overlord {
             ToOverlordMessage::StartLongLivedSubscriptions => {
                 self.start_long_lived_subscriptions().await?;
             }
-            ToOverlordMessage::SubscribeConfig(relay_url) => {
-                self.subscribe_config(relay_url).await?;
+            ToOverlordMessage::SubscribeConfig(opt_relays) => {
+                self.subscribe_config(opt_relays).await?;
             }
-            ToOverlordMessage::SubscribeDiscover(pubkeys, maybe_relayurls) => {
-                self.subscribe_discover(pubkeys, maybe_relayurls).await?;
+            ToOverlordMessage::SubscribeDiscover(pubkeys, opt_relays) => {
+                self.subscribe_discover(pubkeys, opt_relays).await?;
+            }
+            ToOverlordMessage::SubscribeMentions(opt_relays) => {
+                self.subscribe_mentions(opt_relays).await?;
             }
             ToOverlordMessage::Shutdown => {
                 Self::shutdown()?;
@@ -2531,13 +2534,28 @@ impl Overlord {
         self.subscribe_discover(followed, None).await?;
 
         // Separately subscribe to our outbox events on our write relays
-        let write_relay_urls: Vec<RelayUrl> = GLOBALS
-            .storage
-            .filter_relays(|r| r.has_usage_bits(Relay::WRITE) && r.rank != 0)?
-            .iter()
-            .map(|relay| relay.url.clone())
-            .collect();
-        for relay_url in write_relay_urls.iter() {
+        self.subscribe_config(None).await?;
+
+        // Separately subscribe to our mentions on our read relays
+        // NOTE: we also do this on all dynamically connected relays since NIP-65 is
+        //       not in widespread usage.
+        self.subscribe_mentions(None).await?;
+
+        Ok(())
+    }
+
+    /// Subscribe to the user's configuration events from the given relay
+    pub async fn subscribe_config(&mut self, relays: Option<Vec<RelayUrl>>) -> Result<(), Error> {
+        let config_relays: Vec<RelayUrl> = match relays {
+            Some(r) => r,
+            None => GLOBALS
+                .storage
+                .filter_relays(|r| r.has_usage_bits(Relay::WRITE) && r.rank != 0)?
+                .iter()
+                .map(|relay| relay.url.clone())
+                .collect(),
+        };
+        for relay_url in config_relays.iter() {
             self.engage_minion(
                 relay_url.to_owned(),
                 vec![RelayJob {
@@ -2550,46 +2568,6 @@ impl Overlord {
             )
             .await?;
         }
-
-        // Separately subscribe to our mentions on our read relays
-        // NOTE: we also do this on all dynamically connected relays since NIP-65 is
-        //       not in widespread usage.
-        let read_relay_urls: Vec<RelayUrl> = GLOBALS
-            .storage
-            .filter_relays(|r| r.has_usage_bits(Relay::READ) && r.rank != 0)?
-            .iter()
-            .map(|relay| relay.url.clone())
-            .collect();
-        for relay_url in read_relay_urls.iter() {
-            self.engage_minion(
-                relay_url.to_owned(),
-                vec![RelayJob {
-                    reason: RelayConnectionReason::FetchMentions,
-                    payload: ToMinionPayload {
-                        job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeMentions,
-                    },
-                }],
-            )
-            .await?;
-        }
-
-        Ok(())
-    }
-
-    /// Subscribe to the user's configuration events from the given relay
-    pub async fn subscribe_config(&mut self, relay_url: RelayUrl) -> Result<(), Error> {
-        self.engage_minion(
-            relay_url.to_owned(),
-            vec![RelayJob {
-                reason: RelayConnectionReason::Config,
-                payload: ToMinionPayload {
-                    job_id: rand::random::<u64>(),
-                    detail: ToMinionPayloadDetail::SubscribeOutbox,
-                },
-            }],
-        )
-        .await?;
 
         Ok(())
     }
@@ -2619,6 +2597,34 @@ impl Overlord {
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
                         detail: ToMinionPayloadDetail::SubscribeDiscover(pubkeys.clone()),
+                    },
+                }],
+            )
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    /// Subscribe to the user's configuration events from the given relay
+    pub async fn subscribe_mentions(&mut self, relays: Option<Vec<RelayUrl>>) -> Result<(), Error> {
+        let mention_relays: Vec<RelayUrl> = match relays {
+            Some(r) => r,
+            None => GLOBALS
+                .storage
+                .filter_relays(|r| r.has_usage_bits(Relay::READ) && r.rank != 0)?
+                .iter()
+                .map(|relay| relay.url.clone())
+                .collect(),
+        };
+        for relay_url in mention_relays.iter() {
+            self.engage_minion(
+                relay_url.to_owned(),
+                vec![RelayJob {
+                    reason: RelayConnectionReason::FetchMentions,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::SubscribeMentions,
                     },
                 }],
             )

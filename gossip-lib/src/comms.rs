@@ -151,10 +151,13 @@ pub enum ToOverlordMessage {
     StartLongLivedSubscriptions,
 
     /// Calls [subscribe_config](crate::Overlord::subscribe_config)
-    SubscribeConfig(RelayUrl),
+    SubscribeConfig(Option<Vec<RelayUrl>>),
 
     /// Calls [subscribe_discover](crate::Overlord::subscribe_discover)
     SubscribeDiscover(Vec<PublicKey>, Option<Vec<RelayUrl>>),
+
+    /// Calls [subscribe_mentions](crate::Overlord::subscribe_mentions)
+    SubscribeMentions(Option<Vec<RelayUrl>>),
 
     /// Calls [shutdown](crate::Overlord::shutdown)
     Shutdown,

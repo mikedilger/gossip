@@ -89,7 +89,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     if ui.button(url.as_str()).clicked() {
                         let _ = GLOBALS
                             .to_overlord
-                            .send(ToOverlordMessage::SubscribeConfig(url.to_owned()));
+                            .send(ToOverlordMessage::SubscribeConfig(Some(vec![
+                                url.to_owned()
+                            ])));
                     }
                 });
             }
@@ -121,7 +123,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 if let Ok(rurl) = RelayUrl::try_from_str(&app.wizard_state.relay_url) {
                     let _ = GLOBALS
                         .to_overlord
-                        .send(ToOverlordMessage::SubscribeConfig(rurl.to_owned()));
+                        .send(ToOverlordMessage::SubscribeConfig(Some(vec![
+                            rurl.to_owned()
+                        ])));
                     app.wizard_state.relay_url = String::new();
                 } else {
                     app.wizard_state.error = Some("ERROR: Invalid Relay URL".to_owned());
