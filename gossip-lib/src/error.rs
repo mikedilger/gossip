@@ -7,6 +7,7 @@ use nostr_types::RelayUrl;
 pub enum ErrorKind {
     BroadcastSend(String),
     BroadcastReceive(tokio::sync::broadcast::error::RecvError),
+    CannotUpdateRelayUrl,
     Delegation(String),
     Empty(String),
     EventNotFound,
@@ -81,6 +82,9 @@ impl std::fmt::Display for Error {
         match &self.kind {
             BroadcastSend(s) => write!(f, "Error broadcasting: {s}"),
             BroadcastReceive(e) => write!(f, "Error receiving broadcast: {e}"),
+            CannotUpdateRelayUrl => {
+                write!(f, "Cannot update relay url (create a new relay instead)")
+            }
             Delegation(s) => write!(f, "NIP-26 Delegation Error: {s}"),
             Empty(s) => write!(f, "{s} is empty"),
             EventNotFound => write!(f, "Event not found"),

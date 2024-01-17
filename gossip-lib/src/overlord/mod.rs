@@ -2943,11 +2943,87 @@ impl Overlord {
 
     /// Update the relay. This saves the new relay and also adjusts active
     /// subscriptions based on the changes.
-    pub async fn update_relay(&mut self, _old: Relay, new: Relay) -> Result<(), Error> {
-        // FIXME: update minion subscriptions here based on the diff
+    pub async fn update_relay(&mut self, old: Relay, new: Relay) -> Result<(), Error> {
+        if old.url != new.url {
+            return Err(ErrorKind::CannotUpdateRelayUrl.into());
+        }
 
-        // write new
-        let _ = GLOBALS.storage.write_relay(&new, None);
+        // Write new
+        GLOBALS.storage.write_relay(&new, None)?;
+
+        // No minion action if we are offline
+        if GLOBALS.storage.read_setting_offline() {
+            return Ok(());
+        }
+
+        // If rank went to zero
+        if old.rank != 0 && new.rank == 0 {
+            // Close minion for this relay
+            self.drop_relay(new.url.clone())?;
+            return Ok(());
+        }
+
+        // Remember if we need to subscribe (+1) or unsubscribe (-1)
+        let mut mentions: i8 = 0;
+        let mut config: i8 = 0;
+        let mut discover: i8 = 0;
+
+        // if usage bits changed
+        if old.get_usage_bits() != new.get_usage_bits() {
+            if old.has_usage_bits(Relay::READ) && !new.has_usage_bits(Relay::READ) {
+                mentions = -1;
+            } else if !old.has_usage_bits(Relay::READ) && new.has_usage_bits(Relay::READ) {
+                mentions = 1;
+            }
+
+            if old.has_usage_bits(Relay::WRITE) && !new.has_usage_bits(Relay::WRITE) {
+                config = -1;
+            } else if !old.has_usage_bits(Relay::WRITE) && new.has_usage_bits(Relay::WRITE) {
+                config = 1;
+            }
+
+            if old.has_usage_bits(Relay::DISCOVER) && !new.has_usage_bits(Relay::DISCOVER) {
+                discover = -1;
+            } else if !old.has_usage_bits(Relay::DISCOVER) && new.has_usage_bits(Relay::DISCOVER) {
+                discover = 1;
+            }
+        }
+
+        // If rank came from zero, start subs on this relay
+        if old.rank == 0 && new.rank != 0 {
+            // Start minion for this relay
+            if new.has_usage_bits(Relay::READ) {
+                mentions = 1;
+            }
+            if new.has_usage_bits(Relay::WRITE) {
+                config = 1;
+            }
+            if new.has_usage_bits(Relay::DISCOVER) {
+                discover = 1;
+            }
+        }
+
+        match mentions {
+            -1 => (), // TBD unsubscribe_mentions
+            1 => self.subscribe_mentions(Some(vec![new.url.clone()])).await?,
+            _ => (),
+        }
+
+        match config {
+            -1 => (), // TBD unsubscribe_config
+            1 => self.subscribe_config(Some(vec![new.url.clone()])).await?,
+            _ => (),
+        }
+
+        match discover {
+            -1 => (), // Discover subscriptions are temp / short-lived, so no action needed.
+            1 => {
+                let pubkeys = GLOBALS.people.get_subscribed_pubkeys();
+                self.subscribe_discover(pubkeys, Some(vec![new.url.clone()]))
+                    .await?;
+            }
+            _ => (),
+        }
 
         Ok(())
     }
