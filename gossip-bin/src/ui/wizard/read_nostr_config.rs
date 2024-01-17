@@ -8,16 +8,16 @@ use gossip_lib::GLOBALS;
 use gossip_relay_picker::Direction;
 use nostr_types::RelayUrl;
 
-pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
+pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     // New users dont have existing config
     if app.wizard_state.new_user {
-        app.page = Page::Wizard(WizardPage::SetupRelays);
+        app.set_page(ctx, Page::Wizard(WizardPage::SetupRelays));
         return;
     }
 
     let pubkey = match app.wizard_state.pubkey {
         None => {
-            app.page = Page::Wizard(WizardPage::WelcomeGossip);
+            app.set_page(ctx, Page::Wizard(WizardPage::WelcomeGossip));
             return;
         }
         Some(pk) => pk,
@@ -137,6 +137,6 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         "  >  Next"
     };
     if ui.button(label).clicked() {
-        app.page = Page::Wizard(WizardPage::SetupRelays);
+        app.set_page(ctx, Page::Wizard(WizardPage::SetupRelays))
     }
 }

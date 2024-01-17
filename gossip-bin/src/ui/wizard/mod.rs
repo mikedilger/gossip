@@ -199,7 +199,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             ui.add_space(20.0);
             if wp != WizardPage::FollowPeople {
                 if ui.button("  X  Exit this Wizard").clicked() {
-                    complete_wizard(app);
+                    complete_wizard(app, ctx);
                 }
             }
 
@@ -265,9 +265,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         });
 }
 
-fn complete_wizard(app: &mut GossipUi) {
+fn complete_wizard(app: &mut GossipUi, ctx: &Context) {
     let _ = GLOBALS.storage.set_flag_wizard_complete(true, None);
-    app.page = Page::Feed(FeedKind::List(PersonList::Followed, false));
+    app.set_page(ctx, Page::Feed(FeedKind::List(PersonList::Followed, false)));
 
     // Once the wizard is complete, we need to tell the overlord to re-run
     // its startup stuff, because we now have configuration that matters, and

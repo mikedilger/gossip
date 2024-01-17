@@ -7,9 +7,9 @@ use gossip_lib::{Person, PersonList, GLOBALS};
 use gossip_relay_picker::Direction;
 use nostr_types::{Profile, PublicKey};
 
-pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
+pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     if app.wizard_state.pubkey.is_none() && !app.wizard_state.follow_only {
-        app.page = Page::Wizard(WizardPage::WelcomeGossip);
+        app.set_page(ctx, Page::Wizard(WizardPage::WelcomeGossip));
         return;
     }
 
@@ -159,7 +159,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                 .to_overlord
                 .send(ToOverlordMessage::PushPersonList(PersonList::Followed));
 
-            super::complete_wizard(app);
+            super::complete_wizard(app, ctx);
         }
 
         ui.add_space(20.0);
@@ -168,14 +168,14 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             label = label.color(app.theme.accent_color());
         }
         if ui.button(label).clicked() {
-            super::complete_wizard(app);
+            super::complete_wizard(app, ctx);
         }
     } else {
         ui.add_space(20.0);
         let mut label = RichText::new("  >  Finish");
         label = label.color(app.theme.accent_color());
         if ui.button(label).clicked() {
-            super::complete_wizard(app);
+            super::complete_wizard(app, ctx);
         }
     }
 }

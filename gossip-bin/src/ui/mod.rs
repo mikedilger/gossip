@@ -708,9 +708,19 @@ impl GossipUi {
     // maybe_relays is only used for Page::Feed(FeedKind::Thread...)
     fn set_page(&mut self, ctx: &Context, page: Page) {
         if self.page != page {
-            tracing::trace!("PUSHING HISTORY: {:?}", &self.page);
-            self.history.push(self.page.clone());
-            self.set_page_inner(ctx, page);
+            let within_wizard =
+                matches!(self.page, Page::Wizard(_)) && matches!(page, Page::Wizard(_));
+
+            if within_wizard {
+                // Within the wizard we don't need to do history or
+                // special handling. But we do need to fall through
+                // to clearing passwords.
+                self.page = page;
+            } else {
+                tracing::trace!("PUSHING HISTORY: {:?}", &self.page);
+                self.history.push(self.page.clone());
+                self.set_page_inner(ctx, page);
+            }
 
             // Clear QR codes on page switches
             self.qr_codes.clear();

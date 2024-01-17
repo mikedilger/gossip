@@ -8,7 +8,7 @@ use gossip_lib::GLOBALS;
 use nostr_types::RelayUrl;
 use std::collections::BTreeMap;
 
-pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
+pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.add_space(20.0);
     ui.label("Please choose which relays you will use.");
 
@@ -223,7 +223,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                 let _ = GLOBALS
                     .to_overlord
                     .send(ToOverlordMessage::AdvertiseRelayList);
-                app.page = Page::Wizard(WizardPage::SetupMetadata);
+                app.set_page(ctx, Page::Wizard(WizardPage::SetupMetadata));
             }
 
             ui.add_space(20.0);
@@ -232,14 +232,14 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                 label = label.color(app.theme.accent_color());
             }
             if ui.button(label).clicked() {
-                app.page = Page::Wizard(WizardPage::SetupMetadata);
+                app.set_page(ctx, Page::Wizard(WizardPage::SetupMetadata));
             };
         } else {
             ui.add_space(20.0);
             let mut label = RichText::new("  >  Continue");
             label = label.color(app.theme.accent_color());
             if ui.button(label).clicked() {
-                app.page = Page::Wizard(WizardPage::SetupMetadata);
+                app.set_page(ctx, Page::Wizard(WizardPage::SetupMetadata));
             };
         }
     }

@@ -3,9 +3,9 @@ use crate::ui::{GossipUi, Page};
 use eframe::egui;
 use egui::{Context, RichText, Ui};
 
-pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
+pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     if app.wizard_state.pubkey.is_some() {
-        app.page = Page::Wizard(WizardPage::ReadNostrConfig);
+        app.set_page(ctx, Page::Wizard(WizardPage::ReadNostrConfig));
         return;
     };
 
@@ -14,7 +14,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         .button(RichText::new("  >  Import a Private Key").color(app.theme.accent_color()))
         .clicked()
     {
-        app.page = Page::Wizard(WizardPage::ImportPrivateKey);
+        app.set_page(ctx, Page::Wizard(WizardPage::ImportPrivateKey));
     }
 
     ui.add_space(20.0);
@@ -22,11 +22,11 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         .button(RichText::new("  >  Import a Public Key only").color(app.theme.accent_color()))
         .clicked()
     {
-        app.page = Page::Wizard(WizardPage::ImportPublicKey);
+        app.set_page(ctx, Page::Wizard(WizardPage::ImportPublicKey));
     }
 
     ui.add_space(20.0);
     if ui.button("  <  Go Back").clicked() {
-        app.page = Page::Wizard(WizardPage::WelcomeGossip);
+        app.set_page(ctx, Page::Wizard(WizardPage::WelcomeGossip));
     }
 }

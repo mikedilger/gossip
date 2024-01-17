@@ -6,10 +6,10 @@ use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::GLOBALS;
 use zeroize::Zeroize;
 
-pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
+pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     // If already generated, advance
     if app.wizard_state.has_private_key {
-        app.page = Page::Wizard(WizardPage::SetupRelays);
+        app.set_page(ctx, Page::Wizard(WizardPage::SetupRelays));
     }
 
     ui.add_space(10.0);
@@ -89,6 +89,6 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     ui.add_space(20.0);
     if ui.button("  <  Go Back").clicked() {
-        app.page = Page::Wizard(WizardPage::WelcomeGossip);
+        app.set_page(ctx, Page::Wizard(WizardPage::WelcomeGossip));
     }
 }

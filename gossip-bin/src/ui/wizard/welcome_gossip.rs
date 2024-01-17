@@ -4,9 +4,9 @@ use eframe::egui;
 use egui::{Context, RichText, Ui};
 use gossip_lib::GLOBALS;
 
-pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
+pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     if app.wizard_state.pubkey.is_some() {
-        app.page = Page::Wizard(WizardPage::ReadNostrConfig);
+        app.set_page(ctx, Page::Wizard(WizardPage::ReadNostrConfig));
         return;
     };
 
@@ -22,7 +22,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         .clicked()
     {
         app.wizard_state.new_user = true;
-        app.page = Page::Wizard(WizardPage::WelcomeNostr);
+        app.set_page(ctx, Page::Wizard(WizardPage::WelcomeNostr));
     }
 
     ui.add_space(20.0);
@@ -33,7 +33,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         .clicked()
     {
         app.wizard_state.new_user = false;
-        app.page = Page::Wizard(WizardPage::ImportKeys);
+        app.set_page(ctx, Page::Wizard(WizardPage::ImportKeys))
     }
 
     ui.add_space(20.0);
@@ -41,6 +41,6 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         app.wizard_state.new_user = false;
         app.wizard_state.follow_only = true;
         let _ = GLOBALS.storage.set_flag_following_only(true, None);
-        app.page = Page::Wizard(WizardPage::FollowPeople);
+        app.set_page(ctx, Page::Wizard(WizardPage::FollowPeople));
     }
 }

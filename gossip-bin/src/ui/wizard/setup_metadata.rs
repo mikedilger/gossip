@@ -7,11 +7,11 @@ use gossip_lib::Person;
 use gossip_lib::GLOBALS;
 use nostr_types::Metadata;
 
-pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
+pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     let pubkey = match app.wizard_state.pubkey {
         Some(pk) => pk,
         None => {
-            app.page = Page::Wizard(WizardPage::WelcomeGossip);
+            app.set_page(ctx, Page::Wizard(WizardPage::WelcomeGossip));
             return;
         }
     };
@@ -109,7 +109,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                 .to_overlord
                 .send(ToOverlordMessage::PushMetadata(metadata.clone()));
 
-            app.page = Page::Wizard(WizardPage::FollowPeople);
+            app.set_page(ctx, Page::Wizard(WizardPage::FollowPeople));
         }
     }
 
@@ -121,7 +121,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         // Copy from form and save
         save_metadata(app, you.clone(), metadata.clone());
 
-        app.page = Page::Wizard(WizardPage::FollowPeople);
+        app.set_page(ctx, Page::Wizard(WizardPage::FollowPeople));
     }
 
     ui.add_space(20.0);
@@ -130,7 +130,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         label = label.color(app.theme.accent_color());
     }
     if ui.button(label).clicked() {
-        app.page = Page::Wizard(WizardPage::FollowPeople);
+        app.set_page(ctx, Page::Wizard(WizardPage::FollowPeople));
     }
 }
 
