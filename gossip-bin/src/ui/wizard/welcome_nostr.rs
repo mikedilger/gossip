@@ -9,6 +9,7 @@ use zeroize::Zeroize;
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     // If already generated, advance
     if app.wizard_state.has_private_key {
+        app.wizard_state.generating = false;
         app.set_page(ctx, Page::Wizard(WizardPage::SetupRelays));
     }
 
@@ -47,15 +48,17 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     });
 
     // error block
-    if let Some(err) = &app.wizard_state.error {
-        ui.add_space(10.0);
-        ui.label(RichText::new(err).color(app.theme.warning_marker_text_color()));
+    if !app.wizard_state.generating {
+        if let Some(err) = &app.wizard_state.error {
+            ui.add_space(10.0);
+            ui.label(RichText::new(err).color(app.theme.warning_marker_text_color()));
+        }
     }
 
     let password_mismatch = app.password != app.password2;
     let ready = !password_mismatch;
 
-    if password_mismatch {
+    if password_mismatch && !app.wizard_state.generating {
         ui.add_space(10.0);
         ui.label(
             RichText::new("Passwords do not match.").color(app.theme.warning_marker_text_color()),
@@ -63,7 +66,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     }
 
     if ready {
-        if app.password.is_empty() {
+        if app.password.is_empty() && !app.wizard_state.generating {
             ui.add_space(10.0);
             ui.label(
                 RichText::new("Your password is empty!")
@@ -77,6 +80,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             .button(RichText::new("  >  Generate Now").color(app.theme.accent_color()))
             .clicked()
         {
+            app.wizard_state.generating = true;
             let _ = GLOBALS
                 .to_overlord
                 .send(ToOverlordMessage::GeneratePrivateKey(app.password.clone()));
@@ -85,6 +89,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             app.password2.zeroize();
             app.password2 = "".to_owned();
         }
+    }
+
+    if app.wizard_state.generating {
+        ui.add_space(10.0);
+        ui.label("Generating keypair ...");
     }
 
     ui.add_space(20.0);

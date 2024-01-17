@@ -23,6 +23,7 @@ pub struct WizardState {
     pub followed: Vec<PublicKey>,
     pub followed_getting_metadata: HashSet<PublicKey>,
     pub contacts_sought: bool,
+    pub generating: bool,
 }
 
 impl Default for WizardState {
@@ -47,6 +48,7 @@ impl Default for WizardState {
             followed: Vec::new(),
             followed_getting_metadata: HashSet::new(),
             contacts_sought: true,
+            generating: false,
         }
     }
 }
