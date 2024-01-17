@@ -1,6 +1,6 @@
 //#![allow(dead_code)]
 use eframe::egui::{self, *};
-use nostr_types::{PublicKeyHex, Unixtime};
+use nostr_types::{PublicKeyHex, RelayUrl, Unixtime};
 
 use crate::ui::{widgets, GossipUi};
 use gossip_lib::{comms::ToOverlordMessage, Relay, GLOBALS};
@@ -356,16 +356,12 @@ impl RelayEntry {
             true,
         );
         if response.clicked() {
-            let _ = GLOBALS.storage.modify_relay(
-                &self.relay.url,
-                |relay| {
-                    relay.clear_usage_bits(
-                        //Relay::ADVERTISE
-                        Relay::DISCOVER | Relay::INBOX | Relay::OUTBOX | Relay::READ | Relay::WRITE,
-                    )
-                },
-                None,
-            );
+            modify_relay(&self.relay.url, |relay| {
+                relay.clear_usage_bits(
+                    //Relay::ADVERTISE
+                    Relay::DISCOVER | Relay::INBOX | Relay::OUTBOX | Relay::READ | Relay::WRITE,
+                )
+            });
         }
 
         let pos = pos + vec2(200.0, 0.0);
@@ -707,19 +703,15 @@ impl RelayEntry {
                 off_fill,
             );
             if response.changed() {
-                let _ = GLOBALS.storage.modify_relay(
-                    &self.relay.url,
-                    |relay| relay.adjust_usage_bit(Relay::READ, self.usage.read),
-                    None,
-                );
+                modify_relay(&self.relay.url, |relay| {
+                    relay.adjust_usage_bit(Relay::READ, self.usage.read)
+                });
                 if !self.usage.read {
                     // if read was turned off, inbox must also be turned off
                     self.usage.inbox = false;
-                    let _ = GLOBALS.storage.modify_relay(
-                        &self.relay.url,
-                        |relay| relay.adjust_usage_bit(Relay::INBOX, self.usage.inbox),
-                        None,
-                    );
+                    modify_relay(&self.relay.url, |relay| {
+                        relay.adjust_usage_bit(Relay::INBOX, self.usage.inbox)
+                    });
                 }
             }
             response.on_hover_text(READ_HOVER_TEXT);
@@ -767,11 +759,9 @@ impl RelayEntry {
                 off_fill,
             );
             if response.changed() {
-                let _ = GLOBALS.storage.modify_relay(
-                    &self.relay.url,
-                    |relay| relay.adjust_usage_bit(Relay::INBOX, self.usage.inbox),
-                    None,
-                );
+                modify_relay(&self.relay.url, |relay| {
+                    relay.adjust_usage_bit(Relay::INBOX, self.usage.inbox)
+                });
             }
             response.on_hover_text(INBOX_HOVER_TEXT);
             draw_text_at(
@@ -799,19 +789,15 @@ impl RelayEntry {
                 off_fill,
             );
             if response.changed() {
-                let _ = GLOBALS.storage.modify_relay(
-                    &self.relay.url,
-                    |relay| relay.adjust_usage_bit(Relay::WRITE, self.usage.write),
-                    None,
-                );
+                modify_relay(&self.relay.url, |relay| {
+                    relay.adjust_usage_bit(Relay::WRITE, self.usage.write)
+                });
                 if !self.usage.write {
                     // if write was turned off, outbox must also be turned off
                     self.usage.outbox = false;
-                    let _ = GLOBALS.storage.modify_relay(
-                        &self.relay.url,
-                        |relay| relay.adjust_usage_bit(Relay::OUTBOX, self.usage.outbox),
-                        None,
-                    );
+                    modify_relay(&self.relay.url, |relay| {
+                        relay.adjust_usage_bit(Relay::OUTBOX, self.usage.outbox)
+                    });
                 }
             }
             response.on_hover_text(WRITE_HOVER_TEXT);
@@ -859,11 +845,9 @@ impl RelayEntry {
                 off_fill,
             );
             if response.changed() {
-                let _ = GLOBALS.storage.modify_relay(
-                    &self.relay.url,
-                    |relay| relay.adjust_usage_bit(Relay::OUTBOX, self.usage.outbox),
-                    None,
-                );
+                modify_relay(&self.relay.url, |relay| {
+                    relay.adjust_usage_bit(Relay::OUTBOX, self.usage.outbox)
+                });
             }
             response.on_hover_text(OUTBOX_HOVER_TEXT);
             draw_text_at(
@@ -891,11 +875,9 @@ impl RelayEntry {
                 off_fill,
             );
             if response.changed() {
-                let _ = GLOBALS.storage.modify_relay(
-                    &self.relay.url,
-                    |relay| relay.adjust_usage_bit(Relay::DISCOVER, self.usage.discover),
-                    None,
-                );
+                modify_relay(&self.relay.url, |relay| {
+                    relay.adjust_usage_bit(Relay::DISCOVER, self.usage.discover)
+                });
             }
             response.on_hover_text(DISCOVER_HOVER_TEXT);
             draw_text_at(
@@ -924,10 +906,9 @@ impl RelayEntry {
                 off_fill,
             );
             if response.changed() {
-                let _ = GLOBALS.storage.modify_relay(
+                modify_relay(
                     &self.relay.url,
                     |relay| relay.adjust_usage_bit(Relay::ADVERTISE, self.usage.advertise),
-                    None,
                 );
             }
             response.on_hover_text(ADVERTISE_HOVER_TEXT);
@@ -1107,4 +1088,24 @@ impl Widget for RelayEntry {
             RelayEntryView::Edit => self.update_edit_view(ui),
         }
     }
+}
+
+fn modify_relay<M>(relay_url: &RelayUrl, mut modify: M)
+where
+    M: FnMut(&mut Relay),
+{
+    // Load relay record
+    let mut relay = GLOBALS
+        .storage
+        .read_or_create_relay(relay_url, None)
+        .unwrap();
+    let old = relay.clone();
+
+    // Run modification
+    modify(&mut relay);
+
+    // Save relay via the Overlord, so minions can be updated
+    let _ = GLOBALS
+        .to_overlord
+        .send(ToOverlordMessage::UpdateRelay(old, relay));
 }

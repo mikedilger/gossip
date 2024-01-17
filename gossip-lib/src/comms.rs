@@ -1,5 +1,6 @@
 use crate::dm_channel::DmChannel;
 use crate::people::PersonList;
+use crate::relay::Relay;
 use nostr_types::{
     Event, EventAddr, Id, IdHex, Metadata, MilliSatoshi, Profile, PublicKey, RelayUrl, Tag,
     UncheckedUrl, Unixtime,
@@ -176,6 +177,9 @@ pub enum ToOverlordMessage {
         person_list: PersonList,
         merge: bool,
     },
+
+    /// Calls [update_relay](crate::Overlord::update_relay)
+    UpdateRelay(Relay, Relay),
 
     /// Calls [visible_notes_changed](crate::Overlord::visible_notes_changed)
     VisibleNotesChanged(Vec<Id>),

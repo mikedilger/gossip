@@ -91,11 +91,7 @@ impl WizardState {
 
         if self.need_discovery_relays() {
             let purplepages = RelayUrl::try_from_str("wss://purplepag.es/").unwrap();
-            let _ = GLOBALS.storage.modify_relay(
-                &purplepages,
-                |relay| relay.set_usage_bits(Relay::DISCOVER),
-                None,
-            );
+            super::modify_relay(&purplepages, |relay| relay.set_usage_bits(Relay::DISCOVER));
         }
 
         // Copy any new status queue messages into our local error variable

@@ -694,6 +694,9 @@ impl Overlord {
             ToOverlordMessage::UpdatePersonList { person_list, merge } => {
                 self.update_person_list(person_list, merge).await?;
             }
+            ToOverlordMessage::UpdateRelay(old, new) => {
+                self.update_relay(old, new).await?;
+            }
             ToOverlordMessage::VisibleNotesChanged(visible) => {
                 self.visible_notes_changed(visible).await?;
             }
@@ -2934,6 +2937,17 @@ impl Overlord {
                 GLOBALS.storage.write_person(&person, Some(txn))?;
             }
         }
+
+        Ok(())
+    }
+
+    /// Update the relay. This saves the new relay and also adjusts active
+    /// subscriptions based on the changes.
+    pub async fn update_relay(&mut self, _old: Relay, new: Relay) -> Result<(), Error> {
+        // FIXME: update minion subscriptions here based on the diff
+
+        // write new
+        let _ = GLOBALS.storage.write_relay(&new, None);
 
         Ok(())
     }

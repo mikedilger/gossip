@@ -1,3 +1,4 @@
+use super::modify_relay;
 use crate::ui::wizard::{WizardPage, DEFAULT_RELAYS};
 use crate::ui::{GossipUi, Page};
 use eframe::egui;
@@ -72,9 +73,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             for relay in outbox_relays.iter() {
                 ui.horizontal(|ui| {
                     if ui.button("🗑").clicked() {
-                        let mut r = relay.clone();
-                        r.clear_usage_bits(Relay::OUTBOX | Relay::WRITE);
-                        let _ = GLOBALS.storage.write_relay(&r, None);
+                        modify_relay(&relay.url, |relay| {
+                            relay.clear_usage_bits(Relay::OUTBOX | Relay::WRITE);
+                        });
                     }
                     ui.label(relay.url.as_str());
                 });
@@ -101,9 +102,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             for relay in inbox_relays.iter() {
                 ui.horizontal(|ui| {
                     if ui.button("🗑").clicked() {
-                        let mut r = relay.clone();
-                        r.clear_usage_bits(Relay::INBOX | Relay::READ);
-                        let _ = GLOBALS.storage.write_relay(&r, None);
+                        modify_relay(&relay.url, |relay| {
+                            relay.clear_usage_bits(Relay::INBOX | Relay::READ);
+                        });
                     }
                     ui.label(relay.url.as_str());
                 });
@@ -129,9 +130,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             for relay in discovery_relays.iter() {
                 ui.horizontal(|ui| {
                     if ui.button("🗑").clicked() {
-                        let mut r = relay.clone();
-                        r.clear_usage_bits(Relay::DISCOVER);
-                        let _ = GLOBALS.storage.write_relay(&r, None);
+                        modify_relay(&relay.url, |relay| {
+                            relay.clear_usage_bits(Relay::DISCOVER);
+                        });
                     }
                     ui.label(relay.url.as_str());
                 });
@@ -180,9 +181,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     if !relay_options.contains_key(&rurl) {
                         relay_options.insert(rurl.clone(), read_relay(&rurl));
                     }
-                    let r = relay_options.get_mut(&rurl).unwrap();
-                    r.set_usage_bits(Relay::OUTBOX | Relay::WRITE);
-                    let _ = GLOBALS.storage.write_relay(r, None);
+                    modify_relay(&rurl, |relay| {
+                        relay.set_usage_bits(Relay::OUTBOX | Relay::WRITE);
+                    });
                 } else {
                     app.wizard_state.error = Some("ERROR: Invalid Relay URL".to_owned());
                 }
@@ -193,9 +194,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     if !relay_options.contains_key(&rurl) {
                         relay_options.insert(rurl.clone(), read_relay(&rurl));
                     }
-                    let r = relay_options.get_mut(&rurl).unwrap();
-                    r.set_usage_bits(Relay::INBOX | Relay::READ);
-                    let _ = GLOBALS.storage.write_relay(r, None);
+                    modify_relay(&rurl, |relay| {
+                        relay.set_usage_bits(Relay::INBOX | Relay::READ);
+                    });
                 } else {
                     app.wizard_state.error = Some("ERROR: Invalid Relay URL".to_owned());
                 }
@@ -206,9 +207,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     if !relay_options.contains_key(&rurl) {
                         relay_options.insert(rurl.clone(), read_relay(&rurl));
                     }
-                    let r = relay_options.get_mut(&rurl).unwrap();
-                    r.set_usage_bits(Relay::DISCOVER);
-                    let _ = GLOBALS.storage.write_relay(r, None);
+                    modify_relay(&rurl, |relay| {
+                        relay.set_usage_bits(Relay::DISCOVER);
+                    });
                 } else {
                     app.wizard_state.error = Some("ERROR: Invalid Relay URL".to_owned());
                 }

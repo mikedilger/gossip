@@ -949,7 +949,7 @@ impl Storage {
     /// NOTE: this overwrites. You may wish to read first, or you might prefer
     /// [modify_relay](Storage::modify_relay)
     #[inline]
-    pub fn write_relay<'a>(
+    pub(crate) fn write_relay<'a>(
         &'a self,
         relay: &Relay,
         rw_txn: Option<&mut RwTxn<'a>>,
@@ -983,7 +983,7 @@ impl Storage {
 
     /// Modify a relay record
     #[inline]
-    pub fn modify_relay<'a, M>(
+    pub(crate) fn modify_relay<'a, M>(
         &'a self,
         url: &RelayUrl,
         modify: M,
@@ -997,7 +997,7 @@ impl Storage {
 
     //// Modify all relay records
     #[inline]
-    pub fn modify_all_relays<'a, M>(
+    pub(crate) fn modify_all_relays<'a, M>(
         &'a self,
         modify: M,
         rw_txn: Option<&mut RwTxn<'a>>,
