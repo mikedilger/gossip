@@ -716,6 +716,16 @@ impl GossipUi {
             self.qr_codes.clear();
             self.render_qr = None;
             self.person_qr = None;
+
+            // Clear sensitive fields on page switches
+            self.password.zeroize();
+            self.password = "".to_owned();
+            self.password2.zeroize();
+            self.password2 = "".to_owned();
+            self.password3.zeroize();
+            self.password3 = "".to_owned();
+            self.import_priv.zeroize();
+            self.import_priv = "".to_owned();
         }
     }
 
