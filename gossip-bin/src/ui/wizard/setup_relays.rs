@@ -53,8 +53,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         .cloned()
         .collect();
 
-    let mut need_more = false;
-
     ui.add_space(20.0);
     ui.horizontal(|ui| {
         ui.vertical(|ui| {
@@ -64,8 +62,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 if outbox_relays.len() >= 3 {
                     ui.label(RichText::new(" - OK").color(Color32::GREEN));
                 } else {
-                    ui.label(RichText::new(" - Need More").color(Color32::RED));
-                    need_more = true;
+                    ui.label(
+                        RichText::new(" - We suggest 3")
+                            .color(app.theme.warning_marker_text_color()),
+                    );
                 }
             });
             ui.add_space(10.0);
@@ -91,8 +91,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 if inbox_relays.len() >= 2 {
                     ui.label(RichText::new(" - OK").color(Color32::GREEN));
                 } else {
-                    ui.label(RichText::new(" - Need More").color(Color32::RED));
-                    need_more = true;
+                    ui.label(
+                        RichText::new(" - We suggest 2")
+                            .color(app.theme.warning_marker_text_color()),
+                    );
                 }
             });
             ui.add_space(10.0);
@@ -117,8 +119,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 if !discovery_relays.is_empty() {
                     ui.label(RichText::new(" - OK").color(Color32::GREEN));
                 } else {
-                    ui.label(RichText::new(" - Need More").color(Color32::RED));
-                    need_more = true;
+                    ui.label(
+                        RichText::new(" - You should have one")
+                            .color(app.theme.warning_marker_text_color()),
+                    );
                 }
             });
             ui.add_space(10.0);
@@ -212,35 +216,33 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         });
     }
 
-    if !need_more {
-        if app.wizard_state.has_private_key {
-            ui.add_space(20.0);
-            let mut label = RichText::new("  >  Publish and Continue");
-            if app.wizard_state.new_user {
-                label = label.color(app.theme.accent_color());
-            }
-            if ui.button(label).clicked() {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::AdvertiseRelayList);
-                app.set_page(ctx, Page::Wizard(WizardPage::SetupMetadata));
-            }
-
-            ui.add_space(20.0);
-            let mut label = RichText::new("  >  Continue without publishing");
-            if !app.wizard_state.new_user {
-                label = label.color(app.theme.accent_color());
-            }
-            if ui.button(label).clicked() {
-                app.set_page(ctx, Page::Wizard(WizardPage::SetupMetadata));
-            };
-        } else {
-            ui.add_space(20.0);
-            let mut label = RichText::new("  >  Continue");
+    if app.wizard_state.has_private_key {
+        ui.add_space(20.0);
+        let mut label = RichText::new("  >  Publish and Continue");
+        if app.wizard_state.new_user {
             label = label.color(app.theme.accent_color());
-            if ui.button(label).clicked() {
-                app.set_page(ctx, Page::Wizard(WizardPage::SetupMetadata));
-            };
         }
+        if ui.button(label).clicked() {
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::AdvertiseRelayList);
+            app.set_page(ctx, Page::Wizard(WizardPage::SetupMetadata));
+        }
+
+        ui.add_space(20.0);
+        let mut label = RichText::new("  >  Continue without publishing");
+        if !app.wizard_state.new_user {
+            label = label.color(app.theme.accent_color());
+        }
+        if ui.button(label).clicked() {
+            app.set_page(ctx, Page::Wizard(WizardPage::SetupMetadata));
+        };
+    } else {
+        ui.add_space(20.0);
+        let mut label = RichText::new("  >  Continue");
+        label = label.color(app.theme.accent_color());
+        if ui.button(label).clicked() {
+            app.set_page(ctx, Page::Wizard(WizardPage::SetupMetadata));
+        };
     }
 }
