@@ -28,6 +28,13 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         };
     });
 
+    if app.import_priv.is_empty() {
+        ui.add_space(10.0);
+        ui.label(
+            RichText::new("Please enter your key.").color(app.theme.warning_marker_text_color()),
+        );
+    }
+
     let ncryptsec = app.import_priv.starts_with("ncryptsec1");
 
     ui.add_space(10.0);
@@ -62,32 +69,45 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         });
     }
 
+    let password_mismatch = !ncryptsec && (app.password != app.password2);
+
+    if password_mismatch {
+        ui.add_space(10.0);
+        ui.label(
+            RichText::new("Passwords do not match.").color(app.theme.warning_marker_text_color()),
+        );
+    }
+
     // error block
     if let Some(err) = &app.wizard_state.error {
         ui.add_space(10.0);
         ui.label(RichText::new(err).color(app.theme.warning_marker_text_color()));
     }
 
-    let ready = !app.import_priv.is_empty()
-        && !app.password.is_empty()
-        && (ncryptsec || !app.password2.is_empty());
+    let ready = !app.import_priv.is_empty() && !password_mismatch;
 
     if ready {
-        ui.add_space(10.0);
+        if app.password.is_empty() {
+            ui.add_space(10.0);
+
+            ui.label(
+                RichText::new("Your password is empty!")
+                    .color(app.theme.warning_marker_text_color()),
+            );
+        }
+
+        ui.add_space(20.0);
+
         if ui
             .button(RichText::new("  >  Import").color(app.theme.accent_color()))
             .clicked()
         {
-            if !ncryptsec && app.password != app.password2 {
-                app.wizard_state.error = Some("ERROR: Passwords do not match".to_owned());
-            } else {
-                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::ImportPriv {
-                    privkey: app.import_priv.clone(),
-                    password: app.password.clone(),
-                });
-                app.import_priv.zeroize();
-                app.import_priv = "".to_owned();
-            }
+            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::ImportPriv {
+                privkey: app.import_priv.clone(),
+                password: app.password.clone(),
+            });
+            app.import_priv.zeroize();
+            app.import_priv = "".to_owned();
             app.password.zeroize();
             app.password = "".to_owned();
             app.password2.zeroize();

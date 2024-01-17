@@ -52,21 +52,34 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ui.label(RichText::new(err).color(app.theme.warning_marker_text_color()));
     }
 
-    let ready = !app.password.is_empty() && !app.password2.is_empty();
+    let password_mismatch = app.password != app.password2;
+    let ready = !password_mismatch;
+
+    if password_mismatch {
+        ui.add_space(10.0);
+        ui.label(
+            RichText::new("Passwords do not match.").color(app.theme.warning_marker_text_color()),
+        );
+    }
 
     if ready {
-        ui.add_space(10.0);
+        if app.password.is_empty() {
+            ui.add_space(10.0);
+            ui.label(
+                RichText::new("Your password is empty!")
+                    .color(app.theme.warning_marker_text_color()),
+            );
+        }
+
+        ui.add_space(20.0);
+
         if ui
             .button(RichText::new("  >  Generate Now").color(app.theme.accent_color()))
             .clicked()
         {
-            if app.password != app.password2 {
-                app.wizard_state.error = Some("ERROR: Passwords do not match".to_owned());
-            } else {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::GeneratePrivateKey(app.password.clone()));
-            }
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::GeneratePrivateKey(app.password.clone()));
             app.password.zeroize();
             app.password = "".to_owned();
             app.password2.zeroize();
