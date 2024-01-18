@@ -1895,6 +1895,7 @@ dependencies = [
  "lazy_static",
  "memoize",
  "nostr-types",
+ "paste",
  "qrcode",
  "resvg",
  "rpassword",

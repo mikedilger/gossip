@@ -125,7 +125,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         ui,
         format!(
             "Low Coverage Report (less than {} relays)",
-            app.settings.num_relays_per_person
+            read_setting!(num_relays_per_person)
         ),
         |ui| {
             ui.spacing_mut().button_padding *= 2.0;
@@ -164,7 +164,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             format!("The Relay-Picker has tried to connect to at least {} relays \
                 for each person that you follow, however the pubkeys listed below are not fully covered. \
                 You can manually ask the Relay-Picker to pick again, however most of the time it has already \
-                tried its best.", app.settings.num_relays_per_person));
+                tried its best.", read_setting!(num_relays_per_person)));
 
         ui.add_space(10.0);
         let id_source = ui.auto_id_with("relay-coverage-scroll");

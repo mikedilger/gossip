@@ -12,36 +12,36 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     ui.horizontal(|ui| {
         ui.label("Feed Chunk: ").on_hover_text("This is the amount of time backwards from now that we will load events from initially. You can then load more (another chunk of the same size). Mostly takes effect on restart.");
-        ui.add(Slider::new(&mut app.settings.feed_chunk, 1800..=43200).text("seconds, "));
-        ui.label(secs_to_string(app.settings.feed_chunk));
+        ui.add(Slider::new(&mut app.unsaved_settings.feed_chunk, 1800..=43200).text("seconds, "));
+        ui.label(secs_to_string(app.unsaved_settings.feed_chunk));
     });
 
     ui.horizontal(|ui| {
         ui.label("Replies Chunk: ").on_hover_text("This is the amount of time backwards from now that we will load replies, mentions, and DMs from. You can then load more (another chunk of the same size). Mostly takes effect on restart.");
-        ui.add(Slider::new(&mut app.settings.replies_chunk, 86400..=2592000).text("seconds, "));
-        ui.label(secs_to_string(app.settings.replies_chunk));
+        ui.add(Slider::new(&mut app.unsaved_settings.replies_chunk, 86400..=2592000).text("seconds, "));
+        ui.label(secs_to_string(app.unsaved_settings.replies_chunk));
     });
 
     ui.horizontal(|ui| {
         ui.label("Person Feed Chunk: ").on_hover_text("This is the amount of time backwards from now that we will load a persons notes from. You can then load more (another chunk of the same size). Mostly takes effect on restart.");
-        ui.add(Slider::new(&mut app.settings.person_feed_chunk, 86400..=2592000).text("seconds, "));
-        ui.label(secs_to_string(app.settings.person_feed_chunk));
+        ui.add(Slider::new(&mut app.unsaved_settings.person_feed_chunk, 86400..=2592000).text("seconds, "));
+        ui.label(secs_to_string(app.unsaved_settings.person_feed_chunk));
     });
 
     ui.horizontal(|ui| {
         ui.label("Overlap: ").on_hover_text("If we recently loaded events up to time T, but restarted, we will now load events starting from time T minus overlap. Takes effect on restart. I recommend 300 (5 minutes).");
-        ui.add(Slider::new(&mut app.settings.overlap, 0..=3600).text("seconds, "));
-        ui.label(secs_to_string(app.settings.overlap));
+        ui.add(Slider::new(&mut app.unsaved_settings.overlap, 0..=3600).text("seconds, "));
+        ui.label(secs_to_string(app.unsaved_settings.overlap));
     });
 
     ui.checkbox(
-        &mut app.settings.recompute_feed_periodically,
+        &mut app.unsaved_settings.recompute_feed_periodically,
         "Recompute feed periodically. If this is off, you will get a refresh button",
     );
 
     ui.horizontal(|ui| {
         ui.label("Recompute feed every (milliseconds): ").on_hover_text("The UI redraws frequently. We recompute the feed less frequently to conserve CPU. Takes effect when the feed next recomputes. I recommend 3500.");
-        ui.add(Slider::new(&mut app.settings.feed_recompute_interval_ms, 1000..=12000).text("milliseconds"));
+        ui.add(Slider::new(&mut app.unsaved_settings.feed_recompute_interval_ms, 1000..=12000).text("milliseconds"));
     });
 
     ui.add_space(10.0);
@@ -49,46 +49,58 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.add_space(10.0);
 
     ui.checkbox(
-        &mut app.settings.reactions,
+        &mut app.unsaved_settings.reactions,
         "Enable reactions (show and react)",
     );
 
-    ui.checkbox(&mut app.settings.enable_zap_receipts, "Enable zap receipts");
+    ui.checkbox(
+        &mut app.unsaved_settings.enable_zap_receipts,
+        "Enable zap receipts",
+    );
 
-    ui.checkbox(&mut app.settings.reposts, "Enable reposts (show)");
+    ui.checkbox(&mut app.unsaved_settings.reposts, "Enable reposts (show)");
 
-    ui.checkbox(&mut app.settings.direct_messages, "Show Direct Messages")
-        .on_hover_text("Takes effect fully only on restart.");
+    ui.checkbox(
+        &mut app.unsaved_settings.direct_messages,
+        "Show Direct Messages",
+    )
+    .on_hover_text("Takes effect fully only on restart.");
 
-    ui.checkbox(&mut app.settings.show_long_form, "Show Long-Form Posts")
-        .on_hover_text("Takes effect fully only on restart.");
+    ui.checkbox(
+        &mut app.unsaved_settings.show_long_form,
+        "Show Long-Form Posts",
+    )
+    .on_hover_text("Takes effect fully only on restart.");
 
     ui.add_space(10.0);
     ui.heading("Event Content Settings");
     ui.add_space(10.0);
 
-    ui.checkbox(&mut app.settings.show_mentions, "Render mentions inline")
-        .on_hover_text(if app.settings.show_mentions {
-            "Disable to just show a link to a mentioned post where it appears in the text"
-        } else {
-            "Enable to render a mentioned post where it appears in the text"
-        });
+    ui.checkbox(
+        &mut app.unsaved_settings.show_mentions,
+        "Render mentions inline",
+    )
+    .on_hover_text(if app.unsaved_settings.show_mentions {
+        "Disable to just show a link to a mentioned post where it appears in the text"
+    } else {
+        "Enable to render a mentioned post where it appears in the text"
+    });
 
-    ui.checkbox(&mut app.settings.show_media, "Render all media inline automatically").on_hover_text("If off, you have to click to (potentially fetch and) render media inline. If on, all media referenced by posts in your feed will be (potentially fetched and) rendered. However, if Fetch Media is disabled, only cached media can be shown as media will not be fetched.");
-    ui.checkbox(&mut app.settings.approve_content_warning, "Approve all content-warning tagged media automatically")
+    ui.checkbox(&mut app.unsaved_settings.show_media, "Render all media inline automatically").on_hover_text("If off, you have to click to (potentially fetch and) render media inline. If on, all media referenced by posts in your feed will be (potentially fetched and) rendered. However, if Fetch Media is disabled, only cached media can be shown as media will not be fetched.");
+    ui.checkbox(&mut app.unsaved_settings.approve_content_warning, "Approve all content-warning tagged media automatically")
         .on_hover_text("If off, you have to click to show content-warning tagged media. If on, all content-warning tagged media in your feed will be rendered.");
 
     ui.checkbox(
-        &mut app.settings.hide_mutes_entirely,
+        &mut app.unsaved_settings.hide_mutes_entirely,
         "Hide muted events entirely, including replies to them",
     )
         .on_hover_text("If on, muted events wont be in the feed at all. If off, they will be in the feed, but the content will be replaced with the word MUTED. You will see replies to them, and you can peek at the content by viewing the note in raw form.");
 
     ui.checkbox(
-        &mut app.settings.show_deleted_events,
+        &mut app.unsaved_settings.show_deleted_events,
         "Render delete events, but labeled as deleted",
     )
-    .on_hover_text(if app.settings.show_deleted_events {
+    .on_hover_text(if app.unsaved_settings.show_deleted_events {
         "Disable to exclude all deleted events from rendering"
     } else {
         "Enable to show all deleted events, but labeled as deleted"

@@ -75,7 +75,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     add_left_space(ui);
                     let title_job = super::people::layout_list_title(ui, app, &metadata);
                     ui.label(title_job);
-                    recompute_btn(app, ui);
+                    recompute_btn(ui);
 
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.add_space(10.0);
@@ -109,7 +109,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             render_a_feed(app, ctx, frame, ui, feed, false, &id, load_more);
         }
         FeedKind::Inbox(indirect) => {
-            if app.settings.public_key.is_none() {
+            if read_setting!(public_key).is_none() {
                 ui.horizontal_wrapped(|ui| {
                     ui.label("You need to ");
                     if ui.link("setup an identity").clicked() {
@@ -127,7 +127,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 |ui| {
                     add_left_space(ui);
                     ui.heading("Inbox");
-                    recompute_btn(app, ui);
+                    recompute_btn(ui);
 
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.add_space(10.0);
@@ -177,7 +177,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 } else {
                     ui.heading(gossip_lib::names::best_name_from_pubkey_lookup(&pubkey));
                 }
-                recompute_btn(app, ui);
+                recompute_btn(ui);
             });
             ui.add_space(6.0);
 
@@ -208,7 +208,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             ui.add_space(10.0);
             ui.horizontal(|ui| {
                 ui.heading(channel.name());
-                recompute_btn(app, ui);
+                recompute_btn(ui);
             });
             ui.add_space(10.0);
 
@@ -406,8 +406,8 @@ fn add_left_space(ui: &mut Ui) {
     ui.add_space(2.0);
 }
 
-fn recompute_btn(app: &mut GossipUi, ui: &mut Ui) {
-    if !app.settings.recompute_feed_periodically {
+fn recompute_btn(ui: &mut Ui) {
+    if !read_setting!(recompute_feed_periodically) {
         if ui.link("Refresh").clicked() {
             GLOBALS.feed.sync_recompute();
         }

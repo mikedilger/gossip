@@ -17,6 +17,22 @@ macro_rules! btn_h_space {
     };
 }
 
+macro_rules! read_setting {
+    ($field:ident) => {
+        paste::paste! {
+            gossip_lib::GLOBALS.storage.[<read_setting_ $field>]()
+        }
+    };
+}
+
+macro_rules! write_setting {
+    ($field:ident, $val:expr) => {
+        paste::paste! {
+            let _ = gossip_lib::GLOBALS.storage.[<write_setting_ $field>](&$val, None);
+        }
+    };
+}
+
 mod components;
 mod dm_chat_list;
 mod feed;
@@ -77,7 +93,7 @@ pub fn run() -> Result<(), Error> {
         #[cfg(target_os = "macos")]
         fullsize_content: true,
         drag_and_drop_support: true,
-        default_theme: if GLOBALS.storage.read_setting_dark_mode() {
+        default_theme: if read_setting!(dark_mode) {
             eframe::Theme::Dark
         } else {
             eframe::Theme::Light
@@ -91,7 +107,7 @@ pub fn run() -> Result<(), Error> {
         resizable: true,
         centered: true,
         vsync: true,
-        follow_system_theme: GLOBALS.storage.read_setting_follow_os_dark_mode(),
+        follow_system_theme: read_setting!(follow_os_dark_mode),
         min_window_size: Some(egui::vec2(800.0, 600.0)),
         ..Default::default()
     };
@@ -398,7 +414,7 @@ struct GossipUi {
     icon: TextureHandle,
     placeholder_avatar: TextureHandle,
     options_symbol: TextureHandle,
-    settings: Settings,
+    unsaved_settings: Settings,
     theme: Theme,
     avatars: HashMap<PublicKey, TextureHandle>,
     images: HashMap<Url, TextureHandle>,
@@ -482,10 +498,8 @@ impl Drop for GossipUi {
 
 impl GossipUi {
     fn new(cctx: &eframe::CreationContext<'_>) -> Self {
-        let mut settings = Settings::load();
-
         let dpi: u32;
-        if let Some(override_dpi) = settings.override_dpi {
+        if let Some(override_dpi) = read_setting!(override_dpi) {
             let ppt: f32 = override_dpi as f32 / 72.0;
             cctx.egui_ctx.set_pixels_per_point(ppt);
             dpi = (ppt * 72.0) as u32;
@@ -585,7 +599,7 @@ impl GossipUi {
                 .load_texture("options_symbol", color_image, TextureOptions::LINEAR)
         };
 
-        let (override_dpi, override_dpi_value): (bool, u32) = match settings.override_dpi {
+        let (override_dpi, override_dpi_value): (bool, u32) = match read_setting!(override_dpi) {
             Some(v) => (true, v),
             None => (false, dpi),
         };
@@ -602,18 +616,15 @@ impl GossipUi {
         }
 
         // Honor sys dark mode, if set
-        if settings.follow_os_dark_mode {
+        if read_setting!(follow_os_dark_mode) {
             let sys_dark_mode = cctx.egui_ctx.style().visuals.dark_mode;
-            if settings.dark_mode != sys_dark_mode {
-                settings.dark_mode = sys_dark_mode;
-                let _ = GLOBALS
-                    .storage
-                    .write_setting_dark_mode(&sys_dark_mode, None);
+            if read_setting!(dark_mode) != sys_dark_mode {
+                write_setting!(dark_mode, sys_dark_mode);
             }
         }
 
         // Apply current theme
-        let theme = Theme::from_settings(&settings);
+        let theme = Theme::from_settings();
         theme::apply_theme(&theme, &cctx.egui_ctx);
 
         GossipUi {
@@ -656,7 +667,7 @@ impl GossipUi {
             icon: icon_texture_handle,
             placeholder_avatar: placeholder_avatar_texture_handle,
             options_symbol,
-            settings,
+            unsaved_settings: Settings::load(),
             theme,
             avatars: HashMap::new(),
             images: HashMap::new(),
@@ -1042,7 +1053,7 @@ impl GossipUi {
                 // -- Status Area
                 ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
                     // -- DEBUG status area
-                    if self.settings.status_bar {
+                    if read_setting!(status_bar) {
                         let in_flight = GLOBALS.fetcher.requests_in_flight();
                         let queued = GLOBALS.fetcher.requests_queued();
                         let m = format!("HTTP: {} / {}", in_flight, queued);
@@ -1139,7 +1150,7 @@ impl eframe::App for GossipUi {
             self.open_menu(ctx, SubMenu::Feeds);
         }
 
-        let max_fps = GLOBALS.storage.read_setting_max_fps() as f32;
+        let max_fps = read_setting!(max_fps) as f32;
 
         if self.future_scroll_offset != 0.0 {
             ctx.request_repaint();
@@ -1161,7 +1172,7 @@ impl eframe::App for GossipUi {
         let mut requested_scroll: f32 = 0.0;
         ctx.input(|i| {
             // Consider mouse inputs
-            requested_scroll = i.scroll_delta.y * self.settings.mouse_acceleration;
+            requested_scroll = i.scroll_delta.y * read_setting!(mouse_acceleration);
 
             // Consider keyboard inputs unless compose area is focused
             if !ctx.memory(|mem| mem.has_focus(egui::Id::new("compose_area"))) {
@@ -1185,7 +1196,7 @@ impl eframe::App for GossipUi {
         });
 
         // Inertial scrolling
-        if self.settings.inertial_scrolling {
+        if read_setting!(inertial_scrolling) {
             // Apply some of the requested scrolling, and save some for later so that
             // scrolling is animated and not instantaneous.
             {
@@ -1208,13 +1219,13 @@ impl eframe::App for GossipUi {
         }
 
         let mut reapply = false;
-        let mut theme = Theme::from_settings(&self.settings);
+        let mut theme = Theme::from_settings();
         if theme.follow_os_dark_mode {
             // detect if the OS has changed dark/light mode
             let os_dark_mode = ctx.style().visuals.dark_mode;
             if os_dark_mode != theme.dark_mode {
                 // switch to the OS setting
-                self.settings.dark_mode = os_dark_mode;
+                write_setting!(dark_mode, os_dark_mode);
                 theme.dark_mode = os_dark_mode;
                 reapply = true;
             }
@@ -1262,21 +1273,21 @@ impl eframe::App for GossipUi {
             .resizable(true)
             .show_animated(
                 ctx,
-                self.show_post_area_fn() && self.settings.posting_area_at_top,
+                self.show_post_area_fn() && read_setting!(posting_area_at_top),
                 |ui| {
                     self.begin_ui(ui);
                     feed::post::posting_area(self, ctx, frame, ui);
                 },
             );
 
-        let show_status = self.show_post_area_fn() && !self.settings.posting_area_at_top;
+        let show_status = self.show_post_area_fn() && !read_setting!(posting_area_at_top);
 
         let resizable = true;
 
         egui::TopBottomPanel::bottom("status")
             .frame({
                 let frame = egui::Frame::side_top_panel(&self.theme.get_style());
-                frame.inner_margin(if !self.settings.posting_area_at_top {
+                frame.inner_margin(if !read_setting!(posting_area_at_top) {
                     egui::Margin {
                         left: 20.0,
                         right: 18.0,
@@ -1296,7 +1307,7 @@ impl eframe::App for GossipUi {
             .show_separator_line(false)
             .show_animated(ctx, show_status, |ui| {
                 self.begin_ui(ui);
-                if self.show_post_area_fn() && !self.settings.posting_area_at_top {
+                if self.show_post_area_fn() && !read_setting!(posting_area_at_top) {
                     ui.add_space(7.0);
                     feed::post::posting_area(self, ctx, frame, ui);
                 }

@@ -219,9 +219,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                             .on_hover_text("Switch to light mode")
                             .clicked()
                         {
+                            write_setting!(dark_mode, false);
                             app.theme.dark_mode = false;
                             crate::ui::theme::apply_theme(&app.theme, ctx);
-                            let _ = app.settings.save();
                         }
                     } else {
                         if ui
@@ -229,9 +229,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                             .on_hover_text("Switch to dark mode")
                             .clicked()
                         {
+                            write_setting!(dark_mode, true);
                             app.theme.dark_mode = true;
                             crate::ui::theme::apply_theme(&app.theme, ctx);
-                            let _ = app.settings.save();
                         }
                     }
                     ui.label("mode");
@@ -247,8 +247,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                         ctx.set_pixels_per_point(ppt);
 
                         // Store in settings
-                        app.settings.override_dpi = Some(app.override_dpi_value);
-                        let _ = app.settings.save();
+                        write_setting!(override_dpi, Some(app.override_dpi_value));
                     }
                 });
 

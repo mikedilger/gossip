@@ -63,7 +63,7 @@ pub(super) fn render_content(
                         }
                         NostrBech32::EventPointer(ep) => {
                             let mut render_link = true;
-                            if app.settings.show_mentions {
+                            if read_setting!(show_mentions) {
                                 match note.repost {
                                     Some(RepostType::MentionOnly)
                                     | Some(RepostType::CommentMention)
@@ -93,7 +93,7 @@ pub(super) fn render_content(
                         }
                         NostrBech32::Id(id) => {
                             let mut render_link = true;
-                            if app.settings.show_mentions {
+                            if read_setting!(show_mentions) {
                                 match note.repost {
                                     Some(RepostType::MentionOnly)
                                     | Some(RepostType::CommentMention)
@@ -142,7 +142,7 @@ pub(super) fn render_content(
                             }
                             Tag::Event { id, .. } => {
                                 let mut render_link = true;
-                                if app.settings.show_mentions {
+                                if read_setting!(show_mentions) {
                                     match note.repost {
                                         Some(RepostType::MentionOnly)
                                         | Some(RepostType::CommentMention)
@@ -376,8 +376,8 @@ fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
     let mut show_link = true;
 
     // FIXME show/hide lists should persist app restarts
-    let show_image = (app.settings.show_media && !app.media_hide_list.contains(&url))
-        || (!app.settings.show_media && app.media_show_list.contains(&url));
+    let show_image = (read_setting!(show_media) && !app.media_hide_list.contains(&url))
+        || (!read_setting!(show_media) && app.media_show_list.contains(&url));
 
     if show_image {
         if let Some(response) = try_render_image(app, ui, url.clone()) {
@@ -398,12 +398,12 @@ fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
         let response = ui.link("[ Image ]").on_hover_text(url_string.clone()); // show url on hover
                                                                                // show media toggle
         if response.clicked() {
-            if app.settings.show_media {
+            if read_setting!(show_media) {
                 app.media_hide_list.remove(&url);
             } else {
                 app.media_show_list.insert(url.clone());
             }
-            if !app.settings.load_media {
+            if !read_setting!(load_media) {
                 GLOBALS.status_queue.write().write("Fetch Media setting is disabled. Right-click link to open in browser or copy URL".to_owned());
             }
         }
@@ -485,8 +485,8 @@ fn show_video_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
     let mut show_link = true;
 
     // FIXME show/hide lists should persist app restarts
-    let show_video = (app.settings.show_media && !app.media_hide_list.contains(&url))
-        || (!app.settings.show_media && app.media_show_list.contains(&url));
+    let show_video = (read_setting!(show_media) && !app.media_hide_list.contains(&url))
+        || (!read_setting!(show_media) && app.media_show_list.contains(&url));
 
     if show_video {
         if let Some(response) = try_render_video(app, ui, url.clone()) {
@@ -507,12 +507,12 @@ fn show_video_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
         let response = ui.link("[ Video ]").on_hover_text(url_string.clone()); // show url on hover
                                                                                // show media toggle
         if response.clicked() {
-            if app.settings.show_media {
+            if read_setting!(show_media) {
                 app.media_hide_list.remove(&url);
             } else {
                 app.media_show_list.insert(url.clone());
             }
-            if !app.settings.load_media {
+            if !read_setting!(load_media) {
                 GLOBALS.status_queue.write().write("Fetch Media setting is disabled. Right-click link to open in browser or copy URL".to_owned());
             }
         }
@@ -650,7 +650,7 @@ fn add_media_menu(app: &mut GossipUi, ui: &mut Ui, url: Url, response: &Response
                     .on_hover_text("Hide (return to a link)")
                     .clicked()
                 {
-                    if app.settings.show_media {
+                    if read_setting!(show_media) {
                         app.media_hide_list.insert(url.clone());
                     } else {
                         app.media_show_list.remove(&url);

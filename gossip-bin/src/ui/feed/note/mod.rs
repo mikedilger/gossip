@@ -77,10 +77,10 @@ pub(super) fn render_note(
         // FIXME drop the cached notes on recompute
 
         if let Ok(note_data) = note_ref.try_borrow() {
-            let skip = ((note_data.muted() && app.settings.hide_mutes_entirely)
+            let skip = ((note_data.muted() && read_setting!(hide_mutes_entirely))
                 && !matches!(app.page, Page::Feed(FeedKind::DmChat(_)))
                 && !matches!(app.page, Page::Feed(FeedKind::Person(_))))
-                || (!note_data.deletions.is_empty() && !app.settings.show_deleted_events);
+                || (!note_data.deletions.is_empty() && !read_setting!(show_deleted_events));
 
             if skip {
                 return;
@@ -91,7 +91,7 @@ pub(super) fn render_note(
                 _ => false,
             };
 
-            let is_new = app.settings.highlight_unread_events && !viewed;
+            let is_new = read_setting!(highlight_unread_events) && !viewed;
 
             let is_main_event: bool = {
                 let feed_kind = GLOBALS.feed.get_feed_kind();
@@ -882,7 +882,7 @@ fn render_note_inner(
                                     }
                                 }
 
-                                if app.settings.enable_zap_receipts && !note.muted() {
+                                if read_setting!(enable_zap_receipts) && !note.muted() {
                                     ui.add_space(24.0);
 
                                     // To zap, the user must have a lnurl, and the event must have been
@@ -945,7 +945,7 @@ fn render_note_inner(
                                 ui.add_space(24.0);
 
                                 // Buttons to react and reaction counts
-                                if app.settings.reactions && !note.muted() {
+                                if read_setting!(reactions) && !note.muted() {
                                     let default_reaction_icon = match note.self_already_reacted {
                                         true => "♥",
                                         false => "♡",
@@ -1086,7 +1086,7 @@ fn render_content(
                         }
                     } else if event.content_warning().is_some()
                         && !app.approved.contains(&event.id)
-                        && !app.settings.approve_content_warning
+                        && read_setting!(approve_content_warning)
                     {
                         ui.label(
                             RichText::new(format!(

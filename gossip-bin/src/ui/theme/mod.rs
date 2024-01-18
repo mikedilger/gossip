@@ -5,7 +5,6 @@ use eframe::egui::{
     TextFormat, TextStyle, Ui,
 };
 use eframe::epaint::{ecolor, FontFamily, FontId, Shadow};
-use gossip_lib::Settings;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -34,14 +33,14 @@ pub struct Theme {
 }
 
 impl Theme {
-    pub fn from_settings(settings: &Settings) -> Theme {
+    pub fn from_settings() -> Theme {
         Theme {
-            variant: match &*settings.theme_variant {
+            variant: match &*read_setting!(theme_variant) {
                 "Default" => ThemeVariant::Default,
                 _ => ThemeVariant::Default,
             },
-            dark_mode: settings.dark_mode,
-            follow_os_dark_mode: settings.follow_os_dark_mode,
+            dark_mode: read_setting!(dark_mode),
+            follow_os_dark_mode: read_setting!(follow_os_dark_mode),
         }
     }
 }

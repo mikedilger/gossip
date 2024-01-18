@@ -507,7 +507,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 widgets::MoreMenu::bubble(ui, app)
                     .with_max_size(vec2(180.0, 80.0))
                     .with_min_size(vec2(180.0, 80.0))
-                    .place_above(!app.settings.posting_area_at_top)
+                    .place_above(!read_setting!(posting_area_at_top))
                     .show(ui, |ui, is_open| {
                         ui.vertical_centered_justified(|ui| {
                             app.theme.accent_button_1_style(ui.style_mut());
@@ -708,7 +708,7 @@ fn show_tagging_result(
     output: &mut TextEditOutput,
     enter_key: bool,
 ) {
-    let above_or_below = if app.settings.posting_area_at_top {
+    let above_or_below = if read_setting!(posting_area_at_top) {
         AboveOrBelow::Below
     } else {
         AboveOrBelow::Above
@@ -841,7 +841,7 @@ fn show_tag_hovers(ui: &mut Ui, app: &mut GossipUi, output: &mut TextEditOutput)
                 popup.set_last_seen(uitime);
             }
             if resp.hovered() || popup.get_until() > Some(uitime) {
-                let above_or_below = if app.settings.posting_area_at_top {
+                let above_or_below = if read_setting!(posting_area_at_top) {
                     AboveOrBelow::Below
                 } else {
                     AboveOrBelow::Above

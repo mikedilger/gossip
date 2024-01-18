@@ -14,18 +14,20 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.horizontal(|ui| {
         ui.label("How long to keep events")
             .on_hover_text("Events older than this will be deleted");
-        ui.add(Slider::new(&mut app.settings.prune_period_days, 7..=720).text("days"));
+        ui.add(Slider::new(&mut app.unsaved_settings.prune_period_days, 7..=720).text("days"));
     });
 
     ui.horizontal(|ui| {
         ui.label("How long to keep downloaded files")
             .on_hover_text("Cached files older than this will be deleted");
-        ui.add(Slider::new(&mut app.settings.cache_prune_period_days, 7..=720).text("days"));
+        ui.add(
+            Slider::new(&mut app.unsaved_settings.cache_prune_period_days, 7..=720).text("days"),
+        );
     });
 
     // Only let them prune after they have saved
     let stored_settings = Settings::load();
-    if stored_settings == app.settings {
+    if stored_settings == app.unsaved_settings {
         ui.add_space(20.0);
         if ui.button("Delete Old Events Now").on_hover_text("This will delete events older than the period specified above. but the LMDB files will continue consuming disk space. To compact them, copy withem with `mdb_copy -c` when gossip is not running.").clicked() {
             let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PruneDatabase);

@@ -29,6 +29,7 @@ image = { version = "0.24.6", features = [ "png", "jpeg" ] }
 lazy_static = "1.4"
 memoize = "0.4"
 nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "e2f876c9ba3a74e31ad1a3d9dd76ba40ac464f5a", features = [ "speedy" ] }
+paste = "1.0"
 qrcode = { git = "https://github.com/mikedilger/qrcode-rust", rev = "519b77b3efa3f84961169b47d3de08c5ddd86548" }
 resvg = "0.35.0"
 rpassword = "7.2"
