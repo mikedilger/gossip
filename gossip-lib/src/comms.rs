@@ -144,7 +144,6 @@ pub enum ToOverlordMessage {
     SetThreadFeed {
         id: Id,
         referenced_by: Id,
-        relays: Vec<RelayUrl>,
         author: Option<PublicKey>,
     },
 

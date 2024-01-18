@@ -3,9 +3,7 @@ use crate::dm_channel::DmChannel;
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::people::PersonList;
-use nostr_types::{
-    Event, EventKind, EventReference, Id, PublicKey, PublicKeyHex, RelayUrl, Unixtime,
-};
+use nostr_types::{Event, EventKind, EventReference, Id, PublicKey, PublicKeyHex, Unixtime};
 use parking_lot::RwLock;
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -196,13 +194,7 @@ impl Feed {
     }
 
     /// Change the feed to a thread
-    pub fn set_feed_to_thread(
-        &self,
-        id: Id,
-        referenced_by: Id,
-        relays: Vec<RelayUrl>,
-        author: Option<PublicKey>,
-    ) {
+    pub fn set_feed_to_thread(&self, id: Id, referenced_by: Id, author: Option<PublicKey>) {
         *self.current_feed_kind.write() = FeedKind::Thread {
             id,
             referenced_by,
@@ -222,7 +214,6 @@ impl Feed {
         let _ = GLOBALS.to_overlord.send(ToOverlordMessage::SetThreadFeed {
             id,
             referenced_by,
-            relays,
             author,
         });
     }

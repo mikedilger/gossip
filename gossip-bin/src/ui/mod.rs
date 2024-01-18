@@ -781,7 +781,7 @@ impl GossipUi {
             }) => {
                 GLOBALS
                     .feed
-                    .set_feed_to_thread(*id, *referenced_by, vec![], *author);
+                    .set_feed_to_thread(*id, *referenced_by, *author);
                 self.close_all_menus_except_feeds(ctx);
             }
             Page::Feed(FeedKind::Person(pubkey)) => {

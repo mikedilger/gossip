@@ -661,11 +661,9 @@ impl Overlord {
             ToOverlordMessage::SetThreadFeed {
                 id,
                 referenced_by,
-                relays,
                 author,
             } => {
-                self.set_thread_feed(id, referenced_by, relays, author)
-                    .await?;
+                self.set_thread_feed(id, referenced_by, author).await?;
             }
             ToOverlordMessage::StartLongLivedSubscriptions => {
                 self.start_long_lived_subscriptions().await?;
@@ -2387,7 +2385,6 @@ impl Overlord {
         &mut self,
         id: Id,
         referenced_by: Id,
-        mut relays: Vec<RelayUrl>,
         author: Option<PublicKey>,
     ) -> Result<(), Error> {
         // We are responsible for loading all the ancestors and all the replies, and
@@ -2404,6 +2401,8 @@ impl Overlord {
         // more than strictly necessary, but not too expensive.
 
         let mut missing_ancestors: Vec<Id> = Vec::new();
+
+        let mut relays: Vec<RelayUrl> = Vec::new();
 
         // Include the relays where the referenced_by event was seen
         relays.extend(
