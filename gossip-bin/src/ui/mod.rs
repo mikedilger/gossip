@@ -47,6 +47,7 @@ mod wizard;
 mod you;
 
 pub use crate::ui::theme::{Theme, ThemeVariant};
+use crate::unsaved_settings::UnsavedSettings;
 #[cfg(feature = "video-ffmpeg")]
 use core::cell::RefCell;
 use eframe::{egui, IconData};
@@ -62,7 +63,6 @@ use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::About;
 use gossip_lib::Error;
 use gossip_lib::FeedKind;
-use gossip_lib::Settings;
 use gossip_lib::{DmChannel, DmChannelData};
 use gossip_lib::{Person, PersonList};
 use gossip_lib::{ZapState, GLOBALS};
@@ -414,7 +414,7 @@ struct GossipUi {
     icon: TextureHandle,
     placeholder_avatar: TextureHandle,
     options_symbol: TextureHandle,
-    unsaved_settings: Settings,
+    unsaved_settings: UnsavedSettings,
     theme: Theme,
     avatars: HashMap<PublicKey, TextureHandle>,
     images: HashMap<Url, TextureHandle>,
@@ -667,7 +667,7 @@ impl GossipUi {
             icon: icon_texture_handle,
             placeholder_avatar: placeholder_avatar_texture_handle,
             options_symbol,
-            unsaved_settings: Settings::load(),
+            unsaved_settings: UnsavedSettings::load(),
             theme,
             avatars: HashMap::new(),
             images: HashMap::new(),

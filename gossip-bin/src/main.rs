@@ -7,6 +7,7 @@
 mod commands;
 mod date_ago;
 mod ui;
+mod unsaved_settings;
 
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::Error;

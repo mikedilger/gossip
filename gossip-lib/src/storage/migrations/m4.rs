@@ -25,8 +25,6 @@ impl Storage {
                 None => {
                     if 4 >= Self::MAX_MIGRATION_LEVEL {
                         // At migraiton level < 4 we know this is safe to do:
-                        let settings = crate::settings::Settings::default();
-                        settings.save()?;
                         crate::globals::GLOBALS.status_queue.write().write(
                             "Settings missing or corrupted. We had to reset to defaults. Sorry about that."
                                 .to_owned(),

@@ -1,10 +1,6 @@
-use crate::error::Error;
-use crate::globals::GLOBALS;
-use crate::storage::Storage;
+use gossip_lib::{Error, Storage, GLOBALS};
 use nostr_types::PublicKey;
 use paste::paste;
-use serde::{Deserialize, Serialize};
-use speedy::{Readable, Writable};
 
 macro_rules! load_setting {
     ($field:ident) => {
@@ -35,8 +31,8 @@ macro_rules! save_setting {
 ///
 /// NOTE: It is recommended to NOT use this structure. Instead, just interact with each
 /// setting key individually via `GLOBALS.storage`
-#[derive(Clone, Debug, Serialize, Deserialize, Readable, Writable, PartialEq)]
-pub struct Settings {
+#[derive(Clone, Debug, PartialEq)]
+pub struct UnsavedSettings {
     // ID settings
     pub public_key: Option<PublicKey>,
     pub log_n: u8,
@@ -126,9 +122,9 @@ pub struct Settings {
     pub cache_prune_period_days: u64,
 }
 
-impl Default for Settings {
-    fn default() -> Settings {
-        Settings {
+impl Default for UnsavedSettings {
+    fn default() -> UnsavedSettings {
+        UnsavedSettings {
             public_key: default_setting!(public_key),
             log_n: default_setting!(log_n),
             login_at_startup: default_setting!(login_at_startup),
@@ -207,9 +203,9 @@ impl Default for Settings {
     }
 }
 
-impl Settings {
-    pub fn load() -> Settings {
-        Settings {
+impl UnsavedSettings {
+    pub fn load() -> UnsavedSettings {
+        UnsavedSettings {
             public_key: load_setting!(public_key),
             log_n: load_setting!(log_n),
             login_at_startup: load_setting!(login_at_startup),

@@ -126,9 +126,6 @@ pub use relay::Relay;
 mod relay_picker_hooks;
 pub use relay_picker_hooks::Hooks;
 
-mod settings;
-pub use settings::Settings;
-
 mod status;
 pub use status::StatusQueue;
 

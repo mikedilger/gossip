@@ -118,7 +118,7 @@ macro_rules! def_setting {
             }
 
             #[allow(dead_code)]
-            pub(crate) fn [<get_default_setting_ $field>]() -> $type {
+            pub fn [<get_default_setting_ $field>]() -> $type {
                 $default
             }
         }

@@ -1,7 +1,7 @@
 use crate::ui::{GossipUi, SettingsTab};
+use crate::unsaved_settings::UnsavedSettings;
 use eframe::egui;
 use egui::{Align, Context, Layout, Ui};
-use gossip_lib::Settings;
 
 mod content;
 mod database;
@@ -15,10 +15,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     ui.heading("Settings");
 
     ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
-        let stored_settings = Settings::load();
+        let stored_settings = UnsavedSettings::load();
         if stored_settings != app.unsaved_settings {
             if ui.button("REVERT CHANGES").clicked() {
-                app.unsaved_settings = Settings::load();
+                app.unsaved_settings = UnsavedSettings::load();
 
                 // Fully revert any DPI changes
                 match app.unsaved_settings.override_dpi {
