@@ -631,14 +631,36 @@ impl Minion {
 
             let pkh: PublicKeyHex = pubkey.into();
 
-            filters.push(Filter {
-                p: vec![pkh.clone()],
-                kinds: event_kinds,
-                since: Some(replies_since),
-                ..Default::default()
-            });
+            // If the relay is not spamsafe, only accept mentions from people we follow
+
+            if self.dbrelay.has_usage_bits(Relay::SPAMSAFE) {
+                filters.push(Filter {
+                    p: vec![pkh.clone()],
+                    kinds: event_kinds,
+                    since: Some(replies_since),
+                    ..Default::default()
+                });
+            } else {
+                // As the relay is not spam safe, only take mentions from followers
+                let authors: Vec<PublicKeyHex> = GLOBALS
+                    .people
+                    .get_subscribed_pubkeys()
+                    .drain(..)
+                    .map(|pk| pk.into())
+                    .collect();
+
+                filters.push(Filter {
+                    authors,
+                    p: vec![pkh.clone()],
+                    kinds: event_kinds,
+                    since: Some(replies_since),
+                    ..Default::default()
+                });
+            }
 
             // Giftwrap specially looks back further
+            // Giftwraps cannot be filtered by author so we have to take them regardless
+            // of the spamsafe designation of the relay.
             filters.push(Filter {
                 p: vec![pkh],
                 kinds: vec![EventKind::GiftWrap],
@@ -883,23 +905,26 @@ impl Minion {
         &mut self,
         job_id: u64,
         main: IdHex,
-        vec_ids: Vec<IdHex>,
+        ancestor_ids: Vec<IdHex>,
     ) -> Result<(), Error> {
         // NOTE we do not unsubscribe to the general feed
 
         let mut filters: Vec<Filter> = Vec::new();
 
-        if !vec_ids.is_empty() {
+        if !ancestor_ids.is_empty() {
+            // We allow spammy ancestors since a descendant is sought, so spamsafe
+            // isn't relevant to these ancestor filters
+
             // Get ancestors we know of so far
             filters.push(Filter {
-                ids: vec_ids.clone(),
+                ids: ancestor_ids.clone(),
                 ..Default::default()
             });
 
-            // Get reactions to ancestors, but not replies
+            // Also get reactions to these ancestors (but not replies)
             let kinds = crate::feed::feed_augment_event_kinds();
             filters.push(Filter {
-                e: vec_ids,
+                e: ancestor_ids,
                 kinds,
                 ..Default::default()
             });
@@ -908,11 +933,29 @@ impl Minion {
         // Allow all feed related event kinds (excluding DMs)
         let event_kinds = crate::feed::feed_related_event_kinds(false);
 
-        filters.push(Filter {
-            e: vec![main],
-            kinds: event_kinds,
-            ..Default::default()
-        });
+        if self.dbrelay.has_usage_bits(Relay::SPAMSAFE) {
+            // As the relay is spam safe, take all replies!
+            filters.push(Filter {
+                e: vec![main],
+                kinds: event_kinds,
+                ..Default::default()
+            });
+        } else {
+            // As the relay is not spam safe, only take replies from followers
+            let authors: Vec<PublicKeyHex> = GLOBALS
+                .people
+                .get_subscribed_pubkeys()
+                .drain(..)
+                .map(|pk| pk.into())
+                .collect();
+
+            filters.push(Filter {
+                authors,
+                e: vec![main],
+                kinds: event_kinds,
+                ..Default::default()
+            });
+        }
 
         self.subscribe(filters, "thread_feed", job_id).await?;
 

@@ -2396,9 +2396,7 @@ impl Overlord {
         //   ancestors from storage, replies from storage
         //   ancestors from relays, replies from relays,
 
-        // We simplify things by asking for this data from every relay we are
-        // connected to, as well as any relays we discover might know.  This is
-        // more than strictly necessary, but not too expensive.
+        // TBD we need to strongly prefer SPAMSAFE relays
 
         let mut missing_ancestors: Vec<Id> = Vec::new();
 
