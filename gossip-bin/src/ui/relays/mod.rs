@@ -581,12 +581,12 @@ pub(super) fn relay_filter_combo(app: &mut GossipUi, ui: &mut Ui) {
 #[rustfmt::skip]
 pub(super) fn sort_relay(rui: &RelayUi, a: &Relay, b: &Relay) -> Ordering {
     match rui.sort {
-        RelaySorting::Default => b.get_usage_bits().cmp(&a.get_usage_bits())
+        RelaySorting::Default => b.get_usage_bits_for_sorting().cmp(&a.get_usage_bits_for_sorting())
             .then(b.is_good_for_advertise().cmp(&a.is_good_for_advertise()))
             .then(b.rank.cmp(&a.rank))
             .then(a.url.cmp(&b.url)),
         RelaySorting::Rank => b.rank.cmp(&a.rank)
-            .then(b.get_usage_bits().cmp(&a.get_usage_bits()))
+            .then(b.get_usage_bits_for_sorting().cmp(&a.get_usage_bits_for_sorting()))
             .then(b.is_good_for_advertise().cmp(&a.is_good_for_advertise()))
             .then(a.url.cmp(&b.url)),
         RelaySorting::Name => a.url.cmp(&b.url),

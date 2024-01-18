@@ -52,6 +52,7 @@ impl Relay1 {
     pub const INBOX: u64 = 1 << 3; // 8            this is 'read' of kind 10002
     pub const OUTBOX: u64 = 1 << 4; // 16          this is 'write' of kind 10002
     pub const DISCOVER: u64 = 1 << 5; // 32
+    pub const SPAMSAFE: u64 = 1 << 6; // 64
 
     pub fn new(url: RelayUrl) -> Relay1 {
         Relay1 {
@@ -74,6 +75,25 @@ impl Relay1 {
         // ( so that simple cmp() and =0 still work... but you should use
         //   the new has_any_usage_bit() instead to be safe )
         self.usage_bits & !Relay1::ADVERTISE
+    }
+
+    #[inline]
+    pub fn get_usage_bits_for_sorting(&self) -> u64 {
+        let mut output: u64 = 0;
+        if self.has_usage_bits(Self::READ) {
+            output |= 1 << 6;
+        }
+        if self.has_usage_bits(Self::WRITE) {
+            output |= 1 << 5;
+        }
+        if self.has_usage_bits(Self::INBOX) {
+            output |= 1 << 4;
+        }
+        if self.has_usage_bits(Self::OUTBOX) {
+            output |= 1 << 3;
+        }
+        // DISCOVER and SPAMSAFE shouldn't affect sort
+        output
     }
 
     #[inline]
