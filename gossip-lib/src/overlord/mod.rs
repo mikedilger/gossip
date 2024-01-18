@@ -3005,13 +3005,39 @@ impl Overlord {
 
         match mentions {
             -1 => (), // TBD unsubscribe_mentions
-            1 => self.subscribe_mentions(Some(vec![new.url.clone()])).await?,
+            1 => {
+                if let Some(pubkey) = GLOBALS.identity.public_key() {
+                    // Update self person_relay record
+                    let mut pr = match GLOBALS.storage.read_person_relay(pubkey, &new.url)? {
+                        Some(pr) => pr,
+                        None => PersonRelay::new(pubkey, new.url.clone()),
+                    };
+                    pr.read = true;
+                    GLOBALS.storage.write_person_relay(&pr, None)?;
+
+                    // Subscribe to mentions on this inbox relay
+                    self.subscribe_mentions(Some(vec![new.url.clone()])).await?;
+                }
+            }
             _ => (),
         }
 
         match config {
             -1 => (), // TBD unsubscribe_config
-            1 => self.subscribe_config(Some(vec![new.url.clone()])).await?,
+            1 => {
+                if let Some(pubkey) = GLOBALS.identity.public_key() {
+                    // Update self person_relay record
+                    let mut pr = match GLOBALS.storage.read_person_relay(pubkey, &new.url)? {
+                        Some(pr) => pr,
+                        None => PersonRelay::new(pubkey, new.url.clone()),
+                    };
+                    pr.write = true;
+                    GLOBALS.storage.write_person_relay(&pr, None)?;
+
+                    // Subscribe to config on this outbox relay
+                    self.subscribe_config(Some(vec![new.url.clone()])).await?;
+                }
+            }
             _ => (),
         }
 
