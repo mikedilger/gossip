@@ -889,6 +889,12 @@ impl Storage {
     );
     def_setting!(prune_period_days, b"prune_period_days", u64, 90);
     def_setting!(cache_prune_period_days, b"cache_prune_period_days", u64, 90);
+    def_setting!(
+        avoid_spam_on_unsafe_relays,
+        b"avoid_spam_on_unsafe_relays",
+        bool,
+        false
+    );
 
     // -------------------------------------------------------------------
 

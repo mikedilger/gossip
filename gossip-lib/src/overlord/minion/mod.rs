@@ -633,7 +633,9 @@ impl Minion {
 
             // If the relay is not spamsafe, only accept mentions from people we follow
 
-            if self.dbrelay.has_usage_bits(Relay::SPAMSAFE) {
+            if self.dbrelay.has_usage_bits(Relay::SPAMSAFE)
+                || !GLOBALS.storage.read_setting_avoid_spam_on_unsafe_relays()
+            {
                 filters.push(Filter {
                     p: vec![pkh.clone()],
                     kinds: event_kinds,
@@ -933,7 +935,9 @@ impl Minion {
         // Allow all feed related event kinds (excluding DMs)
         let event_kinds = crate::feed::feed_related_event_kinds(false);
 
-        if self.dbrelay.has_usage_bits(Relay::SPAMSAFE) {
+        if self.dbrelay.has_usage_bits(Relay::SPAMSAFE)
+            || !GLOBALS.storage.read_setting_avoid_spam_on_unsafe_relays()
+        {
             // As the relay is spam safe, take all replies!
             filters.push(Filter {
                 e: vec![main],
