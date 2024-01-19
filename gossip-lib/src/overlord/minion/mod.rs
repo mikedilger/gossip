@@ -483,10 +483,13 @@ impl Minion {
         let mut event_kinds = crate::feed::feed_related_event_kinds(false);
         event_kinds.retain(|f| f.augments_feed_related());
 
-        let filter = Filter {
-            e: ids,
-            kinds: event_kinds,
-            ..Default::default()
+        let filter = {
+            let mut filter = Filter {
+                kinds: event_kinds,
+                ..Default::default()
+            };
+            filter.set_tag_values('e', ids.iter().map(|id| id.to_string()).collect());
+            filter
         };
 
         self.subscribe(vec![filter], "temp_augments", job_id)
@@ -631,44 +634,46 @@ impl Minion {
 
             let pkh: PublicKeyHex = pubkey.into();
 
-            // If the relay is not spamsafe, only accept mentions from people we follow
-
-            if self.dbrelay.has_usage_bits(Relay::SPAMSAFE)
-                || !GLOBALS.storage.read_setting_avoid_spam_on_unsafe_relays()
-            {
-                filters.push(Filter {
-                    p: vec![pkh.clone()],
+            let filter = {
+                let mut filter = Filter {
                     kinds: event_kinds,
                     since: Some(replies_since),
                     ..Default::default()
-                });
-            } else {
-                // As the relay is not spam safe, only take mentions from followers
-                let authors: Vec<PublicKeyHex> = GLOBALS
-                    .people
-                    .get_subscribed_pubkeys()
-                    .drain(..)
-                    .map(|pk| pk.into())
-                    .collect();
+                };
+                let values = vec![pkh.to_string()];
+                filter.set_tag_values('p', values);
 
-                filters.push(Filter {
-                    authors,
-                    p: vec![pkh.clone()],
-                    kinds: event_kinds,
-                    since: Some(replies_since),
-                    ..Default::default()
-                });
-            }
+                // Spam prevention:
+                if !self.dbrelay.has_usage_bits(Relay::SPAMSAFE)
+                    && GLOBALS.storage.read_setting_avoid_spam_on_unsafe_relays()
+                {
+                    // As the relay is not spam safe, only take mentions from followers
+                    filter.authors = GLOBALS
+                        .people
+                        .get_subscribed_pubkeys()
+                        .drain(..)
+                        .map(|pk| pk.into())
+                        .collect();
+                }
+
+                filter
+            };
+            filters.push(filter);
 
             // Giftwrap specially looks back further
             // Giftwraps cannot be filtered by author so we have to take them regardless
             // of the spamsafe designation of the relay.
-            filters.push(Filter {
-                p: vec![pkh],
-                kinds: vec![EventKind::GiftWrap],
-                since: Some(giftwrap_since),
-                ..Default::default()
-            });
+            let filter = {
+                let mut filter = Filter {
+                    kinds: vec![EventKind::GiftWrap],
+                    since: Some(giftwrap_since),
+                    ..Default::default()
+                };
+                let values = vec![pkh.to_string()];
+                filter.set_tag_values('p', values);
+                filter
+            };
+            filters.push(filter);
         }
 
         if filters.is_empty() {
@@ -861,22 +866,45 @@ impl Minion {
 
             let pkh: PublicKeyHex = pubkey.into();
 
-            filters.push(Filter {
-                p: vec![pkh.clone()],
-                kinds: event_kinds,
-                since: Some(since),
-                until: Some(until),
-                ..Default::default()
-            });
+            let filter = {
+                let mut filter = Filter {
+                    kinds: event_kinds,
+                    since: Some(since),
+                    until: Some(until),
+                    ..Default::default()
+                };
+                filter.set_tag_values('p', vec![pkh.to_string()]);
+
+                // Spam prevention:
+                if !self.dbrelay.has_usage_bits(Relay::SPAMSAFE)
+                    && GLOBALS.storage.read_setting_avoid_spam_on_unsafe_relays()
+                {
+                    filter.authors = GLOBALS
+                        .people
+                        .get_subscribed_pubkeys()
+                        .drain(..)
+                        .map(|pk| pk.into())
+                        .collect();
+                }
+
+                filter
+            };
+            filters.push(filter);
 
             // Giftwrap specially looks back further
-            filters.push(Filter {
-                p: vec![pkh],
-                kinds: vec![EventKind::GiftWrap],
-                since: Some(giftwrap_since),
-                until: Some(giftwrap_until),
-                ..Default::default()
-            });
+            // Giftwraps cannot be filtered by author so we have to take them regardless
+            // of the spamsafe designation of the relay.
+            let filter = {
+                let mut filter = Filter {
+                    kinds: vec![EventKind::GiftWrap],
+                    since: Some(giftwrap_since),
+                    until: Some(giftwrap_until),
+                    ..Default::default()
+                };
+                filter.set_tag_values('p', vec![pkh.to_string()]);
+                filter
+            };
+            filters.push(filter);
         } else {
             self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
                 self.url.clone(),
@@ -923,43 +951,46 @@ impl Minion {
                 ..Default::default()
             });
 
-            // Also get reactions to these ancestors (but not replies)
+            // Get reactions to ancestors, but not replies
             let kinds = crate::feed::feed_augment_event_kinds();
-            filters.push(Filter {
-                e: ancestor_ids,
-                kinds,
-                ..Default::default()
-            });
+            let filter = {
+                let mut filter = Filter {
+                    kinds,
+                    ..Default::default()
+                };
+                let values = ancestor_ids.iter().map(|id| id.to_string()).collect();
+                filter.set_tag_values('e', values);
+                filter
+            };
+            filters.push(filter);
         }
 
         // Allow all feed related event kinds (excluding DMs)
         let event_kinds = crate::feed::feed_related_event_kinds(false);
 
-        if self.dbrelay.has_usage_bits(Relay::SPAMSAFE)
-            || !GLOBALS.storage.read_setting_avoid_spam_on_unsafe_relays()
-        {
-            // As the relay is spam safe, take all replies!
-            filters.push(Filter {
-                e: vec![main],
+        let filter = {
+            let mut filter = Filter {
                 kinds: event_kinds,
                 ..Default::default()
-            });
-        } else {
-            // As the relay is not spam safe, only take replies from followers
-            let authors: Vec<PublicKeyHex> = GLOBALS
-                .people
-                .get_subscribed_pubkeys()
-                .drain(..)
-                .map(|pk| pk.into())
-                .collect();
+            };
+            let values = vec![main.to_string()];
+            filter.set_tag_values('e', values);
 
-            filters.push(Filter {
-                authors,
-                e: vec![main],
-                kinds: event_kinds,
-                ..Default::default()
-            });
-        }
+            // Spam prevention:
+            if !self.dbrelay.has_usage_bits(Relay::SPAMSAFE)
+                && GLOBALS.storage.read_setting_avoid_spam_on_unsafe_relays()
+            {
+                filter.authors = GLOBALS
+                    .people
+                    .get_subscribed_pubkeys()
+                    .drain(..)
+                    .map(|pk| pk.into())
+                    .collect();
+            }
+
+            filter
+        };
+        filters.push(filter);
 
         self.subscribe(filters, "thread_feed", job_id).await?;
 
@@ -983,12 +1014,17 @@ impl Minion {
         let mut authors: Vec<PublicKeyHex> = dmchannel.keys().iter().map(|k| k.into()).collect();
         authors.push(pkh.clone());
 
-        let filters: Vec<Filter> = vec![Filter {
-            authors,
-            kinds: vec![EventKind::EncryptedDirectMessage],
-            p: vec![pkh], // tagging the user
-            ..Default::default()
-        }];
+        let filter = {
+            let mut filter = Filter {
+                authors,
+                kinds: vec![EventKind::EncryptedDirectMessage],
+                ..Default::default()
+            };
+            // tagging the user
+            filter.set_tag_values('p', vec![pkh.to_string()]);
+            filter
+        };
+        let filters: Vec<Filter> = vec![filter];
 
         self.subscribe(filters, "dm_channel", job_id).await?;
 
@@ -1088,7 +1124,7 @@ impl Minion {
         let pkh: PublicKeyHex = ea.author.into();
         filter.authors = vec![pkh];
         filter.kinds = vec![ea.kind];
-        filter.d = vec![ea.d];
+        filter.set_tag_values('d', vec![ea.d]);
 
         self.subscribe(vec![filter], &handle, job_id).await
     }
