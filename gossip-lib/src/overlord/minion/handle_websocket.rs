@@ -29,9 +29,27 @@ impl Minion {
                     .get_handle_by_id(&subid.0)
                     .unwrap_or_else(|| "_".to_owned());
 
-                // Events that come in after EOSE on the general feed bump the last_general_eose
-                // timestamp for that relay, so we don't query before them next time we run.
                 if let Some(sub) = self.subscription_map.get_mut_by_id(&subid.0) {
+                    // Check if the event matches one of our filters
+                    // and ignore it if it doesn't
+                    let mut it_matches = false;
+                    for filter in sub.get_filters().iter() {
+                        if filter.event_matches_incomplete(&event) {
+                            it_matches = true;
+                            break;
+                        }
+                    }
+                    if !it_matches {
+                        tracing::info!(
+                            "{} sent event that does not match filters on subscription {}",
+                            self.url,
+                            handle
+                        );
+                        return Ok(());
+                    }
+
+                    // Events that come in after EOSE on the general feed bump the last_general_eose
+                    // timestamp for that relay, so we don't query before them next time we run.
                     if handle == "general_feed" && sub.eose() {
                         // Update last general EOSE
                         self.dbrelay.last_general_eose_at =

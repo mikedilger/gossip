@@ -27,6 +27,10 @@ impl Subscription {
         self.filters = filters;
     }
 
+    pub fn get_filters(&self) -> &[Filter] {
+        &self.filters
+    }
+
     pub fn get_id(&self) -> String {
         self.id.clone()
     }
