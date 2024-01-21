@@ -488,8 +488,7 @@ impl Minion {
                 kinds: event_kinds,
                 ..Default::default()
             };
-            let values = ids.iter().map(|id| id.to_string()).collect();
-            filter.set_tag_values('e', values);
+            filter.set_tag_values('e', ids.iter().map(|id| id.to_string()).collect());
             filter
         };
 
@@ -643,11 +642,27 @@ impl Minion {
                 };
                 let values = vec![pkh.to_string()];
                 filter.set_tag_values('p', values);
+
+                // Spam prevention:
+                if !self.dbrelay.has_usage_bits(Relay::SPAMSAFE)
+                    && GLOBALS.storage.read_setting_avoid_spam_on_unsafe_relays()
+                {
+                    // As the relay is not spam safe, only take mentions from followers
+                    filter.authors = GLOBALS
+                        .people
+                        .get_subscribed_pubkeys()
+                        .drain(..)
+                        .map(|pk| pk.into())
+                        .collect();
+                }
+
                 filter
             };
             filters.push(filter);
 
             // Giftwrap specially looks back further
+            // Giftwraps cannot be filtered by author so we have to take them regardless
+            // of the spamsafe designation of the relay.
             let filter = {
                 let mut filter = Filter {
                     kinds: vec![EventKind::GiftWrap],
@@ -859,11 +874,26 @@ impl Minion {
                     ..Default::default()
                 };
                 filter.set_tag_values('p', vec![pkh.to_string()]);
+
+                // Spam prevention:
+                if !self.dbrelay.has_usage_bits(Relay::SPAMSAFE)
+                    && GLOBALS.storage.read_setting_avoid_spam_on_unsafe_relays()
+                {
+                    filter.authors = GLOBALS
+                        .people
+                        .get_subscribed_pubkeys()
+                        .drain(..)
+                        .map(|pk| pk.into())
+                        .collect();
+                }
+
                 filter
             };
             filters.push(filter);
 
             // Giftwrap specially looks back further
+            // Giftwraps cannot be filtered by author so we have to take them regardless
+            // of the spamsafe designation of the relay.
             let filter = {
                 let mut filter = Filter {
                     kinds: vec![EventKind::GiftWrap],
@@ -905,16 +935,19 @@ impl Minion {
         &mut self,
         job_id: u64,
         main: IdHex,
-        vec_ids: Vec<IdHex>,
+        ancestor_ids: Vec<IdHex>,
     ) -> Result<(), Error> {
         // NOTE we do not unsubscribe to the general feed
 
         let mut filters: Vec<Filter> = Vec::new();
 
-        if !vec_ids.is_empty() {
+        if !ancestor_ids.is_empty() {
+            // We allow spammy ancestors since a descendant is sought, so spamsafe
+            // isn't relevant to these ancestor filters
+
             // Get ancestors we know of so far
             filters.push(Filter {
-                ids: vec_ids.clone(),
+                ids: ancestor_ids.clone(),
                 ..Default::default()
             });
 
@@ -925,7 +958,7 @@ impl Minion {
                     kinds,
                     ..Default::default()
                 };
-                let values = vec_ids.iter().map(|id| id.to_string()).collect();
+                let values = ancestor_ids.iter().map(|id| id.to_string()).collect();
                 filter.set_tag_values('e', values);
                 filter
             };
@@ -942,6 +975,19 @@ impl Minion {
             };
             let values = vec![main.to_string()];
             filter.set_tag_values('e', values);
+
+            // Spam prevention:
+            if !self.dbrelay.has_usage_bits(Relay::SPAMSAFE)
+                && GLOBALS.storage.read_setting_avoid_spam_on_unsafe_relays()
+            {
+                filter.authors = GLOBALS
+                    .people
+                    .get_subscribed_pubkeys()
+                    .drain(..)
+                    .map(|pk| pk.into())
+                    .collect();
+            }
+
             filter
         };
         filters.push(filter);

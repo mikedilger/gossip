@@ -69,6 +69,7 @@ const WRITE_HOVER_TEXT: &str =
     "Where you actually write your events to. It is recommended to have a few.";
 const OUTBOX_HOVER_TEXT: &str = "Where you tell others you write to. You should also check Write. It is recommended to have a few.";
 const ADVERTISE_HOVER_TEXT: &str = "Your relay list will be advertised to this relay.";
+const SPAMSAFE_HOVER_TEXT: &str = "Relay is trusted to filter spam. If not set, replies and mentions from unfollowed people will not be fetched from the relay.";
 
 #[derive(Clone, PartialEq)]
 pub enum RelayEntryView {
@@ -85,6 +86,7 @@ struct UsageBits {
     inbox: bool,
     outbox: bool,
     discover: bool,
+    spamsafe: bool,
 }
 
 impl UsageBits {
@@ -96,6 +98,7 @@ impl UsageBits {
             inbox: usage_bits & Relay::INBOX == Relay::INBOX,
             outbox: usage_bits & Relay::OUTBOX == Relay::OUTBOX,
             discover: usage_bits & Relay::DISCOVER == Relay::DISCOVER,
+            spamsafe: usage_bits & Relay::SPAMSAFE == Relay::SPAMSAFE,
         }
     }
 
@@ -529,7 +532,7 @@ impl RelayEntry {
         let align = Align::Center;
 
         let bg_rect =
-            egui::Rect::from_x_y_ranges(right.x - 150.0..=right.x, right.y - 5.0..=right.y + 18.0);
+            egui::Rect::from_x_y_ranges(right.x - 173.0..=right.x, right.y - 5.0..=right.y + 18.0);
         let bg_radius = bg_rect.height() / 2.0;
         ui.painter().rect_filled(
             bg_rect,
@@ -548,14 +551,14 @@ impl RelayEntry {
         }
 
         // ---- R ----
-        let pos = right + vec2(RIGHT - 5.0 * SPACE, 0.0);
+        let pos = right + vec2(RIGHT - 6.0 * SPACE, 0.0);
         let (text, color) = switch(ui, "R", self.usage.read);
         let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("R"));
         draw_text_galley_at(ui, pos, galley, Some(color), None);
         response.on_hover_text(READ_HOVER_TEXT);
 
         // ---- I ----
-        let pos = right + vec2(RIGHT - 4.0 * SPACE, 0.0);
+        let pos = right + vec2(RIGHT - 5.0 * SPACE, 0.0);
         let (text, color) = switch(ui, "I", self.usage.inbox);
         let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("I"));
         draw_text_galley_at(ui, pos, galley, Some(color), None);
@@ -566,14 +569,14 @@ impl RelayEntry {
         draw_text_at(ui, pos, "+".into(), align, Some(color), None);
 
         // ---- W ----
-        let pos = right + vec2(RIGHT - 3.0 * SPACE, 0.0);
+        let pos = right + vec2(RIGHT - 4.0 * SPACE, 0.0);
         let (text, color) = switch(ui, "W", self.usage.write);
         let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("W"));
         draw_text_galley_at(ui, pos, galley, Some(color), None);
         response.on_hover_text(WRITE_HOVER_TEXT);
 
         // ---- O ----
-        let pos = right + vec2(RIGHT - 2.0 * SPACE, 0.0);
+        let pos = right + vec2(RIGHT - 3.0 * SPACE, 0.0);
         let (text, color) = switch(ui, "O", self.usage.outbox);
         let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("O"));
         draw_text_galley_at(ui, pos, galley, Some(color), None);
@@ -584,18 +587,25 @@ impl RelayEntry {
         draw_text_at(ui, pos, "+".into(), align, Some(color), None);
 
         // ---- D ----
-        let pos = right + vec2(RIGHT - 1.0 * SPACE, 0.0);
+        let pos = right + vec2(RIGHT - 2.0 * SPACE, 0.0);
         let (text, color) = switch(ui, "D", self.usage.discover);
         let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("D"));
         draw_text_galley_at(ui, pos, galley, Some(color), None);
         response.on_hover_text(DISCOVER_HOVER_TEXT);
 
         // ---- A ----
-        let pos = right + vec2(RIGHT - 0.0 * SPACE, 0.0);
+        let pos = right + vec2(RIGHT - 1.0 * SPACE, 0.0);
         let (text, color) = switch(ui, "A", self.relay.is_good_for_advertise());
         let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("A"));
         draw_text_galley_at(ui, pos, galley, Some(color), None);
         response.on_hover_text(ADVERTISE_HOVER_TEXT);
+
+        // ---- S ----
+        let pos = right + vec2(RIGHT - 0.0 * SPACE, 0.0);
+        let (text, color) = switch(ui, "S", self.usage.spamsafe);
+        let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("S"));
+        draw_text_galley_at(ui, pos, galley, Some(color), None);
+        response.on_hover_text(SPAMSAFE_HOVER_TEXT);
     }
 
     fn paint_nip11(&self, ui: &mut Ui, rect: &Rect) {
@@ -921,7 +931,37 @@ impl RelayEntry {
                 None,
             );
         }
-        */
+         */
+        {
+            // ---- spamsafe ----
+            let pos = pos + vec2(USAGE_SWITCH_X_SPACING, 0.0);
+            let id = self.make_id("spamsafe_switch");
+            let sw_rect = Rect::from_min_size(pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET), switch_size);
+            let response = widgets::switch_custom_at(
+                ui,
+                true,
+                &mut self.usage.spamsafe,
+                sw_rect,
+                id,
+                knob_fill,
+                on_fill,
+                off_fill,
+            );
+            if response.changed() {
+                modify_relay(&self.relay.url, |relay| {
+                    relay.adjust_usage_bit(Relay::SPAMSAFE, self.usage.spamsafe)
+                });
+            }
+            response.on_hover_text(SPAMSAFE_HOVER_TEXT);
+            draw_text_at(
+                ui,
+                pos + vec2(ui.spacing().item_spacing.x + switch_size.x, 0.0),
+                "Spam safe".into(),
+                Align::LEFT,
+                Some(ui.visuals().text_color()),
+                None,
+            );
+        }
         let pos = pos + vec2(0.0, USAGE_SWITCH_Y_SPACING);
         {
             // ---- rank ----

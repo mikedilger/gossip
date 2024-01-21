@@ -2396,15 +2396,15 @@ impl Overlord {
         //   ancestors from storage, replies from storage
         //   ancestors from relays, replies from relays,
 
-        // We simplify things by asking for this data from every relay we are
-        // connected to, as well as any relays we discover might know.  This is
-        // more than strictly necessary, but not too expensive.
-
         let mut missing_ancestors: Vec<Id> = Vec::new();
 
         let mut relays: Vec<RelayUrl> = Vec::new();
 
-        // Include the relays where the referenced_by event was seen
+        // Include the relays where the referenced_by event was seen. These are
+        // by far the most likely to have the events.
+        //
+        // We do this even if they are not spam safe. The minions will use more restrictive
+        // filters if they are not spam safe.
         relays.extend(
             GLOBALS
                 .storage
@@ -2420,18 +2420,31 @@ impl Overlord {
                 .map(|(url, _time)| url),
         );
 
-        // If we have less than 2 relays, include the write relays of the author
-        if relays.len() < 2 {
-            if let Some(pk) = author {
-                let author_relays: Vec<RelayUrl> = GLOBALS
-                    .storage
-                    .get_best_relays(pk, Direction::Write)?
-                    .drain(..)
-                    .map(|pair| pair.0)
-                    .collect();
-                relays.extend(author_relays);
-            }
+        // Include the write relays of the author.
+        //
+        // We do this even if they are not spam safe. The minions will use more restrictive
+        // filters if they are not spam safe.
+        if let Some(pk) = author {
+            let author_relays: Vec<RelayUrl> = GLOBALS
+                .storage
+                .get_best_relays(pk, Direction::Write)?
+                .drain(..)
+                .map(|pair| pair.0)
+                .collect();
+            relays.extend(author_relays);
         }
+
+        // Include our read relays
+        //
+        // We do this even if they are not spam safe. The minions will use more restrictive
+        // filters if they are not spam safe.
+        let read_relays: Vec<RelayUrl> = GLOBALS
+            .storage
+            .filter_relays(|r| r.has_usage_bits(Relay::READ) && r.rank != 0)?
+            .iter()
+            .map(|relay| relay.url.clone())
+            .collect();
+        relays.extend(read_relays);
 
         // Climb the tree as high as we can, and if there are higher events,
         // we will ask for those in the initial subscription

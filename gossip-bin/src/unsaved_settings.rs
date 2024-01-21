@@ -69,6 +69,7 @@ pub struct UnsavedSettings {
     pub show_media: bool,
     pub approve_content_warning: bool,
     pub show_deleted_events: bool,
+    pub avoid_spam_on_unsafe_relays: bool,
 
     // Posting Settings
     pub pow: u8,
@@ -150,6 +151,7 @@ impl Default for UnsavedSettings {
             show_media: default_setting!(show_media),
             approve_content_warning: default_setting!(approve_content_warning),
             show_deleted_events: default_setting!(show_deleted_events),
+            avoid_spam_on_unsafe_relays: default_setting!(avoid_spam_on_unsafe_relays),
             pow: default_setting!(pow),
             set_client_tag: default_setting!(set_client_tag),
             set_user_agent: default_setting!(set_user_agent),
@@ -231,6 +233,7 @@ impl UnsavedSettings {
             show_media: load_setting!(show_media),
             approve_content_warning: load_setting!(approve_content_warning),
             show_deleted_events: load_setting!(show_deleted_events),
+            avoid_spam_on_unsafe_relays: load_setting!(avoid_spam_on_unsafe_relays),
             pow: load_setting!(pow),
             set_client_tag: load_setting!(set_client_tag),
             set_user_agent: load_setting!(set_user_agent),
@@ -308,6 +311,7 @@ impl UnsavedSettings {
         save_setting!(show_media, self, txn);
         save_setting!(approve_content_warning, self, txn);
         save_setting!(show_deleted_events, self, txn);
+        save_setting!(avoid_spam_on_unsafe_relays, self, txn);
         save_setting!(pow, self, txn);
         save_setting!(set_client_tag, self, txn);
         save_setting!(set_user_agent, self, txn);

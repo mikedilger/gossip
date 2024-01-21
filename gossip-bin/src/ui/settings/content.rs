@@ -72,6 +72,12 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     )
     .on_hover_text("Takes effect fully only on restart.");
 
+    ui.checkbox(
+        &mut app.unsaved_settings.avoid_spam_on_unsafe_relays,
+        "Avoid spam from unsafe relays",
+    )
+        .on_hover_text("Unless a relay is marked as SpamSafe, replies and mentions will only be pulled from people you follow. Takes effect fully only on restart.");
+
     ui.add_space(10.0);
     ui.heading("Event Content Settings");
     ui.add_space(10.0);
