@@ -381,10 +381,10 @@ fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url, privacy_issue: b
     let mut show_link = true;
 
     // FIXME show/hide lists should persist app restarts
-    let show_image = !privacy_issue && (
-        (read_setting!(show_media) && !app.media_hide_list.contains(&url))
-            || (!read_setting!(show_media) && app.media_show_list.contains(&url))
-    );
+    let show_image = (read_setting!(show_media)
+        && !app.media_hide_list.contains(&url)
+        && (!privacy_issue || app.media_show_list.contains(&url)))
+        || (!read_setting!(show_media) && app.media_show_list.contains(&url));
 
     if show_image {
         if let Some(response) = try_render_image(app, ui, url.clone()) {
@@ -411,11 +411,8 @@ fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url, privacy_issue: b
         };
 
         if response.clicked() {
-            if read_setting!(show_media) {
-                app.media_hide_list.remove(&url);
-            } else {
-                app.media_show_list.insert(url.clone());
-            }
+            app.media_hide_list.remove(&url);
+            app.media_show_list.insert(url.clone());
             if !read_setting!(load_media) {
                 GLOBALS.status_queue.write().write("Fetch Media setting is disabled. Right-click link to open in browser or copy URL".to_owned());
             }
@@ -498,10 +495,10 @@ fn show_video_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url, privacy_issue: b
     let mut show_link = true;
 
     // FIXME show/hide lists should persist app restarts
-    let show_video = !privacy_issue && (
-        (read_setting!(show_media) && !app.media_hide_list.contains(&url))
-            || (!read_setting!(show_media) && app.media_show_list.contains(&url))
-    );
+    let show_video = (read_setting!(show_media)
+        && !app.media_hide_list.contains(&url)
+        && (!privacy_issue || app.media_show_list.contains(&url)))
+        || (!read_setting!(show_media) && app.media_show_list.contains(&url));
 
     if show_video {
         if let Some(response) = try_render_video(app, ui, url.clone()) {
@@ -521,18 +518,18 @@ fn show_video_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url, privacy_issue: b
     if show_link {
         // show media toggle
         let response = if privacy_issue {
-            ui.link("[ PRIVACY RISK Video ]").on_hover_text(format!("The sender might be trying to associate your pubkey with your IP address. URL={}", url_string))
+            ui.link("[ PRIVACY RISK Video ]").on_hover_text(format!(
+                "The sender might be trying to associate your pubkey with your IP address. URL={}",
+                url_string
+            ))
         } else {
             // show url on hover
             ui.link("[ Video ]").on_hover_text(url_string.clone())
         };
 
         if response.clicked() {
-            if read_setting!(show_media) {
-                app.media_hide_list.remove(&url);
-            } else {
-                app.media_show_list.insert(url.clone());
-            }
+            app.media_hide_list.remove(&url);
+            app.media_show_list.insert(url.clone());
             if !read_setting!(load_media) {
                 GLOBALS.status_queue.write().write("Fetch Media setting is disabled. Right-click link to open in browser or copy URL".to_owned());
             }

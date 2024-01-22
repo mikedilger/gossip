@@ -420,7 +420,7 @@ struct GossipUi {
     images: HashMap<Url, TextureHandle>,
     /// used when settings.show_media=false to explicitly show
     media_show_list: HashSet<Url>,
-    /// used when settings.show_media=false to explicitly hide
+    /// used when settings.show_media=true to explicitly hide
     media_hide_list: HashSet<Url>,
     /// media that the user has selected to show full-width
     media_full_width_list: HashSet<Url>,
