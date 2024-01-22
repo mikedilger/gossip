@@ -212,11 +212,16 @@ pub(super) fn render_hyperlink(
     linkspan: &Span,
 ) {
     let link = note.shattered_content.slice(linkspan).unwrap();
+
+    // In DMs, fetching an image allows someone to associate your pubkey with your IP address
+    // by controlling the image URL, and since only you see the URL it must have been you
+    let privacy_issue = note.direct_message;
+
     if let (Ok(url), Some(nurl)) = (url::Url::try_from(link), app.try_check_url(link)) {
         if is_image_url(&url) {
-            show_image_toggle(app, ui, nurl);
+            show_image_toggle(app, ui, nurl, privacy_issue);
         } else if is_video_url(&url) {
-            show_video_toggle(app, ui, nurl);
+            show_video_toggle(app, ui, nurl, privacy_issue);
         } else {
             crate::ui::widgets::break_anywhere_hyperlink_to(ui, link, link);
         }
@@ -370,14 +375,16 @@ fn is_video_url(url: &url::Url) -> bool {
         || lower.ends_with(".webm")
 }
 
-fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
+fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url, privacy_issue: bool) {
     let row_height = ui.cursor().height();
     let url_string = url.to_string();
     let mut show_link = true;
 
     // FIXME show/hide lists should persist app restarts
-    let show_image = (read_setting!(show_media) && !app.media_hide_list.contains(&url))
-        || (!read_setting!(show_media) && app.media_show_list.contains(&url));
+    let show_image = !privacy_issue && (
+        (read_setting!(show_media) && !app.media_hide_list.contains(&url))
+            || (!read_setting!(show_media) && app.media_show_list.contains(&url))
+    );
 
     if show_image {
         if let Some(response) = try_render_image(app, ui, url.clone()) {
@@ -395,8 +402,14 @@ fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
     }
 
     if show_link {
-        let response = ui.link("[ Image ]").on_hover_text(url_string.clone()); // show url on hover
-                                                                               // show media toggle
+        // show media toggle
+        let response = if privacy_issue {
+            ui.link("[ PRIVACY RISK Image ]").on_hover_text(format!("The sender might be trying to associate your nostr pubkey with your IP address. URL={}", url_string))
+        } else {
+            // show url on hover
+            ui.link("[ Image ]").on_hover_text(url_string.clone())
+        };
+
         if response.clicked() {
             if read_setting!(show_media) {
                 app.media_hide_list.remove(&url);
@@ -479,14 +492,16 @@ fn try_render_image(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Respons
     response_return
 }
 
-fn show_video_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
+fn show_video_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url, privacy_issue: bool) {
     let row_height = ui.cursor().height();
     let url_string = url.to_string();
     let mut show_link = true;
 
     // FIXME show/hide lists should persist app restarts
-    let show_video = (read_setting!(show_media) && !app.media_hide_list.contains(&url))
-        || (!read_setting!(show_media) && app.media_show_list.contains(&url));
+    let show_video = !privacy_issue && (
+        (read_setting!(show_media) && !app.media_hide_list.contains(&url))
+            || (!read_setting!(show_media) && app.media_show_list.contains(&url))
+    );
 
     if show_video {
         if let Some(response) = try_render_video(app, ui, url.clone()) {
@@ -504,8 +519,14 @@ fn show_video_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
     }
 
     if show_link {
-        let response = ui.link("[ Video ]").on_hover_text(url_string.clone()); // show url on hover
-                                                                               // show media toggle
+        // show media toggle
+        let response = if privacy_issue {
+            ui.link("[ PRIVACY RISK Video ]").on_hover_text(format!("The sender might be trying to associate your pubkey with your IP address. URL={}", url_string))
+        } else {
+            // show url on hover
+            ui.link("[ Video ]").on_hover_text(url_string.clone())
+        };
+
         if response.clicked() {
             if read_setting!(show_media) {
                 app.media_hide_list.remove(&url);

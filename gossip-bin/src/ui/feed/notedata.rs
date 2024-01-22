@@ -63,6 +63,9 @@ pub(super) struct NoteData {
     /// error content (gossip-created notations)
     pub error_content: Option<String>,
 
+    /// direct message
+    pub direct_message: bool,
+
     /// Securely delivered via GiftWrap
     pub secure: bool,
 }
@@ -73,7 +76,9 @@ impl NoteData {
         // There is no sense in duplicating that work.
 
         let mut secure: bool = false;
+        let mut direct_message: bool = false;
         if matches!(event.kind, EventKind::GiftWrap) {
+            direct_message = true;
             secure = true;
             // Use the rumor for subsequent processing, but swap for the Giftwrap's id
             // since that is the effective event (database-accessible, deletable, etc)
@@ -82,6 +87,10 @@ impl NoteData {
                 event = rumor.into_event_with_bad_signature();
                 event.id = id; // lie, keep the giftwrap id
             }
+        }
+
+        if event.kind == EventKind::EncryptedDirectMessage {
+            direct_message = true;
         }
 
         let delegation = event.delegation();
@@ -247,6 +256,7 @@ impl NoteData {
             self_already_reacted,
             shattered_content,
             error_content,
+            direct_message,
             secure,
         }
     }
