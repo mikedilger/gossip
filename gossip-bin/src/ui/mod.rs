@@ -1276,6 +1276,14 @@ impl eframe::App for GossipUi {
 
             // FIXME, there should be a popup prompt with Approve or Decline
 
+            // NOTE: This may trigger multiple times (multiple frames) before the overlord
+            // gets around to doing it. Having multiple approvals in the queue to the overlord
+            // wont hurt anything because they don't copy the jobs, they just specify which
+            // url is approved.
+
+            // But once the UI is built for this, only one button press will send only one
+            // approval
+
             // Presume approved
             let _ = GLOBALS
                 .to_overlord
@@ -1287,6 +1295,14 @@ impl eframe::App for GossipUi {
             tracing::info!("AUTO-APPROVING AUTH req {}", url);
 
             // FIXME, there should be a popup prompt with Approve or Decline
+
+            // NOTE: This may trigger multiple times (multiple frames) before the overlord
+            // gets around to doing it. Having multiple approvals in the queue to the overlord
+            // wont hurt anything because they don't copy the jobs, they just specify which
+            // url is approved.
+
+            // But once the UI is built for this, only one button press will send only one
+            // approval
 
             // Presume approved until we setup the user interaction
             let _ = GLOBALS
