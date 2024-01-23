@@ -982,10 +982,13 @@ impl Overlord {
     /// and inform the minion.
     pub async fn connect_approved(&mut self, relay_url: RelayUrl) -> Result<(), Error> {
         // Save the answer in the relay record
-        if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url)? {
-            relay.allow_connect = Some(true);
-            GLOBALS.storage.write_relay(&relay, None)?;
-        }
+        GLOBALS.storage.modify_relay(
+            &relay_url,
+            |r| {
+                r.allow_connect = Some(true);
+            },
+            None,
+        )?;
 
         // Start the job
         let reqs = GLOBALS.connect_requests.read().clone();
@@ -1010,10 +1013,13 @@ impl Overlord {
     /// and inform the minion.
     pub async fn connect_declined(&mut self, relay_url: RelayUrl) -> Result<(), Error> {
         // Save the answer in the relay record
-        if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url)? {
-            relay.allow_connect = Some(false);
-            GLOBALS.storage.write_relay(&relay, None)?;
-        }
+        GLOBALS.storage.modify_relay(
+            &relay_url,
+            |r| {
+                r.allow_connect = Some(false);
+            },
+            None,
+        )?;
 
         // Remove the connect requests entry
         GLOBALS
