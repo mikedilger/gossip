@@ -903,10 +903,13 @@ impl Overlord {
     /// and inform the minion.
     pub fn auth_approved(&mut self, relay_url: RelayUrl) -> Result<(), Error> {
         // Save the answer in the relay record
-        if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url)? {
-            relay.allow_auth = Some(true);
-            GLOBALS.storage.write_relay(&relay, None)?;
-        }
+        GLOBALS.storage.modify_relay(
+            &relay_url,
+            |r| {
+                r.allow_auth = Some(true);
+            },
+            None,
+        )?;
 
         if GLOBALS.connected_relays.contains_key(&relay_url) {
             // Tell the minion
@@ -932,10 +935,13 @@ impl Overlord {
     /// and inform the minion.
     pub fn auth_declined(&mut self, relay_url: RelayUrl) -> Result<(), Error> {
         // Save the answer in the relay record
-        if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url)? {
-            relay.allow_auth = Some(false);
-            GLOBALS.storage.write_relay(&relay, None)?;
-        }
+        GLOBALS.storage.modify_relay(
+            &relay_url,
+            |r| {
+                r.allow_auth = Some(false);
+            },
+            None,
+        )?;
 
         if GLOBALS.connected_relays.contains_key(&relay_url) {
             // Tell the minion
