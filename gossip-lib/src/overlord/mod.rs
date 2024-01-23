@@ -2401,7 +2401,7 @@ impl Overlord {
         let mut relays: Vec<RelayUrl> = Vec::new();
 
         // Include the relays where the referenced_by event was seen. These are
-        // by far the most likely to have the events.
+        // likely to have the events.
         //
         // We do this even if they are not spam safe. The minions will use more restrictive
         // filters if they are not spam safe.
@@ -2434,18 +2434,6 @@ impl Overlord {
             relays.extend(author_relays);
         }
 
-        // Include our read relays
-        //
-        // We do this even if they are not spam safe. The minions will use more restrictive
-        // filters if they are not spam safe.
-        let read_relays: Vec<RelayUrl> = GLOBALS
-            .storage
-            .filter_relays(|r| r.has_usage_bits(Relay::READ) && r.rank != 0)?
-            .iter()
-            .map(|relay| relay.url.clone())
-            .collect();
-        relays.extend(read_relays);
-
         // Climb the tree as high as we can, and if there are higher events,
         // we will ask for those in the initial subscription
         let highest_parent_id =
@@ -2463,7 +2451,26 @@ impl Overlord {
 
         // Collect missing ancestors and potential relays further up the chain
         if let Some(highest_parent) = GLOBALS.storage.read_event(highest_parent_id)? {
-            // Use relays in 'e' tags
+            // Include write relays of all the p-tagged people
+            // One of them must have created the ancestor.
+            // Unfortunately, oftentimes we won't have relays for strangers.
+            for (pkh, opthint, _optmarker) in highest_parent.people() {
+                if let Some(url) = opthint {
+                    relays.push(url);
+                } else {
+                    if let Ok(pk) = PublicKey::try_from(pkh) {
+                        let tagged_person_relays: Vec<RelayUrl> = GLOBALS
+                            .storage
+                            .get_best_relays(pk, Direction::Write)?
+                            .drain(..)
+                            .map(|pair| pair.0)
+                            .collect();
+                        relays.extend(tagged_person_relays);
+                    }
+                }
+            }
+
+            // Use relay hints in 'e' tags
             for eref in highest_parent.referred_events() {
                 match eref {
                     EventReference::Id(id, opturl, _marker) => {
@@ -2475,15 +2482,6 @@ impl Overlord {
                     EventReference::Addr(_ea) => {
                         // FIXME - we should subscribe to these too
                     }
-                }
-            }
-
-            // fiatjaf's suggestion from issue #187, use 'p' tag url mentions too, since
-            // those people probably wrote the ancestor events so probably on those
-            // relays
-            for (_pk, opturl, _nick) in highest_parent.people() {
-                if let Some(url) = opturl {
-                    relays.push(url);
                 }
             }
         }
