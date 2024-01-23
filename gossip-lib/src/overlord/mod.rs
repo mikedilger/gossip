@@ -310,18 +310,23 @@ impl Overlord {
             return Ok(());
         }
 
-        match relay.allow_connect {
-            Some(true) => (),             // fall through
-            Some(false) => return Ok(()), // don't connect to this relay
-            None => {
-                // Save the engage_minion request and Ask the user
-                GLOBALS
-                    .connect_requests
-                    .write()
-                    .push((url.clone(), jobs.clone()));
-                return Ok(());
+        if GLOBALS
+            .storage
+            .read_setting_relay_connection_requires_approval()
+        {
+            match relay.allow_connect {
+                Some(true) => (),             // fall through
+                Some(false) => return Ok(()), // don't connect to this relay
+                None => {
+                    // Save the engage_minion request and Ask the user
+                    GLOBALS
+                        .connect_requests
+                        .write()
+                        .push((url.clone(), jobs.clone()));
+                    return Ok(());
+                }
             }
-        }
+        } // else fall through
 
         if let Some(mut refmut) = GLOBALS.connected_relays.get_mut(&url) {
             // We are already connected. Send it the jobs

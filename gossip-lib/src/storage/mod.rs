@@ -709,6 +709,18 @@ impl Storage {
         bool,
         true
     );
+    def_setting!(
+        relay_connection_requires_approval,
+        b"relay_connection_requires_approval",
+        bool,
+        false
+    );
+    def_setting!(
+        relay_auth_requires_approval,
+        b"relay_auth_requires_approval",
+        bool,
+        false
+    );
     def_setting!(num_relays_per_person, b"num_relays_per_person", u8, 2);
     def_setting!(max_relays, b"max_relays", u8, 50);
     def_setting!(feed_chunk, b"feed_chunk", u64, 60 * 60 * 4);

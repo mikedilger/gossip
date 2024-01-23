@@ -185,10 +185,14 @@ impl Minion {
             }
             RelayMessage::Auth(challenge) => {
                 self.auth_challenge = challenge.to_owned();
-                match self.dbrelay.allow_auth {
-                    Some(true) => self.authenticate().await?,
-                    Some(false) => (),
-                    None => GLOBALS.auth_requests.write().push(self.url.clone()),
+                if GLOBALS.storage.read_setting_relay_auth_requires_approval() {
+                    match self.dbrelay.allow_auth {
+                        Some(true) => self.authenticate().await?,
+                        Some(false) => (),
+                        None => GLOBALS.auth_requests.write().push(self.url.clone()),
+                    }
+                } else {
+                    self.authenticate().await?
                 }
             }
             RelayMessage::Closed(subid, message) => {
