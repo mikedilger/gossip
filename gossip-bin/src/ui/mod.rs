@@ -1270,9 +1270,21 @@ impl eframe::App for GossipUi {
             return wizard::update(self, ctx, frame, wp);
         }
 
+        // Connect approval?
+        for (url, _) in GLOBALS.connect_requests.read().iter() {
+            tracing::info!("AUTO-APPROVING CONNECT req {}", url);
+
+            // FIXME, there should be a popup prompt with Approve or Decline
+
+            // Presume approved
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::ConnectApproved(url.to_owned()));
+        }
+
         // Auth approval?
         for url in GLOBALS.auth_requests.read().iter() {
-            tracing::info!("AUTH req {}", url);
+            tracing::info!("AUTO-APPROVING AUTH req {}", url);
 
             // FIXME, there should be a popup prompt with Approve or Decline
 

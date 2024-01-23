@@ -137,7 +137,10 @@ pub struct Globals {
     // Active advertise jobs
     pub active_advertise_jobs: DashSet<u64>,
 
-    // Relay auth request (needs allow or deny)
+    /// Connect requests (asking the user)
+    pub connect_requests: PRwLock<Vec<(RelayUrl, Vec<RelayJob>)>>,
+
+    /// Relay auth request (needs allow or deny)
     pub auth_requests: PRwLock<Vec<RelayUrl>>,
 }
 
@@ -198,6 +201,7 @@ lazy_static! {
             wait_for_login_notify: Notify::new(),
             wait_for_data_migration: AtomicBool::new(false),
             active_advertise_jobs: DashSet::new(),
+            connect_requests: PRwLock::new(Vec::new()),
             auth_requests: PRwLock::new(Vec::new()),
         }
     };

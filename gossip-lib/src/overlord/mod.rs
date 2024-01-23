@@ -304,8 +304,23 @@ impl Overlord {
         }
 
         let relay = GLOBALS.storage.read_or_create_relay(&url, None)?;
+
+        // don't connect to rank=0 relays
         if relay.rank == 0 {
-            return Ok(()); // don't connect to rank=0 relays
+            return Ok(());
+        }
+
+        match relay.allow_connect {
+            Some(true) => (),             // fall through
+            Some(false) => return Ok(()), // don't connect to this relay
+            None => {
+                // Save the engage_minion request and Ask the user
+                GLOBALS
+                    .connect_requests
+                    .write()
+                    .push((url.clone(), jobs.clone()));
+                return Ok(());
+            }
         }
 
         if let Some(mut refmut) = GLOBALS.connected_relays.get_mut(&url) {
@@ -537,6 +552,12 @@ impl Overlord {
             }
             ToOverlordMessage::ClearPersonList(list) => {
                 self.clear_person_list(list)?;
+            }
+            ToOverlordMessage::ConnectApproved(relay_url) => {
+                self.connect_approved(relay_url).await?;
+            }
+            ToOverlordMessage::ConnectDeclined(relay_url) => {
+                self.connect_declined(relay_url).await?;
             }
             ToOverlordMessage::DelegationReset => {
                 Self::delegation_reset().await?;
@@ -948,6 +969,52 @@ impl Overlord {
     /// the empty list. You should probably double-check that the user is certain.
     pub fn clear_person_list(&mut self, list: PersonList) -> Result<(), Error> {
         GLOBALS.people.clear_person_list(list)?;
+        Ok(())
+    }
+
+    /// User has approved connection to this relay. Save this result for later
+    /// and inform the minion.
+    pub async fn connect_approved(&mut self, relay_url: RelayUrl) -> Result<(), Error> {
+        // Save the answer in the relay record
+        if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url)? {
+            relay.allow_connect = Some(true);
+            GLOBALS.storage.write_relay(&relay, None)?;
+        }
+
+        // Start the job
+        let reqs = GLOBALS.connect_requests.read().clone();
+        for (url, jobs) in &reqs {
+            if *url == relay_url {
+                self.engage_minion(url.clone(), jobs.clone()).await?;
+                // let the loop continue, it is possible the overlord tried to engage this
+                // minion more than once.
+            }
+        }
+
+        // Remove the connect requests entry
+        GLOBALS
+            .connect_requests
+            .write()
+            .retain(|(url, _)| *url != relay_url);
+
+        Ok(())
+    }
+
+    /// User has declined connection to this relay. Save this result for later
+    /// and inform the minion.
+    pub async fn connect_declined(&mut self, relay_url: RelayUrl) -> Result<(), Error> {
+        // Save the answer in the relay record
+        if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url)? {
+            relay.allow_connect = Some(false);
+            GLOBALS.storage.write_relay(&relay, None)?;
+        }
+
+        // Remove the connect requests entry
+        GLOBALS
+            .connect_requests
+            .write()
+            .retain(|(url, _)| *url != relay_url);
+
         Ok(())
     }
 

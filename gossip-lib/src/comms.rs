@@ -38,6 +38,12 @@ pub enum ToOverlordMessage {
     /// Calls [clear_person_list](crate::Overlord::clear_person_list)
     ClearPersonList(PersonList),
 
+    /// Calls [auth_approved](crate::Overlord::connect_approved)
+    ConnectApproved(RelayUrl),
+
+    /// Calls [auth_approved](crate::Overlord::connect_declined)
+    ConnectDeclined(RelayUrl),
+
     /// Calls [delegation_reset](crate::Overlord::delegation_reset)
     DelegationReset,
 
