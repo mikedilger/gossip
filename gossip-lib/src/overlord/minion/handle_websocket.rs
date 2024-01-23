@@ -184,8 +184,12 @@ impl Minion {
                 }
             }
             RelayMessage::Auth(challenge) => {
-                let id = self.authenticate(&challenge).await?;
-                self.waiting_for_auth = Some(id);
+                self.auth_challenge = challenge.to_owned();
+                match self.dbrelay.allow_auth {
+                    Some(true) => self.authenticate().await?,
+                    Some(false) => (),
+                    None => GLOBALS.auth_requests.write().push(self.url.clone()),
+                }
             }
             RelayMessage::Closed(subid, message) => {
                 let handle = self

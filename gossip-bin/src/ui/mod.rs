@@ -1270,6 +1270,18 @@ impl eframe::App for GossipUi {
             return wizard::update(self, ctx, frame, wp);
         }
 
+        // Auth approval?
+        for url in GLOBALS.auth_requests.read().iter() {
+            tracing::info!("AUTH req {}", url);
+
+            // FIXME, there should be a popup prompt with Approve or Decline
+
+            // Presume approved until we setup the user interaction
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::AuthApproved(url.to_owned()));
+        }
+
         // Side panel
         self.side_panel(ctx);
 

@@ -51,6 +51,7 @@ pub struct Minion {
     sought_events: HashMap<Id, EventSeekState>,
     last_message_sent: String,
     waiting_for_auth: Option<Id>,
+    auth_challenge: String,
     corked_subscriptions: Vec<(String, Unixtime)>,
     corked_metadata: Vec<(u64, Vec<PublicKey>)>,
     general_feed_start: Option<Unixtime>,
@@ -78,6 +79,7 @@ impl Minion {
             sought_events: HashMap::new(),
             last_message_sent: String::new(),
             waiting_for_auth: None,
+            auth_challenge: "".to_string(),
             corked_subscriptions: Vec::new(),
             corked_metadata: Vec::new(),
             general_feed_start: None,
@@ -393,6 +395,15 @@ impl Minion {
                     self.url.clone(),
                     message.job_id,
                 ))?;
+            }
+            ToMinionPayloadDetail::AuthApproved => {
+                self.dbrelay.allow_auth = Some(true); // save in our memory copy of the relay
+                self.authenticate().await?;
+                GLOBALS.auth_requests.write().retain(|url| *url != self.url);
+            }
+            ToMinionPayloadDetail::AuthDeclined => {
+                self.dbrelay.allow_auth = Some(false); // save in our memory copy of the relay
+                GLOBALS.auth_requests.write().retain(|url| *url != self.url);
             }
             ToMinionPayloadDetail::FetchEvent(id) => {
                 self.sought_events
@@ -1341,7 +1352,7 @@ impl Minion {
         Ok(())
     }
 
-    async fn authenticate(&mut self, challenge: &str) -> Result<Id, Error> {
+    async fn authenticate(&mut self) -> Result<(), Error> {
         if !GLOBALS.identity.is_unlocked() {
             return Err(ErrorKind::NoPrivateKeyForAuth(self.url.clone()).into());
         }
@@ -1357,7 +1368,7 @@ impl Minion {
             kind: EventKind::Auth,
             tags: vec![
                 Tag::new(&["relay", self.url.as_str()]),
-                Tag::new(&["challenge", challenge]),
+                Tag::new(&["challenge", &self.auth_challenge]),
             ],
             content: "".to_string(),
         };
@@ -1369,7 +1380,9 @@ impl Minion {
         let ws_stream = self.stream.as_mut().unwrap();
         ws_stream.send(WsMessage::Text(wire)).await?;
         tracing::info!("Authenticated to {}", &self.url);
-        Ok(id)
+
+        self.waiting_for_auth = Some(id);
+        Ok(())
     }
 
     // This replictes reqwest Response text_with_charset to handle decoding

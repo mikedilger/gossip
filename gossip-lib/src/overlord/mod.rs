@@ -526,6 +526,12 @@ impl Overlord {
             ToOverlordMessage::AdvertiseRelayListNextChunk(event, relays) => {
                 self.advertise_relay_list_next_chunk(event, relays).await?;
             }
+            ToOverlordMessage::AuthApproved(relay_url) => {
+                self.auth_approved(relay_url)?;
+            }
+            ToOverlordMessage::AuthDeclined(relay_url) => {
+                self.auth_declined(relay_url)?;
+            }
             ToOverlordMessage::ChangePassphrase { old, new } => {
                 Self::change_passphrase(old, new).await?;
             }
@@ -868,6 +874,64 @@ impl Overlord {
                     ));
             }
         }));
+
+        Ok(())
+    }
+
+    /// User has approved authentication on this relay. Save this result for later
+    /// and inform the minion.
+    pub fn auth_approved(&mut self, relay_url: RelayUrl) -> Result<(), Error> {
+        // Save the answer in the relay record
+        if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url)? {
+            relay.allow_auth = Some(true);
+            GLOBALS.storage.write_relay(&relay, None)?;
+        }
+
+        if GLOBALS.connected_relays.contains_key(&relay_url) {
+            // Tell the minion
+            let _ = self.to_minions.send(ToMinionMessage {
+                target: relay_url.as_str().to_owned(),
+                payload: ToMinionPayload {
+                    job_id: 0,
+                    detail: ToMinionPayloadDetail::AuthApproved,
+                },
+            });
+        } else {
+            // Clear the auth request, we are no longer connected
+            GLOBALS
+                .auth_requests
+                .write()
+                .retain(|url| *url != relay_url);
+        }
+
+        Ok(())
+    }
+
+    /// User has declined authentication on this relay. Save this result for later
+    /// and inform the minion.
+    pub fn auth_declined(&mut self, relay_url: RelayUrl) -> Result<(), Error> {
+        // Save the answer in the relay record
+        if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url)? {
+            relay.allow_auth = Some(false);
+            GLOBALS.storage.write_relay(&relay, None)?;
+        }
+
+        if GLOBALS.connected_relays.contains_key(&relay_url) {
+            // Tell the minion
+            let _ = self.to_minions.send(ToMinionMessage {
+                target: relay_url.as_str().to_owned(),
+                payload: ToMinionPayload {
+                    job_id: 0,
+                    detail: ToMinionPayloadDetail::AuthDeclined,
+                },
+            });
+        } else {
+            // Clear the auth request, we are no longer connected
+            GLOBALS
+                .auth_requests
+                .write()
+                .retain(|url| *url != relay_url);
+        }
 
         Ok(())
     }
