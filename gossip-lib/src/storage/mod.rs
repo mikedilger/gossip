@@ -604,79 +604,6 @@ impl Storage {
         }
     }
 
-    /// Get personlist metadata
-    #[inline]
-    pub fn get_person_list_metadata(
-        &self,
-        list: PersonList,
-    ) -> Result<Option<PersonListMetadata>, Error> {
-        self.get_person_list_metadata3(list)
-    }
-
-    /// Set personlist metadata
-    #[inline]
-    pub fn set_person_list_metadata<'a>(
-        &'a self,
-        list: PersonList,
-        metadata: &PersonListMetadata,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error> {
-        self.set_person_list_metadata3(list, metadata, rw_txn)
-    }
-
-    /// Get all person lists with their metadata
-    #[inline]
-    pub fn get_all_person_list_metadata(
-        &self,
-    ) -> Result<Vec<(PersonList, PersonListMetadata)>, Error> {
-        self.get_all_person_list_metadata3()
-    }
-
-    /// Find a person list by "d" tag
-    #[inline]
-    pub fn find_person_list_by_dtag(
-        &self,
-        dtag: &str,
-    ) -> Result<Option<(PersonList, PersonListMetadata)>, Error> {
-        self.find_person_list_by_dtag3(dtag)
-    }
-
-    /// Allocate a new person list
-    #[inline]
-    pub fn allocate_person_list<'a>(
-        &'a self,
-        metadata: &PersonListMetadata,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<PersonList, Error> {
-        self.allocate_person_list3(metadata, rw_txn)
-    }
-
-    /// Deallocate an empty person list
-    #[inline]
-    pub fn deallocate_person_list<'a>(
-        &'a self,
-        list: PersonList,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error> {
-        self.deallocate_person_list3(list, rw_txn)
-    }
-
-    pub fn rename_person_list<'a>(
-        &'a self,
-        list: PersonList,
-        newname: String,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error> {
-        let mut md = match self.get_person_list_metadata(list)? {
-            Some(md) => md,
-            None => return Err(ErrorKind::ListNotFound.into()),
-        };
-        md.title = newname;
-        md.last_edit_time = Unixtime::now().unwrap();
-        self.set_person_list_metadata(list, &md, rw_txn)?;
-        Ok(())
-    }
-
     // Flags ------------------------------------------------------------
 
     def_flag!(following_only, b"following_only", false);
@@ -898,6 +825,79 @@ impl Storage {
     );
 
     // -------------------------------------------------------------------
+
+    /// Get personlist metadata
+    #[inline]
+    pub fn get_person_list_metadata(
+        &self,
+        list: PersonList,
+    ) -> Result<Option<PersonListMetadata>, Error> {
+        self.get_person_list_metadata3(list)
+    }
+
+    /// Set personlist metadata
+    #[inline]
+    pub fn set_person_list_metadata<'a>(
+        &'a self,
+        list: PersonList,
+        metadata: &PersonListMetadata,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        self.set_person_list_metadata3(list, metadata, rw_txn)
+    }
+
+    /// Get all person lists with their metadata
+    #[inline]
+    pub fn get_all_person_list_metadata(
+        &self,
+    ) -> Result<Vec<(PersonList, PersonListMetadata)>, Error> {
+        self.get_all_person_list_metadata3()
+    }
+
+    /// Find a person list by "d" tag
+    #[inline]
+    pub fn find_person_list_by_dtag(
+        &self,
+        dtag: &str,
+    ) -> Result<Option<(PersonList, PersonListMetadata)>, Error> {
+        self.find_person_list_by_dtag3(dtag)
+    }
+
+    /// Allocate a new person list
+    #[inline]
+    pub fn allocate_person_list<'a>(
+        &'a self,
+        metadata: &PersonListMetadata,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<PersonList, Error> {
+        self.allocate_person_list3(metadata, rw_txn)
+    }
+
+    /// Deallocate an empty person list
+    #[inline]
+    pub fn deallocate_person_list<'a>(
+        &'a self,
+        list: PersonList,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        self.deallocate_person_list3(list, rw_txn)
+    }
+
+    pub fn rename_person_list<'a>(
+        &'a self,
+        list: PersonList,
+        newname: String,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        let mut md = match self.get_person_list_metadata(list)? {
+            Some(md) => md,
+            None => return Err(ErrorKind::ListNotFound.into()),
+        };
+        md.title = newname;
+        md.last_edit_time = Unixtime::now().unwrap();
+        self.set_person_list_metadata(list, &md, rw_txn)?;
+        Ok(())
+    }
 
     /// Add event seen on relay
     #[inline]
