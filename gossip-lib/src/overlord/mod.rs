@@ -622,6 +622,9 @@ impl Overlord {
             } => {
                 self.post(content, tags, in_reply_to, dm_channel).await?;
             }
+            ToOverlordMessage::PostNip46Event(event, relays) => {
+                self.post_nip46_event(event, relays).await?;
+            }
             ToOverlordMessage::PruneCache => {
                 Self::prune_cache().await?;
             }
@@ -1861,6 +1864,31 @@ impl Overlord {
                 url.clone(),
                 vec![RelayJob {
                     reason: RelayConnectionReason::PostEvent,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::PostEvent(Box::new(event.clone())),
+                    },
+                }],
+            )
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    pub async fn post_nip46_event(
+        &mut self,
+        event: Event,
+        relays: Vec<RelayUrl>,
+    ) -> Result<(), Error> {
+        for url in relays {
+            // Send it the event to post
+            tracing::debug!("Asking {} to post nostrconnect", &url);
+
+            self.engage_minion(
+                url.clone(),
+                vec![RelayJob {
+                    reason: RelayConnectionReason::PostNostrConnect,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
                         detail: ToMinionPayloadDetail::PostEvent(Box::new(event.clone())),

@@ -101,6 +101,9 @@ pub enum ToOverlordMessage {
         dm_channel: Option<DmChannel>,
     },
 
+    /// Calls [post_nip46_event](crate::Overlord::post_nip46_event)
+    PostNip46Event(Event, Vec<RelayUrl>),
+
     /// Calls [prune_cache](crate::Overlord::prune_cache)
     PruneCache,
 
@@ -255,6 +258,7 @@ pub enum RelayConnectionReason {
     PostLike,
     PostMetadata,
     PostMuteList,
+    PostNostrConnect,
     ReadThread,
     SubscribePerson,
 }
@@ -285,6 +289,7 @@ impl RelayConnectionReason {
             PostContacts => "Posting our contact list",
             PostMuteList => "Posting our mute list",
             PostMetadata => "Posting our metadata",
+            PostNostrConnect => "Posting nostrconnect",
             ReadThread => "Reading ancestors to build a thread",
             SubscribePerson => "Subscribe to the events of a person",
         }
@@ -308,6 +313,7 @@ impl RelayConnectionReason {
             PostContacts => false,
             PostMuteList => false,
             PostMetadata => false,
+            PostNostrConnect => false,
             ReadThread => true,
             SubscribePerson => false,
         }
