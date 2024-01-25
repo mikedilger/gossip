@@ -229,6 +229,10 @@ impl GossipIdentity {
         Ok(self.inner.read().decrypt_nip44(other, ciphertext)?)
     }
 
+    pub fn nip44_conversation_key(&self, other: &PublicKey) -> Result<[u8; 32], Error> {
+        Ok(self.inner.read().nip44_conversation_key(other)?)
+    }
+
     pub fn encrypt(
         &self,
         other: &PublicKey,
@@ -276,10 +280,6 @@ impl GossipIdentity {
 
     pub fn giftwrap(&self, input: PreEvent, pubkey: PublicKey) -> Result<Event, Error> {
         Ok(self.inner.read().giftwrap(input, pubkey)?)
-    }
-
-    pub fn verify(&self, message: &[u8], signature: &Signature) -> Result<(), Error> {
-        Ok(self.inner.read().verify(message, signature)?)
     }
 
     pub fn verify_delegation_signature(
