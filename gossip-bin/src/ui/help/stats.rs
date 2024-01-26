@@ -135,5 +135,11 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             GLOBALS.storage.get_relationships_by_addr_len().unwrap_or(0)
         ));
         ui.add_space(6.0);
+
+        ui.label(format!(
+            "Nip46 Servers: {} records",
+            GLOBALS.storage.get_nip46servers_len().unwrap_or(0)
+        ));
+        ui.add_space(6.0);
     });
 }

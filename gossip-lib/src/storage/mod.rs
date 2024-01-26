@@ -24,6 +24,7 @@ mod event_viewed1;
 mod events1;
 mod events2;
 mod hashtags1;
+mod nip46servers1;
 mod people1;
 mod people2;
 mod person_lists1;
@@ -43,6 +44,7 @@ mod unindexed_giftwraps1;
 use crate::dm_channel::{DmChannel, DmChannelData};
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
+use crate::nip46::{Nip46Server, Nip46UnconnectedServer};
 use crate::people::{Person, PersonList, PersonListMetadata};
 use crate::person_relay::PersonRelay;
 use crate::profile::Profile;
@@ -235,6 +237,7 @@ impl Storage {
         let _ = self.db_event_seen_on_relay()?;
         let _ = self.db_event_viewed()?;
         let _ = self.db_hashtags()?;
+        let _ = self.db_nip46servers1()?;
         let _ = self.db_people()?;
         let _ = self.db_person_relays()?;
         let _ = self.db_relationships_by_id()?;
@@ -304,6 +307,11 @@ impl Storage {
     }
 
     #[inline]
+    pub(crate) fn db_nip46servers(&self) -> Result<RawDatabase, Error> {
+        self.db_nip46servers1()
+    }
+
+    #[inline]
     pub(crate) fn db_people(&self) -> Result<RawDatabase, Error> {
         self.db_people2()
     }
@@ -367,6 +375,12 @@ impl Storage {
     pub fn get_hashtags_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
         Ok(self.db_hashtags()?.len(&txn)?)
+    }
+
+    /// The number of records in the nip46servers table
+    pub fn get_nip46servers_len(&self) -> Result<u64, Error> {
+        let txn = self.env.read_txn()?;
+        Ok(self.db_nip46servers()?.len(&txn)?)
     }
 
     /// The number of records in the relays table
@@ -602,6 +616,68 @@ impl Storage {
                 Ok(os.map(EncryptedPrivateKey))
             }
         }
+    }
+
+    /// Write NIP-46 unconnected server
+    #[allow(dead_code)]
+    pub fn write_nip46_unconnected_server<'a>(
+        &'a self,
+        server: &Nip46UnconnectedServer,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        let bytes = server.write_to_vec()?;
+
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            self.general.put(txn, b"nip46_unconnected_server", &bytes)?;
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
+    }
+
+    /// Read NIP-46 unconnected server
+    #[allow(dead_code)]
+    pub fn read_nip46_unconnected_server(&self) -> Result<Option<Nip46UnconnectedServer>, Error> {
+        let txn = self.env.read_txn()?;
+        match self.general.get(&txn, b"nip46_unconnected_server")? {
+            None => Ok(None),
+            Some(bytes) => {
+                let server = Nip46UnconnectedServer::read_from_buffer(bytes)?;
+                Ok(Some(server))
+            }
+        }
+    }
+
+    /// Delete a NIP-46 unconnected server
+    #[allow(dead_code)]
+    pub fn delete_nip46_unconnected_server<'a>(
+        &'a self,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            self.general.delete(txn, b"nip46_unconnected_server")?;
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
     }
 
     // Flags ------------------------------------------------------------
@@ -2513,5 +2589,29 @@ impl Storage {
         };
 
         Ok(())
+    }
+
+    pub fn write_nip46server<'a>(
+        &'a self,
+        server: &Nip46Server,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        self.write_nip46server1(server, rw_txn)
+    }
+
+    pub fn read_nip46server(&self, pubkey: PublicKey) -> Result<Option<Nip46Server>, Error> {
+        self.read_nip46server1(pubkey)
+    }
+
+    pub fn read_all_nip46servers(&self) -> Result<Vec<Nip46Server>, Error> {
+        self.read_all_nip46servers1()
+    }
+
+    pub fn delete_nip46server<'a>(
+        &'a self,
+        pubkey: PublicKey,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        self.delete_nip46server1(pubkey, rw_txn)
     }
 }

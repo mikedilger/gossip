@@ -55,7 +55,7 @@ impl Nip46UnconnectedServer {
 
 #[derive(Debug, Clone, Readable, Writable)]
 pub struct Nip46Server {
-    pub peer_public_key: PublicKey,
+    pub peer_pubkey: PublicKey,
     pub relays: Vec<RelayUrl>,
     pub metadata: Option<Nip46ClientMetadata>,
 }
@@ -74,7 +74,7 @@ impl Nip46Server {
         if input.len() < pos + 64 {
             return Err(ErrorKind::BadNostrConnectString.into());
         }
-        let peer_public_key = PublicKey::try_from_hex_string(&input[pos..pos + 64], true)?;
+        let peer_pubkey = PublicKey::try_from_hex_string(&input[pos..pos + 64], true)?;
         pos += 64;
 
         // '?'
@@ -110,7 +110,7 @@ impl Nip46Server {
         }
 
         Ok(Nip46Server {
-            peer_public_key,
+            peer_pubkey,
             relays,
             metadata,
         })
