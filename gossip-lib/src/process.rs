@@ -306,6 +306,8 @@ pub async fn process_new_event(
                 }
             }
         }
+    } else if event.kind == EventKind::NostrConnect {
+        crate::nip46::handle_command(event, seen_on.clone())?
     }
 
     if event.kind.is_feed_displayable() {
