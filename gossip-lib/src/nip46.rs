@@ -62,6 +62,13 @@ pub struct Nip46Server {
 }
 
 impl Nip46Server {
+
+    /*
+
+    NIP-46 does not explain how this can work, because a server event doesn't have the
+    capability of sending a method to a client.  So we keep this commented out until
+    that gets resolved.
+
     pub fn new_from_client(input: String) -> Result<Nip46Server, Error> {
         // nostrconnect://<client-key-hex>?relay=wss://...&metadata={"name":"...", "url": "...", "description": "..."}
 
@@ -110,12 +117,19 @@ impl Nip46Server {
             }
         }
 
-        Ok(Nip46Server {
+        let server = Nip46Server {
             peer_pubkey,
             relays,
             metadata,
-        })
+        };
+
+        // Send the connect command to the client
+        unimplemented!();
+
+        Ok(server)
     }
+
+     */
 
     pub fn handle(&self, cmd: ParsedCommand) -> Result<(), Error> {
         let ParsedCommand { id, method, params } = cmd;
