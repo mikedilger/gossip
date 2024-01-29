@@ -534,7 +534,7 @@ pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Er
         return Ok(()); // no need to pass back error
     }
 
-    if &params[1] != userver.connect_secret.as_str() {
+    if params[1] != userver.connect_secret.as_str() {
         send_response(
             id.clone(),
             "".to_owned(),
