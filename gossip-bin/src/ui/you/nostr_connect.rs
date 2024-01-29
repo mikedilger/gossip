@@ -49,7 +49,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     // Connected servers
     if let Ok(servers) = GLOBALS.storage.read_all_nip46servers() {
-        if ! servers.is_empty() {
+        if !servers.is_empty() {
             ui.separator();
             ui.add_space(10.0);
             ui.heading("Connected Services");
@@ -73,28 +73,28 @@ fn setup_unconnected_service(app: &mut GossipUi, ui: &mut Ui) {
     ui.heading("Setup a Service");
 
     /*
-    NIP-46 doesn't explain well enough how this can work. Servers can't send methods
-    to clients, yet it wants us to send a connect method to the client. Until that is
-    resolved, this method of setup is not available.
+        NIP-46 doesn't explain well enough how this can work. Servers can't send methods
+        to clients, yet it wants us to send a connect method to the client. Until that is
+        resolved, this method of setup is not available.
 
-    ui.add_space(10.0);
-    ui.label("OPTION 1: Paste a secret string from the client:");
-    ui.add(text_edit_line!(app, app.nostr_connect_string));
-    if !app.nostr_connect_string.is_empty() {
-    if ui.button("CONNECT").clicked() {
-    match Nip46Server::new_from_client(app.nostr_connect_string.clone()) {
-    Ok(server) => {
-    // GINA - save server
-    // GINA - server needs to send 'connect' to the client
-},
-    Err(e) => {
-    GLOBALS.status_queue.write().write(format!("{}", e));
-}
-}
-    app.nostr_connect_string = "".to_owned();
-}
-}
-     */
+        ui.add_space(10.0);
+        ui.label("OPTION 1: Paste a secret string from the client:");
+        ui.add(text_edit_line!(app, app.nostr_connect_string));
+        if !app.nostr_connect_string.is_empty() {
+        if ui.button("CONNECT").clicked() {
+        match Nip46Server::new_from_client(app.nostr_connect_string.clone()) {
+        Ok(server) => {
+        // GINA - save server
+        // GINA - server needs to send 'connect' to the client
+    },
+        Err(e) => {
+        GLOBALS.status_queue.write().write(format!("{}", e));
+    }
+    }
+        app.nostr_connect_string = "".to_owned();
+    }
+    }
+         */
 
     ui.add_space(10.0);
     ui.label("Enter 1 or 2 relays to do nostr-connect over:");
@@ -108,26 +108,24 @@ fn setup_unconnected_service(app: &mut GossipUi, ui: &mut Ui) {
         ui.add(text_edit_line!(app, app.nostr_connect_relay2));
     });
 
-    if ! app.nostr_connect_relay1.is_empty() {
+    if !app.nostr_connect_relay1.is_empty() {
         if let Ok(relay1) = RelayUrl::try_from_str(&app.nostr_connect_relay1) {
-            if ! app.nostr_connect_relay2.is_empty() {
+            if !app.nostr_connect_relay2.is_empty() {
                 if let Ok(relay2) = RelayUrl::try_from_str(&app.nostr_connect_relay2) {
                     if ui.button("Create Service").clicked() {
                         // Create the unconnected server (2 relays)
                         let server = Nip46UnconnectedServer::new(vec![relay1, relay2]);
-                        let _ = GLOBALS.storage.write_nip46_unconnected_server(
-                            &server,
-                            None
-                        );
+                        let _ = GLOBALS
+                            .storage
+                            .write_nip46_unconnected_server(&server, None);
                     }
                 }
             } else if ui.button("Create Service").clicked() {
                 // Create the unconnected server (1 relay)
                 let server = Nip46UnconnectedServer::new(vec![relay1]);
-                let _ = GLOBALS.storage.write_nip46_unconnected_server(
-                    &server,
-                    None
-                );
+                let _ = GLOBALS
+                    .storage
+                    .write_nip46_unconnected_server(&server, None);
             }
         }
     }

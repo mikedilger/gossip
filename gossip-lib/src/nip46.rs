@@ -62,7 +62,6 @@ pub struct Nip46Server {
 }
 
 impl Nip46Server {
-
     /*
 
     NIP-46 does not explain how this can work, because a server event doesn't have the
