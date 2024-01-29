@@ -69,7 +69,7 @@ const WRITE_HOVER_TEXT: &str =
     "Where you actually write your events to. It is recommended to have a few.";
 const OUTBOX_HOVER_TEXT: &str = "Where you tell others you write to. You should also check Write. It is recommended to have a few.";
 const ADVERTISE_HOVER_TEXT: &str = "Your relay list will be advertised to this relay.";
-const SPAMSAFE_HOVER_TEXT: &str = "Relay is trusted to filter spam. If not set, replies and mentions from unfollowed people will not be fetched from the relay.";
+const SPAMSAFE_HOVER_TEXT: &str = "Relay is trusted to filter spam. If not set, replies and mentions from unfollowed people will not be fetched from the relay (when SpamSafe is enabled in settings).";
 
 #[derive(Clone, PartialEq)]
 pub enum RelayEntryView {

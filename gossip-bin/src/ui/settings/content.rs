@@ -74,7 +74,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     ui.checkbox(
         &mut app.unsaved_settings.avoid_spam_on_unsafe_relays,
-        "Avoid spam from unsafe relays",
+        "Avoid spam from unsafe relays (SpamSafe)",
     )
         .on_hover_text("Unless a relay is marked as SpamSafe, replies and mentions will only be pulled from people you follow. Takes effect fully only on restart.");
 
