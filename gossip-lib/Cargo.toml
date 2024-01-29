@@ -47,7 +47,7 @@ fallible-iterator = "0.2"
 filetime = "0.2"
 futures = "0.3"
 futures-util = "0.3"
-gossip-relay-picker = { git = "https://github.com/mikedilger/gossip-relay-picker", rev = "2473fbb919e2fe9aaedad4089343a0ed8039d228" }
+gossip-relay-picker = { git = "https://github.com/mikedilger/gossip-relay-picker", rev = "b82e1782406e70073fb5e6cfa1c61f1992a530da" }
 heed = { git = "https://github.com/meilisearch/heed", rev = "8bfdf3beeda292fe166dc6b2f468cdb23af7181b" }
 hex = "0.4"
 http = "0.2"
@@ -56,7 +56,7 @@ kamadak-exif = "0.5"
 lazy_static = "1.4"
 linkify = "0.9"
 mime = "0.3"
-nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "7b758d333807ea9e3f5a77f82f5eb464c79c811a", features = [ "speedy" ] }
+nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "d05ca006415152552f74a8d7b9132cfd481e6a4a", features = [ "speedy" ] }
 parking_lot = "0.12"
 paste = "1.0"
 rand = "0.8"
@@ -69,6 +69,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha2 = "0.10"
 speedy = { git = "https://github.com/mikedilger/speedy", rev = "b8b713a7006958616dd3ef3ba63217740b4b09c2" }
+textnonce = "1"
 tiny-skia = "0.10.0"
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"

@@ -104,6 +104,10 @@ pub mod names;
 /// nip05 handling
 pub mod nip05;
 
+#[allow(dead_code)]
+pub mod nip46;
+pub use nip46::{Nip46Server, Nip46UnconnectedServer};
+
 mod overlord;
 pub use overlord::Overlord;
 

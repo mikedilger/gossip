@@ -10,6 +10,7 @@ use zeroize::Zeroize;
 
 mod delegation;
 mod metadata;
+mod nostr_connect;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     if app.page == Page::YourKeys {
@@ -117,6 +118,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         metadata::update(app, ctx, _frame, ui);
     } else if app.page == Page::YourDelegation {
         delegation::update(app, ctx, _frame, ui);
+    } else if app.page == Page::YourNostrConnect {
+        nostr_connect::update(app, ctx, _frame, ui);
     }
 }
 

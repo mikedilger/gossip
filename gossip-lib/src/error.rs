@@ -5,12 +5,14 @@ use nostr_types::RelayUrl;
 /// Error kinds that can occur in gossip-lib
 #[derive(Debug)]
 pub enum ErrorKind {
+    BadNostrConnectString,
     BroadcastSend(String),
     BroadcastReceive(tokio::sync::broadcast::error::RecvError),
     CannotUpdateRelayUrl,
     Delegation(String),
     Empty(String),
     EventNotFound,
+    FromUtf8(std::string::FromUtf8Error),
     General(String),
     GroupDmsNotYetSupported,
     HttpError(http::Error),
@@ -19,6 +21,10 @@ pub enum ErrorKind {
     MaxRelaysReached,
     MpscSend(tokio::sync::mpsc::error::SendError<ToOverlordMessage>),
     Nip05KeyNotFound,
+    Nip46CommandMissingId,
+    Nip46CommandNotJsonObject,
+    Nip46ParsingError(String, String),
+    Nip46RelayNeeded,
     Nostr(nostr_types::Error),
     NoPublicKey,
     NoPrivateKey,
@@ -40,6 +46,7 @@ pub enum ErrorKind {
     ListIsNotEmpty,
     ListIsWellKnown,
     ListNotFound,
+    NostrConnectNotSetup,
     ParseInt(std::num::ParseIntError),
     Regex(regex::Error),
     RelayPickerError(gossip_relay_picker::Error),
@@ -80,6 +87,7 @@ impl std::fmt::Display for Error {
             write!(f, "{line}:")?;
         }
         match &self.kind {
+            BadNostrConnectString => write!(f, "Bad nostrconnect string"),
             BroadcastSend(s) => write!(f, "Error broadcasting: {s}"),
             BroadcastReceive(e) => write!(f, "Error receiving broadcast: {e}"),
             CannotUpdateRelayUrl => {
@@ -88,6 +96,7 @@ impl std::fmt::Display for Error {
             Delegation(s) => write!(f, "NIP-26 Delegation Error: {s}"),
             Empty(s) => write!(f, "{s} is empty"),
             EventNotFound => write!(f, "Event not found"),
+            FromUtf8(e) => write!(f, "UTF-8 error: {e}"),
             GroupDmsNotYetSupported => write!(f, "Group DMs are not yet supported"),
             General(s) => write!(f, "{s}"),
             HttpError(e) => write!(f, "HTTP error: {e}"),
@@ -99,6 +108,10 @@ impl std::fmt::Display for Error {
             ),
             MpscSend(e) => write!(f, "Error sending mpsc: {e}"),
             Nip05KeyNotFound => write!(f, "NIP-05 public key not found"),
+            Nip46CommandMissingId => write!(f, "NIP-46 command missing ID"),
+            Nip46CommandNotJsonObject => write!(f, "NIP-46 command not a json object"),
+            Nip46ParsingError(_id, e) => write!(f, "NIP-46 parse error: {e}"),
+            Nip46RelayNeeded => write!(f, "NIP-46 relay needed to respond."),
             Nostr(e) => write!(f, "Nostr: {e}"),
             NoPublicKey => write!(f, "No public key identity available."),
             NoPrivateKey => write!(f, "No private key available."),
@@ -122,6 +135,7 @@ impl std::fmt::Display for Error {
             ListIsNotEmpty => write!(f, "List is not empty"),
             ListIsWellKnown => write!(f, "List is well known and cannot be deallocated"),
             ListNotFound => write!(f, "List was not found"),
+            NostrConnectNotSetup => write!(f, "NostrConnect not setup, cannot connect"),
             ParseInt(e) => write!(f, "Bad integer: {e}"),
             Regex(e) => write!(f, "Regex: {e}"),
             RelayPickerError(e) => write!(f, "Relay Picker error: {e}"),
@@ -318,5 +332,11 @@ impl From<tungstenite::Error> for ErrorKind {
 impl From<url::ParseError> for ErrorKind {
     fn from(e: url::ParseError) -> ErrorKind {
         ErrorKind::UrlParse(e)
+    }
+}
+
+impl From<std::string::FromUtf8Error> for ErrorKind {
+    fn from(e: std::string::FromUtf8Error) -> ErrorKind {
+        ErrorKind::FromUtf8(e)
     }
 }
