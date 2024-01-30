@@ -35,7 +35,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         }
 
         ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
-            app.theme.accent_button_1_style(ui.style_mut());
+            app.theme.primary_button_style(ui.style_mut());
             ui.add_space(OUTER_MARGIN_RIGHT);
             if ui.add(continue_button()).clicked() {
                 match app.wizard_state.path {

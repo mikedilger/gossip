@@ -2187,7 +2187,7 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
                             ui.input(|i| i.key_pressed(egui::Key::Enter));
 
                         ui.scope(|ui| {
-                            app.theme.accent_button_1_style(ui.style_mut());
+                            app.theme.primary_button_style(ui.style_mut());
                             submitted |= ui.button("     Continue     ").clicked();
                         });
 

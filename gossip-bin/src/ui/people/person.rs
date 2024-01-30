@@ -446,7 +446,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                         ui.add_space(40.0);
 
                         ui.vertical_centered_justified(|ui| {
-                            app.theme.accent_button_1_style(ui.style_mut());
+                            app.theme.primary_button_style(ui.style_mut());
 
                             if ui
                                 .add(

@@ -483,7 +483,7 @@ fn decline_style(theme: &Theme, style: &mut Style) {
 }
 
 fn approve_style(theme: &Theme, style: &mut Style) {
-    theme.accent_button_1_style(style);
+    theme.primary_button_style(style);
     style.spacing.button_padding = vec2(8.0, 3.0);
 }
 

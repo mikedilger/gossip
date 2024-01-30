@@ -382,7 +382,7 @@ fn continue_control(
 ) {
     ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
         ui.add_space(OUTER_MARGIN_RIGHT);
-        app.theme.accent_button_1_style(ui.style_mut());
+        app.theme.primary_button_style(ui.style_mut());
         if ui.add_enabled(can_continue, continue_button()).clicked() {
             on_continue(app);
         }
@@ -399,7 +399,7 @@ fn wizard_controls(
     ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
         ui.add_space(OUTER_MARGIN_RIGHT);
         ui.scope(|ui| {
-            app.theme.accent_button_1_style(ui.style_mut());
+            app.theme.primary_button_style(ui.style_mut());
             if ui.add_enabled(can_continue, continue_button()).clicked() {
                 on_continue(app);
             }

@@ -3,6 +3,9 @@ use std::sync::Arc;
 
 pub(crate) use avatar::{paint_avatar, AvatarSize};
 
+mod button;
+pub use button::Button;
+
 mod contact_search;
 pub(super) use contact_search::{capture_keyboard_for_search, show_contact_search};
 
