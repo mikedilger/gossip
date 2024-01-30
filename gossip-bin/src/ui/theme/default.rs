@@ -5,10 +5,17 @@ use eframe::egui::{
     FontDefinitions, Margin, Pos2, RichText, Shape, Stroke, Style, TextFormat, TextStyle, Visuals,
 };
 use eframe::epaint::{ecolor, Color32, FontFamily, FontId, Rounding, Shadow};
+use egui_winit::egui::{vec2, Vec2};
 use std::collections::BTreeMap;
 
 #[derive(Default)]
 pub struct DefaultTheme {}
+
+impl DefaultTheme {
+    fn button_padding() -> Vec2 {
+        vec2(4.0, 1.0)
+    }
+}
 
 impl ThemeDef for DefaultTheme {
     fn name() -> &'static str {
@@ -66,7 +73,7 @@ impl ThemeDef for DefaultTheme {
         // pub window_margin: Margin,
 
         // /// Button size is text size plus this on each side
-        // style.spacing.button_padding = vec2(10.0, 2.0);
+        style.spacing.button_padding = Self::button_padding();
 
         // /// Horizontal and vertical margins within a menu frame.
         // pub menu_margin: Margin,
@@ -324,7 +331,7 @@ impl ThemeDef for DefaultTheme {
     }
 
     fn accent_button_1_style(style: &mut Style, dark_mode: bool) {
-        style.spacing.button_padding.x *= 3.0;
+        style.spacing.button_padding.x = Self::button_padding().x * 3.0;
         let accent_color = Self::accent_color(dark_mode);
         style.visuals.widgets.noninteractive.weak_bg_fill = accent_color;
         style.visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0, Color32::WHITE);
@@ -341,7 +348,7 @@ impl ThemeDef for DefaultTheme {
     }
 
     fn accent_button_2_style(style: &mut Style, dark_mode: bool) {
-        style.spacing.button_padding.x *= 3.0;
+        style.spacing.button_padding.x = Self::button_padding().x * 3.0;
         let accent_color = Self::accent_color(dark_mode);
         if dark_mode {
             style.visuals.widgets.noninteractive.weak_bg_fill = style.visuals.faint_bg_color;
