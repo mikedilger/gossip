@@ -452,6 +452,9 @@ impl Minion {
             ToMinionPayloadDetail::SubscribeDmChannel(dmchannel) => {
                 self.subscribe_dm_channel(message.job_id, dmchannel).await?;
             }
+            ToMinionPayloadDetail::SubscribeNip46 => {
+                self.subscribe_nip46(message.job_id).await?;
+            }
             ToMinionPayloadDetail::TempSubscribeGeneralFeedChunk { pubkeys, start } => {
                 self.temp_subscribe_general_feed_chunk(message.job_id, pubkeys, start)
                     .await?;
@@ -1027,6 +1030,28 @@ impl Minion {
         let filters: Vec<Filter> = vec![filter];
 
         self.subscribe(filters, "dm_channel", job_id).await?;
+
+        Ok(())
+    }
+
+    async fn subscribe_nip46(&mut self, job_id: u64) -> Result<(), Error> {
+        let pubkey = match GLOBALS.identity.public_key() {
+            Some(pk) => pk,
+            None => return Ok(()),
+        };
+        let pkh: PublicKeyHex = pubkey.into();
+
+        let filter = {
+            let mut filter = Filter {
+                kinds: vec![EventKind::NostrConnect],
+                ..Default::default()
+            };
+            filter.set_tag_values('p', vec![pkh.to_string()]);
+            filter
+        };
+        let filters: Vec<Filter> = vec![filter];
+
+        self.subscribe(filters, "nip46", job_id).await?;
 
         Ok(())
     }

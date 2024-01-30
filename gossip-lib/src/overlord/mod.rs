@@ -680,6 +680,9 @@ impl Overlord {
             ToOverlordMessage::SubscribeMentions(opt_relays) => {
                 self.subscribe_mentions(opt_relays).await?;
             }
+            ToOverlordMessage::SubscribeNip46(relays) => {
+                self.subscribe_nip46(relays).await?;
+            }
             ToOverlordMessage::Shutdown => {
                 Self::shutdown()?;
             }
@@ -2666,6 +2669,25 @@ impl Overlord {
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
                         detail: ToMinionPayloadDetail::SubscribeMentions,
+                    },
+                }],
+            )
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    /// Subscribe to nip46 nostr connect relays
+    pub async fn subscribe_nip46(&mut self, relays: Vec<RelayUrl>) -> Result<(), Error> {
+        for relay_url in relays.iter() {
+            self.engage_minion(
+                relay_url.to_owned(),
+                vec![RelayJob {
+                    reason: RelayConnectionReason::NostrConnect,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::SubscribeNip46,
                     },
                 }],
             )
