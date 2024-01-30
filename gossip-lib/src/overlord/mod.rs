@@ -2585,6 +2585,16 @@ impl Overlord {
         //       not in widespread usage.
         self.subscribe_mentions(None).await?;
 
+        // Separately subscribe to nostr-connect channels
+        let mut relays: Vec<RelayUrl> = Vec::new();
+        let servers = GLOBALS.storage.read_all_nip46servers()?;
+        for server in &servers {
+            relays.extend(server.relays.clone());
+        }
+        relays.sort();
+        relays.dedup();
+        self.subscribe_nip46(relays).await?;
+
         Ok(())
     }
 
