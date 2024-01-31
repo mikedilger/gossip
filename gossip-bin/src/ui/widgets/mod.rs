@@ -42,6 +42,14 @@ use super::GossipUi;
 pub const DROPDOWN_DISTANCE: f32 = 10.0;
 pub const TAGG_WIDTH: f32 = 200.0;
 
+pub enum WidgetState {
+    Default,
+    Hovered,
+    Active,
+    Disabled,
+    Focused
+}
+
 // pub fn break_anywhere_label(ui: &mut Ui, text: impl Into<WidgetText>) {
 //     let mut job = text.into().into_text_job(
 //         ui.style(),

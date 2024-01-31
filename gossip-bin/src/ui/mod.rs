@@ -143,7 +143,7 @@ enum Page {
     HelpHelp,
     HelpStats,
     HelpAbout,
-    HelpTheme,
+    ThemeTest,
     Wizard(WizardPage),
 }
 
@@ -189,7 +189,7 @@ impl Page {
             Page::HelpHelp => (SubMenu::Help.as_str(), "Troubleshooting".into()),
             Page::HelpStats => (SubMenu::Help.as_str(), "Stats".into()),
             Page::HelpAbout => (SubMenu::Help.as_str(), "About".into()),
-            Page::HelpTheme => (SubMenu::Help.as_str(), "Theme Test".into()),
+            Page::ThemeTest => (SubMenu::Help.as_str(), "Theme Test".into()),
             Page::Wizard(wp) => ("Wizard", wp.as_str().to_string()),
         }
     }
@@ -489,6 +489,8 @@ struct GossipUi {
 
     wizard_state: WizardState,
 
+    theme_test: crate::ui::theme::test_page::ThemeTest,
+
     // Cached DM Channels
     dm_channel_cache: Vec<DmChannelData>,
     dm_channel_next_refresh: Instant,
@@ -720,6 +722,7 @@ impl GossipUi {
             zap_state: ZapState::None,
             note_being_zapped: None,
             wizard_state,
+            theme_test: Default::default(),
             dm_channel_cache: vec![],
             dm_channel_next_refresh: Instant::now(),
             dm_channel_error: None,
@@ -826,7 +829,7 @@ impl GossipUi {
             Page::Settings => {
                 self.close_all_menus_except_feeds(ctx);
             }
-            Page::HelpHelp | Page::HelpStats | Page::HelpAbout | Page::HelpTheme => {
+            Page::HelpHelp | Page::HelpStats | Page::HelpAbout => {
                 self.open_menu(ctx, SubMenu::Help);
             }
             _ => {
@@ -1056,9 +1059,16 @@ impl GossipUi {
                         self.add_menu_item_page(ui, Page::HelpHelp, None, true);
                         self.add_menu_item_page(ui, Page::HelpStats, None, true);
                         self.add_menu_item_page(ui, Page::HelpAbout, None, true);
-                        self.add_menu_item_page(ui, Page::HelpTheme, None, true);
                     });
                     self.after_openable_menu(ui, &cstate);
+                }
+
+                #[cfg(debug_assertions)]
+                if self
+                    .add_selected_label(ui, self.page == Page::ThemeTest, "Theme Test")
+                    .clicked()
+                {
+                    self.set_page(ctx, Page::ThemeTest);
                 }
 
                 // -- Status Area
@@ -1375,9 +1385,10 @@ impl eframe::App for GossipUi {
                     | Page::RelaysKnownNetwork => relays::update(self, ctx, frame, ui),
                     Page::Search => search::update(self, ctx, frame, ui),
                     Page::Settings => settings::update(self, ctx, frame, ui),
-                    Page::HelpHelp | Page::HelpStats | Page::HelpAbout | Page::HelpTheme => {
+                    Page::HelpHelp | Page::HelpStats | Page::HelpAbout => {
                         help::update(self, ctx, frame, ui)
                     }
+                    Page::ThemeTest => theme::test_page::update(self, ctx, frame, ui),
                     Page::Wizard(_) => unreachable!(),
                 }
             });
@@ -2060,7 +2071,7 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
                             ui.input(|i| i.key_pressed(egui::Key::Enter));
 
                         ui.scope(|ui| {
-                            app.theme.accent_button_1_style(ui.style_mut());
+                            app.theme.primary_button_style(ui.style_mut());
                             submitted |= ui.button("     Continue     ").clicked();
                         });
 
