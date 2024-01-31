@@ -222,9 +222,9 @@ fn button_test(app: &mut GossipUi, ui: &mut Ui) {
                 let response = widgets::Button::primary(theme, text)
                     .selected(app.theme_test.button_active == 1)
                     .ui(ui);
-                if response.clicked() {
-                    app.theme_test.button_active = 1;
-                }
+                // if response.clicked() {
+                //     app.theme_test.button_active = 1;
+                // }
                 if ui.link("focus").clicked() {
                     response.request_focus();
                 }
@@ -234,9 +234,9 @@ fn button_test(app: &mut GossipUi, ui: &mut Ui) {
                 let response = widgets::Button::secondary(theme, text)
                     .selected(app.theme_test.button_active == 2)
                     .ui(ui);
-                if response.clicked() {
-                    app.theme_test.button_active = 2;
-                }
+                // if response.clicked() {
+                //     app.theme_test.button_active = 2;
+                // }
                 if ui.link("focus").clicked() {
                     response.request_focus();
                 }
@@ -246,9 +246,9 @@ fn button_test(app: &mut GossipUi, ui: &mut Ui) {
                 let response = widgets::Button::bordered(theme, text)
                     .selected(app.theme_test.button_active == 3)
                     .ui(ui);
-                if response.clicked() {
-                    app.theme_test.button_active = 3;
-                }
+                // if response.clicked() {
+                //     app.theme_test.button_active = 3;
+                // }
                 if ui.link("focus").clicked() {
                     response.request_focus();
                 }
