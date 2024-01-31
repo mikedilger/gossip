@@ -179,32 +179,32 @@ impl Button<'_> {
                     WidgetState::Default => {
                         match button_type {
                             ButtonType::Primary => (theme.accent_dark(), no_stroke, theme.neutral_50(), no_stroke ),
-                            ButtonType::Secondary => (theme.neutral_100(), no_stroke, theme.neutral_700(), no_stroke ),
-                            ButtonType::Bordered => (theme.neutral_950(), neutral_500_stroke, theme.neutral_300(), no_stroke ),
+                            ButtonType::Secondary => (theme.neutral_200(), no_stroke, theme.neutral_700(), no_stroke ),
+                            ButtonType::Bordered => (theme.neutral_950(), neutral_400_stroke, theme.neutral_300(), no_stroke ),
                         }
                     },
                     WidgetState::Hovered => {
                         match button_type {
                             ButtonType::Primary => (theme.accent_dark_b20(), no_stroke, theme.neutral_50(), no_stroke ),
-                            ButtonType::Secondary => (theme.neutral_100(), no_stroke, theme.accent_dark(), no_stroke ),
-                            ButtonType::Bordered => (Color32::BLACK, neutral_500_stroke, theme.neutral_100(), no_stroke ),
+                            ButtonType::Secondary => (theme.neutral_50(), no_stroke, theme.accent_dark(), no_stroke ),
+                            ButtonType::Bordered => (theme.neutral_950(), neutral_300_stroke, theme.neutral_200(), no_stroke ),
                         }
                     },
                     WidgetState::Active => {
                         match button_type {
-                            ButtonType::Primary => (theme.accent_dark_w20(), no_stroke, theme.neutral_50(), no_stroke ),
-                            ButtonType::Secondary => (theme.neutral_100(), no_stroke, theme.accent_dark_b20(), no_stroke ),
-                            ButtonType::Bordered => (theme.neutral_950(), neutral_500_stroke, theme.neutral_300(), no_stroke ),
+                            ButtonType::Primary => (theme.accent_dark(), no_stroke, theme.neutral_50(), no_stroke ),
+                            ButtonType::Secondary => (theme.neutral_200(), no_stroke, theme.neutral_700(), no_stroke ),
+                            ButtonType::Bordered => (theme.neutral_950(), neutral_400_stroke, theme.neutral_300(), no_stroke ),
                         }
                     },
                     WidgetState::Disabled => {
-                        (theme.neutral_800(), no_stroke, theme.neutral_600(), no_stroke )
+                        (theme.neutral_700(), no_stroke, theme.neutral_500(), no_stroke )
                     },
                     WidgetState::Focused =>  {
                         match button_type {
                             ButtonType::Primary => (theme.accent_dark_b20(), no_stroke, theme.neutral_50(), neutral_300_stroke ),
-                            ButtonType::Secondary => (theme.neutral_100(), no_stroke, theme.accent_dark(), neutral_300_stroke ),
-                            ButtonType::Bordered => (Color32::BLACK, neutral_500_stroke, theme.neutral_100(), neutral_600_stroke ),
+                            ButtonType::Secondary => (theme.neutral_50(), no_stroke, theme.accent_dark(), neutral_400_stroke ),
+                            ButtonType::Bordered => (theme.neutral_950(), neutral_300_stroke, theme.neutral_200(), neutral_500_stroke ),
                         }
                     },
                 }
@@ -213,22 +213,22 @@ impl Button<'_> {
                     WidgetState::Default => {
                         match button_type {
                             ButtonType::Primary => (theme.accent_light(), no_stroke, theme.neutral_50(), no_stroke ),
-                            ButtonType::Secondary => (theme.neutral_800(), no_stroke, theme.neutral_100(), no_stroke ),
-                            ButtonType::Bordered => (theme.neutral_100(), neutral_400_stroke, theme.neutral_800(), no_stroke ),
+                            ButtonType::Secondary => (theme.neutral_700(), no_stroke, theme.neutral_100(), no_stroke ),
+                            ButtonType::Bordered => (theme.neutral_100(), neutral_500_stroke, theme.neutral_800(), no_stroke ),
                         }
                     },
                     WidgetState::Hovered => {
                         match button_type {
                             ButtonType::Primary => (theme.accent_light_b20(), no_stroke, theme.neutral_50(), no_stroke ),
-                            ButtonType::Secondary => (theme.neutral_950(), no_stroke, theme.neutral_100(), no_stroke ),
-                            ButtonType::Bordered => (theme.neutral_50(), neutral_400_stroke, theme.neutral_800(), no_stroke ),
+                            ButtonType::Secondary => (theme.neutral_900(), no_stroke, theme.neutral_100(), no_stroke ),
+                            ButtonType::Bordered => (theme.neutral_50(), neutral_600_stroke, theme.neutral_800(), no_stroke ),
                         }
                     },
                     WidgetState::Active => {
                         match button_type {
-                            ButtonType::Primary => (theme.accent_light_w20(), no_stroke, theme.neutral_50(), no_stroke ),
-                            ButtonType::Secondary => (theme.neutral_800(), no_stroke, theme.accent_dark(), no_stroke ),
-                            ButtonType::Bordered => (theme.neutral_100(), neutral_400_stroke, theme.accent_light(), no_stroke ),
+                            ButtonType::Primary => (theme.accent_light(), no_stroke, theme.neutral_50(), no_stroke ),
+                            ButtonType::Secondary => (theme.neutral_700(), no_stroke, theme.neutral_100(), no_stroke ),
+                            ButtonType::Bordered => (theme.neutral_100(), neutral_600_stroke, theme.accent_light(), no_stroke ),
                         }
                     },
                     WidgetState::Disabled => {
@@ -236,9 +236,9 @@ impl Button<'_> {
                     },
                     WidgetState::Focused =>  {
                         match button_type {
-                            ButtonType::Primary => (theme.accent_light(), no_stroke, theme.neutral_50(), neutral_300_stroke ),
-                            ButtonType::Secondary => (theme.neutral_800(), no_stroke, theme.neutral_100(), neutral_500_stroke ),
-                            ButtonType::Bordered => (theme.neutral_100(), neutral_400_stroke, theme.neutral_800(), neutral_300_stroke ),
+                            ButtonType::Primary => (theme.accent_light_b20(), no_stroke, theme.neutral_50(), neutral_300_stroke ),
+                            ButtonType::Secondary => (theme.neutral_900(), no_stroke, theme.neutral_100(), neutral_400_stroke ),
+                            ButtonType::Bordered => (theme.neutral_50(), neutral_600_stroke, theme.neutral_800(), neutral_400_stroke ),
                         }
                     },
                 }
