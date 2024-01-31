@@ -87,10 +87,12 @@ The following features make gossip different than most other nostr clients so fa
 - ⬜ NIP-39 - External Identities in Profiles
 - ⬜ NIP-40 - Expiration Timestamp
 - ✅ NIP-42 - Authentication of clients to relays
+- ✅ NIP-44 - Versioned Encryption
 - ⬜ NIP-45 - Counting results
-- ⬜ NIP-46 - Nostr Connect
+- 🟩 NIP-46 - Nostr Connect (works as signer, not as client, auto-approving at present)
 - ⬜ NIP-47 - Wallet Connect
 - ✅ NIP-48 - Proxy Tags
+- ✅ NIP-49 - Private Key Encryption
 - ⬜ NIP-50 - Search Capability
 - 🟩 NIP-51 - Lists
 - ⬜ NIP-52 - Calendar Events
@@ -98,6 +100,7 @@ The following features make gossip different than most other nostr clients so fa
 - ⬜ NIP-56 - Reporting
 - 🟩 NIP-57 - Lightning Zaps
 - ⬜ NIP-58 - Badges
+- 🟩 NIP-59 - Gift Wrap (receiving and displaying, not creating/sending)
 - ✅ NIP-65 - Relay List Metadata
 - ⬜ NIP-72 - Moderated Communities
 - ⬜ NIP-75 - Zap Goals
@@ -106,21 +109,23 @@ The following features make gossip different than most other nostr clients so fa
 - ⬜ NIP-89 - Recommended Application Handlers
 - ⬜ NIP-90 - Data Vending Machines
 - ⬜ NIP-94 - File Metadata
+- ⬜ NIP-96 - HTTP File Storage Integration
 - ⬜ NIP-98 - HTTP Auth
 - ⬜ NIP-99 - Classified Listings
 
 ## Content Moderation and Curation
 
-Gossip provides multiple for you to moderate and curate the content that you see. Some of these mechanisms leverage the work of other people such as community moderators, friends, and relay operators. Others put you in charge, but as such you will be seeing the content in order to moderate it so they don't completely insulate you from the content. Here are the mechanisms available in gossip for content moderation and feed curation
+Gossip provides multiple methods for you to moderate and curate the content that you see. Some of these mechanisms leverage the work of other people such as community moderators, friends, and relay operators. Others put you in charge, but as such you will be seeing the content in order to moderate it so they don't completely insulate you from the content. Here are the mechanisms available in gossip for content moderation and feed curation.
 
 1. **No global feed and no algorithm** - Gossip has no global feed. So right from the start you are not subjected to everything that is out there. Feeds are comprised entirely of posts from people that you choose to follow. Replies to posts, on the other hand, can come from anywhere. Therefore there is still a need for moderation.
 1. **Lists** - You can define lists of people and view only what those people have posted.
 1. **Muting** - You can mute individual people. You can share this mute list with other clients that you use.
 1. **Thread Dismissal** - You can dismiss a post and all the replies to it (however, this is temporary until client restart).
 1. **Content Warnings** - Gossip shows content warnings of posts that have them, and you must approve to see the content. You can also place content warnings on any content that you post.
-1. **Spam filtering** - Gossip provides a hook to filter posts via a script that you can program to do whatever you want.
+1. **Spam Filtering Script** - Gossip provides a hook to filter posts via a script that you can program to do whatever you want.
+1. **SpamSafe Relay Designation** - When the SpamSafe setting is enabled, notes from unknown persons are only fetched from relays that you have marked as SpamSafe.
 
-Showing relay-global feeds is a possibility for the future. You can choose a relay that moderates as you wish.
+Showing relay-global feeds on relays marked SpamSafe is a possibility for the future.
 
 In the future I intend for gossip to support one of the multiple competing standards for labelling and reporting of content (the options currently are NIP-32, NIP-56, and NIP-72), but none of these are defined well enough to be useful yet IMHO. I look forward to a time when you can subscribe to a set of moderators that you trust.
 
