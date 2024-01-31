@@ -118,17 +118,24 @@ macro_rules! theme_dispatch {
                 }
             }
 
-            /// accent-colored button style 1 (filled)
-            pub fn accent_button_1_style(&self, style: &mut Style) {
+            /// primary button style
+            pub fn primary_button_style(&self, style: &mut Style) {
                 match self.variant {
-                    $( $variant => $class::accent_button_1_style(style, self.dark_mode), )+
+                    $( $variant => $class::primary_button_style(style, self.dark_mode), )+
                 }
             }
 
-            /// accent-colored button style 2 (white w. accent outline)
-            pub fn accent_button_2_style(&self, style: &mut Style) {
+            /// secondary button style
+            pub fn secondary_button_style(&self, style: &mut Style) {
                 match self.variant {
-                    $( $variant => $class::accent_button_2_style(style, self.dark_mode), )+
+                    $( $variant => $class::secondary_button_style(style, self.dark_mode), )+
+                }
+            }
+
+            /// bordered button style
+            pub fn bordered_button_style(&self, style: &mut Style) {
+            match self.variant {
+                    $( $variant => $class::bordered_button_style(style, self.dark_mode), )+
                 }
             }
 
@@ -398,11 +405,10 @@ pub trait ThemeDef: Send + Sync {
     /// the style to use when displaying on-top of an accent-colored background
     fn on_accent_style(style: &mut Style, dark_mode: bool);
 
-    /// accent-colored button style 1 (filled)
-    fn accent_button_1_style(style: &mut Style, dark_mode: bool);
-
-    /// accent-colored button style 2 (white w. accent outline)
-    fn accent_button_2_style(style: &mut Style, dark_mode: bool);
+    // button styles
+    fn primary_button_style(style: &mut Style, dark_mode: bool);
+    fn secondary_button_style(style: &mut Style, dark_mode: bool);
+    fn bordered_button_style(style: &mut Style, dark_mode: bool);
 
     /// 'danger' colored hover for accent-colored button styles
     fn accent_button_danger_hover(style: &mut Style, dark_mode: bool);

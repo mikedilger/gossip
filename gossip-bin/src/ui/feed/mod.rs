@@ -271,7 +271,7 @@ fn render_a_feed(
                             egui::Layout::top_down(egui::Align::Center)
                                 .with_cross_align(egui::Align::Center),
                             |ui| {
-                                app.theme.accent_button_1_style(ui.style_mut());
+                                app.theme.primary_button_style(ui.style_mut());
                                 ui.spacing_mut().button_padding.x *= 3.0;
                                 ui.spacing_mut().button_padding.y *= 2.0;
                                 let response = ui.add(egui::Button::new("Load More"));
