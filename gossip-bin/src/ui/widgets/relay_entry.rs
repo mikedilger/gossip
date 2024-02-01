@@ -713,14 +713,16 @@ impl RelayEntry {
                 off_fill,
             );
             if response.changed() {
-                modify_relay(&self.relay.url, |relay| {
-                    relay.adjust_usage_bit(Relay::READ, self.usage.read)
-                });
                 if !self.usage.read {
                     // if read was turned off, inbox must also be turned off
                     self.usage.inbox = false;
                     modify_relay(&self.relay.url, |relay| {
-                        relay.adjust_usage_bit(Relay::INBOX, self.usage.inbox)
+                        relay.adjust_usage_bit(Relay::READ, self.usage.read);
+                        relay.adjust_usage_bit(Relay::INBOX, self.usage.inbox);
+                    });
+                } else {
+                    modify_relay(&self.relay.url, |relay| {
+                        relay.adjust_usage_bit(Relay::READ, self.usage.read);
                     });
                 }
             }
@@ -799,14 +801,16 @@ impl RelayEntry {
                 off_fill,
             );
             if response.changed() {
-                modify_relay(&self.relay.url, |relay| {
-                    relay.adjust_usage_bit(Relay::WRITE, self.usage.write)
-                });
                 if !self.usage.write {
                     // if write was turned off, outbox must also be turned off
                     self.usage.outbox = false;
                     modify_relay(&self.relay.url, |relay| {
-                        relay.adjust_usage_bit(Relay::OUTBOX, self.usage.outbox)
+                        relay.adjust_usage_bit(Relay::WRITE, self.usage.write);
+                        relay.adjust_usage_bit(Relay::OUTBOX, self.usage.outbox);
+                    });
+                } else {
+                    modify_relay(&self.relay.url, |relay| {
+                        relay.adjust_usage_bit(Relay::WRITE, self.usage.write);
                     });
                 }
             }
