@@ -47,7 +47,7 @@ pub enum WidgetState {
     Hovered,
     Active,
     Disabled,
-    Focused
+    Focused,
 }
 
 // pub fn break_anywhere_label(ui: &mut Ui, text: impl Into<WidgetText>) {

@@ -1,12 +1,13 @@
-use crate::ui::GossipUi;
 use crate::ui::feed::NoteRenderData;
+use crate::ui::widgets;
+use crate::ui::GossipUi;
 use crate::ui::HighlightType;
 use eframe::egui;
 use egui::text::LayoutJob;
 use egui::widget_text::WidgetText;
 use egui::{Color32, Context, Frame, Margin, RichText, Ui};
+use egui_winit::egui::Vec2;
 use egui_winit::egui::Widget;
-use crate::ui::widgets;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Background {
@@ -18,18 +19,21 @@ enum Background {
 
 #[derive(Default)]
 pub struct ThemeTest {
-    button_active: usize,
+    button_small: bool,
+    button_wide: bool,
 }
 
-pub(in crate::ui) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-    widgets::page_header(ui, "Theme Test", |_ui| {
-
-    });
+pub(in crate::ui) fn update(
+    app: &mut GossipUi,
+    _ctx: &Context,
+    _frame: &mut eframe::Frame,
+    ui: &mut Ui,
+) {
+    widgets::page_header(ui, "Theme Test", |_ui| {});
 
     app.vert_scroll_area()
         .id_source(ui.auto_id_with("theme_test"))
         .show(ui, |ui| {
-
             button_test(app, ui);
 
             ui.add_space(20.0);
@@ -100,9 +104,7 @@ pub(in crate::ui) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut efr
                     ui.heading("Input Background");
                     inner(app, ui, Background::Input);
                 });
-    });
-
-
+        });
 }
 
 fn inner(app: &mut GossipUi, ui: &mut Ui, background: Background) {
@@ -162,93 +164,168 @@ fn line(ui: &mut Ui, label: impl Into<WidgetText>) {
 }
 
 fn button_test(app: &mut GossipUi, ui: &mut Ui) {
-    let text = "Continue";
+    ui.horizontal(|ui| {
+        ui.heading("Button Test:");
+        ui.add_space(30.0);
+        if ui
+            .add(egui::RadioButton::new(
+                !app.theme_test.button_small && !app.theme_test.button_wide,
+                "normal",
+            ))
+            .clicked()
+        {
+            app.theme_test.button_small = false;
+            app.theme_test.button_wide = false;
+        }
+        if ui
+            .add(egui::RadioButton::new(app.theme_test.button_small, "small"))
+            .clicked()
+        {
+            app.theme_test.button_small ^= true;
+            if app.theme_test.button_small {
+                app.theme_test.button_wide = false;
+            }
+        }
+        if ui
+            .add(egui::RadioButton::new(app.theme_test.button_wide, "wide"))
+            .clicked()
+        {
+            app.theme_test.button_wide ^= true;
+            if app.theme_test.button_wide {
+                app.theme_test.button_small = false;
+            }
+        }
+    });
+    ui.add_space(30.0);
+    const TEXT: &str = "Continue";
     let theme = &app.theme;
+    const CSIZE: Vec2 = Vec2 { x: 100.0, y: 20.0 };
     ui.vertical(|ui| {
         ui.horizontal(|ui| {
-            ui.add_sized([100.0, 20.0], egui::Label::new("Default"));
+            ui.add_sized(CSIZE, egui::Label::new("Default"));
             ui.add_space(20.0);
-            widgets::Button::primary(theme, text).draw_default(ui);
+            widgets::Button::primary(theme, TEXT)
+                .small(app.theme_test.button_small)
+                .wide(app.theme_test.button_wide)
+                .draw_default(ui);
             ui.add_space(20.0);
-            widgets::Button::secondary(theme, text).draw_default(ui);
+            widgets::Button::secondary(theme, TEXT)
+                .small(app.theme_test.button_small)
+                .wide(app.theme_test.button_wide)
+                .draw_default(ui);
             ui.add_space(20.0);
-            widgets::Button::bordered(theme, text).draw_default(ui);
+            widgets::Button::bordered(theme, TEXT)
+                .small(app.theme_test.button_small)
+                .wide(app.theme_test.button_wide)
+                .draw_default(ui);
         });
         ui.add_space(20.0);
         ui.horizontal(|ui| {
-            ui.add_sized([100.0, 20.0], egui::Label::new("Hovered"));
+            ui.add_sized(CSIZE, egui::Label::new("Hovered"));
             ui.add_space(20.0);
-            widgets::Button::primary(theme, text).draw_hovered(ui);
+            widgets::Button::primary(theme, TEXT)
+                .small(app.theme_test.button_small)
+                .wide(app.theme_test.button_wide)
+                .draw_hovered(ui);
             ui.add_space(20.0);
-            widgets::Button::secondary(theme, text).draw_hovered(ui);
+            widgets::Button::secondary(theme, TEXT)
+                .small(app.theme_test.button_small)
+                .wide(app.theme_test.button_wide)
+                .draw_hovered(ui);
             ui.add_space(20.0);
-            widgets::Button::bordered(theme, text).draw_hovered(ui);
+            widgets::Button::bordered(theme, TEXT)
+                .small(app.theme_test.button_small)
+                .wide(app.theme_test.button_wide)
+                .draw_hovered(ui);
         });
         ui.add_space(20.0);
         ui.horizontal(|ui| {
-            ui.add_sized([100.0, 20.0], egui::Label::new("Active"));
+            ui.add_sized(CSIZE, egui::Label::new("Active"));
             ui.add_space(20.0);
-            widgets::Button::primary(theme, text).draw_active(ui);
+            widgets::Button::primary(theme, TEXT)
+                .small(app.theme_test.button_small)
+                .wide(app.theme_test.button_wide)
+                .draw_active(ui);
             ui.add_space(20.0);
-            widgets::Button::secondary(theme, text).draw_active(ui);
+            widgets::Button::secondary(theme, TEXT)
+                .small(app.theme_test.button_small)
+                .wide(app.theme_test.button_wide)
+                .draw_active(ui);
             ui.add_space(20.0);
-            widgets::Button::bordered(theme, text).draw_active(ui);
+            widgets::Button::bordered(theme, TEXT)
+                .small(app.theme_test.button_small)
+                .wide(app.theme_test.button_wide)
+                .draw_active(ui);
         });
         ui.add_space(20.0);
         ui.horizontal(|ui| {
-            ui.add_sized([100.0, 20.0], egui::Label::new("Disabled"));
+            ui.add_sized(CSIZE, egui::Label::new("Disabled"));
             ui.add_space(20.0);
-            widgets::Button::primary(theme, text).draw_disabled(ui);
+            widgets::Button::primary(theme, TEXT)
+                .small(app.theme_test.button_small)
+                .wide(app.theme_test.button_wide)
+                .draw_disabled(ui);
             ui.add_space(20.0);
-            widgets::Button::secondary(theme, text).draw_disabled(ui);
+            widgets::Button::secondary(theme, TEXT)
+                .small(app.theme_test.button_small)
+                .wide(app.theme_test.button_wide)
+                .draw_disabled(ui);
             ui.add_space(20.0);
-            widgets::Button::bordered(theme, text).draw_disabled(ui);
+            widgets::Button::bordered(theme, TEXT)
+                .small(app.theme_test.button_small)
+                .wide(app.theme_test.button_wide)
+                .draw_disabled(ui);
         });
         ui.add_space(20.0);
         ui.horizontal(|ui| {
-            ui.add_sized([100.0, 20.0], egui::Label::new("Focused"));
+            ui.add_sized(CSIZE, egui::Label::new("Focused"));
             ui.add_space(20.0);
-            widgets::Button::primary(theme, text).draw_focused(ui);
+            widgets::Button::primary(theme, TEXT)
+                .small(app.theme_test.button_small)
+                .wide(app.theme_test.button_wide)
+                .draw_focused(ui);
             ui.add_space(20.0);
-            widgets::Button::secondary(theme, text).draw_focused(ui);
+            widgets::Button::secondary(theme, TEXT)
+                .small(app.theme_test.button_small)
+                .wide(app.theme_test.button_wide)
+                .draw_focused(ui);
             ui.add_space(20.0);
-            widgets::Button::bordered(theme, text).draw_focused(ui);
+            widgets::Button::bordered(theme, TEXT)
+                .small(app.theme_test.button_small)
+                .wide(app.theme_test.button_wide)
+                .draw_focused(ui);
         });
         ui.add_space(30.0);
         ui.horizontal(|ui| {
-            ui.add_sized([100.0, 20.0], egui::Label::new("try it->"));
+            ui.vertical(|ui| {
+                ui.add_sized(CSIZE, egui::Label::new("try it->"));
+            });
             ui.add_space(20.0);
             ui.vertical(|ui| {
-                let response = widgets::Button::primary(theme, text)
-                    .selected(app.theme_test.button_active == 1)
+                let response = widgets::Button::primary(theme, TEXT)
+                    .small(app.theme_test.button_small)
+                    .wide(app.theme_test.button_wide)
                     .ui(ui);
-                // if response.clicked() {
-                //     app.theme_test.button_active = 1;
-                // }
                 if ui.link("focus").clicked() {
                     response.request_focus();
                 }
             });
             ui.add_space(20.0);
             ui.vertical(|ui| {
-                let response = widgets::Button::secondary(theme, text)
-                    .selected(app.theme_test.button_active == 2)
+                let response = widgets::Button::secondary(theme, TEXT)
+                    .small(app.theme_test.button_small)
+                    .wide(app.theme_test.button_wide)
                     .ui(ui);
-                // if response.clicked() {
-                //     app.theme_test.button_active = 2;
-                // }
                 if ui.link("focus").clicked() {
                     response.request_focus();
                 }
             });
             ui.add_space(20.0);
             ui.vertical(|ui| {
-                let response = widgets::Button::bordered(theme, text)
-                    .selected(app.theme_test.button_active == 3)
+                let response = widgets::Button::bordered(theme, TEXT)
+                    .small(app.theme_test.button_small)
+                    .wide(app.theme_test.button_wide)
                     .ui(ui);
-                // if response.clicked() {
-                //     app.theme_test.button_active = 3;
-                // }
                 if ui.link("focus").clicked() {
                     response.request_focus();
                 }
