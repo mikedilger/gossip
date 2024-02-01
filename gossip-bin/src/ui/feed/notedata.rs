@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use nostr_types::{
     ContentSegment, Event, EventDelegation, EventKind, Id, MilliSatoshi, NostrBech32, PublicKey,
-    ShatteredContent, Tag,
+    ShatteredContent,
 };
 
 #[derive(PartialEq)]
@@ -113,8 +113,8 @@ impl NoteData {
         let mentions = {
             let mut mentions = Vec::<(usize, Id)>::new();
             for (i, tag) in event.tags.iter().enumerate() {
-                if let Tag::Event { id, .. } = tag {
-                    mentions.push((i, *id));
+                if let Ok((id, _, _)) = tag.parse_event() {
+                    mentions.push((i, id));
                 }
             }
             mentions
@@ -166,11 +166,12 @@ impl NoteData {
                 let mut dc = format!("UNSUPPORTED EVENT KIND {}", kind_number);
                 // support the 'alt' tag of NIP-31:
                 for tag in &event.tags {
-                    if let Tag::Other { tag, data } = tag {
-                        if tag == "alt" && !data.is_empty() {
-                            dc =
-                                format!("UNSUPPORTED EVENT KIND {}, ALT: {}", kind_number, data[0]);
-                        }
+                    if tag.tagname() == "alt" && tag.value() != "" {
+                        dc = format!(
+                            "UNSUPPORTED EVENT KIND {}, ALT: {}",
+                            kind_number,
+                            tag.value()
+                        );
                     }
                 }
                 ("".to_owned(), Some(dc))

@@ -1,19 +1,15 @@
 use crate::relay::Relay;
-use nostr_types::{EventKind, Id, PublicKey, PublicKeyHex, Tag, UncheckedUrl};
+use nostr_types::{EventAddr, Id, PublicKey, Tag, UncheckedUrl};
 
-pub async fn add_pubkey_hex_to_tags(existing_tags: &mut Vec<Tag>, hex: &PublicKeyHex) -> usize {
-    let newtag = Tag::Pubkey {
-        pubkey: hex.to_owned(),
-        recommended_relay_url: None,
-        petname: None,
-        trailing: Vec::new(),
-    };
+pub async fn add_pubkey_to_tags(existing_tags: &mut Vec<Tag>, added: PublicKey) -> usize {
+    let newtag = Tag::new_pubkey(added, None, None);
 
     match existing_tags.iter().position(|existing_tag| {
-        matches!(
-            existing_tag,
-            Tag::Pubkey { pubkey: existing_p, .. } if existing_p == hex
-        )
+        if let Ok((pubkey, _, __)) = existing_tag.parse_pubkey() {
+            pubkey == added
+        } else {
+            false
+        }
     }) {
         None => {
             // FIXME: include relay hint
@@ -24,35 +20,28 @@ pub async fn add_pubkey_hex_to_tags(existing_tags: &mut Vec<Tag>, hex: &PublicKe
     }
 }
 
-pub async fn add_pubkey_to_tags(existing_tags: &mut Vec<Tag>, added: &PublicKey) -> usize {
-    add_pubkey_hex_to_tags(existing_tags, &added.as_hex_string().into()).await
-}
-
 pub async fn add_event_to_tags(
     existing_tags: &mut Vec<Tag>,
     added: Id,
     relay_url: Option<UncheckedUrl>,
     marker: &str,
 ) -> usize {
-    let newtag = Tag::Event {
-        id: added,
-        recommended_relay_url: match relay_url {
-            Some(url) => Some(url),
-            None => Relay::recommended_relay_for_reply(added)
-                .await
-                .ok()
-                .flatten()
-                .map(|rr| rr.to_unchecked_url()),
-        },
-        marker: Some(marker.to_string()),
-        trailing: Vec::new(),
+    let optrelay = match relay_url {
+        Some(url) => Some(url),
+        None => Relay::recommended_relay_for_reply(added)
+            .await
+            .ok()
+            .flatten()
+            .map(|rr| rr.to_unchecked_url()),
     };
+    let newtag = Tag::new_event(added, optrelay, Some(marker.to_string()));
 
     match existing_tags.iter().position(|existing_tag| {
-        matches!(
-            existing_tag,
-            Tag::Event { id: existing_e, .. } if existing_e.0 == added.0
-        )
+        if let Ok((id, _rurl, _optmarker)) = existing_tag.parse_event() {
+            id == added
+        } else {
+            false
+        }
     }) {
         None => {
             existing_tags.push(newtag);
@@ -65,42 +54,27 @@ pub async fn add_event_to_tags(
 // FIXME pass in and set marker
 pub async fn add_addr_to_tags(
     existing_tags: &mut Vec<Tag>,
-    kind: EventKind,
-    pubkey: PublicKeyHex,
-    d: String,
-    relay_url: Option<UncheckedUrl>,
+    addr: &EventAddr,
     marker: Option<String>,
 ) -> usize {
     match existing_tags.iter().position(|existing_tag| {
-        matches!(
-            existing_tag,
-            Tag::Address { kind: k, pubkey: p, d: md, .. } if *k==kind && *p==pubkey && *md==d
-        )
+        if let Ok((ea, _optmarker)) = existing_tag.parse_address() {
+            ea.kind == addr.kind && ea.author == addr.author && ea.d == addr.d
+        } else {
+            false
+        }
     }) {
+        Some(idx) => idx,
         None => {
-            existing_tags.push(Tag::Address {
-                kind,
-                pubkey,
-                d,
-                relay_url,
-                marker,
-                trailing: Vec::new(),
-            });
+            existing_tags.push(Tag::new_address(addr, marker));
             existing_tags.len() - 1
         }
-        Some(idx) => idx,
     }
 }
 
 pub fn add_subject_to_tags_if_missing(existing_tags: &mut Vec<Tag>, subject: String) {
-    if !existing_tags
-        .iter()
-        .any(|t| matches!(t, Tag::Subject { .. }))
-    {
-        existing_tags.push(Tag::Subject {
-            subject,
-            trailing: Vec::new(),
-        });
+    if !existing_tags.iter().any(|t| t.tagname() == "subject") {
+        existing_tags.push(Tag::new_subject(subject));
     }
 }
 

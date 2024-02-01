@@ -509,12 +509,7 @@ pub fn delete_spam_by_content(
     // Build up a single deletion event
     let mut tags: Vec<Tag> = Vec::new();
     for id in target_ids {
-        tags.push(Tag::Event {
-            id,
-            recommended_relay_url: None,
-            marker: None,
-            trailing: Vec::new(),
-        });
+        tags.push(Tag::new_event(id, None, None));
     }
     let event = {
         let public_key = GLOBALS.identity.public_key().unwrap();

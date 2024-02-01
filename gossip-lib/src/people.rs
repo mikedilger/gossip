@@ -595,16 +595,11 @@ impl People {
         // If FollowSets
         if matches!(person_list, PersonList::Custom(_)) {
             // Add d-tag
-            public_tags.push(Tag::Identifier {
-                d: metadata.dtag.clone(),
-                trailing: vec![],
-            });
+            public_tags.push(Tag::new_identifier(metadata.dtag.clone()));
 
             // Add title if using FollowSets
-            let title = Tag::Title {
-                title: metadata.title.clone(),
-                trailing: vec![],
-            };
+            let title = Tag::new_title(metadata.title.clone());
+
             if metadata.private {
                 private_tags.push(title);
             } else {
@@ -613,13 +608,11 @@ impl People {
 
             // Preserve existing tags that we don't operate on yet
             for t in &old_tags {
-                if let Tag::Other { tag, .. } = t {
-                    if tag == "image" || tag == "description" {
-                        if metadata.private {
-                            private_tags.push(t.clone());
-                        } else {
-                            public_tags.push(t.clone());
-                        }
+                if t.tagname() == "image" || t.tagname() == "description" {
+                    if metadata.private {
+                        private_tags.push(t.clone());
+                    } else {
+                        public_tags.push(t.clone());
                     }
                 }
             }
@@ -629,21 +622,19 @@ impl People {
         if person_list == PersonList::Muted {
             // Preserve existing tags that we don't operate on yet
             for t in &old_tags {
-                match t {
-                    Tag::Hashtag { .. } | Tag::Event { .. } => {
+                match t.tagname() {
+                    "t" | "e" => {
                         if metadata.private {
                             private_tags.push(t.clone());
                         } else {
                             public_tags.push(t.clone());
                         }
                     }
-                    Tag::Other { tag, .. } => {
-                        if tag == "word" {
-                            if metadata.private {
-                                private_tags.push(t.clone());
-                            } else {
-                                public_tags.push(t.clone());
-                            }
+                    "word" => {
+                        if metadata.private {
+                            private_tags.push(t.clone());
+                        } else {
+                            public_tags.push(t.clone());
                         }
                     }
                     _ => (),
@@ -679,12 +670,7 @@ impl People {
                 }
             };
 
-            let tag = Tag::Pubkey {
-                pubkey: pubkey.into(),
-                recommended_relay_url,
-                petname,
-                trailing: vec![],
-            };
+            let tag = Tag::new_pubkey(*pubkey, recommended_relay_url, petname);
             if public {
                 public_tags.push(tag);
             } else {

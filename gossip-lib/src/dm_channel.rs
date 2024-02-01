@@ -65,11 +65,7 @@ impl DmChannel {
         };
 
         if event.kind == EventKind::EncryptedDirectMessage {
-            let mut people: Vec<PublicKey> = event
-                .people()
-                .iter()
-                .filter_map(|(pk, _, _)| PublicKey::try_from(pk).ok())
-                .collect();
+            let mut people: Vec<PublicKey> = event.people().iter().map(|(pk, _, _)| *pk).collect();
             people.push(event.pubkey);
             people.retain(|p| *p != my_pubkey);
             if people.len() > 1 {
@@ -80,11 +76,8 @@ impl DmChannel {
         } else if event.kind == EventKind::GiftWrap {
             if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(event) {
                 let rumor_event = rumor.into_event_with_bad_signature();
-                let mut people: Vec<PublicKey> = rumor_event
-                    .people()
-                    .iter()
-                    .filter_map(|(pk, _, _)| PublicKey::try_from(pk).ok())
-                    .collect();
+                let mut people: Vec<PublicKey> =
+                    rumor_event.people().iter().map(|(pk, _, _)| *pk).collect();
                 people.push(rumor_event.pubkey); // include author too
                 people.retain(|p| *p != my_pubkey);
                 Some(Self::new(&people))
@@ -93,11 +86,7 @@ impl DmChannel {
             }
         } else if event.kind == EventKind::DmChat {
             // unwrapped rumor
-            let mut people: Vec<PublicKey> = event
-                .people()
-                .iter()
-                .filter_map(|(pk, _, _)| PublicKey::try_from(pk).ok())
-                .collect();
+            let mut people: Vec<PublicKey> = event.people().iter().map(|(pk, _, _)| *pk).collect();
             people.push(event.pubkey); // include author too
             people.retain(|p| *p != my_pubkey);
             Some(Self::new(&people))

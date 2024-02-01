@@ -1341,7 +1341,7 @@ impl Minion {
         Ok(())
     }
 
-    async fn authenticate(&mut self, challenge: String) -> Result<Id, Error> {
+    async fn authenticate(&mut self, challenge: &str) -> Result<Id, Error> {
         if !GLOBALS.identity.is_unlocked() {
             return Err(ErrorKind::NoPrivateKeyForAuth(self.url.clone()).into());
         }
@@ -1356,14 +1356,8 @@ impl Minion {
             created_at: Unixtime::now().unwrap(),
             kind: EventKind::Auth,
             tags: vec![
-                Tag::Other {
-                    tag: "relay".to_string(),
-                    data: vec![self.url.as_str().to_owned()],
-                },
-                Tag::Other {
-                    tag: "challenge".to_string(),
-                    data: vec![challenge],
-                },
+                Tag::new(&["relay", self.url.as_str()]),
+                Tag::new(&["challenge", challenge]),
             ],
             content: "".to_string(),
         };

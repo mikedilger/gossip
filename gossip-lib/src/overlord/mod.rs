@@ -12,8 +12,7 @@ use crate::people::{Person, PersonList};
 use crate::person_relay::PersonRelay;
 use crate::relay::Relay;
 use crate::tags::{
-    add_addr_to_tags, add_event_to_tags, add_pubkey_hex_to_tags, add_pubkey_to_tags,
-    add_subject_to_tags_if_missing,
+    add_addr_to_tags, add_event_to_tags, add_pubkey_to_tags, add_subject_to_tags_if_missing,
 };
 use gossip_relay_picker::{Direction, RelayAssignment};
 use heed::RwTxn;
@@ -774,10 +773,8 @@ impl Overlord {
             .filter_relays(|r| r.has_usage_bits(Relay::INBOX) || r.has_usage_bits(Relay::OUTBOX))?;
         let mut tags: Vec<Tag> = Vec::new();
         for relay in inbox_or_outbox_relays.iter() {
-            tags.push(Tag::Reference {
-                url: relay.url.to_unchecked_url(),
-                marker: if relay.has_usage_bits(Relay::INBOX) && relay.has_usage_bits(Relay::OUTBOX)
-                {
+            let marker =
+                if relay.has_usage_bits(Relay::INBOX) && relay.has_usage_bits(Relay::OUTBOX) {
                     None
                 } else if relay.has_usage_bits(Relay::INBOX) {
                     Some("read".to_owned()) // NIP-65 uses the term 'read' instead of 'inbox'
@@ -785,9 +782,9 @@ impl Overlord {
                     Some("write".to_owned()) // NIP-65 uses the term 'write' instead of 'outbox'
                 } else {
                     unreachable!()
-                },
-                trailing: Vec::new(),
-            });
+                };
+
+            tags.push(Tag::new_relay(relay.url.to_unchecked_url(), marker));
         }
 
         let pre_event = PreEvent {
@@ -963,23 +960,17 @@ impl Overlord {
         // Generate a deletion event for those events
         let event = {
             // Include an "a" tag for the entire group
-            let mut tags: Vec<Tag> = vec![Tag::Address {
-                kind: EventKind::FollowSets,
-                pubkey: public_key.into(),
+            let ea = EventAddr {
                 d: metadata.dtag.clone(),
-                relay_url: None,
-                marker: None,
-                trailing: Vec::new(),
-            }];
+                relays: vec![],
+                kind: EventKind::FollowSets,
+                author: public_key,
+            };
+            let mut tags: Vec<Tag> = vec![Tag::new_address(&ea, None)];
 
             // Include "e" tags for each event
             for bad_event in &bad_events {
-                tags.push(Tag::Event {
-                    id: bad_event.id,
-                    recommended_relay_url: None,
-                    marker: None,
-                    trailing: Vec::new(),
-                });
+                tags.push(Tag::new_event(bad_event.id, None, None));
             }
 
             let pre_event = PreEvent {
@@ -1049,12 +1040,7 @@ impl Overlord {
 
     /// Delete a post
     pub async fn delete_post(&mut self, id: Id) -> Result<(), Error> {
-        let tags: Vec<Tag> = vec![Tag::Event {
-            id,
-            recommended_relay_url: None,
-            marker: None,
-            trailing: Vec::new(),
-        }];
+        let tags: Vec<Tag> = vec![Tag::new_event(id, None, None)];
 
         let event = {
             let public_key = match GLOBALS.identity.public_key() {
@@ -1372,27 +1358,18 @@ impl Overlord {
             };
 
             let mut tags: Vec<Tag> = vec![
-                Tag::Event {
+                Tag::new_event(
                     id,
-                    recommended_relay_url: Relay::recommended_relay_for_reply(id)
+                    Relay::recommended_relay_for_reply(id)
                         .await?
                         .map(|rr| rr.to_unchecked_url()),
-                    marker: None,
-                    trailing: Vec::new(),
-                },
-                Tag::Pubkey {
-                    pubkey: pubkey.into(),
-                    recommended_relay_url: None,
-                    petname: None,
-                    trailing: Vec::new(),
-                },
+                    None,
+                ),
+                Tag::new_pubkey(pubkey, None, None),
             ];
 
             if GLOBALS.storage.read_setting_set_client_tag() {
-                tags.push(Tag::Other {
-                    tag: "client".to_owned(),
-                    data: vec!["gossip".to_owned()],
-                });
+                tags.push(Tag::new(&["client", "gossip"]));
             }
 
             let pre_event = PreEvent {
@@ -1615,21 +1592,16 @@ impl Overlord {
                     pubkey: public_key,
                     created_at: Unixtime::now().unwrap(),
                     kind: EventKind::EncryptedDirectMessage,
-                    tags: vec![Tag::Pubkey {
-                        pubkey: recipient.into(),
-                        recommended_relay_url: None, // FIXME,
-                        petname: None,
-                        trailing: Vec::new(),
-                    }],
+                    tags: vec![Tag::new_pubkey(
+                        recipient, None, // FIXME
+                        None,
+                    )],
                     content: enc_content,
                 }
             }
             _ => {
                 if GLOBALS.storage.read_setting_set_client_tag() {
-                    tags.push(Tag::Other {
-                        tag: "client".to_owned(),
-                        data: vec!["gossip".to_owned()],
-                    });
+                    tags.push(Tag::new(&["client", "gossip"]));
                 }
 
                 // Add Tags based on references in the content
@@ -1642,15 +1614,7 @@ impl Overlord {
                 for bech32 in NostrBech32::find_all_in_string(&content).iter() {
                     match bech32 {
                         NostrBech32::EventAddr(ea) => {
-                            add_addr_to_tags(
-                                &mut tags,
-                                ea.kind,
-                                ea.author.into(),
-                                ea.d.clone(),
-                                ea.relays.get(0).cloned(),
-                                Some("mention".to_string()),
-                            )
-                            .await;
+                            add_addr_to_tags(&mut tags, ea, Some("mention".to_string())).await;
                         }
                         NostrBech32::EventPointer(ep) => {
                             // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
@@ -1662,12 +1626,12 @@ impl Overlord {
                         }
                         NostrBech32::Profile(prof) => {
                             if dm_channel.is_none() {
-                                add_pubkey_to_tags(&mut tags, &prof.pubkey).await;
+                                add_pubkey_to_tags(&mut tags, prof.pubkey).await;
                             }
                         }
                         NostrBech32::Pubkey(pk) => {
                             if dm_channel.is_none() {
-                                add_pubkey_to_tags(&mut tags, pk).await;
+                                add_pubkey_to_tags(&mut tags, *pk).await;
                             }
                         }
                         NostrBech32::Relay(_) => {
@@ -1683,10 +1647,7 @@ impl Overlord {
 
                 // Find and tag all hashtags
                 for capture in GLOBALS.hashtag_regex.captures_iter(&content) {
-                    tags.push(Tag::Hashtag {
-                        hashtag: capture[1][1..].to_string(),
-                        trailing: Vec::new(),
-                    });
+                    tags.push(Tag::new_hashtag(capture[1][1..].to_string()));
                 }
 
                 if let Some(parent_id) = reply_to {
@@ -1699,7 +1660,7 @@ impl Overlord {
                     // Add a 'p' tag for the author we are replying to (except if it is our own key)
                     if parent.pubkey != public_key {
                         if dm_channel.is_none() {
-                            add_pubkey_to_tags(&mut tags, &parent.pubkey).await;
+                            add_pubkey_to_tags(&mut tags, parent.pubkey).await;
                         }
                     }
 
@@ -1707,9 +1668,9 @@ impl Overlord {
                     // FIXME: Should we avoid taging people who are muted?
                     if dm_channel.is_none() {
                         for tag in &parent.tags {
-                            if let Tag::Pubkey { pubkey, .. } = tag {
-                                if pubkey.as_str() != public_key.as_hex_string() {
-                                    add_pubkey_hex_to_tags(&mut tags, pubkey).await;
+                            if let Ok((pubkey, _, _)) = tag.parse_pubkey() {
+                                if pubkey != public_key {
+                                    add_pubkey_to_tags(&mut tags, pubkey).await;
                                 }
                             }
                         }
@@ -1731,15 +1692,7 @@ impl Overlord {
                         }
                         Some(EventReference::Addr(ea)) => {
                             // Add an 'a' tag for the root
-                            add_addr_to_tags(
-                                &mut tags,
-                                ea.kind,
-                                ea.author.into(),
-                                ea.d,
-                                ea.relays.first().cloned(),
-                                Some("root".to_string()),
-                            )
-                            .await;
+                            add_addr_to_tags(&mut tags, &ea, Some("root".to_string())).await;
                             parent_is_root = false;
                         }
                         None => {
@@ -1763,10 +1716,12 @@ impl Overlord {
                         let d = parent.parameter().unwrap_or("".to_owned());
                         add_addr_to_tags(
                             &mut tags,
-                            parent.kind,
-                            parent.pubkey.into(),
-                            d,
-                            None,
+                            &EventAddr {
+                                d,
+                                relays: vec![],
+                                kind: parent.kind,
+                                author: parent.pubkey,
+                            },
                             Some(reply_marker.to_string()),
                         )
                         .await;
@@ -1774,7 +1729,7 @@ impl Overlord {
 
                     // Possibly propagate a subject tag
                     for tag in &parent.tags {
-                        if let Tag::Subject { subject, .. } = tag {
+                        if let Ok(subject) = tag.parse_subject() {
                             let mut subject = subject.to_owned();
                             if !subject.starts_with("Re: ") {
                                 subject = format!("Re: {}", subject);
@@ -1800,11 +1755,8 @@ impl Overlord {
             .tags
             .iter()
             .filter_map(|t| {
-                if let Tag::Pubkey { pubkey, .. } = t {
-                    match PublicKey::try_from_hex_string(pubkey, true) {
-                        Ok(pk) => Some(pk),
-                        _ => None,
-                    }
+                if let Ok((pubkey, _, _)) = t.parse_pubkey() {
+                    Some(pubkey)
                 } else {
                     None
                 }
@@ -2110,39 +2062,28 @@ impl Overlord {
 
         let kind: EventKind;
         let mut tags: Vec<Tag> = vec![
-            Tag::Pubkey {
-                pubkey: reposted_event.pubkey.into(),
-                recommended_relay_url: None,
-                petname: None,
-                trailing: Vec::new(),
-            },
-            Tag::Event {
-                id,
-                recommended_relay_url: relay_url.clone(),
-                marker: None,
-                trailing: Vec::new(),
-            },
+            Tag::new_pubkey(reposted_event.pubkey, None, None),
+            Tag::new_event(id, relay_url.clone(), None),
         ];
 
         if reposted_event.kind != EventKind::TextNote {
             kind = EventKind::GenericRepost;
 
             // Add 'k' tag
-            tags.push(Tag::Kind {
-                kind: reposted_event.kind,
-                trailing: Vec::new(),
-            });
+            tags.push(Tag::new_kind(reposted_event.kind));
 
             if reposted_event.kind.is_replaceable() {
-                // Add 'a' tag
-                tags.push(Tag::Address {
-                    kind: reposted_event.kind,
-                    pubkey: reposted_event.pubkey.into(),
+                let ea = EventAddr {
                     d: reposted_event.parameter().unwrap_or("".to_string()),
-                    relay_url: relay_url.clone(),
-                    marker: None,
-                    trailing: vec![],
-                });
+                    relays: match relay_url {
+                        Some(url) => vec![url.clone()],
+                        None => vec![],
+                    },
+                    kind: reposted_event.kind,
+                    author: reposted_event.pubkey,
+                };
+                // Add 'a' tag
+                tags.push(Tag::new_address(&ea, None));
             }
         } else {
             kind = EventKind::Repost;
@@ -2158,10 +2099,7 @@ impl Overlord {
             };
 
             if GLOBALS.storage.read_setting_set_client_tag() {
-                tags.push(Tag::Other {
-                    tag: "client".to_owned(),
-                    data: vec!["gossip".to_owned()],
-                });
+                tags.push(Tag::new(&["client", "gossip"]));
             }
 
             let pre_event = PreEvent {
@@ -2255,8 +2193,8 @@ impl Overlord {
                             None,
                             |event| {
                                 event.tags.iter().any(|tag| {
-                                    if let Tag::Identifier { d, .. } = tag {
-                                        if *d == ea.d {
+                                    if let Ok(d) = tag.parse_identifier() {
+                                        if d == ea.d {
                                             return true;
                                         }
                                     }
@@ -2485,19 +2423,17 @@ impl Overlord {
             // Include write relays of all the p-tagged people
             // One of them must have created the ancestor.
             // Unfortunately, oftentimes we won't have relays for strangers.
-            for (pkh, opthint, _optmarker) in highest_parent.people() {
+            for (pk, opthint, _optmarker) in highest_parent.people() {
                 if let Some(url) = opthint {
                     relays.push(url);
                 } else {
-                    if let Ok(pk) = PublicKey::try_from(pkh) {
-                        let tagged_person_relays: Vec<RelayUrl> = GLOBALS
-                            .storage
-                            .get_best_relays(pk, Direction::Write)?
-                            .drain(..)
-                            .map(|pair| pair.0)
-                            .collect();
-                        relays.extend(tagged_person_relays);
-                    }
+                    let tagged_person_relays: Vec<RelayUrl> = GLOBALS
+                        .storage
+                        .get_best_relays(pk, Direction::Write)?
+                        .drain(..)
+                        .map(|pair| pair.0)
+                        .collect();
+                    relays.extend(tagged_person_relays);
                 }
             }
 
@@ -2849,37 +2785,23 @@ impl Overlord {
 
         // Public entries
         for tag in &event.tags {
-            match tag {
-                Tag::Pubkey {
-                    pubkey,
-                    recommended_relay_url,
-                    petname,
-                    ..
-                } => {
-                    if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey, true) {
-                        // If our list is marked private, move these public entries to private ones
-                        let public = !metadata.private;
+            if let Ok((pubkey, rurl, petname)) = tag.parse_pubkey() {
+                // If our list is marked private, move these public entries to private ones
+                let public = !metadata.private;
 
-                        // Save the pubkey
-                        entries.push((pubkey.to_owned(), public));
+                // Save the pubkey
+                entries.push((pubkey.to_owned(), public));
 
-                        // Deal with recommended_relay_urls and petnames
-                        if list == PersonList::Followed {
-                            Self::integrate_rru_and_petname(
-                                &pubkey,
-                                recommended_relay_url,
-                                petname,
-                                now,
-                                merge,
-                                &mut txn,
-                            )?;
-                        }
-                    }
+                // Deal with recommended_relay_urls and petnames
+                if list == PersonList::Followed {
+                    Self::integrate_rru_and_petname(
+                        &pubkey, &rurl, &petname, now, merge, &mut txn,
+                    )?;
                 }
-                Tag::Title { title, .. } => {
-                    metadata.title = title.to_owned();
-                }
-                _ => (),
+            }
+
+            if let Ok(title) = tag.parse_title() {
+                metadata.title = title.to_owned();
             }
         }
 
@@ -2892,17 +2814,12 @@ impl Overlord {
                 let tags: Vec<Tag> = serde_json::from_slice(&decrypted_content)?;
 
                 for tag in &tags {
-                    match tag {
-                        Tag::Pubkey { pubkey, .. } => {
-                            if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey, true) {
-                                // Save the pubkey
-                                entries.push((pubkey.to_owned(), false));
-                            }
-                        }
-                        Tag::Title { title, .. } => {
-                            metadata.title = title.to_owned();
-                        }
-                        _ => (),
+                    if let Ok((pubkey, _, _)) = tag.parse_pubkey() {
+                        // Save the pubkey
+                        entries.push((pubkey.to_owned(), false));
+                    }
+                    if let Ok(title) = tag.parse_title() {
+                        metadata.title = title.to_owned();
                     }
                 }
             } else {
@@ -3344,36 +3261,20 @@ impl Overlord {
             relays
         };
 
+        let mut relays_tag = Tag::new(&["relays"]);
+        relays_tag.push_values(relays);
+
         // Generate the zap request event
         let pre_event = PreEvent {
             pubkey: user_pubkey,
             created_at: Unixtime::now().unwrap(),
             kind: EventKind::ZapRequest,
             tags: vec![
-                Tag::Event {
-                    id,
-                    recommended_relay_url: None,
-                    marker: None,
-                    trailing: Vec::new(),
-                },
-                Tag::Pubkey {
-                    pubkey: target_pubkey.into(),
-                    recommended_relay_url: None,
-                    petname: None,
-                    trailing: Vec::new(),
-                },
-                Tag::Other {
-                    tag: "relays".to_owned(),
-                    data: relays,
-                },
-                Tag::Other {
-                    tag: "amount".to_owned(),
-                    data: vec![msats_string.clone()],
-                },
-                Tag::Other {
-                    tag: "lnurl".to_owned(),
-                    data: vec![lnurl.as_str().to_owned()],
-                },
+                Tag::new_event(id, None, None),
+                Tag::new_pubkey(target_pubkey, None, None),
+                relays_tag,
+                Tag::new(&["amount", &msats_string]),
+                Tag::new(&["lnurl", lnurl.as_str()]),
             ],
             content: comment,
         };
