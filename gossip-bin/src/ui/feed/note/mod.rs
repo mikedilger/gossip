@@ -682,7 +682,7 @@ fn render_note_inner(
                                 ui.add(Label::new(
                                     RichText::new(format!("proxied from {}: ", proxy)).color(color),
                                 ));
-                                crate::ui::widgets::break_anywhere_hyperlink_to(ui, id, id);
+                                crate::ui::widgets::break_anywhere_hyperlink_to(ui, &id, &id);
                             });
                         });
                 }
@@ -1088,14 +1088,11 @@ fn render_content(
                         && !app.approved.contains(&event.id)
                         && read_setting!(approve_content_warning)
                     {
-                        ui.label(
-                            RichText::new(format!(
-                                "Content-Warning: {}",
-                                event.content_warning().unwrap()
-                            ))
-                            .monospace()
-                            .italics(),
-                        );
+                        let text = match event.content_warning().unwrap() {
+                            Some(cw) => format!("Content-Warning: {}", cw),
+                            None => "Content-Warning".to_string(),
+                        };
+                        ui.label(RichText::new(text).monospace().italics());
                         if ui.button("Show Post").clicked() {
                             app.approved.insert(event.id);
                             app.height.remove(&event.id); // will need to be recalculated.

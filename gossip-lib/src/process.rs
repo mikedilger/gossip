@@ -206,38 +206,29 @@ pub async fn process_new_event(
 
     if seen_on.is_some() {
         for tag in event.tags.iter() {
-            match tag {
-                Tag::Event {
-                    recommended_relay_url: Some(should_be_url),
-                    ..
-                } => {
-                    if let Ok(url) = RelayUrl::try_from_unchecked_url(should_be_url) {
+            if let Ok((_, Some(uurl), _optmarker)) = tag.parse_event() {
+                if let Ok(url) = RelayUrl::try_from_unchecked_url(&uurl) {
+                    GLOBALS.storage.write_relay_if_missing(&url, None)?;
+                }
+            }
+
+            if let Ok((pubkey, maybeurl, _)) = tag.parse_pubkey() {
+                // Add person if missing
+                GLOBALS.people.create_all_if_missing(&[pubkey])?;
+
+                if let Some(uncheckedurl) = maybeurl {
+                    if let Ok(url) = RelayUrl::try_from_unchecked_url(&uncheckedurl) {
                         GLOBALS.storage.write_relay_if_missing(&url, None)?;
+
+                        // upsert person_relay.last_suggested_bytag
+                        let mut pr = match GLOBALS.storage.read_person_relay(pubkey, &url)? {
+                            Some(pr) => pr,
+                            None => PersonRelay::new(pubkey, url.clone()),
+                        };
+                        pr.last_suggested_bytag = Some(now.0 as u64);
+                        GLOBALS.storage.write_person_relay(&pr, None)?;
                     }
                 }
-                Tag::Pubkey {
-                    pubkey,
-                    recommended_relay_url: Some(should_be_url),
-                    ..
-                } => {
-                    if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey, true) {
-                        if let Ok(url) = RelayUrl::try_from_unchecked_url(should_be_url) {
-                            GLOBALS.storage.write_relay_if_missing(&url, None)?;
-
-                            // Add person if missing
-                            GLOBALS.people.create_all_if_missing(&[pubkey])?;
-
-                            // upsert person_relay.last_suggested_bytag
-                            let mut pr = match GLOBALS.storage.read_person_relay(pubkey, &url)? {
-                                Some(pr) => pr,
-                                None => PersonRelay::new(pubkey, url.clone()),
-                            };
-                            pr.last_suggested_bytag = Some(now.0 as u64);
-                            GLOBALS.storage.write_person_relay(&pr, None)?;
-                        }
-                    }
-                }
-                _ => {}
             }
         }
     }
@@ -479,9 +470,9 @@ pub(crate) fn process_relationships_of_event<'a>(
         // timestamps
         if event.kind == EventKind::Timestamp {
             for tag in &event.tags {
-                if let Tag::Event { id, .. } = tag {
+                if let Ok((id, _, _)) = tag.parse_event() {
                     GLOBALS.storage.write_relationship_by_id(
-                        *id,
+                        id,
                         event.id,
                         RelationshipById::Timestamp,
                         Some(txn),
@@ -578,20 +569,20 @@ pub(crate) fn process_relationships_of_event<'a>(
             let mut label = "";
             let mut namespace = "";
             for t in &event.tags {
-                if let Tag::Other { tag, data } = t {
-                    if tag == "l" && !data.is_empty() {
-                        label = &data[0];
-                        if data.len() >= 2 {
-                            namespace = &data[1];
+                if t.tagname() == "l" {
+                    if t.value() != "" {
+                        label = t.value();
+                        if t.get_index(2) != "" {
+                            namespace = t.get_index(2);
                         }
                     }
                 }
             }
 
             for tag in &event.tags {
-                if let Tag::Event { id, .. } = tag {
+                if let Ok((id, _, _)) = tag.parse_event() {
                     GLOBALS.storage.write_relationship_by_id(
-                        *id,
+                        id,
                         event.id,
                         RelationshipById::Labels {
                             label: label.to_owned(),
@@ -606,9 +597,9 @@ pub(crate) fn process_relationships_of_event<'a>(
         // ListMutesThread
         if event.kind == EventKind::MuteList {
             for tag in &event.tags {
-                if let Tag::Event { id, .. } = tag {
+                if let Ok((id, _, _)) = tag.parse_event() {
                     GLOBALS.storage.write_relationship_by_id(
-                        *id,
+                        id,
                         event.id,
                         RelationshipById::ListMutesThread,
                         Some(txn),
@@ -620,9 +611,9 @@ pub(crate) fn process_relationships_of_event<'a>(
         // ListPins
         if event.kind == EventKind::PinList {
             for tag in &event.tags {
-                if let Tag::Event { id, .. } = tag {
+                if let Ok((id, _, _)) = tag.parse_event() {
                     GLOBALS.storage.write_relationship_by_id(
-                        *id,
+                        id,
                         event.id,
                         RelationshipById::ListPins,
                         Some(txn),
@@ -634,32 +625,22 @@ pub(crate) fn process_relationships_of_event<'a>(
         // ListBookmarks
         if event.kind == EventKind::BookmarkList {
             for tag in &event.tags {
-                if let Tag::Event { id, .. } = tag {
+                if let Ok((id, _, _)) = tag.parse_event() {
                     GLOBALS.storage.write_relationship_by_id(
-                        *id,
+                        id,
                         event.id,
                         RelationshipById::ListBookmarks,
                         Some(txn),
                     )?;
                 }
-                if let Tag::Address {
-                    kind, pubkey, d, ..
-                } = tag
-                {
-                    if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey, true) {
-                        let event_addr = EventAddr {
-                            d: d.to_owned(),
-                            relays: vec![],
-                            kind: *kind,
-                            author: pubkey,
-                        };
-                        GLOBALS.storage.write_relationship_by_addr(
-                            event_addr,
-                            event.id,
-                            RelationshipByAddr::ListBookmarks,
-                            Some(txn),
-                        )?;
-                    }
+
+                if let Ok((ea, _marker)) = tag.parse_address() {
+                    GLOBALS.storage.write_relationship_by_addr(
+                        ea,
+                        event.id,
+                        RelationshipByAddr::ListBookmarks,
+                        Some(txn),
+                    )?;
                 }
             }
         }
@@ -667,32 +648,22 @@ pub(crate) fn process_relationships_of_event<'a>(
         // BookmarkSets
         if event.kind == EventKind::BookmarkSets {
             for tag in &event.tags {
-                if let Tag::Event { id, .. } = tag {
+                if let Ok((id, _, _)) = tag.parse_event() {
                     GLOBALS.storage.write_relationship_by_id(
-                        *id,
+                        id,
                         event.id,
                         RelationshipById::ListBookmarks,
                         Some(txn),
                     )?;
                 }
-                if let Tag::Address {
-                    kind, pubkey, d, ..
-                } = tag
-                {
-                    if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey, true) {
-                        let event_addr = EventAddr {
-                            d: d.to_owned(),
-                            relays: vec![],
-                            kind: *kind,
-                            author: pubkey,
-                        };
-                        GLOBALS.storage.write_relationship_by_addr(
-                            event_addr,
-                            event.id,
-                            RelationshipByAddr::ListBookmarks,
-                            Some(txn),
-                        )?;
-                    }
+
+                if let Ok((ea, _marker)) = tag.parse_address() {
+                    GLOBALS.storage.write_relationship_by_addr(
+                        ea,
+                        event.id,
+                        RelationshipByAddr::ListBookmarks,
+                        Some(txn),
+                    )?;
                 }
             }
         }
@@ -700,119 +671,70 @@ pub(crate) fn process_relationships_of_event<'a>(
         // CurationSets
         if event.kind == EventKind::CurationSets {
             for tag in &event.tags {
-                if let Tag::Event { id, .. } = tag {
+                if let Ok((id, _, _)) = tag.parse_event() {
                     GLOBALS.storage.write_relationship_by_id(
-                        *id,
+                        id,
                         event.id,
                         RelationshipById::Curation,
                         Some(txn),
                     )?;
                 }
-                if let Tag::Address {
-                    kind, pubkey, d, ..
-                } = tag
-                {
-                    if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey, true) {
-                        let event_addr = EventAddr {
-                            d: d.to_owned(),
-                            relays: vec![],
-                            kind: *kind,
-                            author: pubkey,
-                        };
-                        GLOBALS.storage.write_relationship_by_addr(
-                            event_addr,
-                            event.id,
-                            RelationshipByAddr::Curation,
-                            Some(txn),
-                        )?;
-                    }
+                if let Ok((ea, _marker)) = tag.parse_address() {
+                    GLOBALS.storage.write_relationship_by_addr(
+                        ea,
+                        event.id,
+                        RelationshipByAddr::Curation,
+                        Some(txn),
+                    )?;
                 }
             }
         }
 
         if event.kind == EventKind::LiveChatMessage {
             for tag in &event.tags {
-                if let Tag::Address {
-                    kind, pubkey, d, ..
-                } = tag
-                {
-                    if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey, true) {
-                        let event_addr = EventAddr {
-                            d: d.to_owned(),
-                            relays: vec![],
-                            kind: *kind,
-                            author: pubkey,
-                        };
-                        GLOBALS.storage.write_relationship_by_addr(
-                            event_addr,
-                            event.id,
-                            RelationshipByAddr::LiveChatMessage,
-                            Some(txn),
-                        )?;
-                    }
+                if let Ok((ea, _marker)) = tag.parse_address() {
+                    GLOBALS.storage.write_relationship_by_addr(
+                        ea,
+                        event.id,
+                        RelationshipByAddr::LiveChatMessage,
+                        Some(txn),
+                    )?;
                 }
             }
         }
 
         if event.kind == EventKind::BadgeAward {
             for tag in &event.tags {
-                if let Tag::Address {
-                    kind, pubkey, d, ..
-                } = tag
-                {
-                    if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey, true) {
-                        let event_addr = EventAddr {
-                            d: d.to_owned(),
-                            relays: vec![],
-                            kind: *kind,
-                            author: pubkey,
-                        };
-                        GLOBALS.storage.write_relationship_by_addr(
-                            event_addr,
-                            event.id,
-                            RelationshipByAddr::BadgeAward,
-                            Some(txn),
-                        )?;
-                    }
+                if let Ok((ea, _marker)) = tag.parse_address() {
+                    GLOBALS.storage.write_relationship_by_addr(
+                        ea,
+                        event.id,
+                        RelationshipByAddr::BadgeAward,
+                        Some(txn),
+                    )?;
                 }
             }
         }
 
         if event.kind == EventKind::HandlerRecommendation {
             for tag in &event.tags {
-                if let Tag::Address {
-                    kind, pubkey, d, ..
-                } = tag
-                {
-                    if let Ok(pubkey) = PublicKey::try_from_hex_string(pubkey, true) {
-                        let event_addr = EventAddr {
-                            d: d.to_owned(),
-                            relays: vec![],
-                            kind: *kind,
-                            author: pubkey,
-                        };
-                        GLOBALS.storage.write_relationship_by_addr(
-                            event_addr,
-                            event.id,
-                            RelationshipByAddr::HandlerRecommendation,
-                            Some(txn),
-                        )?;
-                    }
+                if let Ok((ea, _marker)) = tag.parse_address() {
+                    GLOBALS.storage.write_relationship_by_addr(
+                        ea,
+                        event.id,
+                        RelationshipByAddr::HandlerRecommendation,
+                        Some(txn),
+                    )?;
                 }
             }
         }
 
         if event.kind == EventKind::Reporting {
             for tag in &event.tags {
-                if let Tag::Event {
-                    id,
-                    recommended_relay_url: Some(rru),
-                    ..
-                } = tag
-                {
-                    let report = &rru.0;
+                if let Ok((id, Some(rurl), _)) = tag.parse_event() {
+                    let report = &rurl.0;
                     GLOBALS.storage.write_relationship_by_id(
-                        *id,
+                        id,
                         event.id,
                         RelationshipById::Reports(report.to_owned()),
                         Some(txn),
@@ -843,9 +765,9 @@ pub(crate) fn process_relationships_of_event<'a>(
         // JobResult
         if event.kind.is_job_result() {
             for tag in &event.tags {
-                if let Tag::Event { id, .. } = tag {
+                if let Ok((id, _, _)) = tag.parse_event() {
                     GLOBALS.storage.write_relationship_by_id(
-                        *id,
+                        id,
                         event.id,
                         RelationshipById::JobResult,
                         Some(txn),
@@ -882,11 +804,7 @@ fn update_or_allocate_person_list_from_event(
     {
         metadata.event_created_at = event.created_at;
 
-        metadata.event_public_len = event
-            .tags
-            .iter()
-            .filter(|t| matches!(t, Tag::Pubkey { .. }))
-            .count();
+        metadata.event_public_len = event.tags.iter().filter(|t| t.tagname() == "p").count();
 
         if event.kind == EventKind::ContactList {
             metadata.event_private_len = None;
@@ -894,12 +812,7 @@ fn update_or_allocate_person_list_from_event(
             let mut private_len: Option<usize> = None;
             if let Ok(bytes) = GLOBALS.identity.decrypt_nip04(&pubkey, &event.content) {
                 if let Ok(vectags) = serde_json::from_slice::<Vec<Tag>>(&bytes) {
-                    private_len = Some(
-                        vectags
-                            .iter()
-                            .filter(|t| matches!(t, Tag::Pubkey { .. }))
-                            .count(),
-                    );
+                    private_len = Some(vectags.iter().filter(|t| t.tagname() == "p").count());
                 }
             }
             metadata.event_private_len = private_len;
