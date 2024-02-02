@@ -472,7 +472,7 @@ impl ThemeDef for DefaultTheme {
         text_styles.insert(
             TextStyle::Body,
             FontId {
-                size: 12.5,
+                size: 13.0,
                 family: FontFamily::Proportional,
             },
         );
@@ -480,7 +480,7 @@ impl ThemeDef for DefaultTheme {
         text_styles.insert(
             TextStyle::Monospace,
             FontId {
-                size: 12.5,
+                size: 13.0,
                 family: FontFamily::Monospace,
             },
         );
@@ -488,7 +488,7 @@ impl ThemeDef for DefaultTheme {
         text_styles.insert(
             TextStyle::Button,
             FontId {
-                size: 12.5,
+                size: 13.0,
                 family: FontFamily::Proportional,
             },
         );
@@ -542,30 +542,30 @@ impl ThemeDef for DefaultTheme {
 
         match highlight_type {
             HighlightType::Nothing => TextFormat {
-                font_id: FontId::new(12.5, FontFamily::Proportional),
+                font_id: FontId::new(13.0, FontFamily::Proportional),
                 color: main,
                 ..Default::default()
             },
             HighlightType::PublicKey => TextFormat {
-                font_id: FontId::new(12.5, FontFamily::Monospace),
+                font_id: FontId::new(13.0, FontFamily::Monospace),
                 background: grey,
                 color: green,
                 ..Default::default()
             },
             HighlightType::Event => TextFormat {
-                font_id: FontId::new(12.5, FontFamily::Monospace),
+                font_id: FontId::new(13.0, FontFamily::Monospace),
                 background: grey,
                 color: red,
                 ..Default::default()
             },
             HighlightType::Relay => TextFormat {
-                font_id: FontId::new(12.5, FontFamily::Monospace),
+                font_id: FontId::new(13.0, FontFamily::Monospace),
                 background: grey,
                 color: purple,
                 ..Default::default()
             },
             HighlightType::Hyperlink => TextFormat {
-                font_id: FontId::new(12.5, FontFamily::Proportional),
+                font_id: FontId::new(13.0, FontFamily::Proportional),
                 color: {
                     // This should match get_style() above for hyperlink color.
                     if dark_mode {
