@@ -55,10 +55,23 @@ impl Storage {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
             self.db_events2()?.put(txn, event.id.as_slice(), &bytes)?;
 
+            // If giftwrap, index the inner rumor instead
+            let mut eventptr: &EventV2 = event;
+            let rumor: EventV2;
+            if let Some(r) = self.switch_to_rumor(event, txn)? {
+                rumor = r;
+                eventptr = &rumor;
+            }
             // also index the event
-            self.write_event_ek_pk_index(event, Some(txn))?;
-            self.write_event_ek_c_index(event, Some(txn))?;
-            self.write_event_tag_index(event, Some(txn))?;
+            self.write_event_ek_pk_index(eventptr.id, eventptr.kind, eventptr.pubkey, Some(txn))?;
+            self.write_event_ek_c_index(
+                eventptr.id,
+                eventptr.kind,
+                eventptr.created_at,
+                Some(txn),
+            )?;
+            self.write_event_tag_index(eventptr, Some(txn))?;
+
             for hashtag in event.hashtags() {
                 if hashtag.is_empty() {
                     continue;

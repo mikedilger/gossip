@@ -61,8 +61,13 @@ impl Storage {
         let mut txn = self.env.write_txn()?;
         for id in ids {
             if let Some(event) = self.read_event(id)? {
-                self.write_event_ek_pk_index(&event, Some(&mut txn))?;
-                self.write_event_ek_c_index(&event, Some(&mut txn))?;
+                self.write_event_ek_pk_index(event.id, event.kind, event.pubkey, Some(&mut txn))?;
+                self.write_event_ek_c_index(
+                    event.id,
+                    event.kind,
+                    event.created_at,
+                    Some(&mut txn),
+                )?;
                 self.write_event_tag_index(&event, Some(&mut txn))?;
             }
             self.db_unindexed_giftwraps1()?

@@ -1682,23 +1682,16 @@ impl Storage {
     // We don't call this externally. Whenever we write an event, we do this.
     fn write_event_ek_pk_index<'a>(
         &'a self,
-        event: &Event,
+        id: Id,
+        kind: EventKind,
+        pubkey: PublicKey,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let mut event = event;
-
-            // If giftwrap, index the inner rumor instead
-            let rumor_event: Event;
-            if let Some(rumor) = self.switch_to_rumor(event, txn)? {
-                rumor_event = rumor;
-                event = &rumor_event;
-            }
-
-            let ek: u32 = event.kind.into();
+            let ek: u32 = kind.into();
             let mut key: Vec<u8> = ek.to_be_bytes().as_slice().to_owned(); // event kind
-            key.extend(event.pubkey.as_bytes()); // pubkey
-            let bytes = event.id.as_slice();
+            key.extend(pubkey.as_bytes()); // pubkey
+            let bytes = id.as_slice();
 
             self.db_event_ek_pk_index()?.put(txn, &key, bytes)?;
             Ok(())
@@ -1719,23 +1712,16 @@ impl Storage {
     // We don't call this externally. Whenever we write an event, we do this.
     fn write_event_ek_c_index<'a>(
         &'a self,
-        event: &Event,
+        id: Id,
+        kind: EventKind,
+        created_at: Unixtime,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let mut event = event;
-
-            // If giftwrap, index the inner rumor instead
-            let rumor_event: Event;
-            if let Some(rumor) = self.switch_to_rumor(event, txn)? {
-                rumor_event = rumor;
-                event = &rumor_event;
-            }
-
-            let ek: u32 = event.kind.into();
+            let ek: u32 = kind.into();
             let mut key: Vec<u8> = ek.to_be_bytes().as_slice().to_owned(); // event kind
-            key.extend((i64::MAX - event.created_at.0).to_be_bytes().as_slice()); // reverse created_at
-            let bytes = event.id.as_slice();
+            key.extend((i64::MAX - created_at.0).to_be_bytes().as_slice()); // reverse created_at
+            let bytes = id.as_slice();
 
             self.db_event_ek_c_index()?.put(txn, &key, bytes)?;
             Ok(())
@@ -2327,9 +2313,28 @@ impl Storage {
             for result in self.db_events()?.iter(&loop_txn)? {
                 let (_key, val) = result?;
                 let event = Event::read_from_buffer(val)?;
-                self.write_event_ek_pk_index(&event, Some(txn))?;
-                self.write_event_ek_c_index(&event, Some(txn))?;
-                self.write_event_tag_index(&event, Some(txn))?;
+
+                // If giftwrap, index the inner rumor instead
+                let mut eventptr: &Event = &event;
+                let rumor: Event;
+                if let Some(r) = self.switch_to_rumor(&event, txn)? {
+                    rumor = r;
+                    eventptr = &rumor;
+                }
+
+                self.write_event_ek_pk_index(
+                    eventptr.id,
+                    eventptr.kind,
+                    eventptr.pubkey,
+                    Some(txn),
+                )?;
+                self.write_event_ek_c_index(
+                    eventptr.id,
+                    eventptr.kind,
+                    eventptr.created_at,
+                    Some(txn),
+                )?;
+                self.write_event_tag_index(&eventptr, Some(txn))?;
                 for hashtag in event.hashtags() {
                     if hashtag.is_empty() {
                         continue;
