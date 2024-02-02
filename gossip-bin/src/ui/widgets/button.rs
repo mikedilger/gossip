@@ -186,7 +186,7 @@ impl Button<'_> {
         let frame = ui.visuals().button_frame;
 
         let mut button_padding = if frame {
-            Vec2::new(14.0, 4.0)
+            Vec2::new(14.0, 5.0)
         } else {
             Vec2::ZERO
         };
