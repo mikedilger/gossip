@@ -1,8 +1,7 @@
-use crate::error::{Error, ErrorKind};
-use crate::globals::GLOBALS;
+use crate::error::Error;
 use crate::storage::{RawDatabase, Storage};
 use heed::{types::UnalignedSlice, DatabaseFlags, RwTxn};
-use nostr_types::{Event, EventKind, PublicKeyHex};
+use nostr_types::{Event, PublicKeyHex};
 use std::sync::Mutex;
 
 // NOTE: "innerp" is a fake tag. We store events that reference a person internally under it.
@@ -54,23 +53,11 @@ impl Storage {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
             let mut event = event;
 
-            let mut rumor_event: Event;
-            if event.kind == EventKind::GiftWrap {
-                match GLOBALS.identity.unwrap_giftwrap(event) {
-                    Ok(rumor) => {
-                        rumor_event = rumor.into_event_with_bad_signature();
-                        rumor_event.id = event.id; // lie, so it indexes it under the giftwrap
-                        event = &rumor_event;
-                    }
-                    Err(e) => {
-                        if matches!(e.kind, ErrorKind::NoPrivateKey) {
-                            // Store as unindexed for later indexing
-                            let bytes = vec![];
-                            self.db_unindexed_giftwraps()?
-                                .put(txn, event.id.as_slice(), &bytes)?;
-                        }
-                    }
-                }
+            // If giftwrap, index the inner rumor instead
+            let rumor_event: Event;
+            if let Some(rumor) = self.switch_to_rumor(event, txn)? {
+                rumor_event = rumor;
+                event = &rumor_event;
             }
 
             // our user's public key

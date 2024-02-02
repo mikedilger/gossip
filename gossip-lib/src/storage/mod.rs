@@ -1652,6 +1652,33 @@ impl Storage {
         Ok(events)
     }
 
+    fn switch_to_rumor<'a>(
+        &'a self,
+        event: &Event,
+        txn: &mut RwTxn<'a>,
+    ) -> Result<Option<Event>, Error> {
+        if event.kind == EventKind::GiftWrap {
+            match GLOBALS.identity.unwrap_giftwrap(event) {
+                Ok(rumor) => {
+                    let mut rumor_event = rumor.into_event_with_bad_signature();
+                    rumor_event.id = event.id; // lie, so it indexes it under the giftwrap
+                    Ok(Some(rumor_event))
+                }
+                Err(e) => {
+                    if matches!(e.kind, ErrorKind::NoPrivateKey) {
+                        // Store as unindexed for later indexing
+                        let bytes = vec![];
+                        self.db_unindexed_giftwraps()?
+                            .put(txn, event.id.as_slice(), &bytes)?;
+                    }
+                    Err(e)
+                }
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
     // We don't call this externally. Whenever we write an event, we do this.
     fn write_event_ek_pk_index<'a>(
         &'a self,
@@ -1662,23 +1689,10 @@ impl Storage {
             let mut event = event;
 
             // If giftwrap, index the inner rumor instead
-            let mut rumor_event: Event;
-            if event.kind == EventKind::GiftWrap {
-                match GLOBALS.identity.unwrap_giftwrap(event) {
-                    Ok(rumor) => {
-                        rumor_event = rumor.into_event_with_bad_signature();
-                        rumor_event.id = event.id; // lie, so it indexes it under the giftwrap
-                        event = &rumor_event;
-                    }
-                    Err(e) => {
-                        if matches!(e.kind, ErrorKind::NoPrivateKey) {
-                            // Store as unindexed for later indexing
-                            let bytes = vec![];
-                            self.db_unindexed_giftwraps()?
-                                .put(txn, event.id.as_slice(), &bytes)?;
-                        }
-                    }
-                }
+            let rumor_event: Event;
+            if let Some(rumor) = self.switch_to_rumor(event, txn)? {
+                rumor_event = rumor;
+                event = &rumor_event;
             }
 
             let ek: u32 = event.kind.into();
@@ -1712,23 +1726,10 @@ impl Storage {
             let mut event = event;
 
             // If giftwrap, index the inner rumor instead
-            let mut rumor_event: Event;
-            if event.kind == EventKind::GiftWrap {
-                match GLOBALS.identity.unwrap_giftwrap(event) {
-                    Ok(rumor) => {
-                        rumor_event = rumor.into_event_with_bad_signature();
-                        rumor_event.id = event.id; // lie, so it indexes it under the giftwrap
-                        event = &rumor_event;
-                    }
-                    Err(e) => {
-                        if matches!(e.kind, ErrorKind::NoPrivateKey) {
-                            // Store as unindexed for later indexing
-                            let bytes = vec![];
-                            self.db_unindexed_giftwraps()?
-                                .put(txn, event.id.as_slice(), &bytes)?;
-                        }
-                    }
-                }
+            let rumor_event: Event;
+            if let Some(rumor) = self.switch_to_rumor(event, txn)? {
+                rumor_event = rumor;
+                event = &rumor_event;
             }
 
             let ek: u32 = event.kind.into();
@@ -1752,6 +1753,7 @@ impl Storage {
         Ok(())
     }
 
+    // Switch to rumor before calling this.
     fn write_event_tag_index<'a>(
         &'a self,
         event: &Event,
