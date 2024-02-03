@@ -2,6 +2,7 @@ use super::GossipUi;
 use crate::ui::widgets::CopyButton;
 use eframe::egui;
 use egui::{Context, Ui};
+use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{Nip46UnconnectedServer, GLOBALS};
 use nostr_types::RelayUrl;
 
@@ -113,20 +114,27 @@ fn setup_unconnected_service(app: &mut GossipUi, ui: &mut Ui) {
             if !app.nostr_connect_relay2.is_empty() {
                 if let Ok(relay2) = RelayUrl::try_from_str(&app.nostr_connect_relay2) {
                     if ui.button("Create Service").clicked() {
-                        // Create the unconnected server (2 relays)
-                        let server = Nip46UnconnectedServer::new(vec![relay1, relay2]);
-                        let _ = GLOBALS
-                            .storage
-                            .write_nip46_unconnected_server(&server, None);
+                        create_service(vec![relay1, relay2]);
                     }
                 }
             } else if ui.button("Create Service").clicked() {
-                // Create the unconnected server (1 relay)
-                let server = Nip46UnconnectedServer::new(vec![relay1]);
-                let _ = GLOBALS
-                    .storage
-                    .write_nip46_unconnected_server(&server, None);
+                create_service(vec![relay1]);
             }
         }
     }
+}
+
+fn create_service(relays: Vec<RelayUrl>) {
+    // Create the unconnected server (1 relay)
+    let server = Nip46UnconnectedServer::new(relays.clone());
+
+    // Store it
+    let _ = GLOBALS
+        .storage
+        .write_nip46_unconnected_server(&server, None);
+
+    // Tell the overlord to subscribe
+    let _ = GLOBALS
+        .to_overlord
+        .send(ToOverlordMessage::SubscribeNip46(relays));
 }

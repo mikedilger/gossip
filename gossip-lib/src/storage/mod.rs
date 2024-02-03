@@ -23,6 +23,7 @@ mod event_tag_index1;
 mod event_viewed1;
 mod events1;
 mod events2;
+mod events3;
 mod hashtags1;
 mod nip46servers1;
 mod people1;
@@ -40,6 +41,7 @@ mod relays1;
 mod relays2;
 mod reprel1;
 mod unindexed_giftwraps1;
+mod versioned;
 
 use crate::dm_channel::{DmChannel, DmChannelData};
 use crate::error::{Error, ErrorKind};
@@ -55,7 +57,7 @@ use heed::types::UnalignedSlice;
 use heed::{Database, Env, EnvFlags, EnvOpenOptions, RwTxn};
 use nostr_types::{
     EncryptedPrivateKey, Event, EventAddr, EventKind, EventReference, Id, MilliSatoshi, PublicKey,
-    RelayUrl, Tag, Unixtime,
+    RelayUrl, Unixtime,
 };
 use paste::paste;
 use speedy::{Readable, Writable};
@@ -288,7 +290,7 @@ impl Storage {
 
     #[inline]
     pub(crate) fn db_events(&self) -> Result<RawDatabase, Error> {
-        self.db_events2()
+        self.db_events3()
     }
 
     #[inline]
@@ -1163,9 +1165,9 @@ impl Storage {
         let mut inbox_relays: Vec<RelayUrl> = Vec::new();
         let mut outbox_relays: Vec<RelayUrl> = Vec::new();
         for tag in event.tags.iter() {
-            if let Tag::Reference { url, marker, .. } = tag {
-                if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(url) {
-                    if let Some(m) = marker {
+            if let Ok((uurl, optmarker)) = tag.parse_relay() {
+                if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(&uurl) {
+                    if let Some(m) = optmarker {
                         match &*m.trim().to_lowercase() {
                             "read" => {
                                 // 'read' means inbox and not outbox
@@ -1294,26 +1296,26 @@ impl Storage {
         event: &Event,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.write_event2(event, rw_txn)
+        self.write_event3(event, rw_txn)
     }
 
     /// Read an event
     #[inline]
     pub fn read_event(&self, id: Id) -> Result<Option<Event>, Error> {
-        self.read_event2(id)
+        self.read_event3(id)
     }
 
     /// If we have th event
     #[inline]
     pub fn has_event(&self, id: Id) -> Result<bool, Error> {
-        self.has_event2(id)
+        self.has_event3(id)
     }
 
     /// Delete the event
     pub fn delete_event<'a>(&'a self, id: Id, rw_txn: Option<&mut RwTxn<'a>>) -> Result<(), Error> {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
             // Delete from the events table
-            self.delete_event2(id, Some(txn))?;
+            self.delete_event3(id, Some(txn))?;
 
             // Delete from event_seen_on_relay
             {
@@ -1652,39 +1654,27 @@ impl Storage {
         Ok(events)
     }
 
+    fn switch_to_rumor<'a>(
+        &'a self,
+        event: &Event,
+        txn: &mut RwTxn<'a>,
+    ) -> Result<Option<Event>, Error> {
+        self.switch_to_rumor3(event, txn)
+    }
+
     // We don't call this externally. Whenever we write an event, we do this.
     fn write_event_ek_pk_index<'a>(
         &'a self,
-        event: &Event,
+        id: Id,
+        kind: EventKind,
+        pubkey: PublicKey,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let mut event = event;
-
-            // If giftwrap, index the inner rumor instead
-            let mut rumor_event: Event;
-            if event.kind == EventKind::GiftWrap {
-                match GLOBALS.identity.unwrap_giftwrap(event) {
-                    Ok(rumor) => {
-                        rumor_event = rumor.into_event_with_bad_signature();
-                        rumor_event.id = event.id; // lie, so it indexes it under the giftwrap
-                        event = &rumor_event;
-                    }
-                    Err(e) => {
-                        if matches!(e.kind, ErrorKind::NoPrivateKey) {
-                            // Store as unindexed for later indexing
-                            let bytes = vec![];
-                            self.db_unindexed_giftwraps()?
-                                .put(txn, event.id.as_slice(), &bytes)?;
-                        }
-                    }
-                }
-            }
-
-            let ek: u32 = event.kind.into();
+            let ek: u32 = kind.into();
             let mut key: Vec<u8> = ek.to_be_bytes().as_slice().to_owned(); // event kind
-            key.extend(event.pubkey.as_bytes()); // pubkey
-            let bytes = event.id.as_slice();
+            key.extend(pubkey.as_bytes()); // pubkey
+            let bytes = id.as_slice();
 
             self.db_event_ek_pk_index()?.put(txn, &key, bytes)?;
             Ok(())
@@ -1705,36 +1695,16 @@ impl Storage {
     // We don't call this externally. Whenever we write an event, we do this.
     fn write_event_ek_c_index<'a>(
         &'a self,
-        event: &Event,
+        id: Id,
+        kind: EventKind,
+        created_at: Unixtime,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let mut event = event;
-
-            // If giftwrap, index the inner rumor instead
-            let mut rumor_event: Event;
-            if event.kind == EventKind::GiftWrap {
-                match GLOBALS.identity.unwrap_giftwrap(event) {
-                    Ok(rumor) => {
-                        rumor_event = rumor.into_event_with_bad_signature();
-                        rumor_event.id = event.id; // lie, so it indexes it under the giftwrap
-                        event = &rumor_event;
-                    }
-                    Err(e) => {
-                        if matches!(e.kind, ErrorKind::NoPrivateKey) {
-                            // Store as unindexed for later indexing
-                            let bytes = vec![];
-                            self.db_unindexed_giftwraps()?
-                                .put(txn, event.id.as_slice(), &bytes)?;
-                        }
-                    }
-                }
-            }
-
-            let ek: u32 = event.kind.into();
+            let ek: u32 = kind.into();
             let mut key: Vec<u8> = ek.to_be_bytes().as_slice().to_owned(); // event kind
-            key.extend((i64::MAX - event.created_at.0).to_be_bytes().as_slice()); // reverse created_at
-            let bytes = event.id.as_slice();
+            key.extend((i64::MAX - created_at.0).to_be_bytes().as_slice()); // reverse created_at
+            let bytes = id.as_slice();
 
             self.db_event_ek_c_index()?.put(txn, &key, bytes)?;
             Ok(())
@@ -1752,12 +1722,13 @@ impl Storage {
         Ok(())
     }
 
+    // Switch to rumor before calling this.
     fn write_event_tag_index<'a>(
         &'a self,
         event: &Event,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.write_event_tag_index1(event, rw_txn)
+        self.write_event3_tag_index1(event, rw_txn)
     }
 
     /// Find events having a given tag, and passing the filter.
@@ -2325,9 +2296,28 @@ impl Storage {
             for result in self.db_events()?.iter(&loop_txn)? {
                 let (_key, val) = result?;
                 let event = Event::read_from_buffer(val)?;
-                self.write_event_ek_pk_index(&event, Some(txn))?;
-                self.write_event_ek_c_index(&event, Some(txn))?;
-                self.write_event_tag_index(&event, Some(txn))?;
+
+                // If giftwrap, index the inner rumor instead
+                let mut eventptr: &Event = &event;
+                let rumor: Event;
+                if let Some(r) = self.switch_to_rumor(&event, txn)? {
+                    rumor = r;
+                    eventptr = &rumor;
+                }
+
+                self.write_event_ek_pk_index(
+                    eventptr.id,
+                    eventptr.kind,
+                    eventptr.pubkey,
+                    Some(txn),
+                )?;
+                self.write_event_ek_c_index(
+                    eventptr.id,
+                    eventptr.kind,
+                    eventptr.created_at,
+                    Some(txn),
+                )?;
+                self.write_event_tag_index(eventptr, Some(txn))?;
                 for hashtag in event.hashtags() {
                     if hashtag.is_empty() {
                         continue;

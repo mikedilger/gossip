@@ -449,7 +449,7 @@ impl Feed {
 
                                 if indirect {
                                     // Include if it tags me
-                                    e.people().iter().any(|(p, _, _)| *p == my_pubkey.into())
+                                    e.people().iter().any(|(p, _, _)| *p == my_pubkey)
                                 } else {
                                     // Include if it directly references me in the content
                                     e.people_referenced_in_content()

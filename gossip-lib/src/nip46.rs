@@ -391,12 +391,7 @@ fn send_response(
         pubkey: public_key,
         created_at: Unixtime::now().unwrap(),
         kind: EventKind::NostrConnect,
-        tags: vec![Tag::Pubkey {
-            pubkey: peer_pubkey.into(),
-            recommended_relay_url: None,
-            petname: None,
-            trailing: vec![],
-        }],
+        tags: vec![Tag::new_pubkey(peer_pubkey, None, None)],
         content: e,
     };
 

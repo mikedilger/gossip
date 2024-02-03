@@ -184,7 +184,7 @@ impl Minion {
                 }
             }
             RelayMessage::Auth(challenge) => {
-                let id = self.authenticate(challenge).await?;
+                let id = self.authenticate(&challenge).await?;
                 self.waiting_for_auth = Some(id);
             }
             RelayMessage::Closed(subid, message) => {

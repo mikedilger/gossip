@@ -452,6 +452,9 @@ impl Minion {
             ToMinionPayloadDetail::SubscribeDmChannel(dmchannel) => {
                 self.subscribe_dm_channel(message.job_id, dmchannel).await?;
             }
+            ToMinionPayloadDetail::SubscribeNip46 => {
+                self.subscribe_nip46(message.job_id).await?;
+            }
             ToMinionPayloadDetail::TempSubscribeGeneralFeedChunk { pubkeys, start } => {
                 self.temp_subscribe_general_feed_chunk(message.job_id, pubkeys, start)
                     .await?;
@@ -1031,6 +1034,28 @@ impl Minion {
         Ok(())
     }
 
+    async fn subscribe_nip46(&mut self, job_id: u64) -> Result<(), Error> {
+        let pubkey = match GLOBALS.identity.public_key() {
+            Some(pk) => pk,
+            None => return Ok(()),
+        };
+        let pkh: PublicKeyHex = pubkey.into();
+
+        let filter = {
+            let mut filter = Filter {
+                kinds: vec![EventKind::NostrConnect],
+                ..Default::default()
+            };
+            filter.set_tag_values('p', vec![pkh.to_string()]);
+            filter
+        };
+        let filters: Vec<Filter> = vec![filter];
+
+        self.subscribe(filters, "nip46", job_id).await?;
+
+        Ok(())
+    }
+
     async fn get_events(&mut self) -> Result<(), Error> {
         // Collect all the sought events we have not yet asked for, and
         // presumptively mark them as having been asked for.
@@ -1316,7 +1341,7 @@ impl Minion {
         Ok(())
     }
 
-    async fn authenticate(&mut self, challenge: String) -> Result<Id, Error> {
+    async fn authenticate(&mut self, challenge: &str) -> Result<Id, Error> {
         if !GLOBALS.identity.is_unlocked() {
             return Err(ErrorKind::NoPrivateKeyForAuth(self.url.clone()).into());
         }
@@ -1331,14 +1356,8 @@ impl Minion {
             created_at: Unixtime::now().unwrap(),
             kind: EventKind::Auth,
             tags: vec![
-                Tag::Other {
-                    tag: "relay".to_string(),
-                    data: vec![self.url.as_str().to_owned()],
-                },
-                Tag::Other {
-                    tag: "challenge".to_string(),
-                    data: vec![challenge],
-                },
+                Tag::new(&["relay", self.url.as_str()]),
+                Tag::new(&["challenge", challenge]),
             ],
             content: "".to_string(),
         };

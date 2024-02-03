@@ -23,9 +23,9 @@ impl Delegation {
     }
 
     pub fn get_delegator_pubkey(&self) -> Option<PublicKey> {
-        if let Some(Tag::Delegation { pubkey, .. }) = self.get_delegatee_tag() {
-            if let Ok(pk) = PublicKey::try_from_hex_string(pubkey.as_str(), true) {
-                return Some(pk);
+        if let Some(tag) = self.get_delegatee_tag() {
+            if let Ok((pubkey, _, _)) = tag.parse_delegation() {
+                return Some(pubkey);
             }
         }
         None

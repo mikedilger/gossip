@@ -2,8 +2,8 @@ use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use nostr_types::{
     ContentEncryptionAlgorithm, DelegationConditions, EncryptedPrivateKey, Event, EventKind,
-    EventV1, Id, Identity, KeySecurity, Metadata, PreEvent, PrivateKey, PublicKey, PublicKeyHex,
-    Rumor, RumorV1, Signature,
+    EventV1, EventV2, Id, Identity, KeySecurity, Metadata, PreEvent, PrivateKey, PublicKey, Rumor,
+    RumorV1, RumorV2, Signature,
 };
 use parking_lot::RwLock;
 use std::sync::mpsc::Sender;
@@ -217,6 +217,11 @@ impl GossipIdentity {
         Ok(self.inner.read().unwrap_giftwrap1(event)?)
     }
 
+    /// @deprecated for migrations only
+    pub fn unwrap_giftwrap2(&self, event: &EventV2) -> Result<RumorV2, Error> {
+        Ok(self.inner.read().unwrap_giftwrap2(event)?)
+    }
+
     pub fn decrypt_event_contents(&self, event: &Event) -> Result<String, Error> {
         Ok(self.inner.read().decrypt_event_contents(event)?)
     }
@@ -252,7 +257,7 @@ impl GossipIdentity {
 
     pub fn create_zap_request_event(
         &self,
-        recipient_pubkey: PublicKeyHex,
+        recipient_pubkey: PublicKey,
         zapped_event: Option<Id>,
         millisatoshis: u64,
         relays: Vec<String>,

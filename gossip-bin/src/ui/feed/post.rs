@@ -270,19 +270,13 @@ fn dm_posting_area(
     if send_now {
         let mut tags: Vec<Tag> = Vec::new();
         if app.dm_draft_data.include_content_warning {
-            tags.push(Tag::ContentWarning {
-                warning: app.dm_draft_data.content_warning.clone(),
-                trailing: Vec::new(),
-            });
+            tags.push(Tag::new_content_warning(&app.dm_draft_data.content_warning));
         }
         if let Some(delegatee_tag) = GLOBALS.delegation.get_delegatee_tag() {
             tags.push(delegatee_tag);
         }
         if app.dm_draft_data.include_subject {
-            tags.push(Tag::Subject {
-                subject: app.dm_draft_data.subject.clone(),
-                trailing: Vec::new(),
-            });
+            tags.push(Tag::new_subject(app.dm_draft_data.subject.clone()));
         }
 
         let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post {
@@ -609,19 +603,13 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
         let mut tags: Vec<Tag> = Vec::new();
         if app.draft_data.include_content_warning {
-            tags.push(Tag::ContentWarning {
-                warning: app.draft_data.content_warning.clone(),
-                trailing: Vec::new(),
-            });
+            tags.push(Tag::new_content_warning(&app.draft_data.content_warning));
         }
         if let Some(delegatee_tag) = GLOBALS.delegation.get_delegatee_tag() {
             tags.push(delegatee_tag);
         }
         if app.draft_data.include_subject {
-            tags.push(Tag::Subject {
-                subject: app.draft_data.subject.clone(),
-                trailing: Vec::new(),
-            });
+            tags.push(Tag::new_subject(app.draft_data.subject.clone()));
         }
         match app.draft_data.replying_to {
             Some(replying_to_id) => {

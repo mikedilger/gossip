@@ -162,6 +162,9 @@ pub enum ToOverlordMessage {
     /// Calls [subscribe_mentions](crate::Overlord::subscribe_mentions)
     SubscribeMentions(Option<Vec<RelayUrl>>),
 
+    /// Calls [subscribe_nip46](crate::Overlord::subscribe_nip46)
+    SubscribeNip46(Vec<RelayUrl>),
+
     /// Calls [shutdown](crate::Overlord::shutdown)
     Shutdown,
 
@@ -227,6 +230,7 @@ pub(crate) enum ToMinionPayloadDetail {
     SubscribePersonFeed(PublicKey),
     SubscribeThreadFeed(IdHex, Vec<IdHex>),
     SubscribeDmChannel(DmChannel),
+    SubscribeNip46,
     TempSubscribeGeneralFeedChunk {
         pubkeys: Vec<PublicKey>,
         start: Unixtime,
@@ -253,6 +257,7 @@ pub enum RelayConnectionReason {
     FetchMentions,
     FetchMetadata,
     Follow,
+    NostrConnect,
     PostEvent,
     PostContacts,
     PostLike,
@@ -282,6 +287,7 @@ impl RelayConnectionReason {
             FetchDirectMessages => "Fetching direct messages",
             FetchEvent => "Fetching a particular event",
             FetchMetadata => "Fetching metadata for a person",
+            NostrConnect => "Nostr connect",
             PostEvent => "Posting an event",
             Advertising => "Advertising our relay list",
             PostLike => "Posting a reaction to an event",
@@ -306,6 +312,7 @@ impl RelayConnectionReason {
             FetchDirectMessages => true,
             FetchEvent => false,
             FetchMetadata => false,
+            NostrConnect => true,
             PostEvent => false,
             Advertising => false,
             PostLike => false,
