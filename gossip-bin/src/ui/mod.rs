@@ -817,6 +817,7 @@ impl GossipUi {
             | Page::RelaysCoverage
             | Page::RelaysMine
             | Page::RelaysKnownNetwork => {
+                self.relays.enter_page();
                 self.open_menu(ctx, SubMenu::Relays);
             }
             Page::Search => {
