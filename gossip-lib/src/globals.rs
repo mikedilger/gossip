@@ -4,6 +4,7 @@ use crate::feed::Feed;
 use crate::fetcher::Fetcher;
 use crate::gossip_identity::GossipIdentity;
 use crate::media::Media;
+use crate::nip46::ParsedCommand;
 use crate::people::{People, Person};
 use crate::relay::Relay;
 use crate::relay_picker_hooks::Hooks;
@@ -142,6 +143,9 @@ pub struct Globals {
 
     /// Relay auth request (needs allow or deny)
     pub auth_requests: PRwLock<Vec<RelayUrl>>,
+
+    // nip46 approval requests
+    pub nip46_approval_requests: PRwLock<Vec<(PublicKey, ParsedCommand)>>,
 }
 
 lazy_static! {
@@ -203,6 +207,7 @@ lazy_static! {
             active_advertise_jobs: DashSet::new(),
             connect_requests: PRwLock::new(Vec::new()),
             auth_requests: PRwLock::new(Vec::new()),
+            nip46_approval_requests: PRwLock::new(Vec::new()),
         }
     };
 }

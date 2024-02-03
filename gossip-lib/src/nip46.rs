@@ -54,11 +54,31 @@ impl Nip46UnconnectedServer {
     }
 }
 
+#[derive(Debug, Copy, Clone, Readable, Writable)]
+pub enum Approval {
+    None,
+    Until(Unixtime),
+    Always,
+}
+
+impl Approval {
+    pub fn is_approved(&self) -> bool {
+        match self {
+            Approval::None => false,
+            Approval::Until(time) => Unixtime::now().unwrap() > *time,
+            Approval::Always => true,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Readable, Writable)]
 pub struct Nip46Server {
     pub peer_pubkey: PublicKey,
     pub relays: Vec<RelayUrl>,
     pub metadata: Option<Nip46ClientMetadata>,
+    pub sign_approval: Approval,
+    pub encrypt_approval: Approval,
+    pub decrypt_approval: Approval,
 }
 
 impl Nip46Server {
@@ -130,33 +150,73 @@ impl Nip46Server {
 
      */
 
-    pub fn handle(&self, cmd: ParsedCommand) -> Result<(), Error> {
-        let ParsedCommand { id, method, params } = cmd;
+    pub fn handle(&self, cmd: &ParsedCommand) -> Result<(), Error> {
+        let ParsedCommand {
+            ref id,
+            ref method,
+            ref params,
+        } = cmd;
 
         let result: Result<String, Error> = match method.as_str() {
             "connect" => Err("You are already connected".into()),
-            "get_public_key" => self.get_public_key(params),
-            "sign_event" => self.sign_event(params),
-            "get_relays" => self.get_relays(params),
-            "nip04_encrypt" => self.nip04_encrypt(params),
-            "nip04_decrypt" => self.nip04_decrypt(params),
-            "nip44_get_key" => self.nip44_get_key(params),
-            "nip44_encrypt" => self.nip44_encrypt(params),
-            "nip44_decrypt" => self.nip44_decrypt(params),
-            "ping" => self.ping(params),
+            "get_public_key" => self.get_public_key(),
+            "sign_event" => {
+                if self.sign_approval.is_approved() {
+                    self.sign_event(params)
+                } else {
+                    Err(ErrorKind::Nip46NeedApproval.into())
+                }
+            }
+            "get_relays" => self.get_relays(),
+            "nip04_encrypt" => {
+                if self.encrypt_approval.is_approved() {
+                    self.nip04_encrypt(params)
+                } else {
+                    Err(ErrorKind::Nip46NeedApproval.into())
+                }
+            }
+            "nip04_decrypt" => {
+                if self.decrypt_approval.is_approved() {
+                    self.nip04_decrypt(params)
+                } else {
+                    Err(ErrorKind::Nip46NeedApproval.into())
+                }
+            }
+            "nip44_get_key" => {
+                if self.encrypt_approval.is_approved() || self.decrypt_approval.is_approved() {
+                    self.nip44_get_key(params)
+                } else {
+                    Err(ErrorKind::Nip46NeedApproval.into())
+                }
+            }
+            "nip44_encrypt" => {
+                if self.encrypt_approval.is_approved() {
+                    self.nip44_encrypt(params)
+                } else {
+                    Err(ErrorKind::Nip46NeedApproval.into())
+                }
+            }
+            "nip44_decrypt" => {
+                if self.decrypt_approval.is_approved() {
+                    self.nip44_decrypt(params)
+                } else {
+                    Err(ErrorKind::Nip46NeedApproval.into())
+                }
+            }
+            "ping" => self.ping(),
             _ => Err("unrecognized command".into()),
         };
 
         match result {
             Ok(answer) => send_response(
-                id,
+                id.to_owned(),
                 answer,
                 "".to_owned(),
                 self.peer_pubkey,
                 self.relays.clone(),
             )?,
             Err(e) => send_response(
-                id,
+                id.to_owned(),
                 "".to_owned(),
                 format!("{}", e),
                 self.peer_pubkey,
@@ -167,7 +227,7 @@ impl Nip46Server {
         Ok(())
     }
 
-    fn get_public_key(&self, _params: Vec<String>) -> Result<String, Error> {
+    fn get_public_key(&self) -> Result<String, Error> {
         if let Some(pk) = GLOBALS.identity.public_key() {
             Ok(pk.as_hex_string())
         } else {
@@ -175,7 +235,7 @@ impl Nip46Server {
         }
     }
 
-    fn sign_event(&self, params: Vec<String>) -> Result<String, Error> {
+    fn sign_event(&self, params: &[String]) -> Result<String, Error> {
         if params.is_empty() {
             return Err("sign_event: requires a parameter".into());
         }
@@ -214,12 +274,12 @@ impl Nip46Server {
         Ok(event_str)
     }
 
-    fn get_relays(&self, _params: Vec<String>) -> Result<String, Error> {
+    fn get_relays(&self) -> Result<String, Error> {
         let answer = serde_json::to_string(&self.relays)?;
         Ok(answer)
     }
 
-    fn nip04_encrypt(&self, params: Vec<String>) -> Result<String, Error> {
+    fn nip04_encrypt(&self, params: &[String]) -> Result<String, Error> {
         if params.len() < 2 {
             return Err("nip04_encrypt: requires two parameters".into());
         }
@@ -232,7 +292,7 @@ impl Nip46Server {
         Ok(ciphertext)
     }
 
-    fn nip04_decrypt(&self, params: Vec<String>) -> Result<String, Error> {
+    fn nip04_decrypt(&self, params: &[String]) -> Result<String, Error> {
         if params.len() < 2 {
             return Err("nip04_decrypt: requires two parameters".into());
         }
@@ -242,7 +302,7 @@ impl Nip46Server {
         Ok(utf8)
     }
 
-    fn nip44_get_key(&self, params: Vec<String>) -> Result<String, Error> {
+    fn nip44_get_key(&self, params: &[String]) -> Result<String, Error> {
         if params.is_empty() {
             return Err("nip44_get_key: requires a parameter".into());
         }
@@ -252,7 +312,7 @@ impl Nip46Server {
         Ok(ckhex)
     }
 
-    fn nip44_encrypt(&self, params: Vec<String>) -> Result<String, Error> {
+    fn nip44_encrypt(&self, params: &[String]) -> Result<String, Error> {
         if params.len() < 2 {
             return Err("nip44_encrypt: requires two parameters".into());
         }
@@ -265,7 +325,7 @@ impl Nip46Server {
         Ok(ciphertext)
     }
 
-    fn nip44_decrypt(&self, params: Vec<String>) -> Result<String, Error> {
+    fn nip44_decrypt(&self, params: &[String]) -> Result<String, Error> {
         if params.len() < 2 {
             return Err("nip44_decrypt: requires two parameters".into());
         }
@@ -274,7 +334,7 @@ impl Nip46Server {
         Ok(plaintext)
     }
 
-    fn ping(&self, _params: Vec<String>) -> Result<String, Error> {
+    fn ping(&self) -> Result<String, Error> {
         Ok("pong".to_owned())
     }
 }
@@ -408,9 +468,8 @@ pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Er
     // If we have a server for that pubkey
     if let Some(server) = GLOBALS.storage.read_nip46server(event.pubkey)? {
         // Parse the command
-        return match parse_command(event.pubkey, &event.content) {
-            // Let the server take it from here
-            Ok(parsed_command) => server.handle(parsed_command),
+        let parsed_command = match parse_command(event.pubkey, &event.content) {
+            Ok(pc) => pc,
             Err(e) => {
                 if let ErrorKind::Nip46ParsingError(ref id, ref msg) = e.kind {
                     // Send back the error
@@ -424,9 +483,24 @@ pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Er
                 }
 
                 // Return the error
-                Err(e)
+                return Err(e);
             }
         };
+
+        // Handle the command
+        if let Err(e) = server.handle(&parsed_command) {
+            if matches!(e.kind, ErrorKind::Nip46NeedApproval) {
+                GLOBALS
+                    .nip46_approval_requests
+                    .write()
+                    .push((event.pubkey, parsed_command));
+            } else {
+                // Return the error
+                return Err(e);
+            }
+        }
+
+        return Ok(());
     }
 
     // Make sure we have a relay to reply on for early errors
@@ -544,6 +618,9 @@ pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Er
         peer_pubkey: event.pubkey,
         relays: reply_relays.clone(),
         metadata: None,
+        sign_approval: Approval::None,
+        encrypt_approval: Approval::None,
+        decrypt_approval: Approval::None,
     };
 
     // Save the server, and delete the unconnected server
