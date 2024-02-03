@@ -14,8 +14,8 @@ enum ButtonType {
 
 enum ButtonVariant {
     Normal,
-    Small,
-    Wide,
+    // Small,
+    // Wide,
 }
 
 /// Clickable button with text
@@ -59,21 +59,21 @@ impl<'a> Button<'a> {
         }
     }
 
-    /// Make this a small button, suitable for embedding into text.
-    pub fn small(mut self, small: bool) -> Self {
-        if small {
-            self.variant = ButtonVariant::Small;
-        }
-        self
-    }
+    // /// Make this a small button, suitable for embedding into text.
+    // pub fn small(mut self, small: bool) -> Self {
+    //     if small {
+    //         self.variant = ButtonVariant::Small;
+    //     }
+    //     self
+    // }
 
-    /// Make this a wide button.
-    pub fn wide(mut self, wide: bool) -> Self {
-        if wide {
-            self.variant = ButtonVariant::Wide;
-        }
-        self
-    }
+    // /// Make this a wide button.
+    // pub fn wide(mut self, wide: bool) -> Self {
+    //     if wide {
+    //         self.variant = ButtonVariant::Wide;
+    //     }
+    //     self
+    // }
 
     /// If `true`, mark this button as "selected".
     pub fn selected(mut self, selected: bool) -> Self {
@@ -185,21 +185,21 @@ impl Button<'_> {
     ) -> (Option<WidgetTextGalley>, Vec2, Vec2) {
         let frame = ui.visuals().button_frame;
 
-        let mut button_padding = if frame {
+        let button_padding = if frame {
             Vec2::new(14.0, 5.0)
         } else {
             Vec2::ZERO
         };
 
-        match variant {
-            ButtonVariant::Normal => {}
-            ButtonVariant::Small => {
-                button_padding.y = 0.0;
-            }
-            ButtonVariant::Wide => {
-                button_padding.x *= 3.0;
-            }
-        }
+        // match variant {
+        //     ButtonVariant::Normal => {}
+        //     ButtonVariant::Small => {
+        //         button_padding.y = 0.0;
+        //     }
+        //     ButtonVariant::Wide => {
+        //         button_padding.x *= 3.0;
+        //     }
+        // }
 
         let wrap = None;
         let text_wrap_width = ui.available_width() - 2.0 * button_padding.x;
@@ -213,10 +213,10 @@ impl Button<'_> {
         }
         desired_size += 2.0 * button_padding;
         match variant {
-            ButtonVariant::Wide | ButtonVariant::Normal => {
+            ButtonVariant::Normal => {
                 desired_size.y = desired_size.y.at_least(ui.spacing().interact_size.y);
             }
-            ButtonVariant::Small => {}
+            // ButtonVariant::Wide | ButtonVariant::Small => {}
         }
         (text, desired_size, button_padding)
     }

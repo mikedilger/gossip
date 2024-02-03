@@ -19,8 +19,7 @@ enum Background {
 
 #[derive(Default)]
 pub struct ThemeTest {
-    button_small: bool,
-    button_wide: bool,
+
 }
 
 pub(in crate::ui) fn update(
@@ -167,34 +166,6 @@ fn button_test(app: &mut GossipUi, ui: &mut Ui) {
     ui.horizontal(|ui| {
         ui.heading("Button Test:");
         ui.add_space(30.0);
-        if ui
-            .add(egui::RadioButton::new(
-                !app.theme_test.button_small && !app.theme_test.button_wide,
-                "normal",
-            ))
-            .clicked()
-        {
-            app.theme_test.button_small = false;
-            app.theme_test.button_wide = false;
-        }
-        if ui
-            .add(egui::RadioButton::new(app.theme_test.button_small, "small"))
-            .clicked()
-        {
-            app.theme_test.button_small ^= true;
-            if app.theme_test.button_small {
-                app.theme_test.button_wide = false;
-            }
-        }
-        if ui
-            .add(egui::RadioButton::new(app.theme_test.button_wide, "wide"))
-            .clicked()
-        {
-            app.theme_test.button_wide ^= true;
-            if app.theme_test.button_wide {
-                app.theme_test.button_small = false;
-            }
-        }
     });
     ui.add_space(30.0);
     const TEXT: &str = "Continue";
@@ -205,18 +176,12 @@ fn button_test(app: &mut GossipUi, ui: &mut Ui) {
             ui.add_sized(CSIZE, egui::Label::new("Default"));
             ui.add_space(20.0);
             widgets::Button::primary(theme, TEXT)
-                .small(app.theme_test.button_small)
-                .wide(app.theme_test.button_wide)
                 .draw_default(ui);
             ui.add_space(20.0);
             widgets::Button::secondary(theme, TEXT)
-                .small(app.theme_test.button_small)
-                .wide(app.theme_test.button_wide)
                 .draw_default(ui);
             ui.add_space(20.0);
             widgets::Button::bordered(theme, TEXT)
-                .small(app.theme_test.button_small)
-                .wide(app.theme_test.button_wide)
                 .draw_default(ui);
         });
         ui.add_space(20.0);
@@ -224,18 +189,12 @@ fn button_test(app: &mut GossipUi, ui: &mut Ui) {
             ui.add_sized(CSIZE, egui::Label::new("Hovered"));
             ui.add_space(20.0);
             widgets::Button::primary(theme, TEXT)
-                .small(app.theme_test.button_small)
-                .wide(app.theme_test.button_wide)
                 .draw_hovered(ui);
             ui.add_space(20.0);
             widgets::Button::secondary(theme, TEXT)
-                .small(app.theme_test.button_small)
-                .wide(app.theme_test.button_wide)
                 .draw_hovered(ui);
             ui.add_space(20.0);
             widgets::Button::bordered(theme, TEXT)
-                .small(app.theme_test.button_small)
-                .wide(app.theme_test.button_wide)
                 .draw_hovered(ui);
         });
         ui.add_space(20.0);
@@ -243,18 +202,12 @@ fn button_test(app: &mut GossipUi, ui: &mut Ui) {
             ui.add_sized(CSIZE, egui::Label::new("Active"));
             ui.add_space(20.0);
             widgets::Button::primary(theme, TEXT)
-                .small(app.theme_test.button_small)
-                .wide(app.theme_test.button_wide)
                 .draw_active(ui);
             ui.add_space(20.0);
             widgets::Button::secondary(theme, TEXT)
-                .small(app.theme_test.button_small)
-                .wide(app.theme_test.button_wide)
                 .draw_active(ui);
             ui.add_space(20.0);
             widgets::Button::bordered(theme, TEXT)
-                .small(app.theme_test.button_small)
-                .wide(app.theme_test.button_wide)
                 .draw_active(ui);
         });
         ui.add_space(20.0);
@@ -262,18 +215,12 @@ fn button_test(app: &mut GossipUi, ui: &mut Ui) {
             ui.add_sized(CSIZE, egui::Label::new("Disabled"));
             ui.add_space(20.0);
             widgets::Button::primary(theme, TEXT)
-                .small(app.theme_test.button_small)
-                .wide(app.theme_test.button_wide)
                 .draw_disabled(ui);
             ui.add_space(20.0);
             widgets::Button::secondary(theme, TEXT)
-                .small(app.theme_test.button_small)
-                .wide(app.theme_test.button_wide)
                 .draw_disabled(ui);
             ui.add_space(20.0);
             widgets::Button::bordered(theme, TEXT)
-                .small(app.theme_test.button_small)
-                .wide(app.theme_test.button_wide)
                 .draw_disabled(ui);
         });
         ui.add_space(20.0);
@@ -281,18 +228,12 @@ fn button_test(app: &mut GossipUi, ui: &mut Ui) {
             ui.add_sized(CSIZE, egui::Label::new("Focused"));
             ui.add_space(20.0);
             widgets::Button::primary(theme, TEXT)
-                .small(app.theme_test.button_small)
-                .wide(app.theme_test.button_wide)
                 .draw_focused(ui);
             ui.add_space(20.0);
             widgets::Button::secondary(theme, TEXT)
-                .small(app.theme_test.button_small)
-                .wide(app.theme_test.button_wide)
                 .draw_focused(ui);
             ui.add_space(20.0);
             widgets::Button::bordered(theme, TEXT)
-                .small(app.theme_test.button_small)
-                .wide(app.theme_test.button_wide)
                 .draw_focused(ui);
         });
         ui.add_space(30.0);
@@ -303,8 +244,6 @@ fn button_test(app: &mut GossipUi, ui: &mut Ui) {
             ui.add_space(20.0);
             ui.vertical(|ui| {
                 let response = widgets::Button::primary(theme, TEXT)
-                    .small(app.theme_test.button_small)
-                    .wide(app.theme_test.button_wide)
                     .ui(ui);
                 if ui.link("focus").clicked() {
                     response.request_focus();
@@ -313,8 +252,6 @@ fn button_test(app: &mut GossipUi, ui: &mut Ui) {
             ui.add_space(20.0);
             ui.vertical(|ui| {
                 let response = widgets::Button::secondary(theme, TEXT)
-                    .small(app.theme_test.button_small)
-                    .wide(app.theme_test.button_wide)
                     .ui(ui);
                 if ui.link("focus").clicked() {
                     response.request_focus();
@@ -323,8 +260,6 @@ fn button_test(app: &mut GossipUi, ui: &mut Ui) {
             ui.add_space(20.0);
             ui.vertical(|ui| {
                 let response = widgets::Button::bordered(theme, TEXT)
-                    .small(app.theme_test.button_small)
-                    .wide(app.theme_test.button_wide)
                     .ui(ui);
                 if ui.link("focus").clicked() {
                     response.request_focus();
