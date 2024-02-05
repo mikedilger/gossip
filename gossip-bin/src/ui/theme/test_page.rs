@@ -38,9 +38,6 @@ pub(in crate::ui) fn update(
     _frame: &mut eframe::Frame,
     ui: &mut Ui,
 ) {
-    _ctx.style_mut(|style| {
-        style.visuals.panel_fill = Color32::WHITE;
-    });
     widgets::page_header(ui, "Theme Test", |_ui| {});
 
     app.vert_scroll_area()
