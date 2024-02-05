@@ -8,6 +8,7 @@ use crate::dm_channel::DmChannel;
 use crate::error::{Error, ErrorKind};
 use crate::feed::FeedKind;
 use crate::globals::{ZapState, GLOBALS};
+use crate::nip46::{Approval, ParsedCommand};
 use crate::people::{Person, PersonList};
 use crate::person_relay::PersonRelay;
 use crate::relay::Relay;
@@ -641,6 +642,14 @@ impl Overlord {
                     }
                     self.maybe_disconnect_relay(&url)?;
                 }
+            }
+            ToOverlordMessage::Nip46ServerOpApproved(pubkey, parsed_command) => {
+                self.nip46_server_op_approved(pubkey, parsed_command)
+                    .await?;
+            }
+            ToOverlordMessage::Nip46ServerOpDeclined(pubkey, parsed_command) => {
+                self.nip46_server_op_declined(pubkey, parsed_command)
+                    .await?;
             }
             ToOverlordMessage::RefreshScoresAndPickRelays => {
                 self.refresh_scores_and_pick_relays().await?;
@@ -1652,6 +1661,56 @@ impl Overlord {
             )
             .await?;
         }
+
+        Ok(())
+    }
+
+    /// Process approved nip46 server operation
+    pub async fn nip46_server_op_approved(
+        &mut self,
+        pubkey: PublicKey,
+        parsed_command: ParsedCommand,
+    ) -> Result<(), Error> {
+        // Clear the request
+        GLOBALS
+            .nip46_approval_requests
+            .write()
+            .retain(|(pk, pc)| *pk != pubkey || *pc != parsed_command);
+
+        // Handle the request
+        if let Some(mut server) = GLOBALS.storage.read_nip46server(pubkey)? {
+            // Temporarily set the approval (we don't save this)
+            // NOTE: for now we set the server approval setting in memory but don't save it back.
+            //       So the approval only applies to this one time. FIXME: we should use the options
+            //       to approve always (saved) and Until a set time.
+            match parsed_command.method.as_str() {
+                "sign_event" => server.sign_approval = Approval::Always,
+                "nip04_encrypt" | "nip44_encrypt" => server.encrypt_approval = Approval::Always,
+                "nip04_decrypt" | "nip44_decrypt" => server.decrypt_approval = Approval::Always,
+                "nip44_get_key" => {
+                    server.encrypt_approval = Approval::Always;
+                    server.decrypt_approval = Approval::Always;
+                }
+                _ => {}
+            }
+
+            server.handle(&parsed_command)?;
+        }
+
+        Ok(())
+    }
+
+    /// Process declined nip46 server operation
+    pub async fn nip46_server_op_declined(
+        &mut self,
+        pubkey: PublicKey,
+        parsed_command: ParsedCommand,
+    ) -> Result<(), Error> {
+        // Clear the request
+        GLOBALS
+            .nip46_approval_requests
+            .write()
+            .retain(|(pk, pc)| *pk != pubkey || *pc != parsed_command);
 
         Ok(())
     }

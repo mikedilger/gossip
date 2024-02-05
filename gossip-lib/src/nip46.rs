@@ -358,6 +358,7 @@ fn default_now() -> Option<Unixtime> {
     Some(Unixtime::now().unwrap())
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct ParsedCommand {
     pub id: String,
     pub method: String,

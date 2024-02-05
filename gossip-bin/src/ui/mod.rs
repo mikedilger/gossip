@@ -1271,7 +1271,10 @@ impl eframe::App for GossipUi {
         }
 
         // Auth and Connect approvals
-        if !GLOBALS.auth_requests.read().is_empty() || !GLOBALS.connect_requests.read().is_empty() {
+        if !GLOBALS.auth_requests.read().is_empty()
+            || !GLOBALS.connect_requests.read().is_empty()
+            || !GLOBALS.nip46_approval_requests.read().is_empty()
+        {
             approval_dialog(ctx, self);
         }
 
@@ -2257,6 +2260,30 @@ fn approval_dialog_inner(_app: &mut GossipUi, ui: &mut Ui) {
                 let _ = GLOBALS
                     .to_overlord
                     .send(ToOverlordMessage::AuthDeclined(url.to_owned()));
+            }
+        });
+    }
+
+    // NIP-46 approvals
+    for (pubkey, parsed_command) in GLOBALS.nip46_approval_requests.read().iter() {
+        ui.horizontal(|ui| {
+            let text = format!("Allow {}", parsed_command.method);
+            ui.label(text);
+            if ui.button("Approve").clicked() {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::Nip46ServerOpApproved(
+                        *pubkey,
+                        parsed_command.clone(),
+                    ));
+            }
+            if ui.button("Decline").clicked() {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::Nip46ServerOpDeclined(
+                        *pubkey,
+                        parsed_command.clone(),
+                    ));
             }
         });
     }
