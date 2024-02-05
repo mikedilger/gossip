@@ -6,6 +6,7 @@ use eframe::egui;
 use egui::text::LayoutJob;
 use egui::widget_text::WidgetText;
 use egui::{Color32, Context, Frame, Margin, RichText, Ui};
+use egui_winit::egui::style;
 use egui_winit::egui::Vec2;
 use egui_winit::egui::Widget;
 
@@ -17,9 +18,18 @@ enum Background {
     HighlightedNote,
 }
 
-#[derive(Default)]
 pub struct ThemeTest {
+    textedit_empty: String,
+    textedit_filled: String,
+}
 
+impl Default for ThemeTest {
+    fn default() -> Self {
+        Self {
+            textedit_empty: Default::default(),
+            textedit_filled: "Some text".into(),
+        }
+    }
 }
 
 pub(in crate::ui) fn update(
@@ -28,12 +38,19 @@ pub(in crate::ui) fn update(
     _frame: &mut eframe::Frame,
     ui: &mut Ui,
 ) {
+    _ctx.style_mut(|style| {
+        style.visuals.panel_fill = Color32::WHITE;
+    });
     widgets::page_header(ui, "Theme Test", |_ui| {});
 
     app.vert_scroll_area()
         .id_source(ui.auto_id_with("theme_test"))
         .show(ui, |ui| {
             button_test(app, ui);
+
+            ui.add_space(20.0);
+
+            textedit_test(app, ui);
 
             ui.add_space(20.0);
 
@@ -264,6 +281,79 @@ fn button_test(app: &mut GossipUi, ui: &mut Ui) {
                 if ui.link("focus").clicked() {
                     response.request_focus();
                 }
+            });
+        });
+    });
+}
+
+fn textedit_test(app: &mut GossipUi, ui: &mut Ui) {
+    ui.horizontal(|ui| {
+        ui.heading("Button Test:");
+        ui.add_space(30.0);
+    });
+    ui.add_space(30.0);
+    let theme = &app.theme;
+    const HINT: &str = "Placeholder";
+    const CSIZE: Vec2 = Vec2 { x: 100.0, y: 20.0 };
+    ui.vertical(|ui| {
+        ui.horizontal(|ui| {
+            ui.add_sized(CSIZE, egui::Label::new("Empty"));
+            ui.add_space(20.0);
+            ui.vertical(|ui|{
+                let output = widgets::TextEdit::singleline(theme, &mut app.theme_test.textedit_empty)
+                    .hint_text(HINT)
+                    .show_extended(ui, &mut app.clipboard);
+                if ui.link("focus").clicked() {
+                    output.response.request_focus();
+                }
+            });
+            ui.add_space(20.0);
+            ui.vertical(|ui|{
+                let output = widgets::TextEdit::search(theme, &mut app.theme_test.textedit_empty)
+                    .hint_text(HINT)
+                    .show_extended(ui, &mut app.clipboard);
+                if ui.link("focus").clicked() {
+                    output.response.request_focus();
+                }
+            });
+        });
+        ui.add_space(20.0);
+        ui.horizontal(|ui| {
+            ui.add_sized(CSIZE, egui::Label::new("with Text"));
+            ui.add_space(20.0);
+            ui.vertical(|ui|{
+                let output = widgets::TextEdit::singleline(theme, &mut app.theme_test.textedit_filled)
+                    .hint_text(HINT)
+                    .show_extended(ui, &mut app.clipboard);
+                if ui.link("focus").clicked() {
+                    output.response.request_focus();
+                }
+            });
+            ui.add_space(20.0);
+            ui.vertical(|ui|{
+                let output = widgets::TextEdit::search(theme, &mut app.theme_test.textedit_filled)
+                    .hint_text(HINT)
+                    .show_extended(ui, &mut app.clipboard);
+                if ui.link("focus").clicked() {
+                    output.response.request_focus();
+                }
+            });
+        });
+        ui.add_space(20.0);
+        ui.horizontal(|ui| {
+            ui.add_sized(CSIZE, egui::Label::new("Disabled"));
+            ui.set_enabled(false);
+            ui.add_space(20.0);
+            ui.vertical(|ui|{
+                widgets::TextEdit::singleline(theme, &mut app.theme_test.textedit_empty)
+                    .hint_text(HINT)
+                    .show_extended(ui, &mut app.clipboard);
+            });
+            ui.add_space(20.0);
+            ui.vertical(|ui|{
+                widgets::TextEdit::search(theme, &mut app.theme_test.textedit_empty)
+                    .hint_text(HINT)
+                    .show_extended(ui, &mut app.clipboard);
             });
         });
     });

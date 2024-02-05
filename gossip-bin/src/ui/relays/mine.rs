@@ -17,7 +17,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         btn_h_space!(ui);
         super::relay_sort_combo(app, ui);
         btn_h_space!(ui);
-        widgets::search_field(ui, &mut app.relays.search, 200.0);
+        widgets::search_field(ui, &app.theme, &mut app.relays.search, 200.0);
         ui.add_space(200.0); // search_field somehow doesn't "take up" space
         widgets::set_important_button_visuals(ui, app);
         if ui.button("Advertise Relay List")

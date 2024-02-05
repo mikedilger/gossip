@@ -76,126 +76,147 @@ macro_rules! theme_dispatch {
             }
 
             // Palette
+            #[allow(dead_code)]
             pub fn neutral_50(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::neutral_50(), )+
                 }
             }
 
+            #[allow(dead_code)]
             pub fn neutral_100(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::neutral_100(), )+
                 }
             }
 
+            #[allow(dead_code)]
             pub fn neutral_200(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::neutral_200(), )+
                 }
             }
 
+            #[allow(dead_code)]
             pub fn neutral_300(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::neutral_300(), )+
                 }
             }
 
+            #[allow(dead_code)]
             pub fn neutral_400(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::neutral_400(), )+
                 }
             }
 
+            #[allow(dead_code)]
             pub fn neutral_500(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::neutral_500(), )+
                 }
             }
 
+            #[allow(dead_code)]
             pub fn neutral_600(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::neutral_600(), )+
                 }
             }
 
+            #[allow(dead_code)]
             pub fn neutral_700(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::neutral_700(), )+
                 }
             }
 
+            #[allow(dead_code)]
             pub fn neutral_800(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::neutral_800(), )+
                 }
             }
 
+            #[allow(dead_code)]
             pub fn neutral_900(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::neutral_900(), )+
                 }
             }
 
+            #[allow(dead_code)]
             pub fn neutral_950(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::neutral_950(), )+
                 }
             }
 
+            #[allow(dead_code)]
             pub fn accent_dark(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::accent_dark(), )+
                 }
             }
 
+            #[allow(dead_code)]
             pub fn accent_dark_b20(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::accent_dark_b20(), )+
                 }
             }
 
+            #[allow(dead_code)]
             pub fn accent_dark_w20(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::accent_dark_w20(), )+
                 }
             }
 
+            #[allow(dead_code)]
             pub fn accent_light(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::accent_light(), )+
                 }
             }
 
+            #[allow(dead_code)]
             pub fn accent_light_b20(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::accent_light_b20(), )+
                 }
             }
 
+            #[allow(dead_code)]
             pub fn accent_light_w20(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::accent_light_w20(), )+
                 }
             }
 
+            #[allow(dead_code)]
             pub fn red_500(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::red_500(), )+
                 }
             }
 
+            #[allow(dead_code)]
             pub fn lime_500(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::lime_500(), )+
                 }
             }
 
+            #[allow(dead_code)]
             pub fn amber_400(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::amber_400(), )+
                 }
             }
 
+            #[allow(dead_code)]
             pub fn accent_color(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::accent_color(self.dark_mode), )+

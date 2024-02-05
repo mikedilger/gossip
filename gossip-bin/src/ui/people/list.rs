@@ -362,7 +362,7 @@ fn render_add_contact_popup(
         ui.add_space(8.0);
 
         let mut output =
-            widgets::search_field(ui, &mut app.people_list.add_contact_search, f32::INFINITY);
+            widgets::search_field(ui, &app.theme,&mut app.people_list.add_contact_search, f32::INFINITY);
 
         let mut selected = app.people_list.add_contact_search_selected;
         widgets::show_contact_search(

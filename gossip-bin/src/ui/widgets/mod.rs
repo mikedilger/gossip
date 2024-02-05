@@ -37,7 +37,7 @@ pub use switch::{switch_custom_at, switch_with_size, switch_with_size_at};
 mod textedit;
 pub use textedit::TextEdit;
 
-use super::GossipUi;
+use super::{GossipUi, Theme};
 
 pub const DROPDOWN_DISTANCE: f32 = 10.0;
 pub const TAGG_WIDTH: f32 = 200.0;
@@ -124,32 +124,12 @@ pub fn break_anywhere_hyperlink_to(ui: &mut Ui, text: impl Into<WidgetText>, url
     ui.hyperlink_to(job.job, url);
 }
 
-pub fn search_field(ui: &mut Ui, field: &mut String, width: f32) -> TextEditOutput {
+pub fn search_field(ui: &mut Ui, theme: &Theme, field: &mut String, width: f32) -> TextEditOutput {
     // search field
-    let output = TextEdit::singleline(field)
+    let output = TextEdit::search(theme, field)
         .text_color(ui.visuals().widgets.inactive.fg_stroke.color)
         .desired_width(width)
         .show(ui);
-
-    let rect = Rect::from_min_size(
-        output.response.rect.right_top() - vec2(output.response.rect.height(), 0.0),
-        vec2(output.response.rect.height(), output.response.rect.height()),
-    );
-
-    // search clear button
-    if ui
-        .put(
-            rect,
-            NavItem::new("\u{2715}", field.is_empty())
-                .color(ui.visuals().widgets.inactive.fg_stroke.color)
-                .active_color(ui.visuals().widgets.active.fg_stroke.color)
-                .hover_color(ui.visuals().hyperlink_color)
-                .sense(Sense::click()),
-        )
-        .clicked()
-    {
-        field.clear();
-    }
 
     output
 }

@@ -1,6 +1,6 @@
 macro_rules! text_edit_line {
     ($app:ident, $var:expr) => {
-        crate::ui::widgets::TextEdit::singleline(&mut $var)
+        crate::ui::widgets::TextEdit::singleline(&$app.theme, &mut $var)
             .text_color($app.theme.input_text_color())
     };
 }
@@ -2054,7 +2054,7 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
                             ui.add_space(16.0);
                         }
 
-                        let output = widgets::TextEdit::singleline(&mut app.password)
+                        let output = widgets::TextEdit::singleline(&app.theme, &mut app.password)
                             .password(true)
                             .with_paste()
                             .desired_width( 400.0)
