@@ -420,13 +420,13 @@ impl Overlord {
         // Set to not connected
         let relayjobs = GLOBALS.connected_relays.remove(&url).map(|(_, v)| v);
 
-        let mut exclusion: u64 = 0;
+        let mut exclusion: u64 = 30;
 
         match join_result {
             Err(join_error) => {
                 tracing::error!("Minion {} completed with join error: {}", &url, join_error);
                 Self::bump_failure_count(&url);
-                exclusion = 60;
+                exclusion = 120;
             }
             Ok((_id, result)) => match result {
                 Ok(_) => {
@@ -436,7 +436,7 @@ impl Overlord {
                 Err(e) => {
                     Self::bump_failure_count(&url);
                     tracing::error!("Minion {} completed with error: {}", &url, e);
-                    exclusion = 60;
+                    exclusion = 120;
                     if let ErrorKind::RelayRejectedUs = e.kind {
                         exclusion = 60 * 60 * 24 * 365; // don't connect again, practically
                     } else if let ErrorKind::Websocket(wserror) = e.kind {
@@ -452,17 +452,17 @@ impl Overlord {
                                 StatusCode::UNAVAILABLE_FOR_LEGAL_REASONS => 60 * 60 * 24,
                                 StatusCode::NOT_IMPLEMENTED => 60 * 60 * 24,
                                 StatusCode::BAD_GATEWAY => 60 * 60 * 24,
-                                s if s.as_u16() >= 400 => 90,
-                                _ => 60,
+                                s if s.as_u16() >= 400 => 120,
+                                _ => 120,
                             };
                         } else if let tungstenite::error::Error::ConnectionClosed = wserror {
                             tracing::debug!("Minion {} completed", &url);
-                            exclusion = 0; // was not actually an error
+                            exclusion = 30; // was not actually an error, but needs a pause
                         } else if let tungstenite::error::Error::Protocol(protocol_error) = wserror
                         {
                             exclusion = match protocol_error {
                                 tungstenite::error::ProtocolError::ResetWithoutClosingHandshake => {
-                                    30
+                                    60
                                 }
                                 _ => 120,
                             }
