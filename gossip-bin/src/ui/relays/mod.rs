@@ -55,6 +55,16 @@ impl RelayUi {
             new_relay_url: RELAY_URL_PREPOPULATE.to_string(),
         }
     }
+
+    pub(super) fn enter_page(&mut self) {
+        // preserve search and filter but reset edits and dialogues
+        self.edit = None;
+        self.edit_relays = Vec::new();
+        self.edit_done = None;
+        self.edit_needs_scroll = false;
+        self.add_dialog_step = AddRelayDialogStep::Inactive;
+        self.new_relay_url = RELAY_URL_PREPOPULATE.to_string();
+    }
 }
 
 #[derive(PartialEq, Default)]
