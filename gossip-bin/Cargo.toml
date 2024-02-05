@@ -21,7 +21,7 @@ rustls-tls-native = [ "gossip-lib/rustls-tls-native" ]
 bech32 = "0.9"
 eframe = { git = "https://github.com/mikedilger/egui", rev = "50393e4f34ac6246b8c2424e42fbe5b95e4b4452", features = [ "persistence", "wayland" ] }
 egui-winit = { git = "https://github.com/mikedilger/egui", rev = "50393e4f34ac6246b8c2424e42fbe5b95e4b4452", features = [ "default" ] }
-egui-video = { git = "https://github.com/mikedilger/egui-video", rev = "d12a4859d383524f978a0dd29d61e1ebd281e735",  features = [ "from_bytes" ], optional = true }
+egui-video = { git = "https://github.com/mikedilger/egui-video", rev = "ec3ec5e8e7151fa9ecad149bd2fe0864acb28317",  features = [ "from_bytes" ], optional = true }
 gossip-relay-picker = { git = "https://github.com/mikedilger/gossip-relay-picker", rev = "1d13cacb0d7b32d72d0c8c27414461d5389ca2ec" }
 gossip-lib = { path = "../gossip-lib" }
 humansize = "2.1"
@@ -33,7 +33,7 @@ paste = "1.0"
 qrcode = { git = "https://github.com/mikedilger/qrcode-rust", rev = "519b77b3efa3f84961169b47d3de08c5ddd86548" }
 resvg = "0.35.0"
 rpassword = "7.2"
-sdl2 = { version = "0.35.2", features = ["bundled"], optional = true }
+sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", rev = "f2f1e29a416bcc22f2faf411866db2c8d9536308", features = ["bundled"], optional = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 time = { version = "0.3", features = [ "formatting", "macros" ] }
