@@ -18,7 +18,7 @@ use crate::tags::{
 use gossip_relay_picker::{Direction, RelayAssignment};
 use heed::RwTxn;
 use http::StatusCode;
-use minion::Minion;
+use minion::{Minion, MinionExitReason};
 use nostr_types::{
     ContentEncryptionAlgorithm, EncryptedPrivateKey, Event, EventAddr, EventKind, EventReference,
     Id, IdHex, Metadata, MilliSatoshi, NostrBech32, PayRequestData, PreEvent, PrivateKey, Profile,
@@ -33,7 +33,7 @@ use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::{select, task};
 use zeroize::Zeroize;
 
-type MinionResult = Result<(), Error>;
+type MinionResult = Result<MinionExitReason, Error>;
 
 /// The overlord handles any operation that involves talking to relays, and a few more.
 ///
@@ -48,7 +48,7 @@ pub struct Overlord {
     inbox: UnboundedReceiver<ToOverlordMessage>,
 
     // All the minion tasks running.
-    minions: task::JoinSet<Result<(), Error>>,
+    minions: task::JoinSet<Result<MinionExitReason, Error>>,
 
     // Map from minion task::Id to Url
     minions_task_url: HashMap<task::Id, RelayUrl>,
@@ -420,7 +420,7 @@ impl Overlord {
         // Set to not connected
         let relayjobs = GLOBALS.connected_relays.remove(&url).map(|(_, v)| v);
 
-        let mut exclusion: u64 = 30;
+        let mut exclusion: u64;
 
         match join_result {
             Err(join_error) => {
@@ -429,9 +429,14 @@ impl Overlord {
                 exclusion = 120;
             }
             Ok((_id, result)) => match result {
-                Ok(_) => {
-                    tracing::debug!("Minion {} completed", &url);
-                    // no exclusion
+                Ok(exitreason) => {
+                    tracing::info!("Minion {} completed: {:?}", &url, exitreason);
+                    exclusion = match exitreason {
+                        MinionExitReason::AuthFailed => 60 * 60 * 24,
+                        MinionExitReason::GotDisconnected => 120,
+                        MinionExitReason::GotWSClose => 120,
+                        _ => 0,
+                    };
                 }
                 Err(e) => {
                     Self::bump_failure_count(&url);

@@ -1,4 +1,4 @@
-use super::Minion;
+use super::{Minion, MinionExitReason};
 use crate::comms::ToOverlordMessage;
 use crate::error::Error;
 use crate::globals::GLOBALS;
@@ -156,7 +156,7 @@ impl Minion {
                     if !ok {
                         // Auth failed. Let's disconnect
                         tracing::warn!("AUTH failed to {}: {}", &self.url, ok_message);
-                        self.keepgoing = false;
+                        self.exiting = Some(MinionExitReason::AuthFailed);
                     } else {
                         self.try_resubscribe_to_corked().await?;
                     }
