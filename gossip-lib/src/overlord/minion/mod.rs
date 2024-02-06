@@ -230,7 +230,6 @@ impl Minion {
                 .body(())?;
 
             let config: WebSocketConfig = WebSocketConfig {
-                max_send_queue: None,
                 // Tungstenite default is 64 MiB.
                 // Cameri nostream relay limits to 0.5 a megabyte
                 // Based on my current database of 7356 events, the longest was 11,121 bytes.
@@ -244,6 +243,7 @@ impl Minion {
                 accept_unmasked_frames: GLOBALS
                     .storage
                     .read_setting_websocket_accept_unmasked_frames(),
+                ..Default::default()
             };
 
             let connect_timeout_secs = if short_timeout {

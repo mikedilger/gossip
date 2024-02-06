@@ -32,10 +32,10 @@ pub fn fetch(url: &str, filters: Vec<Filter>) -> Result<Vec<Event>, Error> {
 
     let (mut websocket, _response) = tungstenite::connect(request)?;
 
-    websocket.write_message(Message::Text(wire))?;
+    websocket.send(Message::Text(wire))?;
 
     loop {
-        let message = match websocket.read_message() {
+        let message = match websocket.read() {
             Ok(m) => m,
             Err(e) => {
                 tracing::error!("Problem reading from websocket: {}", e);
@@ -59,11 +59,11 @@ pub fn fetch(url: &str, filters: Vec<Filter>) -> Result<Vec<Event>, Error> {
                                 return Ok(events);
                             }
                         };
-                        if let Err(e) = websocket.write_message(Message::Text(wire)) {
+                        if let Err(e) = websocket.send(Message::Text(wire)) {
                             tracing::error!("Could not write close subscription message: {}", e);
                             return Ok(events);
                         }
-                        if let Err(e) = websocket.write_message(Message::Close(None)) {
+                        if let Err(e) = websocket.send(Message::Close(None)) {
                             tracing::error!("Could not write websocket close message: {}", e);
                             return Ok(events);
                         }
@@ -82,7 +82,7 @@ pub fn fetch(url: &str, filters: Vec<Filter>) -> Result<Vec<Event>, Error> {
             }
             Message::Binary(_) => tracing::debug!("IGNORING BINARY MESSAGE"),
             Message::Ping(vec) => {
-                if let Err(e) = websocket.write_message(Message::Pong(vec)) {
+                if let Err(e) = websocket.send(Message::Pong(vec)) {
                     tracing::warn!("Unable to pong: {}", e);
                 }
             }
@@ -124,11 +124,11 @@ pub fn post(url: &str, event: Event) -> Result<(), Error> {
 
     let (mut websocket, _response) = tungstenite::connect(request)?;
 
-    websocket.write_message(Message::Text(wire))?;
+    websocket.send(Message::Text(wire))?;
 
     // Get and print one response message
 
-    let message = match websocket.read_message() {
+    let message = match websocket.read() {
         Ok(m) => m,
         Err(e) => {
             tracing::error!("Problem reading from websocket: {}", e);
@@ -155,7 +155,7 @@ pub fn post(url: &str, event: Event) -> Result<(), Error> {
         }
         Message::Binary(_) => tracing::debug!("IGNORING BINARY MESSAGE"),
         Message::Ping(vec) => {
-            if let Err(e) = websocket.write_message(Message::Pong(vec)) {
+            if let Err(e) = websocket.send(Message::Pong(vec)) {
                 tracing::warn!("Unable to pong: {}", e);
             }
         }
