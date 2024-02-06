@@ -1,5 +1,5 @@
 use crate::dm_channel::DmChannel;
-use crate::nip46::ParsedCommand;
+use crate::nip46::{Approval, ParsedCommand};
 use crate::people::PersonList;
 use crate::relay::Relay;
 use nostr_types::{
@@ -106,11 +106,8 @@ pub enum ToOverlordMessage {
     /// internal (minions use this channel too)
     MinionJobUpdated(RelayUrl, u64, u64),
 
-    /// Calls [nip46_server_op_approved](crate::Overlord::nip46_server_op_approved)
-    Nip46ServerOpApproved(PublicKey, ParsedCommand),
-
-    /// Calls [nip46_server_op_declined](crate::Overlord::nip46_server_op_declined)
-    Nip46ServerOpDeclined(PublicKey, ParsedCommand),
+    /// Calls [nip46_server_op_approval_response](crate::Overlord::nip46_server_op_approval_response)
+    Nip46ServerOpApprovalResponse(PublicKey, ParsedCommand, Approval),
 
     /// Calls [post](crate::Overlord::post)
     Post {
