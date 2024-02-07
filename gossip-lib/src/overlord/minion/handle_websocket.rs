@@ -1,4 +1,4 @@
-use super::Minion;
+use super::{Minion, MinionExitReason};
 use crate::comms::ToOverlordMessage;
 use crate::error::Error;
 use crate::globals::GLOBALS;
@@ -156,7 +156,7 @@ impl Minion {
                     if !ok {
                         // Auth failed. Let's disconnect
                         tracing::warn!("AUTH failed to {}: {}", &self.url, ok_message);
-                        self.keepgoing = false;
+                        self.exiting = Some(MinionExitReason::AuthFailed);
                     } else {
                         self.try_resubscribe_to_corked().await?;
                     }
@@ -184,8 +184,16 @@ impl Minion {
                 }
             }
             RelayMessage::Auth(challenge) => {
-                let id = self.authenticate(&challenge).await?;
-                self.waiting_for_auth = Some(id);
+                self.auth_challenge = challenge.to_owned();
+                if GLOBALS.storage.read_setting_relay_auth_requires_approval() {
+                    match self.dbrelay.allow_auth {
+                        Some(true) => self.authenticate().await?,
+                        Some(false) => (),
+                        None => GLOBALS.auth_requests.write().push(self.url.clone()),
+                    }
+                } else {
+                    self.authenticate().await?
+                }
             }
             RelayMessage::Closed(subid, message) => {
                 let handle = self

@@ -37,6 +37,17 @@ pub struct EventSeekState {
     pub asked: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MinionExitReason {
+    AuthFailed,
+    GotDisconnected,
+    GotShutdownMessage,
+    GotWSClose,
+    LostOverlord,
+    SubscriptionsHaveCompleted,
+    Unknown,
+}
+
 pub struct Minion {
     url: RelayUrl,
     to_overlord: UnboundedSender<ToOverlordMessage>,
@@ -46,16 +57,17 @@ pub struct Minion {
     stream: Option<WebSocketStream<MaybeTlsStream<TcpStream>>>,
     subscription_map: SubscriptionMap,
     next_events_subscription_id: u32,
-    keepgoing: bool,
     postings: HashSet<Id>,
     sought_events: HashMap<Id, EventSeekState>,
     last_message_sent: String,
     waiting_for_auth: Option<Id>,
+    auth_challenge: String,
     corked_subscriptions: Vec<(String, Unixtime)>,
     corked_metadata: Vec<(u64, Vec<PublicKey>)>,
     general_feed_start: Option<Unixtime>,
     person_feed_start: Option<Unixtime>,
     inbox_feed_start: Option<Unixtime>,
+    exiting: Option<MinionExitReason>,
 }
 
 impl Minion {
@@ -73,22 +85,26 @@ impl Minion {
             stream: None,
             subscription_map: SubscriptionMap::new(),
             next_events_subscription_id: 0,
-            keepgoing: true,
             postings: HashSet::new(),
             sought_events: HashMap::new(),
             last_message_sent: String::new(),
             waiting_for_auth: None,
+            auth_challenge: "".to_string(),
             corked_subscriptions: Vec::new(),
             corked_metadata: Vec::new(),
             general_feed_start: None,
             person_feed_start: None,
             inbox_feed_start: None,
+            exiting: None,
         })
     }
 }
 
 impl Minion {
-    pub(crate) async fn handle(&mut self, mut messages: Vec<ToMinionPayload>) -> Result<(), Error> {
+    pub(crate) async fn handle(
+        &mut self,
+        mut messages: Vec<ToMinionPayload>,
+    ) -> Result<MinionExitReason, Error> {
         // minion will log when it connects
         tracing::trace!("{}: Minion handling started", &self.url);
 
@@ -214,7 +230,6 @@ impl Minion {
                 .body(())?;
 
             let config: WebSocketConfig = WebSocketConfig {
-                max_send_queue: None,
                 // Tungstenite default is 64 MiB.
                 // Cameri nostream relay limits to 0.5 a megabyte
                 // Based on my current database of 7356 events, the longest was 11,121 bytes.
@@ -228,6 +243,7 @@ impl Minion {
                 accept_unmasked_frames: GLOBALS
                     .storage
                     .read_setting_websocket_accept_unmasked_frames(),
+                ..Default::default()
             };
 
             let connect_timeout_secs = if short_timeout {
@@ -265,7 +281,7 @@ impl Minion {
         'relayloop: loop {
             match self.loop_handler().await {
                 Ok(_) => {
-                    if !self.keepgoing {
+                    if self.exiting.is_some() {
                         break 'relayloop;
                     }
                 }
@@ -290,7 +306,10 @@ impl Minion {
             }
         }
 
-        Ok(())
+        match self.exiting {
+            Some(reason) => Ok(reason),
+            None => Ok(MinionExitReason::Unknown),
+        }
     }
 
     async fn loop_handler(&mut self) -> Result<(), Error> {
@@ -325,7 +344,7 @@ impl Minion {
                 let to_minion_message = match to_minion_message {
                     Ok(m) => m,
                     Err(tokio::sync::broadcast::error::RecvError::Closed) => {
-                        self.keepgoing = false;
+                        self.exiting = Some(MinionExitReason::LostOverlord);
                         return Ok(());
                     },
                     Err(e) => return Err(e.into())
@@ -341,7 +360,7 @@ impl Minion {
                         if ws_stream.is_terminated() {
                             // possibly connection reset
                             tracing::info!("{}: connected terminated", &self.url);
-                            self.keepgoing = false;
+                            self.exiting = Some(MinionExitReason::GotDisconnected);
                         }
                         return Ok(());
                     }
@@ -361,7 +380,9 @@ impl Minion {
                     WsMessage::Binary(_) => tracing::warn!("{}, Unexpected binary message", &self.url),
                     WsMessage::Ping(_) => { }, // tungstenite automatically pongs.
                     WsMessage::Pong(_) => { }, // Verify it is 0x1? Nah. It's just for keep-alive.
-                    WsMessage::Close(_) => self.keepgoing = false,
+                    WsMessage::Close(_) => {
+                        self.exiting = Some(MinionExitReason::GotWSClose);
+                    }
                     WsMessage::Frame(_) => tracing::warn!("{}: Unexpected frame message", &self.url),
                 }
             },
@@ -369,7 +390,7 @@ impl Minion {
 
         // Don't continue if we have no more subscriptions
         if self.subscription_map.is_empty() {
-            self.keepgoing = false;
+            self.exiting = Some(MinionExitReason::SubscriptionsHaveCompleted);
         }
 
         Ok(())
@@ -393,6 +414,15 @@ impl Minion {
                     self.url.clone(),
                     message.job_id,
                 ))?;
+            }
+            ToMinionPayloadDetail::AuthApproved => {
+                self.dbrelay.allow_auth = Some(true); // save in our memory copy of the relay
+                self.authenticate().await?;
+                GLOBALS.auth_requests.write().retain(|url| *url != self.url);
+            }
+            ToMinionPayloadDetail::AuthDeclined => {
+                self.dbrelay.allow_auth = Some(false); // save in our memory copy of the relay
+                GLOBALS.auth_requests.write().retain(|url| *url != self.url);
             }
             ToMinionPayloadDetail::FetchEvent(id) => {
                 self.sought_events
@@ -425,7 +455,7 @@ impl Minion {
             }
             ToMinionPayloadDetail::Shutdown => {
                 tracing::debug!("{}: Websocket listener shutting down", &self.url);
-                self.keepgoing = false;
+                self.exiting = Some(MinionExitReason::GotShutdownMessage);
             }
             ToMinionPayloadDetail::SubscribeAugments(ids) => {
                 self.subscribe_augments(message.job_id, ids).await?;
@@ -1341,7 +1371,7 @@ impl Minion {
         Ok(())
     }
 
-    async fn authenticate(&mut self, challenge: &str) -> Result<Id, Error> {
+    async fn authenticate(&mut self) -> Result<(), Error> {
         if !GLOBALS.identity.is_unlocked() {
             return Err(ErrorKind::NoPrivateKeyForAuth(self.url.clone()).into());
         }
@@ -1357,7 +1387,7 @@ impl Minion {
             kind: EventKind::Auth,
             tags: vec![
                 Tag::new(&["relay", self.url.as_str()]),
-                Tag::new(&["challenge", challenge]),
+                Tag::new(&["challenge", &self.auth_challenge]),
             ],
             content: "".to_string(),
         };
@@ -1369,7 +1399,9 @@ impl Minion {
         let ws_stream = self.stream.as_mut().unwrap();
         ws_stream.send(WsMessage::Text(wire)).await?;
         tracing::info!("Authenticated to {}", &self.url);
-        Ok(id)
+
+        self.waiting_for_auth = Some(id);
+        Ok(())
     }
 
     // This replictes reqwest Response text_with_charset to handle decoding

@@ -60,12 +60,10 @@ use egui_video::{AudioDevice, Player};
 use egui_winit::egui::Rect;
 use egui_winit::egui::Response;
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::About;
-use gossip_lib::Error;
-use gossip_lib::FeedKind;
-use gossip_lib::{DmChannel, DmChannelData};
-use gossip_lib::{Person, PersonList};
-use gossip_lib::{ZapState, GLOBALS};
+use gossip_lib::nip46::Approval;
+use gossip_lib::{
+    About, DmChannel, DmChannelData, Error, FeedKind, Person, PersonList, ZapState, GLOBALS,
+};
 use nostr_types::ContentSegment;
 use nostr_types::{Id, Metadata, MilliSatoshi, Profile, PublicKey, UncheckedUrl, Url};
 use std::collections::{HashMap, HashSet};
@@ -1280,6 +1278,14 @@ impl eframe::App for GossipUi {
             return wizard::update(self, ctx, frame, wp);
         }
 
+        // Auth and Connect approvals
+        if !GLOBALS.auth_requests.read().is_empty()
+            || !GLOBALS.connect_requests.read().is_empty()
+            || !GLOBALS.nip46_approval_requests.read().is_empty()
+        {
+            approval_dialog(ctx, self);
+        }
+
         // Side panel
         self.side_panel(ctx);
 
@@ -2180,4 +2186,125 @@ fn wait_for_data_migration(app: &mut GossipUi, ctx: &Context) {
         .show(ctx, |ui| {
             ui.label("Please wait for the data migration to complete...");
         });
+}
+
+fn approval_dialog(ctx: &Context, app: &mut GossipUi) {
+    let dlg_size = egui_winit::egui::vec2(
+        ctx.screen_rect().width() * 0.66,
+        ctx.screen_rect().height() * 0.66,
+    );
+
+    egui::Area::new("hide-background-area-for-appproval-dialog")
+        .fixed_pos(ctx.screen_rect().left_top())
+        .movable(false)
+        .interactable(false)
+        .order(egui::Order::Middle)
+        .show(ctx, |ui| {
+            ui.painter().rect_filled(
+                ctx.screen_rect(),
+                egui::Rounding::same(0.0),
+                egui::Color32::from_rgba_unmultiplied(0x9f, 0x9f, 0x9f, 102),
+            );
+        });
+
+    let id: egui_winit::egui::Id = "approval-dialog".into();
+    let mut frame = egui::Frame::popup(&ctx.style());
+    let area = egui::Area::new(id)
+        .movable(false)
+        .interactable(true)
+        .order(egui::Order::Foreground)
+        .fixed_pos(
+            ctx.screen_rect().center() - egui_winit::egui::vec2(dlg_size.x / 2.0, dlg_size.y / 2.0),
+        );
+
+    area.show(ctx, |ui| {
+        frame.fill = ui.visuals().extreme_bg_color;
+        frame.inner_margin = egui::Margin::symmetric(20.0, 10.0);
+        frame.show(ui, |ui| {
+            ui.set_min_size(dlg_size);
+            ui.set_max_size(dlg_size);
+            ScrollArea::vertical().show(ui, |ui| {
+                ui.vertical(|ui| {
+                    approval_dialog_inner(app, ui);
+                });
+            });
+        });
+    });
+}
+
+fn approval_dialog_inner(_app: &mut GossipUi, ui: &mut Ui) {
+    ui.heading("Approve or Decline");
+
+    // Connect approvals
+    for (url, jobs) in GLOBALS.connect_requests.read().iter() {
+        let jobstrs: Vec<String> = jobs.iter().map(|j| format!("{:?}", j.reason)).collect();
+
+        ui.horizontal_wrapped(|ui| {
+            if ui.button("Approve").clicked() {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::ConnectApproved(url.to_owned()));
+            }
+            if ui.button("Decline").clicked() {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::ConnectDeclined(url.to_owned()));
+            }
+            let text = format!("Connect to {} for {}", url, jobstrs.join(", "));
+            ui.label(text);
+        });
+    }
+
+    // Auth approvals
+    for url in GLOBALS.auth_requests.read().iter() {
+        ui.horizontal(|ui| {
+            let text = format!("Authenticate to {}", url);
+            ui.label(text);
+            if ui.button("Approve").clicked() {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::AuthApproved(url.to_owned()));
+            }
+            if ui.button("Decline").clicked() {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::AuthDeclined(url.to_owned()));
+            }
+        });
+    }
+
+    // NIP-46 approvals
+    for (pubkey, parsed_command) in GLOBALS.nip46_approval_requests.read().iter() {
+        ui.horizontal(|ui| {
+            let text = format!("Allow {}", parsed_command.method);
+            ui.label(text);
+            if ui.button("Approve Once").clicked() {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::Nip46ServerOpApprovalResponse(
+                        *pubkey,
+                        parsed_command.clone(),
+                        Approval::Once,
+                    ));
+            }
+            if ui.button("Approve Always").clicked() {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::Nip46ServerOpApprovalResponse(
+                        *pubkey,
+                        parsed_command.clone(),
+                        Approval::Always,
+                    ));
+            }
+            if ui.button("Decline").clicked() {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::Nip46ServerOpApprovalResponse(
+                        *pubkey,
+                        parsed_command.clone(),
+                        Approval::None,
+                    ));
+            }
+        });
+    }
 }

@@ -50,7 +50,7 @@ futures-util = "0.3"
 gossip-relay-picker = { git = "https://github.com/mikedilger/gossip-relay-picker", rev = "1d13cacb0d7b32d72d0c8c27414461d5389ca2ec" }
 heed = { git = "https://github.com/meilisearch/heed", rev = "64fd6fec293c0dee94855b8267557ce03e7ce5d8" }
 hex = "0.4"
-http = "0.2"
+http = "1.0"
 image = { version = "0.24.6", features = [ "png", "jpeg" ] }
 kamadak-exif = "0.5"
 lazy_static = "1.4"
@@ -73,8 +73,8 @@ textnonce = "1"
 tiny-skia = "0.10.0"
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
-tokio-tungstenite = { version = "0.19", default-features = false, features = [ "connect", "handshake" ] }
-tungstenite = { version = "0.19", default-features = false }
+tokio-tungstenite = { version = "0.21", default-features = false, features = [ "connect", "handshake" ] }
+tungstenite = { version = "0.21", default-features = false }
 url = "2.4"
 usvg = "0.35.0"
 zeroize = "1.6"

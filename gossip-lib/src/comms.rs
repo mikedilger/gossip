@@ -1,4 +1,5 @@
 use crate::dm_channel::DmChannel;
+use crate::nip46::{Approval, ParsedCommand};
 use crate::people::PersonList;
 use crate::relay::Relay;
 use nostr_types::{
@@ -26,11 +27,23 @@ pub enum ToOverlordMessage {
     /// internal
     AdvertiseRelayListNextChunk(Box<Event>, Vec<RelayUrl>),
 
+    /// Calls [auth_approved](crate::Overlord::auth_approved)
+    AuthApproved(RelayUrl),
+
+    /// Calls [auth_approved](crate::Overlord::auth_declined)
+    AuthDeclined(RelayUrl),
+
     /// Calls [change_passphrase](crate::Overlord::change_passphrase)
     ChangePassphrase { old: String, new: String },
 
     /// Calls [clear_person_list](crate::Overlord::clear_person_list)
     ClearPersonList(PersonList),
+
+    /// Calls [auth_approved](crate::Overlord::connect_approved)
+    ConnectApproved(RelayUrl),
+
+    /// Calls [auth_approved](crate::Overlord::connect_declined)
+    ConnectDeclined(RelayUrl),
 
     /// Calls [delegation_reset](crate::Overlord::delegation_reset)
     DelegationReset,
@@ -92,6 +105,9 @@ pub enum ToOverlordMessage {
 
     /// internal (minions use this channel too)
     MinionJobUpdated(RelayUrl, u64, u64),
+
+    /// Calls [nip46_server_op_approval_response](crate::Overlord::nip46_server_op_approval_response)
+    Nip46ServerOpApprovalResponse(PublicKey, ParsedCommand, Approval),
 
     /// Calls [post](crate::Overlord::post)
     Post {
@@ -218,6 +234,8 @@ pub(crate) struct ToMinionPayload {
 #[derive(Debug, Clone)]
 pub(crate) enum ToMinionPayloadDetail {
     AdvertiseRelayList(Box<Event>),
+    AuthApproved,
+    AuthDeclined,
     FetchEvent(Id),
     FetchEventAddr(EventAddr),
     PostEvent(Box<Event>),

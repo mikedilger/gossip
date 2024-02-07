@@ -26,6 +26,7 @@ mod events2;
 mod events3;
 mod hashtags1;
 mod nip46servers1;
+mod nip46servers2;
 mod people1;
 mod people2;
 mod person_lists1;
@@ -239,7 +240,7 @@ impl Storage {
         let _ = self.db_event_seen_on_relay()?;
         let _ = self.db_event_viewed()?;
         let _ = self.db_hashtags()?;
-        let _ = self.db_nip46servers1()?;
+        let _ = self.db_nip46servers()?;
         let _ = self.db_people()?;
         let _ = self.db_person_relays()?;
         let _ = self.db_relationships_by_id()?;
@@ -310,7 +311,7 @@ impl Storage {
 
     #[inline]
     pub(crate) fn db_nip46servers(&self) -> Result<RawDatabase, Error> {
-        self.db_nip46servers1()
+        self.db_nip46servers2()
     }
 
     #[inline]
@@ -708,6 +709,18 @@ impl Storage {
         b"automatically_fetch_metadata",
         bool,
         true
+    );
+    def_setting!(
+        relay_connection_requires_approval,
+        b"relay_connection_requires_approval",
+        bool,
+        false
+    );
+    def_setting!(
+        relay_auth_requires_approval,
+        b"relay_auth_requires_approval",
+        bool,
+        false
     );
     def_setting!(num_relays_per_person, b"num_relays_per_person", u8, 2);
     def_setting!(max_relays, b"max_relays", u8, 50);
@@ -2586,15 +2599,15 @@ impl Storage {
         server: &Nip46Server,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.write_nip46server1(server, rw_txn)
+        self.write_nip46server2(server, rw_txn)
     }
 
     pub fn read_nip46server(&self, pubkey: PublicKey) -> Result<Option<Nip46Server>, Error> {
-        self.read_nip46server1(pubkey)
+        self.read_nip46server2(pubkey)
     }
 
     pub fn read_all_nip46servers(&self) -> Result<Vec<Nip46Server>, Error> {
-        self.read_all_nip46servers1()
+        self.read_all_nip46servers2()
     }
 
     pub fn delete_nip46server<'a>(
@@ -2602,6 +2615,6 @@ impl Storage {
         pubkey: PublicKey,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.delete_nip46server1(pubkey, rw_txn)
+        self.delete_nip46server2(pubkey, rw_txn)
     }
 }

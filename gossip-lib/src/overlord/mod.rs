@@ -8,6 +8,7 @@ use crate::dm_channel::DmChannel;
 use crate::error::{Error, ErrorKind};
 use crate::feed::FeedKind;
 use crate::globals::{ZapState, GLOBALS};
+use crate::nip46::{Approval, ParsedCommand};
 use crate::people::{Person, PersonList};
 use crate::person_relay::PersonRelay;
 use crate::relay::Relay;
@@ -17,7 +18,7 @@ use crate::tags::{
 use gossip_relay_picker::{Direction, RelayAssignment};
 use heed::RwTxn;
 use http::StatusCode;
-use minion::Minion;
+use minion::{Minion, MinionExitReason};
 use nostr_types::{
     ContentEncryptionAlgorithm, EncryptedPrivateKey, Event, EventAddr, EventKind, EventReference,
     Id, IdHex, Metadata, MilliSatoshi, NostrBech32, PayRequestData, PreEvent, PrivateKey, Profile,
@@ -32,7 +33,7 @@ use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::{select, task};
 use zeroize::Zeroize;
 
-type MinionResult = Result<(), Error>;
+type MinionResult = Result<MinionExitReason, Error>;
 
 /// The overlord handles any operation that involves talking to relays, and a few more.
 ///
@@ -47,7 +48,7 @@ pub struct Overlord {
     inbox: UnboundedReceiver<ToOverlordMessage>,
 
     // All the minion tasks running.
-    minions: task::JoinSet<Result<(), Error>>,
+    minions: task::JoinSet<Result<MinionExitReason, Error>>,
 
     // Map from minion task::Id to Url
     minions_task_url: HashMap<task::Id, RelayUrl>,
@@ -304,9 +305,29 @@ impl Overlord {
         }
 
         let relay = GLOBALS.storage.read_or_create_relay(&url, None)?;
+
+        // don't connect to rank=0 relays
         if relay.rank == 0 {
-            return Ok(()); // don't connect to rank=0 relays
+            return Ok(());
         }
+
+        if GLOBALS
+            .storage
+            .read_setting_relay_connection_requires_approval()
+        {
+            match relay.allow_connect {
+                Some(true) => (),             // fall through
+                Some(false) => return Ok(()), // don't connect to this relay
+                None => {
+                    // Save the engage_minion request and Ask the user
+                    GLOBALS
+                        .connect_requests
+                        .write()
+                        .push((url.clone(), jobs.clone()));
+                    return Ok(());
+                }
+            }
+        } // else fall through
 
         if let Some(mut refmut) = GLOBALS.connected_relays.get_mut(&url) {
             // We are already connected. Send it the jobs
@@ -399,23 +420,28 @@ impl Overlord {
         // Set to not connected
         let relayjobs = GLOBALS.connected_relays.remove(&url).map(|(_, v)| v);
 
-        let mut exclusion: u64 = 0;
+        let mut exclusion: u64;
 
         match join_result {
             Err(join_error) => {
                 tracing::error!("Minion {} completed with join error: {}", &url, join_error);
                 Self::bump_failure_count(&url);
-                exclusion = 60;
+                exclusion = 120;
             }
             Ok((_id, result)) => match result {
-                Ok(_) => {
-                    tracing::debug!("Minion {} completed", &url);
-                    // no exclusion
+                Ok(exitreason) => {
+                    tracing::info!("Minion {} completed: {:?}", &url, exitreason);
+                    exclusion = match exitreason {
+                        MinionExitReason::AuthFailed => 60 * 60 * 24,
+                        MinionExitReason::GotDisconnected => 120,
+                        MinionExitReason::GotWSClose => 120,
+                        _ => 0,
+                    };
                 }
                 Err(e) => {
                     Self::bump_failure_count(&url);
                     tracing::error!("Minion {} completed with error: {}", &url, e);
-                    exclusion = 60;
+                    exclusion = 120;
                     if let ErrorKind::RelayRejectedUs = e.kind {
                         exclusion = 60 * 60 * 24 * 365; // don't connect again, practically
                     } else if let ErrorKind::Websocket(wserror) = e.kind {
@@ -431,17 +457,17 @@ impl Overlord {
                                 StatusCode::UNAVAILABLE_FOR_LEGAL_REASONS => 60 * 60 * 24,
                                 StatusCode::NOT_IMPLEMENTED => 60 * 60 * 24,
                                 StatusCode::BAD_GATEWAY => 60 * 60 * 24,
-                                s if s.as_u16() >= 400 => 90,
-                                _ => 60,
+                                s if s.as_u16() >= 400 => 120,
+                                _ => 120,
                             };
                         } else if let tungstenite::error::Error::ConnectionClosed = wserror {
                             tracing::debug!("Minion {} completed", &url);
-                            exclusion = 0; // was not actually an error
+                            exclusion = 30; // was not actually an error, but needs a pause
                         } else if let tungstenite::error::Error::Protocol(protocol_error) = wserror
                         {
                             exclusion = match protocol_error {
                                 tungstenite::error::ProtocolError::ResetWithoutClosingHandshake => {
-                                    30
+                                    60
                                 }
                                 _ => 120,
                             }
@@ -526,11 +552,23 @@ impl Overlord {
             ToOverlordMessage::AdvertiseRelayListNextChunk(event, relays) => {
                 self.advertise_relay_list_next_chunk(event, relays).await?;
             }
+            ToOverlordMessage::AuthApproved(relay_url) => {
+                self.auth_approved(relay_url)?;
+            }
+            ToOverlordMessage::AuthDeclined(relay_url) => {
+                self.auth_declined(relay_url)?;
+            }
             ToOverlordMessage::ChangePassphrase { old, new } => {
                 Self::change_passphrase(old, new).await?;
             }
             ToOverlordMessage::ClearPersonList(list) => {
                 self.clear_person_list(list)?;
+            }
+            ToOverlordMessage::ConnectApproved(relay_url) => {
+                self.connect_approved(relay_url).await?;
+            }
+            ToOverlordMessage::ConnectDeclined(relay_url) => {
+                self.connect_declined(relay_url).await?;
             }
             ToOverlordMessage::DelegationReset => {
                 Self::delegation_reset().await?;
@@ -609,6 +647,10 @@ impl Overlord {
                     }
                     self.maybe_disconnect_relay(&url)?;
                 }
+            }
+            ToOverlordMessage::Nip46ServerOpApprovalResponse(pubkey, parsed_command, approval) => {
+                self.nip46_server_op_approval_response(pubkey, parsed_command, approval)
+                    .await?;
             }
             ToOverlordMessage::RefreshScoresAndPickRelays => {
                 self.refresh_scores_and_pick_relays().await?;
@@ -872,6 +914,70 @@ impl Overlord {
         Ok(())
     }
 
+    /// User has approved authentication on this relay. Save this result for later
+    /// and inform the minion.
+    pub fn auth_approved(&mut self, relay_url: RelayUrl) -> Result<(), Error> {
+        // Save the answer in the relay record
+        GLOBALS.storage.modify_relay(
+            &relay_url,
+            |r| {
+                r.allow_auth = Some(true);
+            },
+            None,
+        )?;
+
+        if GLOBALS.connected_relays.contains_key(&relay_url) {
+            // Tell the minion
+            let _ = self.to_minions.send(ToMinionMessage {
+                target: relay_url.as_str().to_owned(),
+                payload: ToMinionPayload {
+                    job_id: 0,
+                    detail: ToMinionPayloadDetail::AuthApproved,
+                },
+            });
+        } else {
+            // Clear the auth request, we are no longer connected
+            GLOBALS
+                .auth_requests
+                .write()
+                .retain(|url| *url != relay_url);
+        }
+
+        Ok(())
+    }
+
+    /// User has declined authentication on this relay. Save this result for later
+    /// and inform the minion.
+    pub fn auth_declined(&mut self, relay_url: RelayUrl) -> Result<(), Error> {
+        // Save the answer in the relay record
+        GLOBALS.storage.modify_relay(
+            &relay_url,
+            |r| {
+                r.allow_auth = Some(false);
+            },
+            None,
+        )?;
+
+        if GLOBALS.connected_relays.contains_key(&relay_url) {
+            // Tell the minion
+            let _ = self.to_minions.send(ToMinionMessage {
+                target: relay_url.as_str().to_owned(),
+                payload: ToMinionPayload {
+                    job_id: 0,
+                    detail: ToMinionPayloadDetail::AuthDeclined,
+                },
+            });
+        } else {
+            // Clear the auth request, we are no longer connected
+            GLOBALS
+                .auth_requests
+                .write()
+                .retain(|url| *url != relay_url);
+        }
+
+        Ok(())
+    }
+
     /// Change the user's passphrase.
     pub async fn change_passphrase(mut old: String, mut new: String) -> Result<(), Error> {
         GLOBALS.identity.change_passphrase(&old, &new).await?;
@@ -884,6 +990,58 @@ impl Overlord {
     /// the empty list. You should probably double-check that the user is certain.
     pub fn clear_person_list(&mut self, list: PersonList) -> Result<(), Error> {
         GLOBALS.people.clear_person_list(list)?;
+        Ok(())
+    }
+
+    /// User has approved connection to this relay. Save this result for later
+    /// and inform the minion.
+    pub async fn connect_approved(&mut self, relay_url: RelayUrl) -> Result<(), Error> {
+        // Save the answer in the relay record
+        GLOBALS.storage.modify_relay(
+            &relay_url,
+            |r| {
+                r.allow_connect = Some(true);
+            },
+            None,
+        )?;
+
+        // Start the job
+        let reqs = GLOBALS.connect_requests.read().clone();
+        for (url, jobs) in &reqs {
+            if *url == relay_url {
+                self.engage_minion(url.clone(), jobs.clone()).await?;
+                // let the loop continue, it is possible the overlord tried to engage this
+                // minion more than once.
+            }
+        }
+
+        // Remove the connect requests entry
+        GLOBALS
+            .connect_requests
+            .write()
+            .retain(|(url, _)| *url != relay_url);
+
+        Ok(())
+    }
+
+    /// User has declined connection to this relay. Save this result for later
+    /// and inform the minion.
+    pub async fn connect_declined(&mut self, relay_url: RelayUrl) -> Result<(), Error> {
+        // Save the answer in the relay record
+        GLOBALS.storage.modify_relay(
+            &relay_url,
+            |r| {
+                r.allow_connect = Some(false);
+            },
+            None,
+        )?;
+
+        // Remove the connect requests entry
+        GLOBALS
+            .connect_requests
+            .write()
+            .retain(|(url, _)| *url != relay_url);
+
         Ok(())
     }
 
@@ -1503,6 +1661,42 @@ impl Overlord {
                 }],
             )
             .await?;
+        }
+
+        Ok(())
+    }
+
+    /// Process approved nip46 server operation
+    pub async fn nip46_server_op_approval_response(
+        &mut self,
+        pubkey: PublicKey,
+        parsed_command: ParsedCommand,
+        approval: Approval,
+    ) -> Result<(), Error> {
+        // Clear the request
+        GLOBALS
+            .nip46_approval_requests
+            .write()
+            .retain(|(pk, pc)| *pk != pubkey || *pc != parsed_command);
+
+        // Handle the request
+        if let Some(mut server) = GLOBALS.storage.read_nip46server(pubkey)? {
+            // Temporarily set the approval (we don't save this)
+            // NOTE: for now we set the server approval setting in memory but don't save it back.
+            //       So the approval only applies to this one time. FIXME: we should use the options
+            //       to approve always (saved) and Until a set time.
+            match parsed_command.method.as_str() {
+                "sign_event" => server.sign_approval = approval,
+                "nip04_encrypt" | "nip44_encrypt" => server.encrypt_approval = approval,
+                "nip04_decrypt" | "nip44_decrypt" => server.decrypt_approval = approval,
+                "nip44_get_key" => {
+                    server.encrypt_approval = approval;
+                    server.decrypt_approval = approval;
+                }
+                _ => {}
+            }
+
+            server.handle(&parsed_command)?;
         }
 
         Ok(())

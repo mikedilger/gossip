@@ -44,6 +44,8 @@ pub struct UnsavedSettings {
     pub load_media: bool,
     pub check_nip05: bool,
     pub automatically_fetch_metadata: bool,
+    pub relay_connection_requires_approval: bool,
+    pub relay_auth_requires_approval: bool,
 
     // Relay settings
     pub num_relays_per_person: u8,
@@ -134,6 +136,10 @@ impl Default for UnsavedSettings {
             load_media: default_setting!(load_media),
             check_nip05: default_setting!(check_nip05),
             automatically_fetch_metadata: default_setting!(automatically_fetch_metadata),
+            relay_connection_requires_approval: default_setting!(
+                relay_connection_requires_approval
+            ),
+            relay_auth_requires_approval: default_setting!(relay_auth_requires_approval),
             num_relays_per_person: default_setting!(num_relays_per_person),
             max_relays: default_setting!(max_relays),
             feed_chunk: default_setting!(feed_chunk),
@@ -216,6 +222,8 @@ impl UnsavedSettings {
             load_media: load_setting!(load_media),
             check_nip05: load_setting!(check_nip05),
             automatically_fetch_metadata: load_setting!(automatically_fetch_metadata),
+            relay_connection_requires_approval: load_setting!(relay_connection_requires_approval),
+            relay_auth_requires_approval: load_setting!(relay_auth_requires_approval),
             num_relays_per_person: load_setting!(num_relays_per_person),
             max_relays: load_setting!(max_relays),
             feed_chunk: load_setting!(feed_chunk),
@@ -294,6 +302,8 @@ impl UnsavedSettings {
         save_setting!(load_media, self, txn);
         save_setting!(check_nip05, self, txn);
         save_setting!(automatically_fetch_metadata, self, txn);
+        save_setting!(relay_connection_requires_approval, self, txn);
+        save_setting!(relay_auth_requires_approval, self, txn);
         save_setting!(num_relays_per_person, self, txn);
         save_setting!(max_relays, self, txn);
         save_setting!(feed_chunk, self, txn);
