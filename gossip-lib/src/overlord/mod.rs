@@ -430,12 +430,16 @@ impl Overlord {
             }
             Ok((_id, result)) => match result {
                 Ok(exitreason) => {
-                    tracing::info!("Minion {} completed: {:?}", &url, exitreason);
+                    if exitreason.benign() {
+                        tracing::debug!("Minion {} completed: {:?}", &url, exitreason);
+                    } else {
+                        tracing::info!("Minion {} completed: {:?}", &url, exitreason);
+                    }
                     exclusion = match exitreason {
-                        MinionExitReason::AuthFailed => 60 * 60 * 24,
                         MinionExitReason::GotDisconnected => 120,
                         MinionExitReason::GotWSClose => 120,
-                        _ => 0,
+                        MinionExitReason::Unknown => 120,
+                        _ => 1,
                     };
                 }
                 Err(e) => {
