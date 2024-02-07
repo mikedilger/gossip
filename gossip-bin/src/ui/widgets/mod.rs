@@ -18,7 +18,7 @@ use egui_winit::egui::{self, Align, FontSelection, RichText, Ui, WidgetText};
 pub use nav_item::NavItem;
 
 mod relay_entry;
-pub use relay_entry::{RelayEntry, RelayEntryView};
+pub use relay_entry::RelayEntry;
 
 mod modal_popup;
 pub use modal_popup::modal_popup;
@@ -32,7 +32,7 @@ pub use information_popup::ProfilePopup;
 
 mod switch;
 pub use switch::Switch;
-pub use switch::{switch_custom_at, switch_with_size, switch_with_size_at};
+pub use switch::{switch_custom_at, switch_with_size};
 
 mod textedit;
 pub use textedit::TextEdit;

@@ -6,7 +6,6 @@ use eframe::egui;
 use egui::text::LayoutJob;
 use egui::widget_text::WidgetText;
 use egui::{Color32, Context, Frame, Margin, RichText, Ui};
-use egui_winit::egui::style;
 use egui_winit::egui::Vec2;
 use egui_winit::egui::Widget;
 

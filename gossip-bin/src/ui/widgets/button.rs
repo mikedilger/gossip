@@ -23,7 +23,6 @@ enum ButtonVariant {
 pub struct Button<'a> {
     button_type: ButtonType,
     variant: ButtonVariant,
-    selected: bool,
     theme: &'a Theme,
     text: Option<WidgetText>,
 }
@@ -33,7 +32,6 @@ impl<'a> Button<'a> {
         Self {
             button_type: ButtonType::Primary,
             variant: ButtonVariant::Normal,
-            selected: false,
             theme,
             text: Some(text.into()),
         }
@@ -43,7 +41,6 @@ impl<'a> Button<'a> {
         Self {
             button_type: ButtonType::Secondary,
             variant: ButtonVariant::Normal,
-            selected: false,
             theme,
             text: Some(text.into()),
         }
@@ -53,7 +50,6 @@ impl<'a> Button<'a> {
         Self {
             button_type: ButtonType::Bordered,
             variant: ButtonVariant::Normal,
-            selected: false,
             theme,
             text: Some(text.into()),
         }
@@ -74,12 +70,6 @@ impl<'a> Button<'a> {
     //     }
     //     self
     // }
-
-    /// If `true`, mark this button as "selected".
-    pub fn selected(mut self, selected: bool) -> Self {
-        self.selected = selected;
-        self
-    }
 
     pub fn draw_default(self, ui: &mut Ui) -> Response {
         let (text, desired_size, padding) = Self::layout(ui, self.text, self.variant);
@@ -161,7 +151,7 @@ impl Widget for Button<'_> {
     fn ui(self, ui: &mut Ui) -> Response {
         let (text, desired_size, padding) = Self::layout(ui, self.text, self.variant);
         let (rect, response) = Self::allocate(ui, &text, desired_size);
-        let state = if response.is_pointer_button_down_on() || self.selected {
+        let state = if response.is_pointer_button_down_on() {
             WidgetState::Active
         } else if response.has_focus() {
             WidgetState::Focused
