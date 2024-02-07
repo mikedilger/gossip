@@ -39,15 +39,18 @@ impl Nip46UnconnectedServer {
             None => return Err(ErrorKind::NoPublicKey.into()),
         };
 
-        let mut token = format!("{}#{}?", public_key.as_bech32_string(), self.connect_secret);
+        let relay_part = &self
+            .relays
+            .iter()
+            .map(|r| format!("relay={}", r))
+            .collect::<Vec<String>>()
+            .join("&");
 
-        token.push_str(
-            &self
-                .relays
-                .iter()
-                .map(|r| format!("relay={}", r))
-                .collect::<Vec<String>>()
-                .join("&"),
+        let token = format!(
+            "bunker://{}?{}&secret={}",
+            public_key.as_hex_string(),
+            relay_part,
+            self.connect_secret
         );
 
         Ok(token)
