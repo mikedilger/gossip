@@ -1,4 +1,6 @@
-use egui_winit::egui::{self, vec2, Color32, FontId, Rect, Rounding, Sense, Stroke, TextBuffer, Widget, WidgetText};
+use egui_winit::egui::{
+    self, vec2, Color32, FontId, Rect, Rounding, Sense, Stroke, TextBuffer, Widget, WidgetText,
+};
 
 use crate::ui::Theme;
 
@@ -18,7 +20,12 @@ pub struct TextEdit<'t> {
     with_search: bool,
 }
 
-const MARGIN: egui::Margin = egui::Margin{ left: 8.0, right: 8.0, top:4.5, bottom: 4.5 };
+const MARGIN: egui::Margin = egui::Margin {
+    left: 8.0,
+    right: 8.0,
+    top: 4.5,
+    bottom: 4.5,
+};
 
 impl<'t> TextEdit<'t> {
     pub fn singleline(theme: &'t Theme, text: &'t mut dyn TextBuffer) -> Self {
@@ -109,24 +116,28 @@ impl<'t> TextEdit<'t> {
         self
     }
 
-    pub fn show(self, ui: &mut egui::Ui) -> (egui::text_edit::TextEditOutput, &'t mut dyn TextBuffer) {
+    pub fn show(
+        self,
+        ui: &mut egui::Ui,
+    ) -> (egui::text_edit::TextEditOutput, &'t mut dyn TextBuffer) {
         ui.scope(|ui| {
             self.set_visuals(ui);
 
-            // let where_to_put_background = ui.painter().add(Shape::Noop);
-
-            let pre_space = if self.with_search {
-                20.0
-            } else {
-                0.0
+            let pre_space = if self.with_search { 20.0 } else { 0.0 };
+            let margin = egui::Margin {
+                left: MARGIN.left + pre_space,
+                right: MARGIN.right,
+                top: MARGIN.top,
+                bottom: MARGIN.bottom,
             };
-            let margin = egui::Margin{ left: MARGIN.left + pre_space, right: MARGIN.right, top: MARGIN.top, bottom: MARGIN.bottom };
+
+            let where_to_put_background = ui.painter().add(egui::Shape::Noop);
 
             let mut inner = match self.multiline {
                 false => egui::widgets::TextEdit::singleline(self.text),
                 true => egui::widgets::TextEdit::multiline(self.text),
             }
-            .frame(true)
+            .frame(false)
             .password(self.password)
             .hint_text(self.hint_text.clone())
             .margin(margin); // set margin
@@ -139,12 +150,48 @@ impl<'t> TextEdit<'t> {
                 inner = inner.text_color(color);
             }
 
-            // show inner
+            // ---- show inner ----
             let output = inner.show(ui);
 
-            // draw frame
-            // self.draw_frame(ui, pre_space, &output, where_to_put_background);
+            // ---- draw frame ----
+            {
+                let theme = self.theme;
+                let response = &output.response;
+                let frame_rect = response.rect;
 
+                // this is how egui chooses the visual style:
+                #[allow(clippy::if_same_then_else)]
+                let (bg_color, frame_stroke) = if ui.visuals().dark_mode {
+                    if !response.sense.interactive() {
+                        (theme.neutral_800(), Stroke::new(1.0, theme.neutral_400()))
+                    } else if response.is_pointer_button_down_on() || response.has_focus() {
+                        (theme.neutral_800(), Stroke::new(1.0, theme.neutral_300()))
+                    } else if response.hovered() || response.highlighted() {
+                        (theme.neutral_800(), Stroke::new(1.0, theme.neutral_400()))
+                    } else {
+                        (theme.neutral_800(), Stroke::new(1.0, theme.neutral_400()))
+                    }
+                } else {
+                    if !response.sense.interactive() {
+                        (theme.neutral_50(), Stroke::new(1.0, theme.neutral_400()))
+                    } else if response.is_pointer_button_down_on() || response.has_focus() {
+                        (theme.neutral_50(), Stroke::new(1.0, theme.neutral_500()))
+                    } else if response.hovered() || response.highlighted() {
+                        (theme.neutral_50(), Stroke::new(1.0, theme.neutral_400()))
+                    } else {
+                        (theme.neutral_50(), Stroke::new(1.0, theme.neutral_400()))
+                    }
+                };
+
+                let rounding = Rounding::same(6.0);
+
+                let shape =
+                    egui::epaint::RectShape::new(frame_rect, rounding, bg_color, frame_stroke);
+
+                ui.painter().set(where_to_put_background, shape);
+            }
+
+            // ---- draw decorations ----
             if self.with_search {
                 // search magnifying glass
                 ui.painter().text(
@@ -152,7 +199,7 @@ impl<'t> TextEdit<'t> {
                     egui::Align2::LEFT_CENTER,
                     "\u{1F50D}",
                     FontId::proportional(11.0),
-                    ui.visuals().widgets.inactive.fg_stroke.color
+                    ui.visuals().widgets.inactive.fg_stroke.color,
                 );
             }
 
@@ -249,65 +296,24 @@ impl TextEdit<'_> {
         // }
         let theme = self.theme;
         let visuals = ui.visuals_mut();
-        let rounding = Rounding::same(6.0);
-
-        // rounding
-        visuals.widgets.inactive.rounding = rounding;
-        visuals.widgets.noninteractive.rounding = rounding;
-        visuals.widgets.active.rounding = rounding;
-        visuals.widgets.hovered.rounding = rounding;
-
-        // expansion is equally applied to all frame sides
-        // it affects only the drawing of the frame and not the
-        // placement or spacing
-        let expansion = 0.0;
-        visuals.widgets.inactive.expansion = expansion;
-        visuals.widgets.noninteractive.expansion = expansion;
-        visuals.widgets.active.expansion = expansion;
-        visuals.widgets.hovered.expansion = expansion;
 
         // cursor (enabled)
-        visuals.text_cursor = Stroke::new(3.0, theme.accent_light());
+        visuals.text_cursor = Stroke::new(3.0, theme.accent_color());
 
         if visuals.dark_mode {
-            // fill (enabled)
-            visuals.extreme_bg_color =
-                self.bg_color.unwrap_or(theme.neutral_800());
-
             // text color (enabled)
             visuals.widgets.inactive.fg_stroke.color = theme.neutral_50();
 
-            // -- enabled, not hovered, not focused
-            // border stroke
-            visuals.widgets.inactive.bg_stroke = Stroke::new(1.0, theme.neutral_400());
-
-            // -- enabled, hovered, not focused
-            // border stroke
-            visuals.widgets.hovered.bg_stroke = Stroke::new(1.0, theme.neutral_400());
-
-            // -- enabled, focused
-            // border stroke
-            visuals.selection.stroke = Stroke::new(1.0, theme.neutral_300());
-
+            // text selection
+            visuals.selection.bg_fill = theme.accent_color();
+            visuals.selection.stroke = Stroke::new(1.0, Color32::WHITE);
         } else {
-            // fill (any state)
-            visuals.extreme_bg_color =
-                self.bg_color.unwrap_or(theme.neutral_50());
-
             // text color (enabled)
             visuals.widgets.inactive.fg_stroke.color = theme.neutral_800();
 
-            // -- enabled, not hovered, not focused
-            // border stroke
-            visuals.widgets.inactive.bg_stroke = Stroke::new(1.0, theme.neutral_400());
-
-            // -- enabled, hovered, not focused
-            // border stroke
-            visuals.widgets.hovered.bg_stroke = Stroke::new(1.0, theme.neutral_400());
-
-            // -- enabled, focused
-            // border stroke
-            visuals.selection.stroke = Stroke::new(1.0, theme.neutral_500());
+            // text selection
+            visuals.selection.bg_fill = theme.accent_color();
+            visuals.selection.stroke = Stroke::new(1.0, Color32::WHITE);
         }
     }
 }
