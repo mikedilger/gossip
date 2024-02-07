@@ -14,7 +14,7 @@ pub use copy_button::{CopyButton, COPY_SYMBOL_SIZE};
 mod nav_item;
 use egui_winit::egui::text::LayoutJob;
 use egui_winit::egui::text_edit::TextEditOutput;
-use egui_winit::egui::{self, vec2, Align, FontSelection, Rect, RichText, Sense, Ui, WidgetText};
+use egui_winit::egui::{self, Align, FontSelection, RichText, Ui, WidgetText};
 pub use nav_item::NavItem;
 
 mod relay_entry;
@@ -126,7 +126,7 @@ pub fn break_anywhere_hyperlink_to(ui: &mut Ui, text: impl Into<WidgetText>, url
 
 pub fn search_field(ui: &mut Ui, theme: &Theme, field: &mut String, width: f32) -> TextEditOutput {
     // search field
-    let output = TextEdit::search(theme, field)
+    let (output, _) = TextEdit::search(theme, field)
         .text_color(ui.visuals().widgets.inactive.fg_stroke.color)
         .desired_width(width)
         .show(ui);

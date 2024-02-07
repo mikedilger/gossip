@@ -1,4 +1,4 @@
-use egui_winit::egui::{self, vec2, Color32, Rect, Rounding, Sense, Stroke, TextBuffer, Widget, WidgetText};
+use egui_winit::egui::{self, vec2, Color32, FontId, Rect, Rounding, Sense, Stroke, TextBuffer, Widget, WidgetText};
 
 use crate::ui::Theme;
 
@@ -15,7 +15,10 @@ pub struct TextEdit<'t> {
     text_color: Option<Color32>,
     with_paste: bool,
     with_clear: bool,
+    with_search: bool,
 }
+
+const MARGIN: egui::Margin = egui::Margin{ left: 8.0, right: 8.0, top:4.5, bottom: 4.5 };
 
 impl<'t> TextEdit<'t> {
     pub fn singleline(theme: &'t Theme, text: &'t mut dyn TextBuffer) -> Self {
@@ -30,6 +33,7 @@ impl<'t> TextEdit<'t> {
             text_color: None,
             with_paste: false,
             with_clear: false,
+            with_search: false,
         }
     }
 
@@ -45,6 +49,7 @@ impl<'t> TextEdit<'t> {
             text_color: None,
             with_paste: false,
             with_clear: true,
+            with_search: true,
         }
     }
 
@@ -104,72 +109,27 @@ impl<'t> TextEdit<'t> {
         self
     }
 
-    pub fn show(self, ui: &mut egui::Ui) -> egui::text_edit::TextEditOutput {
+    pub fn show(self, ui: &mut egui::Ui) -> (egui::text_edit::TextEditOutput, &'t mut dyn TextBuffer) {
         ui.scope(|ui| {
             self.set_visuals(ui);
+
+            // let where_to_put_background = ui.painter().add(Shape::Noop);
+
+            let pre_space = if self.with_search {
+                20.0
+            } else {
+                0.0
+            };
+            let margin = egui::Margin{ left: MARGIN.left + pre_space, right: MARGIN.right, top: MARGIN.top, bottom: MARGIN.bottom };
 
             let mut inner = match self.multiline {
                 false => egui::widgets::TextEdit::singleline(self.text),
                 true => egui::widgets::TextEdit::multiline(self.text),
             }
-                .frame(true)
-                .password(self.password)
-                .hint_text(self.hint_text.clone());
-
-            if let Some(width) = self.desired_width {
-                inner = inner.desired_width(width);
-            }
-
-            if let Some(color) = self.text_color {
-                inner = inner.text_color(color);
-            }
-
-            // show inner
-            let response = inner.show(ui);
-
-            if self.with_clear {
-                let rect = Rect::from_min_size(
-                    response.response.rect.right_top() - vec2(response.response.rect.height(), 0.0),
-                    vec2(response.response.rect.height(), response.response.rect.height()),
-                );
-
-                // search clear button
-                if ui
-                    .put(
-                        rect,
-                        NavItem::new("\u{2715}", self.text.as_str().is_empty())
-                            .color(ui.visuals().widgets.inactive.fg_stroke.color)
-                            .active_color(ui.visuals().widgets.active.fg_stroke.color)
-                            .hover_color(ui.visuals().hyperlink_color)
-                            .sense(Sense::click()),
-                    )
-                    .clicked()
-                {
-                    self.text.clear();
-                }
-            }
-
-            response
-        })
-        .inner
-    }
-
-    pub fn show_extended(
-        self,
-        ui: &mut egui::Ui,
-        clipboard: &mut egui_winit::clipboard::Clipboard,
-    ) -> egui::text_edit::TextEditOutput {
-        ui.scope(|ui| {
-            self.set_visuals(ui);
-
-            let mut inner = match self.multiline {
-                false => egui::widgets::TextEdit::singleline(self.text),
-                true => egui::widgets::TextEdit::multiline(self.text),
-            }
+            .frame(true)
             .password(self.password)
             .hint_text(self.hint_text.clone())
-            .margin(vec2(8.0, 4.5)); // set margin
-
+            .margin(margin); // set margin
 
             if let Some(width) = self.desired_width {
                 inner = inner.desired_width(width);
@@ -182,13 +142,27 @@ impl<'t> TextEdit<'t> {
             // show inner
             let output = inner.show(ui);
 
-            if self.with_clear {
+            // draw frame
+            // self.draw_frame(ui, pre_space, &output, where_to_put_background);
+
+            if self.with_search {
+                // search magnifying glass
+                ui.painter().text(
+                    output.response.rect.left_center() + vec2(MARGIN.left, 0.0),
+                    egui::Align2::LEFT_CENTER,
+                    "\u{1F50D}",
+                    FontId::proportional(11.0),
+                    ui.visuals().widgets.inactive.fg_stroke.color
+                );
+            }
+
+            if self.with_clear && !self.text.as_str().is_empty() {
                 let rect = Rect::from_min_size(
                     output.response.rect.right_top() - vec2(output.response.rect.height(), 0.0),
                     vec2(output.response.rect.height(), output.response.rect.height()),
                 );
 
-                // search clear button
+                // clear button
                 if ui
                     .put(
                         rect,
@@ -204,8 +178,22 @@ impl<'t> TextEdit<'t> {
                 }
             }
 
+            (output, self.text)
+        })
+        .inner
+    }
+
+    pub fn show_extended(
+        self,
+        ui: &mut egui::Ui,
+        clipboard: &mut egui_winit::clipboard::Clipboard,
+    ) -> egui::text_edit::TextEditOutput {
+        ui.scope(|ui| {
+            let with_paste = self.with_paste;
+            let (output, text) = self.show(ui);
+
             // paste button
-            if self.with_paste {
+            if with_paste {
                 let action_size = vec2(45.0, output.response.rect.height());
                 let rect = Rect::from_min_size(
                     output.response.rect.right_top() - vec2(action_size.x, 0.0),
@@ -229,7 +217,7 @@ impl<'t> TextEdit<'t> {
                         } else {
                             0
                         };
-                        self.text.insert_text(paste.as_str(), index);
+                        text.insert_text(paste.as_str(), index);
                     }
                 }
             }
@@ -242,7 +230,8 @@ impl<'t> TextEdit<'t> {
 
 impl<'t> Widget for TextEdit<'t> {
     fn ui(self, ui: &mut egui_winit::egui::Ui) -> egui_winit::egui::Response {
-        self.show(ui).response
+        let (output, _) = self.show(ui);
+        output.response
     }
 }
 
