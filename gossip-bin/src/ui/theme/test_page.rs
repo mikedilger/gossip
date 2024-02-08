@@ -188,66 +188,51 @@ fn button_test(app: &mut GossipUi, ui: &mut Ui) {
         ui.horizontal(|ui| {
             ui.add_sized(CSIZE, egui::Label::new("Default"));
             ui.add_space(20.0);
-            widgets::Button::primary(theme, TEXT)
-                .draw_default(ui);
+            widgets::Button::primary(theme, TEXT).draw_default(ui);
             ui.add_space(20.0);
-            widgets::Button::secondary(theme, TEXT)
-                .draw_default(ui);
+            widgets::Button::secondary(theme, TEXT).draw_default(ui);
             ui.add_space(20.0);
-            widgets::Button::bordered(theme, TEXT)
-                .draw_default(ui);
+            widgets::Button::bordered(theme, TEXT).draw_default(ui);
         });
         ui.add_space(20.0);
         ui.horizontal(|ui| {
             ui.add_sized(CSIZE, egui::Label::new("Hovered"));
             ui.add_space(20.0);
-            widgets::Button::primary(theme, TEXT)
-                .draw_hovered(ui);
+            widgets::Button::primary(theme, TEXT).draw_hovered(ui);
             ui.add_space(20.0);
-            widgets::Button::secondary(theme, TEXT)
-                .draw_hovered(ui);
+            widgets::Button::secondary(theme, TEXT).draw_hovered(ui);
             ui.add_space(20.0);
-            widgets::Button::bordered(theme, TEXT)
-                .draw_hovered(ui);
+            widgets::Button::bordered(theme, TEXT).draw_hovered(ui);
         });
         ui.add_space(20.0);
         ui.horizontal(|ui| {
             ui.add_sized(CSIZE, egui::Label::new("Active"));
             ui.add_space(20.0);
-            widgets::Button::primary(theme, TEXT)
-                .draw_active(ui);
+            widgets::Button::primary(theme, TEXT).draw_active(ui);
             ui.add_space(20.0);
-            widgets::Button::secondary(theme, TEXT)
-                .draw_active(ui);
+            widgets::Button::secondary(theme, TEXT).draw_active(ui);
             ui.add_space(20.0);
-            widgets::Button::bordered(theme, TEXT)
-                .draw_active(ui);
+            widgets::Button::bordered(theme, TEXT).draw_active(ui);
         });
         ui.add_space(20.0);
         ui.horizontal(|ui| {
             ui.add_sized(CSIZE, egui::Label::new("Disabled"));
             ui.add_space(20.0);
-            widgets::Button::primary(theme, TEXT)
-                .draw_disabled(ui);
+            widgets::Button::primary(theme, TEXT).draw_disabled(ui);
             ui.add_space(20.0);
-            widgets::Button::secondary(theme, TEXT)
-                .draw_disabled(ui);
+            widgets::Button::secondary(theme, TEXT).draw_disabled(ui);
             ui.add_space(20.0);
-            widgets::Button::bordered(theme, TEXT)
-                .draw_disabled(ui);
+            widgets::Button::bordered(theme, TEXT).draw_disabled(ui);
         });
         ui.add_space(20.0);
         ui.horizontal(|ui| {
             ui.add_sized(CSIZE, egui::Label::new("Focused"));
             ui.add_space(20.0);
-            widgets::Button::primary(theme, TEXT)
-                .draw_focused(ui);
+            widgets::Button::primary(theme, TEXT).draw_focused(ui);
             ui.add_space(20.0);
-            widgets::Button::secondary(theme, TEXT)
-                .draw_focused(ui);
+            widgets::Button::secondary(theme, TEXT).draw_focused(ui);
             ui.add_space(20.0);
-            widgets::Button::bordered(theme, TEXT)
-                .draw_focused(ui);
+            widgets::Button::bordered(theme, TEXT).draw_focused(ui);
         });
         ui.add_space(30.0);
         ui.horizontal(|ui| {
@@ -256,24 +241,21 @@ fn button_test(app: &mut GossipUi, ui: &mut Ui) {
             });
             ui.add_space(20.0);
             ui.vertical(|ui| {
-                let response = widgets::Button::primary(theme, TEXT)
-                    .ui(ui);
+                let response = widgets::Button::primary(theme, TEXT).ui(ui);
                 if ui.link("focus").clicked() {
                     response.request_focus();
                 }
             });
             ui.add_space(20.0);
             ui.vertical(|ui| {
-                let response = widgets::Button::secondary(theme, TEXT)
-                    .ui(ui);
+                let response = widgets::Button::secondary(theme, TEXT).ui(ui);
                 if ui.link("focus").clicked() {
                     response.request_focus();
                 }
             });
             ui.add_space(20.0);
             ui.vertical(|ui| {
-                let response = widgets::Button::bordered(theme, TEXT)
-                    .ui(ui);
+                let response = widgets::Button::bordered(theme, TEXT).ui(ui);
                 if ui.link("focus").clicked() {
                     response.request_focus();
                 }
@@ -289,25 +271,28 @@ fn textedit_test(app: &mut GossipUi, ui: &mut Ui) {
     });
     ui.add_space(30.0);
     let theme = &app.theme;
+    let assets = &app.assets;
     const HINT: &str = "Placeholder";
     const CSIZE: Vec2 = Vec2 { x: 100.0, y: 20.0 };
     ui.vertical(|ui| {
         ui.horizontal(|ui| {
             ui.add_sized(CSIZE, egui::Label::new("Empty"));
             ui.add_space(20.0);
-            ui.vertical(|ui|{
-                let output = widgets::TextEdit::singleline(theme, &mut app.theme_test.textedit_empty)
-                    .hint_text(HINT)
-                    .show_extended(ui, &mut app.clipboard);
+            ui.vertical(|ui| {
+                let output =
+                    widgets::TextEdit::singleline(theme, &mut app.theme_test.textedit_empty)
+                        .hint_text(HINT)
+                        .show_extended(ui, &mut app.clipboard);
                 if ui.link("focus").clicked() {
                     output.response.request_focus();
                 }
             });
             ui.add_space(20.0);
-            ui.vertical(|ui|{
-                let output = widgets::TextEdit::search(theme, &mut app.theme_test.textedit_empty)
-                    .hint_text(HINT)
-                    .show_extended(ui, &mut app.clipboard);
+            ui.vertical(|ui| {
+                let output =
+                    widgets::TextEdit::search(theme, assets, &mut app.theme_test.textedit_empty)
+                        .hint_text(HINT)
+                        .show_extended(ui, &mut app.clipboard);
                 if ui.link("focus").clicked() {
                     output.response.request_focus();
                 }
@@ -317,19 +302,21 @@ fn textedit_test(app: &mut GossipUi, ui: &mut Ui) {
         ui.horizontal(|ui| {
             ui.add_sized(CSIZE, egui::Label::new("with Text"));
             ui.add_space(20.0);
-            ui.vertical(|ui|{
-                let output = widgets::TextEdit::singleline(theme, &mut app.theme_test.textedit_filled)
-                    .hint_text(HINT)
-                    .show_extended(ui, &mut app.clipboard);
+            ui.vertical(|ui| {
+                let output =
+                    widgets::TextEdit::singleline(theme, &mut app.theme_test.textedit_filled)
+                        .hint_text(HINT)
+                        .show_extended(ui, &mut app.clipboard);
                 if ui.link("focus").clicked() {
                     output.response.request_focus();
                 }
             });
             ui.add_space(20.0);
-            ui.vertical(|ui|{
-                let output = widgets::TextEdit::search(theme, &mut app.theme_test.textedit_filled)
-                    .hint_text(HINT)
-                    .show_extended(ui, &mut app.clipboard);
+            ui.vertical(|ui| {
+                let output =
+                    widgets::TextEdit::search(theme, assets, &mut app.theme_test.textedit_filled)
+                        .hint_text(HINT)
+                        .show_extended(ui, &mut app.clipboard);
                 if ui.link("focus").clicked() {
                     output.response.request_focus();
                 }
@@ -340,14 +327,14 @@ fn textedit_test(app: &mut GossipUi, ui: &mut Ui) {
             ui.add_sized(CSIZE, egui::Label::new("Disabled"));
             ui.set_enabled(false);
             ui.add_space(20.0);
-            ui.vertical(|ui|{
+            ui.vertical(|ui| {
                 widgets::TextEdit::singleline(theme, &mut app.theme_test.textedit_empty)
                     .hint_text(HINT)
                     .show_extended(ui, &mut app.clipboard);
             });
             ui.add_space(20.0);
-            ui.vertical(|ui|{
-                widgets::TextEdit::search(theme, &mut app.theme_test.textedit_empty)
+            ui.vertical(|ui| {
+                widgets::TextEdit::search(theme, assets, &mut app.theme_test.textedit_empty)
                     .hint_text(HINT)
                     .show_extended(ui, &mut app.clipboard);
             });

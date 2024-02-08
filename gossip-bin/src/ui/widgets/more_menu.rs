@@ -1,6 +1,7 @@
 use eframe::epaint::PathShape;
 use egui_winit::egui::{
-    self, vec2, AboveOrBelow, Align2, Color32, Id, Rect, TextureHandle, Ui, Vec2,
+    self, load::SizedTexture, vec2, AboveOrBelow, Align2, Color32, Id, Rect, TextureHandle, Ui,
+    Vec2,
 };
 
 use crate::ui::GossipUi;
@@ -36,7 +37,7 @@ impl MoreMenu {
             above_or_below: None,
             hover_text: None,
             accent_color: app.theme.accent_color(),
-            options_symbol: app.options_symbol.clone(),
+            options_symbol: app.assets.options_symbol.clone(),
             style: MoreMenuStyle::Simple,
         }
     }
@@ -52,7 +53,7 @@ impl MoreMenu {
             above_or_below: None,
             hover_text: None,
             accent_color: app.theme.accent_color(),
-            options_symbol: app.options_symbol.clone(),
+            options_symbol: app.assets.options_symbol.clone(),
             style: MoreMenuStyle::Bubble,
         }
     }
@@ -100,21 +101,21 @@ impl MoreMenu {
                 ui.add(egui::Button::new(text))
             }
             MoreMenuStyle::Bubble => {
-                let (response, painter) =
-                    ui.allocate_painter(vec2(20.0, 20.0), egui::Sense::click());
-                let btn_rect = response.rect;
+                let (btn_rect, response) =
+                    ui.allocate_exact_size(vec2(20.0, 20.0), egui::Sense::click());
                 let color = if response.hovered() {
                     self.accent_color
                 } else {
                     ui.visuals().text_color()
                 };
-                let mut mesh = egui::Mesh::with_texture((&self.options_symbol).into());
-                mesh.add_rect_with_uv(
-                    btn_rect.shrink(2.0),
-                    Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
-                    color,
-                );
-                painter.add(egui::Shape::mesh(mesh));
+                let img_rect = btn_rect.shrink(2.0);
+                egui::Image::from_texture(SizedTexture::new(
+                    self.options_symbol.id(),
+                    self.options_symbol.size_vec2(),
+                ))
+                .fit_to_exact_size(img_rect.size())
+                .tint(color)
+                .paint_at(ui, img_rect);
                 response
             }
         };

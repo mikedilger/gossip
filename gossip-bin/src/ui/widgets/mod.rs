@@ -37,6 +37,7 @@ pub use switch::{switch_custom_at, switch_with_size};
 mod textedit;
 pub use textedit::TextEdit;
 
+use super::assets::Assets;
 use super::{GossipUi, Theme};
 
 pub const DROPDOWN_DISTANCE: f32 = 10.0;
@@ -124,9 +125,15 @@ pub fn break_anywhere_hyperlink_to(ui: &mut Ui, text: impl Into<WidgetText>, url
     ui.hyperlink_to(job.job, url);
 }
 
-pub fn search_field(ui: &mut Ui, theme: &Theme, field: &mut String, width: f32) -> TextEditOutput {
+pub fn search_field(
+    ui: &mut Ui,
+    theme: &Theme,
+    assets: &Assets,
+    field: &mut String,
+    width: f32,
+) -> TextEditOutput {
     // search field
-    let (output, _) = TextEdit::search(theme, field)
+    let (output, _) = TextEdit::search(theme, assets, field)
         .text_color(ui.visuals().widgets.inactive.fg_stroke.color)
         .desired_width(width)
         .show(ui);

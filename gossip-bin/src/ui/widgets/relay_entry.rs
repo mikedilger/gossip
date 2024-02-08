@@ -1,5 +1,6 @@
 //#![allow(dead_code)]
 use eframe::egui::{self, *};
+use egui_winit::egui::load::SizedTexture;
 use nostr_types::{PublicKeyHex, RelayUrl, Unixtime};
 
 use crate::ui::{widgets, GossipUi};
@@ -145,7 +146,7 @@ pub struct RelayEntry {
     accent_hover: Color32,
     bg_fill: Color32,
     // highlight: Option<Color32>,
-    option_symbol: TextureId,
+    option_symbol: TextureHandle,
 }
 
 impl RelayEntry {
@@ -168,7 +169,7 @@ impl RelayEntry {
             accent_hover,
             bg_fill: app.theme.main_content_bgcolor(),
             // highlight: None,
-            option_symbol: (&app.options_symbol).into(),
+            option_symbol: app.assets.options_symbol.clone(),
         }
     }
 
@@ -292,13 +293,14 @@ impl RelayEntry {
         } else {
             self.accent
         };
-        let mut mesh = Mesh::with_texture(self.option_symbol);
-        mesh.add_rect_with_uv(
-            btn_rect.shrink(2.0),
-            Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
-            color,
-        );
-        ui.painter().add(Shape::mesh(mesh));
+        let img_rect = btn_rect.shrink(2.0);
+        egui::Image::from_texture(SizedTexture::new(
+            self.option_symbol.id(),
+            self.option_symbol.size_vec2(),
+        ))
+        .tint(color)
+        .fit_to_exact_size(img_rect.size())
+        .paint_at(ui, img_rect);
         response
     }
 

@@ -33,6 +33,7 @@ macro_rules! write_setting {
     };
 }
 
+mod assets;
 mod components;
 mod dm_chat_list;
 mod feed;
@@ -72,9 +73,9 @@ use std::hash::Hash;
 use std::rc::Rc;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
-use usvg::TreeParsing;
 use zeroize::Zeroize;
 
+use self::assets::Assets;
 use self::feed::Notes;
 use self::widgets::NavItem;
 use self::wizard::{WizardPage, WizardState};
@@ -412,10 +413,10 @@ struct GossipUi {
     settings_tab: SettingsTab,
 
     // General Data
+    assets: Assets,
     about: About,
     icon: TextureHandle,
     placeholder_avatar: TextureHandle,
-    options_symbol: TextureHandle,
     unsaved_settings: UnsavedSettings,
     theme: Theme,
     avatars: HashMap<PublicKey, TextureHandle>,
@@ -546,6 +547,8 @@ impl GossipUi {
         submenu_ids.insert(SubMenu::Relays, egui::Id::new(SubMenu::Relays.as_id_str()));
         submenu_ids.insert(SubMenu::Help, egui::Id::new(SubMenu::Help.as_id_str()));
 
+        let assets = Assets::init(cctx);
+
         let icon_texture_handle = {
             let bytes = include_bytes!("../../../logo/gossip.png");
             let image = image::load_from_memory(bytes).unwrap();
@@ -587,23 +590,6 @@ impl GossipUi {
                 }
             }
             device
-        };
-
-        // how to load an svg
-        let options_symbol = {
-            let bytes = include_bytes!("../../../assets/option.svg");
-            let opt = usvg::Options {
-                dpi: dpi as f32,
-                ..Default::default()
-            };
-            let rtree = usvg::Tree::from_data(bytes, &opt).unwrap();
-            let [w, h] = [20_u32, 20_u32];
-            let mut pixmap = tiny_skia::Pixmap::new(w, h).unwrap();
-            let tree = resvg::Tree::from_usvg(&rtree);
-            tree.render(Default::default(), &mut pixmap.as_mut());
-            let color_image = ColorImage::from_rgba_unmultiplied([w as _, h as _], pixmap.data());
-            cctx.egui_ctx
-                .load_texture("options_symbol", color_image, TextureOptions::LINEAR)
         };
 
         let (override_dpi, override_dpi_value): (bool, u32) = match read_setting!(override_dpi) {
@@ -670,10 +656,10 @@ impl GossipUi {
                 .unwrap_or(false),
             submenu_ids,
             settings_tab: SettingsTab::Id,
+            assets,
             about: About::new(),
             icon: icon_texture_handle,
             placeholder_avatar: placeholder_avatar_texture_handle,
-            options_symbol,
             unsaved_settings: UnsavedSettings::load(),
             theme,
             avatars: HashMap::new(),

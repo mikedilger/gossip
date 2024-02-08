@@ -1,8 +1,12 @@
 use egui_winit::egui::{
-    self, vec2, Color32, FontId, Rect, Rounding, Sense, Stroke, TextBuffer, Widget, WidgetText,
+    self, load::SizedTexture, pos2, vec2, Color32, ImageSource, Rect, Rounding, Sense, Stroke,
+    TextBuffer, TextureHandle, TextureId, TextureOptions, Widget, WidgetText,
 };
 
-use crate::ui::Theme;
+use crate::ui::{
+    assets::{self, Assets},
+    Theme,
+};
 
 use super::NavItem;
 
@@ -18,6 +22,7 @@ pub struct TextEdit<'t> {
     with_paste: bool,
     with_clear: bool,
     with_search: bool,
+    magnifyingglass_symbol: Option<TextureHandle>,
 }
 
 const MARGIN: egui::Margin = egui::Margin {
@@ -41,10 +46,11 @@ impl<'t> TextEdit<'t> {
             with_paste: false,
             with_clear: false,
             with_search: false,
+            magnifyingglass_symbol: None,
         }
     }
 
-    pub fn search(theme: &'t Theme, text: &'t mut dyn TextBuffer) -> Self {
+    pub fn search(theme: &'t Theme, assets: &Assets, text: &'t mut dyn TextBuffer) -> Self {
         Self {
             theme,
             text,
@@ -57,6 +63,7 @@ impl<'t> TextEdit<'t> {
             with_paste: false,
             with_clear: true,
             with_search: true,
+            magnifyingglass_symbol: Some(assets.magnifyingglass_symbol.clone()),
         }
     }
 
@@ -194,13 +201,34 @@ impl<'t> TextEdit<'t> {
             // ---- draw decorations ----
             if self.with_search {
                 // search magnifying glass
-                ui.painter().text(
-                    output.response.rect.left_center() + vec2(MARGIN.left, 0.0),
-                    egui::Align2::LEFT_CENTER,
-                    "\u{1F50D}",
-                    FontId::proportional(11.0),
-                    ui.visuals().widgets.inactive.fg_stroke.color,
-                );
+                // ui.painter().text(
+                //     output.response.rect.left_center() + vec2(MARGIN.left, 0.0),
+                //     egui::Align2::LEFT_CENTER,
+                //     "\u{1F50D}",
+                //     FontId::proportional(11.0),
+                //     ui.visuals().widgets.inactive.fg_stroke.color,
+                // );
+                if let Some(symbol) = self.magnifyingglass_symbol {
+                    let rect = Rect::from_center_size(
+                        output.response.rect.left_center()
+                            + vec2((MARGIN.left + pre_space) / 2.0, 0.0),
+                        symbol.size_vec2() / assets::SVG_OVERSAMPLE,
+                    );
+                    egui::Image::from_texture(SizedTexture::new(symbol.id(), symbol.size_vec2()))
+                        .fit_to_exact_size(rect.size())
+                        .tint(if self.theme.dark_mode {
+                            self.theme.neutral_500()
+                        } else {
+                            self.theme.neutral_400()
+                        })
+                        .paint_at(ui, rect);
+                    // ui.painter().image(
+                    //     symbol.id(),
+                    //     rect,
+                    //     Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
+                    //     ui.visuals().widgets.inactive.fg_stroke.color,
+                    // )
+                }
             }
 
             if self.with_clear && !self.text.as_str().is_empty() {
