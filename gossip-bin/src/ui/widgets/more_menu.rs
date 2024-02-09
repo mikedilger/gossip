@@ -1,7 +1,6 @@
 use eframe::epaint::PathShape;
 use egui_winit::egui::{
-    self, load::SizedTexture, vec2, AboveOrBelow, Align2, Color32, Id, Rect, TextureHandle, Ui,
-    Vec2,
+    self, load::SizedTexture, vec2, AboveOrBelow, Align2, Color32, Id, TextureHandle, Ui, Vec2,
 };
 
 use crate::ui::GossipUi;

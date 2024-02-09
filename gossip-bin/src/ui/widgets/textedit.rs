@@ -1,6 +1,6 @@
 use egui_winit::egui::{
-    self, load::SizedTexture, pos2, vec2, Color32, ImageSource, Rect, Rounding, Sense, Stroke,
-    TextBuffer, TextureHandle, TextureId, TextureOptions, Widget, WidgetText,
+    self, load::SizedTexture, vec2, Color32, Rect, Rounding, Sense, Stroke, TextBuffer,
+    TextureHandle, Widget, WidgetText,
 };
 
 use crate::ui::{
@@ -200,14 +200,6 @@ impl<'t> TextEdit<'t> {
 
             // ---- draw decorations ----
             if self.with_search {
-                // search magnifying glass
-                // ui.painter().text(
-                //     output.response.rect.left_center() + vec2(MARGIN.left, 0.0),
-                //     egui::Align2::LEFT_CENTER,
-                //     "\u{1F50D}",
-                //     FontId::proportional(11.0),
-                //     ui.visuals().widgets.inactive.fg_stroke.color,
-                // );
                 if let Some(symbol) = self.magnifyingglass_symbol {
                     let rect = Rect::from_center_size(
                         output.response.rect.left_center()
@@ -222,12 +214,6 @@ impl<'t> TextEdit<'t> {
                             self.theme.neutral_400()
                         })
                         .paint_at(ui, rect);
-                    // ui.painter().image(
-                    //     symbol.id(),
-                    //     rect,
-                    //     Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
-                    //     ui.visuals().widgets.inactive.fg_stroke.color,
-                    // )
                 }
             }
 
