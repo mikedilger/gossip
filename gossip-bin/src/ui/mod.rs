@@ -103,6 +103,10 @@ pub fn run() -> Result<(), Error> {
         icon: Some(icon),
         #[cfg(target_os = "macos")]
         fullsize_content_view: Some(true),
+        #[cfg(target_os = "macos")]
+        titlebar_shown: Some(false),
+        #[cfg(target_os = "macos")]
+        title_shown: Some(false),
         drag_and_drop: Some(true),
         ..Default::default()
     };
