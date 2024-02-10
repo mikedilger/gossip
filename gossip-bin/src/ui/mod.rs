@@ -1175,13 +1175,15 @@ impl eframe::App for GossipUi {
         }
 
         // How much scrolling has been requested by inputs during this frame?
+        let compose_area_is_focused =
+            ctx.memory(|mem| mem.has_focus(egui::Id::new("compose_area")));
         let mut requested_scroll: f32 = 0.0;
         ctx.input(|i| {
             // Consider mouse inputs
             requested_scroll = i.scroll_delta.y * read_setting!(mouse_acceleration);
 
             // Consider keyboard inputs unless compose area is focused
-            if !ctx.memory(|mem| mem.has_focus(egui::Id::new("compose_area"))) {
+            if !compose_area_is_focused {
                 if i.key_pressed(egui::Key::ArrowDown) {
                     requested_scroll -= 50.0;
                 }
