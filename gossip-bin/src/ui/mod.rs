@@ -50,15 +50,17 @@ pub use crate::ui::theme::{Theme, ThemeVariant};
 use crate::unsaved_settings::UnsavedSettings;
 #[cfg(feature = "video-ffmpeg")]
 use core::cell::RefCell;
-use eframe::{egui, IconData};
+use eframe::egui;
 use egui::{
-    Align, Color32, ColorImage, Context, Image, ImageData, Label, Layout, RichText, ScrollArea,
-    Sense, TextureHandle, TextureOptions, Ui, Vec2,
+    Align, Color32, ColorImage, Context, IconData, Image, ImageData, Label, Layout, RichText,
+    ScrollArea, Sense, TextureHandle, TextureOptions, Ui, Vec2,
 };
 #[cfg(feature = "video-ffmpeg")]
 use egui_video::{AudioDevice, Player};
 use egui_winit::egui::Rect;
 use egui_winit::egui::Response;
+use egui_winit::egui::ViewportBuilder;
+use egui_winit::winit::raw_window_handle::HasDisplayHandle;
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::About;
 use gossip_lib::Error;
@@ -85,30 +87,36 @@ pub fn run() -> Result<(), Error> {
     let icon_bytes = include_bytes!("../../../logo/gossip.png");
     let icon = image::load_from_memory(icon_bytes)?.to_rgba8();
     let (icon_width, icon_height) = icon.dimensions();
+    let icon = std::sync::Arc::new(IconData {
+        rgba: icon.into_raw(),
+        width: icon_width,
+        height: icon_height,
+    });
 
-    let options = eframe::NativeOptions {
+    let viewport = ViewportBuilder {
         #[cfg(target_os = "linux")]
         app_id: Some("gossip".to_string()),
-        decorated: true,
+        inner_size: Some(egui::vec2(700.0, 900.0)),
+        min_inner_size: Some(egui::vec2(800.0, 600.0)),
+        resizable: Some(true),
+        decorations: Some(true),
+        icon: Some(icon),
         #[cfg(target_os = "macos")]
-        fullsize_content: true,
-        drag_and_drop_support: true,
+        fullsize_content_view: Some(true),
+        drag_and_drop: Some(true),
+        ..Default::default()
+    };
+
+    let options = eframe::NativeOptions {
+        viewport,
         default_theme: if read_setting!(dark_mode) {
             eframe::Theme::Dark
         } else {
             eframe::Theme::Light
         },
-        icon_data: Some(IconData {
-            rgba: icon.into_raw(),
-            width: icon_width,
-            height: icon_height,
-        }),
-        initial_window_size: Some(egui::vec2(700.0, 900.0)),
-        resizable: true,
         centered: true,
         vsync: true,
         follow_system_theme: read_setting!(follow_os_dark_mode),
-        min_window_size: Some(egui::vec2(800.0, 600.0)),
         ..Default::default()
     };
 
@@ -511,7 +519,7 @@ impl GossipUi {
             cctx.egui_ctx.set_pixels_per_point(ppt);
             dpi = (ppt * 72.0) as u32;
             tracing::info!("DPI (overridden): {}", dpi);
-        } else if let Some(ppt) = cctx.integration_info.native_pixels_per_point {
+        } else if let Some(ppt) = cctx.egui_ctx.native_pixels_per_point() {
             cctx.egui_ctx.set_pixels_per_point(ppt);
             dpi = (ppt * 72.0) as u32;
             tracing::info!("DPI (native): {}", dpi);
@@ -634,6 +642,12 @@ impl GossipUi {
         let theme = Theme::from_settings();
         theme::apply_theme(&theme, &cctx.egui_ctx);
 
+        let maybe_raw_display_handle = if let Ok(display_handle) = cctx.display_handle() {
+            Some(display_handle.as_raw())
+        } else {
+            None
+        };
+
         GossipUi {
             #[cfg(feature = "video-ffmpeg")]
             audio_device,
@@ -646,7 +660,7 @@ impl GossipUi {
             original_dpi_value: override_dpi_value,
             current_scroll_offset: 0.0,
             future_scroll_offset: 0.0,
-            clipboard: egui_winit::clipboard::Clipboard::new(cctx),
+            clipboard: egui_winit::clipboard::Clipboard::new(maybe_raw_display_handle),
             popups: HashMap::new(),
             qr_codes: HashMap::new(),
             notes: Notes::new(),
@@ -1176,7 +1190,7 @@ impl eframe::App for GossipUi {
         }
 
         if GLOBALS.shutting_down.load(Ordering::Relaxed) {
-            frame.close();
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
             return;
         }
 
@@ -1184,7 +1198,7 @@ impl eframe::App for GossipUi {
         let mut requested_scroll: f32 = 0.0;
         ctx.input(|i| {
             // Consider mouse inputs
-            requested_scroll = i.scroll_delta.y * read_setting!(mouse_acceleration);
+            // requested_scroll = i.scroll_delta.y * read_setting!(mouse_acceleration);
 
             // Consider keyboard inputs unless compose area is focused
             if !ctx.memory(|mem| mem.has_focus(egui::Id::new("compose_area"))) {
@@ -1974,10 +1988,11 @@ impl GossipUi {
 
     #[inline]
     fn vert_scroll_area(&self) -> ScrollArea {
-        ScrollArea::vertical().override_scroll_delta(Vec2 {
-            x: 0.0,
-            y: self.current_scroll_offset,
-        })
+        ScrollArea::vertical()
+        // .override_scroll_delta(Vec2 {
+        //     x: 0.0,
+        //     y: self.current_scroll_offset,
+        // })
     }
 
     fn render_status_queue_area(&self, ui: &mut Ui) {

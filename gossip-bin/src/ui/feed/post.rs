@@ -5,8 +5,8 @@ use eframe::egui;
 use eframe::epaint::text::LayoutJob;
 use egui::containers::CollapsingHeader;
 use egui::{Align, Context, Key, Layout, Modifiers, RichText, Ui};
-use egui_winit::egui::text::CCursor;
-use egui_winit::egui::text_edit::{CCursorRange, TextEditOutput};
+use egui_winit::egui::text::{CCursor, CCursorRange};
+use egui_winit::egui::text_edit::TextEditOutput;
 use egui_winit::egui::{vec2, AboveOrBelow, Id};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::DmChannel;
@@ -775,8 +775,8 @@ fn calc_tag_hovers(ui: &mut Ui, app: &mut GossipUi, output: &TextEditOutput) {
             let start_rect = output.galley.pos_from_cursor(&cstart);
             let end_rect = output.galley.pos_from_cursor(&cend);
             let interact_rect = egui::Rect::from_two_pos(
-                output.text_draw_pos + start_rect.left_top().to_vec2(),
-                output.text_draw_pos + end_rect.right_bottom().to_vec2(),
+                output.galley_pos + start_rect.left_top().to_vec2(),
+                output.galley_pos + end_rect.right_bottom().to_vec2(),
             );
 
             if let ContentSegment::NostrUrl(nostr_url) = &content {

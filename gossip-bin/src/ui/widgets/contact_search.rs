@@ -26,11 +26,11 @@ pub(in crate::ui) fn show_contact_search(
     let (pivot, fixed_pos) = match above_or_below {
         AboveOrBelow::Above => (
             egui::Align2::LEFT_BOTTOM,
-            output.text_draw_pos + origin_rect.center_top().to_vec2(),
+            output.galley_pos + origin_rect.center_top().to_vec2(),
         ),
         AboveOrBelow::Below => (
             egui::Align2::LEFT_TOP,
-            output.text_draw_pos + origin_rect.center_bottom().to_vec2(),
+            output.galley_pos + origin_rect.center_bottom().to_vec2(),
         ),
     };
 

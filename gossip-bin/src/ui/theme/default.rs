@@ -5,6 +5,7 @@ use eframe::egui::{
     FontDefinitions, Margin, Pos2, RichText, Shape, Stroke, Style, TextFormat, TextStyle, Visuals,
 };
 use eframe::epaint::{ecolor, Color32, FontFamily, FontId, Rounding, Shadow};
+use egui_winit::egui::style::{HandleShape, NumericColorSpace};
 use std::collections::BTreeMap;
 
 #[derive(Default)]
@@ -194,8 +195,10 @@ impl ThemeDef for DefaultTheme {
                 indent_has_left_vline: false,
                 menu_rounding: Rounding::same(2.0),
                 slider_trailing_fill: true,
+                handle_shape: HandleShape::Circle,
                 striped: true,
                 window_rounding: Rounding::same(6.0),
+                window_highlight_topmost: false,
                 resize_corner_size: 12.0,
                 text_cursor: Stroke::new(2.0, Color32::from_rgb(192, 222, 255)),
                 text_cursor_preview: false,
@@ -204,6 +207,7 @@ impl ThemeDef for DefaultTheme {
                 collapsing_header_frame: false,
                 interact_cursor: None,
                 image_loading_spinners: true,
+                numeric_color_space: NumericColorSpace::GammaByte,
             };
         } else {
             style.visuals = Visuals {
@@ -279,8 +283,10 @@ impl ThemeDef for DefaultTheme {
                 indent_has_left_vline: false,
                 menu_rounding: Rounding::same(2.0),
                 slider_trailing_fill: true,
+                handle_shape: egui_winit::egui::style::HandleShape::Circle,
                 striped: true,
                 window_rounding: Rounding::same(6.0),
+                window_highlight_topmost: false,
                 resize_corner_size: 12.0,
                 text_cursor: Stroke::new(2.0, Color32::from_rgb(0, 83, 125)),
                 text_cursor_preview: false,
@@ -289,6 +295,7 @@ impl ThemeDef for DefaultTheme {
                 collapsing_header_frame: false,
                 interact_cursor: None,
                 image_loading_spinners: true,
+                numeric_color_space: NumericColorSpace::GammaByte,
             };
         }
         style
