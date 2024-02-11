@@ -1204,7 +1204,7 @@ impl eframe::App for GossipUi {
         let mut requested_scroll: f32 = 0.0;
         ctx.input(|i| {
             // Consider mouse inputs
-            // requested_scroll = i.scroll_delta.y * read_setting!(mouse_acceleration);
+            requested_scroll = i.smooth_scroll_delta.y * read_setting!(mouse_acceleration);
 
             // Consider keyboard inputs unless compose area is focused
             if !compose_area_is_focused {
@@ -1249,6 +1249,10 @@ impl eframe::App for GossipUi {
             // So we have to use current_scroll_offset to do this
             self.current_scroll_offset = requested_scroll;
         }
+
+        ctx.input_mut(|i| {
+            i.smooth_scroll_delta.y = self.current_scroll_offset;
+        });
 
         let mut reapply = false;
         let mut theme = Theme::from_settings();
@@ -1995,10 +1999,6 @@ impl GossipUi {
     #[inline]
     fn vert_scroll_area(&self) -> ScrollArea {
         ScrollArea::vertical()
-        // .override_scroll_delta(Vec2 {
-        //     x: 0.0,
-        //     y: self.current_scroll_offset,
-        // })
     }
 
     fn render_status_queue_area(&self, ui: &mut Ui) {
