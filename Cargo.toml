@@ -16,7 +16,3 @@ overflow-checks = false
 egui = { git =  "https://github.com/bu5hm4nn/egui", rev = "31b7c13ce86065531c87e5497308d46ca3a3c13a" }
 # Use the master branch of SDL2 to include a fix related to clang (and XCode after 14.2)
 sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", rev = "f2f1e29a416bcc22f2faf411866db2c8d9536308" }
-
-# Patch zbus since it had a dependency options bug that isn't live yet
-zbus = { git = "https://github.com/dbus2/zbus/", branch = "zbus-3" }
-zbus_names = { git = "https://github.com/dbus2/zbus/", branch = "zbus-3" }
