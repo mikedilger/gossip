@@ -25,7 +25,7 @@ With `pacman` on **Arch Linux**: [`gossip`](https://aur.archlinux.org/packages/g
 
 With [homebrew](https://brew.sh/) on **MacOS** or **Linux**: `brew install gossip` from [`homebrew-core`](https://github.com/Homebrew/homebrew-core), or for more options `brew install nostorg/nostr/gossip` from [`homebrew-nostr`](https://github.com/nostorg/homebrew-nostr)
 
-With [scoop](https://scoop.sh/) on **Microsoft Windows**: `gossip` from [`scoop-nostr`](https://github.com/nostorg/scoop-nostr)
+With [scoop](https://scoop.sh/) on **Microsoft Windows**: `scoop install extras/gossip`
 
 ```
 scoop bucket add nostr https://github.com/nostorg/scoop-nostr
