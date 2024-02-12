@@ -388,9 +388,6 @@ struct GossipUi {
     current_scroll_offset: f32,
     future_scroll_offset: f32,
 
-    // clipboard
-    clipboard: egui_winit::clipboard::Clipboard,
-
     // Ui timers
     popups: HashMap<egui::Id, HashMap<egui::Id, Box<dyn widgets::InformationPopup>>>,
 
@@ -646,12 +643,6 @@ impl GossipUi {
         let theme = Theme::from_settings();
         theme::apply_theme(&theme, &cctx.egui_ctx);
 
-        let maybe_raw_display_handle = if let Ok(display_handle) = cctx.display_handle() {
-            Some(display_handle.as_raw())
-        } else {
-            None
-        };
-
         GossipUi {
             #[cfg(feature = "video-ffmpeg")]
             audio_device,
@@ -664,7 +655,6 @@ impl GossipUi {
             original_dpi_value: override_dpi_value,
             current_scroll_offset: 0.0,
             future_scroll_offset: 0.0,
-            clipboard: egui_winit::clipboard::Clipboard::new(maybe_raw_display_handle),
             popups: HashMap::new(),
             qr_codes: HashMap::new(),
             notes: Notes::new(),
@@ -2077,7 +2067,7 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
                             .password(true)
                             .with_paste()
                             .desired_width( 400.0)
-                            .show_extended(ui, &mut app.clipboard);
+                            .show(ui);
                         if app.unlock_needs_focus {
                             output.response.request_focus();
                             app.unlock_needs_focus = false;

@@ -102,7 +102,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             ui.label("Enter Relay URL");
             let response = text_edit_line!(app, app.wizard_state.relay_url)
                 .with_paste()
-                .show_extended(ui, &mut app.clipboard)
+                .show(ui)
                 .response;
             if response.changed() {
                 app.wizard_state.error = None;

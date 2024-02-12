@@ -24,7 +24,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         let response = text_edit_line!(app, app.import_pub)
             .with_paste()
             .desired_width(f32::INFINITY)
-            .show_extended(ui, &mut app.clipboard)
+            .show(ui)
             .response;
         if response.changed() {
             app.wizard_state.error = None;

@@ -1377,7 +1377,7 @@ checksum = "cfdf4e52dbbb615cfd30cf5a5265335c217b5fd8d669593cea74a517d9c605af"
 [[package]]
 name = "ecolor"
 version = "0.26.0"
-source = "git+https://github.com/bu5hm4nn/egui?rev=31b7c13ce86065531c87e5497308d46ca3a3c13a#31b7c13ce86065531c87e5497308d46ca3a3c13a"
+source = "git+https://github.com/bu5hm4nn/egui?rev=f954e98816d4fb760de31eeec4afcd15ae39a687#f954e98816d4fb760de31eeec4afcd15ae39a687"
 dependencies = [
  "bytemuck",
  "serde",
@@ -1386,7 +1386,7 @@ dependencies = [
 [[package]]
 name = "eframe"
 version = "0.26.0"
-source = "git+https://github.com/bu5hm4nn/egui?rev=31b7c13ce86065531c87e5497308d46ca3a3c13a#31b7c13ce86065531c87e5497308d46ca3a3c13a"
+source = "git+https://github.com/bu5hm4nn/egui?rev=f954e98816d4fb760de31eeec4afcd15ae39a687#f954e98816d4fb760de31eeec4afcd15ae39a687"
 dependencies = [
  "bytemuck",
  "cocoa",
@@ -1433,7 +1433,7 @@ dependencies = [
 [[package]]
 name = "egui"
 version = "0.26.0"
-source = "git+https://github.com/bu5hm4nn/egui?rev=31b7c13ce86065531c87e5497308d46ca3a3c13a#31b7c13ce86065531c87e5497308d46ca3a3c13a"
+source = "git+https://github.com/bu5hm4nn/egui?rev=f954e98816d4fb760de31eeec4afcd15ae39a687#f954e98816d4fb760de31eeec4afcd15ae39a687"
 dependencies = [
  "accesskit",
  "ahash 0.8.7",
@@ -1464,7 +1464,7 @@ dependencies = [
 [[package]]
 name = "egui-wgpu"
 version = "0.26.0"
-source = "git+https://github.com/bu5hm4nn/egui?rev=31b7c13ce86065531c87e5497308d46ca3a3c13a#31b7c13ce86065531c87e5497308d46ca3a3c13a"
+source = "git+https://github.com/bu5hm4nn/egui?rev=f954e98816d4fb760de31eeec4afcd15ae39a687#f954e98816d4fb760de31eeec4afcd15ae39a687"
 dependencies = [
  "bytemuck",
  "document-features",
@@ -1481,7 +1481,7 @@ dependencies = [
 [[package]]
 name = "egui-winit"
 version = "0.26.0"
-source = "git+https://github.com/bu5hm4nn/egui?rev=31b7c13ce86065531c87e5497308d46ca3a3c13a#31b7c13ce86065531c87e5497308d46ca3a3c13a"
+source = "git+https://github.com/bu5hm4nn/egui?rev=f954e98816d4fb760de31eeec4afcd15ae39a687#f954e98816d4fb760de31eeec4afcd15ae39a687"
 dependencies = [
  "accesskit_winit",
  "arboard",
@@ -1498,7 +1498,7 @@ dependencies = [
 [[package]]
 name = "egui_glow"
 version = "0.26.0"
-source = "git+https://github.com/bu5hm4nn/egui?rev=31b7c13ce86065531c87e5497308d46ca3a3c13a#31b7c13ce86065531c87e5497308d46ca3a3c13a"
+source = "git+https://github.com/bu5hm4nn/egui?rev=f954e98816d4fb760de31eeec4afcd15ae39a687#f954e98816d4fb760de31eeec4afcd15ae39a687"
 dependencies = [
  "bytemuck",
  "egui 0.26.0",
@@ -1526,7 +1526,7 @@ checksum = "1ef2b29de53074e575c18b694167ccbe6e5191f7b25fe65175a0d905a32eeec0"
 [[package]]
 name = "emath"
 version = "0.26.0"
-source = "git+https://github.com/bu5hm4nn/egui?rev=31b7c13ce86065531c87e5497308d46ca3a3c13a#31b7c13ce86065531c87e5497308d46ca3a3c13a"
+source = "git+https://github.com/bu5hm4nn/egui?rev=f954e98816d4fb760de31eeec4afcd15ae39a687#f954e98816d4fb760de31eeec4afcd15ae39a687"
 dependencies = [
  "bytemuck",
  "serde",
@@ -1590,7 +1590,7 @@ dependencies = [
 [[package]]
 name = "epaint"
 version = "0.26.0"
-source = "git+https://github.com/bu5hm4nn/egui?rev=31b7c13ce86065531c87e5497308d46ca3a3c13a#31b7c13ce86065531c87e5497308d46ca3a3c13a"
+source = "git+https://github.com/bu5hm4nn/egui?rev=f954e98816d4fb760de31eeec4afcd15ae39a687#f954e98816d4fb760de31eeec4afcd15ae39a687"
 dependencies = [
  "ab_glyph",
  "ahash 0.8.7",

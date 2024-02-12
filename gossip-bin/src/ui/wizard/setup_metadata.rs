@@ -55,7 +55,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         ui.label("Name:");
         let response = text_edit_line!(app, app.wizard_state.metadata_name)
             .with_paste()
-            .show_extended(ui, &mut app.clipboard)
+            .show(ui)
             .response;
         if response.changed() {
             app.wizard_state.error = None;
@@ -67,7 +67,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         ui.label("About:");
         let response = text_edit_line!(app, app.wizard_state.metadata_about)
             .with_paste()
-            .show_extended(ui, &mut app.clipboard)
+            .show(ui)
             .response;
         if response.changed() {
             app.wizard_state.error = None;
@@ -79,7 +79,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         ui.label("Picture:");
         let response = text_edit_line!(app, app.wizard_state.metadata_picture)
             .with_paste()
-            .show_extended(ui, &mut app.clipboard)
+            .show(ui)
             .response;
         if response.changed() {
             app.wizard_state.error = None;
