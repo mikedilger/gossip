@@ -1192,7 +1192,7 @@ impl eframe::App for GossipUi {
         let mut requested_scroll: f32 = 0.0;
         ctx.input(|i| {
             // Consider mouse inputs
-            requested_scroll = i.smooth_scroll_delta.y * read_setting!(mouse_acceleration);
+            requested_scroll = i.raw_scroll_delta.y * read_setting!(mouse_acceleration);
 
             // Consider keyboard inputs unless compose area is focused
             if !compose_area_is_focused {
