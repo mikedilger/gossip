@@ -22,7 +22,7 @@ bech32 = "0.9"
 eframe = { git = "https://github.com/bu5hm4nn/egui", rev = "f954e98816d4fb760de31eeec4afcd15ae39a687", features = [ "persistence", "wayland" ] }
 egui-winit = { git = "https://github.com/bu5hm4nn/egui", rev = "f954e98816d4fb760de31eeec4afcd15ae39a687", features = [ "default" ] }
 #egui = { git = "https://github.com/bu5hm4nn/egui", rev = "f954e98816d4fb760de31eeec4afcd15ae39a687", features = [ "deadlock_detection" ] }
-egui-video = { git = "https://github.com/bu5hm4nn/egui-video", rev = "baad84b9bb897004a243166758d149d3387d4811",  features = [ "from_bytes" ], optional = true }
+egui-video = { git = "https://github.com/bu5hm4nn/egui-video", rev = "b21cf4ec061de8282d8f58cd4c083a078882ddf2",  features = [ "from_bytes" ], optional = true }
 gossip-relay-picker = { git = "https://github.com/mikedilger/gossip-relay-picker", rev = "672a6a27ab688170a154aba1feb16d6c331b99ed" }
 gossip-lib = { path = "../gossip-lib" }
 humansize = "2.1"
