@@ -334,7 +334,7 @@ impl RelayEntry {
             .layout()
             .align_size_within_rect(galley.size(), btn_rect.shrink2(2.0 * button_padding))
             .min;
-        ui.painter().galley(pos, galley, visuals.text_color());
+        ui.painter().galley(text_pos, galley, visuals.text_color());
 
         if response.clicked() {
             self.view = RelayEntryView::Detail;
