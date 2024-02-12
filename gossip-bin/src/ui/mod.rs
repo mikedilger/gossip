@@ -62,12 +62,10 @@ use egui_winit::egui::Response;
 use egui_winit::egui::ViewportBuilder;
 use egui_winit::winit::raw_window_handle::HasDisplayHandle;
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::About;
-use gossip_lib::Error;
-use gossip_lib::FeedKind;
-use gossip_lib::{DmChannel, DmChannelData};
-use gossip_lib::{Person, PersonList};
-use gossip_lib::{ZapState, GLOBALS};
+use gossip_lib::nip46::Approval;
+use gossip_lib::{
+    About, DmChannel, DmChannelData, Error, FeedKind, Person, PersonList, ZapState, GLOBALS,
+};
 use nostr_types::ContentSegment;
 use nostr_types::{Id, Metadata, MilliSatoshi, Profile, PublicKey, UncheckedUrl, Url};
 use std::collections::{HashMap, HashSet};
@@ -2280,20 +2278,31 @@ fn approval_dialog_inner(_app: &mut GossipUi, ui: &mut Ui) {
         ui.horizontal(|ui| {
             let text = format!("Allow {}", parsed_command.method);
             ui.label(text);
-            if ui.button("Approve").clicked() {
+            if ui.button("Approve Once").clicked() {
                 let _ = GLOBALS
                     .to_overlord
-                    .send(ToOverlordMessage::Nip46ServerOpApproved(
+                    .send(ToOverlordMessage::Nip46ServerOpApprovalResponse(
                         *pubkey,
                         parsed_command.clone(),
+                        Approval::Once,
+                    ));
+            }
+            if ui.button("Approve Always").clicked() {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::Nip46ServerOpApprovalResponse(
+                        *pubkey,
+                        parsed_command.clone(),
+                        Approval::Always,
                     ));
             }
             if ui.button("Decline").clicked() {
                 let _ = GLOBALS
                     .to_overlord
-                    .send(ToOverlordMessage::Nip46ServerOpDeclined(
+                    .send(ToOverlordMessage::Nip46ServerOpApprovalResponse(
                         *pubkey,
                         parsed_command.clone(),
+                        Approval::None,
                     ));
             }
         });

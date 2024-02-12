@@ -23,7 +23,7 @@ eframe = { git = "https://github.com/bu5hm4nn/egui", rev = "f954e98816d4fb760de3
 egui-winit = { git = "https://github.com/bu5hm4nn/egui", rev = "f954e98816d4fb760de31eeec4afcd15ae39a687", features = [ "default" ] }
 #egui = { git = "https://github.com/bu5hm4nn/egui", rev = "f954e98816d4fb760de31eeec4afcd15ae39a687", features = [ "deadlock_detection" ] }
 egui-video = { git = "https://github.com/bu5hm4nn/egui-video", rev = "baad84b9bb897004a243166758d149d3387d4811",  features = [ "from_bytes" ], optional = true }
-gossip-relay-picker = { git = "https://github.com/mikedilger/gossip-relay-picker", rev = "1d13cacb0d7b32d72d0c8c27414461d5389ca2ec" }
+gossip-relay-picker = { git = "https://github.com/mikedilger/gossip-relay-picker", rev = "672a6a27ab688170a154aba1feb16d6c331b99ed" }
 gossip-lib = { path = "../gossip-lib" }
 humansize = "2.1"
 image = { version = "0.24.6", features = [ "png", "jpeg" ] }

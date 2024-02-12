@@ -18,7 +18,7 @@ use crate::tags::{
 use gossip_relay_picker::{Direction, RelayAssignment};
 use heed::RwTxn;
 use http::StatusCode;
-use minion::Minion;
+use minion::{Minion, MinionExitReason};
 use nostr_types::{
     ContentEncryptionAlgorithm, EncryptedPrivateKey, Event, EventAddr, EventKind, EventReference,
     Id, IdHex, Metadata, MilliSatoshi, NostrBech32, PayRequestData, PreEvent, PrivateKey, Profile,
@@ -33,7 +33,7 @@ use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::{select, task};
 use zeroize::Zeroize;
 
-type MinionResult = Result<(), Error>;
+type MinionResult = Result<MinionExitReason, Error>;
 
 /// The overlord handles any operation that involves talking to relays, and a few more.
 ///
@@ -48,7 +48,7 @@ pub struct Overlord {
     inbox: UnboundedReceiver<ToOverlordMessage>,
 
     // All the minion tasks running.
-    minions: task::JoinSet<Result<(), Error>>,
+    minions: task::JoinSet<Result<MinionExitReason, Error>>,
 
     // Map from minion task::Id to Url
     minions_task_url: HashMap<task::Id, RelayUrl>,
@@ -420,7 +420,8 @@ impl Overlord {
         // Set to not connected
         let relayjobs = GLOBALS.connected_relays.remove(&url).map(|(_, v)| v);
 
-        let mut exclusion: u64 = 30;
+        let mut exclusion: u64;
+        let mut completed: bool = false;
 
         match join_result {
             Err(join_error) => {
@@ -429,9 +430,24 @@ impl Overlord {
                 exclusion = 120;
             }
             Ok((_id, result)) => match result {
-                Ok(_) => {
-                    tracing::debug!("Minion {} completed", &url);
-                    // no exclusion
+                Ok(exitreason) => {
+                    if exitreason.benign() {
+                        tracing::debug!("Minion {} completed: {:?}", &url, exitreason);
+                    } else {
+                        tracing::info!("Minion {} completed: {:?}", &url, exitreason);
+                    }
+                    exclusion = match exitreason {
+                        MinionExitReason::GotDisconnected => 120,
+                        MinionExitReason::GotWSClose => 120,
+                        MinionExitReason::Unknown => 120,
+                        MinionExitReason::SubscriptionsHaveCompleted => 5,
+                        _ => 5,
+                    };
+
+                    // Remember if the relay says all the jobs have completed
+                    if matches!(exitreason, MinionExitReason::SubscriptionsHaveCompleted) {
+                        completed = true;
+                    }
                 }
                 Err(e) => {
                     Self::bump_failure_count(&url);
@@ -479,7 +495,7 @@ impl Overlord {
 
         // We might need to act upon this minion exiting
         if !GLOBALS.shutting_down.load(Ordering::Relaxed) {
-            self.recover_from_minion_exit(url, relayjobs, exclusion)
+            self.recover_from_minion_exit(url, relayjobs, exclusion, completed)
                 .await;
         }
     }
@@ -489,6 +505,7 @@ impl Overlord {
         url: RelayUrl,
         jobs: Option<Vec<RelayJob>>,
         exclusion: u64,
+        completed: bool,
     ) {
         // For people we are following, pick relays
         if let Err(e) = GLOBALS.relay_picker.refresh_person_relay_scores().await {
@@ -502,7 +519,11 @@ impl Overlord {
                 GLOBALS.active_advertise_jobs.remove(&job.payload.job_id);
             }
 
-            // If we have any persistent jobs, restart after a delaythe relay
+            if completed {
+                return;
+            }
+
+            // If we have any persistent jobs, restart after a delay
             let persistent_jobs: Vec<RelayJob> = jobs
                 .drain(..)
                 .filter(|job| job.reason.persistent())
@@ -643,12 +664,8 @@ impl Overlord {
                     self.maybe_disconnect_relay(&url)?;
                 }
             }
-            ToOverlordMessage::Nip46ServerOpApproved(pubkey, parsed_command) => {
-                self.nip46_server_op_approved(pubkey, parsed_command)
-                    .await?;
-            }
-            ToOverlordMessage::Nip46ServerOpDeclined(pubkey, parsed_command) => {
-                self.nip46_server_op_declined(pubkey, parsed_command)
+            ToOverlordMessage::Nip46ServerOpApprovalResponse(pubkey, parsed_command, approval) => {
+                self.nip46_server_op_approval_response(pubkey, parsed_command, approval)
                     .await?;
             }
             ToOverlordMessage::RefreshScoresAndPickRelays => {
@@ -1666,10 +1683,11 @@ impl Overlord {
     }
 
     /// Process approved nip46 server operation
-    pub async fn nip46_server_op_approved(
+    pub async fn nip46_server_op_approval_response(
         &mut self,
         pubkey: PublicKey,
         parsed_command: ParsedCommand,
+        approval: Approval,
     ) -> Result<(), Error> {
         // Clear the request
         GLOBALS
@@ -1684,33 +1702,18 @@ impl Overlord {
             //       So the approval only applies to this one time. FIXME: we should use the options
             //       to approve always (saved) and Until a set time.
             match parsed_command.method.as_str() {
-                "sign_event" => server.sign_approval = Approval::Always,
-                "nip04_encrypt" | "nip44_encrypt" => server.encrypt_approval = Approval::Always,
-                "nip04_decrypt" | "nip44_decrypt" => server.decrypt_approval = Approval::Always,
+                "sign_event" => server.sign_approval = approval,
+                "nip04_encrypt" | "nip44_encrypt" => server.encrypt_approval = approval,
+                "nip04_decrypt" | "nip44_decrypt" => server.decrypt_approval = approval,
                 "nip44_get_key" => {
-                    server.encrypt_approval = Approval::Always;
-                    server.decrypt_approval = Approval::Always;
+                    server.encrypt_approval = approval;
+                    server.decrypt_approval = approval;
                 }
                 _ => {}
             }
 
             server.handle(&parsed_command)?;
         }
-
-        Ok(())
-    }
-
-    /// Process declined nip46 server operation
-    pub async fn nip46_server_op_declined(
-        &mut self,
-        pubkey: PublicKey,
-        parsed_command: ParsedCommand,
-    ) -> Result<(), Error> {
-        // Clear the request
-        GLOBALS
-            .nip46_approval_requests
-            .write()
-            .retain(|(pk, pc)| *pk != pubkey || *pc != parsed_command);
 
         Ok(())
     }

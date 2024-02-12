@@ -1,4 +1,4 @@
-use super::Minion;
+use super::{AuthState, Minion};
 use crate::comms::ToOverlordMessage;
 use crate::error::Error;
 use crate::globals::GLOBALS;
@@ -151,14 +151,16 @@ impl Minion {
                 };
 
                 // If we are waiting for a response for this id, process
-                if self.waiting_for_auth.is_some() && self.waiting_for_auth.unwrap() == id {
-                    self.waiting_for_auth = None;
-                    if !ok {
-                        // Auth failed. Let's disconnect
-                        tracing::warn!("AUTH failed to {}: {}", &self.url, ok_message);
-                        self.keepgoing = false;
-                    } else {
-                        self.try_resubscribe_to_corked().await?;
+                if let AuthState::Waiting(waiting_id) = self.auth_state {
+                    if waiting_id == id {
+                        if !ok {
+                            self.auth_state = AuthState::Failed;
+                            // Auth failed.
+                            tracing::warn!("AUTH failed to {}: {}", &self.url, ok_message);
+                        } else {
+                            self.auth_state = AuthState::Authenticated;
+                            self.try_subscribe_waiting().await?;
+                        }
                     }
                 } else if self.postings.contains(&id) {
                     if ok {
@@ -203,8 +205,6 @@ impl Minion {
 
                 tracing::info!("{}: Closed: {}: {}", &self.url, handle, message);
 
-                let mut retry = false;
-
                 // Check the machine-readable prefix
                 if let Some(prefix) = message.split(':').next() {
                     match prefix {
@@ -224,32 +224,77 @@ impl Minion {
                             );
                         }
                         "rate-limited" => {
-                            retry = true;
+                            // Wait to retry later
+                            self.subscriptions_rate_limited.push(handle);
+
+                            // return now, don't remove sub from map
+                            return Ok(());
                         }
-                        "invalid" => {}
-                        "error" => {}
+                        "invalid" => {
+                            tracing::warn!(
+                                "{} won't serve our {} sub (says invalid)",
+                                &self.url,
+                                &handle
+                            );
+                            self.failed_subs.insert(handle.clone());
+                        }
+                        "error" => {
+                            tracing::warn!(
+                                "{} won't serve our {} sub (says error)",
+                                &self.url,
+                                &handle
+                            );
+                            self.failed_subs.insert(handle.clone());
+                        }
                         "auth-required" => {
-                            if self.waiting_for_auth.is_none() {
-                                tracing::warn!("{} says AUTH required for {}, but it has not AUTH challenged us yet", &self.url, handle);
+                            match self.auth_state {
+                                AuthState::None => {
+                                    // authenticate
+                                    self.authenticate().await?;
+
+                                    // cork and retry once auth completes
+                                    self.subscriptions_waiting_for_auth
+                                        .push((handle, Unixtime::now().unwrap()));
+
+                                    // return now, don't remove sub from map
+                                    return Ok(());
+                                }
+                                AuthState::Waiting(_) => {
+                                    // cork and retry once auth completes
+                                    self.subscriptions_waiting_for_auth
+                                        .push((handle, Unixtime::now().unwrap()));
+
+                                    // return now, don't remove sub from map
+                                    return Ok(());
+                                }
+                                AuthState::Authenticated => {
+                                    // We are authenticated, but it doesn't like us.
+                                    // fail this subscription handle
+                                    self.failed_subs.insert(handle.clone());
+                                }
+                                AuthState::Failed => {
+                                    // fail this subscription handle
+                                    self.failed_subs.insert(handle.clone());
+                                }
                             }
-                            retry = true;
                         }
-                        "restricted" => {}
+                        "restricted" => {
+                            tracing::warn!(
+                                "{} won't serve our {} sub (says restricted)",
+                                &self.url,
+                                &handle
+                            );
+                            self.failed_subs.insert(handle.clone());
+                        }
                         _ => {
                             tracing::warn!("{} closed with unknown prefix {}", &self.url, prefix);
                         }
                     }
                 }
 
-                if retry {
-                    // Save as corked, try it again later
-                    self.corked_subscriptions
-                        .push((handle, Unixtime::now().unwrap()));
-                } else {
-                    // Remove the subscription
-                    tracing::info!("{}: removed subscription {}", &self.url, handle);
-                    let _ = self.subscription_map.remove(&handle);
-                }
+                // Remove the subscription
+                tracing::info!("{}: removed subscription {}", &self.url, handle);
+                let _ = self.subscription_map.remove(&handle);
             }
         }
 

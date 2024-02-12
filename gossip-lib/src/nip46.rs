@@ -39,15 +39,18 @@ impl Nip46UnconnectedServer {
             None => return Err(ErrorKind::NoPublicKey.into()),
         };
 
-        let mut token = format!("{}#{}?", public_key.as_bech32_string(), self.connect_secret);
+        let relay_part = &self
+            .relays
+            .iter()
+            .map(|r| format!("relay={}", r))
+            .collect::<Vec<String>>()
+            .join("&");
 
-        token.push_str(
-            &self
-                .relays
-                .iter()
-                .map(|r| format!("relay={}", r))
-                .collect::<Vec<String>>()
-                .join("&"),
+        let token = format!(
+            "bunker://{}?{}&secret={}",
+            public_key.as_hex_string(),
+            relay_part,
+            self.connect_secret
         );
 
         Ok(token)
@@ -57,15 +60,26 @@ impl Nip46UnconnectedServer {
 #[derive(Debug, Copy, Clone, Readable, Writable)]
 pub enum Approval {
     None,
+    Once,
     Until(Unixtime),
     Always,
 }
 
 impl Approval {
-    pub fn is_approved(&self) -> bool {
+    fn is_approved(&mut self) -> bool {
         match self {
             Approval::None => false,
-            Approval::Until(time) => Unixtime::now().unwrap() > *time,
+            Approval::Once => {
+                *self = Approval::None;
+                true
+            }
+            Approval::Until(time) => {
+                let approved = Unixtime::now().unwrap() < *time;
+                if !approved {
+                    *self = Approval::None;
+                }
+                approved
+            }
             Approval::Always => true,
         }
     }
@@ -150,7 +164,7 @@ impl Nip46Server {
 
      */
 
-    pub fn handle(&self, cmd: &ParsedCommand) -> Result<(), Error> {
+    pub fn handle(&mut self, cmd: &ParsedCommand) -> Result<(), Error> {
         let ParsedCommand {
             ref id,
             ref method,
@@ -467,7 +481,7 @@ fn send_response(
 
 pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Error> {
     // If we have a server for that pubkey
-    if let Some(server) = GLOBALS.storage.read_nip46server(event.pubkey)? {
+    if let Some(mut server) = GLOBALS.storage.read_nip46server(event.pubkey)? {
         // Parse the command
         let parsed_command = match parse_command(event.pubkey, &event.content) {
             Ok(pc) => pc,
