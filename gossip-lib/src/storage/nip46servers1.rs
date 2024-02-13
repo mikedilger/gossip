@@ -3,8 +3,7 @@ use crate::nip46::Nip46Server;
 use crate::storage::{RawDatabase, Storage};
 use heed::types::UnalignedSlice;
 use heed::RwTxn;
-use nostr_types::PublicKey;
-use speedy::{Readable, Writable};
+use speedy::Writable;
 use std::sync::Mutex;
 
 // PublicKey -> Nip46Server
@@ -56,53 +55,6 @@ impl Storage {
 
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
             self.db_nip46servers1()?.put(txn, key, &bytes)?;
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
-    }
-
-    pub(crate) fn read_nip46server1(
-        &self,
-        pubkey: PublicKey,
-    ) -> Result<Option<Nip46Server>, Error> {
-        let key = pubkey.as_bytes();
-        let txn = self.env.read_txn()?;
-        Ok(match self.db_nip46servers1()?.get(&txn, key)? {
-            Some(bytes) => Some(Nip46Server::read_from_buffer(bytes)?),
-            None => None,
-        })
-    }
-
-    pub(crate) fn read_all_nip46servers1(&self) -> Result<Vec<Nip46Server>, Error> {
-        let txn = self.env.read_txn()?;
-        let mut output: Vec<Nip46Server> = Vec::new();
-        for result in self.db_nip46servers1()?.iter(&txn)? {
-            let (_key, val) = result?;
-            let server = Nip46Server::read_from_buffer(val)?;
-            output.push(server);
-        }
-        Ok(output)
-    }
-
-    pub(crate) fn delete_nip46server1<'a>(
-        &'a self,
-        pubkey: PublicKey,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error> {
-        let key = pubkey.as_bytes();
-
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let _ = self.db_nip46servers1()?.delete(txn, key);
             Ok(())
         };
 

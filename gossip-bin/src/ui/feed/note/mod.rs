@@ -1,6 +1,5 @@
 mod content;
 
-pub use super::Notes;
 use std::cell::RefCell;
 use std::rc::Rc;
 

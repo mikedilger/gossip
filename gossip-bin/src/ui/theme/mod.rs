@@ -215,6 +215,7 @@ macro_rules! theme_dispatch {
                 }
             }
 
+            #[allow(dead_code)]
             pub fn input_bg_color(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::input_bg_color(self.dark_mode), )+
