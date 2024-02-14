@@ -421,6 +421,7 @@ impl Overlord {
         let relayjobs = GLOBALS.connected_relays.remove(&url).map(|(_, v)| v);
 
         let mut exclusion: u64;
+        let mut completed: bool = false;
 
         match join_result {
             Err(join_error) => {
@@ -430,13 +431,23 @@ impl Overlord {
             }
             Ok((_id, result)) => match result {
                 Ok(exitreason) => {
-                    tracing::info!("Minion {} completed: {:?}", &url, exitreason);
+                    if exitreason.benign() {
+                        tracing::debug!("Minion {} completed: {:?}", &url, exitreason);
+                    } else {
+                        tracing::info!("Minion {} completed: {:?}", &url, exitreason);
+                    }
                     exclusion = match exitreason {
-                        MinionExitReason::AuthFailed => 60 * 60 * 24,
                         MinionExitReason::GotDisconnected => 120,
                         MinionExitReason::GotWSClose => 120,
-                        _ => 0,
+                        MinionExitReason::Unknown => 120,
+                        MinionExitReason::SubscriptionsHaveCompleted => 5,
+                        _ => 5,
                     };
+
+                    // Remember if the relay says all the jobs have completed
+                    if matches!(exitreason, MinionExitReason::SubscriptionsHaveCompleted) {
+                        completed = true;
+                    }
                 }
                 Err(e) => {
                     Self::bump_failure_count(&url);
@@ -484,7 +495,7 @@ impl Overlord {
 
         // We might need to act upon this minion exiting
         if !GLOBALS.shutting_down.load(Ordering::Relaxed) {
-            self.recover_from_minion_exit(url, relayjobs, exclusion)
+            self.recover_from_minion_exit(url, relayjobs, exclusion, completed)
                 .await;
         }
     }
@@ -494,6 +505,7 @@ impl Overlord {
         url: RelayUrl,
         jobs: Option<Vec<RelayJob>>,
         exclusion: u64,
+        completed: bool,
     ) {
         // For people we are following, pick relays
         if let Err(e) = GLOBALS.relay_picker.refresh_person_relay_scores().await {
@@ -507,7 +519,11 @@ impl Overlord {
                 GLOBALS.active_advertise_jobs.remove(&job.payload.job_id);
             }
 
-            // If we have any persistent jobs, restart after a delaythe relay
+            if completed {
+                return;
+            }
+
+            // If we have any persistent jobs, restart after a delay
             let persistent_jobs: Vec<RelayJob> = jobs
                 .drain(..)
                 .filter(|job| job.reason.persistent())

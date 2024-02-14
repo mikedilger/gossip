@@ -32,6 +32,14 @@ use tokio::sync::mpsc::UnboundedSender;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tungstenite::protocol::{Message as WsMessage, WebSocketConfig};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AuthState {
+    None,
+    Waiting(Id), // we sent AUTH, have not got response back yet
+    Authenticated,
+    Failed,
+}
+
 pub struct EventSeekState {
     pub job_ids: Vec<u64>,
     pub asked: bool,
@@ -39,13 +47,21 @@ pub struct EventSeekState {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MinionExitReason {
-    AuthFailed,
     GotDisconnected,
     GotShutdownMessage,
     GotWSClose,
     LostOverlord,
     SubscriptionsHaveCompleted,
     Unknown,
+}
+
+impl MinionExitReason {
+    pub fn benign(&self) -> bool {
+        matches!(
+            *self,
+            MinionExitReason::GotShutdownMessage | MinionExitReason::SubscriptionsHaveCompleted
+        )
+    }
 }
 
 pub struct Minion {
@@ -60,14 +76,16 @@ pub struct Minion {
     postings: HashSet<Id>,
     sought_events: HashMap<Id, EventSeekState>,
     last_message_sent: String,
-    waiting_for_auth: Option<Id>,
     auth_challenge: String,
-    corked_subscriptions: Vec<(String, Unixtime)>,
-    corked_metadata: Vec<(u64, Vec<PublicKey>)>,
+    subscriptions_waiting_for_auth: Vec<(String, Unixtime)>,
+    subscriptions_waiting_for_metadata: Vec<(u64, Vec<PublicKey>)>,
+    subscriptions_rate_limited: Vec<String>,
     general_feed_start: Option<Unixtime>,
     person_feed_start: Option<Unixtime>,
     inbox_feed_start: Option<Unixtime>,
     exiting: Option<MinionExitReason>,
+    auth_state: AuthState,
+    failed_subs: HashSet<String>,
 }
 
 impl Minion {
@@ -88,14 +106,16 @@ impl Minion {
             postings: HashSet::new(),
             sought_events: HashMap::new(),
             last_message_sent: String::new(),
-            waiting_for_auth: None,
             auth_challenge: "".to_string(),
-            corked_subscriptions: Vec::new(),
-            corked_metadata: Vec::new(),
+            subscriptions_waiting_for_auth: Vec::new(),
+            subscriptions_waiting_for_metadata: Vec::new(),
+            subscriptions_rate_limited: Vec::new(),
             general_feed_start: None,
             person_feed_start: None,
             inbox_feed_start: None,
             exiting: None,
+            auth_state: AuthState::None,
+            failed_subs: HashSet::new(),
         })
     }
 }
@@ -337,8 +357,8 @@ impl Minion {
                 // Update subscription for sought events
                 self.get_events().await?;
 
-                // Try to subscribe to corked subscriptions and metadata
-                self.try_resubscribe_to_corked().await?;
+                // Try to subscribe to subscriptions waiting for something
+                self.try_subscribe_waiting().await?;
             },
             to_minion_message = self.from_overlord.recv() => {
                 let to_minion_message = match to_minion_message {
@@ -1121,19 +1141,16 @@ impl Minion {
         Ok(())
     }
 
-    async fn try_resubscribe_to_corked(&mut self) -> Result<(), Error> {
-        // Do not do this if we are waiting for AUTH
-        if self.waiting_for_auth.is_some() {
-            return Ok(());
-        }
-
+    async fn try_subscribe_waiting(&mut self) -> Result<(), Error> {
         // Subscribe to metadata
-        if !self.subscription_map.has("temp_subscribe_metadata") && !self.corked_metadata.is_empty()
+        if !self.subscription_map.has("temp_subscribe_metadata")
+            && !self.subscriptions_waiting_for_metadata.is_empty()
         {
-            let mut corked_metadata = std::mem::take(&mut self.corked_metadata);
+            let mut subscriptions_waiting_for_metadata =
+                std::mem::take(&mut self.subscriptions_waiting_for_metadata);
             let mut combined_job_id: Option<u64> = None;
             let mut combined_pubkeys: Vec<PublicKey> = Vec::new();
-            for (job_id, pubkeys) in corked_metadata.drain(..) {
+            for (job_id, pubkeys) in subscriptions_waiting_for_metadata.drain(..) {
                 if combined_job_id.is_none() {
                     combined_job_id = Some(job_id)
                 } else {
@@ -1151,19 +1168,35 @@ impl Minion {
                 .await?;
         }
 
-        // Apply subscriptions that were waiting for auth
-        let mut handles = std::mem::take(&mut self.corked_subscriptions);
-        let now = Unixtime::now().unwrap();
-        for (handle, when) in handles.drain(..) {
-            // Do not try if we just inserted it within the last second
-            if when - now < Duration::from_secs(1) {
-                // re-insert
-                self.corked_subscriptions.push((handle, when));
-                continue;
-            }
+        // If we are authenticated
+        if self.auth_state != AuthState::Authenticated {
+            // Apply subscriptions that were waiting for auth
+            let mut handles = std::mem::take(&mut self.subscriptions_waiting_for_auth);
+            let now = Unixtime::now().unwrap();
+            for (handle, when) in handles.drain(..) {
+                // Do not try if we just inserted it within the last second
+                if when - now < Duration::from_secs(1) {
+                    // re-insert
+                    self.subscriptions_waiting_for_auth.push((handle, when));
+                    continue;
+                }
 
-            tracing::info!("Sending corked subscription {} to {}", handle, &self.url);
-            self.send_subscription(&handle).await?;
+                tracing::info!("Sending corked subscription {} to {}", handle, &self.url);
+                self.send_subscription(&handle).await?;
+            }
+        }
+
+        // Retry rate-limited subscriptions
+        if !self.subscriptions_rate_limited.is_empty() {
+            let mut handles = std::mem::take(&mut self.subscriptions_rate_limited);
+            for handle in handles.drain(..) {
+                tracing::info!(
+                    "Sending previously rate-limited subscription {} to {}",
+                    handle,
+                    &self.url
+                );
+                self.send_subscription(&handle).await?;
+            }
         }
 
         Ok(())
@@ -1248,7 +1281,8 @@ impl Minion {
     ) -> Result<(), Error> {
         if self.subscription_map.has("temp_subscribe_metadata") {
             // Save for later
-            self.corked_metadata.push((job_id, pubkeys));
+            self.subscriptions_waiting_for_metadata
+                .push((job_id, pubkeys));
             return Ok(());
         }
 
@@ -1275,6 +1309,15 @@ impl Minion {
     ) -> Result<(), Error> {
         if filters.is_empty() {
             tracing::warn!("EMPTY FILTERS handle={} jobid={}", handle, job_id);
+            return Ok(());
+        }
+
+        if self.failed_subs.contains(handle) {
+            tracing::info!(
+                "{}: Avoiding resubscribing to a previously failed subscription: {}",
+                &self.url,
+                handle
+            );
             return Ok(());
         }
 
@@ -1315,9 +1358,9 @@ impl Minion {
             );
         }
 
-        if self.waiting_for_auth.is_some() {
+        if matches!(self.auth_state, AuthState::Waiting(_)) {
             // Save this, subscribe after AUTH completes
-            self.corked_subscriptions
+            self.subscriptions_waiting_for_auth
                 .push((handle.to_owned(), Unixtime::now().unwrap()));
             return Ok(());
         }
@@ -1372,6 +1415,12 @@ impl Minion {
     }
 
     async fn authenticate(&mut self) -> Result<(), Error> {
+        match self.auth_state {
+            AuthState::Authenticated => return Ok(()),
+            AuthState::Waiting(_) => return Ok(()),
+            _ => (),
+        }
+
         if !GLOBALS.identity.is_unlocked() {
             return Err(ErrorKind::NoPrivateKeyForAuth(self.url.clone()).into());
         }
@@ -1400,7 +1449,8 @@ impl Minion {
         ws_stream.send(WsMessage::Text(wire)).await?;
         tracing::info!("Authenticated to {}", &self.url);
 
-        self.waiting_for_auth = Some(id);
+        self.auth_state = AuthState::Waiting(id);
+
         Ok(())
     }
 
