@@ -1,53 +1,60 @@
+use std::ops::Sub;
+
 use egui_winit::egui::{self, vec2, Color32, Id, Rect, Response, Stroke, Ui, Vec2, Widget};
 
 use crate::ui::Theme;
 
+use super::WidgetState;
+
 pub struct Switch<'a> {
     value: &'a mut bool,
     size: Vec2,
-    knob_fill: Option<Color32>,
-    on_fill: Option<Color32>,
-    off_fill: Option<Color32>,
+    theme: &'a Theme,
 }
 
 impl<'a> Switch<'a> {
-    #[allow(unused)]
-    pub fn onoff(theme: &Theme, value: &'a mut bool) -> Self {
+    pub fn small(theme: &'a Theme, value: &'a mut bool) -> Self {
         Self {
             value,
-            size: theme.get_style().spacing.interact_size.y * vec2(1.6, 0.8),
-            knob_fill: Some(theme.get_style().visuals.extreme_bg_color),
-            on_fill: Some(theme.accent_color()),
-            off_fill: Some(theme.get_style().visuals.widgets.inactive.bg_fill),
+            size: vec2(29.0, 16.0),
+            theme,
         }
     }
 
-    #[allow(unused)]
-    pub fn toggle(theme: &Theme, value: &'a mut bool) -> Self {
+    pub fn large(theme: &'a Theme, value: &'a mut bool) -> Self {
         Self {
             value,
-            size: theme.get_style().spacing.interact_size.y * vec2(1.6, 0.8),
-            knob_fill: None,
-            on_fill: None,
-            off_fill: None,
+            size: vec2(40.0, 22.0),
+            theme,
         }
+    }
+
+    #[deprecated(note = "Convert to small/large style")]
+    pub fn onoff(theme: &'a Theme, value: &'a mut bool) -> Self {
+        Self {
+            value,
+            size: vec2(29.0, 16.0),
+            theme,
+        }
+    }
+
+    fn allocate(&mut self, ui: &mut Ui) -> Response {
+        let sense = if ui.is_enabled() {
+            egui::Sense::click()
+        } else {
+            egui::Sense::hover()
+        };
+        // allocate the whole thing, switch + text
+        let (_, response) = ui.allocate_exact_size(self.size, sense);
+        response
     }
 }
 
 impl<'a> Widget for Switch<'a> {
-    fn ui(self, ui: &mut Ui) -> Response {
-        let (rect, _) = ui.allocate_exact_size(self.size, egui::Sense::hover());
-        let id = ui.next_auto_id();
-        switch_custom_at(
-            ui,
-            ui.is_enabled(),
-            self.value,
-            rect,
-            id,
-            self.knob_fill,
-            self.on_fill,
-            self.off_fill,
-        )
+    fn ui(mut self, ui: &mut Ui) -> Response {
+        let response = self.allocate(ui);
+        let (state, response) = interact(ui, response, self.value);
+        draw_at(ui, self.value, response, state, self.theme)
     }
 }
 
@@ -130,6 +137,110 @@ pub fn switch_custom_at(
             knob_fill.unwrap_or(visuals.fg_stroke.color),
             Stroke::new(0.7, fg_stroke.color),
         );
+    }
+
+    response
+}
+
+fn interact(ui: &Ui, response: Response, value: &mut bool) -> (WidgetState, Response) {
+    let (state, mut response) = if response.is_pointer_button_down_on() {
+        (WidgetState::Active, response)
+    } else if response.has_focus() {
+        (WidgetState::Focused, response)
+    } else if response.hovered() || response.highlighted() {
+        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+        (WidgetState::Hovered, response)
+    } else if !ui.is_enabled() {
+        (WidgetState::Disabled, response)
+    } else {
+        (WidgetState::Default, response)
+    };
+
+    if response.clicked() {
+        *value = !*value;
+        response.mark_changed();
+        response.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Checkbox, *value, ""));
+    }
+
+    (state, response)
+}
+
+fn draw_at(
+    ui: &mut Ui,
+    value: &bool,
+    response: Response,
+    _state: WidgetState,
+    theme: &Theme,
+) -> Response {
+    let rect = response.rect;
+    if ui.is_rect_visible(rect) {
+        let how_on = ui.ctx().animate_bool(response.id, *value);
+
+        let radius = 0.5 * rect.height();
+        let stroke_width = 0.5;
+        let (bg_fill, frame_stroke, knob_fill, knob_stroke) = if theme.dark_mode {
+            if ui.is_enabled() {
+                if *value {
+                    (
+                        // on
+                        theme.accent_dark(),
+                        Stroke::new(stroke_width, theme.accent_dark()),
+                        theme.neutral_50(),
+                        Stroke::new(stroke_width, theme.neutral_300()),
+                    )
+                } else {
+                    (
+                        // off
+                        theme.neutral_800(),
+                        Stroke::new(stroke_width, theme.neutral_600()),
+                        theme.neutral_100(),
+                        Stroke::new(stroke_width, theme.neutral_700()),
+                    )
+                }
+            } else {
+                (
+                    // disabled
+                    theme.neutral_800(),
+                    Stroke::new(stroke_width, theme.neutral_600()),
+                    theme.neutral_700(),
+                    Stroke::new(stroke_width, theme.neutral_600()),
+                )
+            }
+        } else {
+            if ui.is_enabled() {
+                if *value {
+                    (
+                        // on
+                        theme.accent_light(),
+                        Stroke::new(stroke_width, theme.accent_light()),
+                        theme.neutral_50(),
+                        Stroke::new(stroke_width, theme.neutral_300()),
+                    )
+                } else {
+                    (
+                        // off
+                        theme.neutral_200(),
+                        Stroke::new(stroke_width, theme.neutral_400()),
+                        theme.neutral_50(),
+                        Stroke::new(stroke_width, theme.neutral_300()),
+                    )
+                }
+            } else {
+                (
+                    // disabled
+                    theme.neutral_300(),
+                    Stroke::new(stroke_width, theme.neutral_400()),
+                    theme.neutral_400(),
+                    Stroke::new(stroke_width, theme.neutral_300()),
+                )
+            }
+        };
+
+        ui.painter().rect(rect, radius, bg_fill, frame_stroke);
+        let circle_x = egui::lerp((rect.left() + radius)..=(rect.right() - radius), how_on);
+        let center = egui::pos2(circle_x, rect.center().y);
+        ui.painter()
+            .circle(center, radius.sub(1.0), knob_fill, knob_stroke);
     }
 
     response

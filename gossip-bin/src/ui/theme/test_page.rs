@@ -20,6 +20,7 @@ enum Background {
 pub struct ThemeTest {
     textedit_empty: String,
     textedit_filled: String,
+    switch_value: bool,
 }
 
 impl Default for ThemeTest {
@@ -27,6 +28,7 @@ impl Default for ThemeTest {
         Self {
             textedit_empty: Default::default(),
             textedit_filled: "Some text".into(),
+            switch_value: false,
         }
     }
 }
@@ -47,6 +49,10 @@ pub(in crate::ui) fn update(
             ui.add_space(20.0);
 
             textedit_test(app, ui);
+
+            ui.add_space(20.0);
+
+            switch_test(app, ui);
 
             ui.add_space(20.0);
 
@@ -337,6 +343,73 @@ fn textedit_test(app: &mut GossipUi, ui: &mut Ui) {
                 widgets::TextEdit::search(theme, assets, &mut app.theme_test.textedit_empty)
                     .hint_text(HINT)
                     .show_extended(ui, &mut app.clipboard);
+            });
+        });
+    });
+}
+
+fn switch_test(app: &mut GossipUi, ui: &mut Ui) {
+    ui.horizontal(|ui| {
+        ui.heading("Switch Test:");
+        ui.add_space(30.0);
+    });
+    ui.add_space(30.0);
+    let theme = &app.theme;
+    const TEXT: &str = "Some text";
+    const CSIZE: Vec2 = Vec2 { x: 100.0, y: 20.0 };
+    ui.vertical(|ui| {
+        ui.horizontal(|ui| {
+            ui.add_sized(CSIZE, egui::Label::new("Enabled"));
+            ui.add_space(20.0);
+            ui.vertical(|ui| {
+                let response = ui
+                    .horizontal(|ui| {
+                        let response = ui.add(widgets::Switch::small(
+                            theme,
+                            &mut app.theme_test.switch_value,
+                        ));
+                        ui.label(RichText::new(TEXT).size(14.0));
+                        response
+                    })
+                    .inner;
+                if ui.link("focus").clicked() {
+                    response.request_focus();
+                }
+            });
+            ui.add_space(20.0);
+            ui.vertical(|ui| {
+                let response = ui
+                    .horizontal(|ui| {
+                        let response = ui.add(widgets::Switch::large(
+                            theme,
+                            &mut app.theme_test.switch_value,
+                        ));
+                        ui.label(RichText::new(TEXT).size(16.0));
+                        response
+                    })
+                    .inner;
+                if ui.link("focus").clicked() {
+                    response.request_focus();
+                }
+            });
+        });
+        ui.add_space(20.0);
+        ui.horizontal(|ui| {
+            ui.add_sized(CSIZE, egui::Label::new("Disabled"));
+            ui.set_enabled(false);
+            ui.add_space(20.0);
+            ui.vertical(|ui| {
+                ui.horizontal(|ui| {
+                    ui.add(widgets::Switch::small(theme, &mut false));
+                    ui.label(RichText::new(TEXT).size(14.0));
+                });
+            });
+            ui.add_space(20.0);
+            ui.vertical(|ui| {
+                ui.horizontal(|ui| {
+                    ui.add(widgets::Switch::large(theme, &mut false));
+                    ui.label(RichText::new(TEXT).size(16.0));
+                });
             });
         });
     });
