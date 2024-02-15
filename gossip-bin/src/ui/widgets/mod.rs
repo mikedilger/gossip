@@ -34,6 +34,8 @@ pub use switch::{switch_custom_at, switch_with_size};
 mod textedit;
 pub use textedit::TextEdit;
 
+use self::list_entry::text_to_galley;
+
 use super::GossipUi;
 
 pub const DROPDOWN_DISTANCE: f32 = 10.0;
@@ -87,30 +89,29 @@ pub fn page_header_layout<R>(
 
 /// Create a label which truncates after max_width
 pub fn truncated_label(ui: &mut Ui, text: impl Into<WidgetText>, max_width: f32) {
-    let mut job = text.into().into_text_job(
+    let mut job = text.into().into_layout_job(
         ui.style(),
         FontSelection::Default,
         ui.layout().vertical_align(),
     );
-    job.job.sections.first_mut().unwrap().format.color =
+    job.sections.first_mut().unwrap().format.color =
         ui.visuals().widgets.noninteractive.fg_stroke.color;
-    job.job.wrap.break_anywhere = true;
-    job.job.wrap.max_width = max_width;
-    job.job.wrap.max_rows = 1;
-    let wgalley = ui.fonts(|fonts| job.into_galley(fonts));
+    job.wrap.break_anywhere = true;
+    job.wrap.max_width = max_width;
+    job.wrap.max_rows = 1;
     // the only way to force egui to respect all our above settings
     // is to pass in the galley directly
-    ui.label(wgalley.galley);
+    ui.label(job);
 }
 
 pub fn break_anywhere_hyperlink_to(ui: &mut Ui, text: impl Into<WidgetText>, url: impl ToString) {
-    let mut job = text.into().into_text_job(
+    let mut job = text.into().into_layout_job(
         ui.style(),
         FontSelection::Default,
         ui.layout().vertical_align(),
     );
-    job.job.wrap.break_anywhere = true;
-    ui.hyperlink_to(job.job, url);
+    job.wrap.break_anywhere = true;
+    ui.hyperlink_to(job, url);
 }
 
 pub fn search_field(ui: &mut Ui, field: &mut String, width: f32) -> TextEditOutput {

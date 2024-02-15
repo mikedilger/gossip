@@ -108,40 +108,6 @@ impl<'t> TextEdit<'t> {
             }
 
             // show inner
-            inner.show(ui)
-        })
-        .inner
-    }
-
-    pub fn show_extended(
-        self,
-        ui: &mut egui::Ui,
-        clipboard: &mut egui_winit::clipboard::Clipboard,
-    ) -> egui::text_edit::TextEditOutput {
-        ui.scope(|ui| {
-            if ui.visuals().dark_mode {
-                ui.visuals_mut().extreme_bg_color =
-                    self.bg_color.unwrap_or(egui::Color32::from_gray(0x47));
-            } else {
-                ui.visuals_mut().extreme_bg_color = self.bg_color.unwrap_or(Color32::WHITE);
-            }
-
-            let mut inner = match self.multiline {
-                false => egui::widgets::TextEdit::singleline(self.text),
-                true => egui::widgets::TextEdit::multiline(self.text),
-            }
-            .password(self.password)
-            .hint_text(self.hint_text.clone());
-
-            if let Some(width) = self.desired_width {
-                inner = inner.desired_width(width);
-            }
-
-            if let Some(color) = self.text_color {
-                inner = inner.text_color(color);
-            }
-
-            // show inner
             let output = inner.show(ui);
 
             // paste button
@@ -163,14 +129,9 @@ impl<'t> TextEdit<'t> {
                     )
                     .clicked()
                 {
-                    if let Some(paste) = clipboard.get() {
-                        let index = if let Some(cursor) = output.cursor_range {
-                            cursor.primary.ccursor.index
-                        } else {
-                            0
-                        };
-                        self.text.insert_text(paste.as_str(), index);
-                    }
+                    output.response.request_focus();
+                    ui.ctx()
+                        .send_viewport_cmd(egui::ViewportCommand::RequestPaste);
                 }
             }
 

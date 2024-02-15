@@ -1,6 +1,8 @@
+use std::sync::Arc;
+
 //#![allow(dead_code)]
 use eframe::egui;
-use egui::{widget_text::WidgetTextGalley, *};
+use egui::*;
 
 /// Navigation Entry
 ///
@@ -76,7 +78,7 @@ impl NavItem {
 
 impl NavItem {
     /// Do layout and position the galley in the ui, without painting it or adding widget info.
-    pub fn layout_in_ui(self, ui: &mut Ui) -> (Pos2, WidgetTextGalley, Response) {
+    pub fn layout_in_ui(self, ui: &mut Ui) -> (Pos2, Arc<Galley>, Response) {
         let sense = self.sense.unwrap_or(Sense::click());
         if let WidgetText::Galley(galley) = self.text {
             // If the user said "use this specific galley", then just use it:
@@ -86,17 +88,13 @@ impl NavItem {
                 Align::Center => rect.center_top(),
                 Align::RIGHT => rect.right_top(),
             };
-            let text_galley = WidgetTextGalley {
-                galley,
-                galley_has_color: true,
-            };
-            return (pos, text_galley, response);
+            return (pos, galley, response);
         }
 
         let valign = ui.layout().vertical_align();
-        let mut text_job = self
+        let mut job = self
             .text
-            .into_text_job(ui.style(), FontSelection::Default, valign);
+            .into_layout_job(ui.style(), FontSelection::Default, valign);
 
         let should_wrap = ui.wrap_text();
         let available_width = ui.available_width();
@@ -113,20 +111,17 @@ impl NavItem {
             let first_row_indentation = available_width - ui.available_size_before_wrap().x;
             egui_assert!(first_row_indentation.is_finite());
 
-            text_job.job.wrap.max_width = available_width;
-            text_job.job.first_row_min_height = cursor.height();
-            text_job.job.halign = Align::Min;
-            text_job.job.justify = false;
-            if let Some(first_section) = text_job.job.sections.first_mut() {
+            job.wrap.max_width = available_width;
+            job.first_row_min_height = cursor.height();
+            job.halign = Align::Min;
+            job.justify = false;
+            if let Some(first_section) = job.sections.first_mut() {
                 first_section.leading_space = first_row_indentation;
             }
-            let text_galley = ui.fonts(|f| text_job.into_galley(f));
+            let galley = ui.fonts(|f| f.layout_job(job));
 
             let pos = pos2(ui.max_rect().left(), ui.cursor().top());
-            assert!(
-                !text_galley.galley.rows.is_empty(),
-                "Galleys are never empty"
-            );
+            assert!(!galley.rows.is_empty(), "Galleys are never empty");
 
             // set the row height to ensure the cursor advancement is correct. when creating a child ui such as with
             // ui.horizontal_wrapped, the initial cursor will be set to the height of the child ui. this can lead
@@ -135,36 +130,34 @@ impl NavItem {
             // note that we do not set the row height earlier in this function as we do want to allow populating
             // `first_row_min_height` above. however it is crucial the placer knows the actual row height by
             // setting the cursor height before ui.allocate_rect() gets called.
-            ui.set_row_height(text_galley.galley.rows[0].height());
+            ui.set_row_height(galley.rows[0].height());
 
             // collect a response from many rows:
-            let rect = text_galley.galley.rows[0]
-                .rect
-                .translate(vec2(pos.x, pos.y));
+            let rect = galley.rows[0].rect.translate(vec2(pos.x, pos.y));
             let mut response = ui.allocate_rect(rect, sense);
-            for row in text_galley.galley.rows.iter().skip(1) {
+            for row in galley.rows.iter().skip(1) {
                 let rect = row.rect.translate(vec2(pos.x, pos.y));
                 response |= ui.allocate_rect(rect, sense);
             }
-            (pos, text_galley, response)
+            (pos, galley, response)
         } else {
             if should_wrap {
-                text_job.job.wrap.max_width = available_width;
+                job.wrap.max_width = available_width;
             } else {
-                text_job.job.wrap.max_width = f32::INFINITY;
+                job.wrap.max_width = f32::INFINITY;
             };
 
-            text_job.job.halign = ui.layout().horizontal_placement();
-            text_job.job.justify = ui.layout().horizontal_justify();
+            job.halign = ui.layout().horizontal_placement();
+            job.justify = ui.layout().horizontal_justify();
 
-            let text_galley = ui.fonts(|f| text_job.into_galley(f));
-            let (rect, response) = ui.allocate_exact_size(text_galley.size(), sense);
-            let pos = match text_galley.galley.job.halign {
+            let galley = ui.fonts(|f| f.layout_job(job));
+            let (rect, response) = ui.allocate_exact_size(galley.size(), sense);
+            let pos = match galley.job.halign {
                 Align::LEFT => rect.left_top(),
                 Align::Center => rect.center_top(),
                 Align::RIGHT => rect.right_top(),
             };
-            (pos, text_galley, response)
+            (pos, galley, response)
         }
     }
 }
@@ -175,8 +168,8 @@ impl Widget for NavItem {
         let color = self.color;
         let hover_color = self.hover_color;
         let active_color = self.active_color;
-        let (pos, text_galley, response) = self.layout_in_ui(ui);
-        response.widget_info(|| WidgetInfo::labeled(WidgetType::Label, text_galley.text()));
+        let (pos, galley, response) = self.layout_in_ui(ui);
+        response.widget_info(|| WidgetInfo::labeled(WidgetType::Label, galley.text()));
 
         if ui.is_rect_visible(response.rect) {
             let color = if hover_color.is_some() && response.hovered() {
@@ -195,10 +188,12 @@ impl Widget for NavItem {
 
             ui.painter().add(epaint::TextShape {
                 pos,
-                galley: text_galley.galley,
+                galley,
                 override_text_color: color,
                 underline: Stroke::NONE,
                 angle: 0.0,
+                fallback_color: ui.visuals().text_color(),
+                opacity_factor: 1.0,
             });
         }
 

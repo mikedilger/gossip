@@ -53,7 +53,7 @@ impl<'a> Widget for Switch<'a> {
 
 pub fn switch_with_size(ui: &mut Ui, on: &mut bool, size: egui::Vec2) -> Response {
     let (rect, _) = ui.allocate_exact_size(size, egui::Sense::click());
-    switch_with_size_at(ui, on, size, rect.left_top(), ui.next_auto_id())
+    switch_with_size_at(ui, on, size, rect.left_top(), ui.auto_id_with("switch"))
 }
 
 pub fn switch_with_size_at(
