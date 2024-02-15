@@ -1,6 +1,8 @@
+use std::sync::Arc;
+
 use egui_winit::egui::{
-    self, vec2, widget_text::WidgetTextGalley, NumExt, Rect, Response, Rounding, Sense, Stroke,
-    TextStyle, Ui, Vec2, Widget, WidgetInfo, WidgetText, WidgetType,
+    self, vec2, Galley, NumExt, Rect, Response, Rounding, Sense, Stroke, TextStyle, Ui, Vec2,
+    Widget, WidgetInfo, WidgetText, WidgetType,
 };
 
 use super::{super::Theme, WidgetState};
@@ -172,7 +174,7 @@ impl Button<'_> {
         ui: &mut Ui,
         text: Option<WidgetText>,
         variant: ButtonVariant,
-    ) -> (Option<WidgetTextGalley>, Vec2, Vec2) {
+    ) -> (Option<Arc<Galley>>, Vec2, Vec2) {
         let frame = ui.visuals().button_frame;
 
         let button_padding = if frame {
@@ -205,17 +207,12 @@ impl Button<'_> {
         match variant {
             ButtonVariant::Normal => {
                 desired_size.y = desired_size.y.at_least(ui.spacing().interact_size.y);
-            }
-            // ButtonVariant::Wide | ButtonVariant::Small => {}
+            } // ButtonVariant::Wide | ButtonVariant::Small => {}
         }
         (text, desired_size, button_padding)
     }
 
-    fn allocate(
-        ui: &mut Ui,
-        text: &Option<WidgetTextGalley>,
-        desired_size: Vec2,
-    ) -> (Rect, Response) {
+    fn allocate(ui: &mut Ui, text: &Option<Arc<Galley>>, desired_size: Vec2) -> (Rect, Response) {
         let (rect, response) = ui.allocate_at_least(desired_size, Sense::click());
         response.widget_info(|| {
             if let Some(text) = text {
@@ -236,7 +233,7 @@ impl Button<'_> {
 
     fn draw(
         ui: &mut Ui,
-        text: Option<WidgetTextGalley>,
+        text: Option<Arc<Galley>>,
         rect: Rect,
         state: WidgetState,
         button_type: ButtonType,
@@ -437,20 +434,15 @@ impl Button<'_> {
                 frame_stroke,
             );
 
-            if let Some(text) = text {
+            if let Some(galley) = text {
                 let text_pos = {
                     // Make sure button text is centered if within a centered layout
                     ui.layout()
-                        .align_size_within_rect(text.size(), rect.shrink2(button_padding))
+                        .align_size_within_rect(galley.size(), rect.shrink2(button_padding))
                         .min
                 };
                 let painter = ui.painter();
-                let galley = text.galley;
-                if text.galley_has_color {
-                    painter.galley(text_pos, galley.clone());
-                } else {
-                    painter.galley_with_color(text_pos, galley.clone(), text_color);
-                }
+                painter.galley(text_pos, galley.clone(), text_color);
                 let text_rect = Rect::from_min_size(text_pos, galley.rect.size());
                 let shapes = egui::Shape::dashed_line(
                     &[

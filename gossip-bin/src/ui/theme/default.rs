@@ -5,6 +5,7 @@ use eframe::egui::{
     FontDefinitions, Margin, Pos2, RichText, Shape, Stroke, Style, TextFormat, TextStyle, Visuals,
 };
 use eframe::epaint::{ecolor, Color32, FontFamily, FontId, Rounding, Shadow};
+use egui_winit::egui::style::{HandleShape, NumericColorSpace};
 use egui_winit::egui::{vec2, Vec2};
 use std::collections::BTreeMap;
 
@@ -23,26 +24,66 @@ impl ThemeDef for DefaultTheme {
     }
 
     // Palette
-    fn neutral_50()  -> Color32 { Color32::from_rgb(0xfa, 0xfa, 0xfa) } // #fafafa
-    fn neutral_100() -> Color32 { Color32::from_rgb(0xf5, 0xf5, 0xf5) } // #f5f5f5
-    fn neutral_200() -> Color32 { Color32::from_rgb(0xe5, 0xe5, 0xe5) } // #e5e5e5
-    fn neutral_300() -> Color32 { Color32::from_rgb(0xd4, 0xd4, 0xd4) } // #d4d4d4
-    fn neutral_400() -> Color32 { Color32::from_rgb(0xa3, 0xa3, 0xa3) } // #a3a3a3
-    fn neutral_500() -> Color32 { Color32::from_rgb(0x73, 0x73, 0x73) } // #737373
-    fn neutral_600() -> Color32 { Color32::from_rgb(0x52, 0x52, 0x52) } // #525252
-    fn neutral_700() -> Color32 { Color32::from_rgb(0x40, 0x40, 0x40) } // #404040
-    fn neutral_800() -> Color32 { Color32::from_rgb(0x26, 0x26, 0x26) } // #262626
-    fn neutral_900() -> Color32 { Color32::from_rgb(0x17, 0x17, 0x17) } // #171717
-    fn neutral_950() -> Color32 { Color32::from_rgb(0x0a, 0x0a, 0x0a) } // #0a0a0a
-    fn accent_dark() -> Color32 { Color32::from_rgb(0x74, 0xa7, 0xcc) } // #74A7CC
-    fn accent_dark_b20() -> Color32 { Color32::from_rgb(0x5D, 0x86, 0xa3) }
-    fn accent_dark_w20() -> Color32 { Color32::from_rgb(0x90, 0xb9, 0xd6) }
-    fn accent_light() -> Color32 { Color32::from_rgb(0x55, 0x7a, 0x95) } // #557A95
-    fn accent_light_b20() -> Color32 { Color32::from_rgb(0x45, 0x62, 0x77) }
-    fn accent_light_w20() -> Color32 { Color32::from_rgb(0x77, 0x95, 0xAA) }
-    fn red_500() -> Color32 { Color32::from_rgb(0xef, 0x44, 0x44) } // #EF4444
-    fn lime_500() -> Color32 { Color32::from_rgb(0x22, 0xc5, 0x5e) } // #22C55E
-    fn amber_400() -> Color32 { Color32::from_rgb(0xfb, 0xbf, 0x24) } // #FBBF24
+    fn neutral_50() -> Color32 {
+        Color32::from_rgb(0xfa, 0xfa, 0xfa)
+    } // #fafafa
+    fn neutral_100() -> Color32 {
+        Color32::from_rgb(0xf5, 0xf5, 0xf5)
+    } // #f5f5f5
+    fn neutral_200() -> Color32 {
+        Color32::from_rgb(0xe5, 0xe5, 0xe5)
+    } // #e5e5e5
+    fn neutral_300() -> Color32 {
+        Color32::from_rgb(0xd4, 0xd4, 0xd4)
+    } // #d4d4d4
+    fn neutral_400() -> Color32 {
+        Color32::from_rgb(0xa3, 0xa3, 0xa3)
+    } // #a3a3a3
+    fn neutral_500() -> Color32 {
+        Color32::from_rgb(0x73, 0x73, 0x73)
+    } // #737373
+    fn neutral_600() -> Color32 {
+        Color32::from_rgb(0x52, 0x52, 0x52)
+    } // #525252
+    fn neutral_700() -> Color32 {
+        Color32::from_rgb(0x40, 0x40, 0x40)
+    } // #404040
+    fn neutral_800() -> Color32 {
+        Color32::from_rgb(0x26, 0x26, 0x26)
+    } // #262626
+    fn neutral_900() -> Color32 {
+        Color32::from_rgb(0x17, 0x17, 0x17)
+    } // #171717
+    fn neutral_950() -> Color32 {
+        Color32::from_rgb(0x0a, 0x0a, 0x0a)
+    } // #0a0a0a
+    fn accent_dark() -> Color32 {
+        Color32::from_rgb(0x74, 0xa7, 0xcc)
+    } // #74A7CC
+    fn accent_dark_b20() -> Color32 {
+        Color32::from_rgb(0x5D, 0x86, 0xa3)
+    }
+    fn accent_dark_w20() -> Color32 {
+        Color32::from_rgb(0x90, 0xb9, 0xd6)
+    }
+    fn accent_light() -> Color32 {
+        Color32::from_rgb(0x55, 0x7a, 0x95)
+    } // #557A95
+    fn accent_light_b20() -> Color32 {
+        Color32::from_rgb(0x45, 0x62, 0x77)
+    }
+    fn accent_light_w20() -> Color32 {
+        Color32::from_rgb(0x77, 0x95, 0xAA)
+    }
+    fn red_500() -> Color32 {
+        Color32::from_rgb(0xef, 0x44, 0x44)
+    } // #EF4444
+    fn lime_500() -> Color32 {
+        Color32::from_rgb(0x22, 0xc5, 0x5e)
+    } // #22C55E
+    fn amber_400() -> Color32 {
+        Color32::from_rgb(0xfb, 0xbf, 0x24)
+    } // #FBBF24
 
     fn accent_color(dark_mode: bool) -> Color32 {
         if dark_mode {
@@ -213,7 +254,7 @@ impl ThemeDef for DefaultTheme {
                 hyperlink_color: Self::accent_color(true),
 
                 selection: Selection {
-                    bg_fill: Color32::from_gray(40),
+                    bg_fill: Self::accent_color(true),
                     stroke: Stroke::new(0.0, Color32::from_gray(220)),
                 },
 
@@ -223,8 +264,10 @@ impl ThemeDef for DefaultTheme {
                 indent_has_left_vline: false,
                 menu_rounding: Rounding::same(2.0),
                 slider_trailing_fill: true,
+                handle_shape: HandleShape::Circle,
                 striped: true,
                 window_rounding: Rounding::same(6.0),
+                window_highlight_topmost: false,
                 resize_corner_size: 12.0,
                 text_cursor: Stroke::new(2.0, Color32::from_rgb(192, 222, 255)),
                 text_cursor_preview: false,
@@ -233,6 +276,7 @@ impl ThemeDef for DefaultTheme {
                 collapsing_header_frame: false,
                 interact_cursor: None,
                 image_loading_spinners: true,
+                numeric_color_space: NumericColorSpace::GammaByte,
             };
         } else {
             style.visuals = Visuals {
@@ -298,7 +342,7 @@ impl ThemeDef for DefaultTheme {
                 hyperlink_color: Self::accent_color(false),
 
                 selection: Selection {
-                    bg_fill: Color32::from_gray(220),                 // DONE
+                    bg_fill: Self::accent_color(false),               // DONE
                     stroke: Stroke::new(1.0, Color32::from_gray(40)), // DONE
                 },
 
@@ -308,8 +352,10 @@ impl ThemeDef for DefaultTheme {
                 indent_has_left_vline: false,
                 menu_rounding: Rounding::same(2.0),
                 slider_trailing_fill: true,
+                handle_shape: egui_winit::egui::style::HandleShape::Circle,
                 striped: true,
                 window_rounding: Rounding::same(6.0),
+                window_highlight_topmost: false,
                 resize_corner_size: 12.0,
                 text_cursor: Stroke::new(2.0, Color32::from_rgb(0, 83, 125)),
                 text_cursor_preview: false,
@@ -318,6 +364,7 @@ impl ThemeDef for DefaultTheme {
                 collapsing_header_frame: false,
                 interact_cursor: None,
                 image_loading_spinners: true,
+                numeric_color_space: NumericColorSpace::GammaByte,
             };
         }
         style

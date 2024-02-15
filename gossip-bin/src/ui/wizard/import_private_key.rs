@@ -21,7 +21,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             .desired_width(f32::INFINITY)
             .password(true)
             .with_paste()
-            .show_extended(ui, &mut app.clipboard)
+            .show(ui)
+            .0
             .response;
         if response.changed() {
             app.wizard_state.error = None;
@@ -47,7 +48,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         let response = text_edit_line!(app, app.password)
             .password(true)
             .with_paste()
-            .show_extended(ui, &mut app.clipboard)
+            .show(ui)
+            .0
             .response;
         if response.changed() {
             app.wizard_state.error = None;
@@ -61,7 +63,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             let response = text_edit_line!(app, app.password2)
                 .password(true)
                 .with_paste()
-                .show_extended(ui, &mut app.clipboard)
+                .show(ui)
+                .0
                 .response;
             if response.changed() {
                 app.wizard_state.error = None;

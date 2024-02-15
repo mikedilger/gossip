@@ -285,20 +285,20 @@ fn textedit_test(app: &mut GossipUi, ui: &mut Ui) {
             ui.add_sized(CSIZE, egui::Label::new("Empty"));
             ui.add_space(20.0);
             ui.vertical(|ui| {
-                let output =
+                let (output, _) =
                     widgets::TextEdit::singleline(theme, &mut app.theme_test.textedit_empty)
                         .hint_text(HINT)
-                        .show_extended(ui, &mut app.clipboard);
+                        .show(ui);
                 if ui.link("focus").clicked() {
                     output.response.request_focus();
                 }
             });
             ui.add_space(20.0);
             ui.vertical(|ui| {
-                let output =
+                let (output, _) =
                     widgets::TextEdit::search(theme, assets, &mut app.theme_test.textedit_empty)
                         .hint_text(HINT)
-                        .show_extended(ui, &mut app.clipboard);
+                        .show(ui);
                 if ui.link("focus").clicked() {
                     output.response.request_focus();
                 }
@@ -309,20 +309,20 @@ fn textedit_test(app: &mut GossipUi, ui: &mut Ui) {
             ui.add_sized(CSIZE, egui::Label::new("with Text"));
             ui.add_space(20.0);
             ui.vertical(|ui| {
-                let output =
+                let (output, _) =
                     widgets::TextEdit::singleline(theme, &mut app.theme_test.textedit_filled)
                         .hint_text(HINT)
-                        .show_extended(ui, &mut app.clipboard);
+                        .show(ui);
                 if ui.link("focus").clicked() {
                     output.response.request_focus();
                 }
             });
             ui.add_space(20.0);
             ui.vertical(|ui| {
-                let output =
+                let (output, _) =
                     widgets::TextEdit::search(theme, assets, &mut app.theme_test.textedit_filled)
                         .hint_text(HINT)
-                        .show_extended(ui, &mut app.clipboard);
+                        .show(ui);
                 if ui.link("focus").clicked() {
                     output.response.request_focus();
                 }
@@ -336,13 +336,13 @@ fn textedit_test(app: &mut GossipUi, ui: &mut Ui) {
             ui.vertical(|ui| {
                 widgets::TextEdit::singleline(theme, &mut app.theme_test.textedit_empty)
                     .hint_text(HINT)
-                    .show_extended(ui, &mut app.clipboard);
+                    .show(ui);
             });
             ui.add_space(20.0);
             ui.vertical(|ui| {
                 widgets::TextEdit::search(theme, assets, &mut app.theme_test.textedit_empty)
                     .hint_text(HINT)
-                    .show_extended(ui, &mut app.clipboard);
+                    .show(ui);
             });
         });
     });

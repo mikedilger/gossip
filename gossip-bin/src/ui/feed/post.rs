@@ -5,8 +5,8 @@ use eframe::egui;
 use eframe::epaint::text::LayoutJob;
 use egui::containers::CollapsingHeader;
 use egui::{Align, Context, Key, Layout, Modifiers, RichText, Ui};
-use egui_winit::egui::text::CCursor;
-use egui_winit::egui::text_edit::{CCursorRange, TextEditOutput};
+use egui_winit::egui::text::{CCursor, CCursorRange};
+use egui_winit::egui::text_edit::TextEditOutput;
 use egui_winit::egui::{vec2, AboveOrBelow, Id};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::DmChannel;
@@ -446,7 +446,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     app.draft_data.tagging_search_substring = None;
                     let text_edit_state =
                         egui::TextEdit::load_state(ctx, compose_area_id).unwrap_or_default();
-                    let ccursor_range = text_edit_state.ccursor_range().unwrap_or_default();
+                    let ccursor_range = text_edit_state.cursor.char_range().unwrap_or_default();
                     let cpos = ccursor_range.primary.index;
                     if cpos <= app.draft_data.draft.len() {
                         if let Some(captures) =
@@ -729,13 +729,13 @@ fn show_tagging_result(
                 .to_string();
 
             // move cursor to end of replacement
-            if let Some(pos) = app.draft_data.draft.find(name.as_str()) {
+            if let Some(pos) = app.draft_data.draft.rfind(name.as_str()) {
                 let cpos = pos + name.len();
                 let mut state = output.state.clone();
                 let mut ccrange = CCursorRange::default();
                 ccrange.primary.index = cpos;
                 ccrange.secondary.index = cpos;
-                state.set_ccursor_range(Some(ccrange));
+                state.cursor.set_char_range(Some(ccrange));
                 state.store(ui.ctx(), output.response.id);
 
                 // add it to our replacement list
@@ -775,8 +775,8 @@ fn calc_tag_hovers(ui: &mut Ui, app: &mut GossipUi, output: &TextEditOutput) {
             let start_rect = output.galley.pos_from_cursor(&cstart);
             let end_rect = output.galley.pos_from_cursor(&cend);
             let interact_rect = egui::Rect::from_two_pos(
-                output.text_draw_pos + start_rect.left_top().to_vec2(),
-                output.text_draw_pos + end_rect.right_bottom().to_vec2(),
+                output.galley_pos + start_rect.left_top().to_vec2(),
+                output.galley_pos + end_rect.right_bottom().to_vec2(),
             );
 
             if let ContentSegment::NostrUrl(nostr_url) = &content {

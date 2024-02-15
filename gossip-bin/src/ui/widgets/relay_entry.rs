@@ -307,17 +307,17 @@ impl RelayEntry {
     fn paint_close_btn(&mut self, ui: &mut Ui, rect: &Rect) -> Response {
         let id = self.make_id("close_btn");
         let button_padding = ui.spacing().button_padding;
-        let text = WidgetText::from("Close")
+        let galley = WidgetText::from("Close")
             .color(ui.visuals().extreme_bg_color)
             .into_galley(ui, Some(false), 0.0, TextStyle::Button);
-        let mut desired_size = text.size() + 4.0 * button_padding;
+        let mut desired_size = galley.size() + 4.0 * button_padding;
         desired_size.y = desired_size.y.at_least(ui.spacing().interact_size.y);
         let pos = rect.right_bottom() + vec2(-TEXT_RIGHT, -TEXT_BOTTOM) - desired_size;
         let btn_rect = Rect::from_min_size(pos, desired_size);
         let response = ui
             .interact(btn_rect, id, Sense::click())
             .on_hover_cursor(egui::CursorIcon::PointingHand);
-        response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, text.text()));
+        response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, galley.text()));
 
         let visuals = ui.style().interact(&response);
         {
@@ -334,9 +334,9 @@ impl RelayEntry {
 
         let text_pos = ui
             .layout()
-            .align_size_within_rect(text.size(), btn_rect.shrink2(2.0 * button_padding))
+            .align_size_within_rect(galley.size(), btn_rect.shrink2(2.0 * button_padding))
             .min;
-        text.paint_with_visuals(ui.painter(), text_pos, visuals);
+        ui.painter().galley(text_pos, galley, visuals.text_color());
 
         if response.clicked() {
             self.view = RelayEntryView::Detail;

@@ -239,22 +239,8 @@ impl<'t> TextEdit<'t> {
                 }
             }
 
-            (output, self.text)
-        })
-        .inner
-    }
-
-    pub fn show_extended(
-        self,
-        ui: &mut egui::Ui,
-        clipboard: &mut egui_winit::clipboard::Clipboard,
-    ) -> egui::text_edit::TextEditOutput {
-        ui.scope(|ui| {
-            let with_paste = self.with_paste;
-            let (output, text) = self.show(ui);
-
             // paste button
-            if with_paste {
+            if self.with_paste {
                 let action_size = vec2(45.0, output.response.rect.height());
                 let rect = Rect::from_min_size(
                     output.response.rect.right_top() - vec2(action_size.x, 0.0),
@@ -272,18 +258,13 @@ impl<'t> TextEdit<'t> {
                     )
                     .clicked()
                 {
-                    if let Some(paste) = clipboard.get() {
-                        let index = if let Some(cursor) = output.cursor_range {
-                            cursor.primary.ccursor.index
-                        } else {
-                            0
-                        };
-                        text.insert_text(paste.as_str(), index);
-                    }
+                    output.response.request_focus();
+                    ui.ctx()
+                        .send_viewport_cmd(egui::ViewportCommand::RequestPaste);
                 }
             }
 
-            output
+            (output, self.text)
         })
         .inner
     }
