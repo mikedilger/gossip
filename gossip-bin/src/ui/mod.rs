@@ -60,7 +60,6 @@ use egui_video::{AudioDevice, Player};
 use egui_winit::egui::Rect;
 use egui_winit::egui::Response;
 use egui_winit::egui::ViewportBuilder;
-use egui_winit::winit::raw_window_handle::HasDisplayHandle;
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::nip46::Approval;
 use gossip_lib::{

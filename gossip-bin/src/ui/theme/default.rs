@@ -185,7 +185,7 @@ impl ThemeDef for DefaultTheme {
                 hyperlink_color: Self::accent_color(true),
 
                 selection: Selection {
-                    bg_fill: Color32::from_gray(40),
+                    bg_fill: Self::accent_color(true),
                     stroke: Stroke::new(0.0, Color32::from_gray(220)),
                 },
 
@@ -273,7 +273,7 @@ impl ThemeDef for DefaultTheme {
                 hyperlink_color: Self::accent_color(false),
 
                 selection: Selection {
-                    bg_fill: Color32::from_gray(220),                 // DONE
+                    bg_fill: Self::accent_color(false),               // DONE
                     stroke: Stroke::new(1.0, Color32::from_gray(40)), // DONE
                 },
 

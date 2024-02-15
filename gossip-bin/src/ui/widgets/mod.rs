@@ -34,8 +34,6 @@ pub use switch::{switch_custom_at, switch_with_size};
 mod textedit;
 pub use textedit::TextEdit;
 
-use self::list_entry::text_to_galley;
-
 use super::GossipUi;
 
 pub const DROPDOWN_DISTANCE: f32 = 10.0;
