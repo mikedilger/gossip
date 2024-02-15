@@ -446,7 +446,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     app.draft_data.tagging_search_substring = None;
                     let text_edit_state =
                         egui::TextEdit::load_state(ctx, compose_area_id).unwrap_or_default();
-                    let ccursor_range = text_edit_state.ccursor_range().unwrap_or_default();
+                    let ccursor_range = text_edit_state.cursor.char_range().unwrap_or_default();
                     let cpos = ccursor_range.primary.index;
                     if cpos <= app.draft_data.draft.len() {
                         if let Some(captures) =
@@ -729,13 +729,13 @@ fn show_tagging_result(
                 .to_string();
 
             // move cursor to end of replacement
-            if let Some(pos) = app.draft_data.draft.find(name.as_str()) {
+            if let Some(pos) = app.draft_data.draft.rfind(name.as_str()) {
                 let cpos = pos + name.len();
                 let mut state = output.state.clone();
                 let mut ccrange = CCursorRange::default();
                 ccrange.primary.index = cpos;
                 ccrange.secondary.index = cpos;
-                state.set_ccursor_range(Some(ccrange));
+                state.cursor.set_char_range(Some(ccrange));
                 state.store(ui.ctx(), output.response.id);
 
                 // add it to our replacement list
