@@ -22,7 +22,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             .password(true)
             .with_paste()
             .show(ui)
-            .0
             .response;
         if response.changed() {
             app.wizard_state.error = None;
@@ -49,7 +48,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             .password(true)
             .with_paste()
             .show(ui)
-            .0
             .response;
         if response.changed() {
             app.wizard_state.error = None;
@@ -64,7 +62,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 .password(true)
                 .with_paste()
                 .show(ui)
-                .0
                 .response;
             if response.changed() {
                 app.wizard_state.error = None;

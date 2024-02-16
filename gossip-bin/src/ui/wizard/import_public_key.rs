@@ -25,7 +25,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             .with_paste()
             .desired_width(f32::INFINITY)
             .show(ui)
-            .0
             .response;
         if response.changed() {
             app.wizard_state.error = None;

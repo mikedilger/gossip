@@ -56,7 +56,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         let response = text_edit_line!(app, app.wizard_state.metadata_name)
             .with_paste()
             .show(ui)
-            .0
             .response;
         if response.changed() {
             app.wizard_state.error = None;
@@ -69,7 +68,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         let response = text_edit_line!(app, app.wizard_state.metadata_about)
             .with_paste()
             .show(ui)
-            .0
             .response;
         if response.changed() {
             app.wizard_state.error = None;
@@ -82,7 +80,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         let response = text_edit_line!(app, app.wizard_state.metadata_picture)
             .with_paste()
             .show(ui)
-            .0
             .response;
         if response.changed() {
             app.wizard_state.error = None;

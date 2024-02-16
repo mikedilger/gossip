@@ -91,7 +91,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 "Enter a key (bech32 npub1 or hex), or an nprofile, or a DNS id (user@domain)",
             )
             .show(ui)
-            .0
             .response;
         if response.changed() {
             app.wizard_state.error = None;

@@ -285,7 +285,7 @@ fn textedit_test(app: &mut GossipUi, ui: &mut Ui) {
             ui.add_sized(CSIZE, egui::Label::new("Empty"));
             ui.add_space(20.0);
             ui.vertical(|ui| {
-                let (output, _) =
+                let output =
                     widgets::TextEdit::singleline(theme, &mut app.theme_test.textedit_empty)
                         .hint_text(HINT)
                         .show(ui);
@@ -295,7 +295,7 @@ fn textedit_test(app: &mut GossipUi, ui: &mut Ui) {
             });
             ui.add_space(20.0);
             ui.vertical(|ui| {
-                let (output, _) =
+                let output =
                     widgets::TextEdit::search(theme, assets, &mut app.theme_test.textedit_empty)
                         .hint_text(HINT)
                         .show(ui);
@@ -309,7 +309,7 @@ fn textedit_test(app: &mut GossipUi, ui: &mut Ui) {
             ui.add_sized(CSIZE, egui::Label::new("with Text"));
             ui.add_space(20.0);
             ui.vertical(|ui| {
-                let (output, _) =
+                let output =
                     widgets::TextEdit::singleline(theme, &mut app.theme_test.textedit_filled)
                         .hint_text(HINT)
                         .show(ui);
@@ -319,7 +319,7 @@ fn textedit_test(app: &mut GossipUi, ui: &mut Ui) {
             });
             ui.add_space(20.0);
             ui.vertical(|ui| {
-                let (output, _) =
+                let output =
                     widgets::TextEdit::search(theme, assets, &mut app.theme_test.textedit_filled)
                         .hint_text(HINT)
                         .show(ui);

@@ -103,7 +103,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             let response = text_edit_line!(app, app.wizard_state.relay_url)
                 .with_paste()
                 .show(ui)
-                .0
                 .response;
             if response.changed() {
                 app.wizard_state.error = None;

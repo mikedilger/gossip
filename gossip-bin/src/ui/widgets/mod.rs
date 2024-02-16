@@ -132,7 +132,7 @@ pub fn search_field(
     width: f32,
 ) -> TextEditOutput {
     // search field
-    let (output, _) = TextEdit::search(theme, assets, field)
+    let output = TextEdit::search(theme, assets, field)
         .text_color(ui.visuals().widgets.inactive.fg_stroke.color)
         .desired_width(width)
         .show(ui);

@@ -123,10 +123,7 @@ impl<'t> TextEdit<'t> {
         self
     }
 
-    pub fn show(
-        self,
-        ui: &mut egui::Ui,
-    ) -> (egui::text_edit::TextEditOutput, &'t mut dyn TextBuffer) {
+    pub fn show(self, ui: &mut egui::Ui) -> egui::text_edit::TextEditOutput {
         ui.scope(|ui| {
             self.set_visuals(ui);
 
@@ -264,7 +261,7 @@ impl<'t> TextEdit<'t> {
                 }
             }
 
-            (output, self.text)
+            output
         })
         .inner
     }
@@ -272,7 +269,7 @@ impl<'t> TextEdit<'t> {
 
 impl<'t> Widget for TextEdit<'t> {
     fn ui(self, ui: &mut egui_winit::egui::Ui) -> egui_winit::egui::Response {
-        let (output, _) = self.show(ui);
+        let output = self.show(ui);
         output.response
     }
 }

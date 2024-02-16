@@ -2057,7 +2057,7 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
                             ui.add_space(16.0);
                         }
 
-                        let (output, _) = widgets::TextEdit::singleline(&app.theme, &mut app.password)
+                        let output = widgets::TextEdit::singleline(&app.theme, &mut app.password)
                             .password(true)
                             .with_paste()
                             .desired_width( 400.0)
