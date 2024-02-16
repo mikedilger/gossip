@@ -504,14 +504,18 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     .place_above(!read_setting!(posting_area_at_top))
                     .show(ui, |ui, is_open| {
                         ui.vertical_centered_justified(|ui| {
-                            app.theme.primary_button_style(ui.style_mut());
                             if app.draft_data.include_subject {
-                                if ui.button("Remove Subject").clicked() {
+                                if widgets::Button::primary(&app.theme, "Remove Subject")
+                                    .show(ui)
+                                    .clicked()
+                                {
                                     app.draft_data.include_subject = false;
                                     app.draft_data.subject = "".to_owned();
                                 }
                             } else if app.draft_data.replying_to.is_none()
-                                && ui.button("Add Subject").clicked()
+                                && widgets::Button::primary(&app.theme, "Add Subject")
+                                    .show(ui)
+                                    .clicked()
                             {
                                 app.draft_data.include_subject = true;
                                 *is_open = false;
@@ -520,12 +524,18 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                             ui.add_space(10.0);
 
                             if app.draft_data.include_content_warning {
-                                if ui.button("Remove Content Warning").clicked() {
+                                if widgets::Button::primary(&app.theme, "Remove Content Warning")
+                                    .show(ui)
+                                    .clicked()
+                                {
                                     app.draft_data.include_content_warning = false;
                                     app.draft_data.content_warning = "".to_owned();
                                     *is_open = false;
                                 }
-                            } else if ui.button("Add Content Warning").clicked() {
+                            } else if widgets::Button::primary(&app.theme, "Add Content Warning")
+                                .show(ui)
+                                .clicked()
+                            {
                                 app.draft_data.include_content_warning = true;
                                 *is_open = false;
                             }
@@ -533,7 +543,10 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                             ui.add_space(10.0);
 
                             ui.set_enabled(!app.draft_data.replacements.is_empty());
-                            if ui.button("Show raw preview").clicked() {
+                            if widgets::Button::primary(&app.theme, "Show raw preview")
+                                .show(ui)
+                                .clicked()
+                            {
                                 let raw = do_replacements(
                                     &app.draft_data.draft,
                                     &app.draft_data.replacements,
@@ -558,8 +571,9 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 ui.add_space(12.0);
 
                 ui.horizontal(|ui| {
-                    app.theme.primary_button_style(ui.style_mut());
-                    if ui.button(send_label).clicked()
+                    if widgets::Button::primary(&app.theme, send_label)
+                        .show(ui)
+                        .clicked()
                         && (!app.draft_data.draft.is_empty() || app.draft_data.repost.is_some())
                     {
                         send_now = true;
@@ -588,8 +602,9 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
             ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                 ui.add_space(12.0);
-                app.theme.primary_button_style(ui.style_mut());
-                if ui.button(send_label).clicked()
+                if widgets::Button::primary(&app.theme, send_label)
+                    .show(ui)
+                    .clicked()
                     && (!app.draft_data.draft.is_empty() || app.draft_data.repost.is_some())
                 {
                     send_now = true;

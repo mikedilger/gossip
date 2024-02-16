@@ -23,8 +23,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
     widgets::page_header(ui, Page::PeopleLists.name(), |ui| {
         ui.add_enabled_ui(enabled, |ui| {
-            app.theme.primary_button_style(ui.style_mut());
-            if ui.button("Create a new list").clicked() {
+            if widgets::Button::primary(&app.theme, "Create a new list")
+                .show(ui)
+                .clicked()
+            {
                 app.creating_list = true;
                 app.list_name_field_needs_focus = true;
             }

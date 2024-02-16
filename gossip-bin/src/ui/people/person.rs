@@ -392,20 +392,12 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                     ui.vertical_centered_justified(|ui| {
                         widgets::paint_avatar(ui, &person, &avatar, widgets::AvatarSize::Profile);
 
-                        const MIN_SIZE: Vec2 = vec2(40.0, 22.0);
                         const BTN_SPACING: f32 = 15.0;
-                        const BTN_ROUNDING: f32 = 4.0;
                         ui.add_space(40.0);
 
                         ui.vertical_centered_justified(|ui| {
-                            app.theme.primary_button_style(ui.style_mut());
-
-                            if ui
-                                .add(
-                                    egui::Button::new("View notes")
-                                        .min_size(MIN_SIZE)
-                                        .rounding(BTN_ROUNDING),
-                                )
+                            if widgets::Button::primary(&app.theme, "View notes")
+                                .show(ui)
                                 .clicked()
                             {
                                 app.set_page(ctx, Page::Feed(FeedKind::Person(person.pubkey)));
@@ -414,24 +406,16 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                             ui.add_space(BTN_SPACING);
 
                             if !is_self {
-                                if ui
-                                    .add(
-                                        egui::Button::new("Send a DM")
-                                            .min_size(MIN_SIZE)
-                                            .rounding(BTN_ROUNDING),
-                                    )
+                                if widgets::Button::primary(&app.theme, "Send a DM")
+                                    .show(ui)
                                     .clicked()
                                 {
                                     let channel = DmChannel::new(&[person.pubkey]);
                                     app.set_page(ctx, Page::Feed(FeedKind::DmChat(channel)));
                                 };
                             } else {
-                                if ui
-                                    .add(
-                                        egui::Button::new("Edit Profile")
-                                            .min_size(MIN_SIZE)
-                                            .rounding(BTN_ROUNDING),
-                                    )
+                                if widgets::Button::primary(&app.theme, "Edit Profile")
+                                    .show(ui)
                                     .clicked()
                                 {
                                     app.set_page(ctx, Page::YourMetadata);

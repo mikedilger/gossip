@@ -269,22 +269,7 @@ macro_rules! theme_dispatch {
                 }
             }
 
-            /// secondary button style
-            pub fn secondary_button_style(&self, style: &mut Style) {
-                match self.variant {
-                    $( $variant => $class::secondary_button_style(style, self.dark_mode), )+
-                }
-            }
-
-            /// bordered button style
-            pub fn bordered_button_style(&self, style: &mut Style) {
-            match self.variant {
-                    $( $variant => $class::bordered_button_style(style, self.dark_mode), )+
-                }
-            }
-
             /// 'danger' colored hover for accent-colored button styles
-            #[allow(dead_code)]
             pub fn accent_button_danger_hover(&self, style: &mut Style) {
                 match self.variant {
                     $( $variant => $class::accent_button_danger_hover(style, self.dark_mode), )+

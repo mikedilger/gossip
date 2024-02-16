@@ -147,10 +147,8 @@ impl<'a> Button<'a> {
         );
         response
     }
-}
 
-impl Widget for Button<'_> {
-    fn ui(self, ui: &mut Ui) -> Response {
+    pub fn show(self, ui: &mut Ui) -> Response {
         let (text, desired_size, padding) = Self::layout(ui, self.text, self.variant);
         let (rect, response) = Self::allocate(ui, &text, desired_size);
         let state = if response.is_pointer_button_down_on() {
@@ -166,6 +164,12 @@ impl Widget for Button<'_> {
         };
         Self::draw(ui, text, rect, state, self.button_type, padding, self.theme);
         response
+    }
+}
+
+impl Widget for Button<'_> {
+    fn ui(self, ui: &mut Ui) -> Response {
+        self.show(ui)
     }
 }
 
