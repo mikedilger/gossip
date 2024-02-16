@@ -579,6 +579,11 @@ fn try_render_video(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Respons
             }
             let response = player.ui(ui, [size.x, size.y]);
 
+            // stop the player when it scrolls out of view
+            if !ui.is_rect_visible(response.rect) {
+                player.stop();
+            }
+
             add_media_menu(app, ui, url, &response);
 
             // TODO fix click action
