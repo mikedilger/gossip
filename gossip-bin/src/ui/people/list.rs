@@ -259,7 +259,7 @@ pub(super) fn update(
                                     // private / public switch
                                     ui.label("Private");
                                     if ui
-                                        .add(widgets::Switch::onoff(&app.theme, &mut private))
+                                        .add(widgets::Switch::small(&app.theme, &mut private))
                                         .clicked()
                                     {
                                         let _ = GLOBALS.storage.add_person_to_list(
@@ -556,7 +556,7 @@ pub(super) fn render_create_list_dialog(ui: &mut Ui, app: &mut GossipUi) {
                 }
                 ui.add_space(10.0);
                 ui.horizontal(|ui| {
-                    ui.add(widgets::Switch::onoff(
+                    ui.add(widgets::Switch::small(
                         &app.theme,
                         &mut app.new_list_favorite,
                     ));

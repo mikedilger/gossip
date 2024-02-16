@@ -31,8 +31,8 @@ pub use information_popup::InformationPopup;
 pub use information_popup::ProfilePopup;
 
 mod switch;
+pub use switch::switch_custom_at;
 pub use switch::Switch;
-pub use switch::{switch_custom_at, switch_with_size};
 
 mod textedit;
 pub use textedit::TextEdit;

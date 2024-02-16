@@ -29,14 +29,17 @@ impl<'a> Switch<'a> {
         }
     }
 
-    #[deprecated(note = "Convert to small/large style")]
-    pub fn onoff(theme: &'a Theme, value: &'a mut bool) -> Self {
-        Self {
-            value,
-            size: vec2(29.0, 16.0),
-            theme,
-        }
+    pub fn show(mut self, ui: &mut Ui) -> Response {
+        let response = self.allocate(ui);
+        let (state, response) = interact(ui, response, self.value);
+        draw_at(ui, self.value, response, state, self.theme)
     }
+
+    // pub fn show_at(mut self, ui: &mut Ui, id: Id, rect: Rect) -> Response {
+    //     let response = self.interact_at(ui, id, rect);
+    //     let (state, response) = interact(ui, response, self.value);
+    //     draw_at(ui, self.value, response, state, self.theme)
+    // }
 
     fn allocate(&mut self, ui: &mut Ui) -> Response {
         let sense = if ui.is_enabled() {
@@ -44,34 +47,26 @@ impl<'a> Switch<'a> {
         } else {
             egui::Sense::hover()
         };
-        // allocate the whole thing, switch + text
+        // allocate
         let (_, response) = ui.allocate_exact_size(self.size, sense);
         response
     }
+
+    // fn interact_at(&mut self, ui: &mut Ui, id: Id, rect: Rect) -> Response {
+    //     let sense = if ui.is_enabled() {
+    //         egui::Sense::click()
+    //     } else {
+    //         egui::Sense::hover()
+    //     };
+    //     // just interact
+    //     ui.interact(rect, id, sense)
+    // }
 }
 
 impl<'a> Widget for Switch<'a> {
-    fn ui(mut self, ui: &mut Ui) -> Response {
-        let response = self.allocate(ui);
-        let (state, response) = interact(ui, response, self.value);
-        draw_at(ui, self.value, response, state, self.theme)
+    fn ui(self, ui: &mut Ui) -> Response {
+        self.show(ui)
     }
-}
-
-pub fn switch_with_size(ui: &mut Ui, on: &mut bool, size: egui::Vec2) -> Response {
-    let (rect, _) = ui.allocate_exact_size(size, egui::Sense::click());
-    switch_with_size_at(ui, on, size, rect.left_top(), ui.auto_id_with("switch"))
-}
-
-pub fn switch_with_size_at(
-    ui: &mut Ui,
-    value: &mut bool,
-    size: egui::Vec2,
-    pos: egui::Pos2,
-    id: Id,
-) -> Response {
-    let rect = Rect::from_min_size(pos, size);
-    switch_custom_at(ui, ui.is_enabled(), value, rect, id, None, None, None)
 }
 
 #[allow(clippy::too_many_arguments)]

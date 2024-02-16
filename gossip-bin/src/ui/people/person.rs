@@ -207,7 +207,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                             let mut inlist = membership.is_some();
 
                             if ui
-                                .add(widgets::Switch::onoff(&app.theme, &mut inlist))
+                                .add(widgets::Switch::small(&app.theme, &mut inlist))
                                 .clicked()
                             {
                                 if !inlist {
@@ -232,7 +232,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
 
                                 let mut private = !membership.unwrap_or(&false);
                                 let switch_response =
-                                    ui.add(widgets::Switch::onoff(&app.theme, &mut private));
+                                    ui.add(widgets::Switch::small(&app.theme, &mut private));
                                 if switch_response.clicked() {
                                     let _ = GLOBALS
                                         .storage
