@@ -283,9 +283,12 @@ pub(super) fn update(
                     }
                 });
             });
-            if row_response
-                .response
-                .interact(egui::Sense::click())
+            if ui
+                .interact(
+                    row_response.response.rect,
+                    ui.next_auto_id(),
+                    egui::Sense::click(),
+                )
                 .on_hover_cursor(egui::CursorIcon::PointingHand)
                 .clicked()
             {

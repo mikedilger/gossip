@@ -41,9 +41,10 @@ impl Minion {
                     }
                     if !it_matches {
                         tracing::info!(
-                            "{} sent event that does not match filters on subscription {}",
+                            "{} sent event that does not match filters on subscription {}: {}",
                             self.url,
-                            handle
+                            handle,
+                            event.id.as_hex_string()
                         );
                         return Ok(());
                     }

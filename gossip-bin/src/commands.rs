@@ -430,7 +430,7 @@ pub fn delete_spam_by_content(
     mut args: env::Args,
     runtime: &Runtime,
 ) -> Result<(), Error> {
-    let kind: EventKind = match args.next() {
+    let mut kind: EventKind = match args.next() {
         Some(integer) => integer.parse::<u32>()?.into(),
         None => return cmd.usage("Missing kind parameter".to_string()),
     };
@@ -444,6 +444,11 @@ pub fn delete_spam_by_content(
         Some(c) => c,
         None => return cmd.usage("Missing <substring> paramter".to_string()),
     };
+
+    // If DM Chat, use GiftWrap
+    if kind == EventKind::DmChat {
+        kind = EventKind::GiftWrap;
+    }
 
     // Login if we need to look into GiftWraps
     if kind == EventKind::GiftWrap {
@@ -474,6 +479,14 @@ pub fn delete_spam_by_content(
             }
         }
     }
+
+    // If no events we are done
+    if target_ids.is_empty() {
+        println!("No matches found");
+        return Ok(());
+    }
+
+    println!("Deleting {} events...", target_ids.len());
 
     // Delete locally
     let mut txn = GLOBALS.storage.get_write_txn()?;
