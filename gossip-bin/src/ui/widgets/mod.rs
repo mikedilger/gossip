@@ -38,7 +38,7 @@ mod textedit;
 pub use textedit::TextEdit;
 
 use super::assets::Assets;
-use super::{GossipUi, Theme};
+use super::Theme;
 
 pub const DROPDOWN_DISTANCE: f32 = 10.0;
 pub const TAGG_WIDTH: f32 = 200.0;
@@ -138,16 +138,6 @@ pub fn search_field(
         .show(ui);
 
     output
-}
-
-pub(super) fn set_important_button_visuals(ui: &mut Ui, app: &GossipUi) {
-    let visuals = ui.visuals_mut();
-    visuals.widgets.inactive.weak_bg_fill = app.theme.accent_color();
-    visuals.widgets.inactive.fg_stroke.width = 1.0;
-    visuals.widgets.inactive.fg_stroke.color = app.theme.get_style().visuals.extreme_bg_color;
-    visuals.widgets.hovered.weak_bg_fill = app.theme.navigation_text_color();
-    visuals.widgets.hovered.fg_stroke.color = app.theme.accent_color();
-    visuals.widgets.inactive.fg_stroke.color = app.theme.get_style().visuals.extreme_bg_color;
 }
 
 // /// UTF-8 safe truncate (String::truncate() can panic)

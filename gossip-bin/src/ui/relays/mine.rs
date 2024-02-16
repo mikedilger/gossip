@@ -18,10 +18,8 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         super::relay_sort_combo(app, ui);
         btn_h_space!(ui);
         widgets::search_field(ui, &app.theme, &app.assets, &mut app.relays.search, 200.0);
-        ui.add_space(200.0); // search_field somehow doesn't "take up" space
-        widgets::set_important_button_visuals(ui, app);
-        if ui.button("Advertise Relay List")
-            .on_hover_cursor(egui::CursorIcon::PointingHand)
+        if widgets::Button::primary(&app.theme, "Advertise Relay List")
+            .show(ui)
             .on_hover_text("Advertise my relays. Will send 10002 kind to all relays that have 'ADVERTISE' usage enabled")
             .clicked() {
             let _ = GLOBALS
