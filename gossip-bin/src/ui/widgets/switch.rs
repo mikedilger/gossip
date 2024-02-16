@@ -1,6 +1,9 @@
-use std::ops::Sub;
+use std::{ops::Sub, sync::Arc};
 
-use egui_winit::egui::{self, vec2, Color32, Id, Rect, Response, Stroke, Ui, Vec2, Widget};
+use egui_winit::egui::{
+    self, vec2, Color32, Galley, Id, Rect, Response, Stroke, TextStyle, Ui, Vec2, Widget,
+    WidgetText,
+};
 
 use crate::ui::Theme;
 
@@ -8,31 +11,44 @@ use super::WidgetState;
 
 pub struct Switch<'a> {
     value: &'a mut bool,
+    text: Option<WidgetText>,
     size: Vec2,
     theme: &'a Theme,
 }
 
 impl<'a> Switch<'a> {
+    /// Create a small switch, similar to normal line height
     pub fn small(theme: &'a Theme, value: &'a mut bool) -> Self {
         Self {
             value,
+            text: None,
             size: vec2(29.0, 16.0),
             theme,
         }
     }
 
+    /// Create a large switch
     pub fn large(theme: &'a Theme, value: &'a mut bool) -> Self {
         Self {
             value,
+            text: None,
             size: vec2(40.0, 22.0),
             theme,
         }
     }
 
+    /// Add a label that will be displayed to the right of the switch
+    pub fn with_label(mut self, text: impl Into<WidgetText>) -> Self {
+        self.text = Some(text.into());
+        self
+    }
+
     pub fn show(mut self, ui: &mut Ui) -> Response {
-        let response = self.allocate(ui);
+        let (response, galley) = self.allocate(ui);
         let (state, response) = interact(ui, response, self.value);
-        draw_at(ui, self.value, response, state, self.theme)
+        draw_at(
+            ui, self.theme, self.value, response, self.size, galley, state,
+        )
     }
 
     // pub fn show_at(mut self, ui: &mut Ui, id: Id, rect: Rect) -> Response {
@@ -41,15 +57,25 @@ impl<'a> Switch<'a> {
     //     draw_at(ui, self.value, response, state, self.theme)
     // }
 
-    fn allocate(&mut self, ui: &mut Ui) -> Response {
+    fn allocate(&mut self, ui: &mut Ui) -> (Response, Option<Arc<Galley>>) {
+        let (extra_width, galley) = if let Some(text) = self.text.take() {
+            let available_width = ui.available_width() - self.size.y - ui.spacing().item_spacing.y;
+            let galley = text.into_galley(ui, Some(false), available_width, TextStyle::Body);
+            (
+                galley.rect.width() + ui.spacing().item_spacing.y,
+                Some(galley),
+            )
+        } else {
+            (0.0, None)
+        };
         let sense = if ui.is_enabled() {
             egui::Sense::click()
         } else {
             egui::Sense::hover()
         };
         // allocate
-        let (_, response) = ui.allocate_exact_size(self.size, sense);
-        response
+        let (_, response) = ui.allocate_exact_size(self.size + vec2(extra_width, 0.0), sense);
+        (response, galley)
     }
 
     // fn interact_at(&mut self, ui: &mut Ui, id: Id, rect: Rect) -> Response {
@@ -162,10 +188,12 @@ fn interact(ui: &Ui, response: Response, value: &mut bool) -> (WidgetState, Resp
 
 fn draw_at(
     ui: &mut Ui,
+    theme: &Theme,
     value: &bool,
     response: Response,
+    size: Vec2,
+    galley: Option<Arc<Galley>>,
     _state: WidgetState,
-    theme: &Theme,
 ) -> Response {
     let rect = response.rect;
     if ui.is_rect_visible(rect) {
@@ -173,7 +201,7 @@ fn draw_at(
 
         let radius = 0.5 * rect.height();
         let stroke_width = 0.5;
-        let (bg_fill, frame_stroke, knob_fill, knob_stroke) = if theme.dark_mode {
+        let (bg_fill, frame_stroke, knob_fill, knob_stroke, text_color) = if theme.dark_mode {
             if ui.is_enabled() {
                 if *value {
                     (
@@ -182,6 +210,7 @@ fn draw_at(
                         Stroke::new(stroke_width, theme.accent_dark()),
                         theme.neutral_50(),
                         Stroke::new(stroke_width, theme.neutral_300()),
+                        theme.neutral_50(),
                     )
                 } else {
                     (
@@ -190,6 +219,7 @@ fn draw_at(
                         Stroke::new(stroke_width, theme.neutral_600()),
                         theme.neutral_100(),
                         Stroke::new(stroke_width, theme.neutral_700()),
+                        theme.neutral_50(),
                     )
                 }
             } else {
@@ -199,6 +229,7 @@ fn draw_at(
                     Stroke::new(stroke_width, theme.neutral_600()),
                     theme.neutral_700(),
                     Stroke::new(stroke_width, theme.neutral_600()),
+                    theme.neutral_400(),
                 )
             }
         } else {
@@ -210,6 +241,7 @@ fn draw_at(
                         Stroke::new(stroke_width, theme.accent_light()),
                         theme.neutral_50(),
                         Stroke::new(stroke_width, theme.neutral_300()),
+                        theme.neutral_900(),
                     )
                 } else {
                     (
@@ -218,6 +250,7 @@ fn draw_at(
                         Stroke::new(stroke_width, theme.neutral_400()),
                         theme.neutral_50(),
                         Stroke::new(stroke_width, theme.neutral_300()),
+                        theme.neutral_900(),
                     )
                 }
             } else {
@@ -227,15 +260,33 @@ fn draw_at(
                     Stroke::new(stroke_width, theme.neutral_400()),
                     theme.neutral_400(),
                     Stroke::new(stroke_width, theme.neutral_300()),
+                    theme.neutral_400(),
                 )
             }
         };
 
-        ui.painter().rect(rect, radius, bg_fill, frame_stroke);
-        let circle_x = egui::lerp((rect.left() + radius)..=(rect.right() - radius), how_on);
-        let center = egui::pos2(circle_x, rect.center().y);
+        // switch
+        let switch_rect = Rect::from_min_size(rect.min, size);
+        ui.painter()
+            .rect(switch_rect, radius, bg_fill, frame_stroke);
+        let circle_x = egui::lerp(
+            (switch_rect.left() + radius)..=(switch_rect.right() - radius),
+            how_on,
+        );
+        let center = egui::pos2(circle_x, switch_rect.center().y);
         ui.painter()
             .circle(center, radius.sub(1.0), knob_fill, knob_stroke);
+
+        // label
+        if let Some(galley) = galley {
+            let text_pos = switch_rect.right_top()
+                + vec2(
+                    ui.spacing().item_spacing.x,
+                    (switch_rect.height() - galley.rect.height()) / 2.0,
+                );
+            ui.painter()
+                .galley_with_override_text_color(text_pos, galley, text_color);
+        }
     }
 
     response

@@ -368,11 +368,10 @@ fn switch_test(app: &mut GossipUi, ui: &mut Ui) {
             ui.vertical(|ui| {
                 let response = ui
                     .horizontal(|ui| {
-                        let response = ui.add(widgets::Switch::small(
-                            theme,
-                            &mut app.theme_test.switch_value,
-                        ));
-                        ui.label(RichText::new(TEXT).size(14.0));
+                        let response = ui.add(
+                            widgets::Switch::small(theme, &mut app.theme_test.switch_value)
+                                .with_label(TEXT),
+                        );
                         response
                     })
                     .inner;
@@ -384,11 +383,10 @@ fn switch_test(app: &mut GossipUi, ui: &mut Ui) {
             ui.vertical(|ui| {
                 let response = ui
                     .horizontal(|ui| {
-                        let response = ui.add(widgets::Switch::large(
-                            theme,
-                            &mut app.theme_test.switch_value,
-                        ));
-                        ui.label(RichText::new(TEXT).size(16.0));
+                        let response = ui.add(
+                            widgets::Switch::large(theme, &mut app.theme_test.switch_value)
+                                .with_label(TEXT),
+                        );
                         response
                     })
                     .inner;
@@ -404,15 +402,13 @@ fn switch_test(app: &mut GossipUi, ui: &mut Ui) {
             ui.add_space(20.0);
             ui.vertical(|ui| {
                 ui.horizontal(|ui| {
-                    ui.add(widgets::Switch::small(theme, &mut false));
-                    ui.label(RichText::new(TEXT).size(14.0));
+                    ui.add(widgets::Switch::small(theme, &mut false).with_label(TEXT));
                 });
             });
             ui.add_space(20.0);
             ui.vertical(|ui| {
                 ui.horizontal(|ui| {
-                    ui.add(widgets::Switch::large(theme, &mut false));
-                    ui.label(RichText::new(TEXT).size(16.0));
+                    ui.add(widgets::Switch::large(theme, &mut false).with_label(TEXT));
                 });
             });
         });
@@ -434,9 +430,12 @@ fn align_test(app: &mut GossipUi, ui: &mut Ui) {
             .desired_width(100.0)
             .show(ui);
         ui.label("text");
+        widgets::Switch::small(theme, &mut app.theme_test.switch_value)
+            .with_label("Switch")
+            .show(ui);
         egui::ComboBox::from_label("Select").show_ui(ui, |ui| {
-            ui.selectable_label(false, "first");
-            ui.selectable_label(false, "second");
+            let _ = ui.selectable_label(false, "first");
+            let _ = ui.selectable_label(false, "second");
         });
     });
 }
