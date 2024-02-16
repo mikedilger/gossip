@@ -56,6 +56,10 @@ pub(in crate::ui) fn update(
 
             ui.add_space(20.0);
 
+            align_test(app, ui);
+
+            ui.add_space(20.0);
+
             // On No Background
             Frame::none()
                 .inner_margin(Margin::symmetric(20.0, 20.0))
@@ -411,6 +415,28 @@ fn switch_test(app: &mut GossipUi, ui: &mut Ui) {
                     ui.label(RichText::new(TEXT).size(16.0));
                 });
             });
+        });
+    });
+}
+
+fn align_test(app: &mut GossipUi, ui: &mut Ui) {
+    ui.horizontal(|ui| {
+        ui.heading("Horizontal Alignment Test:");
+        ui.add_space(30.0);
+    });
+    ui.add_space(30.0);
+    let theme = &app.theme;
+    ui.horizontal(|ui| {
+        ui.label("Text");
+        widgets::Button::primary(theme, "Primary").show(ui);
+        ui.label("text");
+        widgets::TextEdit::singleline(theme, &mut app.theme_test.textedit_filled)
+            .desired_width(100.0)
+            .show(ui);
+        ui.label("text");
+        egui::ComboBox::from_label("Select").show_ui(ui, |ui| {
+            ui.selectable_label(false, "first");
+            ui.selectable_label(false, "second");
         });
     });
 }
