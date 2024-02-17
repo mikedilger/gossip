@@ -2266,7 +2266,7 @@ impl Overlord {
                     .await?
                     .map(|rr| rr.to_unchecked_url())
             } else {
-                seen_on.get(0).map(|(rurl, _)| rurl.to_unchecked_url())
+                seen_on.first().map(|(rurl, _)| rurl.to_unchecked_url())
             }
         };
 
@@ -2413,7 +2413,7 @@ impl Overlord {
                             },
                             true,
                         )?
-                        .get(0)
+                        .first()
                     {
                         note_search_results.push(event.clone());
                     } else {
