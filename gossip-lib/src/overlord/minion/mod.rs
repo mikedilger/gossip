@@ -1313,7 +1313,7 @@ impl Minion {
         }
 
         if self.failed_subs.contains(handle) {
-            tracing::info!(
+            tracing::debug!(
                 "{}: Avoiding resubscribing to a previously failed subscription: {}",
                 &self.url,
                 handle
