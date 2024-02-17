@@ -269,9 +269,10 @@ impl Minion {
                                     return Ok(());
                                 }
                                 AuthState::Authenticated => {
-                                    // We are authenticated, but it doesn't like us.
-                                    // fail this subscription handle
-                                    self.failed_subs.insert(handle.clone());
+                                    // We are authenticated, but it doesn't think so.
+                                    // Presume it is a race condition and ignore it.
+                                    // (fall through, it will be removed, but subsequent
+                                    //  similar subs will not be listed in failed_subs)
                                 }
                                 AuthState::Failed => {
                                     // fail this subscription handle
