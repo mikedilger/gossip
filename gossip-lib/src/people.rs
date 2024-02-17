@@ -664,7 +664,7 @@ impl People {
             let recommended_relay_url = {
                 if kind != EventKind::MuteList && public {
                     let relays = GLOBALS.storage.get_best_relays(*pubkey, Direction::Write)?;
-                    relays.get(0).map(|(u, _)| u.to_unchecked_url())
+                    relays.first().map(|(u, _)| u.to_unchecked_url())
                 } else {
                     None
                 }

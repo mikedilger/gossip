@@ -248,34 +248,41 @@ impl Minion {
                             self.failed_subs.insert(handle.clone());
                         }
                         "auth-required" => {
-                            match self.auth_state {
-                                AuthState::None => {
-                                    // authenticate
-                                    self.authenticate().await?;
+                            if self.dbrelay.allow_auth == Some(false) {
+                                // we don't allow auth to this relay.
+                                // fail this subscription handle
+                                self.failed_subs.insert(handle.clone());
+                            } else {
+                                match self.auth_state {
+                                    AuthState::None => {
+                                        // authenticate
+                                        self.authenticate().await?;
 
-                                    // cork and retry once auth completes
-                                    self.subscriptions_waiting_for_auth
-                                        .push((handle, Unixtime::now().unwrap()));
+                                        // cork and retry once auth completes
+                                        self.subscriptions_waiting_for_auth
+                                            .push((handle, Unixtime::now().unwrap()));
 
-                                    // return now, don't remove sub from map
-                                    return Ok(());
-                                }
-                                AuthState::Waiting(_) => {
-                                    // cork and retry once auth completes
-                                    self.subscriptions_waiting_for_auth
-                                        .push((handle, Unixtime::now().unwrap()));
+                                        // return now, don't remove sub from map
+                                        return Ok(());
+                                    }
+                                    AuthState::Waiting(_) => {
+                                        // cork and retry once auth completes
+                                        self.subscriptions_waiting_for_auth
+                                            .push((handle, Unixtime::now().unwrap()));
 
-                                    // return now, don't remove sub from map
-                                    return Ok(());
-                                }
-                                AuthState::Authenticated => {
-                                    // We are authenticated, but it doesn't like us.
-                                    // fail this subscription handle
-                                    self.failed_subs.insert(handle.clone());
-                                }
-                                AuthState::Failed => {
-                                    // fail this subscription handle
-                                    self.failed_subs.insert(handle.clone());
+                                        // return now, don't remove sub from map
+                                        return Ok(());
+                                    }
+                                    AuthState::Authenticated => {
+                                        // We are authenticated, but it doesn't think so.
+                                        // Presume it is a race condition and ignore it.
+                                        // (fall through, it will be removed, but subsequent
+                                        //  similar subs will not be listed in failed_subs)
+                                    }
+                                    AuthState::Failed => {
+                                        // fail this subscription handle
+                                        self.failed_subs.insert(handle.clone());
+                                    }
                                 }
                             }
                         }
