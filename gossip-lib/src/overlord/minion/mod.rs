@@ -320,9 +320,11 @@ impl Minion {
         // Close the connection
         let ws_stream = self.stream.as_mut().unwrap();
         if !ws_stream.is_terminated() {
-            if let Err(e) = ws_stream.send(WsMessage::Close(None)).await {
-                tracing::warn!("websocket close error: {}", e);
-                return Err(e.into());
+            if self.exiting != Some(MinionExitReason::GotWSClose) {
+                if let Err(e) = ws_stream.send(WsMessage::Close(None)).await {
+                    tracing::warn!("websocket close error: {}", e);
+                    return Err(e.into());
+                }
             }
         }
 
@@ -1313,7 +1315,7 @@ impl Minion {
         }
 
         if self.failed_subs.contains(handle) {
-            tracing::info!(
+            tracing::debug!(
                 "{}: Avoiding resubscribing to a previously failed subscription: {}",
                 &self.url,
                 handle

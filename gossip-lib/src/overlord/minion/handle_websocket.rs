@@ -204,7 +204,9 @@ impl Minion {
                     .get_handle_by_id(&subid.0)
                     .unwrap_or_else(|| "_".to_owned());
 
-                tracing::info!("{}: Closed: {}: {}", &self.url, handle, message);
+                if handle != "_" {
+                    tracing::info!("{}: Closed: {}: {}", &self.url, handle, message);
+                }
 
                 // Check the machine-readable prefix
                 if let Some(prefix) = message.split(':').next() {
@@ -295,13 +297,13 @@ impl Minion {
                             self.failed_subs.insert(handle.clone());
                         }
                         _ => {
-                            tracing::warn!("{} closed with unknown prefix {}", &self.url, prefix);
+                            tracing::debug!("{} closed with unknown prefix {}", &self.url, prefix);
                         }
                     }
                 }
 
                 // Remove the subscription
-                tracing::info!("{}: removed subscription {}", &self.url, handle);
+                tracing::debug!("{}: removed subscription {}", &self.url, handle);
                 let _ = self.subscription_map.remove(&handle);
             }
         }

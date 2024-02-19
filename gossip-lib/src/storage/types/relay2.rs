@@ -149,7 +149,10 @@ impl Relay2 {
     }
 
     pub fn is_good_for_advertise(&self) -> bool {
-        self.rank > 0 && self.success_rate() > 0.35 && self.success_count > 10
+        self.has_usage_bits(Self::INBOX)
+            || self.has_usage_bits(Self::OUTBOX)
+            || self.has_usage_bits(Self::DISCOVER)
+            || (self.rank > 0 && self.success_rate() > 0.35 && self.success_count > 10)
     }
 
     /// This generates a "recommended_relay_url" for an 'e' tag.
