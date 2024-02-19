@@ -47,9 +47,15 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         ui.checkbox(&mut app.override_dpi, "Override to ");
         ui.add(Slider::new(&mut app.override_dpi_value, 72..=250).text("DPI"));
 
-        if ui.button("Apply this change now (without saving)").clicked() {
+        if ui.button("Test (without saving)").clicked() {
             let ppt: f32 = app.override_dpi_value as f32 / 72.0;
             ctx.set_pixels_per_point(ppt);
+        }
+
+        if ui.button("Reset native").clicked() {
+            let native_ppt = ctx.native_pixels_per_point().unwrap_or(1.0);
+            app.override_dpi_value = (native_ppt * 72.0) as u32;
+            ctx.set_pixels_per_point(native_ppt);
         }
 
         // transfer to app.unsaved_settings

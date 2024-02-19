@@ -201,7 +201,7 @@ impl<'t> TextEdit<'t> {
                     let rect = Rect::from_center_size(
                         output.response.rect.left_center()
                             + vec2((MARGIN.left + pre_space) / 2.0, 0.0),
-                        symbol.size_vec2() / assets::SVG_OVERSAMPLE,
+                        symbol.size_vec2() / (assets::SVG_OVERSAMPLE + ui.ctx().zoom_factor()),
                     );
                     egui::Image::from_texture(SizedTexture::new(symbol.id(), symbol.size_vec2()))
                         .fit_to_exact_size(rect.size())

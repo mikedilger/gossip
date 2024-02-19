@@ -1,5 +1,4 @@
-use eframe::CreationContext;
-use egui_winit::egui::{ColorImage, TextureHandle, TextureOptions};
+use egui_winit::egui::{ColorImage, Context, TextureHandle, TextureOptions};
 use tiny_skia::Transform;
 use usvg::TreeParsing;
 
@@ -11,13 +10,11 @@ pub struct Assets {
 }
 
 impl Assets {
-    pub fn init(cctx: &CreationContext) -> Self {
+    pub fn init(ctx: &Context) -> Self {
         // how to load an svg
-        let ppt = cctx.egui_ctx.pixels_per_point();
+        let ppt = ctx.pixels_per_point();
         let dpi = ppt * 72.0;
         let options_symbol = {
-            // egui::include_image!("../../../assets/option.svg")
-
             let bytes = include_bytes!("../../../assets/option.svg");
             let opt = usvg::Options {
                 dpi,
@@ -35,12 +32,10 @@ impl Assets {
                 &mut pixmap.as_mut(),
             );
             let color_image = ColorImage::from_rgba_unmultiplied([w as _, h as _], pixmap.data());
-            cctx.egui_ctx
-                .load_texture("options_symbol", color_image, TextureOptions::LINEAR)
+            ctx.load_texture("options_symbol", color_image, TextureOptions::LINEAR)
         };
 
         let magnifyingglass_symbol = {
-            // egui::include_image!("../../../assets/magnifyingglass.svg")
             let bytes = include_bytes!("../../../assets/magnifyingglass.svg");
             let opt = usvg::Options {
                 dpi,
@@ -58,7 +53,7 @@ impl Assets {
                 &mut pixmap.as_mut(),
             );
             let color_image = ColorImage::from_rgba_unmultiplied([w as _, h as _], pixmap.data());
-            cctx.egui_ctx.load_texture(
+            ctx.load_texture(
                 "magnifyingglass_symbol",
                 color_image,
                 TextureOptions::LINEAR,
