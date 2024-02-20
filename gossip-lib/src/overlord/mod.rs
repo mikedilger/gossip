@@ -1180,6 +1180,7 @@ impl Overlord {
                     .storage
                     .get_event_seen_on_relay(bad_event.id)?
                     .iter()
+                    .take(6) // Doesn't have to be everywhere
                     .map(|(url, _time)| url.to_owned())
                     .collect();
 
@@ -1257,6 +1258,7 @@ impl Overlord {
                 .storage
                 .get_event_seen_on_relay(id)?
                 .iter()
+                .take(6) // doesn't have to be everywhere
                 .map(|(url, _time)| url.to_owned())
                 .collect();
             relay_urls.extend(seen_on);
@@ -1619,6 +1621,8 @@ impl Overlord {
     }
 
     pub async fn load_more_person_feed(&mut self, pubkey: PublicKey) -> Result<(), Error> {
+        let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
+
         // Set the feed to load another chunk back
         let start = GLOBALS.feed.load_more_person_feed();
 
@@ -1627,6 +1631,7 @@ impl Overlord {
             .storage
             .get_best_relays(pubkey, Direction::Write)?
             .drain(..)
+            .take(num_relays_per_person as usize + 1)
             .map(|(relay, _rank)| relay)
             .collect();
 
@@ -2566,6 +2571,8 @@ impl Overlord {
         referenced_by: Id,
         author: Option<PublicKey>,
     ) -> Result<(), Error> {
+        let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
+
         // We are responsible for loading all the ancestors and all the replies, and
         // process.rs is responsible for building the relationships.
         // The UI can only show events if they are loaded into memory and the relationships
@@ -2589,6 +2596,7 @@ impl Overlord {
                 .storage
                 .get_event_seen_on_relay(referenced_by)?
                 .drain(..)
+                .take(num_relays_per_person as usize + 1)
                 .map(|(url, _time)| url),
         );
         relays.extend(
@@ -2596,6 +2604,7 @@ impl Overlord {
                 .storage
                 .get_event_seen_on_relay(id)?
                 .drain(..)
+                .take(num_relays_per_person as usize + 1)
                 .map(|(url, _time)| url),
         );
 
@@ -2608,6 +2617,7 @@ impl Overlord {
                 .storage
                 .get_best_relays(pk, Direction::Write)?
                 .drain(..)
+                .take(num_relays_per_person as usize + 1)
                 .map(|pair| pair.0)
                 .collect();
             relays.extend(author_relays);
@@ -2641,6 +2651,7 @@ impl Overlord {
                         .storage
                         .get_best_relays(pk, Direction::Write)?
                         .drain(..)
+                        .take(num_relays_per_person as usize + 1)
                         .map(|pair| pair.0)
                         .collect();
                     relays.extend(tagged_person_relays);
