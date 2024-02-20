@@ -54,11 +54,13 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     dpi_changed = true;
                 }
 
+                if let Err(e) = app.unsaved_settings.save() {
+                    tracing::error!("Error saving settings: {}", e);
+                }
+
                 if dpi_changed {
                     app.init_scaling(ctx);
                 }
-
-                let _ = app.unsaved_settings.save();
             }
         }
     });
