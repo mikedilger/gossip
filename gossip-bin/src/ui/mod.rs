@@ -511,27 +511,6 @@ impl Drop for GossipUi {
 
 impl GossipUi {
     fn new(cctx: &eframe::CreationContext<'_>) -> Self {
-        let dpi: u32;
-        if let Some(override_dpi) = read_setting!(override_dpi) {
-            let ppt: f32 = override_dpi as f32 / 72.0;
-            cctx.egui_ctx.set_pixels_per_point(ppt);
-            dpi = (ppt * 72.0) as u32;
-            tracing::info!("DPI (overridden): {}", dpi);
-        } else if let Some(ppt) = cctx.egui_ctx.native_pixels_per_point() {
-            cctx.egui_ctx.set_pixels_per_point(ppt);
-            dpi = (ppt * 72.0) as u32;
-            tracing::info!("DPI (native): {}", dpi);
-        } else {
-            dpi = (cctx.egui_ctx.pixels_per_point() * 72.0) as u32;
-            tracing::info!("DPI (fallback): {}", dpi);
-        }
-
-        // Set global pixels_per_point_times_100, used for image scaling.
-        GLOBALS.pixels_per_point_times_100.store(
-            (cctx.egui_ctx.pixels_per_point() * 100.0) as u32,
-            Ordering::Relaxed,
-        );
-
         {
             cctx.egui_ctx.tessellation_options_mut(|to| {
                 // Less feathering
@@ -595,11 +574,18 @@ impl GossipUi {
             device
         };
 
-        // how to load an svg
+        // start with a fallback DPI here, unless we are overriding anyways
+        // we won't know the native DPI until the `Viewport` has been created
+        let (override_dpi, override_dpi_value): (bool, u32) = match read_setting!(override_dpi) {
+            Some(v) => (true, v),
+            None => (false, (cctx.egui_ctx.pixels_per_point() * 72.0) as u32),
+        };
+
+        // how to load an svg (TODO do again when DPI changes)
         let options_symbol = {
             let bytes = include_bytes!("../../../assets/option.svg");
             let opt = usvg::Options {
-                dpi: dpi as f32,
+                dpi: override_dpi_value as f32,
                 ..Default::default()
             };
             let rtree = usvg::Tree::from_data(bytes, &opt).unwrap();
@@ -610,11 +596,6 @@ impl GossipUi {
             let color_image = ColorImage::from_rgba_unmultiplied([w as _, h as _], pixmap.data());
             cctx.egui_ctx
                 .load_texture("options_symbol", color_image, TextureOptions::LINEAR)
-        };
-
-        let (override_dpi, override_dpi_value): (bool, u32) = match read_setting!(override_dpi) {
-            Some(v) => (true, v),
-            None => (false, dpi),
         };
 
         let mut start_page = Page::Feed(FeedKind::List(PersonList::Followed, false));
@@ -729,6 +710,55 @@ impl GossipUi {
             dm_channel_next_refresh: Instant::now(),
             dm_channel_error: None,
         }
+    }
+
+    /// Since egui 0.24 "multi viewport" this function needs
+    /// to be called on the first App::update() because the
+    /// native PPT is None until the Viewport is created
+    fn init_scaling(&mut self, ctx: &Context) {
+        (self.override_dpi, self.override_dpi_value) =
+            if let Some(override_dpi) = read_setting!(override_dpi) {
+                let ppt: f32 = override_dpi as f32 / 72.0;
+                ctx.set_pixels_per_point(ppt);
+                let dpi = (ppt * 72.0) as u32;
+                tracing::info!("DPI (overridden): {}", dpi);
+                (true, dpi)
+            } else if let Some(ppt) = ctx.native_pixels_per_point() {
+                ctx.set_pixels_per_point(ppt);
+                let dpi = (ppt * 72.0) as u32;
+                tracing::info!("DPI (native): {}", dpi);
+                (false, dpi)
+            } else {
+                let dpi = (ctx.pixels_per_point() * 72.0) as u32;
+                tracing::info!("DPI (fallback): {}", dpi);
+                (false, dpi)
+            };
+
+        // 'original' refers to 'before the user changes it in settings'
+        self.original_dpi_value = self.override_dpi_value;
+
+        // load SVG's again when DPI changes
+        self.options_symbol = {
+            let bytes = include_bytes!("../../../assets/option.svg");
+            let opt = usvg::Options {
+                dpi: self.override_dpi_value as f32,
+                ..Default::default()
+            };
+            let rtree = usvg::Tree::from_data(bytes, &opt).unwrap();
+            let [w, h] = [20_u32, 20_u32];
+            let mut pixmap = tiny_skia::Pixmap::new(w, h).unwrap();
+            let tree = resvg::Tree::from_usvg(&rtree);
+            tree.render(Default::default(), &mut pixmap.as_mut());
+            let color_image = ColorImage::from_rgba_unmultiplied([w as _, h as _], pixmap.data());
+            ctx.load_texture("options_symbol", color_image, TextureOptions::LINEAR)
+        };
+
+        // Set global pixels_per_point_times_100, used for image scaling.
+        // this would warrant reloading images but the user experience isn't great as
+        // reloading them takes quite a while currently
+        GLOBALS
+            .pixels_per_point_times_100
+            .store((ctx.pixels_per_point() * 100.0) as u32, Ordering::Relaxed);
     }
 
     // maybe_relays is only used for Page::Feed(FeedKind::Thread...)
@@ -1162,6 +1192,9 @@ impl eframe::App for GossipUi {
         // Run only on first frame
         if self.initializing {
             self.initializing = false;
+
+            // Initialize scaling, now that we have a Viewport
+            self.init_scaling(ctx);
 
             // Set initial menu state, Feed open since initial page is Following.
             self.open_menu(ctx, SubMenu::Feeds);

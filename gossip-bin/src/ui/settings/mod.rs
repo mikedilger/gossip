@@ -36,17 +36,26 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             }
 
             if ui.button("SAVE CHANGES").clicked() {
+                let mut dpi_changed = false;
+
                 // Apply DPI change
                 if stored_settings.override_dpi != app.unsaved_settings.override_dpi {
                     if let Some(value) = app.unsaved_settings.override_dpi {
                         let ppt: f32 = value as f32 / 72.0;
                         ctx.set_pixels_per_point(ppt);
+                        dpi_changed = true;
                     }
                 }
 
-                // Save new original DPI value
-                if let Some(value) = app.unsaved_settings.override_dpi {
-                    app.original_dpi_value = value;
+                // restore native if not overriding
+                // this can now be done with the new 'zoom_factor' egui setting
+                if !app.override_dpi {
+                    ctx.set_zoom_factor(1.0);
+                    dpi_changed = true;
+                }
+
+                if dpi_changed {
+                    app.init_scaling(ctx);
                 }
 
                 let _ = app.unsaved_settings.save();
