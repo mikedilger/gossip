@@ -43,6 +43,8 @@ use super::Theme;
 pub const DROPDOWN_DISTANCE: f32 = 10.0;
 pub const TAGG_WIDTH: f32 = 200.0;
 
+pub const SMALL_HEIGHT: f32 = 25.0;
+
 pub enum WidgetState {
     Default,
     Hovered,
@@ -71,6 +73,7 @@ pub fn page_header<R>(
     let mut layout = LayoutJob::default();
     let title: RichText = title
         .into()
+        .heading()
         .color(ui.visuals().widgets.noninteractive.fg_stroke.color);
     title.append_to(&mut layout, ui.style(), FontSelection::Default, Align::LEFT);
     page_header_layout(ui, layout, right_aligned_content)
@@ -86,6 +89,7 @@ pub fn page_header_layout<R>(
         ui.horizontal(|ui| {
             ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                 ui.add_space(2.0);
+                ui.set_min_height(SMALL_HEIGHT);
                 ui.label(galley);
             });
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
