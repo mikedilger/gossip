@@ -461,15 +461,17 @@ impl Minion {
                 // anyways we would have to create a parallel thing.
                 self.get_event_addr(message.job_id, ea).await?;
             }
-            ToMinionPayloadDetail::PostEvent(event) => {
-                let id = event.id;
-                self.postings.insert(id);
-                let msg = ClientMessage::Event(event);
-                let wire = serde_json::to_string(&msg)?;
-                let ws_stream = self.stream.as_mut().unwrap();
-                self.last_message_sent = wire.clone();
-                ws_stream.send(WsMessage::Text(wire)).await?;
-                tracing::info!("Posted event to {}", &self.url);
+            ToMinionPayloadDetail::PostEvents(mut events) => {
+                for event in events.drain(..) {
+                    let id = event.id;
+                    self.postings.insert(id);
+                    let msg = ClientMessage::Event(Box::new(event));
+                    let wire = serde_json::to_string(&msg)?;
+                    let ws_stream = self.stream.as_mut().unwrap();
+                    self.last_message_sent = wire.clone();
+                    ws_stream.send(WsMessage::Text(wire)).await?;
+                    tracing::info!("Posted event to {}", &self.url);
+                }
                 self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
                     self.url.clone(),
                     message.job_id,

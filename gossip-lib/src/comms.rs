@@ -238,7 +238,7 @@ pub(crate) enum ToMinionPayloadDetail {
     AuthDeclined,
     FetchEvent(Id),
     FetchEventAddr(EventAddr),
-    PostEvent(Box<Event>),
+    PostEvents(Vec<Event>),
     Shutdown,
     SubscribeAugments(Vec<IdHex>),
     SubscribeOutbox,

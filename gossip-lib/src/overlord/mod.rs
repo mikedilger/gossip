@@ -1203,7 +1203,7 @@ impl Overlord {
                     reason: RelayConnectionReason::PostEvent,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::PostEvent(Box::new(event.clone())),
+                        detail: ToMinionPayloadDetail::PostEvents(vec![event.clone()]),
                     },
                 }],
             )
@@ -1277,7 +1277,7 @@ impl Overlord {
                     reason: RelayConnectionReason::PostEvent,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::PostEvent(Box::new(event.clone())),
+                        detail: ToMinionPayloadDetail::PostEvents(vec![event.clone()]),
                     },
                 }],
             )
@@ -1585,7 +1585,7 @@ impl Overlord {
                     reason: RelayConnectionReason::PostLike,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::PostEvent(Box::new(event.clone())),
+                        detail: ToMinionPayloadDetail::PostEvents(vec![event.clone()]),
                     },
                 }],
             )
@@ -1784,6 +1784,8 @@ impl Overlord {
             }
         };
 
+        let mut maybe_parent: Option<Event> = None;
+
         let pre_event = match dm_channel {
             Some(dmc) => {
                 if dmc.keys().len() > 1 {
@@ -1953,6 +1955,8 @@ impl Overlord {
                             add_subject_to_tags_if_missing(&mut tags, subject);
                         }
                     }
+
+                    maybe_parent = Some(parent);
                 }
 
                 PreEvent {
@@ -1996,6 +2000,12 @@ impl Overlord {
         // Process this event locally
         crate::process::process_new_event(&event, None, None, false, false).await?;
 
+        // Maybe include parent to retransmit it
+        let events = match maybe_parent {
+            Some(parent) => vec![event, parent],
+            None => vec![event],
+        };
+
         let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
 
         // Determine which relays to post this to
@@ -2036,7 +2046,7 @@ impl Overlord {
                     reason: RelayConnectionReason::PostEvent,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::PostEvent(Box::new(event.clone())),
+                        detail: ToMinionPayloadDetail::PostEvents(events.clone()),
                     },
                 }],
             )
@@ -2061,7 +2071,7 @@ impl Overlord {
                     reason: RelayConnectionReason::PostNostrConnect,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::PostEvent(Box::new(event.clone())),
+                        detail: ToMinionPayloadDetail::PostEvents(vec![event.clone()]),
                     },
                 }],
             )
@@ -2143,7 +2153,7 @@ impl Overlord {
                     reason: RelayConnectionReason::PostContacts,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::PostEvent(Box::new(event.clone())),
+                        detail: ToMinionPayloadDetail::PostEvents(vec![event.clone()]),
                     },
                 }],
             )
@@ -2185,7 +2195,7 @@ impl Overlord {
                     reason: RelayConnectionReason::PostMetadata,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::PostEvent(Box::new(event.clone())),
+                        detail: ToMinionPayloadDetail::PostEvents(vec![event.clone()]),
                     },
                 }],
             )
@@ -2367,7 +2377,7 @@ impl Overlord {
                     reason: RelayConnectionReason::PostEvent,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::PostEvent(Box::new(event.clone())),
+                        detail: ToMinionPayloadDetail::PostEvents(vec![event.clone()]),
                     },
                 }],
             )
