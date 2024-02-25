@@ -679,6 +679,9 @@ impl Overlord {
             } => {
                 self.post(content, tags, in_reply_to, dm_channel).await?;
             }
+            ToOverlordMessage::PostAgain(event) => {
+                self.post_again(event).await?;
+            }
             ToOverlordMessage::PostNip46Event(event, relays) => {
                 self.post_nip46_event(event, relays).await?;
             }

@@ -117,6 +117,9 @@ pub enum ToOverlordMessage {
         dm_channel: Option<DmChannel>,
     },
 
+    /// Calls [post_again](crate::Overlord::post_again)
+    PostAgain(Event),
+
     /// Calls [post_nip46_event](crate::Overlord::post_nip46_event)
     PostNip46Event(Event, Vec<RelayUrl>),
 
