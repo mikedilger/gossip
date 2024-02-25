@@ -7,7 +7,7 @@ use crate::comms::{
 use crate::dm_channel::DmChannel;
 use crate::error::{Error, ErrorKind};
 use crate::feed::FeedKind;
-use crate::globals::{ZapState, GLOBALS};
+use crate::globals::{Globals, ZapState, GLOBALS};
 use crate::nip46::{Approval, ParsedCommand};
 use crate::people::{Person, PersonList};
 use crate::person_relay::PersonRelay;
@@ -2047,6 +2047,29 @@ impl Overlord {
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
                         detail: ToMinionPayloadDetail::PostEvents(events.clone()),
+                    },
+                }],
+            )
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    pub async fn post_again(&mut self, event: Event) -> Result<(), Error> {
+        let relay_urls = Globals::relays_for_event(&event)?;
+
+        for url in relay_urls {
+            // Send it the event to post
+            tracing::debug!("Asking {} to post", &url);
+
+            self.engage_minion(
+                url.clone(),
+                vec![RelayJob {
+                    reason: RelayConnectionReason::PostEvent,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::PostEvents(vec![event.clone()]),
                     },
                 }],
             )
