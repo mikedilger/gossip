@@ -163,7 +163,9 @@ impl Minion {
                             self.try_subscribe_waiting().await?;
                         }
                     }
-                } else if self.postings.contains(&id) {
+                }
+
+                if self.postings.contains(&id) {
                     if ok {
                         // Save seen_on data
                         // (it was already processed by the overlord before the minion got it,
