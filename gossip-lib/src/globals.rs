@@ -1,5 +1,6 @@
 use crate::comms::{RelayJob, ToMinionMessage, ToOverlordMessage};
 use crate::delegation::Delegation;
+use crate::error::Error;
 use crate::feed::Feed;
 use crate::fetcher::Fetcher;
 use crate::gossip_identity::GossipIdentity;
@@ -11,7 +12,7 @@ use crate::relay_picker_hooks::Hooks;
 use crate::status::StatusQueue;
 use crate::storage::Storage;
 use dashmap::{DashMap, DashSet};
-use gossip_relay_picker::RelayPicker;
+use gossip_relay_picker::{Direction, RelayPicker};
 use nostr_types::{Event, Id, PayRequestData, Profile, PublicKey, RelayUrl, UncheckedUrl};
 use parking_lot::RwLock as PRwLock;
 use regex::Regex;
@@ -240,5 +241,58 @@ impl Globals {
         }
 
         Some(profile)
+    }
+
+    // Which relays should an event be posted to (that it hasn't already been
+    // seen on)?
+    pub fn relays_for_event(event: &Event) -> Result<Vec<RelayUrl>, Error> {
+        let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
+        let mut relay_urls: Vec<RelayUrl> = Vec::new();
+
+        // Get all of the relays that we write to
+        let write_relay_urls: Vec<RelayUrl> = GLOBALS
+            .storage
+            .filter_relays(|r| r.has_usage_bits(Relay::WRITE) && r.rank != 0)?
+            .iter()
+            .map(|relay| relay.url.clone())
+            .collect();
+        relay_urls.extend(write_relay_urls);
+
+        // Get 'read' relays for everybody tagged in the event.
+        let mut tagged_pubkeys: Vec<PublicKey> = event
+            .tags
+            .iter()
+            .filter_map(|t| {
+                if let Ok((pubkey, _, _)) = t.parse_pubkey() {
+                    Some(pubkey)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        for pubkey in tagged_pubkeys.drain(..) {
+            let best_relays: Vec<RelayUrl> = GLOBALS
+                .storage
+                .get_best_relays(pubkey, Direction::Read)?
+                .drain(..)
+                .take(num_relays_per_person as usize + 1)
+                .map(|(u, _)| u)
+                .collect();
+            relay_urls.extend(best_relays);
+        }
+
+        // Remove all the 'seen_on' relays for this event
+        let seen_on: Vec<RelayUrl> = GLOBALS
+            .storage
+            .get_event_seen_on_relay(event.id)?
+            .iter()
+            .map(|(url, _time)| url.to_owned())
+            .collect();
+        relay_urls.retain(|r| !seen_on.contains(r));
+
+        relay_urls.sort();
+        relay_urls.dedup();
+
+        Ok(relay_urls)
     }
 }
