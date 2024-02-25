@@ -111,6 +111,9 @@ pub use nip46::{Nip46Server, Nip46UnconnectedServer};
 mod overlord;
 pub use overlord::Overlord;
 
+mod pending;
+pub use pending::Pending;
+
 mod people;
 pub use people::{hash_person_list_event, People, Person, PersonList, PersonListMetadata};
 
