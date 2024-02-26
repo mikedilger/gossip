@@ -946,11 +946,11 @@ pub(crate) fn fetch_current_personlist_matching_event(
 }
 
 // as opposed to GLOBALS.storage.hash_person_list(list)
-pub(crate) fn hash_person_list_event(list: PersonList) -> Result<u64, Error> {
+pub fn hash_person_list_event(list: PersonList) -> Result<u64, Error> {
     // we cannot do anything without an identity setup first
     let my_pubkey = match GLOBALS.storage.read_setting_public_key() {
         Some(pk) => pk,
-        None => return Err(ErrorKind::NoPublicKey.into())
+        None => return Err(ErrorKind::NoPublicKey.into()),
     };
 
     // Get the metadata of the list, which affects force-private logic
@@ -960,11 +960,10 @@ pub(crate) fn hash_person_list_event(list: PersonList) -> Result<u64, Error> {
     };
 
     // Load the latest PersonList event from the database
-    let maybe_event = GLOBALS.storage.get_replaceable_event(
-        list.event_kind(),
-        my_pubkey,
-        &metadata.dtag,
-    )?;
+    let maybe_event =
+        GLOBALS
+            .storage
+            .get_replaceable_event(list.event_kind(), my_pubkey, &metadata.dtag)?;
 
     if let Some(event) = maybe_event {
         let mut hasher = std::hash::DefaultHasher::new();

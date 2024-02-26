@@ -17,7 +17,9 @@ pub(in crate::ui) struct ListUi {
     cache_last_list: Option<PersonList>,
     cache_next_refresh: Instant,
     cache_people: Vec<(Person, bool)>,
+    cache_remote_hash: u64,
     cache_remote_tag: String,
+    cache_local_hash: u64,
     cache_local_tag: String,
 
     // add contact
@@ -37,7 +39,9 @@ impl ListUi {
             cache_last_list: None,
             cache_next_refresh: Instant::now(),
             cache_people: Vec::new(),
+            cache_remote_hash: 0,
             cache_remote_tag: String::new(),
+            cache_local_hash: 0,
             cache_local_tag: String::new(),
 
             // add contact
@@ -125,62 +129,67 @@ pub(super) fn update(
     ui.add_space(5.0);
 
     ui.vertical(|ui| {
+
         ui.label(RichText::new(&app.people_list.cache_remote_tag))
             .on_hover_text("This is the data in the latest list event fetched from relays");
 
         ui.add_space(5.0);
 
-        // remote <-> local buttons
-        ui.horizontal(|ui|{
-            if ui
-                .button("↓ Overwrite ↓")
-                .on_hover_text(
-                    "This imports data from the latest event, erasing anything that is already here",
-                )
-                .clicked()
-            {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::UpdatePersonList {
-                        person_list: list,
-                        merge: false,
-                    });
-            }
-            if ui
-                .button("↓ Merge ↓")
-                .on_hover_text(
-                    "This imports data from the latest event, merging it into what is already here",
-                )
-                .clicked()
-            {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::UpdatePersonList {
-                        person_list: list,
-                        merge: true,
-                    });
-            }
-
-            if GLOBALS.identity.is_unlocked() {
+        if app.people_list.cache_local_hash == app.people_list.cache_remote_hash {
+            ui.label("Lists is synchronized");
+        } else {
+            // remote <-> local buttons
+            ui.horizontal(|ui|{
                 if ui
-                    .button("↑ Publish ↑")
-                    .on_hover_text("This publishes the list to your relays")
+                    .button("↓ Overwrite ↓")
+                    .on_hover_text(
+                        "This imports data from the latest event, erasing anything that is already here",
+                    )
                     .clicked()
                 {
                     let _ = GLOBALS
                         .to_overlord
-                        .send(ToOverlordMessage::PushPersonList(list));
+                        .send(ToOverlordMessage::UpdatePersonList {
+                            person_list: list,
+                            merge: false,
+                        });
                 }
-            } else {
-                ui.horizontal(|ui| {
-                    ui.label("You need to ");
-                    if ui.link("setup your private-key").clicked() {
-                        app.set_page(ctx, Page::YourKeys);
+                if ui
+                    .button("↓ Merge ↓")
+                    .on_hover_text(
+                        "This imports data from the latest event, merging it into what is already here",
+                    )
+                    .clicked()
+                {
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::UpdatePersonList {
+                            person_list: list,
+                            merge: true,
+                        });
+                }
+
+                if GLOBALS.identity.is_unlocked() {
+                    if ui
+                        .button("↑ Publish ↑")
+                        .on_hover_text("This publishes the list to your relays")
+                        .clicked()
+                    {
+                        let _ = GLOBALS
+                            .to_overlord
+                            .send(ToOverlordMessage::PushPersonList(list));
                     }
-                    ui.label(" to push lists.");
-                });
-            }
-        });
+                } else {
+                    ui.horizontal(|ui| {
+                        ui.label("You need to ");
+                        if ui.link("setup your private-key").clicked() {
+                            app.set_page(ctx, Page::YourKeys);
+                        }
+                        ui.label(" to push lists.");
+                    });
+                }
+            });
+        }
 
         ui.add_space(5.0);
 
@@ -864,16 +873,18 @@ fn refresh_list_data(app: &mut GossipUi, list: PersonList) {
         }
     }
 
+    app.people_list.cache_remote_hash = gossip_lib::hash_person_list_event(list).unwrap_or(0);
+
     app.people_list.cache_remote_tag = if metadata.event_created_at.0 == 0 {
         "REMOTE: not found on Active Relays".to_owned()
     } else if let Some(private_len) = metadata.event_private_len {
         format!(
-            "REMOTE: {} (public_len={} private_len={})",
+            "REMOTE: date={} (public_len={} private_len={})",
             asof, metadata.event_public_len, private_len
         )
     } else {
         format!(
-            "REMOTE: {} (public_len={})",
+            "REMOTE: date={} (public_len={})",
             asof, metadata.event_public_len
         )
     };
@@ -897,8 +908,10 @@ fn refresh_list_data(app: &mut GossipUi, list: PersonList) {
         .count();
     let privlen = app.people_list.cache_people.len() - publen;
 
+    app.people_list.cache_local_hash = GLOBALS.storage.hash_person_list(list).unwrap_or(0);
+
     app.people_list.cache_local_tag = format!(
-        "LOCAL: {} (public_len={}, private_len={})",
+        "LOCAL: date={} (public_len={}, private_len={})",
         ledit, publen, privlen
     );
 

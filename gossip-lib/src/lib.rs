@@ -112,7 +112,7 @@ mod overlord;
 pub use overlord::Overlord;
 
 mod people;
-pub use people::{People, Person, PersonList, PersonListMetadata};
+pub use people::{hash_person_list_event, People, Person, PersonList, PersonListMetadata};
 
 mod person_relay;
 pub use person_relay::PersonRelay;
