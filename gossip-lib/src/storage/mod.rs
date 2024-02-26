@@ -2409,6 +2409,11 @@ impl Storage {
         self.get_people_in_list2(list)
     }
 
+    /// Hash a person list
+    pub fn hash_person_list(&self, list: PersonList) -> Result<u64, Error> {
+        self.hash_person_list2(list)
+    }
+
     pub fn get_people_in_all_followed_lists(&self) -> Result<Vec<PublicKey>, Error> {
         self.get_people_in_all_followed_lists2()
     }
