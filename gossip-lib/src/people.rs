@@ -9,6 +9,7 @@ use nostr_types::{
     UncheckedUrl, Unixtime, Url,
 };
 use serde::{Deserialize, Serialize};
+use std::hash::{Hash, Hasher};
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 use tokio::sync::RwLock;
@@ -942,4 +943,61 @@ pub(crate) fn fetch_current_personlist_matching_event(
     };
 
     Ok((list, metadata, new))
+}
+
+// as opposed to GLOBALS.storage.hash_person_list(list)
+pub(crate) fn hash_person_list_event(list: PersonList) -> Result<u64, Error> {
+    // we cannot do anything without an identity setup first
+    let my_pubkey = match GLOBALS.storage.read_setting_public_key() {
+        Some(pk) => pk,
+        None => return Err(ErrorKind::NoPublicKey.into())
+    };
+
+    // Get the metadata of the list, which affects force-private logic
+    let metadata = match GLOBALS.storage.get_person_list_metadata(list)? {
+        Some(m) => m,
+        None => return Err(ErrorKind::ListNotFound.into()), // list event not found
+    };
+
+    // Load the latest PersonList event from the database
+    let maybe_event = GLOBALS.storage.get_replaceable_event(
+        list.event_kind(),
+        my_pubkey,
+        &metadata.dtag,
+    )?;
+
+    if let Some(event) = maybe_event {
+        let mut hasher = std::hash::DefaultHasher::new();
+
+        // Hash public entries
+        for tag in &event.tags {
+            if let Ok((pubkey, _, _)) = tag.parse_pubkey() {
+                let public = !metadata.private;
+                pubkey.hash(&mut hasher);
+                public.hash(&mut hasher);
+            }
+        }
+
+        // Hash private entries
+        if list != PersonList::Followed && !event.content.is_empty() {
+            if GLOBALS.identity.is_unlocked() {
+                let decrypted_content =
+                    GLOBALS.identity.decrypt_nip04(&my_pubkey, &event.content)?;
+                let tags: Vec<Tag> = serde_json::from_slice(&decrypted_content)?;
+                for tag in &tags {
+                    if let Ok((pubkey, _, _)) = tag.parse_pubkey() {
+                        let public = false;
+                        pubkey.hash(&mut hasher);
+                        public.hash(&mut hasher);
+                    }
+                }
+            } else {
+                return Err(ErrorKind::NoPrivateKey.into());
+            }
+        }
+
+        Ok(hasher.finish())
+    } else {
+        Ok(0)
+    }
 }
