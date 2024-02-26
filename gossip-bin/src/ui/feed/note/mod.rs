@@ -514,17 +514,18 @@ fn render_note_inner(
                             GLOBALS.dismissed.blocking_write().push(note.event.id);
                             *keep_open = false;
                         }
-                        if note.deletions.is_empty() {
-                            if ui.button("Delete").clicked() {
-                                let _ = GLOBALS
-                                    .to_overlord
-                                    .send(ToOverlordMessage::DeletePost(note.event.id));
-                                *keep_open = false;
-                            }
-                        }
-                        // Chance to post our note again to relays it missed
                         if let Some(our_pubkey) = GLOBALS.identity.public_key() {
                             if note.event.pubkey == our_pubkey {
+                                if note.deletions.is_empty() {
+                                    if ui.button("Delete").clicked() {
+                                        let _ = GLOBALS
+                                            .to_overlord
+                                            .send(ToOverlordMessage::DeletePost(note.event.id));
+                                        *keep_open = false;
+                                    }
+                                }
+
+                                // Chance to post our note again to relays it missed
                                 if let Ok(broadcast_relays) = Globals::relays_for_event(&note.event)
                                 {
                                     if !broadcast_relays.is_empty() {
