@@ -512,6 +512,7 @@ fn render_note_inner(
                         }
                         if ui.button("Dismiss").clicked() {
                             GLOBALS.dismissed.blocking_write().push(note.event.id);
+                            GLOBALS.feed.sync_recompute();
                             *keep_open = false;
                         }
                         if let Some(our_pubkey) = GLOBALS.identity.public_key() {
