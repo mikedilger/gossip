@@ -117,6 +117,9 @@ pub enum ToOverlordMessage {
         dm_channel: Option<DmChannel>,
     },
 
+    /// Calls [post_again](crate::Overlord::post_again)
+    PostAgain(Event),
+
     /// Calls [post_nip46_event](crate::Overlord::post_nip46_event)
     PostNip46Event(Event, Vec<RelayUrl>),
 
@@ -238,7 +241,7 @@ pub(crate) enum ToMinionPayloadDetail {
     AuthDeclined,
     FetchEvent(Id),
     FetchEventAddr(EventAddr),
-    PostEvent(Box<Event>),
+    PostEvents(Vec<Event>),
     Shutdown,
     SubscribeAugments(Vec<IdHex>),
     SubscribeOutbox,

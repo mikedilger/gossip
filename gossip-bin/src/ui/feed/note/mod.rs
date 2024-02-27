@@ -16,7 +16,7 @@ use egui::{
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::DmChannel;
 use gossip_lib::FeedKind;
-use gossip_lib::{ZapState, GLOBALS};
+use gossip_lib::{Globals, ZapState, GLOBALS};
 use nostr_types::{
     Event, EventAddr, EventDelegation, EventKind, EventPointer, EventReference, IdHex, NostrUrl,
     UncheckedUrl,
@@ -512,14 +512,38 @@ fn render_note_inner(
                         }
                         if ui.button("Dismiss").clicked() {
                             GLOBALS.dismissed.blocking_write().push(note.event.id);
+                            GLOBALS.feed.sync_recompute();
                             *keep_open = false;
                         }
-                        if note.deletions.is_empty() {
-                            if ui.button("Delete").clicked() {
-                                let _ = GLOBALS
-                                    .to_overlord
-                                    .send(ToOverlordMessage::DeletePost(note.event.id));
-                                *keep_open = false;
+                        if let Some(our_pubkey) = GLOBALS.identity.public_key() {
+                            if note.event.pubkey == our_pubkey {
+                                if note.deletions.is_empty() {
+                                    if ui.button("Delete").clicked() {
+                                        let _ = GLOBALS
+                                            .to_overlord
+                                            .send(ToOverlordMessage::DeletePost(note.event.id));
+                                        *keep_open = false;
+                                    }
+                                }
+
+                                // Chance to post our note again to relays it missed
+                                if let Ok(broadcast_relays) = Globals::relays_for_event(&note.event)
+                                {
+                                    if !broadcast_relays.is_empty() {
+                                        if ui
+                                            .button(&format!(
+                                                "Post again ({})",
+                                                broadcast_relays.len()
+                                            ))
+                                            .clicked()
+                                        {
+                                            let _ = GLOBALS.to_overlord.send(
+                                                ToOverlordMessage::PostAgain(note.event.clone()),
+                                            );
+                                            *keep_open = false;
+                                        }
+                                    }
+                                }
                             }
                         }
                         if ui.button("Rerender").clicked() {
