@@ -2,6 +2,8 @@ use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::people::PersonList;
 use nostr_types::{EventKind, RelayList, Unixtime};
+use std::time::Duration;
+use tokio::task;
 
 #[derive(Debug, Clone, Hash, PartialEq)]
 pub enum Pending {
@@ -73,4 +75,23 @@ impl Pending {
 
         Ok(pending)
     }
+}
+
+pub fn start() {
+    task::spawn(async {
+        loop {
+            // Recompute every 15 seconds
+            tokio::time::sleep(Duration::from_secs(15)).await;
+
+            let pending = match Pending::compute_pending() {
+                Ok(vec) => vec,
+                Err(e) => {
+                    tracing::error!("{:?}", e);
+                    continue;
+                }
+            };
+
+            *GLOBALS.pending.write() = pending;
+        }
+    });
 }

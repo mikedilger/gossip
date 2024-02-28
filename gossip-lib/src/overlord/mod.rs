@@ -190,6 +190,9 @@ impl Overlord {
         // Start periodic tasks in people manager (after signer)
         crate::people::People::start();
 
+        // Start periodic tasks in pending
+        crate::pending::start();
+
         // Initialize the relay picker
         GLOBALS.relay_picker.init().await?;
 
