@@ -1235,12 +1235,12 @@ impl eframe::App for GossipUi {
                     requested_scroll += 50.0;
                 }
                 if i.key_pressed(egui::Key::PageUp) {
-                    let screen_rect = ctx.input(|i| i.screen_rect);
+                    let screen_rect = i.screen_rect;
                     let window_height = screen_rect.max.y - screen_rect.min.y;
                     requested_scroll += window_height * 0.75;
                 }
                 if i.key_pressed(egui::Key::PageDown) {
-                    let screen_rect = ctx.input(|i| i.screen_rect);
+                    let screen_rect = i.screen_rect;
                     let window_height = screen_rect.max.y - screen_rect.min.y;
                     requested_scroll -= window_height * 0.75;
                 }
