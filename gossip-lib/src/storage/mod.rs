@@ -1196,7 +1196,7 @@ impl Storage {
 
             // Set or create read relays
             for (relay_url, usage) in relay_list.0.iter() {
-                if let Some(mut dbrelay) = self.read_relay(&relay_url)? {
+                if let Some(mut dbrelay) = self.read_relay(relay_url)? {
                     // Set bits
                     let update_bits = match usage {
                         RelayUsage::Read => Relay::INBOX,
