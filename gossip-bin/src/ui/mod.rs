@@ -1274,6 +1274,12 @@ impl eframe::App for GossipUi {
             i.smooth_scroll_delta.y = self.current_scroll_offset;
         });
 
+        // F11 maximizes
+        if ctx.input(|i| i.key_pressed(egui::Key::F11)) {
+            let maximized = matches!(ctx.input(|i| i.viewport().maximized), Some(true));
+            ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(!maximized));
+        }
+
         let mut reapply = false;
         let mut theme = Theme::from_settings();
         if theme.follow_os_dark_mode {
