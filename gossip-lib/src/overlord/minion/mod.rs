@@ -488,8 +488,13 @@ impl Minion {
                 self.subscribe_augments(message.job_id, ids).await?;
             }
             ToMinionPayloadDetail::SubscribeGeneralFeed(pubkeys) => {
-                self.general_feed_keys = pubkeys;
-                self.subscribe_general_feed(message.job_id).await?;
+                if self.general_feed_keys.is_empty() {
+                    self.general_feed_keys = pubkeys;
+                    self.subscribe_general_feed_initial(message.job_id).await?;
+                } else {
+                    self.subscribe_general_feed_additional(message.job_id, pubkeys)
+                        .await?;
+                }
             }
             ToMinionPayloadDetail::SubscribeInbox => {
                 self.subscribe_inbox(message.job_id).await?;
@@ -561,7 +566,7 @@ impl Minion {
     }
 
     // Subscribe to the user's followers on the relays they write to
-    async fn subscribe_general_feed(&mut self, job_id: u64) -> Result<(), Error> {
+    async fn subscribe_general_feed_initial(&mut self, job_id: u64) -> Result<(), Error> {
         tracing::debug!(
             "Following {} people at {}",
             self.general_feed_keys.len(),
@@ -609,6 +614,36 @@ impl Minion {
                 }
             }
         }
+
+        Ok(())
+    }
+
+    /// Subscribe to general feed with change of pubkeys
+    async fn subscribe_general_feed_additional(
+        &mut self,
+        job_id: u64,
+        pubkeys: Vec<PublicKey>,
+    ) -> Result<(), Error> {
+        // Figure out who the new people are (if any)
+        let mut new_keys = pubkeys.clone();
+        new_keys.retain(|key| !self.general_feed_keys.contains(key));
+        if !new_keys.is_empty() {
+            let since = match self.general_feed_start {
+                Some(start) => start,
+                None => self.compute_since(GLOBALS.storage.read_setting_feed_chunk()),
+            };
+
+            let mut filters = filter_fns::general_feed(&new_keys, since, None);
+            let filters2 = filter_fns::relay_lists(&new_keys);
+            filters.extend(filters2);
+
+            if !filters.is_empty() {
+                self.subscribe(filters, "temp_general_feed_update", job_id)
+                    .await?;
+            }
+        }
+
+        self.general_feed_keys = pubkeys;
 
         Ok(())
     }
