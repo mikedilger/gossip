@@ -80,6 +80,7 @@ pub struct Minion {
     subscriptions_waiting_for_auth: Vec<(String, Unixtime)>,
     subscriptions_waiting_for_metadata: Vec<(u64, Vec<PublicKey>)>,
     subscriptions_rate_limited: Vec<String>,
+    general_feed_keys: Vec<PublicKey>,
     general_feed_start: Option<Unixtime>,
     person_feed_start: Option<Unixtime>,
     inbox_feed_start: Option<Unixtime>,
@@ -110,6 +111,7 @@ impl Minion {
             subscriptions_waiting_for_auth: Vec::new(),
             subscriptions_waiting_for_metadata: Vec::new(),
             subscriptions_rate_limited: Vec::new(),
+            general_feed_keys: Vec::new(),
             general_feed_start: None,
             person_feed_start: None,
             inbox_feed_start: None,
@@ -485,7 +487,8 @@ impl Minion {
                 self.subscribe_augments(message.job_id, ids).await?;
             }
             ToMinionPayloadDetail::SubscribeGeneralFeed(pubkeys) => {
-                self.subscribe_general_feed(message.job_id, pubkeys).await?;
+                self.general_feed_keys = pubkeys;
+                self.subscribe_general_feed(message.job_id).await?;
             }
             ToMinionPayloadDetail::SubscribeInbox => {
                 self.subscribe_inbox(message.job_id).await?;
@@ -510,7 +513,8 @@ impl Minion {
                 self.subscribe_nip46(message.job_id).await?;
             }
             ToMinionPayloadDetail::TempSubscribeGeneralFeedChunk { pubkeys, start } => {
-                self.temp_subscribe_general_feed_chunk(message.job_id, pubkeys, start)
+                self.general_feed_keys = pubkeys;
+                self.temp_subscribe_general_feed_chunk(message.job_id, start)
                     .await?;
             }
             ToMinionPayloadDetail::TempSubscribePersonFeedChunk { pubkey, start } => {
@@ -568,14 +572,14 @@ impl Minion {
     }
 
     // Subscribe to the user's followers on the relays they write to
-    async fn subscribe_general_feed(
-        &mut self,
-        job_id: u64,
-        pubkeys: Vec<PublicKey>,
-    ) -> Result<(), Error> {
+    async fn subscribe_general_feed(&mut self, job_id: u64) -> Result<(), Error> {
         let mut filters: Vec<Filter> = Vec::new();
 
-        tracing::debug!("Following {} people at {}", pubkeys.len(), &self.url);
+        tracing::debug!(
+            "Following {} people at {}",
+            self.general_feed_keys.len(),
+            &self.url
+        );
 
         // Compute how far to look back
         let since = {
@@ -596,8 +600,9 @@ impl Minion {
         // Allow all feed related event kinds (excluding DMs)
         let event_kinds = crate::feed::feed_related_event_kinds(false);
 
-        if !pubkeys.is_empty() {
-            let pkp: Vec<PublicKeyHex> = pubkeys.iter().map(|pk| pk.into()).collect();
+        if !self.general_feed_keys.is_empty() {
+            let pkp: Vec<PublicKeyHex> =
+                self.general_feed_keys.iter().map(|pk| pk.into()).collect();
 
             // feed related by people followed
             filters.push(Filter {
@@ -615,7 +620,7 @@ impl Minion {
             // in the last 8 hours (so we don't do it every client restart).
             let keys_needing_relay_lists: Vec<PublicKeyHex> = GLOBALS
                 .people
-                .get_subscribed_pubkeys_needing_relay_lists(&pubkeys)
+                .get_subscribed_pubkeys_needing_relay_lists(&self.general_feed_keys)
                 .drain(..)
                 .map(|pk| pk.into())
                 .collect();
@@ -1225,7 +1230,6 @@ impl Minion {
     async fn temp_subscribe_general_feed_chunk(
         &mut self,
         job_id: u64,
-        pubkeys: Vec<PublicKey>,
         start: Unixtime,
     ) -> Result<(), Error> {
         let mut filters: Vec<Filter> = Vec::new();
@@ -1243,7 +1247,7 @@ impl Minion {
 
         tracing::debug!(
             "Following {} people at {}, from {} to {}",
-            pubkeys.len(),
+            self.general_feed_keys.len(),
             &self.url,
             start,
             end
@@ -1252,12 +1256,12 @@ impl Minion {
         // Allow all feed related event kinds (including DMs)
         let event_kinds = crate::feed::feed_related_event_kinds(true);
 
-        if pubkeys.is_empty() {
+        if self.general_feed_keys.is_empty() {
             // Nothing to do
             return Ok(());
         }
 
-        let pkp: Vec<PublicKeyHex> = pubkeys.iter().map(|pk| pk.into()).collect();
+        let pkp: Vec<PublicKeyHex> = self.general_feed_keys.iter().map(|pk| pk.into()).collect();
 
         // feed related by people followed
         filters.push(Filter {
