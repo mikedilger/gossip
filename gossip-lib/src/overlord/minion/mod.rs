@@ -1,3 +1,4 @@
+mod filter_fns;
 mod handle_websocket;
 mod subscription;
 mod subscription_map;
@@ -540,20 +541,9 @@ impl Minion {
     }
 
     async fn subscribe_augments(&mut self, job_id: u64, ids: Vec<IdHex>) -> Result<(), Error> {
-        let mut event_kinds = crate::feed::feed_related_event_kinds(false);
-        event_kinds.retain(|f| f.augments_feed_related());
+        let filters = filter_fns::augments(&ids);
 
-        let filter = {
-            let mut filter = Filter {
-                kinds: event_kinds,
-                ..Default::default()
-            };
-            filter.set_tag_values('e', ids.iter().map(|id| id.to_string()).collect());
-            filter
-        };
-
-        self.subscribe(vec![filter], "temp_augments", job_id)
-            .await?;
+        self.subscribe(filters, "temp_augments", job_id).await?;
 
         if let Some(sub) = self.subscription_map.get_mut("temp_augments") {
             if let Some(nip11) = &self.nip11 {
@@ -572,8 +562,6 @@ impl Minion {
 
     // Subscribe to the user's followers on the relays they write to
     async fn subscribe_general_feed(&mut self, job_id: u64) -> Result<(), Error> {
-        let mut filters: Vec<Filter> = Vec::new();
-
         tracing::debug!(
             "Following {} people at {}",
             self.general_feed_keys.len(),
@@ -596,51 +584,9 @@ impl Minion {
             }
         };
 
-        // Allow all feed related event kinds (excluding DMs)
-        let event_kinds = crate::feed::feed_related_event_kinds(false);
-
-        if !self.general_feed_keys.is_empty() {
-            let pkp: Vec<PublicKeyHex> =
-                self.general_feed_keys.iter().map(|pk| pk.into()).collect();
-
-            // feed related by people followed
-            filters.push(Filter {
-                authors: pkp,
-                kinds: event_kinds.clone(),
-                since: Some(since),
-                ..Default::default()
-            });
-
-            // Try to find where people post.
-            // Subscribe to kind-10002 `RelayList`s to see where people post.
-            // Subscribe to ContactLists so we can look at the contents and
-            //   divine relays people write to (if using a client that does that).
-            // BUT ONLY for people where this kind of data hasn't been received
-            // in the last 8 hours (so we don't do it every client restart).
-            let keys_needing_relay_lists: Vec<PublicKeyHex> = GLOBALS
-                .people
-                .get_subscribed_pubkeys_needing_relay_lists(&self.general_feed_keys)
-                .drain(..)
-                .map(|pk| pk.into())
-                .collect();
-
-            if !keys_needing_relay_lists.is_empty() {
-                tracing::debug!(
-                    "Looking to update relay lists from {} people on {}",
-                    keys_needing_relay_lists.len(),
-                    &self.url
-                );
-
-                filters.push(Filter {
-                    authors: keys_needing_relay_lists,
-                    kinds: vec![EventKind::RelayList, EventKind::ContactList],
-                    // No since. These are replaceable events, we should only get 1 per person.
-                    ..Default::default()
-                });
-            }
-        }
-
-        // NO REPLIES OR ANCESTORS
+        let mut filters = filter_fns::general_feed(&self.general_feed_keys, since, None);
+        let filters2 = filter_fns::relay_lists(&self.general_feed_keys);
+        filters.extend(filters2);
 
         if filters.is_empty() {
             self.unsubscribe("general_feed").await?;
@@ -675,67 +621,13 @@ impl Minion {
             return Ok(());
         }
 
-        let mut filters: Vec<Filter> = Vec::new();
-
         // Compute how far to look back
         let replies_since = self.compute_since(GLOBALS.storage.read_setting_replies_chunk());
         self.inbox_feed_start = Some(replies_since);
 
-        // GiftWrap lookback needs to be one week further back
-        // FIXME: this depends on how far other clients backdate.
-        let giftwrap_since = Unixtime(replies_since.0 - 60 * 60 * 24 * 7);
+        let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
 
-        // Allow all feed related event kinds (including DMs)
-        let mut event_kinds = crate::feed::feed_related_event_kinds(true);
-        event_kinds.retain(|f| *f != EventKind::GiftWrap); // gift wrap has special filter
-
-        if let Some(pubkey) = GLOBALS.identity.public_key() {
-            // Any mentions of me
-            // (but not in peoples contact lists, for example)
-
-            let pkh: PublicKeyHex = pubkey.into();
-
-            let filter = {
-                let mut filter = Filter {
-                    kinds: event_kinds,
-                    since: Some(replies_since),
-                    ..Default::default()
-                };
-                let values = vec![pkh.to_string()];
-                filter.set_tag_values('p', values);
-
-                // Spam prevention:
-                if !self.dbrelay.has_usage_bits(Relay::SPAMSAFE)
-                    && GLOBALS.storage.read_setting_avoid_spam_on_unsafe_relays()
-                {
-                    // As the relay is not spam safe, only take mentions from followers
-                    filter.authors = GLOBALS
-                        .people
-                        .get_subscribed_pubkeys()
-                        .drain(..)
-                        .map(|pk| pk.into())
-                        .collect();
-                }
-
-                filter
-            };
-            filters.push(filter);
-
-            // Giftwrap specially looks back further
-            // Giftwraps cannot be filtered by author so we have to take them regardless
-            // of the spamsafe designation of the relay.
-            let filter = {
-                let mut filter = Filter {
-                    kinds: vec![EventKind::GiftWrap],
-                    since: Some(giftwrap_since),
-                    ..Default::default()
-                };
-                let values = vec![pkh.to_string()];
-                filter.set_tag_values('p', values);
-                filter
-            };
-            filters.push(filter);
-        }
+        let filters = filter_fns::inbox(replies_since, None, spamsafe);
 
         if filters.is_empty() {
             return Ok(());
@@ -760,46 +652,13 @@ impl Minion {
 
     // Subscribe to the user's output (config, DMs, etc) which is on their own write relays
     async fn subscribe_outbox(&mut self, job_id: u64) -> Result<(), Error> {
-        if let Some(pubkey) = GLOBALS.identity.public_key() {
-            let pkh: PublicKeyHex = pubkey.into();
+        let since = self.compute_since(GLOBALS.storage.read_setting_person_feed_chunk());
 
-            let since = self.compute_since(GLOBALS.storage.read_setting_person_feed_chunk());
-            let giftwrap_since = Unixtime(since.0 - 60 * 60 * 24 * 7);
+        let filters = filter_fns::outbox(since);
 
-            // Read back in things that we wrote out to our write relays
-            // that we need
-            let filters: Vec<Filter> = vec![
-                // Actual config stuff
-                Filter {
-                    authors: vec![pkh.clone()],
-                    kinds: vec![
-                        EventKind::Metadata,
-                        //EventKind::RecommendRelay,
-                        EventKind::ContactList,
-                        EventKind::MuteList,
-                        EventKind::FollowSets,
-                        EventKind::RelayList,
-                    ],
-                    // these are all replaceable, no since required
-                    ..Default::default()
-                },
-                // GiftWraps to me, recent only
-                Filter {
-                    authors: vec![pkh.clone()],
-                    kinds: vec![EventKind::GiftWrap],
-                    since: Some(giftwrap_since),
-                    ..Default::default()
-                },
-                // Events I posted recently, including feed_displayable and
-                //  augments (deletions, reactions, timestamp, label,reporting, and zap)
-                Filter {
-                    authors: vec![pkh],
-                    kinds: crate::feed::feed_related_event_kinds(false), // not DMs
-                    since: Some(since),
-                    ..Default::default()
-                },
-            ];
-
+        if filters.is_empty() {
+            return Ok(());
+        } else {
             self.subscribe(filters, "config_feed", job_id).await?;
         }
 
@@ -813,14 +672,7 @@ impl Minion {
         pubkeys: Vec<PublicKey>,
     ) -> Result<(), Error> {
         if !pubkeys.is_empty() {
-            let pkp: Vec<PublicKeyHex> = pubkeys.iter().map(|pk| pk.into()).collect();
-
-            let filters: Vec<Filter> = vec![Filter {
-                authors: pkp,
-                kinds: vec![EventKind::RelayList],
-                // these are all replaceable, no since required
-                ..Default::default()
-            }];
+            let filters = filter_fns::discover(&pubkeys);
 
             self.subscribe(filters, "temp_discover_feed", job_id)
                 .await?;
@@ -833,20 +685,10 @@ impl Minion {
     async fn subscribe_person_feed(&mut self, job_id: u64, pubkey: PublicKey) -> Result<(), Error> {
         // NOTE we do not unsubscribe to the general feed
 
-        // Allow all feed related event kinds (excluding DMs)
-        let event_kinds = crate::feed::feed_displayable_event_kinds(false);
-
         let since = self.compute_since(GLOBALS.storage.read_setting_person_feed_chunk());
         self.person_feed_start = Some(since);
 
-        let filters: Vec<Filter> = vec![Filter {
-            authors: vec![pubkey.into()],
-            kinds: event_kinds,
-            since: Some(since),
-            ..Default::default()
-        }];
-
-        // NO REPLIES OR ANCESTORS
+        let filters = filter_fns::person_feed(pubkey, since, None);
 
         if filters.is_empty() {
             self.unsubscribe_person_feed().await?;
@@ -867,23 +709,13 @@ impl Minion {
         pubkey: PublicKey,
         since: Unixtime,
     ) -> Result<(), Error> {
-        // Allow all feed related event kinds (excluding DMs)
-        let event_kinds = crate::feed::feed_displayable_event_kinds(false);
-
         let until = match self.person_feed_start {
             Some(old_since_new_until) => old_since_new_until,
             None => Unixtime::now().unwrap(),
         };
-
         self.person_feed_start = Some(since);
 
-        let filters: Vec<Filter> = vec![Filter {
-            authors: vec![pubkey.into()],
-            kinds: event_kinds,
-            since: Some(since),
-            until: Some(until),
-            ..Default::default()
-        }];
+        let filters = filter_fns::person_feed(pubkey, since, Some(until));
 
         if filters.is_empty() {
             self.unsubscribe_person_feed().await?;
@@ -908,65 +740,13 @@ impl Minion {
             Some(old_since_new_until) => old_since_new_until,
             None => Unixtime::now().unwrap(),
         };
-
         self.inbox_feed_start = Some(since);
 
-        // Giftwraps look back even further
-        let giftwrap_since = Unixtime(since.0 - 60 * 60 * 24 * 7);
-        let giftwrap_until = Unixtime(until.0 - 60 * 60 * 24 * 7);
+        let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
 
-        // Allow all feed related event kinds (including DMs)
-        let mut event_kinds = crate::feed::feed_related_event_kinds(true);
-        event_kinds.retain(|f| *f != EventKind::GiftWrap); // gift wrap has special filter
+        let filters = filter_fns::inbox(since, Some(until), spamsafe);
 
-        let mut filters: Vec<Filter> = Vec::new();
-
-        if let Some(pubkey) = GLOBALS.identity.public_key() {
-            // Any mentions of me
-            // (but not in peoples contact lists, for example)
-
-            let pkh: PublicKeyHex = pubkey.into();
-
-            let filter = {
-                let mut filter = Filter {
-                    kinds: event_kinds,
-                    since: Some(since),
-                    until: Some(until),
-                    ..Default::default()
-                };
-                filter.set_tag_values('p', vec![pkh.to_string()]);
-
-                // Spam prevention:
-                if !self.dbrelay.has_usage_bits(Relay::SPAMSAFE)
-                    && GLOBALS.storage.read_setting_avoid_spam_on_unsafe_relays()
-                {
-                    filter.authors = GLOBALS
-                        .people
-                        .get_subscribed_pubkeys()
-                        .drain(..)
-                        .map(|pk| pk.into())
-                        .collect();
-                }
-
-                filter
-            };
-            filters.push(filter);
-
-            // Giftwrap specially looks back further
-            // Giftwraps cannot be filtered by author so we have to take them regardless
-            // of the spamsafe designation of the relay.
-            let filter = {
-                let mut filter = Filter {
-                    kinds: vec![EventKind::GiftWrap],
-                    since: Some(giftwrap_since),
-                    until: Some(giftwrap_until),
-                    ..Default::default()
-                };
-                filter.set_tag_values('p', vec![pkh.to_string()]);
-                filter
-            };
-            filters.push(filter);
-        } else {
+        if filters.is_empty() {
             self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
                 self.url.clone(),
                 job_id,
@@ -1000,58 +780,9 @@ impl Minion {
     ) -> Result<(), Error> {
         // NOTE we do not unsubscribe to the general feed
 
-        let mut filters: Vec<Filter> = Vec::new();
+        let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
 
-        if !ancestor_ids.is_empty() {
-            // We allow spammy ancestors since a descendant is sought, so spamsafe
-            // isn't relevant to these ancestor filters
-
-            // Get ancestors we know of so far
-            filters.push(Filter {
-                ids: ancestor_ids.clone(),
-                ..Default::default()
-            });
-
-            // Get reactions to ancestors, but not replies
-            let kinds = crate::feed::feed_augment_event_kinds();
-            let filter = {
-                let mut filter = Filter {
-                    kinds,
-                    ..Default::default()
-                };
-                let values = ancestor_ids.iter().map(|id| id.to_string()).collect();
-                filter.set_tag_values('e', values);
-                filter
-            };
-            filters.push(filter);
-        }
-
-        // Allow all feed related event kinds (excluding DMs)
-        let event_kinds = crate::feed::feed_related_event_kinds(false);
-
-        let filter = {
-            let mut filter = Filter {
-                kinds: event_kinds,
-                ..Default::default()
-            };
-            let values = vec![main.to_string()];
-            filter.set_tag_values('e', values);
-
-            // Spam prevention:
-            if !self.dbrelay.has_usage_bits(Relay::SPAMSAFE)
-                && GLOBALS.storage.read_setting_avoid_spam_on_unsafe_relays()
-            {
-                filter.authors = GLOBALS
-                    .people
-                    .get_subscribed_pubkeys()
-                    .drain(..)
-                    .map(|pk| pk.into())
-                    .collect();
-            }
-
-            filter
-        };
-        filters.push(filter);
+        let filters = filter_fns::thread(main, &ancestor_ids, spamsafe);
 
         self.subscribe(filters, "thread_feed", job_id).await?;
 
@@ -1063,53 +794,21 @@ impl Minion {
         job_id: u64,
         dmchannel: DmChannel,
     ) -> Result<(), Error> {
-        let pubkey = match GLOBALS.identity.public_key() {
-            Some(pk) => pk,
-            None => return Ok(()),
-        };
-        let pkh: PublicKeyHex = pubkey.into();
+        let filters = filter_fns::dm_channel(dmchannel);
 
-        // note: giftwraps can't be subscribed by channel. they are subscribed more
-        // globally, and have to be limited to recent ones.
-
-        let mut authors: Vec<PublicKeyHex> = dmchannel.keys().iter().map(|k| k.into()).collect();
-        authors.push(pkh.clone());
-
-        let filter = {
-            let mut filter = Filter {
-                authors,
-                kinds: vec![EventKind::EncryptedDirectMessage],
-                ..Default::default()
-            };
-            // tagging the user
-            filter.set_tag_values('p', vec![pkh.to_string()]);
-            filter
-        };
-        let filters: Vec<Filter> = vec![filter];
-
-        self.subscribe(filters, "dm_channel", job_id).await?;
+        if !filters.is_empty() {
+            self.subscribe(filters, "dm_channel", job_id).await?;
+        }
 
         Ok(())
     }
 
     async fn subscribe_nip46(&mut self, job_id: u64) -> Result<(), Error> {
-        let pubkey = match GLOBALS.identity.public_key() {
-            Some(pk) => pk,
-            None => return Ok(()),
-        };
-        let pkh: PublicKeyHex = pubkey.into();
+        let filters = filter_fns::nip46();
 
-        let filter = {
-            let mut filter = Filter {
-                kinds: vec![EventKind::NostrConnect],
-                ..Default::default()
-            };
-            filter.set_tag_values('p', vec![pkh.to_string()]);
-            filter
-        };
-        let filters: Vec<Filter> = vec![filter];
-
-        self.subscribe(filters, "nip46", job_id).await?;
+        if !filters.is_empty() {
+            self.subscribe(filters, "nip46", job_id).await?;
+        }
 
         Ok(())
     }
@@ -1231,8 +930,6 @@ impl Minion {
         job_id: u64,
         start: Unixtime,
     ) -> Result<(), Error> {
-        let mut filters: Vec<Filter> = Vec::new();
-
         let end = {
             if let Some(end) = self.general_feed_start {
                 end
@@ -1241,42 +938,26 @@ impl Minion {
                 Unixtime::now().unwrap()
             }
         };
-
         self.general_feed_start = Some(start);
 
-        tracing::debug!(
-            "Following {} people at {}, from {} to {}",
-            self.general_feed_keys.len(),
-            &self.url,
-            start,
-            end
-        );
+        let filters = filter_fns::general_feed(&self.general_feed_keys, start, Some(end));
 
-        // Allow all feed related event kinds (including DMs)
-        let event_kinds = crate::feed::feed_related_event_kinds(true);
+        if !filters.is_empty() {
+            tracing::debug!(
+                "Following {} people at {}, from {} to {}",
+                self.general_feed_keys.len(),
+                &self.url,
+                start,
+                end
+            );
 
-        if self.general_feed_keys.is_empty() {
-            // Nothing to do
-            return Ok(());
+            // We include the job_id so that if the user presses "load more" yet again,
+            // the new chunk subscription doesn't clobber this subscription which might
+            // not have run to completion yet.
+            let sub_name = format!("temp_general_feed_chunk_{}", job_id);
+
+            self.subscribe(filters, &sub_name, job_id).await?;
         }
-
-        let pkp: Vec<PublicKeyHex> = self.general_feed_keys.iter().map(|pk| pk.into()).collect();
-
-        // feed related by people followed
-        filters.push(Filter {
-            authors: pkp,
-            kinds: event_kinds.clone(),
-            since: Some(start),
-            until: Some(end),
-            ..Default::default()
-        });
-
-        // We include the job_id so that if the user presses "load more" yet again,
-        // the new chunk subscription doesn't clobber this subscription which might
-        // not have run to completion yet.
-        let sub_name = format!("temp_general_feed_chunk_{}", job_id);
-
-        self.subscribe(filters, &sub_name, job_id).await?;
 
         Ok(())
     }
@@ -1284,7 +965,7 @@ impl Minion {
     async fn temp_subscribe_metadata(
         &mut self,
         job_id: u64,
-        mut pubkeys: Vec<PublicKey>,
+        pubkeys: Vec<PublicKey>,
     ) -> Result<(), Error> {
         if self.subscription_map.has("temp_subscribe_metadata") {
             // Save for later
@@ -1293,19 +974,13 @@ impl Minion {
             return Ok(());
         }
 
-        let pkhp: Vec<PublicKeyHex> = pubkeys.drain(..).map(|pk| pk.into()).collect();
-
         tracing::trace!("Temporarily subscribing to metadata on {}", &self.url);
 
         let handle = "temp_subscribe_metadata".to_string();
-        let filter = Filter {
-            authors: pkhp,
-            kinds: vec![EventKind::Metadata, EventKind::RelayList],
-            // FIXME: we could probably get a since-last-fetched-their-metadata here.
-            //        but relays should just return the lastest of these.
-            ..Default::default()
-        };
-        self.subscribe(vec![filter], &handle, job_id).await
+
+        let filters = filter_fns::metadata(&pubkeys);
+
+        self.subscribe(filters, &handle, job_id).await
     }
 
     async fn subscribe(
