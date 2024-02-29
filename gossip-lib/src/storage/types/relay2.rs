@@ -45,9 +45,15 @@ pub struct Relay2 {
     pub last_attempt_nip11: Option<u64>,
 
     /// If the user allows connection to this relay
+    /// None: Ask (Default)
+    /// Some(false): Never
+    /// Some(true): Always
     pub allow_connect: Option<bool>,
 
     /// If the user allows this relay to AUTH them
+    /// None: Ask (Default)
+    /// Some(false): Never
+    /// Some(true): Always
     pub allow_auth: Option<bool>,
 }
 
