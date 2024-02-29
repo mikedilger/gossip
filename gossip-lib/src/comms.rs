@@ -252,14 +252,8 @@ pub(crate) enum ToMinionPayloadDetail {
     SubscribeThreadFeed(IdHex, Vec<IdHex>),
     SubscribeDmChannel(DmChannel),
     SubscribeNip46,
-    TempSubscribeGeneralFeedChunk {
-        pubkeys: Vec<PublicKey>,
-        start: Unixtime,
-    },
-    TempSubscribePersonFeedChunk {
-        pubkey: PublicKey,
-        start: Unixtime,
-    },
+    TempSubscribeGeneralFeedChunk(Unixtime),
+    TempSubscribePersonFeedChunk { pubkey: PublicKey, start: Unixtime },
     TempSubscribeInboxFeedChunk(Unixtime),
     TempSubscribeMetadata(Vec<PublicKey>),
     UnsubscribePersonFeed,

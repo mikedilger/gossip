@@ -512,8 +512,7 @@ impl Minion {
             ToMinionPayloadDetail::SubscribeNip46 => {
                 self.subscribe_nip46(message.job_id).await?;
             }
-            ToMinionPayloadDetail::TempSubscribeGeneralFeedChunk { pubkeys, start } => {
-                self.general_feed_keys = pubkeys;
+            ToMinionPayloadDetail::TempSubscribeGeneralFeedChunk(start) => {
                 self.temp_subscribe_general_feed_chunk(message.job_id, start)
                     .await?;
             }

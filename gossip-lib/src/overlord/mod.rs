@@ -1615,10 +1615,7 @@ impl Overlord {
                 target: relay_assignment.relay_url.as_str().to_owned(),
                 payload: ToMinionPayload {
                     job_id: 0,
-                    detail: ToMinionPayloadDetail::TempSubscribeGeneralFeedChunk {
-                        pubkeys: relay_assignment.pubkeys.clone(),
-                        start,
-                    },
+                    detail: ToMinionPayloadDetail::TempSubscribeGeneralFeedChunk(start),
                 },
             });
         }
