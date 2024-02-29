@@ -487,8 +487,8 @@ impl Minion {
             ToMinionPayloadDetail::SubscribeGeneralFeed(pubkeys) => {
                 self.subscribe_general_feed(message.job_id, pubkeys).await?;
             }
-            ToMinionPayloadDetail::SubscribeMentions => {
-                self.subscribe_mentions(message.job_id).await?;
+            ToMinionPayloadDetail::SubscribeInbox => {
+                self.subscribe_inbox(message.job_id).await?;
             }
             ToMinionPayloadDetail::SubscribeOutbox => {
                 self.subscribe_outbox(message.job_id).await?;
@@ -665,9 +665,9 @@ impl Minion {
 
     // Subscribe to anybody mentioning the user on the relays the user reads from
     // (and any other relay for the time being until nip65 is in widespread use)
-    async fn subscribe_mentions(&mut self, job_id: u64) -> Result<(), Error> {
-        // If we have already subscribed to mentions, do not resubscribe
-        if self.subscription_map.has("mentions_feed") {
+    async fn subscribe_inbox(&mut self, job_id: u64) -> Result<(), Error> {
+        // If we have already subscribed to inbox, do not resubscribe
+        if self.subscription_map.has("inbox_feed") {
             return Ok(());
         }
 
@@ -737,9 +737,9 @@ impl Minion {
             return Ok(());
         }
 
-        self.subscribe(filters, "mentions_feed", job_id).await?;
+        self.subscribe(filters, "inbox_feed", job_id).await?;
 
-        if let Some(sub) = self.subscription_map.get_mut("mentions_feed") {
+        if let Some(sub) = self.subscription_map.get_mut("inbox_feed") {
             if let Some(nip11) = &self.nip11 {
                 if !nip11.supports_nip(15) {
                     // Does not support EOSE.  Set subscription to EOSE now.
