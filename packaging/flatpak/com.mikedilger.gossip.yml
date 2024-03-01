@@ -1,0 +1,32 @@
+app-id: com.mikedilger.gossip
+command: gossip
+runtime: org.freedesktop.Platform
+runtime-version: 23.08
+sdk: org.freedesktop.Sdk
+sdk-extensions: [org.freedesktop.Sdk.Extension.rust-stable]
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin
+  env:
+    CARGO_HOME: /run/build/gossip/cargo
+rename-desktop-file: gossip.desktop
+rename-icon: gossip
+finish-args:
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=network
+  - --filesystem=home/.local/share/gossip:rw
+
+modules:
+  - name: gossip
+    buildsystem: simple
+    build-commands:
+      - cargo --offline fetch
+      - cargo --offline build --release
+      - install -Dm755 target/release/gossip /app/bin/gossip
+      - install -Dm644 LICENSE.txt /app/share/licenses/gossip/LICENSE
+      - install -Dm644 logo/gossip.svg -t /app/share/icons/hicolor/scalable/apps
+      - install -Dm644 packaging/debian/gossip.desktop -t /app/share/applications
+    sources:
+      - .build-tmp/cargo-sources.json
+      - type: dir
+        path: ../..
