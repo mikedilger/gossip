@@ -26,6 +26,7 @@ modules:
       - install -Dm644 LICENSE.txt /app/share/licenses/gossip/LICENSE
       - install -Dm644 logo/gossip.svg -t /app/share/icons/hicolor/scalable/apps
       - install -Dm644 packaging/debian/gossip.desktop -t /app/share/applications
+      - install -Dm644 packaging/com.mikedilger.gossip.metainfo.xml -t /app/share/metainfo
     sources:
       - .build-tmp/cargo-sources.json
       - type: dir
