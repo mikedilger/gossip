@@ -11,7 +11,9 @@ pub use copy_button::{CopyButton, COPY_SYMBOL_SIZE};
 mod nav_item;
 use egui_winit::egui::text::LayoutJob;
 use egui_winit::egui::text_edit::TextEditOutput;
-use egui_winit::egui::{self, vec2, Align, FontSelection, Rect, RichText, Sense, Ui, WidgetText};
+use egui_winit::egui::{
+    self, vec2, Align, FontSelection, Rect, Response, RichText, Sense, Ui, WidgetText,
+};
 pub use nav_item::NavItem;
 
 mod relay_entry;
@@ -100,6 +102,12 @@ pub fn truncated_label(ui: &mut Ui, text: impl Into<WidgetText>, max_width: f32)
     // the only way to force egui to respect all our above settings
     // is to pass in the galley directly
     ui.label(job);
+}
+
+/// Create a clickable label
+pub fn clickable_label(ui: &mut Ui, text: impl Into<WidgetText>) -> Response {
+    let label = egui::Label::new(text).sense(Sense::click());
+    ui.add(label).on_hover_cursor(egui::CursorIcon::Default)
 }
 
 pub fn break_anywhere_hyperlink_to(ui: &mut Ui, text: impl Into<WidgetText>, url: impl ToString) {
