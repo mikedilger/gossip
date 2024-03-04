@@ -258,7 +258,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         let mut label = RichText::new("  >  Continue");
         label = label.color(app.theme.accent_color());
         if ui.button(label).clicked() {
-            app.set_page(ctx, Page::Wizard(WizardPage::SetupMetadata));
+            app.set_page(ctx, Page::Wizard(WizardPage::FollowPeople));
         };
     }
 }
