@@ -9,10 +9,11 @@ use gossip_lib::GLOBALS;
 use nostr_types::RelayUrl;
 use std::collections::BTreeMap;
 
-pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-    ui.add_space(20.0);
-    ui.label("Please choose which relays you will use.");
+const MIN_OUTBOX: usize = 3;
+const MIN_INBOX: usize = 2;
+const MIN_DISCOVERY: usize = 1;
 
+pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     let read_relay = |url: &RelayUrl| GLOBALS.storage.read_or_create_relay(url, None).unwrap();
 
     // Convert our default relay strings into Relays
@@ -55,12 +56,22 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         .collect();
 
     ui.add_space(20.0);
+    if outbox_relays.len() >= MIN_OUTBOX
+        && inbox_relays.len() >= MIN_INBOX
+        && discovery_relays.len() >= MIN_DISCOVERY
+    {
+        ui.label("Your relay list looks good but you can refine it below.");
+    } else {
+        ui.label("Please choose which relays you want to use:");
+    }
+
+    ui.add_space(20.0);
     ui.horizontal(|ui| {
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
                 ui.heading("OUTBOX")
                     .on_hover_text("Relays where you post notes to");
-                if outbox_relays.len() >= 3 {
+                if outbox_relays.len() >= MIN_OUTBOX {
                     ui.label(RichText::new(" - OK").color(Color32::GREEN));
                 } else {
                     ui.label(
@@ -89,7 +100,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.heading("INBOX").on_hover_text(
                     "Relays where people can send you events tagging you, including DMs",
                 );
-                if inbox_relays.len() >= 2 {
+                if inbox_relays.len() >= MIN_INBOX {
                     ui.label(RichText::new(" - OK").color(Color32::GREEN));
                 } else {
                     ui.label(
@@ -117,7 +128,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             ui.horizontal(|ui| {
                 ui.heading("DISCOVERY")
                     .on_hover_text("Relays where you find out what relays other people are using");
-                if !discovery_relays.is_empty() {
+                if discovery_relays.len() >= MIN_DISCOVERY {
                     ui.label(RichText::new(" - OK").color(Color32::GREEN));
                 } else {
                     ui.label(
@@ -216,6 +227,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             }
         });
     }
+
+    ui.add_space(20.0);
+    ui.separator();
+    ui.add_space(20.0);
 
     if app.wizard_state.has_private_key {
         ui.add_space(20.0);
