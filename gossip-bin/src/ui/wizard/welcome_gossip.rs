@@ -43,4 +43,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         let _ = GLOBALS.storage.set_flag_following_only(true, None);
         app.set_page(ctx, Page::Wizard(WizardPage::FollowPeople));
     }
+
+    ui.add_space(20.0);
+    if ui.button("  X  Exit this Wizard").clicked() {
+        super::complete_wizard(app, ctx);
+    }
 }

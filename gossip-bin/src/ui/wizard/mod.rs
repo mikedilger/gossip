@@ -197,13 +197,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 WizardPage::FollowPeople => follow_people::update(app, ctx, frame, ui),
             }
 
-            ui.add_space(20.0);
-            if wp != WizardPage::FollowPeople {
-                if ui.button("  X  Exit this Wizard").clicked() {
-                    complete_wizard(app, ctx);
-                }
-            }
-
             ui.add_space(10.0);
             ui.separator();
             ui.add_space(10.0);
