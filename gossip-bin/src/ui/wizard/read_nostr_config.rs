@@ -53,8 +53,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         }
     });
 
-    if app.wizard_state.need_relay_list() && !app.wizard_state.relay_list_sought {
-        app.wizard_state.relay_list_sought = true;
+    if app.wizard_state.need_relay_list() && app.wizard_state.relay_list_sought {
+        app.wizard_state.relay_list_sought = false;
 
         let discovery_relays: Vec<RelayUrl> = app
             .wizard_state
