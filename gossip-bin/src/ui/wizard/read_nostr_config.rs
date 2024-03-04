@@ -78,23 +78,34 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     ui.add_space(10.0);
 
     if app.wizard_state.need_relay_list() || app.wizard_state.need_user_data() {
-        ui.label("Please enter a relay where your existing configuration can be loaded from:");
+        let mut found = false;
 
         // If we have write relays, show those
         if let Ok(pairs) = GLOBALS.storage.get_best_relays(pubkey, Direction::Write) {
-            for (url, _score) in pairs {
-                ui.add_space(10.0);
-                ui.horizontal(|ui| {
-                    ui.label("Load from:");
-                    if ui.button(url.as_str()).clicked() {
-                        let _ = GLOBALS
-                            .to_overlord
-                            .send(ToOverlordMessage::SubscribeConfig(Some(vec![
-                                url.to_owned()
-                            ])));
-                    }
-                });
+            if !pairs.is_empty() {
+                found = true;
+                ui.label("Good news: we found your profile!");
+                ui.label("Please choose one relay to load your profile (kind: 03) from, or specify a manual relay below:");
+                for (url, _score) in pairs {
+                    ui.add_space(10.0);
+                    ui.horizontal(|ui| {
+                        ui.label(url.as_str());
+                        if ui.button("Load").clicked() {
+                            let _ =
+                                GLOBALS
+                                    .to_overlord
+                                    .send(ToOverlordMessage::SubscribeConfig(Some(vec![
+                                        url.to_owned()
+                                    ])));
+                        }
+                    });
+                }
             }
+        }
+
+        if !found {
+            ui.label("We could not yet find your profile...");
+            ui.label("You can manually enter a relay where your existing profile (kind: 03) can be loaded from:");
         }
 
         ui.add_space(20.0);
