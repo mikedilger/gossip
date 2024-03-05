@@ -1,4 +1,4 @@
-use gossip_lib::{PersonList, Relay, GLOBALS};
+use gossip_lib::{Person, PersonList, Relay, GLOBALS};
 use nostr_types::{Event, EventKind, PublicKey, RelayUrl};
 use std::collections::HashSet;
 
@@ -20,7 +20,8 @@ pub struct WizardState {
     pub contact_list_events: Vec<Event>,
     pub relay_list_events: Vec<Event>,
     pub relays: Vec<Relay>,
-    pub followed: Vec<PublicKey>,
+    pub followed: Vec<(Option<PublicKey>, Option<Person>)>,
+    pub followed_last_try: f64,
     pub followed_getting_metadata: HashSet<PublicKey>,
     pub contacts_sought: bool,
     pub generating: bool,
@@ -46,6 +47,7 @@ impl Default for WizardState {
             relay_list_events: Vec::new(),
             relays: Vec::new(),
             followed: Vec::new(),
+            followed_last_try: 0.0,
             followed_getting_metadata: HashSet::new(),
             contacts_sought: true,
             generating: false,
@@ -86,7 +88,7 @@ impl WizardState {
             .get_people_in_list(PersonList::Followed)
             .unwrap_or_default()
             .drain(..)
-            .map(|(pk, _)| pk)
+            .map(|(pk, _)| (Some(pk), None))
             .collect();
 
         if self.need_discovery_relays() {

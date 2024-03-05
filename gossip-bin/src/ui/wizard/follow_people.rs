@@ -1,5 +1,5 @@
 use crate::ui::wizard::WizardPage;
-use crate::ui::{GossipUi, Page};
+use crate::ui::{widgets, GossipUi, Page};
 use eframe::egui;
 use egui::{Context, RichText, Ui};
 use gossip_lib::comms::ToOverlordMessage;
@@ -25,59 +25,101 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     }
 
     ui.add_space(10.0);
-    ui.heading("Followed:");
-    let mut limit = 10;
-    for pk in &app.wizard_state.followed {
-        let person = match GLOBALS.storage.read_person(pk) {
-            Ok(Some(p)) => p,
-            Ok(None) => Person::new(*pk),
-            Err(_) => Person::new(*pk),
-        };
+    ui.heading(format!("Followed ({}):", app.wizard_state.followed.len()));
 
-        if let Some(metadata) = person.metadata {
-            // We have metadata, render their name
-            if let Some(name) = &metadata.name {
-                ui.label(name);
-            } else {
-                ui.label(pk.as_hex_string());
-            }
-        } else {
-            // We don't have metadata
-            if let Ok(outboxes) = GLOBALS.storage.get_best_relays(*pk, Direction::Write) {
-                if !outboxes.is_empty() {
-                    // But we have their outboxes
-                    if !app.wizard_state.followed_getting_metadata.contains(pk) {
-                        // And we haven't asked for metadata yet,
-                        // trigger fetch of their metadata
-                        let _ = GLOBALS
-                            .to_overlord
-                            .send(ToOverlordMessage::UpdateMetadata(*pk));
-                        // then remember we did so we don't keep doing it over and over again
-                        app.wizard_state
-                            .followed_getting_metadata
-                            .insert(pk.to_owned());
-                    }
-                    ui.label(format!("{} [seeking metadata]", pk.as_hex_string()));
+    egui::ScrollArea::new([false, true])
+        .max_width(f32::INFINITY)
+        .max_height(0.4 * ctx.screen_rect().height())
+        .show(ui, |ui| {
+            for iter in app.wizard_state.followed.iter_mut() {
+                // use cached person dataset
+                let person = if let Some(person) = &iter.1 {
+                    person
                 } else {
-                    // We don't have outboxes... this will come. Following them triggered this.
-                    ui.label(format!("{} [seeking their relay list]", pk.as_hex_string()));
-                }
-            } else {
-                // We don't have outboxes... this will come. Following them triggered this.
-                ui.label(format!("{} [seeking their relay list]", pk.as_hex_string()));
-            }
-        }
+                    let pk = iter.0.unwrap();
+                    let person = match GLOBALS.storage.read_person(&pk) {
+                        Ok(Some(p)) => p,
+                        Ok(None) => Person::new(pk),
+                        Err(_) => Person::new(pk),
+                    };
+                    iter.0 = None;
+                    iter.1 = Some(person.to_owned());
+                    iter.1.as_ref().unwrap()
+                };
 
-        limit -= 1;
-        if limit == 0 && app.wizard_state.followed.len() > 10 {
-            ui.add_space(10.0);
-            ui.label(format!(
-                "...and {} more",
-                app.wizard_state.followed.len() - 10
-            ));
-            break;
-        }
-    }
+                widgets::list_entry::make_frame(ui, Some(app.theme.main_content_bgcolor())).show(
+                    ui,
+                    |ui| {
+                        ui.horizontal(|ui| {
+                            if let Some(metadata) = &person.metadata {
+                                // We have metadata, render their name
+                                if let Some(name) = &metadata.name {
+                                    ui.label(name);
+                                } else {
+                                    ui.label(person.pubkey.as_hex_string());
+                                }
+                            } else {
+                                // We don't have metadata
+                                if let Ok(outboxes) = GLOBALS
+                                    .storage
+                                    .get_best_relays(person.pubkey, Direction::Write)
+                                {
+                                    if !outboxes.is_empty() {
+                                        // But we have their outboxes
+                                        if !app
+                                            .wizard_state
+                                            .followed_getting_metadata
+                                            .contains(&person.pubkey)
+                                        {
+                                            tracing::warn!(
+                                                "seek metadata for {}",
+                                                person.pubkey.as_hex_string()
+                                            );
+                                            // // And we haven't asked for metadata yet,
+                                            // // trigger fetch of their metadata
+                                            // let _ = GLOBALS.to_overlord.send(
+                                            //     ToOverlordMessage::UpdateMetadata(person.pubkey),
+                                            // );
+                                            // then remember we did so we don't keep doing it over and over again
+                                            app.wizard_state
+                                                .followed_getting_metadata
+                                                .insert(person.pubkey.to_owned());
+                                        }
+                                        ui.label(format!(
+                                            "{} [seeking metadata]",
+                                            person.pubkey.as_hex_string()
+                                        ));
+                                    } else {
+                                        // We don't have outboxes... this will come. Following them triggered this.
+                                        ui.label(format!(
+                                            "{} [seeking their relay list]",
+                                            person.pubkey.as_hex_string()
+                                        ));
+                                    }
+                                } else {
+                                    // We don't have outboxes... this will come. Following them triggered this.
+                                    ui.label(format!(
+                                        "{} [seeking their relay list]",
+                                        person.pubkey.as_hex_string()
+                                    ));
+                                }
+                            }
+                        });
+                    },
+                );
+
+                // refresh pending metadata
+                let uitime = ctx.input(|i| i.time);
+                if (app.wizard_state.followed_last_try + 5.0) < uitime {
+                    let list = app.wizard_state.followed_getting_metadata.drain();
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::UpdateMetadataInBulk(list.collect()));
+                    app.wizard_state.followed_getting_metadata.clear();
+                    app.wizard_state.followed_last_try = uitime;
+                }
+            }
+        });
 
     ui.add_space(10.0);
     ui.separator();
