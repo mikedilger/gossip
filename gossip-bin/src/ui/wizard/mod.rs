@@ -166,24 +166,34 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     egui::CentralPanel::default()
         .frame({
             let frame = egui::Frame::central_panel(&app.theme.get_style());
-            frame.inner_margin(egui::Margin {
-                left: 20.0,
-                right: 10.0,
-                top: 10.0,
-                bottom: 0.0,
+            frame.inner_margin({
+                #[cfg(not(target_os = "macos"))]
+                let margin = egui::Margin {
+                    left: 20.0,
+                    right: 20.0,
+                    top: 20.0,
+                    bottom: 0.0,
+                };
+                #[cfg(target_os = "macos")]
+                let margin = egui::Margin {
+                    left: 20.0,
+                    right: 20.0,
+                    top: 35.0,
+                    bottom: 0.0,
+                };
+                margin
             })
         })
         .show(ctx, |ui| {
-            ui.add_space(24.0);
-            ui.heading(wp.as_str());
-            ui.add_space(12.0);
-            /*
-            if let Some(err) = app.wizard_state.error {
-            ui.label(RichText::new(err).color(app.theme.warning_marker_text_color()));
-            ui.add_space(12.0);
+            match wp {
+                WizardPage::FollowPeople => {},
+                _ => {
+                    ui.heading(wp.as_str());
+                    ui.add_space(12.0);
+                },
             }
-            */
-            ui.separator();
+
+            // ui.separator();
 
             match wp {
                 WizardPage::WelcomeGossip => welcome_gossip::update(app, ctx, frame, ui),

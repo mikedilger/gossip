@@ -1,6 +1,6 @@
 use gossip_lib::{Person, PersonList, Relay, GLOBALS};
 use nostr_types::{Event, EventKind, PublicKey, RelayUrl};
-use std::collections::HashSet;
+use std::{cell::RefCell, collections::HashSet, rc::Rc};
 
 #[derive(Debug)]
 pub struct WizardState {
@@ -20,7 +20,7 @@ pub struct WizardState {
     pub contact_list_events: Vec<Event>,
     pub relay_list_events: Vec<Event>,
     pub relays: Vec<Relay>,
-    pub followed: Vec<(Option<PublicKey>, Option<Person>)>,
+    pub followed: Vec<(Option<PublicKey>, Option<Rc<RefCell<Person>>>)>,
     pub followed_last_try: f64,
     pub followed_getting_metadata: HashSet<PublicKey>,
     pub contacts_sought: bool,
