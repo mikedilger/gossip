@@ -1,5 +1,5 @@
 use crate::ui::wizard::WizardPage;
-use crate::ui::{GossipUi, Page};
+use crate::ui::{widgets, GossipUi, Page};
 use eframe::egui;
 use egui::{Color32, Context, RichText, Ui};
 use gossip_lib::comms::ToOverlordMessage;
@@ -133,8 +133,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         if ready {
             ui.add_space(20.0);
             ui.scope(|ui| {
-                app.theme.accent_button_2_style(ui.style_mut());
-                if ui.button("Fetch From This Relay").clicked() {
+                if widgets::Button::bordered(&app.theme, "Fetch From This Relay")
+                    .show(ui)
+                    .clicked()
+                {
                     if let Ok(rurl) = RelayUrl::try_from_str(&app.wizard_state.relay_url) {
                         let _ = GLOBALS
                             .to_overlord

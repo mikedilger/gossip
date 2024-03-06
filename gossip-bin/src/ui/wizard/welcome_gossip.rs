@@ -1,6 +1,6 @@
 use crate::ui::widgets::list_entry::{self, OUTER_MARGIN_RIGHT};
 use crate::ui::wizard::WizardPage;
-use crate::ui::{GossipUi, Page};
+use crate::ui::{widgets, GossipUi, Page};
 use eframe::egui;
 use egui::{Context, Ui};
 use gossip_lib::GLOBALS;
@@ -30,14 +30,16 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
     ui.add_space(20.0); // vertical space
     ui.horizontal(|ui| {
-        if ui.button("Exit Setup Wizard").clicked() {
+        if widgets::Button::bordered(&app.theme, "Exit Setup Wizard")
+            .show(ui)
+            .clicked()
+        {
             super::complete_wizard(app, ctx);
         }
 
         ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
-            app.theme.accent_button_1_style(ui.style_mut());
             ui.add_space(OUTER_MARGIN_RIGHT);
-            if ui.add(continue_button()).clicked() {
+            if ui.add(continue_button(&app.theme)).clicked() {
                 match app.wizard_state.path {
                     WizardPath::CreateNewAccount => {
                         app.wizard_state.new_user = true;
