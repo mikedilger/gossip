@@ -250,39 +250,25 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     ui.label("  • Profile (nprofile1..)");
     ui.label("  • DNS ID (user@domain)");
 
+    if app.wizard_state.has_private_key {
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
+            ui.checkbox(
+                &mut app.wizard_state.follow_list_should_publish,
+                "Publish Following List",
+            );
+        });
+    }
+
     ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
-        if app.wizard_state.has_private_key {
-            ui.scope(|ui| {
-                if app.wizard_state.new_user {
-                    app.theme.accent_button_1_style(ui.style_mut());
-                } else {
-                    app.theme.accent_button_2_style(ui.style_mut());
-                }
-                if ui.button("Publish and Finish").clicked() {
-                    let _ = GLOBALS
-                        .to_overlord
-                        .send(ToOverlordMessage::PushPersonList(PersonList::Followed));
-
-                    super::complete_wizard(app, ctx);
-                }
-            });
-
-            ui.add_space(20.0);
-            ui.scope(|ui| {
-                if !app.wizard_state.new_user {
-                    app.theme.accent_button_1_style(ui.style_mut());
-                } else {
-                    app.theme.accent_button_2_style(ui.style_mut());
-                }
-                if ui.button("Finish without publishing").clicked() {
-                    super::complete_wizard(app, ctx);
-                }
-            });
-        } else {
-            app.theme.accent_button_1_style(ui.style_mut());
-            if ui.button("Finish").clicked() {
-                super::complete_wizard(app, ctx);
+        app.theme.accent_button_1_style(ui.style_mut());
+        if ui.button("Finish").clicked() {
+            if app.wizard_state.follow_list_should_publish {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::PushPersonList(PersonList::Followed));
             }
+
+            super::complete_wizard(app, ctx);
         }
     });
 }

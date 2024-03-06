@@ -6,6 +6,8 @@ use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::GLOBALS;
 use zeroize::Zeroize;
 
+use super::wizard_controls;
+
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     // If already imported, advance
     if app.wizard_state.has_private_key {
@@ -86,22 +88,22 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
     let ready = !app.import_priv.is_empty() && !password_mismatch;
 
-    if ready {
-        if app.password.is_empty() {
-            ui.add_space(10.0);
+    if ready && app.password.is_empty() {
+        ui.add_space(10.0);
 
-            ui.label(
-                RichText::new("Your password is empty!")
-                    .color(app.theme.warning_marker_text_color()),
-            );
-        }
+        ui.label(
+            RichText::new("Your password is empty!").color(app.theme.warning_marker_text_color()),
+        );
+    }
 
-        ui.add_space(20.0);
-
-        if ui
-            .button(RichText::new("  >  Import").color(app.theme.accent_color()))
-            .clicked()
-        {
+    wizard_controls(
+        ui,
+        app,
+        ready,
+        |app| {
+            app.set_page(ctx, Page::Wizard(WizardPage::ImportKeys));
+        },
+        |app| {
             let _ = GLOBALS.to_overlord.send(ToOverlordMessage::ImportPriv {
                 privkey: app.import_priv.clone(),
                 password: app.password.clone(),
@@ -112,11 +114,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             app.password = "".to_owned();
             app.password2.zeroize();
             app.password2 = "".to_owned();
-        }
-    }
-
-    ui.add_space(20.0);
-    if ui.button("  <  Go Back").clicked() {
-        app.set_page(ctx, Page::Wizard(WizardPage::ImportKeys));
-    }
+        },
+    )
 }

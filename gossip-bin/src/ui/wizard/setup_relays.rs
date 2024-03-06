@@ -1,11 +1,13 @@
-use super::modify_relay;
+use super::{continue_control, modify_relay};
+use crate::ui::widgets::list_entry::OUTER_MARGIN_RIGHT;
 use crate::ui::wizard::{WizardPage, DEFAULT_RELAYS};
 use crate::ui::{GossipUi, Page};
 use eframe::egui;
 use egui::{Button, Color32, Context, RichText, Ui};
+use egui_winit::egui::vec2;
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::Relay;
 use gossip_lib::GLOBALS;
+use gossip_lib::{PersonList, Relay};
 use nostr_types::RelayUrl;
 use std::collections::BTreeMap;
 
@@ -229,36 +231,41 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     }
 
     ui.add_space(20.0);
-    ui.separator();
-    ui.add_space(20.0);
 
     if app.wizard_state.has_private_key {
-        ui.add_space(20.0);
-        let mut label = RichText::new("  >  Publish and Continue");
-        if app.wizard_state.new_user {
-            label = label.color(app.theme.accent_color());
-        }
-        if ui.button(label).clicked() {
-            let _ = GLOBALS
-                .to_overlord
-                .send(ToOverlordMessage::AdvertiseRelayList);
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
+            ui.add_space(OUTER_MARGIN_RIGHT);
+            ui.checkbox(
+                &mut app.wizard_state.relays_should_publish,
+                "Publish this Relay list",
+            );
+        });
+        ui.add_space(10.0);
+        continue_control(ui, app, true, |app| {
+            if app.wizard_state.relays_should_publish {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::AdvertiseRelayList);
+            }
             app.set_page(ctx, Page::Wizard(WizardPage::SetupMetadata));
-        }
-
-        ui.add_space(20.0);
-        let mut label = RichText::new("  >  Continue without publishing");
-        if !app.wizard_state.new_user {
-            label = label.color(app.theme.accent_color());
-        }
-        if ui.button(label).clicked() {
-            app.set_page(ctx, Page::Wizard(WizardPage::SetupMetadata));
-        };
+        });
     } else {
-        ui.add_space(20.0);
-        let mut label = RichText::new("  >  Continue");
-        label = label.color(app.theme.accent_color());
-        if ui.button(label).clicked() {
-            app.set_page(ctx, Page::Wizard(WizardPage::FollowPeople));
-        };
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
+            ui.add_space(OUTER_MARGIN_RIGHT);
+            app.theme.accent_button_1_style(ui.style_mut());
+            if ui
+                .add(egui::Button::new("Finish").min_size(vec2(80.0, 0.0)))
+                .clicked()
+            {
+                // import existing lists and start the app
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::UpdatePersonList {
+                        person_list: PersonList::Followed,
+                        merge: false,
+                    });
+                super::complete_wizard(app, ctx);
+            }
+        });
     }
 }

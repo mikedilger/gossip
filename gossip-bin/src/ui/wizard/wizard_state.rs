@@ -2,8 +2,21 @@ use gossip_lib::{Person, PersonList, Relay, GLOBALS};
 use nostr_types::{Event, EventKind, PublicKey, RelayUrl};
 use std::{cell::RefCell, collections::HashSet, rc::Rc};
 
+#[derive(PartialEq, Clone, Copy, Debug)]
+pub enum WizardPath {
+    /// the user wants to import an existing account from
+    /// a private (true) or public key (false)
+    ImportFromKey(bool),
+    /// the user wants to create a new account
+    CreateNewAccount,
+    /// the user only wants to create a local follow list
+    /// without setting up any keys
+    FollowOnlyNoKeys,
+}
+
 #[derive(Debug)]
 pub struct WizardState {
+    pub path: WizardPath,
     pub error: Option<String>,
     pub last_status_queue_message: String,
     pub new_user: bool,
@@ -14,15 +27,18 @@ pub struct WizardState {
     pub metadata_name: String,
     pub metadata_about: String,
     pub metadata_picture: String,
+    pub metadata_should_publish: bool,
     pub pubkey: Option<PublicKey>,
     pub has_private_key: bool,
     pub metadata_events: Vec<Event>,
     pub contact_list_events: Vec<Event>,
     pub relay_list_events: Vec<Event>,
     pub relays: Vec<Relay>,
+    pub relays_should_publish: bool,
     pub followed: Vec<(Option<PublicKey>, Option<Rc<RefCell<Person>>>)>,
     pub followed_last_try: f64,
     pub followed_getting_metadata: HashSet<PublicKey>,
+    pub follow_list_should_publish: bool,
     pub contacts_sought: bool,
     pub generating: bool,
 }
@@ -30,6 +46,7 @@ pub struct WizardState {
 impl Default for WizardState {
     fn default() -> WizardState {
         WizardState {
+            path: WizardPath::CreateNewAccount,
             error: None,
             last_status_queue_message: "".to_owned(),
             new_user: false,
@@ -40,15 +57,18 @@ impl Default for WizardState {
             metadata_name: "".to_owned(),
             metadata_about: "".to_owned(),
             metadata_picture: "".to_owned(),
+            metadata_should_publish: true,
             pubkey: None,
             has_private_key: false,
             metadata_events: Vec::new(),
             contact_list_events: Vec::new(),
             relay_list_events: Vec::new(),
             relays: Vec::new(),
+            relays_should_publish: true,
             followed: Vec::new(),
             followed_last_try: 0.0,
             followed_getting_metadata: HashSet::new(),
+            follow_list_should_publish: true,
             contacts_sought: true,
             generating: false,
         }

@@ -8,6 +8,8 @@ use gossip_lib::GLOBALS;
 use gossip_relay_picker::Direction;
 use nostr_types::RelayUrl;
 
+use super::continue_control;
+
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     // New users dont have existing config
     if app.wizard_state.new_user {
@@ -130,28 +132,26 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
         if ready {
             ui.add_space(20.0);
-            if ui.button("  >  Fetch From This Relay").clicked() {
-                if let Ok(rurl) = RelayUrl::try_from_str(&app.wizard_state.relay_url) {
-                    let _ = GLOBALS
-                        .to_overlord
-                        .send(ToOverlordMessage::SubscribeConfig(Some(vec![
-                            rurl.to_owned()
-                        ])));
-                    app.wizard_state.relay_url = String::new();
-                } else {
-                    app.wizard_state.error = Some("ERROR: Invalid Relay URL".to_owned());
+            ui.scope(|ui| {
+                app.theme.accent_button_2_style(ui.style_mut());
+                if ui.button("Fetch From This Relay").clicked() {
+                    if let Ok(rurl) = RelayUrl::try_from_str(&app.wizard_state.relay_url) {
+                        let _ = GLOBALS
+                            .to_overlord
+                            .send(ToOverlordMessage::SubscribeConfig(Some(vec![
+                                rurl.to_owned()
+                            ])));
+                        app.wizard_state.relay_url = String::new();
+                    } else {
+                        app.wizard_state.error = Some("ERROR: Invalid Relay URL".to_owned());
+                    }
                 }
-            }
+            });
         }
     }
 
     ui.add_space(20.0);
-    let label = if app.wizard_state.need_relay_list() || app.wizard_state.need_user_data() {
-        "  >  Skip this step"
-    } else {
-        "  >  Next"
-    };
-    if ui.button(label).clicked() {
-        app.set_page(ctx, Page::Wizard(WizardPage::SetupRelays))
-    }
+    continue_control(ui, app, true, |app| {
+        app.set_page(ctx, Page::Wizard(WizardPage::SetupRelays));
+    });
 }
