@@ -19,27 +19,82 @@ mod welcome_nostr;
 mod wizard_state;
 pub use wizard_state::WizardState;
 
+/*
+Last updated: 2024-03-07
+
+Top relays by score (scoring system is incomplete, 2 further tests are applied)
+
+wss://nostr.einundzwanzig.space/        VERIFIED FUNCTIONAL FOR NEW USERS
+wss://relay.primal.net/                 VERIFIED FUNCTIONAL FOR NEW USERS
+wss://nostrue.com/                      VERIFIED FUNCTIONAL FOR NEW USERS
+wss://nostr.mutinywallet.com/           Claims to accept event, but I cannot fetch it back by id.
+wss://welcome.nostr.wine/               SPECIAL PURPOSE (read only, new nostr users)
+wss://soloco.nl/                        pubkey has to be whitelisted
+wss://relay.noswhere.com/               blocked: read-only relay
+wss://relay.current.fyi/                EVENT doesn't give OK.  Cannot fetch it back.
+wss://relay.nostrplebs.com/             blocked: you do not have a Nostr Plebs NIP-05.
+wss://nostr.pjv.me/                     SPECIAL USAGE, personal relay
+wss://relay.0xchat.com/                 REQ never returns.
+wss://140.f7z.io/                       ONLY TAKES 140 CHARS
+wss://relay.exit.pub/                   VERIFIED FUNCTIONAL FOR NEW USERS
+wss://pyramid.fiatjaf.com/              LIMITED MEMBERSHIP
+wss://xmr.usenostr.org/                 MONERO paid
+wss://nostr.portemonero.com/            MONERO
+wss://relay.damus.io/                   VERIFIED FUNCTIONAL FOR NEW USERS
+wss://relay.snort.social/               "no active subscription"
+wss://relay.bitcoinpark.com/            community based
+wss://yabu.me/                          for japanese users
+wss://relay.nostr.band/                 VERIFIED FUNCTIONAL FOR NEW USERS
+wss://nostr.lu.ke/                      VERIFIED FUNCTIONAL FOR NEW USERS
+wss://relayable.org/                    VERIFIED FUNCTIONAL FOR NEW USERS (but slow)
+wss://offchain.pub/                     VERIFIED FUNCTIONAL FOR NEW USERS
+wss://purplepag.es/                     SPECIAL USAGE
+wss://relay.nostr.bg/                   VERIFIED FUNCTIONAL FOR NEW USERS
+wss://creatr.nostr.wine/                content creator community
+wss://nostr.cercatrova.me/              down
+wss://la.relayable.org/                 Says OK 'true', but event was not found.
+wss://nostr.bitcoiner.social/           VERIFIED FUNCTIONAL FOR NEW USERS
+wss://n.ok0.org/                        VERIFIED FUNCTIONAL FOR NEW USERS
+wss://nostr.oxtr.dev/                   VERIFIED FUNCTIONAL FOR NEW USERS
+wss://purplerelay.com/                  VERIFIED FUNCTIONAL FOR NEW USERS
+wss://nostr-01.yakihonne.com/           mainly for longform content creators
+wss://nostr-02.yakihonne.com/           mainly for longform content creators
+wss://relay.mutinywallet.com/           VERIFIED FUNCTIONAL FOR NEW USERS
+wss://nostr.sathoarder.com/             VERIFIED FUNCTIONAL FOR NEW USERS
+wss://nostr.coinfund.app/               says OK 'true', but event is not there
+wss://relay.nostr.jabber.ch/            VERIFIED FUNCTIONAL FOR NEW USERS
+wss://relay.nostrss.re/                 NIP11 fails
+wss://ca.relayable.org/                 NIP11 fails
+wss://relay.benthecarman.com/           says "private relay"
+wss://nostrrelay.com/                   "No space left on device"
+wss://relay.stoner.com/                 blocked: pubkey is not allowed to publish to this relay
+wss://strfry.chatbett.de/               NIP11 fails
+wss://bostr.lecturify.net/              VERIFIED FUNCTIONAL FOR NEW USERS
+wss://nostr.data.haus/                  VERIFIED FUNCTIONAL FOR NEW USERS
+wss://relay.nostr.net/                  VERIFIED FUNCTIONAL FOR NEW USERS
+ */
+
 static DEFAULT_RELAYS: [&str; 20] = [
     "wss://nostr.einundzwanzig.space/",
-    "wss://nostr.mutinywallet.com/",
-    "wss://relay.nostrplebs.com/",
-    "wss://nostr-pub.wellorder.net/",
-    "wss://relay.damus.io/",
-    "wss://public.relaying.io/",
-    "wss://nostrue.com/",
-    "wss://relay.snort.social/",
-    "wss://relay.noswhere.com/",
     "wss://relay.primal.net/",
-    "wss://relay.nostr.jabber.ch/",
-    "wss://relay.wellorder.net/",
-    "wss://nostr.coinfundit.com/",
-    "wss://relay.nostrich.de/",
-    "wss://nostr21.com/",
+    "wss://nostrue.com/",
+    "wss://relay.exit.pub/",
+    "wss://relay.damus.io/",
+    "wss://relay.nostr.band/",
+    "wss://nostr.lu.ke/",
     "wss://relayable.org/",
-    "wss://nostr.bitcoiner.social/",
-    "wss://no.str.cr/",
     "wss://offchain.pub/",
-    "wss://nostr.azte.co/",
+    "wss://relay.nostr.bg/",
+    "wss://nostr.bitcoiner.social/",
+    "wss://n.ok0.org/",
+    "wss://nostr.oxtr.dev/",
+    "wss://purplerelay.com/",
+    "wss://relay.mutinywallet.com/",
+    "wss://nostr.sathoarder.com/",
+    "wss://relay.nostr.jabber.ch/",
+    "wss://bostr.lecturify.net/",
+    "wss://nostr.data.haus/",
+    "wss://relay.nostr.net/",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
