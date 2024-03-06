@@ -2,6 +2,7 @@ use crate::ui::{GossipUi, Page};
 use eframe::egui;
 use egui::widgets::{Button, Slider};
 use egui::{Align, Context, Layout};
+use egui_winit::egui::{vec2, Ui};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{FeedKind, PersonList, Relay, GLOBALS};
 use nostr_types::RelayUrl;
@@ -18,6 +19,10 @@ mod welcome_nostr;
 
 mod wizard_state;
 pub use wizard_state::WizardState;
+
+use super::widgets::list_entry::OUTER_MARGIN_RIGHT;
+const CONTINUE_BTN_TEXT: &str = "Continue \u{25b6}";
+const BACK_BTN_TEXT: &str = "\u{25c0} Go Back";
 
 static DEFAULT_RELAYS: [&str; 20] = [
     "wss://nostr.einundzwanzig.space/",
@@ -166,24 +171,34 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     egui::CentralPanel::default()
         .frame({
             let frame = egui::Frame::central_panel(&app.theme.get_style());
-            frame.inner_margin(egui::Margin {
-                left: 20.0,
-                right: 10.0,
-                top: 10.0,
-                bottom: 0.0,
+            frame.inner_margin({
+                #[cfg(not(target_os = "macos"))]
+                let margin = egui::Margin {
+                    left: 20.0,
+                    right: 20.0,
+                    top: 20.0,
+                    bottom: 0.0,
+                };
+                #[cfg(target_os = "macos")]
+                let margin = egui::Margin {
+                    left: 20.0,
+                    right: 20.0,
+                    top: 35.0,
+                    bottom: 0.0,
+                };
+                margin
             })
         })
         .show(ctx, |ui| {
-            ui.add_space(24.0);
-            ui.heading(wp.as_str());
-            ui.add_space(12.0);
-            /*
-            if let Some(err) = app.wizard_state.error {
-            ui.label(RichText::new(err).color(app.theme.warning_marker_text_color()));
-            ui.add_space(12.0);
+            match wp {
+                WizardPage::FollowPeople => {},
+                _ => {
+                    ui.heading(wp.as_str());
+                    ui.add_space(12.0);
+                },
             }
-            */
-            ui.separator();
+
+            // ui.separator();
 
             match wp {
                 WizardPage::WelcomeGossip => welcome_gossip::update(app, ctx, frame, ui),
@@ -195,13 +210,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 WizardPage::SetupRelays => setup_relays::update(app, ctx, frame, ui),
                 WizardPage::SetupMetadata => setup_metadata::update(app, ctx, frame, ui),
                 WizardPage::FollowPeople => follow_people::update(app, ctx, frame, ui),
-            }
-
-            ui.add_space(20.0);
-            if wp != WizardPage::FollowPeople {
-                if ui.button("  X  Exit this Wizard").clicked() {
-                    complete_wizard(app, ctx);
-                }
             }
 
             ui.add_space(10.0);
@@ -295,4 +303,50 @@ where
     let _ = GLOBALS
         .to_overlord
         .send(ToOverlordMessage::UpdateRelay(old, relay));
+}
+
+fn continue_button() -> impl egui::Widget {
+    egui::Button::new(CONTINUE_BTN_TEXT).min_size(vec2(80.0, 0.0))
+}
+
+fn back_button() -> impl egui::Widget {
+    egui::Button::new(BACK_BTN_TEXT).min_size(vec2(80.0, 0.0))
+}
+
+fn continue_control(
+    ui: &mut Ui,
+    app: &mut GossipUi,
+    can_continue: bool,
+    on_continue: impl FnOnce(&mut GossipUi),
+) {
+    ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
+        ui.add_space(OUTER_MARGIN_RIGHT);
+        app.theme.accent_button_1_style(ui.style_mut());
+        if ui.add_enabled(can_continue, continue_button()).clicked() {
+            on_continue(app);
+        }
+    });
+}
+
+fn wizard_controls(
+    ui: &mut Ui,
+    app: &mut GossipUi,
+    can_continue: bool,
+    on_back: impl FnOnce(&mut GossipUi),
+    on_continue: impl FnOnce(&mut GossipUi),
+) {
+    ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
+        ui.add_space(OUTER_MARGIN_RIGHT);
+        ui.scope(|ui| {
+            app.theme.accent_button_1_style(ui.style_mut());
+            if ui.add_enabled(can_continue, continue_button()).clicked() {
+                on_continue(app);
+            }
+        });
+        ui.add_space(10.0);
+        ui.style_mut().spacing.button_padding.x *= 3.0;
+        if ui.add(back_button()).clicked() {
+            on_back(app);
+        }
+    });
 }

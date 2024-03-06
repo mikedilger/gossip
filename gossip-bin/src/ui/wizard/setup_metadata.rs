@@ -1,3 +1,4 @@
+use crate::ui::widgets::list_entry::OUTER_MARGIN_RIGHT;
 use crate::ui::wizard::WizardPage;
 use crate::ui::{GossipUi, Page, RichText};
 use eframe::egui;
@@ -6,6 +7,9 @@ use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::Person;
 use gossip_lib::GLOBALS;
 use nostr_types::Metadata;
+
+use super::continue_control;
+use super::wizard_state::WizardPath;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     let pubkey = match app.wizard_state.pubkey {
@@ -51,40 +55,63 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         app.wizard_state.metadata_copied = true;
     }
 
-    ui.horizontal(|ui| {
-        ui.label("Name:");
-        let response = text_edit_line!(app, app.wizard_state.metadata_name)
-            .with_paste()
-            .show(ui)
-            .response;
-        if response.changed() {
-            app.wizard_state.error = None;
-        }
-    });
+    egui::Grid::new("grid")
+        .num_columns(2)
+        .striped(false)
+        .spacing([10.0, 10.0])
+        .show(ui, |ui| {
+            ui.label("Name:");
+            let response = text_edit_line!(app, app.wizard_state.metadata_name)
+                .desired_width(400.0)
+                .with_paste()
+                .show(ui)
+                .response;
+            if response.changed() {
+                app.wizard_state.error = None;
+            }
+            ui.end_row();
 
-    ui.add_space(15.0);
-    ui.horizontal(|ui| {
-        ui.label("About:");
-        let response = text_edit_line!(app, app.wizard_state.metadata_about)
-            .with_paste()
-            .show(ui)
-            .response;
-        if response.changed() {
-            app.wizard_state.error = None;
-        }
-    });
+            ui.label("About:");
+            let response = text_edit_line!(app, app.wizard_state.metadata_about)
+                .desired_width(400.0)
+                .with_paste()
+                .show(ui)
+                .response;
+            if response.changed() {
+                app.wizard_state.error = None;
+            }
 
-    ui.add_space(15.0);
-    ui.horizontal(|ui| {
-        ui.label("Picture:");
-        let response = text_edit_line!(app, app.wizard_state.metadata_picture)
-            .with_paste()
-            .show(ui)
-            .response;
-        if response.changed() {
-            app.wizard_state.error = None;
-        }
-    });
+            ui.end_row();
+
+            ui.label("Picture URL:");
+            let response = text_edit_line!(app, app.wizard_state.metadata_picture)
+                .desired_width(400.0)
+                .with_paste()
+                .show(ui)
+                .response;
+            if response.changed() {
+                app.wizard_state.error = None;
+            }
+
+            ui.end_row();
+
+            ui.label(""); // fill first cell
+            if WizardPath::ImportFromKey(true) == app.wizard_state.path {
+                if ui.button("Undo Changes").clicked() {
+                    if let Some(n) = &metadata.name {
+                        app.wizard_state.metadata_name = n.to_owned();
+                    }
+                    if let Some(n) = &metadata.about {
+                        app.wizard_state.metadata_about = n.to_owned();
+                    }
+                    if let Some(n) = &metadata.picture {
+                        app.wizard_state.metadata_picture = n.to_owned();
+                    }
+                }
+            }
+
+            ui.end_row();
+        });
 
     // error block
     if let Some(err) = &app.wizard_state.error {
@@ -92,46 +119,31 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         ui.label(RichText::new(err).color(app.theme.warning_marker_text_color()));
     }
 
-    ui.add_space(15.0);
+    ui.add_space(20.0);
 
     if GLOBALS.identity.is_unlocked() {
-        ui.add_space(20.0);
-        let mut label = RichText::new("  >  Save, Publish and Continue");
-        if app.wizard_state.new_user {
-            label = label.color(app.theme.accent_color());
-        }
-        if ui.button(label).clicked() {
-            // Copy from form and save
-            save_metadata(app, you.clone(), metadata.clone());
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
+            ui.add_space(OUTER_MARGIN_RIGHT);
+            ui.checkbox(
+                &mut app.wizard_state.metadata_should_publish,
+                "Publish this Profile",
+            );
+        });
+        ui.add_space(10.0);
+    }
+    continue_control(ui, app, true, |app| {
+        // Copy from form and save
+        save_metadata(app, you.clone(), metadata.clone());
 
+        if app.wizard_state.metadata_should_publish {
             // Publish
             let _ = GLOBALS
                 .to_overlord
                 .send(ToOverlordMessage::PushMetadata(metadata.clone()));
-
-            app.set_page(ctx, Page::Wizard(WizardPage::FollowPeople));
         }
-    }
-
-    ui.add_space(20.0);
-    if ui
-        .button("  >  Save and Continue without publishing")
-        .clicked()
-    {
-        // Copy from form and save
-        save_metadata(app, you.clone(), metadata.clone());
 
         app.set_page(ctx, Page::Wizard(WizardPage::FollowPeople));
-    }
-
-    ui.add_space(20.0);
-    let mut label = RichText::new("  >  Continue without saving or publishing");
-    if !app.wizard_state.new_user {
-        label = label.color(app.theme.accent_color());
-    }
-    if ui.button(label).clicked() {
-        app.set_page(ctx, Page::Wizard(WizardPage::FollowPeople));
-    }
+    });
 }
 
 fn save_metadata(app: &mut GossipUi, mut you: Person, mut metadata: Metadata) {

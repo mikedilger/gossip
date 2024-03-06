@@ -1,18 +1,21 @@
 use super::modify_relay;
-use crate::ui::wizard::{WizardPage, DEFAULT_RELAYS};
-use crate::ui::{GossipUi, Page};
+use crate::ui::widgets::list_entry::OUTER_MARGIN_RIGHT;
+use crate::ui::wizard::DEFAULT_RELAYS;
+use crate::ui::GossipUi;
 use eframe::egui;
 use egui::{Button, Color32, Context, RichText, Ui};
+use egui_winit::egui::vec2;
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::Relay;
 use gossip_lib::GLOBALS;
+use gossip_lib::{PersonList, Relay};
 use nostr_types::RelayUrl;
 use std::collections::BTreeMap;
 
-pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-    ui.add_space(20.0);
-    ui.label("Please choose which relays you will use.");
+const MIN_OUTBOX: usize = 3;
+const MIN_INBOX: usize = 2;
+const MIN_DISCOVERY: usize = 1;
 
+pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     let read_relay = |url: &RelayUrl| GLOBALS.storage.read_or_create_relay(url, None).unwrap();
 
     // Convert our default relay strings into Relays
@@ -55,12 +58,22 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         .collect();
 
     ui.add_space(20.0);
+    if outbox_relays.len() >= MIN_OUTBOX
+        && inbox_relays.len() >= MIN_INBOX
+        && discovery_relays.len() >= MIN_DISCOVERY
+    {
+        ui.label("Your relay list looks good but you can refine it below.");
+    } else {
+        ui.label("Please choose which relays you want to use:");
+    }
+
+    ui.add_space(20.0);
     ui.horizontal(|ui| {
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
                 ui.heading("OUTBOX")
                     .on_hover_text("Relays where you post notes to");
-                if outbox_relays.len() >= 3 {
+                if outbox_relays.len() >= MIN_OUTBOX {
                     ui.label(RichText::new(" - OK").color(Color32::GREEN));
                 } else {
                     ui.label(
@@ -89,7 +102,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.heading("INBOX").on_hover_text(
                     "Relays where people can send you events tagging you, including DMs",
                 );
-                if inbox_relays.len() >= 2 {
+                if inbox_relays.len() >= MIN_INBOX {
                     ui.label(RichText::new(" - OK").color(Color32::GREEN));
                 } else {
                     ui.label(
@@ -117,7 +130,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             ui.horizontal(|ui| {
                 ui.heading("DISCOVERY")
                     .on_hover_text("Relays where you find out what relays other people are using");
-                if !discovery_relays.is_empty() {
+                if discovery_relays.len() >= MIN_DISCOVERY {
                     ui.label(RichText::new(" - OK").color(Color32::GREEN));
                 } else {
                     ui.label(
@@ -217,33 +230,41 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         });
     }
 
+    ui.add_space(20.0);
+
     if app.wizard_state.has_private_key {
-        ui.add_space(20.0);
-        let mut label = RichText::new("  >  Publish and Continue");
-        if app.wizard_state.new_user {
-            label = label.color(app.theme.accent_color());
-        }
-        if ui.button(label).clicked() {
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
+            ui.add_space(OUTER_MARGIN_RIGHT);
+            ui.checkbox(
+                &mut app.wizard_state.relays_should_publish,
+                "Publish this Relay list",
+            );
+        });
+        ui.add_space(10.0);
+    }
+
+    ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
+        ui.add_space(OUTER_MARGIN_RIGHT);
+        app.theme.accent_button_1_style(ui.style_mut());
+        if ui
+            .add(egui::Button::new("Finish").min_size(vec2(80.0, 0.0)))
+            .clicked()
+        {
+            if app.wizard_state.has_private_key && app.wizard_state.relays_should_publish {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::AdvertiseRelayList);
+            }
+
+            // import existing lists and start the app
             let _ = GLOBALS
                 .to_overlord
-                .send(ToOverlordMessage::AdvertiseRelayList);
-            app.set_page(ctx, Page::Wizard(WizardPage::SetupMetadata));
-        }
+                .send(ToOverlordMessage::UpdatePersonList {
+                    person_list: PersonList::Followed,
+                    merge: false,
+                });
 
-        ui.add_space(20.0);
-        let mut label = RichText::new("  >  Continue without publishing");
-        if !app.wizard_state.new_user {
-            label = label.color(app.theme.accent_color());
+            super::complete_wizard(app, ctx);
         }
-        if ui.button(label).clicked() {
-            app.set_page(ctx, Page::Wizard(WizardPage::SetupMetadata));
-        };
-    } else {
-        ui.add_space(20.0);
-        let mut label = RichText::new("  >  Continue");
-        label = label.color(app.theme.accent_color());
-        if ui.button(label).clicked() {
-            app.set_page(ctx, Page::Wizard(WizardPage::SetupMetadata));
-        };
-    }
+    });
 }
