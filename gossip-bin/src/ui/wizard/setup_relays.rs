@@ -1,7 +1,7 @@
-use super::{continue_control, modify_relay};
+use super::modify_relay;
 use crate::ui::widgets::list_entry::OUTER_MARGIN_RIGHT;
-use crate::ui::wizard::{WizardPage, DEFAULT_RELAYS};
-use crate::ui::{GossipUi, Page};
+use crate::ui::wizard::DEFAULT_RELAYS;
+use crate::ui::GossipUi;
 use eframe::egui;
 use egui::{Button, Color32, Context, RichText, Ui};
 use egui_winit::egui::vec2;
@@ -241,31 +241,30 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             );
         });
         ui.add_space(10.0);
-        continue_control(ui, app, true, |app| {
-            if app.wizard_state.relays_should_publish {
+    }
+
+    ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
+        ui.add_space(OUTER_MARGIN_RIGHT);
+        app.theme.accent_button_1_style(ui.style_mut());
+        if ui
+            .add(egui::Button::new("Finish").min_size(vec2(80.0, 0.0)))
+            .clicked()
+        {
+            if app.wizard_state.has_private_key && app.wizard_state.relays_should_publish {
                 let _ = GLOBALS
                     .to_overlord
                     .send(ToOverlordMessage::AdvertiseRelayList);
             }
-            app.set_page(ctx, Page::Wizard(WizardPage::SetupMetadata));
-        });
-    } else {
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
-            ui.add_space(OUTER_MARGIN_RIGHT);
-            app.theme.accent_button_1_style(ui.style_mut());
-            if ui
-                .add(egui::Button::new("Finish").min_size(vec2(80.0, 0.0)))
-                .clicked()
-            {
-                // import existing lists and start the app
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::UpdatePersonList {
-                        person_list: PersonList::Followed,
-                        merge: false,
-                    });
-                super::complete_wizard(app, ctx);
-            }
-        });
-    }
+
+            // import existing lists and start the app
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::UpdatePersonList {
+                    person_list: PersonList::Followed,
+                    merge: false,
+                });
+
+            super::complete_wizard(app, ctx);
+        }
+    });
 }

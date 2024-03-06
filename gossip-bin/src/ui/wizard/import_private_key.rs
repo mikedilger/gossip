@@ -16,51 +16,50 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
     ui.add_space(20.0);
 
-    ui.horizontal_wrapped(|ui| {
-        ui.label("Enter your private key");
-        let response = text_edit_line!(app, app.import_priv)
-            .hint_text("nsec1, hex, or ncryptsec1")
-            .desired_width(f32::INFINITY)
-            .password(true)
-            .with_paste()
-            .show(ui)
-            .response;
-        if response.changed() {
-            app.wizard_state.error = None;
-        };
-    });
+    egui::Grid::new("keys")
+        .num_columns(2)
+        .striped(false)
+        .spacing([10.0, 10.0])
+        .show(ui, |ui| {
+            ui.label("Enter your private key");
+            let response = text_edit_line!(app, app.import_priv)
+                .hint_text("nsec1, hex, or ncryptsec1")
+                .desired_width(f32::INFINITY)
+                .password(true)
+                .with_paste()
+                .show(ui)
+                .response;
+            if response.changed() {
+                app.wizard_state.error = None;
+            };
+            ui.end_row();
 
-    if app.import_priv.is_empty() {
-        ui.add_space(10.0);
-        ui.label(
-            RichText::new("Please enter your key.").color(app.theme.warning_marker_text_color()),
-        );
-    }
+            ui.label(""); // empty cell
+            if app.import_priv.is_empty() {
+                ui.label(
+                    RichText::new("Please enter your key.")
+                        .color(app.theme.warning_marker_text_color()),
+                );
+            }
+            ui.end_row();
+        });
 
     let ncryptsec = app.import_priv.starts_with("ncryptsec1");
+    let password_mismatch = !ncryptsec && (app.password != app.password2);
+    let ready = !app.import_priv.is_empty() && !password_mismatch;
 
-    ui.add_space(10.0);
-    ui.horizontal(|ui| {
-        if ncryptsec {
-            ui.label("Enter passphrase to decrypt the encrypted private key");
-        } else {
-            ui.label("Enter a passphrase to keep it encrypted under");
-        }
-        let response = text_edit_line!(app, app.password)
-            .password(true)
-            .with_paste()
-            .show(ui)
-            .response;
-        if response.changed() {
-            app.wizard_state.error = None;
-        }
-    });
-
-    if !ncryptsec {
-        ui.add_space(10.0);
-        ui.horizontal(|ui| {
-            ui.label("Repeat passphrase to be sure");
-            let response = text_edit_line!(app, app.password2)
+    ui.add_space(20.0);
+    egui::Grid::new("inputs")
+        .num_columns(2)
+        .striped(false)
+        .spacing([10.0, 10.0])
+        .show(ui, |ui| {
+            if ncryptsec {
+                ui.label("Enter passphrase to decrypt the encrypted private key");
+            } else {
+                ui.label("Enter a passphrase to keep it encrypted under");
+            }
+            let response = text_edit_line!(app, app.password)
                 .password(true)
                 .with_paste()
                 .show(ui)
@@ -68,32 +67,39 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             if response.changed() {
                 app.wizard_state.error = None;
             }
+            ui.end_row();
+
+            if !ncryptsec {
+                ui.label("Repeat passphrase to be sure");
+                let response = text_edit_line!(app, app.password2)
+                    .password(true)
+                    .with_paste()
+                    .show(ui)
+                    .response;
+                if response.changed() {
+                    app.wizard_state.error = None;
+                }
+                ui.end_row();
+            }
+
+            ui.label(""); // empty cell
+            let text = if ready {
+                if app.password.is_empty() {
+                    "Your password is empty!"
+                } else {
+                    ""
+                }
+            } else {
+                "Passwords do not match."
+            };
+            ui.label(RichText::new(text).color(app.theme.warning_marker_text_color()));
+            ui.end_row();
         });
-    }
-
-    let password_mismatch = !ncryptsec && (app.password != app.password2);
-
-    if password_mismatch {
-        ui.add_space(10.0);
-        ui.label(
-            RichText::new("Passwords do not match.").color(app.theme.warning_marker_text_color()),
-        );
-    }
 
     // error block
     if let Some(err) = &app.wizard_state.error {
         ui.add_space(10.0);
         ui.label(RichText::new(err).color(app.theme.warning_marker_text_color()));
-    }
-
-    let ready = !app.import_priv.is_empty() && !password_mismatch;
-
-    if ready && app.password.is_empty() {
-        ui.add_space(10.0);
-
-        ui.label(
-            RichText::new("Your password is empty!").color(app.theme.warning_marker_text_color()),
-        );
     }
 
     wizard_controls(
