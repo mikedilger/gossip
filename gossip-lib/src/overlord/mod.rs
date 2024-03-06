@@ -190,6 +190,9 @@ impl Overlord {
         // Start periodic tasks in people manager (after signer)
         crate::people::People::start();
 
+        // Start periodic tasks in pending
+        crate::pending::start();
+
         // Initialize the relay picker
         GLOBALS.relay_picker.init().await?;
 
@@ -265,24 +268,24 @@ impl Overlord {
             },
         }];
 
-        // Until NIP-65 is in widespread use, we should listen for mentions
+        // Until NIP-65 is in widespread use, we should listen to inbox
         // of us on all these relays too
         // Only do this if we aren't already doing it.
-        let mut fetch_mentions = true;
+        let mut fetch_inbox = true;
         if let Some(jobs) = GLOBALS.connected_relays.get(&assignment.relay_url) {
             for job in &*jobs {
-                if job.reason == RelayConnectionReason::FetchMentions {
-                    fetch_mentions = false;
+                if job.reason == RelayConnectionReason::FetchInbox {
+                    fetch_inbox = false;
                     break;
                 }
             }
         }
-        if fetch_mentions {
+        if fetch_inbox {
             jobs.push(RelayJob {
-                reason: RelayConnectionReason::FetchMentions,
+                reason: RelayConnectionReason::FetchInbox,
                 payload: ToMinionPayload {
                     job_id: rand::random::<u64>(),
-                    detail: ToMinionPayloadDetail::SubscribeMentions,
+                    detail: ToMinionPayloadDetail::SubscribeInbox,
                 },
             });
         }
@@ -737,8 +740,8 @@ impl Overlord {
             ToOverlordMessage::SubscribeDiscover(pubkeys, opt_relays) => {
                 self.subscribe_discover(pubkeys, opt_relays).await?;
             }
-            ToOverlordMessage::SubscribeMentions(opt_relays) => {
-                self.subscribe_mentions(opt_relays).await?;
+            ToOverlordMessage::SubscribeInbox(opt_relays) => {
+                self.subscribe_inbox(opt_relays).await?;
             }
             ToOverlordMessage::SubscribeNip46(relays) => {
                 self.subscribe_nip46(relays).await?;
@@ -1612,10 +1615,7 @@ impl Overlord {
                 target: relay_assignment.relay_url.as_str().to_owned(),
                 payload: ToMinionPayload {
                     job_id: 0,
-                    detail: ToMinionPayloadDetail::TempSubscribeGeneralFeedChunk {
-                        pubkeys: relay_assignment.pubkeys.clone(),
-                        start,
-                    },
+                    detail: ToMinionPayloadDetail::TempSubscribeGeneralFeedChunk(start),
                 },
             });
         }
@@ -1677,7 +1677,7 @@ impl Overlord {
             self.engage_minion(
                 relay.to_owned(),
                 vec![RelayJob {
-                    reason: RelayConnectionReason::FetchMentions,
+                    reason: RelayConnectionReason::FetchInbox,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
                         detail: ToMinionPayloadDetail::TempSubscribeInboxFeedChunk(start),
@@ -2773,10 +2773,10 @@ impl Overlord {
         // Separately subscribe to our outbox events on our write relays
         self.subscribe_config(None).await?;
 
-        // Separately subscribe to our mentions on our read relays
+        // Separately subscribe to our inbox on our read relays
         // NOTE: we also do this on all dynamically connected relays since NIP-65 is
         //       not in widespread usage.
-        self.subscribe_mentions(None).await?;
+        self.subscribe_inbox(None).await?;
 
         // Separately subscribe to nostr-connect channels
         let mut relays: Vec<RelayUrl> = Vec::new();
@@ -2854,7 +2854,7 @@ impl Overlord {
     }
 
     /// Subscribe to the user's configuration events from the given relay
-    pub async fn subscribe_mentions(&mut self, relays: Option<Vec<RelayUrl>>) -> Result<(), Error> {
+    pub async fn subscribe_inbox(&mut self, relays: Option<Vec<RelayUrl>>) -> Result<(), Error> {
         let mention_relays: Vec<RelayUrl> = match relays {
             Some(r) => r,
             None => GLOBALS
@@ -2868,10 +2868,10 @@ impl Overlord {
             self.engage_minion(
                 relay_url.to_owned(),
                 vec![RelayJob {
-                    reason: RelayConnectionReason::FetchMentions,
+                    reason: RelayConnectionReason::FetchInbox,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeMentions,
+                        detail: ToMinionPayloadDetail::SubscribeInbox,
                     },
                 }],
             )
@@ -3208,16 +3208,16 @@ impl Overlord {
         }
 
         // Remember if we need to subscribe (+1) or unsubscribe (-1)
-        let mut mentions: i8 = 0;
+        let mut inbox: i8 = 0;
         let mut config: i8 = 0;
         let mut discover: i8 = 0;
 
         // if usage bits changed
         if old.get_usage_bits() != new.get_usage_bits() {
             if old.has_usage_bits(Relay::READ) && !new.has_usage_bits(Relay::READ) {
-                mentions = -1;
+                inbox = -1;
             } else if !old.has_usage_bits(Relay::READ) && new.has_usage_bits(Relay::READ) {
-                mentions = 1;
+                inbox = 1;
             }
 
             if old.has_usage_bits(Relay::WRITE) && !new.has_usage_bits(Relay::WRITE) {
@@ -3237,7 +3237,7 @@ impl Overlord {
         if old.rank == 0 && new.rank != 0 {
             // Start minion for this relay
             if new.has_usage_bits(Relay::READ) {
-                mentions = 1;
+                inbox = 1;
             }
             if new.has_usage_bits(Relay::WRITE) {
                 config = 1;
@@ -3247,8 +3247,8 @@ impl Overlord {
             }
         }
 
-        match mentions {
-            -1 => (), // TBD unsubscribe_mentions
+        match inbox {
+            -1 => (), // TBD unsubscribe_inbox
             1 => {
                 if let Some(pubkey) = GLOBALS.identity.public_key() {
                     // Update self person_relay record
@@ -3259,8 +3259,8 @@ impl Overlord {
                     pr.read = true;
                     GLOBALS.storage.write_person_relay(&pr, None)?;
 
-                    // Subscribe to mentions on this inbox relay
-                    self.subscribe_mentions(Some(vec![new.url.clone()])).await?;
+                    // Subscribe to inbox on this inbox relay
+                    self.subscribe_inbox(Some(vec![new.url.clone()])).await?;
                 }
             }
             _ => (),

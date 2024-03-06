@@ -966,7 +966,7 @@ pub fn hash_person_list_event(list: PersonList) -> Result<u64, Error> {
             .get_replaceable_event(list.event_kind(), my_pubkey, &metadata.dtag)?;
 
     if let Some(event) = maybe_event {
-        let mut hasher = std::hash::DefaultHasher::new();
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
 
         // Hash public entries
         for tag in &event.tags {

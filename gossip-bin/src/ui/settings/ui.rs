@@ -46,16 +46,19 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         ui.label("Override DPI: ").on_hover_text("On some systems, DPI is not reported properly. In other cases, people like to zoom in or out. This lets you.");
         ui.checkbox(&mut app.override_dpi, "Override to ");
         ui.add(Slider::new(&mut app.override_dpi_value, 72..=250).text("DPI"));
-
-        if ui.button("Test (without saving)").clicked() {
-            let ppt: f32 = app.override_dpi_value as f32 / 72.0;
-            ctx.set_pixels_per_point(ppt);
-        }
+    });
+    ui.horizontal(|ui| {
+        ui.add_space(10.0); // indent
 
         if ui.button("Reset native").clicked() {
             let native_ppt = ctx.native_pixels_per_point().unwrap_or(1.0);
             app.override_dpi_value = (native_ppt * 72.0) as u32;
             ctx.set_pixels_per_point(native_ppt);
+        }
+
+        if ui.button("Test (without saving)").clicked() {
+            let ppt: f32 = app.override_dpi_value as f32 / 72.0;
+            ctx.set_pixels_per_point(ppt);
         }
 
         // transfer to app.unsaved_settings

@@ -178,8 +178,8 @@ pub enum ToOverlordMessage {
     /// Calls [subscribe_discover](crate::Overlord::subscribe_discover)
     SubscribeDiscover(Vec<PublicKey>, Option<Vec<RelayUrl>>),
 
-    /// Calls [subscribe_mentions](crate::Overlord::subscribe_mentions)
-    SubscribeMentions(Option<Vec<RelayUrl>>),
+    /// Calls [subscribe_inbox](crate::Overlord::subscribe_inbox)
+    SubscribeInbox(Option<Vec<RelayUrl>>),
 
     /// Calls [subscribe_nip46](crate::Overlord::subscribe_nip46)
     SubscribeNip46(Vec<RelayUrl>),
@@ -247,19 +247,13 @@ pub(crate) enum ToMinionPayloadDetail {
     SubscribeOutbox,
     SubscribeDiscover(Vec<PublicKey>),
     SubscribeGeneralFeed(Vec<PublicKey>),
-    SubscribeMentions,
+    SubscribeInbox,
     SubscribePersonFeed(PublicKey),
     SubscribeThreadFeed(IdHex, Vec<IdHex>),
     SubscribeDmChannel(DmChannel),
     SubscribeNip46,
-    TempSubscribeGeneralFeedChunk {
-        pubkeys: Vec<PublicKey>,
-        start: Unixtime,
-    },
-    TempSubscribePersonFeedChunk {
-        pubkey: PublicKey,
-        start: Unixtime,
-    },
+    TempSubscribeGeneralFeedChunk(Unixtime),
+    TempSubscribePersonFeedChunk { pubkey: PublicKey, start: Unixtime },
     TempSubscribeInboxFeedChunk(Unixtime),
     TempSubscribeMetadata(Vec<PublicKey>),
     UnsubscribePersonFeed,
@@ -275,7 +269,7 @@ pub enum RelayConnectionReason {
     FetchDirectMessages,
     FetchContacts,
     FetchEvent,
-    FetchMentions,
+    FetchInbox,
     FetchMetadata,
     Follow,
     NostrConnect,
@@ -302,7 +296,7 @@ impl RelayConnectionReason {
         match *self {
             Discovery => "Searching for other people's Relay Lists",
             Config => "Reading our client configuration",
-            FetchMentions => "Searching for mentions of us",
+            FetchInbox => "Searching for inbox of us",
             Follow => "Following the posts of people in our Contact List",
             FetchAugments => "Fetching events that augment other events (likes, zaps, deletions)",
             FetchDirectMessages => "Fetching direct messages",
@@ -327,7 +321,7 @@ impl RelayConnectionReason {
         match *self {
             Discovery => false,
             Config => false,
-            FetchMentions => true,
+            FetchInbox => true,
             Follow => true,
             FetchAugments => false,
             FetchDirectMessages => true,

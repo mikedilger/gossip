@@ -20,6 +20,8 @@ pub async fn add_pubkey_to_tags(existing_tags: &mut Vec<Tag>, added: PublicKey) 
     }
 }
 
+// note - this is only used for kind-1 currently. If we change to other kinds, the 'q' tag
+//        would currently be wrong.
 pub async fn add_event_to_tags(
     existing_tags: &mut Vec<Tag>,
     added: Id,
@@ -34,20 +36,40 @@ pub async fn add_event_to_tags(
             .flatten()
             .map(|rr| rr.to_unchecked_url()),
     };
-    let newtag = Tag::new_event(added, optrelay, Some(marker.to_string()));
 
-    match existing_tags.iter().position(|existing_tag| {
-        if let Ok((id, _rurl, _optmarker)) = existing_tag.parse_event() {
-            id == added
-        } else {
-            false
+    if marker == "mention" {
+        // NIP-18: "Quote reposts are kind 1 events with an embedded q tag..."
+        let newtag = Tag::new_quote(added, optrelay);
+
+        match existing_tags.iter().position(|existing_tag| {
+            if let Ok((id, _rurl)) = existing_tag.parse_quote() {
+                id == added
+            } else {
+                false
+            }
+        }) {
+            None => {
+                existing_tags.push(newtag);
+                existing_tags.len() - 1
+            }
+            Some(idx) => idx,
         }
-    }) {
-        None => {
-            existing_tags.push(newtag);
-            existing_tags.len() - 1
+    } else {
+        let newtag = Tag::new_event(added, optrelay, Some(marker.to_string()));
+
+        match existing_tags.iter().position(|existing_tag| {
+            if let Ok((id, _rurl, _optmarker)) = existing_tag.parse_event() {
+                id == added
+            } else {
+                false
+            }
+        }) {
+            None => {
+                existing_tags.push(newtag);
+                existing_tags.len() - 1
+            }
+            Some(idx) => idx,
         }
-        Some(idx) => idx,
     }
 }
 

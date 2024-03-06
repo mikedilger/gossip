@@ -1219,12 +1219,12 @@ impl eframe::App for GossipUi {
                     requested_scroll += 50.0;
                 }
                 if i.key_pressed(egui::Key::PageUp) {
-                    let screen_rect = ctx.input(|i| i.screen_rect);
+                    let screen_rect = i.screen_rect;
                     let window_height = screen_rect.max.y - screen_rect.min.y;
                     requested_scroll += window_height * 0.75;
                 }
                 if i.key_pressed(egui::Key::PageDown) {
-                    let screen_rect = ctx.input(|i| i.screen_rect);
+                    let screen_rect = i.screen_rect;
                     let window_height = screen_rect.max.y - screen_rect.min.y;
                     requested_scroll -= window_height * 0.75;
                 }
@@ -1257,6 +1257,12 @@ impl eframe::App for GossipUi {
         ctx.input_mut(|i| {
             i.smooth_scroll_delta.y = self.current_scroll_offset;
         });
+
+        // F11 maximizes
+        if ctx.input(|i| i.key_pressed(egui::Key::F11)) {
+            let maximized = matches!(ctx.input(|i| i.viewport().maximized), Some(true));
+            ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(!maximized));
+        }
 
         let mut reapply = false;
         let mut theme = Theme::from_settings();

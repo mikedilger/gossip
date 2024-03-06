@@ -8,8 +8,8 @@ use crate::relationship::{RelationshipByAddr, RelationshipById};
 use async_recursion::async_recursion;
 use heed::RwTxn;
 use nostr_types::{
-    Event, EventAddr, EventKind, EventReference, Id, Metadata, NostrBech32, PublicKey, RelayUrl,
-    SimpleRelayList, Tag, Unixtime,
+    Event, EventAddr, EventKind, EventReference, Id, Metadata, NostrBech32, PublicKey, RelayList,
+    RelayUrl, RelayUsage, SimpleRelayList, Tag, Unixtime,
 };
 use std::sync::atomic::Ordering;
 
@@ -412,21 +412,21 @@ async fn process_somebody_elses_contact_list(event: &Event) -> Result<(), Error>
             return Ok(());
         }
 
-        let mut inbox_relays: Vec<RelayUrl> = Vec::new();
-        let mut outbox_relays: Vec<RelayUrl> = Vec::new();
+        let mut relay_list: RelayList = Default::default();
         for (url, simple_relay_usage) in srl.0.iter() {
             if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(url) {
-                if simple_relay_usage.read {
-                    inbox_relays.push(relay_url.clone());
-                }
-                if simple_relay_usage.write {
-                    outbox_relays.push(relay_url.clone());
+                if simple_relay_usage.read && simple_relay_usage.write {
+                    relay_list.0.insert(relay_url, RelayUsage::Both);
+                } else if simple_relay_usage.read {
+                    relay_list.0.insert(relay_url, RelayUsage::Read);
+                } else if simple_relay_usage.write {
+                    relay_list.0.insert(relay_url, RelayUsage::Write);
                 }
             }
         }
         GLOBALS
             .storage
-            .set_relay_list(event.pubkey, inbox_relays, outbox_relays, None)?;
+            .set_relay_list(event.pubkey, relay_list, None)?;
 
         // the following also refreshes scores before it picks relays
         let _ = GLOBALS

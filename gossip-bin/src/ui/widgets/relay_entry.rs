@@ -19,11 +19,11 @@ const LIST_VIEW_HEIGHT: f32 = 60.0;
 /// Height of the list view (width always max. available)
 const DETAIL_VIEW_HEIGHT: f32 = 80.0;
 /// Height of the edit view (width always max. available)
-const EDIT_VIEW_HEIGHT: f32 = 250.0;
+const EDIT_VIEW_HEIGHT: f32 = 300.0;
 /// Y-offset for first separator
 const HLINE_1_Y_OFFSET: f32 = LIST_VIEW_HEIGHT - 12.0;
 /// Y-offset for second separator
-const HLINE_2_Y_OFFSET: f32 = 180.0;
+const HLINE_2_Y_OFFSET: f32 = 230.0;
 /// Y top for the detail section
 const DETAIL_SECTION_TOP: f32 = TEXT_TOP + LIST_VIEW_HEIGHT;
 /// Size of edit button
@@ -46,6 +46,9 @@ const USAGE_LINE_X_START: f32 = -60.0;
 const USAGE_LINE_X_END: f32 = -10.0;
 /// Line thickness
 const USAGE_LINE_THICKNESS: f32 = 1.0;
+/// Start of permission section from top
+const PERMISSION_SECTION_TOP: f32 = 200.0;
+const PERMISSION_SECTION_SIZE: Vec2 = Vec2 { x: 223.0, y: 50.0 };
 /// Spacing between nip11 text rows
 const NIP11_Y_SPACING: f32 = 20.0;
 /// Status symbol for status color indicator
@@ -69,7 +72,6 @@ const DISCOVER_HOVER_TEXT: &str = "Where you discover other people's relays list
 const WRITE_HOVER_TEXT: &str =
     "Where you actually write your events to. It is recommended to have a few.";
 const OUTBOX_HOVER_TEXT: &str = "Where you tell others you write to. You should also check Write. It is recommended to have a few.";
-const ADVERTISE_HOVER_TEXT: &str = "Your relay list will be advertised to this relay.";
 const SPAMSAFE_HOVER_TEXT: &str = "Relay is trusted to filter spam. If not set, replies and mentions from unfollowed people will not be fetched from the relay (when SpamSafe is enabled in settings).";
 
 #[derive(Clone, PartialEq)]
@@ -77,6 +79,43 @@ pub enum RelayEntryView {
     List,
     Detail,
     Edit,
+}
+
+#[derive(Copy, Clone, PartialEq)]
+enum Permission {
+    Ask,
+    Always,
+    Never,
+}
+
+impl ToString for Permission {
+    fn to_string(&self) -> String {
+        match self {
+            Permission::Ask => "Ask".to_string(),
+            Permission::Always => "Always".to_string(),
+            Permission::Never => "Never".to_string(),
+        }
+    }
+}
+
+impl From<Permission> for Option<bool> {
+    fn from(value: Permission) -> Option<bool> {
+        match value {
+            Permission::Ask => None,
+            Permission::Always => Some(true),
+            Permission::Never => Some(false),
+        }
+    }
+}
+
+impl From<Option<bool>> for Permission {
+    fn from(value: Option<bool>) -> Self {
+        match value {
+            None => Permission::Ask,
+            Some(true) => Permission::Always,
+            Some(false) => Permission::Never,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -363,7 +402,6 @@ impl RelayEntry {
         if response.clicked() {
             modify_relay(&self.relay.url, |relay| {
                 relay.clear_usage_bits(
-                    //Relay::ADVERTISE
                     Relay::DISCOVER | Relay::INBOX | Relay::OUTBOX | Relay::READ | Relay::WRITE,
                 )
             });
@@ -534,7 +572,7 @@ impl RelayEntry {
         let align = Align::Center;
 
         let bg_rect =
-            egui::Rect::from_x_y_ranges(right.x - 173.0..=right.x, right.y - 5.0..=right.y + 18.0);
+            egui::Rect::from_x_y_ranges(right.x - 153.0..=right.x, right.y - 5.0..=right.y + 18.0);
         let bg_radius = bg_rect.height() / 2.0;
         ui.painter().rect_filled(
             bg_rect,
@@ -552,15 +590,15 @@ impl RelayEntry {
             }
         }
 
-        // ---- R ----
-        let pos = right + vec2(RIGHT - 6.0 * SPACE, 0.0);
+        // ---- Read ----
+        let pos = right + vec2(RIGHT - 5.0 * SPACE, 0.0);
         let (text, color) = switch(ui, "R", self.usage.read);
         let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("R"));
         draw_text_galley_at(ui, pos, galley, Some(color), None);
         response.on_hover_text(READ_HOVER_TEXT);
 
-        // ---- I ----
-        let pos = right + vec2(RIGHT - 5.0 * SPACE, 0.0);
+        // ---- Inbox ----
+        let pos = right + vec2(RIGHT - 4.0 * SPACE, 0.0);
         let (text, color) = switch(ui, "I", self.usage.inbox);
         let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("I"));
         draw_text_galley_at(ui, pos, galley, Some(color), None);
@@ -570,15 +608,15 @@ impl RelayEntry {
         let pos = pos - vec2(SPACE / 2.0, 0.0);
         draw_text_at(ui, pos, "+".into(), align, Some(color), None);
 
-        // ---- W ----
-        let pos = right + vec2(RIGHT - 4.0 * SPACE, 0.0);
+        // ---- Write ----
+        let pos = right + vec2(RIGHT - 3.0 * SPACE, 0.0);
         let (text, color) = switch(ui, "W", self.usage.write);
         let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("W"));
         draw_text_galley_at(ui, pos, galley, Some(color), None);
         response.on_hover_text(WRITE_HOVER_TEXT);
 
-        // ---- O ----
-        let pos = right + vec2(RIGHT - 3.0 * SPACE, 0.0);
+        // ---- Outbox ----
+        let pos = right + vec2(RIGHT - 2.0 * SPACE, 0.0);
         let (text, color) = switch(ui, "O", self.usage.outbox);
         let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("O"));
         draw_text_galley_at(ui, pos, galley, Some(color), None);
@@ -588,21 +626,14 @@ impl RelayEntry {
         let pos = pos - vec2(SPACE / 2.0, 0.0);
         draw_text_at(ui, pos, "+".into(), align, Some(color), None);
 
-        // ---- D ----
-        let pos = right + vec2(RIGHT - 2.0 * SPACE, 0.0);
+        // ---- Discover ----
+        let pos = right + vec2(RIGHT - 1.0 * SPACE, 0.0);
         let (text, color) = switch(ui, "D", self.usage.discover);
         let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("D"));
         draw_text_galley_at(ui, pos, galley, Some(color), None);
         response.on_hover_text(DISCOVER_HOVER_TEXT);
 
-        // ---- A ----
-        let pos = right + vec2(RIGHT - 1.0 * SPACE, 0.0);
-        let (text, color) = switch(ui, "A", self.relay.is_good_for_advertise());
-        let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("A"));
-        draw_text_galley_at(ui, pos, galley, Some(color), None);
-        response.on_hover_text(ADVERTISE_HOVER_TEXT);
-
-        // ---- S ----
+        // ---- Spamsafe ----
         let pos = right + vec2(RIGHT - 0.0 * SPACE, 0.0);
         let (text, color) = switch(ui, "S", self.usage.spamsafe);
         let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("S"));
@@ -978,7 +1009,19 @@ impl RelayEntry {
             let btn_height: f32 = ui.spacing().interact_size.y;
             let btn_round: Rounding = Rounding::same(btn_height / 2.0);
             let font: FontId = Default::default();
-            // font.size = 11.0;
+
+            let pos = pos + vec2(USAGE_SWITCH_X_SPACING, 0.0);
+            {
+                draw_text_at(
+                    ui,
+                    pos - vec2(5.0, 0.0),
+                    "Relay-picker rank:".into(),
+                    Align::RIGHT,
+                    Some(txt_color),
+                    None,
+                );
+            }
+
             {
                 // -- value display --
                 let rect =
@@ -1047,11 +1090,6 @@ impl RelayEntry {
                     );
                 }
             }
-            let pos = pos + vec2(80.0, 0.0);
-            {
-                ui.painter()
-                    .text(pos, Align2::LEFT_TOP, "Relay-picker rank", font, txt_color);
-            }
 
             if new_r != self.relay.rank {
                 let _ = GLOBALS.to_overlord.send(ToOverlordMessage::RankRelay(
@@ -1060,6 +1098,36 @@ impl RelayEntry {
                 ));
             }
         }
+    }
+
+    fn paint_permissions(&self, ui: &mut Ui, rect: &Rect) {
+        let pos = rect.right_top()
+            + vec2(
+                -TEXT_RIGHT - USAGE_SWITCH_PULL_RIGHT,
+                PERMISSION_SECTION_TOP,
+            );
+
+        let perm_rect = Rect::from_min_size(pos, PERMISSION_SECTION_SIZE);
+
+        ui.allocate_ui_at_rect(perm_rect, |ui| {
+            let mut connect_permission = Permission::from(self.relay.allow_connect);
+            let response = permission_combo(ui, &mut connect_permission, "Allow Connect:");
+            if response.is_some() && response.unwrap().changed() {
+                modify_relay(&self.relay.url, |relay| {
+                    relay.allow_connect = connect_permission.into();
+                });
+            }
+
+            ui.add_space(3.0);
+
+            let mut auth_permission = Permission::from(self.relay.allow_auth);
+            let response = permission_combo(ui, &mut auth_permission, "Allow Auth:");
+            if response.is_some() && response.unwrap().changed() {
+                modify_relay(&self.relay.url, |relay| {
+                    relay.allow_auth = auth_permission.into();
+                });
+            }
+        });
     }
 
     fn make_id(&self, str: &str) -> Id {
@@ -1105,20 +1173,28 @@ impl RelayEntry {
     }
 
     fn update_edit_view(mut self, ui: &mut Ui) -> Response {
-        let (rect, mut response) = list_entry::allocate_space(ui, EDIT_VIEW_HEIGHT);
+        let size = vec2(ui.available_width(), EDIT_VIEW_HEIGHT);
+        let rect = Rect::from_min_size(ui.next_widget_position(), size);
+
+        let mut response = ui.interact(rect, self.make_id("frame"), egui::Sense::hover());
 
         // all the heavy lifting is only done if it's actually visible
-        if ui.is_rect_visible(rect) {
+        if ui.is_visible() {
             list_entry::paint_frame(ui, &rect, Some(self.bg_fill));
             self.paint_title(ui, &rect);
             self.paint_stats(ui, &rect);
             paint_hline(ui, &rect, HLINE_1_Y_OFFSET);
             self.paint_nip11(ui, &rect);
             self.paint_usage_settings(ui, &rect);
+            self.paint_permissions(ui, &rect);
             paint_hline(ui, &rect, HLINE_2_Y_OFFSET);
             response |= self.paint_lower_buttons(ui, &rect);
             response |= self.paint_close_btn(ui, &rect);
         }
+
+        // the last 'allocate' call will move the cursor, so we need
+        // to allocate the rect here after painting other components
+        ui.allocate_rect(rect, Sense::hover());
 
         response
     }
@@ -1154,4 +1230,35 @@ where
     let _ = GLOBALS
         .to_overlord
         .send(ToOverlordMessage::UpdateRelay(old, relay));
+}
+
+fn permission_combo(
+    ui: &mut Ui,
+    permission: &mut Permission,
+    title: impl Into<WidgetText>,
+) -> Option<Response> {
+    ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+        let auth_combo = egui::ComboBox::from_id_source(ui.next_auto_id());
+        let response = auth_combo
+            .width(70.0)
+            .selected_text(permission.to_string())
+            .show_ui(ui, |ui| {
+                ui.selectable_value(permission, Permission::Ask, Permission::Ask.to_string())
+                    | ui.selectable_value(
+                        permission,
+                        Permission::Always,
+                        Permission::Always.to_string(),
+                    )
+                    | ui.selectable_value(
+                        permission,
+                        Permission::Never,
+                        Permission::Never.to_string(),
+                    )
+            })
+            .inner;
+
+        ui.add(egui::Label::new(title));
+        response
+    })
+    .inner
 }

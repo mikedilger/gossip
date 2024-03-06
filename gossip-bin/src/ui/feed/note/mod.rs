@@ -729,6 +729,7 @@ fn render_note_inner(
                             ui.horizontal_wrapped(|ui| {
                                 if ui
                                     .add(CopyButton::new())
+                                    .on_hover_cursor(egui::CursorIcon::Default)
                                     .on_hover_text("Copy Contents")
                                     .clicked()
                                 {
@@ -761,13 +762,12 @@ fn render_note_inner(
                                         && note.event.kind != EventKind::DmChat
                                     {
                                         // Button to Repost
-                                        if ui
-                                            .add(
-                                                Label::new(RichText::new("↻").size(18.0))
-                                                    .sense(Sense::click()),
-                                            )
-                                            .on_hover_text("Repost")
-                                            .clicked()
+                                        if widgets::clickable_label(
+                                            ui,
+                                            RichText::new("↻").size(18.0),
+                                        )
+                                        .on_hover_text("Repost")
+                                        .clicked()
                                         {
                                             app.show_post_area = true;
                                             app.draft_data.repost = Some(note.event.id);
@@ -777,13 +777,12 @@ fn render_note_inner(
                                         ui.add_space(24.0);
 
                                         // Button to quote note
-                                        if ui
-                                            .add(
-                                                Label::new(RichText::new("“…”").size(18.0))
-                                                    .sense(Sense::click()),
-                                            )
-                                            .on_hover_text("Quote")
-                                            .clicked()
+                                        if widgets::clickable_label(
+                                            ui,
+                                            RichText::new("“…”").size(18.0),
+                                        )
+                                        .on_hover_text("Quote")
+                                        .clicked()
                                         {
                                             if !app.draft_data.draft.ends_with(' ')
                                                 && !app.draft_data.draft.is_empty()
@@ -832,13 +831,12 @@ fn render_note_inner(
                                         "💬"
                                     };
 
-                                    if ui
-                                        .add(
-                                            Label::new(RichText::new(reply_icon).size(18.0))
-                                                .sense(Sense::click()),
-                                        )
-                                        .on_hover_text("Reply")
-                                        .clicked()
+                                    if widgets::clickable_label(
+                                        ui,
+                                        RichText::new(reply_icon).size(18.0),
+                                    )
+                                    .on_hover_text("Reply")
+                                    .clicked()
                                     {
                                         app.draft_needs_focus = true;
                                         app.show_post_area = true;
@@ -868,11 +866,7 @@ fn render_note_inner(
                                 }
 
                                 // Button to render raw
-                                if ui
-                                    .add(
-                                        Label::new(RichText::new("🥩").size(13.0))
-                                            .sense(Sense::click()),
-                                    )
+                                if widgets::clickable_label(ui, RichText::new("🥩").size(13.0))
                                     .on_hover_text("Raw")
                                     .clicked()
                                 {
@@ -887,11 +881,7 @@ fn render_note_inner(
                                 ui.add_space(24.0);
 
                                 // Button to render QR code
-                                if ui
-                                    .add(
-                                        Label::new(RichText::new("⚃").size(16.0))
-                                            .sense(Sense::click()),
-                                    )
+                                if widgets::clickable_label(ui, RichText::new("⚃").size(16.0))
                                     .on_hover_text("QR Code")
                                     .clicked()
                                 {
@@ -928,13 +918,12 @@ fn render_note_inner(
 
                                     if let Some(lnurl) = zap_lnurl {
                                         if has_seen_on_relays {
-                                            if ui
-                                                .add(
-                                                    Label::new(RichText::new("⚡").size(18.0))
-                                                        .sense(Sense::click()),
-                                                )
-                                                .on_hover_text("ZAP")
-                                                .clicked()
+                                            if widgets::clickable_label(
+                                                ui,
+                                                RichText::new("⚡").size(18.0),
+                                            )
+                                            .on_hover_text("ZAP")
+                                            .clicked()
                                             {
                                                 if GLOBALS.identity.is_unlocked() {
                                                     let _ = GLOBALS.to_overlord.send(
@@ -951,18 +940,23 @@ fn render_note_inner(
                                                 }
                                             }
                                         } else {
-                                            ui.add(Label::new(
+                                            widgets::clickable_label(
+                                                ui,
                                                 RichText::new("⚡").weak().size(18.0),
-                                            ))
+                                            )
                                             .on_hover_text("Note is not zappable (no relays)");
                                         }
                                     } else {
-                                        ui.add(Label::new(RichText::new("⚡").weak().size(18.0)))
-                                            .on_hover_text("Note is not zappable (no lnurl)");
+                                        widgets::clickable_label(
+                                            ui,
+                                            RichText::new("⚡").weak().size(18.0),
+                                        )
+                                        .on_hover_text("Note is not zappable (no lnurl)");
                                     }
 
                                     // Show the zap total
-                                    ui.add(Label::new(format!("{}", note.zaptotal.0 / 1000)));
+                                    ui.add(Label::new(format!("{}", note.zaptotal.0 / 1000)))
+                                        .on_hover_cursor(egui::CursorIcon::Default);
                                 }
 
                                 ui.add_space(24.0);
@@ -980,6 +974,7 @@ fn render_note_inner(
                                             )
                                             .sense(Sense::click()),
                                         )
+                                        .on_hover_cursor(egui::CursorIcon::Default)
                                         .clicked()
                                     {
                                         if !GLOBALS.identity.is_unlocked() {
@@ -997,7 +992,8 @@ fn render_note_inner(
                                     }
                                     for (ch, count) in note.reactions.iter() {
                                         if *ch == '+' {
-                                            ui.label(format!("{}", count));
+                                            ui.label(format!("{}", count))
+                                                .on_hover_cursor(egui::CursorIcon::Default);
                                         }
                                     }
                                     ui.add_space(12.0);
@@ -1005,7 +1001,8 @@ fn render_note_inner(
                                         if *ch != '+' {
                                             ui.label(
                                                 RichText::new(format!("{} {}", ch, count)).weak(),
-                                            );
+                                            )
+                                            .on_hover_cursor(egui::CursorIcon::Default);
                                         }
                                     }
                                 }

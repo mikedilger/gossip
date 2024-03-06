@@ -6,6 +6,7 @@ use crate::fetcher::Fetcher;
 use crate::gossip_identity::GossipIdentity;
 use crate::media::Media;
 use crate::nip46::ParsedCommand;
+use crate::pending::Pending;
 use crate::people::{People, Person};
 use crate::relay::Relay;
 use crate::relay_picker_hooks::Hooks;
@@ -18,6 +19,7 @@ use parking_lot::RwLock as PRwLock;
 use regex::Regex;
 use rhai::{Engine, AST};
 use std::collections::HashSet;
+use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize};
 use tokio::sync::{broadcast, mpsc, Mutex, Notify, RwLock};
 
@@ -145,8 +147,11 @@ pub struct Globals {
     /// Relay auth request (needs allow or deny)
     pub auth_requests: PRwLock<Vec<RelayUrl>>,
 
-    // nip46 approval requests
+    /// nip46 approval requests
     pub nip46_approval_requests: PRwLock<Vec<(PublicKey, ParsedCommand)>>,
+
+    /// Pending actions
+    pub pending: PRwLock<Vec<Pending>>,
 }
 
 lazy_static! {
@@ -209,6 +214,7 @@ lazy_static! {
             connect_requests: PRwLock::new(Vec::new()),
             auth_requests: PRwLock::new(Vec::new()),
             nip46_approval_requests: PRwLock::new(Vec::new()),
+            pending: PRwLock::new(Vec::new()),
         }
     };
 }
@@ -294,5 +300,11 @@ impl Globals {
         relay_urls.dedup();
 
         Ok(relay_urls)
+    }
+
+    pub fn pending_hash(&self) -> u64 {
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        self.pending.read().hash(&mut hasher);
+        hasher.finish()
     }
 }

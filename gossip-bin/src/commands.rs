@@ -29,7 +29,7 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 28] = [
+const COMMANDS: [Command; 29] = [
     Command {
         cmd: "oneshot",
         usage_params: "{depends}",
@@ -69,6 +69,11 @@ const COMMANDS: [Command; 28] = [
         cmd: "delete_relay",
         usage_params: "<relayurl>",
         desc: "delete a relay record from storage.",
+    },
+    Command {
+        cmd: "dpi",
+        usage_params: "<dpi>",
+        desc: "override the DPI setting",
     },
     Command {
         cmd: "events_of_kind",
@@ -197,6 +202,7 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
         "decrypt" => decrypt(command, args)?,
         "delete_spam_by_content" => delete_spam_by_content(command, args, runtime)?,
         "delete_relay" => delete_relay(command, args)?,
+        "dpi" => override_dpi(command, args)?,
         "events_of_kind" => events_of_kind(command, args)?,
         "events_of_pubkey_and_kind" => events_of_pubkey_and_kind(command, args)?,
         "giftwrap_ids" => giftwrap_ids(command)?,
@@ -567,6 +573,21 @@ pub fn delete_relay(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     };
 
     GLOBALS.storage.delete_relay(&rurl, None)?;
+
+    Ok(())
+}
+
+pub fn override_dpi(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+    let dpi = match args.next() {
+        Some(dpistr) => dpistr.parse::<u32>()?,
+        None => return cmd.usage("Missing DPI value".to_string()),
+    };
+
+    GLOBALS
+        .storage
+        .write_setting_override_dpi(&Some(dpi), None)?;
+
+    println!("DPI override setting set to {}", dpi);
 
     Ok(())
 }

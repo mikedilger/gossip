@@ -265,7 +265,12 @@ fn render_a_feed(
                         );
                     }
 
-                    if !feed.is_empty() && offer_load_more {
+                    let recomputing = GLOBALS
+                        .feed
+                        .recompute_lock
+                        .load(std::sync::atomic::Ordering::Relaxed);
+
+                    if !recomputing && offer_load_more {
                         ui.add_space(50.0);
                         ui.with_layout(
                             egui::Layout::top_down(egui::Align::Center)

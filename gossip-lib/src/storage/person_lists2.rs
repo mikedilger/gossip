@@ -162,7 +162,7 @@ impl Storage {
     }
 
     pub(crate) fn hash_person_list2(&self, list: PersonList1) -> Result<u64, Error> {
-        let mut hasher = std::hash::DefaultHasher::new();
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
         for (person, private) in self.get_people_in_list2(list)? {
             person.hash(&mut hasher);
             private.hash(&mut hasher);

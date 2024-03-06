@@ -87,13 +87,13 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         ui.separator();
         ui.add_space(10.0);
 
-        match app.settings_tab {
+        egui::ScrollArea::new([true, true]).show(ui, |ui| match app.settings_tab {
             SettingsTab::Content => content::update(app, ctx, frame, ui),
             SettingsTab::Database => database::update(app, ctx, frame, ui),
             SettingsTab::Id => id::update(app, ctx, frame, ui),
             SettingsTab::Network => network::update(app, ctx, frame, ui),
             SettingsTab::Posting => posting::update(app, ctx, frame, ui),
             SettingsTab::Ui => ui::update(app, ctx, frame, ui),
-        }
+        });
     });
 }
