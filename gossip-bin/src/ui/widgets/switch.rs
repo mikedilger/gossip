@@ -287,6 +287,43 @@ fn draw_at(
             ui.painter()
                 .galley_with_override_text_color(text_pos, galley, text_color);
         }
+
+        if response.has_focus() {
+            // focus ring
+            // https://www.researchgate.net/publication/265893293_Approximation_of_a_cubic_bezier_curve_by_circular_arcs_and_vice_versa
+            // figure 4, formula 7
+            const K: f32 = 0.551_915_05; // 0.5519150244935105707435627;
+            const PHI: f32 = std::f32::consts::PI / 4.0; // 1/8 of circle
+            const GROW: f32 = 3.0; // amount to increase radius over switch rounding5
+            let mut rect = switch_rect.expand(GROW);
+            let rad = rect.height() / 2.0;
+            rect.set_width(rect.height());
+            let center = rect.center();
+            let p1 = Vec2 {
+                x: -rad * f32::cos(PHI),
+                y: rad * f32::sin(PHI),
+            };
+            let p4 = Vec2 {
+                x: -rad * f32::cos(PHI),
+                y: -rad * f32::sin(PHI),
+            };
+            let p2 = Vec2 {
+                x: p1.x - K * rad * f32::sin(PHI),
+                y: p1.y - K * rad * f32::cos(PHI),
+            };
+            let p3 = Vec2 {
+                x: p4.x - K * rad * f32::sin(PHI),
+                y: p4.y + K * rad * f32::cos(PHI),
+            };
+            let points = [center + p1, center + p2, center + p3, center + p4];
+            let ring = egui::epaint::CubicBezierShape::from_points_stroke(
+                points,
+                false,
+                Color32::TRANSPARENT,
+                egui::Stroke::new(1.0, frame_stroke.color),
+            );
+            ui.painter().add(ring);
+        }
     }
 
     response
