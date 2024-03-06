@@ -257,6 +257,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 "Publish Following List",
             );
         });
+        ui.add_space(10.0);
     }
 
     ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
