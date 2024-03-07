@@ -14,6 +14,8 @@ pub enum WizardPath {
     FollowOnlyNoKeys,
 }
 
+type PersonHandle = Rc<RefCell<Person>>;
+
 #[derive(Debug)]
 pub struct WizardState {
     pub path: WizardPath,
@@ -35,7 +37,7 @@ pub struct WizardState {
     pub relay_list_events: Vec<Event>,
     pub relays: Vec<Relay>,
     pub relays_should_publish: bool,
-    pub followed: Vec<(Option<PublicKey>, Option<Rc<RefCell<Person>>>)>,
+    pub followed: Vec<(Option<PublicKey>, Option<PersonHandle>)>,
     pub followed_last_try: f64,
     pub followed_getting_metadata: HashSet<PublicKey>,
     pub follow_list_should_publish: bool,

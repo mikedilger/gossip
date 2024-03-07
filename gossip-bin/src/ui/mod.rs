@@ -153,6 +153,7 @@ enum Page {
     HelpHelp,
     HelpStats,
     HelpAbout,
+    #[allow(unused)]
     ThemeTest,
     Wizard(WizardPage),
 }
