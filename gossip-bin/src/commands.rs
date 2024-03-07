@@ -926,7 +926,7 @@ pub fn login() -> Result<(), Error> {
             Some(epk) => epk,
             None => return Err(ErrorKind::NoPrivateKey.into()),
         };
-        GLOBALS.identity.set_encrypted_private_key(epk)?;
+        GLOBALS.identity.set_encrypted_private_key(epk, &password)?;
         GLOBALS.identity.unlock(&password)?;
         password.zeroize();
     } else {

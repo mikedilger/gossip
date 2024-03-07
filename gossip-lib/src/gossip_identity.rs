@@ -1,4 +1,4 @@
-use crate::error::{Error, ErrorKind};
+use crate::error::Error;
 use crate::globals::GLOBALS;
 use nostr_types::{
     ContentEncryptionAlgorithm, DelegationConditions, EncryptedPrivateKey, Event, EventKind,
@@ -104,13 +104,12 @@ impl GossipIdentity {
         Ok(())
     }
 
-    pub fn set_encrypted_private_key(&self, epk: EncryptedPrivateKey) -> Result<(), Error> {
-        let public_key = match *self.inner.read() {
-            Identity::None => return Err(ErrorKind::NoPublicKey.into()),
-            Identity::Public(public_key) => public_key,
-            Identity::Signer(ref s) => s.public_key(),
-        };
-        *self.inner.write() = Identity::from_locked_parts(public_key, epk);
+    pub fn set_encrypted_private_key(
+        &self,
+        epk: EncryptedPrivateKey,
+        pass: &str,
+    ) -> Result<(), Error> {
+        *self.inner.write() = Identity::from_encrypted_private_key(epk, pass)?;
         self.on_keychange()?;
         Ok(())
     }

@@ -1451,15 +1451,18 @@ impl Overlord {
     pub async fn import_priv(mut privkey: String, mut password: String) -> Result<(), Error> {
         if privkey.starts_with("ncryptsec") {
             let epk = EncryptedPrivateKey(privkey);
-            GLOBALS.identity.set_encrypted_private_key(epk)?;
-            if let Err(e) = GLOBALS.identity.unlock(&password) {
-                password.zeroize();
-                GLOBALS
-                    .status_queue
-                    .write()
-                    .write(format!("Private key failed to decrypt: {}", e));
-            } else {
-                password.zeroize();
+            match GLOBALS.identity.set_encrypted_private_key(epk, &password) {
+                Ok(_) => {
+                    GLOBALS.identity.unlock(&password)?;
+                    password.zeroize();
+                }
+                Err(err) => {
+                    password.zeroize();
+                    GLOBALS
+                        .status_queue
+                        .write()
+                        .write(format!("Error importing ncryptsec: {}", err.to_string()));
+                }
             }
         } else {
             let maybe_pk1 = PrivateKey::try_from_bech32_string(privkey.trim());

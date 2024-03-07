@@ -100,6 +100,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     if let Some(err) = &app.wizard_state.error {
         ui.add_space(10.0);
         ui.label(RichText::new(err).color(app.theme.warning_marker_text_color()));
+        if ncryptsec {
+            ui.label("Please check your ncryptsec and password again");
+        }
     }
 
     wizard_controls(
@@ -110,12 +113,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             app.set_page(ctx, Page::Wizard(WizardPage::ImportKeys));
         },
         |app| {
+            app.wizard_state.error = None;
             let _ = GLOBALS.to_overlord.send(ToOverlordMessage::ImportPriv {
                 privkey: app.import_priv.clone(),
                 password: app.password.clone(),
             });
-            app.import_priv.zeroize();
-            app.import_priv = "".to_owned();
             app.password.zeroize();
             app.password = "".to_owned();
             app.password2.zeroize();
