@@ -229,13 +229,19 @@ impl Nip46Server {
                 self.peer_pubkey,
                 self.relays.clone(),
             )?,
-            Err(e) => send_response(
-                id.to_owned(),
-                "".to_owned(),
-                format!("{}", e),
-                self.peer_pubkey,
-                self.relays.clone(),
-            )?,
+            Err(e) => {
+                if matches!(e.kind, ErrorKind::Nip46NeedApproval) {
+                    return Err(e);
+                } else {
+                    send_response(
+                        id.to_owned(),
+                        "".to_owned(),
+                        format!("{}", e),
+                        self.peer_pubkey,
+                        self.relays.clone(),
+                    )?;
+                }
+            }
         }
 
         Ok(())
