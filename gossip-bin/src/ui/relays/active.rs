@@ -5,7 +5,7 @@ use crate::ui::widgets;
 use crate::ui::Page;
 use eframe::egui;
 use egui::{Context, Ui};
-use egui_winit::egui::{Id, RichText};
+use egui_winit::egui::Id;
 use gossip_lib::Relay;
 use gossip_lib::GLOBALS;
 use nostr_types::RelayUrl;
@@ -20,11 +20,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         btn_h_space!(ui);
         super::relay_sort_combo(app, ui);
         btn_h_space!(ui);
-        widgets::search_field(ui, &mut app.relays.search, 200.0);
-        ui.add_space(200.0); // search_field somehow doesn't "take up" space
-        if ui
-            .button(RichText::new(Page::RelaysCoverage.name()))
-            .on_hover_cursor(egui::CursorIcon::PointingHand)
+        widgets::search_field(ui, &app.theme, &app.assets, &mut app.relays.search, 200.0);
+        if widgets::Button::bordered(&app.theme, Page::RelaysCoverage.name())
+            .show(ui)
             .clicked()
         {
             app.set_page(ctx, crate::ui::Page::RelaysCoverage);

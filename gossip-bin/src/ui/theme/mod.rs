@@ -11,6 +11,8 @@ use std::collections::BTreeMap;
 mod default;
 pub use default::DefaultTheme;
 
+pub(super) mod test_page;
+
 pub fn apply_theme(theme: &Theme, ctx: &Context) {
     ctx.set_style(theme.get_style());
     ctx.set_fonts(theme.font_definitions());
@@ -73,6 +75,148 @@ macro_rules! theme_dispatch {
                 self.variant.name()
             }
 
+            // Palette
+            #[allow(dead_code)]
+            pub fn neutral_50(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::neutral_50(), )+
+                }
+            }
+
+            #[allow(dead_code)]
+            pub fn neutral_100(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::neutral_100(), )+
+                }
+            }
+
+            #[allow(dead_code)]
+            pub fn neutral_200(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::neutral_200(), )+
+                }
+            }
+
+            #[allow(dead_code)]
+            pub fn neutral_300(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::neutral_300(), )+
+                }
+            }
+
+            #[allow(dead_code)]
+            pub fn neutral_400(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::neutral_400(), )+
+                }
+            }
+
+            #[allow(dead_code)]
+            pub fn neutral_500(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::neutral_500(), )+
+                }
+            }
+
+            #[allow(dead_code)]
+            pub fn neutral_600(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::neutral_600(), )+
+                }
+            }
+
+            #[allow(dead_code)]
+            pub fn neutral_700(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::neutral_700(), )+
+                }
+            }
+
+            #[allow(dead_code)]
+            pub fn neutral_800(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::neutral_800(), )+
+                }
+            }
+
+            #[allow(dead_code)]
+            pub fn neutral_900(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::neutral_900(), )+
+                }
+            }
+
+            #[allow(dead_code)]
+            pub fn neutral_950(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::neutral_950(), )+
+                }
+            }
+
+            #[allow(dead_code)]
+            pub fn accent_dark(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::accent_dark(), )+
+                }
+            }
+
+            #[allow(dead_code)]
+            pub fn accent_dark_b20(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::accent_dark_b20(), )+
+                }
+            }
+
+            #[allow(dead_code)]
+            pub fn accent_dark_w20(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::accent_dark_w20(), )+
+                }
+            }
+
+            #[allow(dead_code)]
+            pub fn accent_light(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::accent_light(), )+
+                }
+            }
+
+            #[allow(dead_code)]
+            pub fn accent_light_b20(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::accent_light_b20(), )+
+                }
+            }
+
+            #[allow(dead_code)]
+            pub fn accent_light_w20(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::accent_light_w20(), )+
+                }
+            }
+
+            #[allow(dead_code)]
+            pub fn red_500(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::red_500(), )+
+                }
+            }
+
+            #[allow(dead_code)]
+            pub fn lime_500(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::lime_500(), )+
+                }
+            }
+
+            #[allow(dead_code)]
+            pub fn amber_400(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::amber_400(), )+
+                }
+            }
+
+            #[allow(dead_code)]
             pub fn accent_color(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::accent_color(self.dark_mode), )+
@@ -118,22 +262,14 @@ macro_rules! theme_dispatch {
                 }
             }
 
-            /// accent-colored button style 1 (filled)
-            pub fn accent_button_1_style(&self, style: &mut Style) {
+            /// primary button style
+            pub fn primary_button_style(&self, style: &mut Style) {
                 match self.variant {
-                    $( $variant => $class::accent_button_1_style(style, self.dark_mode), )+
-                }
-            }
-
-            /// accent-colored button style 2 (white w. accent outline)
-            pub fn accent_button_2_style(&self, style: &mut Style) {
-                match self.variant {
-                    $( $variant => $class::accent_button_2_style(style, self.dark_mode), )+
+                    $( $variant => $class::primary_button_style(style, self.dark_mode), )+
                 }
             }
 
             /// 'danger' colored hover for accent-colored button styles
-            #[allow(dead_code)]
             pub fn accent_button_danger_hover(&self, style: &mut Style) {
                 match self.variant {
                     $( $variant => $class::accent_button_danger_hover(style, self.dark_mode), )+
@@ -381,6 +517,28 @@ pub trait ThemeDef: Send + Sync {
     // User facing name
     fn name() -> &'static str;
 
+    // Palette
+    fn neutral_50() -> Color32;
+    fn neutral_100() -> Color32;
+    fn neutral_200() -> Color32;
+    fn neutral_300() -> Color32;
+    fn neutral_400() -> Color32;
+    fn neutral_500() -> Color32;
+    fn neutral_600() -> Color32;
+    fn neutral_700() -> Color32;
+    fn neutral_800() -> Color32;
+    fn neutral_900() -> Color32;
+    fn neutral_950() -> Color32;
+    fn accent_dark() -> Color32;
+    fn accent_dark_b20() -> Color32; // overlay 20% black
+    fn accent_dark_w20() -> Color32; // overlay 20% white
+    fn accent_light() -> Color32;
+    fn accent_light_b20() -> Color32; // overlay 20% black
+    fn accent_light_w20() -> Color32; // overlay 20% white
+    fn red_500() -> Color32;
+    fn lime_500() -> Color32;
+    fn amber_400() -> Color32;
+
     // Used for strokes, lines, and text in various places
     fn accent_color(dark_mode: bool) -> Color32;
 
@@ -399,11 +557,10 @@ pub trait ThemeDef: Send + Sync {
     /// the style to use when displaying on-top of an accent-colored background
     fn on_accent_style(style: &mut Style, dark_mode: bool);
 
-    /// accent-colored button style 1 (filled)
-    fn accent_button_1_style(style: &mut Style, dark_mode: bool);
-
-    /// accent-colored button style 2 (white w. accent outline)
-    fn accent_button_2_style(style: &mut Style, dark_mode: bool);
+    // button styles
+    fn primary_button_style(style: &mut Style, dark_mode: bool);
+    fn secondary_button_style(style: &mut Style, dark_mode: bool);
+    fn bordered_button_style(style: &mut Style, dark_mode: bool);
 
     /// 'danger' colored hover for accent-colored button styles
     fn accent_button_danger_hover(style: &mut Style, dark_mode: bool);

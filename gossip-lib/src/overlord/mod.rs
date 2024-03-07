@@ -193,9 +193,6 @@ impl Overlord {
         // Start periodic tasks in pending
         crate::pending::start();
 
-        // Initialize the relay picker
-        GLOBALS.relay_picker.init().await?;
-
         // Do the startup procedures
         self.start_long_lived_subscriptions().await?;
 
@@ -2760,6 +2757,9 @@ impl Overlord {
 
     /// This is done at startup and after the wizard.
     pub async fn start_long_lived_subscriptions(&mut self) -> Result<(), Error> {
+        // Intialize the RelayPicker
+        GLOBALS.relay_picker.init().await?;
+
         // Pick Relays and start Minions
         if !GLOBALS.storage.read_setting_offline() {
             self.pick_relays().await;

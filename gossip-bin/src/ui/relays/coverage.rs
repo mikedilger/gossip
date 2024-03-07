@@ -129,9 +129,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         ),
         |ui| {
             ui.spacing_mut().button_padding *= 2.0;
-            if ui
-                .button("Pick Relays Again")
-                .on_hover_cursor(egui::CursorIcon::PointingHand)
+            if widgets::Button::bordered(&app.theme, "Pick Relays Again")
+                .show(ui)
                 .clicked()
             {
                 let _ = GLOBALS
@@ -140,11 +139,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             }
             ui.add_space(10.0);
             {
-                widgets::set_important_button_visuals(ui, app);
-
-                if ui
-                    .button(Page::RelaysActivityMonitor.name())
-                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                if widgets::Button::primary(&app.theme, Page::RelaysActivityMonitor.name())
+                    .show(ui)
                     .clicked()
                 {
                     app.set_page(ctx, Page::RelaysActivityMonitor);

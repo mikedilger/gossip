@@ -86,8 +86,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
                         ui.add_space(10.0);
                         ui.label(RichText::new("Include replies").size(11.0));
-                        let size = ui.spacing().interact_size.y * egui::vec2(1.6, 0.8);
-                        if widgets::switch_with_size(ui, &mut app.mainfeed_include_nonroot, size)
+                        if widgets::Switch::small(&app.theme, &mut app.mainfeed_include_nonroot)
+                            .show(ui)
                             .clicked()
                         {
                             app.set_page(
@@ -132,8 +132,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.add_space(10.0);
                         ui.label(RichText::new("Everything").size(11.0));
-                        let size = ui.spacing().interact_size.y * egui::vec2(1.6, 0.8);
-                        if widgets::switch_with_size(ui, &mut app.inbox_include_indirect, size)
+                        if widgets::Switch::small(&app.theme, &mut app.inbox_include_indirect)
+                            .show(ui)
                             .clicked()
                         {
                             app.set_page(
@@ -276,10 +276,9 @@ fn render_a_feed(
                             egui::Layout::top_down(egui::Align::Center)
                                 .with_cross_align(egui::Align::Center),
                             |ui| {
-                                app.theme.accent_button_1_style(ui.style_mut());
-                                ui.spacing_mut().button_padding.x *= 3.0;
-                                ui.spacing_mut().button_padding.y *= 2.0;
-                                let response = ui.add(egui::Button::new("Load More"));
+                                let response =
+                                    widgets::Button::primary(&app.theme, "     Load More     ")
+                                        .show(ui);
                                 if response.clicked() {
                                     let _ = GLOBALS
                                         .to_overlord

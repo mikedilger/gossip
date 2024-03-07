@@ -6,6 +6,8 @@ use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::GLOBALS;
 use zeroize::Zeroize;
 
+use super::wizard_controls;
+
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     // If already generated, advance
     if app.wizard_state.has_private_key {
@@ -25,27 +27,47 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     ui.add_space(20.0);
     ui.heading("Generate a Keypair");
 
-    ui.add_space(10.0);
-    ui.horizontal(|ui| {
-        ui.label("Enter a passphrase to keep it encrypted under");
-        if ui
-            .add(text_edit_line!(app, app.password).password(true))
-            .changed()
-        {
-            app.wizard_state.error = None;
-        }
-    });
+    // compute results from previus ui update
+    let password_mismatch = app.password != app.password2;
+    let ready = !password_mismatch;
 
     ui.add_space(10.0);
-    ui.horizontal(|ui| {
-        ui.label("Repeat that passphrase");
-        if ui
-            .add(text_edit_line!(app, app.password2).password(true))
-            .changed()
-        {
-            app.wizard_state.error = None;
-        }
-    });
+    egui::Grid::new("inputs")
+        .num_columns(2)
+        .striped(false)
+        .spacing([10.0, 10.0])
+        .show(ui, |ui| {
+            ui.label("Enter a passphrase to keep it encrypted under");
+            if ui
+                .add(text_edit_line!(app, app.password).password(true))
+                .changed()
+            {
+                app.wizard_state.error = None;
+            }
+            ui.end_row();
+
+            ui.label("Repeat that passphrase");
+            if ui
+                .add(text_edit_line!(app, app.password2).password(true))
+                .changed()
+            {
+                app.wizard_state.error = None;
+            }
+            ui.end_row();
+
+            ui.label(""); // empty cell
+            let text = if ready {
+                if app.password.is_empty() {
+                    "Your password is empty!"
+                } else {
+                    ""
+                }
+            } else {
+                "Passwords do not match."
+            };
+            ui.label(RichText::new(text).color(app.theme.warning_marker_text_color()));
+            ui.end_row();
+        });
 
     // error block
     if !app.wizard_state.generating {
@@ -55,31 +77,20 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         }
     }
 
-    let password_mismatch = app.password != app.password2;
-    let ready = !password_mismatch;
-
-    if password_mismatch && !app.wizard_state.generating {
+    if app.wizard_state.generating {
         ui.add_space(10.0);
-        ui.label(
-            RichText::new("Passwords do not match.").color(app.theme.warning_marker_text_color()),
-        );
+        ui.label("Generating keypair ...");
     }
 
-    if ready {
-        if app.password.is_empty() && !app.wizard_state.generating {
-            ui.add_space(10.0);
-            ui.label(
-                RichText::new("Your password is empty!")
-                    .color(app.theme.warning_marker_text_color()),
-            );
-        }
-
-        ui.add_space(20.0);
-
-        if ui
-            .button(RichText::new("  >  Generate Now").color(app.theme.accent_color()))
-            .clicked()
-        {
+    ui.add_space(20.0);
+    wizard_controls(
+        ui,
+        app,
+        ready,
+        |app| {
+            app.set_page(ctx, Page::Wizard(WizardPage::WelcomeGossip));
+        },
+        |app| {
             app.wizard_state.generating = true;
             let _ = GLOBALS
                 .to_overlord
@@ -88,16 +99,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             app.password = "".to_owned();
             app.password2.zeroize();
             app.password2 = "".to_owned();
-        }
-    }
-
-    if app.wizard_state.generating {
-        ui.add_space(10.0);
-        ui.label("Generating keypair ...");
-    }
-
-    ui.add_space(20.0);
-    if ui.button("  <  Go Back").clicked() {
-        app.set_page(ctx, Page::Wizard(WizardPage::WelcomeGossip));
-    }
+        },
+    );
 }

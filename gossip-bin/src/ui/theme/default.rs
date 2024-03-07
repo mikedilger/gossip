@@ -6,21 +6,90 @@ use eframe::egui::{
 };
 use eframe::epaint::{ecolor, Color32, FontFamily, FontId, Rounding, Shadow};
 use egui_winit::egui::style::{HandleShape, NumericColorSpace};
+use egui_winit::egui::{vec2, Vec2};
 use std::collections::BTreeMap;
 
 #[derive(Default)]
 pub struct DefaultTheme {}
+
+impl DefaultTheme {
+    fn button_padding() -> Vec2 {
+        vec2(4.0, 1.0)
+    }
+}
 
 impl ThemeDef for DefaultTheme {
     fn name() -> &'static str {
         "Default"
     }
 
+    // Palette
+    fn neutral_50() -> Color32 {
+        Color32::from_rgb(0xfa, 0xfa, 0xfa)
+    } // #fafafa
+    fn neutral_100() -> Color32 {
+        Color32::from_rgb(0xf5, 0xf5, 0xf5)
+    } // #f5f5f5
+    fn neutral_200() -> Color32 {
+        Color32::from_rgb(0xe5, 0xe5, 0xe5)
+    } // #e5e5e5
+    fn neutral_300() -> Color32 {
+        Color32::from_rgb(0xd4, 0xd4, 0xd4)
+    } // #d4d4d4
+    fn neutral_400() -> Color32 {
+        Color32::from_rgb(0xa3, 0xa3, 0xa3)
+    } // #a3a3a3
+    fn neutral_500() -> Color32 {
+        Color32::from_rgb(0x73, 0x73, 0x73)
+    } // #737373
+    fn neutral_600() -> Color32 {
+        Color32::from_rgb(0x52, 0x52, 0x52)
+    } // #525252
+    fn neutral_700() -> Color32 {
+        Color32::from_rgb(0x40, 0x40, 0x40)
+    } // #404040
+    fn neutral_800() -> Color32 {
+        Color32::from_rgb(0x26, 0x26, 0x26)
+    } // #262626
+    fn neutral_900() -> Color32 {
+        Color32::from_rgb(0x17, 0x17, 0x17)
+    } // #171717
+    fn neutral_950() -> Color32 {
+        Color32::from_rgb(0x0a, 0x0a, 0x0a)
+    } // #0a0a0a
+    fn accent_dark() -> Color32 {
+        Color32::from_rgb(0x74, 0xa7, 0xcc)
+    } // #74A7CC
+    fn accent_dark_b20() -> Color32 {
+        Color32::from_rgb(0x5D, 0x86, 0xa3)
+    }
+    fn accent_dark_w20() -> Color32 {
+        Color32::from_rgb(0x90, 0xb9, 0xd6)
+    }
+    fn accent_light() -> Color32 {
+        Color32::from_rgb(0x55, 0x7a, 0x95)
+    } // #557A95
+    fn accent_light_b20() -> Color32 {
+        Color32::from_rgb(0x45, 0x62, 0x77)
+    }
+    fn accent_light_w20() -> Color32 {
+        Color32::from_rgb(0x77, 0x95, 0xAA)
+    }
+    fn red_500() -> Color32 {
+        Color32::from_rgb(0xef, 0x44, 0x44)
+    } // #EF4444
+    fn lime_500() -> Color32 {
+        Color32::from_rgb(0x22, 0xc5, 0x5e)
+    } // #22C55E
+    fn amber_400() -> Color32 {
+        Color32::from_rgb(0xfb, 0xbf, 0x24)
+    } // #FBBF24
+
     fn accent_color(dark_mode: bool) -> Color32 {
         if dark_mode {
-            Color32::from_rgb(116, 167, 204)
+            Self::accent_dark()
         } else {
-            Color32::from_rgb(85, 122, 149)
+            Self::accent_light()
         }
     }
 
@@ -67,7 +136,7 @@ impl ThemeDef for DefaultTheme {
         // pub window_margin: Margin,
 
         // /// Button size is text size plus this on each side
-        // style.spacing.button_padding = vec2(10.0, 2.0);
+        style.spacing.button_padding = Self::button_padding();
 
         // /// Horizontal and vertical margins within a menu frame.
         // pub menu_margin: Margin,
@@ -330,8 +399,8 @@ impl ThemeDef for DefaultTheme {
         }
     }
 
-    fn accent_button_1_style(style: &mut Style, dark_mode: bool) {
-        style.spacing.button_padding.x *= 3.0;
+    fn primary_button_style(style: &mut Style, dark_mode: bool) {
+        style.spacing.button_padding.x = Self::button_padding().x * 3.0;
         let accent_color = Self::accent_color(dark_mode);
         style.visuals.widgets.noninteractive.weak_bg_fill = accent_color;
         style.visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0, Color32::WHITE);
@@ -347,8 +416,45 @@ impl ThemeDef for DefaultTheme {
             Stroke::new(1.0, Self::darken_color(accent_color, 0.4));
     }
 
-    fn accent_button_2_style(style: &mut Style, dark_mode: bool) {
-        style.spacing.button_padding.x *= 3.0;
+    fn secondary_button_style(style: &mut Style, dark_mode: bool) {
+        style.spacing.button_padding.x = Self::button_padding().x * 3.0;
+        let accent_color = Self::accent_color(dark_mode);
+        if dark_mode {
+            style.visuals.widgets.noninteractive.weak_bg_fill = style.visuals.faint_bg_color;
+            style.visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+            style.visuals.widgets.noninteractive.bg_stroke = Stroke::new(1.0, Color32::WHITE);
+            style.visuals.widgets.inactive.weak_bg_fill = style.visuals.faint_bg_color;
+            style.visuals.widgets.inactive.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+            style.visuals.widgets.inactive.bg_stroke =
+                Stroke::new(1.0, Color32::from_white_alpha(40));
+            style.visuals.widgets.hovered.weak_bg_fill = Self::darken_color(accent_color, 0.2);
+            style.visuals.widgets.hovered.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+            style.visuals.widgets.hovered.bg_stroke =
+                Stroke::new(1.0, Self::darken_color(accent_color, 0.2));
+            style.visuals.widgets.active.weak_bg_fill = Self::darken_color(accent_color, 0.4);
+            style.visuals.widgets.active.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+            style.visuals.widgets.active.bg_stroke =
+                Stroke::new(1.0, Self::darken_color(accent_color, 0.4));
+        } else {
+            style.visuals.widgets.noninteractive.weak_bg_fill = Color32::WHITE;
+            style.visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0, accent_color);
+            style.visuals.widgets.noninteractive.bg_stroke = Stroke::new(1.0, accent_color);
+            style.visuals.widgets.inactive.weak_bg_fill = Color32::WHITE;
+            style.visuals.widgets.inactive.fg_stroke = Stroke::new(1.0, accent_color);
+            style.visuals.widgets.inactive.bg_stroke = Stroke::new(1.0, accent_color);
+            style.visuals.widgets.hovered.weak_bg_fill = Self::darken_color(accent_color, 0.2);
+            style.visuals.widgets.hovered.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+            style.visuals.widgets.hovered.bg_stroke =
+                Stroke::new(1.0, Self::darken_color(accent_color, 0.2));
+            style.visuals.widgets.active.weak_bg_fill = Self::darken_color(accent_color, 0.4);
+            style.visuals.widgets.active.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+            style.visuals.widgets.active.bg_stroke =
+                Stroke::new(1.0, Self::darken_color(accent_color, 0.4));
+        }
+    }
+
+    fn bordered_button_style(style: &mut Style, dark_mode: bool) {
+        style.spacing.button_padding.x = Self::button_padding().x * 3.0;
         let accent_color = Self::accent_color(dark_mode);
         if dark_mode {
             style.visuals.widgets.noninteractive.weak_bg_fill = style.visuals.faint_bg_color;
@@ -413,7 +519,7 @@ impl ThemeDef for DefaultTheme {
         text_styles.insert(
             TextStyle::Body,
             FontId {
-                size: 12.5,
+                size: 13.0,
                 family: FontFamily::Proportional,
             },
         );
@@ -421,7 +527,7 @@ impl ThemeDef for DefaultTheme {
         text_styles.insert(
             TextStyle::Monospace,
             FontId {
-                size: 12.5,
+                size: 13.0,
                 family: FontFamily::Monospace,
             },
         );
@@ -429,7 +535,7 @@ impl ThemeDef for DefaultTheme {
         text_styles.insert(
             TextStyle::Button,
             FontId {
-                size: 12.5,
+                size: 13.0,
                 family: FontFamily::Proportional,
             },
         );
@@ -483,30 +589,30 @@ impl ThemeDef for DefaultTheme {
 
         match highlight_type {
             HighlightType::Nothing => TextFormat {
-                font_id: FontId::new(12.5, FontFamily::Proportional),
+                font_id: FontId::new(13.0, FontFamily::Proportional),
                 color: main,
                 ..Default::default()
             },
             HighlightType::PublicKey => TextFormat {
-                font_id: FontId::new(12.5, FontFamily::Monospace),
+                font_id: FontId::new(13.0, FontFamily::Monospace),
                 background: grey,
                 color: green,
                 ..Default::default()
             },
             HighlightType::Event => TextFormat {
-                font_id: FontId::new(12.5, FontFamily::Monospace),
+                font_id: FontId::new(13.0, FontFamily::Monospace),
                 background: grey,
                 color: red,
                 ..Default::default()
             },
             HighlightType::Relay => TextFormat {
-                font_id: FontId::new(12.5, FontFamily::Monospace),
+                font_id: FontId::new(13.0, FontFamily::Monospace),
                 background: grey,
                 color: purple,
                 ..Default::default()
             },
             HighlightType::Hyperlink => TextFormat {
-                font_id: FontId::new(12.5, FontFamily::Proportional),
+                font_id: FontId::new(13.0, FontFamily::Proportional),
                 color: {
                     // This should match get_style() above for hyperlink color.
                     if dark_mode {

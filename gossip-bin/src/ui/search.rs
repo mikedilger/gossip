@@ -1,6 +1,5 @@
 use super::{widgets, GossipUi, Page};
 use eframe::{egui, Frame};
-use egui::widgets::Button;
 use egui::{Context, Label, RichText, Sense, Ui};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::FeedKind;
@@ -16,7 +15,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut Frame, ui: 
 
     ui.horizontal(|ui| {
         let response = ui.add(
-            text_edit_line!(app, app.search)
+            widgets::TextEdit::search(&app.theme, &app.assets, &mut app.search)
                 .hint_text("Search for People and Notes")
                 .desired_width(600.0),
         );
@@ -26,7 +25,12 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut Frame, ui: 
             app.entering_search_page = false;
         }
 
-        if ui.add(Button::new("Search")).clicked() {
+        ui.add_space(20.0);
+
+        if widgets::Button::primary(&app.theme, "Search")
+            .show(ui)
+            .clicked()
+        {
             trigger_search = true;
         }
         if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {

@@ -4,6 +4,9 @@ use eframe::egui;
 use egui::{Context, RichText, Ui};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::GLOBALS;
+use nostr_types::{Profile, PublicKey};
+
+use super::wizard_controls;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     // If already imported, advance
@@ -21,15 +24,13 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
     ui.horizontal_wrapped(|ui| {
         ui.label("Enter your public key");
-        let response = text_edit_line!(app, app.import_pub)
+        text_edit_line!(app, app.import_pub)
             .with_paste()
             .desired_width(f32::INFINITY)
-            .show(ui)
-            .response;
-        if response.changed() {
-            app.wizard_state.error = None;
-        }
+            .show(ui);
     });
+
+    let ready = try_parse_pubkey(&app.import_pub).is_ok();
 
     // error block
     if let Some(err) = &app.wizard_state.error {
@@ -37,23 +38,31 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         ui.label(RichText::new(err).color(app.theme.warning_marker_text_color()));
     }
 
-    let ready = !app.import_pub.is_empty();
-
-    if ready {
-        ui.add_space(10.0);
-        if ui
-            .button(RichText::new("  >  Import").color(app.theme.accent_color()))
-            .clicked()
-        {
+    ui.add_space(20.0); // vertical space
+    wizard_controls(
+        ui,
+        app,
+        ready,
+        |app| {
+            app.set_page(ctx, Page::Wizard(WizardPage::ImportKeys));
+        },
+        |app| {
+            app.wizard_state.error = None;
             let _ = GLOBALS
                 .to_overlord
                 .send(ToOverlordMessage::ImportPub(app.import_pub.clone()));
             app.import_pub = "".to_owned();
-        }
-    }
+        },
+    );
+}
 
-    ui.add_space(20.0);
-    if ui.button("  <  Go Back").clicked() {
-        app.set_page(ctx, Page::Wizard(WizardPage::ImportKeys));
+fn try_parse_pubkey(keystr: &str) -> Result<(), ()> {
+    if PublicKey::try_from_bech32_string(keystr.trim(), true).is_ok()
+        || PublicKey::try_from_hex_string(keystr.trim(), true).is_ok()
+        || Profile::try_from_bech32_string(keystr.trim(), true).is_ok()
+    {
+        Ok(())
+    } else {
+        Err(())
     }
 }

@@ -1,6 +1,9 @@
 mod avatar;
 pub(crate) use avatar::{paint_avatar, AvatarSize};
 
+mod button;
+pub use button::Button;
+
 mod contact_search;
 pub(super) use contact_search::{capture_keyboard_for_search, show_contact_search};
 
@@ -11,9 +14,7 @@ pub use copy_button::{CopyButton, COPY_SYMBOL_SIZE};
 mod nav_item;
 use egui_winit::egui::text::LayoutJob;
 use egui_winit::egui::text_edit::TextEditOutput;
-use egui_winit::egui::{
-    self, vec2, Align, FontSelection, Rect, Response, RichText, Sense, Ui, WidgetText,
-};
+use egui_winit::egui::{self, Align, FontSelection, Response, RichText, Sense, Ui, WidgetText};
 pub use nav_item::NavItem;
 
 mod relay_entry;
@@ -30,16 +31,27 @@ pub use information_popup::InformationPopup;
 pub use information_popup::ProfilePopup;
 
 mod switch;
+pub use switch::switch_custom_at;
 pub use switch::Switch;
-pub use switch::{switch_custom_at, switch_with_size};
 
 mod textedit;
 pub use textedit::TextEdit;
 
-use super::GossipUi;
+use super::assets::Assets;
+use super::Theme;
 
 pub const DROPDOWN_DISTANCE: f32 = 10.0;
 pub const TAGG_WIDTH: f32 = 200.0;
+
+pub const SMALL_HEIGHT: f32 = 25.0;
+
+pub enum WidgetState {
+    Default,
+    Hovered,
+    Active,
+    Disabled,
+    Focused,
+}
 
 // pub fn break_anywhere_label(ui: &mut Ui, text: impl Into<WidgetText>) {
 //     let mut job = text.into().into_text_job(
@@ -61,6 +73,7 @@ pub fn page_header<R>(
     let mut layout = LayoutJob::default();
     let title: RichText = title
         .into()
+        .heading()
         .color(ui.visuals().widgets.noninteractive.fg_stroke.color);
     title.append_to(&mut layout, ui.style(), FontSelection::Default, Align::LEFT);
     page_header_layout(ui, layout, right_aligned_content)
@@ -76,6 +89,7 @@ pub fn page_header_layout<R>(
         ui.horizontal(|ui| {
             ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                 ui.add_space(2.0);
+                ui.set_min_height(SMALL_HEIGHT);
                 ui.label(galley);
             });
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -120,44 +134,20 @@ pub fn break_anywhere_hyperlink_to(ui: &mut Ui, text: impl Into<WidgetText>, url
     ui.hyperlink_to(job, url);
 }
 
-pub fn search_field(ui: &mut Ui, field: &mut String, width: f32) -> TextEditOutput {
+pub fn search_field(
+    ui: &mut Ui,
+    theme: &Theme,
+    assets: &Assets,
+    field: &mut String,
+    width: f32,
+) -> TextEditOutput {
     // search field
-    let output = TextEdit::singleline(field)
+    let output = TextEdit::search(theme, assets, field)
         .text_color(ui.visuals().widgets.inactive.fg_stroke.color)
         .desired_width(width)
         .show(ui);
 
-    let rect = Rect::from_min_size(
-        output.response.rect.right_top() - vec2(output.response.rect.height(), 0.0),
-        vec2(output.response.rect.height(), output.response.rect.height()),
-    );
-
-    // search clear button
-    if ui
-        .put(
-            rect,
-            NavItem::new("\u{2715}", field.is_empty())
-                .color(ui.visuals().widgets.inactive.fg_stroke.color)
-                .active_color(ui.visuals().widgets.active.fg_stroke.color)
-                .hover_color(ui.visuals().hyperlink_color)
-                .sense(Sense::click()),
-        )
-        .clicked()
-    {
-        field.clear();
-    }
-
     output
-}
-
-pub(super) fn set_important_button_visuals(ui: &mut Ui, app: &GossipUi) {
-    let visuals = ui.visuals_mut();
-    visuals.widgets.inactive.weak_bg_fill = app.theme.accent_color();
-    visuals.widgets.inactive.fg_stroke.width = 1.0;
-    visuals.widgets.inactive.fg_stroke.color = app.theme.get_style().visuals.extreme_bg_color;
-    visuals.widgets.hovered.weak_bg_fill = app.theme.navigation_text_color();
-    visuals.widgets.hovered.fg_stroke.color = app.theme.accent_color();
-    visuals.widgets.inactive.fg_stroke.color = app.theme.get_style().visuals.extreme_bg_color;
 }
 
 // /// UTF-8 safe truncate (String::truncate() can panic)

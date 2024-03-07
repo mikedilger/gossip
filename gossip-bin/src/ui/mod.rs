@@ -1,6 +1,6 @@
 macro_rules! text_edit_line {
     ($app:ident, $var:expr) => {
-        crate::ui::widgets::TextEdit::singleline(&mut $var)
+        crate::ui::widgets::TextEdit::singleline(&$app.theme, &mut $var)
             .text_color($app.theme.input_text_color())
     };
 }
@@ -33,6 +33,7 @@ macro_rules! write_setting {
     };
 }
 
+mod assets;
 mod components;
 mod dm_chat_list;
 mod feed;
@@ -73,9 +74,9 @@ use std::hash::Hash;
 use std::rc::Rc;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
-use usvg::TreeParsing;
 use zeroize::Zeroize;
 
+use self::assets::Assets;
 use self::feed::Notes;
 use self::widgets::NavItem;
 use self::wizard::{WizardPage, WizardState};
@@ -152,7 +153,8 @@ enum Page {
     HelpHelp,
     HelpStats,
     HelpAbout,
-    HelpTheme,
+    #[allow(unused)]
+    ThemeTest,
     Wizard(WizardPage),
 }
 
@@ -198,7 +200,7 @@ impl Page {
             Page::HelpHelp => (SubMenu::Help.as_str(), "Troubleshooting".into()),
             Page::HelpStats => (SubMenu::Help.as_str(), "Stats".into()),
             Page::HelpAbout => (SubMenu::Help.as_str(), "About".into()),
-            Page::HelpTheme => (SubMenu::Help.as_str(), "Theme Test".into()),
+            Page::ThemeTest => (SubMenu::Help.as_str(), "Theme Test".into()),
             Page::Wizard(wp) => ("Wizard", wp.as_str().to_string()),
         }
     }
@@ -420,10 +422,10 @@ struct GossipUi {
     settings_tab: SettingsTab,
 
     // General Data
+    assets: Assets,
     about: About,
     icon: TextureHandle,
     placeholder_avatar: TextureHandle,
-    options_symbol: TextureHandle,
     unsaved_settings: UnsavedSettings,
     theme: Theme,
     avatars: HashMap<PublicKey, TextureHandle>,
@@ -495,6 +497,8 @@ struct GossipUi {
 
     wizard_state: WizardState,
 
+    theme_test: crate::ui::theme::test_page::ThemeTest,
+
     // Cached DM Channels
     dm_channel_cache: Vec<DmChannelData>,
     dm_channel_next_refresh: Instant,
@@ -530,6 +534,9 @@ impl GossipUi {
         );
         submenu_ids.insert(SubMenu::Relays, egui::Id::new(SubMenu::Relays.as_id_str()));
         submenu_ids.insert(SubMenu::Help, egui::Id::new(SubMenu::Help.as_id_str()));
+
+        // load Assets, but load again when DPI changes
+        let assets = Assets::init(&cctx.egui_ctx);
 
         let icon_texture_handle = {
             let bytes = include_bytes!("../../../logo/gossip.png");
@@ -579,23 +586,6 @@ impl GossipUi {
         let (override_dpi, override_dpi_value): (bool, u32) = match read_setting!(override_dpi) {
             Some(v) => (true, v),
             None => (false, (cctx.egui_ctx.pixels_per_point() * 72.0) as u32),
-        };
-
-        // how to load an svg (TODO do again when DPI changes)
-        let options_symbol = {
-            let bytes = include_bytes!("../../../assets/option.svg");
-            let opt = usvg::Options {
-                dpi: override_dpi_value as f32,
-                ..Default::default()
-            };
-            let rtree = usvg::Tree::from_data(bytes, &opt).unwrap();
-            let [w, h] = [20_u32, 20_u32];
-            let mut pixmap = tiny_skia::Pixmap::new(w, h).unwrap();
-            let tree = resvg::Tree::from_usvg(&rtree);
-            tree.render(Default::default(), &mut pixmap.as_mut());
-            let color_image = ColorImage::from_rgba_unmultiplied([w as _, h as _], pixmap.data());
-            cctx.egui_ctx
-                .load_texture("options_symbol", color_image, TextureOptions::LINEAR)
         };
 
         let mut start_page = Page::Feed(FeedKind::List(PersonList::Followed, false));
@@ -656,10 +646,10 @@ impl GossipUi {
                 .unwrap_or(false),
             submenu_ids,
             settings_tab: SettingsTab::Id,
+            assets,
             about: About::new(),
             icon: icon_texture_handle,
             placeholder_avatar: placeholder_avatar_texture_handle,
-            options_symbol,
             unsaved_settings: UnsavedSettings::load(),
             theme,
             avatars: HashMap::new(),
@@ -706,6 +696,7 @@ impl GossipUi {
             zap_state: ZapState::None,
             note_being_zapped: None,
             wizard_state,
+            theme_test: Default::default(),
             dm_channel_cache: vec![],
             dm_channel_next_refresh: Instant::now(),
             dm_channel_error: None,
@@ -737,21 +728,8 @@ impl GossipUi {
         // 'original' refers to 'before the user changes it in settings'
         self.original_dpi_value = self.override_dpi_value;
 
-        // load SVG's again when DPI changes
-        self.options_symbol = {
-            let bytes = include_bytes!("../../../assets/option.svg");
-            let opt = usvg::Options {
-                dpi: self.override_dpi_value as f32,
-                ..Default::default()
-            };
-            let rtree = usvg::Tree::from_data(bytes, &opt).unwrap();
-            let [w, h] = [20_u32, 20_u32];
-            let mut pixmap = tiny_skia::Pixmap::new(w, h).unwrap();
-            let tree = resvg::Tree::from_usvg(&rtree);
-            tree.render(Default::default(), &mut pixmap.as_mut());
-            let color_image = ColorImage::from_rgba_unmultiplied([w as _, h as _], pixmap.data());
-            ctx.load_texture("options_symbol", color_image, TextureOptions::LINEAR)
-        };
+        // Reload Assets when DPI changes
+        self.assets = Assets::init(ctx);
 
         // Set global pixels_per_point_times_100, used for image scaling.
         // this would warrant reloading images but the user experience isn't great as
@@ -862,7 +840,7 @@ impl GossipUi {
             Page::Settings => {
                 self.close_all_menus_except_feeds(ctx);
             }
-            Page::HelpHelp | Page::HelpStats | Page::HelpAbout | Page::HelpTheme => {
+            Page::HelpHelp | Page::HelpStats | Page::HelpAbout => {
                 self.open_menu(ctx, SubMenu::Help);
             }
             _ => {
@@ -1092,9 +1070,16 @@ impl GossipUi {
                         self.add_menu_item_page(ui, Page::HelpHelp, None, true);
                         self.add_menu_item_page(ui, Page::HelpStats, None, true);
                         self.add_menu_item_page(ui, Page::HelpAbout, None, true);
-                        self.add_menu_item_page(ui, Page::HelpTheme, None, true);
                     });
                     self.after_openable_menu(ui, &cstate);
+                }
+
+                #[cfg(debug_assertions)]
+                if self
+                    .add_selected_label(ui, self.page == Page::ThemeTest, "Theme Test")
+                    .clicked()
+                {
+                    self.set_page(ctx, Page::ThemeTest);
                 }
 
                 // -- Status Area
@@ -1434,9 +1419,10 @@ impl eframe::App for GossipUi {
                     | Page::RelaysKnownNetwork => relays::update(self, ctx, frame, ui),
                     Page::Search => search::update(self, ctx, frame, ui),
                     Page::Settings => settings::update(self, ctx, frame, ui),
-                    Page::HelpHelp | Page::HelpStats | Page::HelpAbout | Page::HelpTheme => {
+                    Page::HelpHelp | Page::HelpStats | Page::HelpAbout => {
                         help::update(self, ctx, frame, ui)
                     }
+                    Page::ThemeTest => theme::test_page::update(self, ctx, frame, ui),
                     Page::Wizard(_) => unreachable!(),
                 }
             });
@@ -2099,7 +2085,7 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
                             ui.add_space(16.0);
                         }
 
-                        let output = widgets::TextEdit::singleline(&mut app.password)
+                        let output = widgets::TextEdit::singleline(&app.theme, &mut app.password)
                             .password(true)
                             .with_paste()
                             .desired_width( 400.0)
@@ -2116,8 +2102,9 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
                             ui.input(|i| i.key_pressed(egui::Key::Enter));
 
                         ui.scope(|ui| {
-                            app.theme.accent_button_1_style(ui.style_mut());
-                            submitted |= ui.button("     Continue     ").clicked();
+                            submitted |= widgets::Button::primary(&app.theme, "     Continue     ")
+                                .show(ui)
+                                .clicked();
                         });
 
                         if submitted {
