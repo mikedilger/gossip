@@ -2784,6 +2784,10 @@ impl Overlord {
         for server in &servers {
             relays.extend(server.relays.clone());
         }
+        // Also subscribe to any unconnected nostr-connect channel
+        if let Some(nip46unconnected) = GLOBALS.storage.read_nip46_unconnected_server()? {
+            relays.extend(nip46unconnected.relays);
+        }
         relays.sort();
         relays.dedup();
         self.subscribe_nip46(relays).await?;
