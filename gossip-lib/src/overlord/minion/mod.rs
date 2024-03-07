@@ -301,8 +301,21 @@ impl Minion {
             self.handle_overlord_message(message).await?;
         }
 
+        // Ping timer
+        let mut ping_timer = tokio::time::interval(std::time::Duration::new(
+            GLOBALS.storage.read_setting_websocket_ping_frequency_sec(),
+            0,
+        ));
+        ping_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        ping_timer.tick().await; // use up the first immediate tick.
+
+        // Periodic Task timer (3 sec)
+        let mut task_timer = tokio::time::interval(std::time::Duration::new(3, 0));
+        task_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        task_timer.tick().await; // use up the first immediate tick.
+
         'relayloop: loop {
-            match self.loop_handler().await {
+            match self.loop_handler(&mut ping_timer, &mut task_timer).await {
                 Ok(_) => {
                     if self.exiting.is_some() {
                         break 'relayloop;
@@ -337,21 +350,12 @@ impl Minion {
         }
     }
 
-    async fn loop_handler(&mut self) -> Result<(), Error> {
+    async fn loop_handler(
+        &mut self,
+        ping_timer: &mut tokio::time::Interval,
+        task_timer: &mut tokio::time::Interval
+    ) -> Result<(), Error> {
         let ws_stream = self.stream.as_mut().unwrap();
-
-        // Ping timer
-        let mut ping_timer = tokio::time::interval(std::time::Duration::new(
-            GLOBALS.storage.read_setting_websocket_ping_frequency_sec(),
-            0,
-        ));
-        ping_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-        ping_timer.tick().await; // use up the first immediate tick.
-
-        // Periodic Task timer (3 sec)
-        let mut task_timer = tokio::time::interval(std::time::Duration::new(3, 0));
-        task_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-        task_timer.tick().await; // use up the first immediate tick.
 
         select! {
             biased;
