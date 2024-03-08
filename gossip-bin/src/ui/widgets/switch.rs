@@ -37,7 +37,7 @@ impl<'a> Switch<'a> {
 impl<'a> Widget for Switch<'a> {
     fn ui(self, ui: &mut Ui) -> Response {
         let (rect, _) = ui.allocate_exact_size(self.size, egui::Sense::hover());
-        let id = ui.next_auto_id();
+        let id = ui.auto_id_with("sw");
         switch_custom_at(
             ui,
             ui.is_enabled(),
@@ -53,7 +53,7 @@ impl<'a> Widget for Switch<'a> {
 
 pub fn switch_with_size(ui: &mut Ui, on: &mut bool, size: egui::Vec2) -> Response {
     let (rect, _) = ui.allocate_exact_size(size, egui::Sense::click());
-    switch_with_size_at(ui, on, size, rect.left_top(), ui.auto_id_with("switch"))
+    switch_with_size_at(ui, on, size, rect.left_top(), ui.auto_id_with("sw"))
 }
 
 pub fn switch_with_size_at(
