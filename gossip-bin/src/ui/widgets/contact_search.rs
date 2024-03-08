@@ -142,9 +142,7 @@ pub(in crate::ui) fn show_contact_search(
                             if is_selected {
                                 response.scroll_to_me(None)
                             }
-                            let clicked = ui
-                                .interact(response.rect, ui.next_auto_id(), egui::Sense::click())
-                                .clicked();
+                            let clicked = response.interact(egui::Sense::click()).clicked();
                             if clicked || (enter_key && is_selected) {
                                 on_select_callback(ui, app, output, pair);
                             }

@@ -88,13 +88,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                                 });
                             });
                         });
-
-                if ui
-                    .interact(
-                        row_response.response.rect,
-                        ui.next_auto_id(),
-                        Sense::click(),
-                    )
+                if row_response
+                    .response
+                    .interact(Sense::click())
                     .on_hover_cursor(egui::CursorIcon::PointingHand)
                     .clicked()
                 {
