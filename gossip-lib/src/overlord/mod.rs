@@ -1703,7 +1703,7 @@ impl Overlord {
         GLOBALS
             .nip46_approval_requests
             .write()
-            .retain(|(pk, pc)| *pk != pubkey || *pc != parsed_command);
+            .retain(|(_name, pk, pc)| *pk != pubkey || *pc != parsed_command);
 
         // Handle the request
         if let Some(mut server) = GLOBALS.storage.read_nip46server(pubkey)? {

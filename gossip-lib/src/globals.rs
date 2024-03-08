@@ -148,7 +148,7 @@ pub struct Globals {
     pub auth_requests: PRwLock<Vec<RelayUrl>>,
 
     /// nip46 approval requests
-    pub nip46_approval_requests: PRwLock<Vec<(PublicKey, ParsedCommand)>>,
+    pub nip46_approval_requests: PRwLock<Vec<(String, PublicKey, ParsedCommand)>>,
 
     /// Pending actions
     pub pending: PRwLock<Vec<Pending>>,

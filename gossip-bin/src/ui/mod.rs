@@ -2312,9 +2312,12 @@ fn approval_dialog_inner(_app: &mut GossipUi, ui: &mut Ui) {
     }
 
     // NIP-46 approvals
-    for (pubkey, parsed_command) in GLOBALS.nip46_approval_requests.read().iter() {
+    for (name, pubkey, parsed_command) in GLOBALS.nip46_approval_requests.read().iter() {
         ui.horizontal(|ui| {
-            let text = format!("Allow {}", parsed_command.method);
+            let text = format!(
+                "NIP-46 Request from '{}'. Allow {}?",
+                name, parsed_command.method
+            );
             ui.label(text);
             if ui.button("Approve Once").clicked() {
                 let _ = GLOBALS
