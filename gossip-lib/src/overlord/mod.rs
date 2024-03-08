@@ -3171,7 +3171,7 @@ impl Overlord {
             };
 
             if *petname != person.petname {
-                if petname.is_some() {
+                if petname.is_some() && petname != &Some("".to_string()) {
                     person_needs_save = true;
                     person.petname = petname.clone();
                 } else if !merge {
