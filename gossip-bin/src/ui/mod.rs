@@ -470,7 +470,7 @@ struct GossipUi {
     new_list_favorite: bool,
     renaming_list: Option<PersonList>,
     editing_list_error: Option<String>,
-    //nostr_connect_string: String,
+    nostr_connect_name: String,
     nostr_connect_relay1: String,
     nostr_connect_relay2: String,
 
@@ -695,7 +695,7 @@ impl GossipUi {
             new_list_favorite: false,
             renaming_list: None,
             editing_list_error: None,
-            //nostr_connect_string: "".to_owned(),
+            nostr_connect_name: "".to_owned(),
             nostr_connect_relay1: "".to_owned(),
             nostr_connect_relay2: "".to_owned(),
             collapsed: vec![],

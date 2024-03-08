@@ -58,7 +58,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         }
         for server in &servers {
             let peer = server.peer_pubkey.as_bech32_string();
-            ui.label(format!("Peer={}", peer));
+            ui.label(format!("name={}, Peer={}", server.name, peer));
             if ui.button("Disconnect").clicked() {
                 let _ = GLOBALS.storage.delete_nip46server(server.peer_pubkey, None);
             }
@@ -98,6 +98,14 @@ fn setup_unconnected_service(app: &mut GossipUi, ui: &mut Ui) {
          */
 
     ui.add_space(10.0);
+    ui.label("Enter a name for the client that will be connecting:");
+
+    ui.horizontal(|ui| {
+        ui.label("Name: ");
+        ui.add(text_edit_line!(app, app.nostr_connect_name));
+    });
+
+    ui.add_space(10.0);
     ui.label("Enter 1 or 2 relays to do nostr-connect over:");
 
     ui.horizontal(|ui| {
@@ -109,24 +117,26 @@ fn setup_unconnected_service(app: &mut GossipUi, ui: &mut Ui) {
         ui.add(text_edit_line!(app, app.nostr_connect_relay2));
     });
 
-    if !app.nostr_connect_relay1.is_empty() {
+    if !app.nostr_connect_name.is_empty() && !app.nostr_connect_relay1.is_empty() {
         if let Ok(relay1) = RelayUrl::try_from_str(&app.nostr_connect_relay1) {
             if !app.nostr_connect_relay2.is_empty() {
                 if let Ok(relay2) = RelayUrl::try_from_str(&app.nostr_connect_relay2) {
                     if ui.button("Create Service").clicked() {
-                        create_service(vec![relay1, relay2]);
+                        create_service(app.nostr_connect_name.clone(), vec![relay1, relay2]);
+                        app.nostr_connect_name = "".to_string();
                     }
                 }
             } else if ui.button("Create Service").clicked() {
-                create_service(vec![relay1]);
+                create_service(app.nostr_connect_name.clone(), vec![relay1]);
+                app.nostr_connect_name = "".to_string();
             }
         }
     }
 }
 
-fn create_service(relays: Vec<RelayUrl>) {
+fn create_service(name: String, relays: Vec<RelayUrl>) {
     // Create the unconnected server (1 relay)
-    let server = Nip46UnconnectedServer::new(relays.clone());
+    let server = Nip46UnconnectedServer::new(name, relays.clone());
 
     // Store it
     let _ = GLOBALS
