@@ -205,92 +205,92 @@ pub(super) fn update(
         let people = app.people_list.cache_people.clone();
         for (person, public) in people.iter() {
             let mut private = !public;
-            let row_response = widgets::list_entry::make_frame(
+            let row_response = widgets::list_entry::clickable_frame(
                 ui,
+                app,
                 Some(app.theme.main_content_bgcolor()),
-            )
-            .show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    // Avatar first
-                    let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &person.pubkey) {
-                        avatar
-                    } else {
-                        app.placeholder_avatar.clone()
-                    };
+                |ui, app| {
+                    ui.horizontal(|ui| {
+                        // Avatar first
+                        let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &person.pubkey) {
+                            avatar
+                        } else {
+                            app.placeholder_avatar.clone()
+                        };
 
-                    let avatar_response =
-                        widgets::paint_avatar(ui, person, &avatar, widgets::AvatarSize::Feed);
+                        let avatar_response =
+                            widgets::paint_avatar(ui, person, &avatar, widgets::AvatarSize::Feed);
 
-                    ui.add_space(20.0);
+                        ui.add_space(20.0);
 
-                    ui.vertical(|ui| {
-                        ui.add_space(5.0);
-                        ui.horizontal(|ui| {
-                            ui.label(RichText::new(person.best_name()).size(15.5));
+                        ui.vertical(|ui| {
+                            ui.add_space(5.0);
+                            ui.horizontal(|ui| {
+                                ui.label(RichText::new(person.best_name()).size(15.5));
 
-                            ui.add_space(10.0);
+                                ui.add_space(10.0);
 
-                            if !GLOBALS
-                                .storage
-                                .have_persons_relays(person.pubkey)
-                                .unwrap_or(false)
-                            {
-                                ui.label(
-                                    RichText::new("Relay list not found")
-                                        .color(app.theme.warning_marker_text_color()),
-                                );
-                            }
-                        });
-                        ui.add_space(3.0);
-                        ui.label(GossipUi::richtext_from_person_nip05(person).weak());
-                    });
-
-                    ui.vertical(|ui| {
-                        ui.with_layout(
-                            egui::Layout::right_to_left(egui::Align::Min)
-                                .with_cross_align(egui::Align::Center),
-                            |ui| {
-                                widgets::MoreMenu::simple(ui, app).show(ui, |ui, is_open| {
-                                    // actions
-                                    if ui.button("Remove").clicked() {
-                                        let _ = GLOBALS.storage.remove_person_from_list(
-                                            &person.pubkey,
-                                            list,
-                                            None,
-                                        );
-                                        *is_open = false;
-                                    }
-                                });
-
-                                ui.add_space(20.0);
-
-                                if list != PersonList::Followed {
-                                    // private / public switch
-                                    ui.label("Private");
-                                    if ui
-                                        .add(widgets::Switch::onoff(&app.theme, &mut private))
-                                        .clicked()
-                                    {
-                                        let _ = GLOBALS.storage.add_person_to_list(
-                                            &person.pubkey,
-                                            list,
-                                            !private,
-                                            None,
-                                        );
-                                        mark_refresh(app);
-                                    }
+                                if !GLOBALS
+                                    .storage
+                                    .have_persons_relays(person.pubkey)
+                                    .unwrap_or(false)
+                                {
+                                    ui.label(
+                                        RichText::new("Relay list not found")
+                                            .color(app.theme.warning_marker_text_color()),
+                                    );
                                 }
-                            },
-                        );
+                            });
+                            ui.add_space(3.0);
+                            ui.label(GossipUi::richtext_from_person_nip05(person).weak());
+                        });
+
+                        ui.vertical(|ui| {
+                            ui.with_layout(
+                                egui::Layout::right_to_left(egui::Align::Min)
+                                    .with_cross_align(egui::Align::Center),
+                                |ui| {
+                                    widgets::MoreMenu::simple(ui, app).show(ui, |ui, is_open| {
+                                        // actions
+                                        if ui.button("Remove").clicked() {
+                                            let _ = GLOBALS.storage.remove_person_from_list(
+                                                &person.pubkey,
+                                                list,
+                                                None,
+                                            );
+                                            *is_open = false;
+                                        }
+                                    });
+
+                                    ui.add_space(20.0);
+
+                                    if list != PersonList::Followed {
+                                        // private / public switch
+                                        ui.label("Private");
+                                        if ui
+                                            .add(widgets::Switch::onoff(&app.theme, &mut private))
+                                            .clicked()
+                                        {
+                                            let _ = GLOBALS.storage.add_person_to_list(
+                                                &person.pubkey,
+                                                list,
+                                                !private,
+                                                None,
+                                            );
+                                            mark_refresh(app);
+                                        }
+                                    }
+                                },
+                            );
+                        });
+                        if avatar_response.clicked() {
+                            app.set_page(ctx, Page::Person(person.pubkey));
+                        }
                     });
-                    if avatar_response.clicked() {
-                        app.set_page(ctx, Page::Person(person.pubkey));
-                    }
-                });
-            });
+                },
+            );
             if row_response
                 .response
-                .interact(egui::Sense::click())
                 .on_hover_cursor(egui::CursorIcon::PointingHand)
                 .clicked()
             {

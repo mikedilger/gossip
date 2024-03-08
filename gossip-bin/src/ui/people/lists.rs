@@ -4,7 +4,7 @@ use super::{GossipUi, Page};
 use crate::ui::widgets;
 use eframe::egui;
 use egui::{Context, Ui};
-use egui_winit::egui::{Label, RichText, Sense};
+use egui_winit::egui::{Label, RichText};
 use gossip_lib::{PersonList, PersonListMetadata, GLOBALS};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
@@ -46,51 +46,53 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         .enable_scrolling(enabled)
         .show(ui, |ui| {
             for (list, mut metadata) in all_lists {
-                let row_response =
-                    widgets::list_entry::make_frame(ui, Some(app.theme.main_content_bgcolor()))
-                        .show(ui, |ui| {
-                            ui.set_min_width(ui.available_width());
+                let row_response = widgets::list_entry::clickable_frame(
+                    ui,
+                    app,
+                    Some(app.theme.main_content_bgcolor()),
+                    |ui, app| {
+                        ui.set_min_width(ui.available_width());
 
-                            ui.vertical(|ui| {
-                                ui.horizontal(|ui| {
+                        ui.vertical(|ui| {
+                            ui.horizontal(|ui| {
+                                ui.add(Label::new(
+                                    RichText::new(&metadata.title).heading().color(color),
+                                ));
+                                ui.label(format!("({})", metadata.len));
+                                if metadata.favorite {
                                     ui.add(Label::new(
-                                        RichText::new(&metadata.title).heading().color(color),
+                                        RichText::new("★")
+                                            .size(18.0)
+                                            .color(app.theme.accent_complementary_color()),
                                     ));
-                                    ui.label(format!("({})", metadata.len));
-                                    if metadata.favorite {
-                                        ui.add(Label::new(
-                                            RichText::new("★")
-                                                .size(18.0)
-                                                .color(app.theme.accent_complementary_color()),
-                                        ));
-                                    }
-                                    if metadata.private {
-                                        ui.add(Label::new(
-                                            RichText::new("😎")
-                                                .color(app.theme.accent_complementary_color()),
-                                        ));
-                                    }
+                                }
+                                if metadata.private {
+                                    ui.add(Label::new(
+                                        RichText::new("😎")
+                                            .color(app.theme.accent_complementary_color()),
+                                    ));
+                                }
 
-                                    ui.with_layout(
-                                        egui::Layout::right_to_left(egui::Align::Center),
-                                        |ui| {
-                                            let len = metadata.len;
-                                            super::list::render_more_list_actions(
-                                                ui,
-                                                app,
-                                                list,
-                                                &mut metadata,
-                                                len,
-                                                false,
-                                            );
-                                        },
-                                    );
-                                });
+                                ui.with_layout(
+                                    egui::Layout::right_to_left(egui::Align::Center),
+                                    |ui| {
+                                        let len = metadata.len;
+                                        super::list::render_more_list_actions(
+                                            ui,
+                                            app,
+                                            list,
+                                            &mut metadata,
+                                            len,
+                                            false,
+                                        );
+                                    },
+                                );
                             });
                         });
+                    },
+                );
                 if row_response
                     .response
-                    .interact(Sense::click())
                     .on_hover_cursor(egui::CursorIcon::PointingHand)
                     .clicked()
                 {

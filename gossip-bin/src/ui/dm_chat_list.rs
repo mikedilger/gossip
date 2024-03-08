@@ -1,6 +1,6 @@
 use super::{widgets, GossipUi, Page};
 use eframe::egui;
-use egui::{Context, Label, RichText, Sense, Ui};
+use egui::{Context, Label, RichText, Ui};
 use gossip_lib::FeedKind;
 use gossip_lib::GLOBALS;
 use gossip_lib::{Error, ErrorKind};
@@ -51,8 +51,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             let color = app.theme.accent_color();
             for channeldata in channels.drain(..) {
                 let row_response =
-                    widgets::list_entry::make_frame(ui, Some(app.theme.main_content_bgcolor()))
-                        .show(ui, |ui| {
+                    widgets::list_entry::clickable_frame(
+                        ui,
+                        app,
+                        Some(app.theme.main_content_bgcolor()),
+                        |ui, app| {
                             ui.set_min_width(ui.available_width());
                             ui.vertical(|ui| {
                                 ui.horizontal_wrapped(|ui| {
@@ -94,7 +97,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
                                 ui.horizontal(|ui| {
                                     if is_signer_ready {
-                                        if let Some(message) = channeldata.latest_message_content {
+                                        if let Some(message) = &channeldata.latest_message_content {
                                             widgets::truncated_label(
                                                 ui,
                                                 message,
@@ -117,10 +120,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                                     );
                                 });
                             });
-                        });
+                        },
+                    );
                 if row_response
                     .response
-                    .interact(Sense::click())
                     .on_hover_cursor(egui::CursorIcon::PointingHand)
                     .clicked()
                 {
