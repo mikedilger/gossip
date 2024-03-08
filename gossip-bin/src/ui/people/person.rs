@@ -128,7 +128,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                     if app.petname.trim().is_empty() {
                                         person.petname = None;
                                     } else {
-                                        app.petname = app.petname.replace(".", "_");
+                                        app.petname = app.petname.replace('.', "_");
                                         person.petname = Some(app.petname.clone());
                                     }
                                     if let Err(e) = GLOBALS.storage.write_person(&person, None) {
