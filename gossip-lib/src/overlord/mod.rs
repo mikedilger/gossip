@@ -115,6 +115,8 @@ impl Overlord {
             tracing::info!("LMDB synced.");
         }
 
+        GLOBALS.shutting_down.store(true, Ordering::Relaxed);
+
         tracing::debug!("Overlord signalling minions to shutdown");
 
         // Send shutdown message to all minions (and ui)
