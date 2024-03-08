@@ -195,9 +195,6 @@ impl Overlord {
         // Start periodic tasks in pending
         crate::pending::start();
 
-        // Initialize the relay picker
-        GLOBALS.relay_picker.init().await?;
-
         // Do the startup procedures
         self.start_long_lived_subscriptions().await?;
 
@@ -1456,15 +1453,18 @@ impl Overlord {
     pub async fn import_priv(mut privkey: String, mut password: String) -> Result<(), Error> {
         if privkey.starts_with("ncryptsec") {
             let epk = EncryptedPrivateKey(privkey);
-            GLOBALS.identity.set_encrypted_private_key(epk)?;
-            if let Err(e) = GLOBALS.identity.unlock(&password) {
-                password.zeroize();
-                GLOBALS
-                    .status_queue
-                    .write()
-                    .write(format!("Private key failed to decrypt: {}", e));
-            } else {
-                password.zeroize();
+            match GLOBALS.identity.set_encrypted_private_key(epk, &password) {
+                Ok(_) => {
+                    GLOBALS.identity.unlock(&password)?;
+                    password.zeroize();
+                }
+                Err(err) => {
+                    password.zeroize();
+                    GLOBALS
+                        .status_queue
+                        .write()
+                        .write(format!("Error importing ncryptsec: {}", err.to_string()));
+                }
             }
         } else {
             let maybe_pk1 = PrivateKey::try_from_bech32_string(privkey.trim());
@@ -2762,6 +2762,9 @@ impl Overlord {
 
     /// This is done at startup and after the wizard.
     pub async fn start_long_lived_subscriptions(&mut self) -> Result<(), Error> {
+        // Intialize the RelayPicker
+        GLOBALS.relay_picker.init().await?;
+
         // Pick Relays and start Minions
         if !GLOBALS.storage.read_setting_offline() {
             self.pick_relays().await;
