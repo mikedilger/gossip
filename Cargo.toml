@@ -6,7 +6,7 @@ members = [
 resolver = "2"
 
 # Force scrypt to build with release-like speed even in dev mode
-[profile.dev.package.scrypt]
+[profile.devel.package.scrypt]
 opt-level = 3
 debug-assertions = false
 overflow-checks = false
@@ -16,3 +16,20 @@ overflow-checks = false
 egui = { git =  "https://github.com/bu5hm4nn/egui", rev = "f954e98816d4fb760de31eeec4afcd15ae39a687" }
 # Use the master branch of SDL2 to include a fix related to clang (and XCode after 14.2)
 sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", rev = "f2f1e29a416bcc22f2faf411866db2c8d9536308" }
+
+[profile.dev]
+opt-level = 3
+debug = false
+debug-assertions = false
+overflow-checks = false
+incremental = false
+codegen-units = 16
+
+[profile.devel]
+inherits = "dev"
+opt-level = 0
+debug = true
+debug-assertions = true
+overflow-checks = true
+incremental = true
+codegen-units = 256

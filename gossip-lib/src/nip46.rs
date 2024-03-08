@@ -4,31 +4,26 @@ use crate::{Error, ErrorKind};
 use nostr_types::{
     ContentEncryptionAlgorithm, Event, EventKind, PreEvent, PublicKey, RelayUrl, Tag, Unixtime,
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use speedy::{Readable, Writable};
-
-#[derive(Debug, Clone, Readable, Writable, Serialize, Deserialize)]
-pub struct Nip46ClientMetadata {
-    pub name: String,
-    pub url: RelayUrl,
-    pub description: String,
-}
 
 /// This is a server not yet connected, ready to be connected
 #[derive(Debug, Clone, Readable, Writable)]
 pub struct Nip46UnconnectedServer {
     pub connect_secret: String,
+    pub name: String,
     pub relays: Vec<RelayUrl>,
 }
 
 impl Nip46UnconnectedServer {
-    pub fn new(relays: Vec<RelayUrl>) -> Nip46UnconnectedServer {
+    pub fn new(name: String, relays: Vec<RelayUrl>) -> Nip46UnconnectedServer {
         let connect_secret = textnonce::TextNonce::sized_urlsafe(32)
             .unwrap()
             .into_string();
 
         Nip46UnconnectedServer {
             connect_secret,
+            name,
             relays,
         }
     }
@@ -87,83 +82,15 @@ impl Approval {
 
 #[derive(Debug, Clone, Readable, Writable)]
 pub struct Nip46Server {
+    pub name: String,
     pub peer_pubkey: PublicKey,
     pub relays: Vec<RelayUrl>,
-    pub metadata: Option<Nip46ClientMetadata>,
     pub sign_approval: Approval,
     pub encrypt_approval: Approval,
     pub decrypt_approval: Approval,
 }
 
 impl Nip46Server {
-    /*
-
-    NIP-46 does not explain how this can work, because a server event doesn't have the
-    capability of sending a method to a client.  So we keep this commented out until
-    that gets resolved.
-
-    pub fn new_from_client(input: String) -> Result<Nip46Server, Error> {
-        // nostrconnect://<client-key-hex>?relay=wss://...&metadata={"name":"...", "url": "...", "description": "..."}
-
-        // "nostrconnect://"
-        if !input.starts_with("nostrconnect://") {
-            return Err(ErrorKind::BadNostrConnectString.into());
-        }
-        let mut pos = 15;
-
-        // client-key-kex
-        if input.len() < pos + 64 {
-            return Err(ErrorKind::BadNostrConnectString.into());
-        }
-        let peer_pubkey = PublicKey::try_from_hex_string(&input[pos..pos + 64], true)?;
-        pos += 64;
-
-        // '?'
-        if input.len() < pos + 1 {
-            return Err(ErrorKind::BadNostrConnectString.into());
-        }
-        if &input[pos..pos + 1] != "?" {
-            return Err(ErrorKind::BadNostrConnectString.into());
-        }
-        pos += 1;
-
-        let mut relays: Vec<RelayUrl> = Vec::new();
-        let mut metadata: Option<Nip46ClientMetadata> = None;
-
-        loop {
-            if &input[pos..pos + 6] == "relay=" {
-                pos += 6;
-                if let Some(amp) = input[pos..].find('&') {
-                    relays.push(RelayUrl::try_from_str(&input[pos..amp])?);
-                    pos += amp;
-                } else {
-                    relays.push(RelayUrl::try_from_str(&input[pos..])?);
-                    break;
-                }
-            } else if &input[pos..pos + 9] == "metadata=" {
-                pos += 9;
-                metadata = Some(serde_json::from_str(&input[pos..])?);
-                break;
-            } else {
-                // FIXME, we should tolerate unknown fields
-                return Err(ErrorKind::BadNostrConnectString.into());
-            }
-        }
-
-        let server = Nip46Server {
-            peer_pubkey,
-            relays,
-            metadata,
-        };
-
-        // Send the connect command to the client
-        unimplemented!();
-
-        Ok(server)
-    }
-
-     */
-
     pub fn handle(&mut self, cmd: &ParsedCommand) -> Result<(), Error> {
         let ParsedCommand {
             ref id,
@@ -229,13 +156,19 @@ impl Nip46Server {
                 self.peer_pubkey,
                 self.relays.clone(),
             )?,
-            Err(e) => send_response(
-                id.to_owned(),
-                "".to_owned(),
-                format!("{}", e),
-                self.peer_pubkey,
-                self.relays.clone(),
-            )?,
+            Err(e) => {
+                if matches!(e.kind, ErrorKind::Nip46NeedApproval) {
+                    return Err(e);
+                } else {
+                    send_response(
+                        id.to_owned(),
+                        "".to_owned(),
+                        format!("{}", e),
+                        self.peer_pubkey,
+                        self.relays.clone(),
+                    )?;
+                }
+            }
         }
 
         Ok(())
@@ -505,10 +438,11 @@ pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Er
         // Handle the command
         if let Err(e) = server.handle(&parsed_command) {
             if matches!(e.kind, ErrorKind::Nip46NeedApproval) {
-                GLOBALS
-                    .nip46_approval_requests
-                    .write()
-                    .push((event.pubkey, parsed_command));
+                GLOBALS.nip46_approval_requests.write().push((
+                    server.name.clone(),
+                    event.pubkey,
+                    parsed_command,
+                ));
             } else {
                 // Return the error
                 return Err(e);
@@ -630,9 +564,9 @@ pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Er
 
     // Turn it into a full server
     let server = Nip46Server {
+        name: userver.name,
         peer_pubkey: event.pubkey,
         relays: reply_relays.clone(),
-        metadata: None,
         sign_approval: Approval::None,
         encrypt_approval: Approval::None,
         decrypt_approval: Approval::None,

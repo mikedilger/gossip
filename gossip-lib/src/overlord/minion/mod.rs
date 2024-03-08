@@ -353,7 +353,7 @@ impl Minion {
     async fn loop_handler(
         &mut self,
         ping_timer: &mut tokio::time::Interval,
-        task_timer: &mut tokio::time::Interval
+        task_timer: &mut tokio::time::Interval,
     ) -> Result<(), Error> {
         let ws_stream = self.stream.as_mut().unwrap();
 

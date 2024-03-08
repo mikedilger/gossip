@@ -115,6 +115,8 @@ impl Overlord {
             tracing::info!("LMDB synced.");
         }
 
+        GLOBALS.shutting_down.store(true, Ordering::Relaxed);
+
         tracing::debug!("Overlord signalling minions to shutdown");
 
         // Send shutdown message to all minions (and ui)
@@ -1701,7 +1703,7 @@ impl Overlord {
         GLOBALS
             .nip46_approval_requests
             .write()
-            .retain(|(pk, pc)| *pk != pubkey || *pc != parsed_command);
+            .retain(|(_name, pk, pc)| *pk != pubkey || *pc != parsed_command);
 
         // Handle the request
         if let Some(mut server) = GLOBALS.storage.read_nip46server(pubkey)? {
@@ -2787,6 +2789,10 @@ impl Overlord {
         for server in &servers {
             relays.extend(server.relays.clone());
         }
+        // Also subscribe to any unconnected nostr-connect channel
+        if let Some(nip46unconnected) = GLOBALS.storage.read_nip46_unconnected_server()? {
+            relays.extend(nip46unconnected.relays);
+        }
         relays.sort();
         relays.dedup();
         self.subscribe_nip46(relays).await?;
@@ -3170,7 +3176,7 @@ impl Overlord {
             };
 
             if *petname != person.petname {
-                if petname.is_some() {
+                if petname.is_some() && petname != &Some("".to_string()) {
                     person_needs_save = true;
                     person.petname = petname.clone();
                 } else if !merge {
