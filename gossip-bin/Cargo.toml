@@ -19,9 +19,9 @@ rustls-tls-native = [ "gossip-lib/rustls-tls-native" ]
 
 [dependencies]
 bech32 = "0.9"
-eframe = { git = "https://github.com/bu5hm4nn/egui", rev = "f954e98816d4fb760de31eeec4afcd15ae39a687", features = [ "persistence", "wayland" ] }
-egui-winit = { git = "https://github.com/bu5hm4nn/egui", rev = "f954e98816d4fb760de31eeec4afcd15ae39a687", features = [ "default" ] }
-#egui = { git = "https://github.com/bu5hm4nn/egui", rev = "f954e98816d4fb760de31eeec4afcd15ae39a687", features = [ "deadlock_detection" ] }
+eframe = { git = "https://github.com/bu5hm4nn/egui", rev = "63dde4c9b311da0cae0cb9f9465bf7273227be6c", features = [ "persistence", "wayland" ] }
+egui-winit = { git = "https://github.com/bu5hm4nn/egui", rev = "63dde4c9b311da0cae0cb9f9465bf7273227be6c", features = [ "default" ] }
+#egui = { git = "https://github.com/bu5hm4nn/egui", rev = "63dde4c9b311da0cae0cb9f9465bf7273227be6c", features = [ "deadlock_detection" ] }
 egui-video = { git = "https://github.com/mikedilger/egui-video", rev = "813192e17f5c0eed9bed6e78f40697ac0ff77639",  features = [ "from_bytes" ], optional = true }
 gossip-relay-picker = { git = "https://github.com/mikedilger/gossip-relay-picker", rev = "e43a03f05bd4196eec6696f1df4ac92902e31dd0" }
 gossip-lib = { path = "../gossip-lib" }
