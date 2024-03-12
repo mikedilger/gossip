@@ -1,4 +1,4 @@
-use gossip_lib::{Error, Storage, GLOBALS};
+use gossip_lib::{comms::ToOverlordMessage, Error, Storage, GLOBALS};
 use nostr_types::PublicKey;
 use paste::paste;
 
@@ -362,6 +362,13 @@ impl UnsavedSettings {
         save_setting!(prune_period_days, self, txn);
         save_setting!(cache_prune_period_days, self, txn);
         txn.commit()?;
+
+        if !self.offline {
+            GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::StartLongLivedSubscriptions)?;
+        }
+
         Ok(())
     }
 }

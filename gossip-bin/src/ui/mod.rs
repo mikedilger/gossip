@@ -2118,6 +2118,10 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
                         }
 
                         ui.add_space(20.0);
+                        if ui.checkbox(&mut app.unsaved_settings.offline, "start in offline mode").changed() {
+                            let _ = app.unsaved_settings.save();
+                        }
+                        ui.add_space(20.0);
 
                         let mut submitted =
                             //response.lost_focus() &&
