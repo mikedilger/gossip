@@ -29,7 +29,7 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 29] = [
+const COMMANDS: [Command; 30] = [
     Command {
         cmd: "oneshot",
         usage_params: "{depends}",
@@ -102,6 +102,11 @@ const COMMANDS: [Command; 29] = [
     },
     Command {
         cmd: "login",
+        usage_params: "",
+        desc: "login on the command line before starting the gossip GUI",
+    },
+    Command {
+        cmd: "offline",
         usage_params: "",
         desc: "login on the command line before starting the gossip GUI",
     },
@@ -210,6 +215,10 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
         "import_event" => import_event(command, args, runtime)?,
         "login" => {
             login()?;
+            return Ok(false);
+        }
+        "offline" => {
+            offline()?;
             return Ok(false);
         }
         "print_event" => print_event(command, args)?,
@@ -932,5 +941,10 @@ pub fn login() -> Result<(), Error> {
     } else {
         println!("No private key, skipping login");
     }
+    Ok(())
+}
+
+pub fn offline() -> Result<(), Error> {
+    GLOBALS.storage.write_setting_offline(&true, None)?;
     Ok(())
 }
