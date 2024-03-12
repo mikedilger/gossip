@@ -51,6 +51,7 @@ use crate::unsaved_settings::UnsavedSettings;
 #[cfg(feature = "video-ffmpeg")]
 use core::cell::RefCell;
 use eframe::egui;
+use eframe::egui::Widget;
 use egui::{
     Align, Color32, ColorImage, Context, IconData, Image, ImageData, Label, Layout, RichText,
     ScrollArea, Sense, TextureHandle, TextureOptions, Ui, Vec2,
@@ -2297,7 +2298,7 @@ fn approval_dialog_inner(app: &mut GossipUi, ui: &mut Ui) {
     if !GLOBALS.auth_requests.read().is_empty() {
         section(ui, "Relay Authentication Requests");
     }
-    for url in GLOBALS.auth_requests.read().iter() {
+    for (url, permanent) in GLOBALS.auth_requests.write().iter_mut() {
         widgets::list_entry::make_frame(ui, Some(app.theme.main_content_bgcolor())).show(
             ui,
             |ui| {
@@ -2307,17 +2308,23 @@ fn approval_dialog_inner(app: &mut GossipUi, ui: &mut Ui) {
                     widgets::truncated_label(ui, text, ui.available_width() - TRUNC);
                     app.theme.accent_button_2_style(ui.style_mut());
                     ui.with_layout(egui::Layout::right_to_left(ALIGN), |ui| {
-                        if ui.button("Decline Always").clicked() {
-                            let _ = GLOBALS
-                                .to_overlord
-                                .send(ToOverlordMessage::AuthDeclined(url.to_owned()));
+                        if ui.button("Decline").clicked() {
+                            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::AuthDeclined(
+                                url.to_owned(),
+                                permanent.to_owned(),
+                            ));
                         }
                         ui.add_space(10.0);
-                        if ui.button("Approve Always").clicked() {
-                            let _ = GLOBALS
-                                .to_overlord
-                                .send(ToOverlordMessage::AuthApproved(url.to_owned()));
+                        if ui.button("Approve").clicked() {
+                            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::AuthApproved(
+                                url.to_owned(),
+                                permanent.to_owned(),
+                            ));
                         }
+                        ui.horizontal(|ui| {
+                            widgets::Switch::onoff(&app.theme, permanent).ui(ui);
+                            ui.label("only once");
+                        });
                     });
                 });
             },
@@ -2328,7 +2335,7 @@ fn approval_dialog_inner(app: &mut GossipUi, ui: &mut Ui) {
     if !GLOBALS.connect_requests.read().is_empty() {
         section(ui, "Relay Connect Requests");
     }
-    for (url, jobs) in GLOBALS.connect_requests.read().iter() {
+    for (url, jobs, permanent) in GLOBALS.connect_requests.write().iter_mut() {
         let jobstrs: Vec<String> = jobs.iter().map(|j| format!("{:?}", j.reason)).collect();
 
         widgets::list_entry::make_frame(ui, Some(app.theme.main_content_bgcolor()))
@@ -2340,17 +2347,24 @@ fn approval_dialog_inner(app: &mut GossipUi, ui: &mut Ui) {
                     widgets::truncated_label(ui, text, ui.available_width() - TRUNC);
                     app.theme.accent_button_2_style(ui.style_mut());
                     ui.with_layout(egui::Layout::right_to_left(ALIGN), |ui| {
-                        if ui.button("Decline Always").clicked() {
-                            let _ = GLOBALS
-                                .to_overlord
-                                .send(ToOverlordMessage::ConnectDeclined(url.to_owned()));
+                        if ui.button("Decline").clicked() {
+                            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::ConnectDeclined(
+                                url.to_owned(),
+                                permanent.to_owned(),
+                            ));
                         }
                         ui.add_space(10.0);
-                        if ui.button("Approve Always").clicked() {
-                            let _ = GLOBALS
-                                .to_overlord
-                                .send(ToOverlordMessage::ConnectApproved(url.to_owned()));
+                        if ui.button("Approve").clicked() {
+                            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::ConnectApproved(
+                                url.to_owned(),
+                                permanent.to_owned(),
+                            ));
                         }
+                        ui.add_space(10.0);
+                        ui.horizontal(|ui| {
+                            widgets::Switch::onoff(&app.theme, permanent).ui(ui);
+                            ui.label("only once");
+                        });
                     });
                 });
             });

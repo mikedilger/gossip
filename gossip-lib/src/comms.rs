@@ -28,10 +28,12 @@ pub enum ToOverlordMessage {
     AdvertiseRelayListNextChunk(Box<Event>, Vec<RelayUrl>),
 
     /// Calls [auth_approved](crate::Overlord::auth_approved)
-    AuthApproved(RelayUrl),
+    /// pass 'true' as the second parameter for a permanent approval
+    AuthApproved(RelayUrl, bool),
 
     /// Calls [auth_approved](crate::Overlord::auth_declined)
-    AuthDeclined(RelayUrl),
+    /// pass 'true' as the second parameter for a permanent approval
+    AuthDeclined(RelayUrl, bool),
 
     /// Calls [change_passphrase](crate::Overlord::change_passphrase)
     ChangePassphrase { old: String, new: String },
@@ -40,10 +42,12 @@ pub enum ToOverlordMessage {
     ClearPersonList(PersonList),
 
     /// Calls [auth_approved](crate::Overlord::connect_approved)
-    ConnectApproved(RelayUrl),
+    /// pass 'true' as the second parameter for a permanent approval
+    ConnectApproved(RelayUrl, bool),
 
     /// Calls [auth_approved](crate::Overlord::connect_declined)
-    ConnectDeclined(RelayUrl),
+    /// pass 'true' as the second parameter for a permanent approval
+    ConnectDeclined(RelayUrl, bool),
 
     /// Calls [delegation_reset](crate::Overlord::delegation_reset)
     DelegationReset,

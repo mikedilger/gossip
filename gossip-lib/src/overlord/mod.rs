@@ -325,7 +325,7 @@ impl Overlord {
                     GLOBALS
                         .connect_requests
                         .write()
-                        .push((url.clone(), jobs.clone()));
+                        .push((url.clone(), jobs.clone(), false));
                     return Ok(());
                 }
             }
@@ -570,11 +570,11 @@ impl Overlord {
             ToOverlordMessage::AdvertiseRelayListNextChunk(event, relays) => {
                 self.advertise_relay_list_next_chunk(event, relays).await?;
             }
-            ToOverlordMessage::AuthApproved(relay_url) => {
-                self.auth_approved(relay_url)?;
+            ToOverlordMessage::AuthApproved(relay_url, permanent) => {
+                self.auth_approved(relay_url, permanent)?;
             }
-            ToOverlordMessage::AuthDeclined(relay_url) => {
-                self.auth_declined(relay_url)?;
+            ToOverlordMessage::AuthDeclined(relay_url, permanent) => {
+                self.auth_declined(relay_url, permanent)?;
             }
             ToOverlordMessage::ChangePassphrase { old, new } => {
                 Self::change_passphrase(old, new).await?;
@@ -582,11 +582,11 @@ impl Overlord {
             ToOverlordMessage::ClearPersonList(list) => {
                 self.clear_person_list(list)?;
             }
-            ToOverlordMessage::ConnectApproved(relay_url) => {
-                self.connect_approved(relay_url).await?;
+            ToOverlordMessage::ConnectApproved(relay_url, permanent) => {
+                self.connect_approved(relay_url, permanent).await?;
             }
-            ToOverlordMessage::ConnectDeclined(relay_url) => {
-                self.connect_declined(relay_url).await?;
+            ToOverlordMessage::ConnectDeclined(relay_url, permanent) => {
+                self.connect_declined(relay_url, permanent).await?;
             }
             ToOverlordMessage::DelegationReset => {
                 Self::delegation_reset().await?;
@@ -937,15 +937,17 @@ impl Overlord {
 
     /// User has approved authentication on this relay. Save this result for later
     /// and inform the minion.
-    pub fn auth_approved(&mut self, relay_url: RelayUrl) -> Result<(), Error> {
-        // Save the answer in the relay record
-        GLOBALS.storage.modify_relay(
-            &relay_url,
-            |r| {
-                r.allow_auth = Some(true);
-            },
-            None,
-        )?;
+    pub fn auth_approved(&mut self, relay_url: RelayUrl, permanent: bool) -> Result<(), Error> {
+        if permanent {
+            // Save the answer in the relay record
+            GLOBALS.storage.modify_relay(
+                &relay_url,
+                |r| {
+                    r.allow_auth = Some(true);
+                },
+                None,
+            )?;
+        }
 
         if GLOBALS.connected_relays.contains_key(&relay_url) {
             // Tell the minion
@@ -961,7 +963,7 @@ impl Overlord {
             GLOBALS
                 .auth_requests
                 .write()
-                .retain(|url| *url != relay_url);
+                .retain(|(url, _)| *url != relay_url);
         }
 
         Ok(())
@@ -969,15 +971,17 @@ impl Overlord {
 
     /// User has declined authentication on this relay. Save this result for later
     /// and inform the minion.
-    pub fn auth_declined(&mut self, relay_url: RelayUrl) -> Result<(), Error> {
-        // Save the answer in the relay record
-        GLOBALS.storage.modify_relay(
-            &relay_url,
-            |r| {
-                r.allow_auth = Some(false);
-            },
-            None,
-        )?;
+    pub fn auth_declined(&mut self, relay_url: RelayUrl, permanent: bool) -> Result<(), Error> {
+        if permanent {
+            // Save the answer in the relay record
+            GLOBALS.storage.modify_relay(
+                &relay_url,
+                |r| {
+                    r.allow_auth = Some(false);
+                },
+                None,
+            )?;
+        }
 
         if GLOBALS.connected_relays.contains_key(&relay_url) {
             // Tell the minion
@@ -993,7 +997,7 @@ impl Overlord {
             GLOBALS
                 .auth_requests
                 .write()
-                .retain(|url| *url != relay_url);
+                .retain(|(url, _)| *url != relay_url);
         }
 
         Ok(())
@@ -1016,19 +1020,25 @@ impl Overlord {
 
     /// User has approved connection to this relay. Save this result for later
     /// and inform the minion.
-    pub async fn connect_approved(&mut self, relay_url: RelayUrl) -> Result<(), Error> {
-        // Save the answer in the relay record
-        GLOBALS.storage.modify_relay(
-            &relay_url,
-            |r| {
-                r.allow_connect = Some(true);
-            },
-            None,
-        )?;
+    pub async fn connect_approved(
+        &mut self,
+        relay_url: RelayUrl,
+        permanent: bool,
+    ) -> Result<(), Error> {
+        if permanent {
+            // Save the answer in the relay record
+            GLOBALS.storage.modify_relay(
+                &relay_url,
+                |r| {
+                    r.allow_connect = Some(true);
+                },
+                None,
+            )?;
+        }
 
         // Start the job
         let reqs = GLOBALS.connect_requests.read().clone();
-        for (url, jobs) in &reqs {
+        for (url, jobs, _temporary) in &reqs {
             if *url == relay_url {
                 self.engage_minion(url.clone(), jobs.clone()).await?;
                 // let the loop continue, it is possible the overlord tried to engage this
@@ -1040,28 +1050,34 @@ impl Overlord {
         GLOBALS
             .connect_requests
             .write()
-            .retain(|(url, _)| *url != relay_url);
+            .retain(|(url, _, _)| *url != relay_url);
 
         Ok(())
     }
 
     /// User has declined connection to this relay. Save this result for later
     /// and inform the minion.
-    pub async fn connect_declined(&mut self, relay_url: RelayUrl) -> Result<(), Error> {
-        // Save the answer in the relay record
-        GLOBALS.storage.modify_relay(
-            &relay_url,
-            |r| {
-                r.allow_connect = Some(false);
-            },
-            None,
-        )?;
+    pub async fn connect_declined(
+        &mut self,
+        relay_url: RelayUrl,
+        permanent: bool,
+    ) -> Result<(), Error> {
+        if permanent {
+            // Save the answer in the relay record
+            GLOBALS.storage.modify_relay(
+                &relay_url,
+                |r| {
+                    r.allow_connect = Some(false);
+                },
+                None,
+            )?;
+        }
 
         // Remove the connect requests entry
         GLOBALS
             .connect_requests
             .write()
-            .retain(|(url, _)| *url != relay_url);
+            .retain(|(url, _, _)| *url != relay_url);
 
         Ok(())
     }

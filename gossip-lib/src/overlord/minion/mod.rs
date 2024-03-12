@@ -447,11 +447,17 @@ impl Minion {
             ToMinionPayloadDetail::AuthApproved => {
                 self.dbrelay.allow_auth = Some(true); // save in our memory copy of the relay
                 self.authenticate().await?;
-                GLOBALS.auth_requests.write().retain(|url| *url != self.url);
+                GLOBALS
+                    .auth_requests
+                    .write()
+                    .retain(|(url, _)| *url != self.url);
             }
             ToMinionPayloadDetail::AuthDeclined => {
                 self.dbrelay.allow_auth = Some(false); // save in our memory copy of the relay
-                GLOBALS.auth_requests.write().retain(|url| *url != self.url);
+                GLOBALS
+                    .auth_requests
+                    .write()
+                    .retain(|(url, _)| *url != self.url);
             }
             ToMinionPayloadDetail::FetchEvent(id) => {
                 self.sought_events

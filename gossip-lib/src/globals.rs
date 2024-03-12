@@ -142,10 +142,10 @@ pub struct Globals {
     pub active_advertise_jobs: DashSet<u64>,
 
     /// Connect requests (asking the user)
-    pub connect_requests: PRwLock<Vec<(RelayUrl, Vec<RelayJob>)>>,
+    pub connect_requests: PRwLock<Vec<(RelayUrl, Vec<RelayJob>, bool /* permanent */)>>,
 
     /// Relay auth request (needs allow or deny)
-    pub auth_requests: PRwLock<Vec<RelayUrl>>,
+    pub auth_requests: PRwLock<Vec<(RelayUrl, bool /* permanent */)>>,
 
     /// nip46 approval requests
     pub nip46_approval_requests: PRwLock<Vec<(String, PublicKey, ParsedCommand)>>,
