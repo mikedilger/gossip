@@ -99,9 +99,13 @@ pub fn truncated_label(ui: &mut Ui, text: impl Into<WidgetText>, max_width: f32)
     job.wrap.break_anywhere = true;
     job.wrap.max_width = max_width;
     job.wrap.max_rows = 1;
+
+    // new way of creating a galley since the above only creates a job now
+    let galley = ui.fonts(|fonts| fonts.layout_job(job));
+
     // the only way to force egui to respect all our above settings
     // is to pass in the galley directly
-    ui.label(job);
+    ui.label(galley);
 }
 
 /// Create a clickable label
