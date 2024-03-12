@@ -215,7 +215,7 @@ pub fn init() -> Result<(), Error> {
 
 /// Run gossip-lib as an async
 pub async fn run() {
-    // Steal `tmp_overlord_receiver` from the GLOBALS, and give it to a new Overlord
+    // Steal `tmp_overlord_receiver` from the GLOBALS to give to a new Overlord
     let overlord_receiver = {
         let mut mutex_option = GLOBALS.tmp_overlord_receiver.lock().await;
         mutex_option.deref_mut().take()

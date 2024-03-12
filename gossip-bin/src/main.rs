@@ -9,7 +9,7 @@ mod date_ago;
 mod ui;
 mod unsaved_settings;
 
-use gossip_lib::{Error, GLOBALS};
+use gossip_lib::{Error, RunState, GLOBALS};
 use std::sync::atomic::Ordering;
 use std::{env, thread};
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
@@ -74,8 +74,8 @@ fn main() -> Result<(), Error> {
         tracing::error!("{}", e);
     }
 
-    // Make sure the overlord knows to shut down
-    GLOBALS.shutting_down.store(true, Ordering::Relaxed);
+    // Move to the ShuttingDown runstate
+    let _ = GLOBALS.write_runstate.send(RunState::ShuttingDown);
 
     // Make sure the overlord isn't stuck on waiting for login
     GLOBALS.wait_for_login.store(false, Ordering::Relaxed);

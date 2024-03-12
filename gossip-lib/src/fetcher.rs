@@ -14,6 +14,7 @@ use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 use std::sync::RwLock;
 use std::time::{Duration, SystemTime};
+use tokio::time::Instant;
 
 #[derive(Copy, Clone, Debug)]
 enum FetchState {
@@ -56,8 +57,10 @@ impl Fetcher {
             GLOBALS.storage.read_setting_fetcher_connect_timeout_sec(),
             0,
         );
+
         let timeout =
             std::time::Duration::new(GLOBALS.storage.read_setting_fetcher_timeout_sec(), 0);
+
         *GLOBALS.fetcher.client.write().unwrap() = Some(
             Client::builder()
                 .gzip(true)
@@ -73,19 +76,29 @@ impl Fetcher {
 
     pub(crate) fn start() {
         // Setup periodic queue management
-        let fetcher_looptime_ms = GLOBALS.storage.read_setting_fetcher_looptime_ms();
         tokio::task::spawn(async move {
+            let mut read_runstate = GLOBALS.read_runstate.clone();
+            read_runstate.mark_unchanged();
+            if !read_runstate.borrow().going_online() {
+                return;
+            }
+
+            let fetcher_looptime_ms = GLOBALS.storage.read_setting_fetcher_looptime_ms();
+            let sleep = tokio::time::sleep(Duration::from_millis(fetcher_looptime_ms));
+            tokio::pin!(sleep);
+
             loop {
-                tokio::time::sleep(Duration::from_millis(fetcher_looptime_ms)).await;
+                tokio::select! {
+                    _ = &mut sleep => {
+
+                        let fetcher_looptime_ms = GLOBALS.storage.read_setting_fetcher_looptime_ms();
+                        sleep.as_mut().reset(Instant::now() + Duration::from_millis(fetcher_looptime_ms));
+                    },
+                    _ = read_runstate.wait_for(|runstate| !runstate.going_online()) => break,
+                }
 
                 // Process the queue
                 GLOBALS.fetcher.process_queue().await;
-
-                // Possibly shut down
-                if GLOBALS.shutting_down.load(Ordering::Relaxed) {
-                    tracing::info!("Fetcher shutting down.");
-                    break;
-                }
             }
 
             tracing::info!("Fetcher shutdown");

@@ -14,6 +14,7 @@ use std::sync::atomic::Ordering;
 use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio::task;
+use tokio::time::Instant;
 
 /// Person type, aliased to the latest version
 pub type Person = crate::storage::types::Person2;
@@ -75,20 +76,30 @@ impl People {
     // Start the periodic task management
     pub(crate) fn start() {
         task::spawn(async {
-            loop {
-                let fetch_metadata_looptime_ms =
-                    GLOBALS.storage.read_setting_fetcher_metadata_looptime_ms();
+            let mut read_runstate = GLOBALS.read_runstate.clone();
+            read_runstate.mark_unchanged();
+            if !read_runstate.borrow().going_online() {
+                return;
+            }
 
-                // Every 3 seconds...
-                tokio::time::sleep(Duration::from_millis(fetch_metadata_looptime_ms)).await;
+            // Every (usually 3) seconds...
+            let fetch_metadata_looptime_ms =
+                GLOBALS.storage.read_setting_fetcher_metadata_looptime_ms();
+            let sleep = tokio::time::sleep(Duration::from_millis(fetch_metadata_looptime_ms));
+            tokio::pin!(sleep);
+
+            loop {
+                tokio::select! {
+                    _ = &mut sleep => {
+                        let fetch_metadata_looptime_ms =
+                            GLOBALS.storage.read_setting_fetcher_metadata_looptime_ms();
+                        sleep.as_mut().reset(Instant::now() + Duration::from_millis(fetch_metadata_looptime_ms));
+                    },
+                    _ = read_runstate.wait_for(|runstate| !runstate.going_online()) => break,
+                }
 
                 // We fetch needed metadata
                 GLOBALS.people.maybe_fetch_metadata().await;
-
-                // And we check for shutdown condition
-                if GLOBALS.shutting_down.load(Ordering::Relaxed) {
-                    break;
-                }
             }
 
             tracing::info!("People task manager shutdown");

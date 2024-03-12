@@ -8,7 +8,7 @@ use crate::dm_channel::DmChannel;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::relay::Relay;
-use crate::USER_AGENT;
+use crate::{RunState, USER_AGENT};
 use base64::Engine;
 use encoding_rs::{Encoding, UTF_8};
 use futures_util::sink::SinkExt;
@@ -27,9 +27,9 @@ use std::sync::atomic::Ordering;
 use std::time::Duration;
 use subscription_map::SubscriptionMap;
 use tokio::net::TcpStream;
-use tokio::select;
 use tokio::sync::broadcast::Receiver;
 use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::watch::Receiver as WatchReceiver;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tungstenite::protocol::{Message as WsMessage, WebSocketConfig};
 
@@ -85,6 +85,7 @@ pub struct Minion {
     general_feed_start: Option<Unixtime>,
     person_feed_start: Option<Unixtime>,
     inbox_feed_start: Option<Unixtime>,
+    read_runstate: WatchReceiver<RunState>,
     exiting: Option<MinionExitReason>,
     auth_state: AuthState,
     failed_subs: HashSet<String>,
@@ -96,7 +97,8 @@ impl Minion {
         let from_overlord = GLOBALS.to_minions.subscribe();
         let dbrelay = GLOBALS.storage.read_or_create_relay(&url, None)?;
 
-        if GLOBALS.shutting_down.load(Ordering::Relaxed) {
+        let mut read_runstate = GLOBALS.read_runstate.clone();
+        if *read_runstate.borrow_and_update() != RunState::Online {
             return Err(ErrorKind::Offline.into());
         }
 
@@ -120,6 +122,7 @@ impl Minion {
             general_feed_start: None,
             person_feed_start: None,
             inbox_feed_start: None,
+            read_runstate,
             exiting: None,
             auth_state: AuthState::None,
             failed_subs: HashSet::new(),
@@ -176,7 +179,17 @@ impl Minion {
                 .get(format!("{}", uri))
                 .header("Accept", "application/nostr+json")
                 .send();
-            let response = request_nip11_future.await?;
+
+            let response;
+            tokio::select! {
+                _ = self.read_runstate.wait_for(|runstate| *runstate != RunState::Online) => {
+                    return Ok(MinionExitReason::GotShutdownMessage);
+                },
+                response_result = request_nip11_future => {
+                    response = response_result?;
+                }
+            }
+
             self.dbrelay.last_attempt_nip11 = Some(Unixtime::now().unwrap().0 as u64);
             let status = response.status();
             match Self::text_with_charset(response, "utf-8").await {
@@ -279,11 +292,21 @@ impl Minion {
                 GLOBALS.storage.read_setting_websocket_connect_timeout_sec()
             };
 
-            let (websocket_stream, response) = tokio::time::timeout(
+            let connect_future = tokio::time::timeout(
                 std::time::Duration::new(connect_timeout_secs, 0),
                 tokio_tungstenite::connect_async_with_config(req, Some(config), false),
-            )
-            .await??;
+            );
+
+            let websocket_stream;
+            let response;
+            tokio::select! {
+                _ = self.read_runstate.wait_for(|runstate| *runstate != RunState::Online) => {
+                    return Ok(MinionExitReason::GotShutdownMessage);
+                },
+                connect_result = connect_future => {
+                    (websocket_stream, response) = connect_result??;
+                },
+            }
 
             // Check the status code of the response
             if response.status().as_u16() == 4000 {
@@ -367,8 +390,16 @@ impl Minion {
     ) -> Result<(), Error> {
         let ws_stream = self.stream.as_mut().unwrap();
 
-        select! {
+        let mut read_runstate = self.read_runstate.clone();
+
+        tokio::select! {
             biased;
+            _ = read_runstate.changed() => {
+                // NOTE: I couldn't get .wait_for() to work because it made all this code not Send anymore.
+                if *read_runstate.borrow_and_update() == RunState::ShuttingDown {
+                    self.exiting = Some(MinionExitReason::GotShutdownMessage);
+                }
+            },
             _ = ping_timer.tick() => {
                 ws_stream.send(WsMessage::Ping(vec![0x1])).await?;
             },

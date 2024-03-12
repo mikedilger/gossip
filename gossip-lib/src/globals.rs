@@ -72,10 +72,6 @@ pub struct Globals {
     /// The relay picker, used to pick the next relay
     pub relay_picker: RelayPicker<Hooks>,
 
-    /// Whether or not we are shutting down. For the UI (minions will be signaled and
-    /// waited for by the overlord)
-    pub shutting_down: AtomicBool,
-
     /// Wrapped Identity wrapping a Signer
     pub identity: GossipIdentity,
 
@@ -200,7 +196,6 @@ lazy_static! {
             people: People::new(),
             connected_relays: DashMap::new(),
             relay_picker: Default::default(),
-            shutting_down: AtomicBool::new(false),
             identity: GossipIdentity::default(),
             dismissed: RwLock::new(Vec::new()),
             feed: Feed::new(),
