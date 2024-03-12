@@ -174,18 +174,6 @@ impl Overlord {
         // Init the fetcher
         crate::fetcher::Fetcher::init()?;
 
-        // Start the fetcher
-        crate::fetcher::Fetcher::start();
-
-        // Start periodic tasks in people manager (after signer)
-        crate::people::People::start();
-
-        // Start periodic tasks in pending
-        crate::pending::start();
-
-        // Do the startup procedures
-        self.start_long_lived_subscriptions().await?;
-
         // Switch out of initializing RunState
         if GLOBALS.storage.read_setting_offline() {
             let _ = GLOBALS.write_runstate.send(RunState::Offline);

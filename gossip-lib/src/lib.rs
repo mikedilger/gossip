@@ -215,6 +215,43 @@ pub fn init() -> Result<(), Error> {
 
 /// Run gossip-lib as an async
 pub async fn run() {
+    // Runstate watcher
+    tokio::task::spawn(async {
+        let mut read_runstate = GLOBALS.read_runstate.clone();
+        read_runstate.mark_unchanged();
+
+        let mut last_runstate = *read_runstate.borrow();
+        loop {
+            // Wait for a change
+            let _ = read_runstate.changed().await;
+
+            // Verify it is actually a change, not set to the thing it already was set to
+            if *read_runstate.borrow() != last_runstate {
+                last_runstate = *read_runstate.borrow();
+
+                tracing::info!("RunState changed to {:?}", *read_runstate.borrow());
+
+                // If we just went online, start all the tasks that come along with that
+                // state transition
+                if last_runstate == RunState::Online {
+                    // Start the fetcher
+                    crate::fetcher::Fetcher::start();
+
+                    // Start periodic tasks in people manager (after signer)
+                    crate::people::People::start();
+
+                    // Start periodic tasks in pending
+                    crate::pending::start();
+
+                    // Start long-lived subscriptions
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(crate::comms::ToOverlordMessage::StartLongLivedSubscriptions);
+                }
+            }
+        }
+    });
+
     // Steal `tmp_overlord_receiver` from the GLOBALS to give to a new Overlord
     let overlord_receiver = {
         let mut mutex_option = GLOBALS.tmp_overlord_receiver.lock().await;
