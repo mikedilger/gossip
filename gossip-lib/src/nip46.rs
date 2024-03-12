@@ -52,12 +52,14 @@ impl Nip46UnconnectedServer {
     }
 }
 
-#[derive(Debug, Copy, Clone, Readable, Writable)]
+#[derive(Debug, Default, Copy, Clone, Readable, Writable, PartialEq, Eq)]
 pub enum Approval {
     None,
     Once,
     Until(Unixtime),
     Always,
+    #[default]
+    Ask,
 }
 
 impl Approval {
@@ -76,6 +78,7 @@ impl Approval {
                 approved
             }
             Approval::Always => true,
+            Approval::Ask => false,
         }
     }
 }
@@ -104,44 +107,56 @@ impl Nip46Server {
             "sign_event" => {
                 if self.sign_approval.is_approved() {
                     self.sign_event(params)
-                } else {
+                } else if self.sign_approval == Approval::Ask {
                     Err(ErrorKind::Nip46NeedApproval.into())
+                } else {
+                    Err(ErrorKind::Nip46Denied.into())
                 }
             }
             "get_relays" => self.get_relays(),
             "nip04_encrypt" => {
                 if self.encrypt_approval.is_approved() {
                     self.nip04_encrypt(params)
-                } else {
+                } else if self.encrypt_approval == Approval::Ask {
                     Err(ErrorKind::Nip46NeedApproval.into())
+                } else {
+                    Err(ErrorKind::Nip46Denied.into())
                 }
             }
             "nip04_decrypt" => {
                 if self.decrypt_approval.is_approved() {
                     self.nip04_decrypt(params)
-                } else {
+                } else if self.decrypt_approval == Approval::Ask {
                     Err(ErrorKind::Nip46NeedApproval.into())
+                } else {
+                    Err(ErrorKind::Nip46Denied.into())
                 }
             }
             "nip44_get_key" => {
                 if self.encrypt_approval.is_approved() || self.decrypt_approval.is_approved() {
                     self.nip44_get_key(params)
-                } else {
+                } else if self.encrypt_approval == Approval::Ask {
                     Err(ErrorKind::Nip46NeedApproval.into())
+                } else {
+                    Err(ErrorKind::Nip46Denied.into())
                 }
             }
             "nip44_encrypt" => {
                 if self.encrypt_approval.is_approved() {
                     self.nip44_encrypt(params)
-                } else {
+                } else if self.encrypt_approval == Approval::Ask {
                     Err(ErrorKind::Nip46NeedApproval.into())
+                } else {
+                    Err(ErrorKind::Nip46Denied.into())
                 }
             }
             "nip44_decrypt" => {
                 if self.decrypt_approval.is_approved() {
                     self.nip44_decrypt(params)
-                } else {
+                } else if self.decrypt_approval == Approval::Ask {
                     Err(ErrorKind::Nip46NeedApproval.into())
+                } else {
+                    Err(ErrorKind::Nip46Denied.into())
                 }
             }
             "ping" => self.ping(),
@@ -567,9 +582,9 @@ pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Er
         name: userver.name,
         peer_pubkey: event.pubkey,
         relays: reply_relays.clone(),
-        sign_approval: Approval::None,
-        encrypt_approval: Approval::None,
-        decrypt_approval: Approval::None,
+        sign_approval: Approval::Ask,
+        encrypt_approval: Approval::Ask,
+        decrypt_approval: Approval::Ask,
     };
 
     // Save the server, and delete the unconnected server

@@ -1463,7 +1463,7 @@ impl Overlord {
                     GLOBALS
                         .status_queue
                         .write()
-                        .write(format!("Error importing ncryptsec: {}", err.to_string()));
+                        .write(format!("Error importing ncryptsec: {}", err));
                 }
             }
         } else {
