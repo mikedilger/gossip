@@ -88,7 +88,7 @@ pub fn page_header_layout<R>(
 }
 
 /// Create a label which truncates after max_width
-pub fn truncated_label(ui: &mut Ui, text: impl Into<WidgetText>, max_width: f32) {
+pub fn truncated_label(ui: &mut Ui, text: impl Into<WidgetText>, max_width: f32) -> Response {
     let mut job = text.into().into_layout_job(
         ui.style(),
         FontSelection::Default,
@@ -105,7 +105,7 @@ pub fn truncated_label(ui: &mut Ui, text: impl Into<WidgetText>, max_width: f32)
 
     // the only way to force egui to respect all our above settings
     // is to pass in the galley directly
-    ui.label(galley);
+    ui.label(galley)
 }
 
 /// Create a clickable label
