@@ -727,9 +727,6 @@ impl Overlord {
             ToOverlordMessage::SubscribeNip46(relays) => {
                 self.subscribe_nip46(relays).await?;
             }
-            ToOverlordMessage::Shutdown => {
-                Self::shutdown()?;
-            }
             ToOverlordMessage::UnlockKey(password) => {
                 Self::unlock_key(password)?;
             }
@@ -2888,13 +2885,6 @@ impl Overlord {
             .await?;
         }
 
-        Ok(())
-    }
-
-    /// Shutdown gossip
-    pub fn shutdown() -> Result<(), Error> {
-        tracing::info!("Overlord shutting down");
-        GLOBALS.shutting_down.store(true, Ordering::Relaxed);
         Ok(())
     }
 

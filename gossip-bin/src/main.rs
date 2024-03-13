@@ -9,7 +9,6 @@ mod date_ago;
 mod ui;
 mod unsaved_settings;
 
-use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::Error;
 use gossip_lib::GLOBALS;
 use std::sync::atomic::Ordering;
@@ -84,21 +83,12 @@ fn main() -> Result<(), Error> {
     GLOBALS.wait_for_login_notify.notify_one();
 
     // Tell the async parties to close down
-    if let Err(e) = initiate_shutdown() {
-        tracing::error!("{}", e);
-    }
+    GLOBALS.shutting_down.store(true, Ordering::Relaxed);
 
     // Wait for the async thread to complete
     async_thread.join().unwrap();
 
     gossip_lib::shutdown()?;
 
-    Ok(())
-}
-
-// Any task can call this to shutdown
-pub fn initiate_shutdown() -> Result<(), Error> {
-    let to_overlord = GLOBALS.to_overlord.clone();
-    let _ = to_overlord.send(ToOverlordMessage::Shutdown); // ignore errors
     Ok(())
 }
