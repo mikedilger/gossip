@@ -202,8 +202,26 @@ impl Overlord {
         self.start_long_lived_subscriptions().await?;
 
         'mainloop: loop {
-            if let Err(e) = self.loop_handler().await {
-                tracing::error!("{}", e);
+            tracing::trace!("overlord looping");
+
+            // Listen on inbox, and dying minions
+            select! {
+                message = self.inbox.recv() => {
+                    let message = match message {
+                        Some(bm) => bm,
+                        None => {
+                            // All senders dropped, or one of them closed.
+                            GLOBALS.shutting_down.store(true, Ordering::Relaxed);
+                            return Ok(());
+                        }
+                    };
+                    if let Err(e) = self.handle_message(message).await {
+                        tracing::error!("{}", e);
+                    }
+                },
+                task_nextjoined = self.minions.join_next_with_id(), if !self.minions.is_empty() => {
+                    self.handle_task_nextjoined(task_nextjoined).await;
+                }
             }
 
             if GLOBALS.shutting_down.load(Ordering::Relaxed) {
@@ -357,45 +375,6 @@ impl Overlord {
 
             // And record it
             GLOBALS.connected_relays.insert(url, jobs);
-        }
-
-        Ok(())
-    }
-
-    #[allow(unused_assignments)]
-    async fn loop_handler(&mut self) -> Result<(), Error> {
-        tracing::trace!("overlord looping");
-
-        if self.minions.is_empty() {
-            // Just listen on inbox
-            let message = self.inbox.recv().await;
-            let message = match message {
-                Some(bm) => bm,
-                None => {
-                    // All senders dropped, or one of them closed.
-                    GLOBALS.shutting_down.store(true, Ordering::Relaxed);
-                    return Ok(());
-                }
-            };
-            self.handle_message(message).await?;
-        } else {
-            // Listen on inbox, and dying minions
-            select! {
-                message = self.inbox.recv() => {
-                    let message = match message {
-                        Some(bm) => bm,
-                        None => {
-                            // All senders dropped, or one of them closed.
-                            GLOBALS.shutting_down.store(true, Ordering::Relaxed);
-                            return Ok(());
-                        }
-                    };
-                    self.handle_message(message).await?;
-                },
-                task_nextjoined = self.minions.join_next_with_id() => {
-                    self.handle_task_nextjoined(task_nextjoined).await;
-                }
-            }
         }
 
         Ok(())
