@@ -85,10 +85,10 @@ fn main() -> Result<(), Error> {
     // Tell the async parties to close down
     GLOBALS.shutting_down.store(true, Ordering::Relaxed);
 
+    tracing::info!("UI thread complete, waiting on lib...");
+
     // Wait for the async thread to complete
     async_thread.join().unwrap();
-
-    gossip_lib::shutdown()?;
 
     Ok(())
 }

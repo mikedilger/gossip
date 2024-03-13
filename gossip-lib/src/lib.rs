@@ -182,18 +182,6 @@ pub fn init() -> Result<(), Error> {
     Ok(())
 }
 
-/// Shutdown gossip-lib
-pub fn shutdown() -> Result<(), Error> {
-    // Sync storage again
-    if let Err(e) = GLOBALS.storage.sync() {
-        tracing::error!("{}", e);
-    } else {
-        tracing::info!("LMDB synced.");
-    }
-
-    Ok(())
-}
-
 /// Run gossip-lib as an async
 pub async fn run() {
     // Steal `tmp_overlord_receiver` from the GLOBALS, and give it to a new Overlord
@@ -206,4 +194,11 @@ pub async fn run() {
     // Run the overlord
     let mut overlord = Overlord::new(overlord_receiver);
     overlord.run().await;
+
+    // Sync storage
+    if let Err(e) = GLOBALS.storage.sync() {
+        tracing::error!("{}", e);
+    } else {
+        tracing::info!("LMDB synced.");
+    }
 }
