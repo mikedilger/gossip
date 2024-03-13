@@ -151,6 +151,37 @@ pub static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_P
 
 use std::ops::DerefMut;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum RunState {
+    Initializing = 0,
+    Offline = 1,
+    Online = 2,
+    ShuttingDown = 255,
+}
+
+impl RunState {
+    pub fn going_online(&self) -> bool {
+        match *self {
+            RunState::Initializing | RunState::Online => true,
+            _ => false,
+        }
+    }
+}
+
+impl std::convert::TryFrom<u8> for RunState {
+    type Error = ();
+    fn try_from(i: u8) -> Result<Self, Self::Error> {
+        match i {
+            x if x == RunState::Initializing as u8 => Ok(RunState::Initializing),
+            x if x == RunState::Offline as u8 => Ok(RunState::Offline),
+            x if x == RunState::Online as u8 => Ok(RunState::Online),
+            x if x == RunState::ShuttingDown as u8 => Ok(RunState::ShuttingDown),
+            _ => Err(()),
+        }
+    }
+}
+
 /// Initialize gossip-lib
 pub fn init() -> Result<(), Error> {
     // Initialize storage
