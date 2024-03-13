@@ -186,8 +186,11 @@ impl Overlord {
             .feed
             .set_feed_starts(general_feed_start, person_feed_start, inbox_feed_start);
 
+        // Init the fetcher
+        crate::fetcher::Fetcher::init()?;
+
         // Start the fetcher
-        crate::fetcher::Fetcher::start()?;
+        crate::fetcher::Fetcher::start();
 
         // Start periodic tasks in people manager (after signer)
         crate::people::People::start();

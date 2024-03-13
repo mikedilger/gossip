@@ -47,7 +47,7 @@ impl Fetcher {
         }
     }
 
-    pub(crate) fn start() -> Result<(), Error> {
+    pub(crate) fn init() -> Result<(), Error> {
         // Setup the cache directory
         *GLOBALS.fetcher.cache_dir.write().unwrap() = Profile::current()?.cache_dir;
 
@@ -68,6 +68,10 @@ impl Fetcher {
                 .build()?,
         );
 
+        Ok(())
+    }
+
+    pub(crate) fn start() {
         // Setup periodic queue management
         let fetcher_looptime_ms = GLOBALS.storage.read_setting_fetcher_looptime_ms();
         tokio::task::spawn(async move {
@@ -83,9 +87,9 @@ impl Fetcher {
                     break;
                 }
             }
-        });
 
-        Ok(())
+            tracing::info!("Fetcher shutdown");
+        });
     }
 
     /// Count of HTTP requests queued for future fetching
