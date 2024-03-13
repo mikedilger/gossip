@@ -12,6 +12,7 @@ use crate::relay::Relay;
 use crate::relay_picker_hooks::Hooks;
 use crate::status::StatusQueue;
 use crate::storage::Storage;
+use crate::RunState;
 use dashmap::{DashMap, DashSet};
 use gossip_relay_picker::{Direction, RelayPicker};
 use nostr_types::{Event, Id, PayRequestData, Profile, PublicKey, RelayUrl, UncheckedUrl};
@@ -21,6 +22,8 @@ use rhai::{Engine, AST};
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize};
+use tokio::sync::watch::Receiver as WatchReceiver;
+use tokio::sync::watch::Sender as WatchSender;
 use tokio::sync::{broadcast, mpsc, Mutex, Notify, RwLock};
 
 /// The state that a Zap is in (it moves through 5 states before it is complete)
@@ -42,6 +45,18 @@ pub struct Globals {
     /// This is a mpsc channel. The Overlord listens on it.
     /// To create a sender, just clone() it.
     pub to_overlord: mpsc::UnboundedSender<ToOverlordMessage>,
+
+    /// This is a watch channel for making changes to the RunState.
+    pub write_runstate: WatchSender<RunState>,
+
+    /// This is a watch channel for watching for changes to the RunState.
+    ///
+    /// Synchronous code can `borrow()` and dereference to see the current Runstate.
+    ///
+    /// Asynchronous code should `clone()` and `.await` on the clone (please do not
+    /// await on this global source copy, because if two or more bits of code to that,
+    /// only one of them will get awoken).
+    pub read_runstate: WatchReceiver<RunState>,
 
     /// This is ephemeral. It is filled during lazy_static initialization,
     /// and needs to be stolen away and given to the Overlord when the Overlord
@@ -164,6 +179,10 @@ lazy_static! {
         // Setup a communications channel from the Minions to the Overlord.
         let (to_overlord, tmp_overlord_receiver) = mpsc::unbounded_channel();
 
+        // Setup a watch channel for going offline state change
+        // We start in the Offline state
+        let (write_runstate, read_runstate) = tokio::sync::watch::channel(RunState::Initializing);
+
         let storage = match Storage::new() {
             Ok(s) => s,
             Err(e) => panic!("{e}")
@@ -175,6 +194,8 @@ lazy_static! {
         Globals {
             to_minions,
             to_overlord,
+            write_runstate,
+            read_runstate,
             tmp_overlord_receiver: Mutex::new(Some(tmp_overlord_receiver)),
             people: People::new(),
             connected_relays: DashMap::new(),
