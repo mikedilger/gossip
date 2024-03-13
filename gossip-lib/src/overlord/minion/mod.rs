@@ -96,6 +96,10 @@ impl Minion {
         let from_overlord = GLOBALS.to_minions.subscribe();
         let dbrelay = GLOBALS.storage.read_or_create_relay(&url, None)?;
 
+        if GLOBALS.shutting_down.load(Ordering::Relaxed) {
+            return Err(ErrorKind::Offline.into());
+        }
+
         Ok(Minion {
             url,
             to_overlord,
