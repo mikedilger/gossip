@@ -56,8 +56,7 @@ pub fn relay_lists(authors: &[PublicKey]) -> Vec<Filter> {
 }
 
 pub fn augments(ids: &[IdHex]) -> Vec<Filter> {
-    let mut event_kinds = crate::feed::feed_related_event_kinds(false);
-    event_kinds.retain(|f| f.augments_feed_related());
+    let event_kinds = crate::feed::feed_augment_event_kinds();
 
     let filter = {
         let mut filter = Filter {

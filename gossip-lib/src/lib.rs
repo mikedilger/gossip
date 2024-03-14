@@ -151,6 +151,37 @@ pub static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_P
 
 use std::ops::DerefMut;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum RunState {
+    Initializing = 0,
+    Offline = 1,
+    Online = 2,
+    ShuttingDown = 255,
+}
+
+impl RunState {
+    pub fn going_online(&self) -> bool {
+        match *self {
+            RunState::Initializing | RunState::Online => true,
+            _ => false,
+        }
+    }
+}
+
+impl std::convert::TryFrom<u8> for RunState {
+    type Error = ();
+    fn try_from(i: u8) -> Result<Self, Self::Error> {
+        match i {
+            x if x == RunState::Initializing as u8 => Ok(RunState::Initializing),
+            x if x == RunState::Offline as u8 => Ok(RunState::Offline),
+            x if x == RunState::Online as u8 => Ok(RunState::Online),
+            x if x == RunState::ShuttingDown as u8 => Ok(RunState::ShuttingDown),
+            _ => Err(()),
+        }
+    }
+}
+
 /// Initialize gossip-lib
 pub fn init() -> Result<(), Error> {
     // Initialize storage
@@ -182,21 +213,46 @@ pub fn init() -> Result<(), Error> {
     Ok(())
 }
 
-/// Shutdown gossip-lib
-pub fn shutdown() -> Result<(), Error> {
-    // Sync storage again
-    if let Err(e) = GLOBALS.storage.sync() {
-        tracing::error!("{}", e);
-    } else {
-        tracing::info!("LMDB synced.");
-    }
-
-    Ok(())
-}
-
 /// Run gossip-lib as an async
 pub async fn run() {
-    // Steal `tmp_overlord_receiver` from the GLOBALS, and give it to a new Overlord
+    // Runstate watcher
+    tokio::task::spawn(async {
+        let mut read_runstate = GLOBALS.read_runstate.clone();
+        read_runstate.mark_unchanged();
+
+        let mut last_runstate = *read_runstate.borrow();
+        loop {
+            // Wait for a change
+            let _ = read_runstate.changed().await;
+
+            // Verify it is actually a change, not set to the thing it already was set to
+            if *read_runstate.borrow() != last_runstate {
+                last_runstate = *read_runstate.borrow();
+
+                tracing::info!("RunState changed to {:?}", *read_runstate.borrow());
+
+                // If we just went online, start all the tasks that come along with that
+                // state transition
+                if last_runstate == RunState::Online {
+                    // Start the fetcher
+                    crate::fetcher::Fetcher::start();
+
+                    // Start periodic tasks in people manager (after signer)
+                    crate::people::People::start();
+
+                    // Start periodic tasks in pending
+                    crate::pending::start();
+
+                    // Start long-lived subscriptions
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(crate::comms::ToOverlordMessage::StartLongLivedSubscriptions);
+                }
+            }
+        }
+    });
+
+    // Steal `tmp_overlord_receiver` from the GLOBALS to give to a new Overlord
     let overlord_receiver = {
         let mut mutex_option = GLOBALS.tmp_overlord_receiver.lock().await;
         mutex_option.deref_mut().take()
@@ -206,4 +262,11 @@ pub async fn run() {
     // Run the overlord
     let mut overlord = Overlord::new(overlord_receiver);
     overlord.run().await;
+
+    // Sync storage
+    if let Err(e) = GLOBALS.storage.sync() {
+        tracing::error!("{}", e);
+    } else {
+        tracing::info!("LMDB synced.");
+    }
 }

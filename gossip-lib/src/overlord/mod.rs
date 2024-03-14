@@ -15,6 +15,7 @@ use crate::relay::Relay;
 use crate::tags::{
     add_addr_to_tags, add_event_to_tags, add_pubkey_to_tags, add_subject_to_tags_if_missing,
 };
+use crate::RunState;
 use gossip_relay_picker::{Direction, RelayAssignment};
 use heed::RwTxn;
 use http::StatusCode;
@@ -30,7 +31,8 @@ use std::sync::mpsc;
 use std::time::Duration;
 use tokio::sync::broadcast::Sender;
 use tokio::sync::mpsc::UnboundedReceiver;
-use tokio::{select, task};
+use tokio::sync::watch::Receiver as WatchReceiver;
+use tokio::task;
 use zeroize::Zeroize;
 
 type MinionResult = Result<MinionExitReason, Error>;
@@ -46,6 +48,8 @@ type MinionResult = Result<MinionExitReason, Error>;
 pub struct Overlord {
     to_minions: Sender<ToMinionMessage>,
     inbox: UnboundedReceiver<ToOverlordMessage>,
+
+    read_runstate: WatchReceiver<RunState>,
 
     // All the minion tasks running.
     minions: task::JoinSet<Result<MinionExitReason, Error>>,
@@ -97,6 +101,7 @@ impl Overlord {
         Overlord {
             to_minions,
             inbox,
+            read_runstate: GLOBALS.read_runstate.clone(),
             minions: task::JoinSet::new(),
             minions_task_url: HashMap::new(),
         }
@@ -115,36 +120,16 @@ impl Overlord {
             tracing::info!("LMDB synced.");
         }
 
-        GLOBALS.shutting_down.store(true, Ordering::Relaxed);
-
-        tracing::debug!("Overlord signalling minions to shutdown");
-
-        // Send shutdown message to all minions (and ui)
-        // If this fails, it's probably because there are no more listeners
-        // so just ignore it and keep shutting down.
-        let _ = self.to_minions.send(ToMinionMessage {
-            target: "all".to_string(),
-            payload: ToMinionPayload {
-                job_id: 0,
-                detail: ToMinionPayloadDetail::Shutdown,
-            },
-        });
+        let _ = GLOBALS.write_runstate.send(RunState::ShuttingDown);
 
         tracing::info!("Overlord waiting for minions to all shutdown");
 
         // Listen on self.minions until it is empty
         while !self.minions.is_empty() {
-            select! {
+            tokio::select! {
                 _ = tokio::time::sleep(Duration::from_secs(10)) => {
-                    tracing::info!("Overlord signalling minions to shutdown (again)");
-                    // Send the shutdown message again
-                    let _ = self.to_minions.send(ToMinionMessage {
-                        target: "all".to_string(),
-                        payload: ToMinionPayload {
-                            job_id: 0,
-                            detail: ToMinionPayloadDetail::Shutdown,
-                        },
-                    });
+                    tracing::info!("Minions are stuck. Shutting down anyways.");
+                    break;
                 },
                 task_nextjoined = self.minions.join_next_with_id() => {
                     self.handle_task_nextjoined(task_nextjoined).await;
@@ -162,7 +147,7 @@ impl Overlord {
         }
 
         // Check for shutdown (we might not have gotten a login)
-        if GLOBALS.shutting_down.load(Ordering::Relaxed) {
+        if *self.read_runstate.borrow() == RunState::ShuttingDown {
             return Ok(());
         }
 
@@ -186,25 +171,42 @@ impl Overlord {
             .feed
             .set_feed_starts(general_feed_start, person_feed_start, inbox_feed_start);
 
-        // Start the fetcher
-        crate::fetcher::Fetcher::start()?;
+        // Init the fetcher
+        crate::fetcher::Fetcher::init()?;
 
-        // Start periodic tasks in people manager (after signer)
-        crate::people::People::start();
-
-        // Start periodic tasks in pending
-        crate::pending::start();
-
-        // Do the startup procedures
-        self.start_long_lived_subscriptions().await?;
+        // Switch out of initializing RunState
+        if GLOBALS.storage.read_setting_offline() {
+            let _ = GLOBALS.write_runstate.send(RunState::Offline);
+        } else {
+            let _ = GLOBALS.write_runstate.send(RunState::Online);
+        }
 
         'mainloop: loop {
-            if let Err(e) = self.loop_handler().await {
-                tracing::error!("{}", e);
-            }
+            tracing::debug!("overlord looping");
 
-            if GLOBALS.shutting_down.load(Ordering::Relaxed) {
-                break 'mainloop;
+            // Listen on inbox, runstate, and exiting minions
+            tokio::select! {
+                message = self.inbox.recv() => {
+                    let message = match message {
+                        Some(bm) => bm,
+                        None => {
+                            // All senders dropped, or one of them closed.
+                            let _ = GLOBALS.write_runstate.send(RunState::ShuttingDown);
+                            return Ok(());
+                        }
+                    };
+                    if let Err(e) = self.handle_message(message).await {
+                        tracing::error!("{}", e);
+                    }
+                },
+                _ = self.read_runstate.changed() => {
+                    if *self.read_runstate.borrow_and_update() == RunState::ShuttingDown {
+                        break 'mainloop;
+                    }
+                },
+                task_nextjoined = self.minions.join_next_with_id(), if !self.minions.is_empty() => {
+                    self.handle_task_nextjoined(task_nextjoined).await;
+                }
             }
         }
 
@@ -359,45 +361,6 @@ impl Overlord {
         Ok(())
     }
 
-    #[allow(unused_assignments)]
-    async fn loop_handler(&mut self) -> Result<(), Error> {
-        tracing::trace!("overlord looping");
-
-        if self.minions.is_empty() {
-            // Just listen on inbox
-            let message = self.inbox.recv().await;
-            let message = match message {
-                Some(bm) => bm,
-                None => {
-                    // All senders dropped, or one of them closed.
-                    GLOBALS.shutting_down.store(true, Ordering::Relaxed);
-                    return Ok(());
-                }
-            };
-            self.handle_message(message).await?;
-        } else {
-            // Listen on inbox, and dying minions
-            select! {
-                message = self.inbox.recv() => {
-                    let message = match message {
-                        Some(bm) => bm,
-                        None => {
-                            // All senders dropped, or one of them closed.
-                            GLOBALS.shutting_down.store(true, Ordering::Relaxed);
-                            return Ok(());
-                        }
-                    };
-                    self.handle_message(message).await?;
-                },
-                task_nextjoined = self.minions.join_next_with_id() => {
-                    self.handle_task_nextjoined(task_nextjoined).await;
-                }
-            }
-        }
-
-        Ok(())
-    }
-
     async fn handle_task_nextjoined(
         &mut self,
         task_nextjoined: Option<Result<(task::Id, MinionResult), task::JoinError>>,
@@ -496,7 +459,7 @@ impl Overlord {
             .relay_disconnected(&url, exclusion as i64);
 
         // We might need to act upon this minion exiting
-        if !GLOBALS.shutting_down.load(Ordering::Relaxed) {
+        if *self.read_runstate.borrow() == RunState::Online {
             self.recover_from_minion_exit(url, relayjobs, exclusion, completed)
                 .await;
         }
@@ -744,9 +707,6 @@ impl Overlord {
             }
             ToOverlordMessage::SubscribeNip46(relays) => {
                 self.subscribe_nip46(relays).await?;
-            }
-            ToOverlordMessage::Shutdown => {
-                Self::shutdown()?;
             }
             ToOverlordMessage::UnlockKey(password) => {
                 Self::unlock_key(password)?;
@@ -2922,13 +2882,6 @@ impl Overlord {
             .await?;
         }
 
-        Ok(())
-    }
-
-    /// Shutdown gossip
-    pub fn shutdown() -> Result<(), Error> {
-        tracing::info!("Overlord shutting down");
-        GLOBALS.shutting_down.store(true, Ordering::Relaxed);
         Ok(())
     }
 
