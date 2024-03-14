@@ -163,10 +163,7 @@ pub enum RunState {
 impl RunState {
     #[inline]
     pub fn going_online(&self) -> bool {
-        match *self {
-            RunState::Initializing | RunState::Online => true,
-            _ => false,
-        }
+        matches!(*self, RunState::Initializing | RunState::Online)
     }
 
     #[inline]

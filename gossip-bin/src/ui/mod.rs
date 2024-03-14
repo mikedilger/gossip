@@ -2335,7 +2335,7 @@ fn approval_dialog_inner(app: &mut GossipUi, ui: &mut Ui) {
 
     if !GLOBALS.auth_requests.read().is_empty() || !GLOBALS.connect_requests.read().is_empty() {
         ui.horizontal(|ui| {
-            ui.heading("Permission requests").rect;
+            ui.heading("Permission requests");
 
             // Draw "remember" explanation text
             ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
@@ -2517,7 +2517,7 @@ fn approval_dialog_inner(app: &mut GossipUi, ui: &mut Ui) {
                 );
                 for param in &parsed_command.params {
                     if parsed_command.method == "sign_event" {
-                        match serde_json::from_str::<nostr_types::Event>(&param) {
+                        match serde_json::from_str::<nostr_types::Event>(param) {
                             Ok(event) => {
                                 let note_ref = std::rc::Rc::new(std::cell::RefCell::new(
                                     feed::NoteData::new(event),
@@ -2532,11 +2532,11 @@ fn approval_dialog_inner(app: &mut GossipUi, ui: &mut Ui) {
                                 );
                             }
                             Err(err) => {
-                                ui.label(format!("'sign_event' parse error: {}", err.to_string()));
+                                ui.label(format!("'sign_event' parse error: {}", err));
                             }
                         }
                     }
-                    if let Ok(obj) = serde_json::from_str::<serde_json::Value>(&param) {
+                    if let Ok(obj) = serde_json::from_str::<serde_json::Value>(param) {
                         let mut writer = Vec::new();
                         let formatter = serde_json::ser::PrettyFormatter::with_indent(b"  ");
                         let mut ser =

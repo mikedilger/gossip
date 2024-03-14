@@ -669,10 +669,10 @@ pub(super) fn filter_relay(rui: &RelayUi, ri: &Relay) -> bool {
                 && !ri.has_usage_bits(Relay::OUTBOX)
         }
         RelayFilter::Hidden => ri.hidden,
-        RelayFilter::AlwaysAllowConnect => ri.allow_connect.is_some_and(|v| v == true),
-        RelayFilter::NeverAllowConnect => ri.allow_connect.is_some_and(|v| v == false),
-        RelayFilter::AlwaysAllowAuthenticate => ri.allow_auth.is_some_and(|v| v == true),
-        RelayFilter::NeverAllowAuthenticate => ri.allow_auth.is_some_and(|v| v == false),
+        RelayFilter::AlwaysAllowConnect => ri.allow_connect == Some(true),
+        RelayFilter::NeverAllowConnect => ri.allow_connect == Some(false),
+        RelayFilter::AlwaysAllowAuthenticate => ri.allow_auth == Some(true),
+        RelayFilter::NeverAllowAuthenticate => ri.allow_auth == Some(false),
     };
 
     search && filter
