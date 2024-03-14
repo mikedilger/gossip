@@ -79,7 +79,7 @@ impl Fetcher {
         tokio::task::spawn(async move {
             let mut read_runstate = GLOBALS.read_runstate.clone();
             read_runstate.mark_unchanged();
-            if !read_runstate.borrow().going_online() {
+            if read_runstate.borrow().going_offline() {
                 return;
             }
 
@@ -94,7 +94,7 @@ impl Fetcher {
                         let fetcher_looptime_ms = GLOBALS.storage.read_setting_fetcher_looptime_ms();
                         sleep.as_mut().reset(Instant::now() + Duration::from_millis(fetcher_looptime_ms));
                     },
-                    _ = read_runstate.wait_for(|runstate| !runstate.going_online()) => break,
+                    _ = read_runstate.wait_for(|runstate| runstate.going_offline()) => break,
                 }
 
                 // Process the queue
@@ -129,6 +129,12 @@ impl Fetcher {
 
     pub(crate) async fn process_queue(&self) {
         if GLOBALS.storage.read_setting_offline() {
+            return;
+        }
+
+        let mut read_runstate = GLOBALS.read_runstate.clone();
+        read_runstate.mark_unchanged();
+        if read_runstate.borrow().going_offline() {
             return;
         }
 
@@ -170,7 +176,11 @@ impl Fetcher {
         }
 
         // Run them all together
-        while (futures.next().await).is_some() {}
+        while (futures.next().await).is_some() {
+            if read_runstate.borrow().going_offline() {
+                break;
+            }
+        }
     }
 
     /// This is where other parts of the library attempt to get the bytes of a file.
@@ -376,7 +386,17 @@ impl Fetcher {
             self.decrement_host_load(&host);
         };
 
-        let maybe_response = req.send().await;
+        let mut read_runstate = GLOBALS.read_runstate.clone();
+        read_runstate.mark_unchanged();
+        if read_runstate.borrow().going_offline() {
+            return;
+        }
+
+        let maybe_response: Result<reqwest::Response, reqwest::Error>;
+        tokio::select! {
+            r = req.send() => maybe_response = r,
+            _ = read_runstate.wait_for(|runstate| runstate.going_offline()) => return,
+        }
 
         let low_exclusion = GLOBALS
             .storage
