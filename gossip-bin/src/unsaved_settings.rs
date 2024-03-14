@@ -364,9 +364,9 @@ impl UnsavedSettings {
         txn.commit()?;
 
         let runstate = *GLOBALS.read_runstate.borrow();
-        if self.offline && runstate==RunState::Online {
+        if self.offline && runstate == RunState::Online {
             let _ = GLOBALS.write_runstate.send(RunState::Offline);
-        } else if !self.offline && runstate==RunState::Offline {
+        } else if !self.offline && runstate == RunState::Offline {
             let _ = GLOBALS.write_runstate.send(RunState::Online);
         }
 
