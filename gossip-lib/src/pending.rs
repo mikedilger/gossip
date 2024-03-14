@@ -93,5 +93,7 @@ pub fn start() {
 
             *GLOBALS.pending.write() = pending;
         }
+
+        tracing::info!("Pending checker shutdown");
     });
 }

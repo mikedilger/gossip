@@ -90,6 +90,8 @@ impl People {
                     break;
                 }
             }
+
+            tracing::info!("People task manager shutdown");
         });
     }
 
