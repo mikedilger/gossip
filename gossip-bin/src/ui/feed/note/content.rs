@@ -1,5 +1,4 @@
 use super::{GossipUi, NoteData, Page, RepostType};
-use eframe::egui::Context;
 use eframe::{
     egui::{self, Image, Response},
     epaint::Vec2,
@@ -19,7 +18,6 @@ const MAX_POST_HEIGHT: f32 = 200.0;
 pub(super) fn render_content(
     app: &mut GossipUi,
     ui: &mut Ui,
-    ctx: &Context,
     note_ref: Rc<RefCell<NoteData>>,
     as_deleted: bool,
     content_margin_left: f32,
@@ -75,7 +73,6 @@ pub(super) fn render_content(
                                             super::render_repost(
                                                 app,
                                                 ui,
-                                                ctx,
                                                 &note.repost,
                                                 note_data,
                                                 content_margin_left,
@@ -103,7 +100,6 @@ pub(super) fn render_content(
                                             super::render_repost(
                                                 app,
                                                 ui,
-                                                ctx,
                                                 &note.repost,
                                                 note_data,
                                                 content_margin_left,
@@ -150,7 +146,6 @@ pub(super) fn render_content(
                                                     super::render_repost(
                                                         app,
                                                         ui,
-                                                        ctx,
                                                         &note.repost,
                                                         note_data,
                                                         content_margin_left,

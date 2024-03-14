@@ -8,7 +8,7 @@ use nostr_types::{
 };
 
 #[derive(PartialEq)]
-pub(super) enum RepostType {
+pub(crate) enum RepostType {
     /// Damus style, kind 6 repost where the reposted note's JSON
     /// is included in the content
     Kind6Embedded,
@@ -23,7 +23,7 @@ pub(super) enum RepostType {
     GenericRepost,
 }
 
-pub(super) struct NoteData {
+pub(crate) struct NoteData {
     /// Original Event object, as received from nostr
     pub event: Event,
 
@@ -71,7 +71,7 @@ pub(super) struct NoteData {
 }
 
 impl NoteData {
-    pub(super) fn new(mut event: Event) -> NoteData {
+    pub fn new(mut event: Event) -> NoteData {
         // We do not filter event kinds here anymore. The feed already does that.
         // There is no sense in duplicating that work.
 

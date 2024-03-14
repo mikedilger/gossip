@@ -1735,7 +1735,7 @@ impl GossipUi {
         }
     }
 
-    pub fn render_qr(&mut self, ui: &mut Ui, ctx: &Context, key: &str, content: &str) {
+    pub fn render_qr(&mut self, ui: &mut Ui, key: &str, content: &str) {
         // Remember the UI runs this every frame.  We do NOT want to load the texture to the GPU
         // every frame, so we remember the texture handle in app.qr_codes, and only load to the GPU
         // if we don't have it yet.  We also remember if there was an error and don't try again.
@@ -1764,11 +1764,12 @@ impl GossipUi {
                     );
 
                     let texture_handle =
-                        ctx.load_texture(key, color_image, TextureOptions::default());
+                        ui.ctx()
+                            .load_texture(key, color_image, TextureOptions::default());
 
                     // Convert image size into points for later rendering (so that it renders with
                     // the number of pixels recommended by the qrcode library)
-                    let ppp = ctx.pixels_per_point();
+                    let ppp = ui.ctx().pixels_per_point();
 
                     self.qr_codes.insert(
                         key.to_string(),
@@ -1938,7 +1939,7 @@ impl GossipUi {
     }
 
     // Zap In Progress Area
-    fn render_zap_area(&mut self, ui: &mut Ui, ctx: &Context) {
+    fn render_zap_area(&mut self, ui: &mut Ui) {
         let mut qr_string: Option<String> = None;
 
         match self.zap_state {
@@ -2011,7 +2012,7 @@ impl GossipUi {
 
         if let Some(qr) = qr_string {
             // Show the QR code and a close button
-            self.render_qr(ui, ctx, "zap", &qr.to_uppercase());
+            self.render_qr(ui, "zap", &qr.to_uppercase());
             if ui.button("Close").clicked() {
                 *GLOBALS.current_zap.write() = ZapState::None;
             }
