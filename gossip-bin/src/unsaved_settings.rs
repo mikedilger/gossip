@@ -1,4 +1,4 @@
-use gossip_lib::{comms::ToOverlordMessage, Error, Storage, GLOBALS};
+use gossip_lib::{Error, RunState, Storage, GLOBALS};
 use nostr_types::PublicKey;
 use paste::paste;
 
@@ -363,10 +363,10 @@ impl UnsavedSettings {
         save_setting!(cache_prune_period_days, self, txn);
         txn.commit()?;
 
-        if !self.offline {
-            GLOBALS
-                .to_overlord
-                .send(ToOverlordMessage::StartLongLivedSubscriptions)?;
+        if self.offline {
+            let _ = GLOBALS.write_runstate.send(RunState::Offline);
+        } else {
+            let _ = GLOBALS.write_runstate.send(RunState::Online);
         }
 
         Ok(())
