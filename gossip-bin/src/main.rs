@@ -9,8 +9,7 @@ mod date_ago;
 mod ui;
 mod unsaved_settings;
 
-use gossip_lib::Error;
-use gossip_lib::GLOBALS;
+use gossip_lib::{Error, GLOBALS};
 use std::sync::atomic::Ordering;
 use std::{env, thread};
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
@@ -81,9 +80,6 @@ fn main() -> Result<(), Error> {
     // Make sure the overlord isn't stuck on waiting for login
     GLOBALS.wait_for_login.store(false, Ordering::Relaxed);
     GLOBALS.wait_for_login_notify.notify_one();
-
-    // Tell the async parties to close down
-    GLOBALS.shutting_down.store(true, Ordering::Relaxed);
 
     tracing::info!("UI thread complete, waiting on lib...");
 
