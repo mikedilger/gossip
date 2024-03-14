@@ -73,6 +73,8 @@ use gossip_lib::{
 };
 use nostr_types::ContentSegment;
 use nostr_types::{Id, Metadata, MilliSatoshi, Profile, PublicKey, UncheckedUrl, Url};
+
+use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 #[cfg(feature = "video-ffmpeg")]
@@ -2330,126 +2332,135 @@ fn approval_dialog_inner(app: &mut GossipUi, ui: &mut Ui) {
 
     // ---- start UI ----
 
-    ui.horizontal(|ui| {
-        ui.heading("Permission requests").rect;
+    if !GLOBALS.auth_requests.read().is_empty() || !GLOBALS.connect_requests.read().is_empty() {
+        ui.horizontal(|ui| {
+            ui.heading("Permission requests").rect;
 
-        // Draw "remember" explanation text
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
-            let (response, painter) = ui.allocate_painter(vec2(240.0, 30.0), Sense::hover());
-            let rect = response.rect;
-            let color = Color32::from_gray(110); // FIXME use new palette and UI elements
-            let top_left = painter.round_pos_to_pixels(rect.left_bottom() - vec2(0.0, 20.0));
-            let top_right = painter.round_pos_to_pixels(top_left + vec2(30.0, 0.0));
-            painter.line_segment(
-                [rect.left_bottom(), top_left],
-                egui::Stroke::new(2.0, color),
-            );
-            painter.line_segment([top_left, top_right], egui::Stroke::new(1.0, color));
-            painter.text(
-                top_right + vec2(5.0, 0.0),
-                Align2::LEFT_CENTER,
-                "Remember for future sessions",
-                FontId::proportional(13.0),
-                color,
-            );
-        });
-    });
-
-    // Auth approvals
-    for (url, permanent) in GLOBALS.auth_requests.write().iter_mut() {
-        widgets::list_entry::make_frame(ui, Some(app.theme.main_content_bgcolor())).show(
-            ui,
-            |ui| {
-                ui.set_min_width(ui.available_width());
-                ui.set_height(HEIGHT);
-                ui.with_layout(egui::Layout::left_to_right(ALIGN), |ui| {
-                    let text = format!("Authenticate to {}", url);
-                    widgets::truncated_label(ui, url.to_string(), ui.available_width() - TRUNC)
-                        .on_hover_text(text);
-                    ui.with_layout(egui::Layout::right_to_left(ALIGN), |ui| {
-                        ui.scope(|ui| {
-                            decline_style(app, ui.style_mut());
-                            if ui.button("Decline").clicked() {
-                                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::AuthDeclined(
-                                    url.to_owned(),
-                                    permanent.to_owned(),
-                                ));
-                            }
-                        });
-                        ui.add_space(10.0);
-                        ui.scope(|ui| {
-                            approve_style(app, ui.style_mut());
-                            if ui.button("Approve").clicked() {
-                                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::AuthApproved(
-                                    url.to_owned(),
-                                    permanent.to_owned(),
-                                ));
-                            }
-                        });
-                        ui.add_space(10.0);
-                        widgets::switch_with_size(ui, permanent, SWITCH_SIZE)
-                            .on_hover_text("store permission permanently");
-                        ui.add_space(10.0);
-                        ui.label("Authenticate").on_hover_text(
-                            "Should the App use your key to authenticate to this Relay?",
-                        );
-                    });
-                });
-            },
-        );
-    }
-
-    // Connect approvals
-    for (url, jobs, permanent) in GLOBALS.connect_requests.write().iter_mut() {
-        let jobstrs: Vec<String> = jobs.iter().map(|j| format!("{:?}", j.reason)).collect();
-
-        widgets::list_entry::make_frame(ui, Some(app.theme.main_content_bgcolor()))
-            .inner_margin(egui::Margin::symmetric(10.0, 10.0))
-            .show(ui, |ui| {
-                ui.set_min_width(ui.available_width());
-                ui.set_height(HEIGHT);
-                ui.with_layout(egui::Layout::left_to_right(ALIGN), |ui| {
-                    let text = format!("Connect to {} for {}", url, jobstrs.join(", "));
-                    widgets::truncated_label(ui, url.to_string(), ui.available_width() - TRUNC)
-                        .on_hover_text(text);
-                    ui.with_layout(egui::Layout::right_to_left(ALIGN), |ui| {
-                        ui.scope(|ui| {
-                            decline_style(app, ui.style_mut());
-                            if ui.button("Decline").clicked() {
-                                let _ =
-                                    GLOBALS.to_overlord.send(ToOverlordMessage::ConnectDeclined(
-                                        url.to_owned(),
-                                        permanent.to_owned(),
-                                    ));
-                            }
-                        });
-                        ui.add_space(10.0);
-                        ui.scope(|ui| {
-                            approve_style(app, ui.style_mut());
-                            if ui.button("Approve").clicked() {
-                                let _ =
-                                    GLOBALS.to_overlord.send(ToOverlordMessage::ConnectApproved(
-                                        url.to_owned(),
-                                        permanent.to_owned(),
-                                    ));
-                            }
-                        });
-                        ui.add_space(10.0);
-                        widgets::switch_with_size(ui, permanent, SWITCH_SIZE)
-                            .on_hover_text("store permission permanently");
-                        ui.add_space(10.0);
-                        ui.label("Connect")
-                            .on_hover_text("Should the App connect to this Relay?");
-                    });
-                });
+            // Draw "remember" explanation text
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
+                let (response, painter) = ui.allocate_painter(vec2(240.0, 30.0), Sense::hover());
+                let rect = response.rect;
+                let color = Color32::from_gray(110); // FIXME use new palette and UI elements
+                let top_left = painter.round_pos_to_pixels(rect.left_bottom() - vec2(0.0, 20.0));
+                let top_right = painter.round_pos_to_pixels(top_left + vec2(30.0, 0.0));
+                painter.line_segment(
+                    [rect.left_bottom(), top_left],
+                    egui::Stroke::new(2.0, color),
+                );
+                painter.line_segment([top_left, top_right], egui::Stroke::new(1.0, color));
+                painter.text(
+                    top_right + vec2(5.0, 0.0),
+                    Align2::LEFT_CENTER,
+                    "Remember for future sessions",
+                    FontId::proportional(13.0),
+                    color,
+                );
             });
+        });
+
+        // Auth approvals
+        for (url, permanent) in GLOBALS.auth_requests.write().iter_mut() {
+            widgets::list_entry::make_frame(ui, Some(app.theme.main_content_bgcolor()))
+                .fill(Color32::TRANSPARENT)
+                .inner_margin(egui::Margin::symmetric(10.0, 10.0))
+                .show(ui, |ui| {
+                    ui.set_min_width(ui.available_width());
+                    ui.set_height(HEIGHT);
+                    ui.with_layout(egui::Layout::left_to_right(ALIGN), |ui| {
+                        let text = format!("Authenticate to {}", url);
+                        widgets::truncated_label(ui, url.to_string(), ui.available_width() - TRUNC)
+                            .on_hover_text(text);
+                        ui.with_layout(egui::Layout::right_to_left(ALIGN), |ui| {
+                            ui.scope(|ui| {
+                                decline_style(app, ui.style_mut());
+                                if ui.button("Decline").clicked() {
+                                    let _ =
+                                        GLOBALS.to_overlord.send(ToOverlordMessage::AuthDeclined(
+                                            url.to_owned(),
+                                            permanent.to_owned(),
+                                        ));
+                                }
+                            });
+                            ui.add_space(10.0);
+                            ui.scope(|ui| {
+                                approve_style(app, ui.style_mut());
+                                if ui.button("Approve").clicked() {
+                                    let _ =
+                                        GLOBALS.to_overlord.send(ToOverlordMessage::AuthApproved(
+                                            url.to_owned(),
+                                            permanent.to_owned(),
+                                        ));
+                                }
+                            });
+                            ui.add_space(10.0);
+                            widgets::switch_with_size(ui, permanent, SWITCH_SIZE)
+                                .on_hover_text("store permission permanently");
+                            ui.add_space(10.0);
+                            ui.label("Authenticate").on_hover_text(
+                                "Should the App use your key to authenticate to this Relay?",
+                            );
+                        });
+                    });
+                });
+            ui.separator();
+        }
+
+        // Connect approvals
+        for (url, jobs, permanent) in GLOBALS.connect_requests.write().iter_mut() {
+            let jobstrs: Vec<String> = jobs.iter().map(|j| format!("{:?}", j.reason)).collect();
+
+            widgets::list_entry::make_frame(ui, Some(app.theme.main_content_bgcolor()))
+                .fill(Color32::TRANSPARENT)
+                .inner_margin(egui::Margin::symmetric(10.0, 10.0))
+                .show(ui, |ui| {
+                    ui.set_min_width(ui.available_width());
+                    ui.set_height(HEIGHT);
+                    ui.with_layout(egui::Layout::left_to_right(ALIGN), |ui| {
+                        let text = format!("Connect to {} for {}", url, jobstrs.join(", "));
+                        widgets::truncated_label(ui, url.to_string(), ui.available_width() - TRUNC)
+                            .on_hover_text(text);
+                        ui.with_layout(egui::Layout::right_to_left(ALIGN), |ui| {
+                            ui.scope(|ui| {
+                                decline_style(app, ui.style_mut());
+                                if ui.button("Decline").clicked() {
+                                    let _ = GLOBALS.to_overlord.send(
+                                        ToOverlordMessage::ConnectDeclined(
+                                            url.to_owned(),
+                                            permanent.to_owned(),
+                                        ),
+                                    );
+                                }
+                            });
+                            ui.add_space(10.0);
+                            ui.scope(|ui| {
+                                approve_style(app, ui.style_mut());
+                                if ui.button("Approve").clicked() {
+                                    let _ = GLOBALS.to_overlord.send(
+                                        ToOverlordMessage::ConnectApproved(
+                                            url.to_owned(),
+                                            permanent.to_owned(),
+                                        ),
+                                    );
+                                }
+                            });
+                            ui.add_space(10.0);
+                            widgets::switch_with_size(ui, permanent, SWITCH_SIZE)
+                                .on_hover_text("store permission permanently");
+                            ui.add_space(10.0);
+                            ui.label("Connect")
+                                .on_hover_text("Should the App connect to this Relay?");
+                        });
+                    });
+                });
+            ui.separator();
+        }
     }
 
     // NIP-46 approvals
     for (name, pubkey, parsed_command) in GLOBALS.nip46_approval_requests.read().iter() {
-        widgets::list_entry::make_frame(ui, Some(app.theme.main_content_bgcolor())).show(
-            ui,
-            |ui| {
+        widgets::list_entry::make_frame(ui, Some(app.theme.main_content_bgcolor()))
+            .inner_margin(egui::Margin::symmetric(10.0, 10.0))
+            .show(ui, |ui| {
                 ui.set_min_width(ui.available_width());
                 ui.set_height(HEIGHT);
                 ui.with_layout(
@@ -2459,7 +2470,8 @@ fn approval_dialog_inner(app: &mut GossipUi, ui: &mut Ui) {
                             "NIP-46 Request from '{}'. Allow {}?",
                             name, parsed_command.method
                         );
-                        widgets::truncated_label(ui, text, ui.available_width() - 300.0);
+                        widgets::truncated_label(ui, text, ui.available_width() - 300.0)
+                            .on_hover_text(parsed_command.params.join(", "));
                         ui.with_layout(egui::Layout::right_to_left(ALIGN), |ui| {
                             ui.scope(|ui| {
                                 decline_style(app, ui.style_mut());
@@ -2502,7 +2514,50 @@ fn approval_dialog_inner(app: &mut GossipUi, ui: &mut Ui) {
                         });
                     },
                 );
-            },
-        );
+                for param in &parsed_command.params {
+                    if parsed_command.method == "sign_event" {
+                        match serde_json::from_str::<nostr_types::Event>(&param) {
+                            Ok(event) => {
+                                let note_ref = std::rc::Rc::new(std::cell::RefCell::new(
+                                    feed::NoteData::new(event),
+                                ));
+                                feed::render_note_inner(
+                                    app,
+                                    ui,
+                                    note_ref,
+                                    &feed::NoteRenderData::default(),
+                                    true,
+                                    &None,
+                                );
+                            }
+                            Err(err) => {
+                                ui.label(format!("'sign_event' parse error: {}", err.to_string()));
+                            }
+                        }
+                    }
+                    if let Ok(obj) = serde_json::from_str::<serde_json::Value>(&param) {
+                        let mut writer = Vec::new();
+                        let formatter = serde_json::ser::PrettyFormatter::with_indent(b"  ");
+                        let mut ser =
+                            serde_json::Serializer::with_formatter(&mut writer, formatter);
+
+                        if obj.serialize(&mut ser).is_ok() {
+                            if let Ok(str) = String::from_utf8(writer) {
+                                egui_extras::syntax_highlighting::code_view_ui(
+                                    ui,
+                                    &egui_extras::syntax_highlighting::CodeTheme::from_style(
+                                        ui.style(),
+                                    ),
+                                    &str,
+                                    "json",
+                                );
+                            }
+                        }
+                    } else {
+                        ui.label(format!("Not valid JSON: {}", param));
+                    }
+                }
+            });
+        ui.separator();
     }
 }
