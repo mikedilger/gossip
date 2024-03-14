@@ -4,6 +4,7 @@ use crate::people::PersonList;
 use nostr_types::{EventKind, RelayList, Unixtime};
 use std::time::Duration;
 use tokio::task;
+use tokio::time::Instant;
 
 #[derive(Debug, Clone, Hash, PartialEq)]
 pub enum Pending {
@@ -79,9 +80,22 @@ impl Pending {
 
 pub fn start() {
     task::spawn(async {
+        let mut read_runstate = GLOBALS.read_runstate.clone();
+        read_runstate.mark_unchanged();
+        if !read_runstate.borrow().going_online() {
+            return;
+        }
+
+        let sleep = tokio::time::sleep(Duration::from_secs(15));
+        tokio::pin!(sleep);
+
         loop {
-            // Recompute every 15 seconds
-            tokio::time::sleep(Duration::from_secs(15)).await;
+            tokio::select! {
+                _ = &mut sleep => {
+                    sleep.as_mut().reset(Instant::now() + Duration::from_secs(15));
+                },
+                _ = read_runstate.wait_for(|runstate| !runstate.going_online()) => break,
+            }
 
             let pending = match Pending::compute_pending() {
                 Ok(vec) => vec,
@@ -93,5 +107,7 @@ pub fn start() {
 
             *GLOBALS.pending.write() = pending;
         }
+
+        tracing::info!("Pending checker shutdown");
     });
 }

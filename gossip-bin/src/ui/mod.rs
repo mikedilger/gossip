@@ -63,7 +63,8 @@ use egui_winit::egui::ViewportBuilder;
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::nip46::Approval;
 use gossip_lib::{
-    About, DmChannel, DmChannelData, Error, FeedKind, Person, PersonList, ZapState, GLOBALS,
+    About, DmChannel, DmChannelData, Error, FeedKind, Person, PersonList, RunState, ZapState,
+    GLOBALS,
 };
 use nostr_types::ContentSegment;
 use nostr_types::{Id, Metadata, MilliSatoshi, Profile, PublicKey, UncheckedUrl, Url};
@@ -1213,7 +1214,7 @@ impl eframe::App for GossipUi {
             ctx.request_repaint_after(Duration::from_secs(1));
         }
 
-        if GLOBALS.shutting_down.load(Ordering::Relaxed) {
+        if *GLOBALS.read_runstate.borrow() == RunState::ShuttingDown {
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
             return;
         }

@@ -4,7 +4,7 @@ use egui::widgets::{Button, Slider};
 use egui::{Align, Context, Layout};
 use egui_winit::egui::{vec2, Ui};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::{FeedKind, PersonList, Relay, GLOBALS};
+use gossip_lib::{FeedKind, PersonList, Relay, RunState, GLOBALS};
 use nostr_types::RelayUrl;
 
 mod follow_people;
@@ -332,12 +332,16 @@ fn complete_wizard(app: &mut GossipUi, ctx: &Context) {
     let _ = GLOBALS.storage.set_flag_wizard_complete(true, None);
     app.set_page(ctx, Page::Feed(FeedKind::List(PersonList::Followed, false)));
 
-    // Once the wizard is complete, we need to tell the overlord to re-run
-    // its startup stuff, because we now have configuration that matters, and
-    // this way people don't have to restart gossip
-    let _ = GLOBALS
-        .to_overlord
-        .send(ToOverlordMessage::StartLongLivedSubscriptions);
+    // Go offline and then back online to reset things
+    if !GLOBALS.storage.read_setting_offline() {
+        let _ = GLOBALS.write_runstate.send(RunState::Offline);
+
+        // Pause to make sure all the state transitions complete
+        std::thread::sleep(std::time::Duration::from_millis(100));
+
+        // Now go online (unless in offline mode)
+        let _ = GLOBALS.write_runstate.send(RunState::Online);
+    }
 }
 
 fn modify_relay<M>(relay_url: &RelayUrl, mut modify: M)
