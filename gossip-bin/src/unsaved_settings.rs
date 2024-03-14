@@ -363,9 +363,10 @@ impl UnsavedSettings {
         save_setting!(cache_prune_period_days, self, txn);
         txn.commit()?;
 
-        if self.offline {
+        let runstate = *GLOBALS.read_runstate.borrow();
+        if self.offline && runstate==RunState::Online {
             let _ = GLOBALS.write_runstate.send(RunState::Offline);
-        } else {
+        } else if !self.offline && runstate==RunState::Offline {
             let _ = GLOBALS.write_runstate.send(RunState::Online);
         }
 
