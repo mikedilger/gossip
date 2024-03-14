@@ -200,8 +200,16 @@ impl Overlord {
                     }
                 },
                 _ = self.read_runstate.changed() => {
-                    if *self.read_runstate.borrow_and_update() == RunState::ShuttingDown {
-                        break 'mainloop;
+                    match *self.read_runstate.borrow_and_update() {
+                        RunState::ShuttingDown => break 'mainloop,
+
+                        // Minions will shut themselves down. Forget about all the jobs.
+                        // When we go back online we start fresh.
+                        RunState::Offline => {
+                            GLOBALS.relay_picker.init().await?;
+                            GLOBALS.connected_relays.clear();
+                        },
+                        _ => { }
                     }
                 },
                 task_nextjoined = self.minions.join_next_with_id(), if !self.minions.is_empty() => {
@@ -453,13 +461,8 @@ impl Overlord {
             },
         };
 
-        // Let the relay picker know it disconnected
-        GLOBALS
-            .relay_picker
-            .relay_disconnected(&url, exclusion as i64);
-
         // We might need to act upon this minion exiting
-        if *self.read_runstate.borrow() == RunState::Online {
+        if self.read_runstate.borrow().going_online() {
             self.recover_from_minion_exit(url, relayjobs, exclusion, completed)
                 .await;
         }
@@ -472,6 +475,11 @@ impl Overlord {
         exclusion: u64,
         completed: bool,
     ) {
+        // Let the relay picker know it disconnected
+        GLOBALS
+            .relay_picker
+            .relay_disconnected(&url, exclusion as i64);
+
         // For people we are following, pick relays
         if let Err(e) = GLOBALS.relay_picker.refresh_person_relay_scores().await {
             tracing::error!("Error: {}", e);
@@ -2740,6 +2748,7 @@ impl Overlord {
     pub async fn start_long_lived_subscriptions(&mut self) -> Result<(), Error> {
         // Intialize the RelayPicker
         GLOBALS.relay_picker.init().await?;
+        GLOBALS.connected_relays.clear();
 
         // Pick Relays and start Minions
         if !GLOBALS.storage.read_setting_offline() {

@@ -250,6 +250,7 @@ pub async fn run() {
                     crate::pending::start();
 
                     // Start long-lived subscriptions
+                    // (this also does a relay_picker init)
                     let _ = GLOBALS
                         .to_overlord
                         .send(crate::comms::ToOverlordMessage::StartLongLivedSubscriptions);
