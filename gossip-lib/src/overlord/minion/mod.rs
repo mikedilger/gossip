@@ -349,8 +349,14 @@ impl Minion {
         }
 
         match self.exiting {
-            Some(reason) => Ok(reason),
-            None => Ok(MinionExitReason::Unknown),
+            Some(reason) => {
+                tracing::debug!("Minion for {} shutting down: {:?}", self.url, reason);
+                Ok(reason)
+            }
+            None => {
+                tracing::debug!("Minion for {} shutting down", self.url);
+                Ok(MinionExitReason::Unknown)
+            }
         }
     }
 
