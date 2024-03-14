@@ -182,7 +182,7 @@ impl Minion {
 
             let response;
             tokio::select! {
-                _ = self.read_runstate.wait_for(|runstate| *runstate != RunState::Online) => {
+                _ = self.read_runstate.wait_for(|runstate| !runstate.going_online()) => {
                     return Ok(MinionExitReason::GotShutdownMessage);
                 },
                 response_result = request_nip11_future => {
@@ -300,7 +300,7 @@ impl Minion {
             let websocket_stream;
             let response;
             tokio::select! {
-                _ = self.read_runstate.wait_for(|runstate| *runstate != RunState::Online) => {
+                _ = self.read_runstate.wait_for(|runstate| !runstate.going_online()) => {
                     return Ok(MinionExitReason::GotShutdownMessage);
                 },
                 connect_result = connect_future => {
@@ -390,13 +390,11 @@ impl Minion {
     ) -> Result<(), Error> {
         let ws_stream = self.stream.as_mut().unwrap();
 
-        let mut read_runstate = self.read_runstate.clone();
-
         tokio::select! {
             biased;
-            _ = read_runstate.changed() => {
+            _ = self.read_runstate.changed() => {
                 // NOTE: I couldn't get .wait_for() to work because it made all this code not Send anymore.
-                if *read_runstate.borrow_and_update() == RunState::ShuttingDown {
+                if self.read_runstate.borrow_and_update().going_offline() {
                     self.exiting = Some(MinionExitReason::GotShutdownMessage);
                 }
             },
