@@ -3294,32 +3294,62 @@ impl Overlord {
     /// for events currently in view, to keep them small.
     ///
     /// WARNING: DO NOT CALL TOO OFTEN or relays will hate you.
-    pub async fn visible_notes_changed(&mut self, visible: Vec<Id>) -> Result<(), Error> {
-        let visible: Vec<IdHex> = visible.iter().map(|i| (*i).into()).collect();
+    pub async fn visible_notes_changed(&mut self, mut visible: Vec<Id>) -> Result<(), Error> {
+        let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
 
-        let mut persistent_relay_urls: Vec<RelayUrl> = GLOBALS
-            .connected_relays
-            .iter()
-            .filter_map(|r| {
-                for job in r.value() {
-                    if job.reason.persistent() {
-                        return Some(r.key().clone());
-                    }
+        // Work out which relays to use to find augments for which ids
+        let mut augment_subs: HashMap<RelayUrl, Vec<Id>> = HashMap::new();
+        for id in visible.drain(..) {
+            // Use the relays that the event was seen on. These are likely to contain
+            // the reactions.
+            for (relay_url, _) in GLOBALS.storage.get_event_seen_on_relay(id)?.drain(..) {
+                augment_subs
+                    .entry(relay_url)
+                    .and_modify(|vec| {
+                        if !vec.contains(&id) {
+                            vec.push(id)
+                        }
+                    })
+                    .or_insert(vec![id]);
+            }
+
+            if let Some(event) = GLOBALS.storage.read_event(id)? {
+                // Use the inbox of the author. NIP-65 compliant clients should be sending their
+                // reactions to the author.
+                for (relay_url, _) in GLOBALS
+                    .storage
+                    .get_best_relays(event.pubkey, RelayUsage::Inbox)?
+                    .drain(..)
+                    .take(num_relays_per_person as usize + 1)
+                {
+                    augment_subs
+                        .entry(relay_url)
+                        .and_modify(|vec| {
+                            if !vec.contains(&id) {
+                                vec.push(id)
+                            }
+                        })
+                        .or_insert(vec![id]);
                 }
-                None
-            })
-            .collect();
+            }
+        }
 
-        // Resubscribe to augments on all relays that have
-        // any feed-event subscriptions (see filter above)
-        for url in persistent_relay_urls.drain(..) {
+        // Create jobs for minions
+        for (relay_url, ids) in augment_subs.drain() {
+            let ids_hex: Vec<IdHex> = ids.iter().map(|i| (*i).into()).collect();
+
+            /*
+            FIXME - since this resubscribes, we should drop or merge into any existing RelayJob
+            so we don't get a large set of RelayJobs that are all "FetchAugments" on the same relay
+             */
+
             self.engage_minion(
-                url,
+                relay_url,
                 vec![RelayJob {
                     reason: RelayConnectionReason::FetchAugments,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeAugments(visible.clone()),
+                        detail: ToMinionPayloadDetail::SubscribeAugments(ids_hex),
                     },
                 }],
             )
