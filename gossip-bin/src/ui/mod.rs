@@ -2316,38 +2316,27 @@ fn approval_dialog(ctx: &Context, app: &mut GossipUi) {
 }
 
 fn approval_dialog_inner(app: &mut GossipUi, ui: &mut Ui) {
-    // let section = |ui: &mut Ui, name: &str| {
-    //     ui.scope(|ui| {
-    //         ui.add_space(10.0);
-    //         ui.label(name);
-    //         ui.style_mut().visuals.widgets.noninteractive.bg_stroke =
-    //             egui::Stroke::new(1.0, app.theme.accent_color());
-    //         ui.add(egui::Separator::default().spacing(0.0));
-    //         ui.add_space(5.0);
-    //     });
-    // };
-
-    let decline_style = |_app: &GossipUi, style: &mut Style| {
-        let accent_color = Color32::from_gray(0x26);
+    let decline_style = |app: &GossipUi, style: &mut Style| {
+        let (bg_color, text_color) = if app.theme.dark_mode {
+            (Color32::WHITE, Color32::from_gray(0x26))
+        } else {
+            (Color32::from_gray(0x26), Color32::WHITE)
+        };
         style.spacing.button_padding = vec2(16.0, 4.0);
-        style.visuals.widgets.noninteractive.weak_bg_fill = accent_color;
-        style.visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0, Color32::WHITE);
-        style.visuals.widgets.inactive.weak_bg_fill = accent_color;
-        style.visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, Color32::WHITE);
+        style.visuals.widgets.noninteractive.weak_bg_fill = bg_color;
+        style.visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0, text_color);
+        style.visuals.widgets.inactive.weak_bg_fill = bg_color;
+        style.visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, text_color);
         style.visuals.widgets.hovered.weak_bg_fill =
-            <DefaultTheme as ThemeDef>::darken_color(accent_color, 0.2);
-        style.visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.0, Color32::WHITE);
-        style.visuals.widgets.hovered.bg_stroke = egui::Stroke::new(
-            1.0,
-            <DefaultTheme as ThemeDef>::darken_color(accent_color, 0.2),
-        );
+            <DefaultTheme as ThemeDef>::darken_color(bg_color, 0.2);
+        style.visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.0, text_color);
+        style.visuals.widgets.hovered.bg_stroke =
+            egui::Stroke::new(1.0, <DefaultTheme as ThemeDef>::darken_color(bg_color, 0.2));
         style.visuals.widgets.active.weak_bg_fill =
-            <DefaultTheme as ThemeDef>::darken_color(accent_color, 0.4);
-        style.visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0, Color32::WHITE);
-        style.visuals.widgets.active.bg_stroke = egui::Stroke::new(
-            1.0,
-            <DefaultTheme as ThemeDef>::darken_color(accent_color, 0.4),
-        );
+            <DefaultTheme as ThemeDef>::darken_color(bg_color, 0.4);
+        style.visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0, text_color);
+        style.visuals.widgets.active.bg_stroke =
+            egui::Stroke::new(1.0, <DefaultTheme as ThemeDef>::darken_color(bg_color, 0.4));
     };
 
     let approve_style = |app: &GossipUi, style: &mut Style| {
@@ -2355,15 +2344,25 @@ fn approval_dialog_inner(app: &mut GossipUi, ui: &mut Ui) {
         style.spacing.button_padding = vec2(16.0, 4.0);
     };
 
+    let separator = |ui: &mut Ui| {
+        ui.add_sized(
+            vec2(
+                ui.available_width() - 20.0 - ui.spacing().item_spacing.y,
+                6.0,
+            ),
+            egui::Separator::default(),
+        );
+    };
+
     const ALIGN: egui::Align = egui::Align::Center;
-    const HEIGHT: f32 = 30.0;
-    const TRUNC: f32 = 360.0;
+    const HEIGHT: f32 = 23.0;
+    const TRUNC: f32 = 340.0;
     const SWITCH_SIZE: Vec2 = Vec2 { x: 46.0, y: 23.0 };
     const MARGIN: egui::Margin = egui::Margin {
         left: 0.0,
         right: 20.0,
-        top: 2.0,
-        bottom: 2.0,
+        top: 5.0,
+        bottom: 5.0,
     };
 
     // ---- start UI ----
@@ -2441,7 +2440,7 @@ fn approval_dialog_inner(app: &mut GossipUi, ui: &mut Ui) {
                         });
                     });
                 });
-            ui.separator();
+            separator(ui);
         }
 
         // Connect approvals
@@ -2494,7 +2493,7 @@ fn approval_dialog_inner(app: &mut GossipUi, ui: &mut Ui) {
                         });
                     });
                 });
-            ui.separator();
+            separator(ui);
         }
     }
 
@@ -2600,6 +2599,6 @@ fn approval_dialog_inner(app: &mut GossipUi, ui: &mut Ui) {
                     }
                 }
             });
-        ui.separator();
+        separator(ui);
     }
 }
