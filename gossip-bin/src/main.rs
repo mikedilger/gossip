@@ -9,9 +9,7 @@ mod date_ago;
 mod ui;
 mod unsaved_settings;
 
-use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::Error;
-use gossip_lib::GLOBALS;
+use gossip_lib::{Error, RunState, GLOBALS};
 use std::sync::atomic::Ordering;
 use std::{env, thread};
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
@@ -76,29 +74,17 @@ fn main() -> Result<(), Error> {
         tracing::error!("{}", e);
     }
 
-    // Make sure the overlord knows to shut down
-    GLOBALS.shutting_down.store(true, Ordering::Relaxed);
+    // Move to the ShuttingDown runstate
+    let _ = GLOBALS.write_runstate.send(RunState::ShuttingDown);
 
     // Make sure the overlord isn't stuck on waiting for login
     GLOBALS.wait_for_login.store(false, Ordering::Relaxed);
     GLOBALS.wait_for_login_notify.notify_one();
 
-    // Tell the async parties to close down
-    if let Err(e) = initiate_shutdown() {
-        tracing::error!("{}", e);
-    }
+    tracing::info!("UI thread complete, waiting on lib...");
 
     // Wait for the async thread to complete
     async_thread.join().unwrap();
 
-    gossip_lib::shutdown()?;
-
-    Ok(())
-}
-
-// Any task can call this to shutdown
-pub fn initiate_shutdown() -> Result<(), Error> {
-    let to_overlord = GLOBALS.to_overlord.clone();
-    let _ = to_overlord.send(ToOverlordMessage::Shutdown); // ignore errors
     Ok(())
 }

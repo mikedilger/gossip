@@ -35,6 +35,7 @@ pub struct WizardState {
     pub relay_list_events: Vec<Event>,
     pub relays: Vec<Relay>,
     pub relays_should_publish: bool,
+    #[allow(clippy::type_complexity)]
     pub followed: Vec<(Option<PublicKey>, Option<Rc<RefCell<Person>>>)>,
     pub followed_last_try: f64,
     pub followed_getting_metadata: HashSet<PublicKey>,

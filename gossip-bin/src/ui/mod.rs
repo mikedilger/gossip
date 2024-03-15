@@ -46,11 +46,17 @@ mod widgets;
 mod wizard;
 mod you;
 
+use crate::ui::theme::DefaultTheme;
+use crate::ui::theme::ThemeDef;
 pub use crate::ui::theme::{Theme, ThemeVariant};
 use crate::unsaved_settings::UnsavedSettings;
 #[cfg(feature = "video-ffmpeg")]
 use core::cell::RefCell;
 use eframe::egui;
+use eframe::egui::vec2;
+use eframe::egui::Align2;
+use eframe::egui::FontId;
+use eframe::egui::Style;
 use egui::{
     Align, Color32, ColorImage, Context, IconData, Image, ImageData, Label, Layout, RichText,
     ScrollArea, Sense, TextureHandle, TextureOptions, Ui, Vec2,
@@ -63,10 +69,13 @@ use egui_winit::egui::ViewportBuilder;
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::nip46::Approval;
 use gossip_lib::{
-    About, DmChannel, DmChannelData, Error, FeedKind, Person, PersonList, ZapState, GLOBALS,
+    About, DmChannel, DmChannelData, Error, FeedKind, Person, PersonList, RunState, ZapState,
+    GLOBALS,
 };
 use nostr_types::ContentSegment;
 use nostr_types::{Id, Metadata, MilliSatoshi, Profile, PublicKey, UncheckedUrl, Url};
+
+use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 #[cfg(feature = "video-ffmpeg")]
@@ -1213,7 +1222,7 @@ impl eframe::App for GossipUi {
             ctx.request_repaint_after(Duration::from_secs(1));
         }
 
-        if GLOBALS.shutting_down.load(Ordering::Relaxed) {
+        if *GLOBALS.read_runstate.borrow() == RunState::ShuttingDown {
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
             return;
         }
@@ -1444,9 +1453,17 @@ impl eframe::App for GossipUi {
 }
 
 impl GossipUi {
+    fn enable_ui(&self) -> bool {
+        !relays::is_entry_dialog_active(self)
+            && self.person_qr.is_none()
+            && GLOBALS.auth_requests.read().is_empty()
+            && GLOBALS.connect_requests.read().is_empty()
+            && GLOBALS.nip46_approval_requests.read().is_empty()
+    }
+
     fn begin_ui(&self, ui: &mut Ui) {
         // if a dialog is open, disable the rest of the UI
-        ui.set_enabled(!relays::is_entry_dialog_active(self) && self.person_qr.is_none());
+        ui.set_enabled(self.enable_ui());
     }
 
     pub fn person_name(person: &Person) -> String {
@@ -1721,7 +1738,7 @@ impl GossipUi {
         }
     }
 
-    pub fn render_qr(&mut self, ui: &mut Ui, ctx: &Context, key: &str, content: &str) {
+    pub fn render_qr(&mut self, ui: &mut Ui, key: &str, content: &str) {
         // Remember the UI runs this every frame.  We do NOT want to load the texture to the GPU
         // every frame, so we remember the texture handle in app.qr_codes, and only load to the GPU
         // if we don't have it yet.  We also remember if there was an error and don't try again.
@@ -1750,11 +1767,12 @@ impl GossipUi {
                     );
 
                     let texture_handle =
-                        ctx.load_texture(key, color_image, TextureOptions::default());
+                        ui.ctx()
+                            .load_texture(key, color_image, TextureOptions::default());
 
                     // Convert image size into points for later rendering (so that it renders with
                     // the number of pixels recommended by the qrcode library)
-                    let ppp = ctx.pixels_per_point();
+                    let ppp = ui.ctx().pixels_per_point();
 
                     self.qr_codes.insert(
                         key.to_string(),
@@ -1924,7 +1942,7 @@ impl GossipUi {
     }
 
     // Zap In Progress Area
-    fn render_zap_area(&mut self, ui: &mut Ui, ctx: &Context) {
+    fn render_zap_area(&mut self, ui: &mut Ui) {
         let mut qr_string: Option<String> = None;
 
         match self.zap_state {
@@ -1997,7 +2015,7 @@ impl GossipUi {
 
         if let Some(qr) = qr_string {
             // Show the QR code and a close button
-            self.render_qr(ui, ctx, "zap", &qr.to_uppercase());
+            self.render_qr(ui, "zap", &qr.to_uppercase());
             if ui.button("Close").clicked() {
                 *GLOBALS.current_zap.write() = ZapState::None;
             }
@@ -2024,7 +2042,7 @@ impl GossipUi {
 
     #[inline]
     fn vert_scroll_area(&self) -> ScrollArea {
-        ScrollArea::vertical()
+        ScrollArea::vertical().enable_scrolling(self.enable_ui())
     }
 
     fn render_status_queue_area(&self, ui: &mut Ui) {
@@ -2109,6 +2127,10 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
                             app.unlock_needs_focus = false;
                         }
 
+                        ui.add_space(20.0);
+                        if ui.checkbox(&mut app.unsaved_settings.offline, "start in offline mode").changed() {
+                            let _ = app.unsaved_settings.save();
+                        }
                         ui.add_space(20.0);
 
                         let mut submitted =
@@ -2227,11 +2249,6 @@ fn wait_for_data_migration(app: &mut GossipUi, ctx: &Context) {
 }
 
 fn approval_dialog(ctx: &Context, app: &mut GossipUi) {
-    let dlg_size = egui_winit::egui::vec2(
-        ctx.screen_rect().width() * 0.66,
-        ctx.screen_rect().height() * 0.66,
-    );
-
     egui::Area::new("hide-background-area-for-appproval-dialog")
         .fixed_pos(ctx.screen_rect().left_top())
         .movable(false)
@@ -2241,7 +2258,7 @@ fn approval_dialog(ctx: &Context, app: &mut GossipUi) {
             ui.painter().rect_filled(
                 ctx.screen_rect(),
                 egui::Rounding::same(0.0),
-                egui::Color32::from_rgba_unmultiplied(0x9f, 0x9f, 0x9f, 102),
+                egui::Color32::from_rgba_unmultiplied(0, 0, 0, 80),
             );
         });
 
@@ -2251,16 +2268,15 @@ fn approval_dialog(ctx: &Context, app: &mut GossipUi) {
         .movable(false)
         .interactable(true)
         .order(egui::Order::Foreground)
-        .fixed_pos(
-            ctx.screen_rect().center() - egui_winit::egui::vec2(dlg_size.x / 2.0, dlg_size.y / 2.0),
-        );
+        .anchor(egui::Align2::CENTER_CENTER, Vec2::ZERO);
 
     area.show(ctx, |ui| {
         frame.fill = ui.visuals().extreme_bg_color;
-        frame.inner_margin = egui::Margin::symmetric(20.0, 10.0);
+        frame.inner_margin = egui::Margin::symmetric(40.0, 40.0);
+        frame.rounding = egui::Rounding::same(10.0);
         frame.show(ui, |ui| {
-            ui.set_min_size(dlg_size);
-            ui.set_max_size(dlg_size);
+            ui.set_min_size(egui::vec2(ctx.screen_rect().width() * 0.75, 0.0));
+            ui.set_max_size(ctx.screen_rect().size() * 0.75);
             ScrollArea::vertical().show(ui, |ui| {
                 ui.vertical(|ui| {
                     approval_dialog_inner(app, ui);
@@ -2270,82 +2286,279 @@ fn approval_dialog(ctx: &Context, app: &mut GossipUi) {
     });
 }
 
-fn approval_dialog_inner(_app: &mut GossipUi, ui: &mut Ui) {
-    ui.heading("Approve or Decline");
+fn approval_dialog_inner(app: &mut GossipUi, ui: &mut Ui) {
+    // let section = |ui: &mut Ui, name: &str| {
+    //     ui.scope(|ui| {
+    //         ui.add_space(10.0);
+    //         ui.label(name);
+    //         ui.style_mut().visuals.widgets.noninteractive.bg_stroke =
+    //             egui::Stroke::new(1.0, app.theme.accent_color());
+    //         ui.add(egui::Separator::default().spacing(0.0));
+    //         ui.add_space(5.0);
+    //     });
+    // };
 
-    // Connect approvals
-    for (url, jobs) in GLOBALS.connect_requests.read().iter() {
-        let jobstrs: Vec<String> = jobs.iter().map(|j| format!("{:?}", j.reason)).collect();
+    let decline_style = |_app: &GossipUi, style: &mut Style| {
+        let accent_color = Color32::from_gray(0x26);
+        style.spacing.button_padding = vec2(16.0, 4.0);
+        style.visuals.widgets.noninteractive.weak_bg_fill = accent_color;
+        style.visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0, Color32::WHITE);
+        style.visuals.widgets.inactive.weak_bg_fill = accent_color;
+        style.visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, Color32::WHITE);
+        style.visuals.widgets.hovered.weak_bg_fill =
+            <DefaultTheme as ThemeDef>::darken_color(accent_color, 0.2);
+        style.visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.0, Color32::WHITE);
+        style.visuals.widgets.hovered.bg_stroke = egui::Stroke::new(
+            1.0,
+            <DefaultTheme as ThemeDef>::darken_color(accent_color, 0.2),
+        );
+        style.visuals.widgets.active.weak_bg_fill =
+            <DefaultTheme as ThemeDef>::darken_color(accent_color, 0.4);
+        style.visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0, Color32::WHITE);
+        style.visuals.widgets.active.bg_stroke = egui::Stroke::new(
+            1.0,
+            <DefaultTheme as ThemeDef>::darken_color(accent_color, 0.4),
+        );
+    };
 
-        ui.horizontal_wrapped(|ui| {
-            if ui.button("Approve").clicked() {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::ConnectApproved(url.to_owned()));
-            }
-            if ui.button("Decline").clicked() {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::ConnectDeclined(url.to_owned()));
-            }
-            let text = format!("Connect to {} for {}", url, jobstrs.join(", "));
-            ui.label(text);
-        });
-    }
+    let approve_style = |app: &GossipUi, style: &mut Style| {
+        app.theme.accent_button_1_style(style);
+        style.spacing.button_padding = vec2(16.0, 4.0);
+    };
 
-    // Auth approvals
-    for url in GLOBALS.auth_requests.read().iter() {
+    const ALIGN: egui::Align = egui::Align::Center;
+    const HEIGHT: f32 = 40.0;
+    const TRUNC: f32 = 360.0;
+    const SWITCH_SIZE: Vec2 = Vec2 { x: 46.0, y: 23.0 };
+
+    // ---- start UI ----
+
+    if !GLOBALS.auth_requests.read().is_empty() || !GLOBALS.connect_requests.read().is_empty() {
         ui.horizontal(|ui| {
-            let text = format!("Authenticate to {}", url);
-            ui.label(text);
-            if ui.button("Approve").clicked() {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::AuthApproved(url.to_owned()));
-            }
-            if ui.button("Decline").clicked() {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::AuthDeclined(url.to_owned()));
-            }
+            ui.heading("Permission requests");
+
+            // Draw "remember" explanation text
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
+                let (response, painter) = ui.allocate_painter(vec2(240.0, 30.0), Sense::hover());
+                let rect = response.rect;
+                let color = Color32::from_gray(110); // FIXME use new palette and UI elements
+                let top_left = painter.round_pos_to_pixels(rect.left_bottom() - vec2(0.0, 20.0));
+                let top_right = painter.round_pos_to_pixels(top_left + vec2(30.0, 0.0));
+                painter.line_segment(
+                    [rect.left_bottom(), top_left],
+                    egui::Stroke::new(2.0, color),
+                );
+                painter.line_segment([top_left, top_right], egui::Stroke::new(1.0, color));
+                painter.text(
+                    top_right + vec2(5.0, 0.0),
+                    Align2::LEFT_CENTER,
+                    "Remember for future sessions",
+                    FontId::proportional(13.0),
+                    color,
+                );
+            });
         });
+
+        // Auth approvals
+        for (url, permanent) in GLOBALS.auth_requests.write().iter_mut() {
+            widgets::list_entry::make_frame(ui, Some(app.theme.main_content_bgcolor()))
+                .fill(Color32::TRANSPARENT)
+                .inner_margin(egui::Margin::symmetric(10.0, 10.0))
+                .show(ui, |ui| {
+                    ui.set_min_width(ui.available_width());
+                    ui.set_height(HEIGHT);
+                    ui.with_layout(egui::Layout::left_to_right(ALIGN), |ui| {
+                        let text = format!("Authenticate to {}", url);
+                        widgets::truncated_label(ui, url.to_string(), ui.available_width() - TRUNC)
+                            .on_hover_text(text);
+                        ui.with_layout(egui::Layout::right_to_left(ALIGN), |ui| {
+                            ui.scope(|ui| {
+                                decline_style(app, ui.style_mut());
+                                if ui.button("Decline").clicked() {
+                                    let _ =
+                                        GLOBALS.to_overlord.send(ToOverlordMessage::AuthDeclined(
+                                            url.to_owned(),
+                                            permanent.to_owned(),
+                                        ));
+                                }
+                            });
+                            ui.add_space(10.0);
+                            ui.scope(|ui| {
+                                approve_style(app, ui.style_mut());
+                                if ui.button("Approve").clicked() {
+                                    let _ =
+                                        GLOBALS.to_overlord.send(ToOverlordMessage::AuthApproved(
+                                            url.to_owned(),
+                                            permanent.to_owned(),
+                                        ));
+                                }
+                            });
+                            ui.add_space(10.0);
+                            widgets::switch_with_size(ui, permanent, SWITCH_SIZE)
+                                .on_hover_text("store permission permanently");
+                            ui.add_space(10.0);
+                            ui.label("Authenticate").on_hover_text(
+                                "Should the App use your key to authenticate to this Relay?",
+                            );
+                        });
+                    });
+                });
+            ui.separator();
+        }
+
+        // Connect approvals
+        for (url, jobs, permanent) in GLOBALS.connect_requests.write().iter_mut() {
+            let jobstrs: Vec<String> = jobs.iter().map(|j| format!("{:?}", j.reason)).collect();
+
+            widgets::list_entry::make_frame(ui, Some(app.theme.main_content_bgcolor()))
+                .fill(Color32::TRANSPARENT)
+                .inner_margin(egui::Margin::symmetric(10.0, 10.0))
+                .show(ui, |ui| {
+                    ui.set_min_width(ui.available_width());
+                    ui.set_height(HEIGHT);
+                    ui.with_layout(egui::Layout::left_to_right(ALIGN), |ui| {
+                        let text = format!("Connect to {} for {}", url, jobstrs.join(", "));
+                        widgets::truncated_label(ui, url.to_string(), ui.available_width() - TRUNC)
+                            .on_hover_text(text);
+                        ui.with_layout(egui::Layout::right_to_left(ALIGN), |ui| {
+                            ui.scope(|ui| {
+                                decline_style(app, ui.style_mut());
+                                if ui.button("Decline").clicked() {
+                                    let _ = GLOBALS.to_overlord.send(
+                                        ToOverlordMessage::ConnectDeclined(
+                                            url.to_owned(),
+                                            permanent.to_owned(),
+                                        ),
+                                    );
+                                }
+                            });
+                            ui.add_space(10.0);
+                            ui.scope(|ui| {
+                                approve_style(app, ui.style_mut());
+                                if ui.button("Approve").clicked() {
+                                    let _ = GLOBALS.to_overlord.send(
+                                        ToOverlordMessage::ConnectApproved(
+                                            url.to_owned(),
+                                            permanent.to_owned(),
+                                        ),
+                                    );
+                                }
+                            });
+                            ui.add_space(10.0);
+                            widgets::switch_with_size(ui, permanent, SWITCH_SIZE)
+                                .on_hover_text("store permission permanently");
+                            ui.add_space(10.0);
+                            ui.label("Connect")
+                                .on_hover_text("Should the App connect to this Relay?");
+                        });
+                    });
+                });
+            ui.separator();
+        }
     }
 
     // NIP-46 approvals
     for (name, pubkey, parsed_command) in GLOBALS.nip46_approval_requests.read().iter() {
-        ui.horizontal(|ui| {
-            let text = format!(
-                "NIP-46 Request from '{}'. Allow {}?",
-                name, parsed_command.method
-            );
-            ui.label(text);
-            if ui.button("Approve Once").clicked() {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::Nip46ServerOpApprovalResponse(
-                        *pubkey,
-                        parsed_command.clone(),
-                        Approval::Once,
-                    ));
-            }
-            if ui.button("Approve Always").clicked() {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::Nip46ServerOpApprovalResponse(
-                        *pubkey,
-                        parsed_command.clone(),
-                        Approval::Always,
-                    ));
-            }
-            if ui.button("Decline").clicked() {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::Nip46ServerOpApprovalResponse(
-                        *pubkey,
-                        parsed_command.clone(),
-                        Approval::None,
-                    ));
-            }
-        });
+        widgets::list_entry::make_frame(ui, Some(app.theme.main_content_bgcolor()))
+            .inner_margin(egui::Margin::symmetric(10.0, 10.0))
+            .show(ui, |ui| {
+                ui.set_min_width(ui.available_width());
+                ui.set_height(HEIGHT);
+                ui.with_layout(
+                    egui::Layout::left_to_right(ALIGN).with_main_wrap(true),
+                    |ui| {
+                        let text = format!(
+                            "NIP-46 Request from '{}'. Allow {}?",
+                            name, parsed_command.method
+                        );
+                        widgets::truncated_label(ui, text, ui.available_width() - 300.0)
+                            .on_hover_text(parsed_command.params.join(", "));
+                        ui.with_layout(egui::Layout::right_to_left(ALIGN), |ui| {
+                            ui.scope(|ui| {
+                                decline_style(app, ui.style_mut());
+                                if ui.button("Decline").clicked() {
+                                    let _ = GLOBALS.to_overlord.send(
+                                        ToOverlordMessage::Nip46ServerOpApprovalResponse(
+                                            *pubkey,
+                                            parsed_command.clone(),
+                                            Approval::None,
+                                        ),
+                                    );
+                                }
+                            });
+                            ui.add_space(10.0);
+                            ui.scope(|ui| {
+                                approve_style(app, ui.style_mut());
+                                if ui.button("Approve Once").clicked() {
+                                    let _ = GLOBALS.to_overlord.send(
+                                        ToOverlordMessage::Nip46ServerOpApprovalResponse(
+                                            *pubkey,
+                                            parsed_command.clone(),
+                                            Approval::Once,
+                                        ),
+                                    );
+                                }
+                            });
+                            ui.add_space(10.0);
+                            ui.scope(|ui| {
+                                approve_style(app, ui.style_mut());
+                                if ui.button("Approve Always").clicked() {
+                                    let _ = GLOBALS.to_overlord.send(
+                                        ToOverlordMessage::Nip46ServerOpApprovalResponse(
+                                            *pubkey,
+                                            parsed_command.clone(),
+                                            Approval::Always,
+                                        ),
+                                    );
+                                }
+                            });
+                        });
+                    },
+                );
+                for param in &parsed_command.params {
+                    if parsed_command.method == "sign_event" {
+                        match serde_json::from_str::<nostr_types::Event>(param) {
+                            Ok(event) => {
+                                let note_ref = std::rc::Rc::new(std::cell::RefCell::new(
+                                    feed::NoteData::new(event),
+                                ));
+                                feed::render_note_inner(
+                                    app,
+                                    ui,
+                                    note_ref,
+                                    &feed::NoteRenderData::default(),
+                                    true,
+                                    &None,
+                                );
+                            }
+                            Err(err) => {
+                                ui.label(format!("'sign_event' parse error: {}", err));
+                            }
+                        }
+                    }
+                    if let Ok(obj) = serde_json::from_str::<serde_json::Value>(param) {
+                        let mut writer = Vec::new();
+                        let formatter = serde_json::ser::PrettyFormatter::with_indent(b"  ");
+                        let mut ser =
+                            serde_json::Serializer::with_formatter(&mut writer, formatter);
+
+                        if obj.serialize(&mut ser).is_ok() {
+                            if let Ok(str) = String::from_utf8(writer) {
+                                egui_extras::syntax_highlighting::code_view_ui(
+                                    ui,
+                                    &egui_extras::syntax_highlighting::CodeTheme::from_style(
+                                        ui.style(),
+                                    ),
+                                    &str,
+                                    "json",
+                                );
+                            }
+                        }
+                    } else {
+                        ui.label(format!("Not valid JSON: {}", param));
+                    }
+                }
+            });
+        ui.separator();
     }
 }

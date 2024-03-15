@@ -194,7 +194,10 @@ impl Minion {
                     match self.dbrelay.allow_auth {
                         Some(true) => self.authenticate().await?,
                         Some(false) => (),
-                        None => GLOBALS.auth_requests.write().push(self.url.clone()),
+                        None => GLOBALS
+                            .auth_requests
+                            .write()
+                            .push((self.url.clone(), false)),
                     }
                 } else {
                     self.authenticate().await?

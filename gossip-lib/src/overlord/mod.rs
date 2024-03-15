@@ -15,6 +15,7 @@ use crate::relay::Relay;
 use crate::tags::{
     add_addr_to_tags, add_event_to_tags, add_pubkey_to_tags, add_subject_to_tags_if_missing,
 };
+use crate::RunState;
 use gossip_relay_picker::{Direction, RelayAssignment};
 use heed::RwTxn;
 use http::StatusCode;
@@ -30,7 +31,8 @@ use std::sync::mpsc;
 use std::time::Duration;
 use tokio::sync::broadcast::Sender;
 use tokio::sync::mpsc::UnboundedReceiver;
-use tokio::{select, task};
+use tokio::sync::watch::Receiver as WatchReceiver;
+use tokio::task;
 use zeroize::Zeroize;
 
 type MinionResult = Result<MinionExitReason, Error>;
@@ -46,6 +48,8 @@ type MinionResult = Result<MinionExitReason, Error>;
 pub struct Overlord {
     to_minions: Sender<ToMinionMessage>,
     inbox: UnboundedReceiver<ToOverlordMessage>,
+
+    read_runstate: WatchReceiver<RunState>,
 
     // All the minion tasks running.
     minions: task::JoinSet<Result<MinionExitReason, Error>>,
@@ -97,6 +101,7 @@ impl Overlord {
         Overlord {
             to_minions,
             inbox,
+            read_runstate: GLOBALS.read_runstate.clone(),
             minions: task::JoinSet::new(),
             minions_task_url: HashMap::new(),
         }
@@ -115,36 +120,16 @@ impl Overlord {
             tracing::info!("LMDB synced.");
         }
 
-        GLOBALS.shutting_down.store(true, Ordering::Relaxed);
-
-        tracing::debug!("Overlord signalling minions to shutdown");
-
-        // Send shutdown message to all minions (and ui)
-        // If this fails, it's probably because there are no more listeners
-        // so just ignore it and keep shutting down.
-        let _ = self.to_minions.send(ToMinionMessage {
-            target: "all".to_string(),
-            payload: ToMinionPayload {
-                job_id: 0,
-                detail: ToMinionPayloadDetail::Shutdown,
-            },
-        });
+        let _ = GLOBALS.write_runstate.send(RunState::ShuttingDown);
 
         tracing::info!("Overlord waiting for minions to all shutdown");
 
         // Listen on self.minions until it is empty
         while !self.minions.is_empty() {
-            select! {
+            tokio::select! {
                 _ = tokio::time::sleep(Duration::from_secs(10)) => {
-                    tracing::info!("Overlord signalling minions to shutdown (again)");
-                    // Send the shutdown message again
-                    let _ = self.to_minions.send(ToMinionMessage {
-                        target: "all".to_string(),
-                        payload: ToMinionPayload {
-                            job_id: 0,
-                            detail: ToMinionPayloadDetail::Shutdown,
-                        },
-                    });
+                    tracing::info!("Minions are stuck. Shutting down anyways.");
+                    break;
                 },
                 task_nextjoined = self.minions.join_next_with_id() => {
                     self.handle_task_nextjoined(task_nextjoined).await;
@@ -162,7 +147,7 @@ impl Overlord {
         }
 
         // Check for shutdown (we might not have gotten a login)
-        if GLOBALS.shutting_down.load(Ordering::Relaxed) {
+        if *self.read_runstate.borrow() == RunState::ShuttingDown {
             return Ok(());
         }
 
@@ -186,25 +171,50 @@ impl Overlord {
             .feed
             .set_feed_starts(general_feed_start, person_feed_start, inbox_feed_start);
 
-        // Start the fetcher
-        crate::fetcher::Fetcher::start()?;
+        // Init the fetcher
+        crate::fetcher::Fetcher::init()?;
 
-        // Start periodic tasks in people manager (after signer)
-        crate::people::People::start();
-
-        // Start periodic tasks in pending
-        crate::pending::start();
-
-        // Do the startup procedures
-        self.start_long_lived_subscriptions().await?;
+        // Switch out of initializing RunState
+        if GLOBALS.storage.read_setting_offline() {
+            let _ = GLOBALS.write_runstate.send(RunState::Offline);
+        } else {
+            let _ = GLOBALS.write_runstate.send(RunState::Online);
+        }
 
         'mainloop: loop {
-            if let Err(e) = self.loop_handler().await {
-                tracing::error!("{}", e);
-            }
+            tracing::debug!("overlord looping");
 
-            if GLOBALS.shutting_down.load(Ordering::Relaxed) {
-                break 'mainloop;
+            // Listen on inbox, runstate, and exiting minions
+            tokio::select! {
+                message = self.inbox.recv() => {
+                    let message = match message {
+                        Some(bm) => bm,
+                        None => {
+                            // All senders dropped, or one of them closed.
+                            let _ = GLOBALS.write_runstate.send(RunState::ShuttingDown);
+                            return Ok(());
+                        }
+                    };
+                    if let Err(e) = self.handle_message(message).await {
+                        tracing::error!("{}", e);
+                    }
+                },
+                _ = self.read_runstate.changed() => {
+                    match *self.read_runstate.borrow_and_update() {
+                        RunState::ShuttingDown => break 'mainloop,
+
+                        // Minions will shut themselves down. Forget about all the jobs.
+                        // When we go back online we start fresh.
+                        RunState::Offline => {
+                            GLOBALS.relay_picker.init().await?;
+                            GLOBALS.connected_relays.clear();
+                        },
+                        _ => { }
+                    }
+                },
+                task_nextjoined = self.minions.join_next_with_id(), if !self.minions.is_empty() => {
+                    self.handle_task_nextjoined(task_nextjoined).await;
+                }
             }
         }
 
@@ -325,7 +335,7 @@ impl Overlord {
                     GLOBALS
                         .connect_requests
                         .write()
-                        .push((url.clone(), jobs.clone()));
+                        .push((url.clone(), jobs.clone(), false));
                     return Ok(());
                 }
             }
@@ -354,45 +364,6 @@ impl Overlord {
 
             // And record it
             GLOBALS.connected_relays.insert(url, jobs);
-        }
-
-        Ok(())
-    }
-
-    #[allow(unused_assignments)]
-    async fn loop_handler(&mut self) -> Result<(), Error> {
-        tracing::trace!("overlord looping");
-
-        if self.minions.is_empty() {
-            // Just listen on inbox
-            let message = self.inbox.recv().await;
-            let message = match message {
-                Some(bm) => bm,
-                None => {
-                    // All senders dropped, or one of them closed.
-                    GLOBALS.shutting_down.store(true, Ordering::Relaxed);
-                    return Ok(());
-                }
-            };
-            self.handle_message(message).await?;
-        } else {
-            // Listen on inbox, and dying minions
-            select! {
-                message = self.inbox.recv() => {
-                    let message = match message {
-                        Some(bm) => bm,
-                        None => {
-                            // All senders dropped, or one of them closed.
-                            GLOBALS.shutting_down.store(true, Ordering::Relaxed);
-                            return Ok(());
-                        }
-                    };
-                    self.handle_message(message).await?;
-                },
-                task_nextjoined = self.minions.join_next_with_id() => {
-                    self.handle_task_nextjoined(task_nextjoined).await;
-                }
-            }
         }
 
         Ok(())
@@ -490,13 +461,8 @@ impl Overlord {
             },
         };
 
-        // Let the relay picker know it disconnected
-        GLOBALS
-            .relay_picker
-            .relay_disconnected(&url, exclusion as i64);
-
         // We might need to act upon this minion exiting
-        if !GLOBALS.shutting_down.load(Ordering::Relaxed) {
+        if self.read_runstate.borrow().going_online() {
             self.recover_from_minion_exit(url, relayjobs, exclusion, completed)
                 .await;
         }
@@ -509,6 +475,11 @@ impl Overlord {
         exclusion: u64,
         completed: bool,
     ) {
+        // Let the relay picker know it disconnected
+        GLOBALS
+            .relay_picker
+            .relay_disconnected(&url, exclusion as i64);
+
         // For people we are following, pick relays
         if let Err(e) = GLOBALS.relay_picker.refresh_person_relay_scores().await {
             tracing::error!("Error: {}", e);
@@ -570,11 +541,11 @@ impl Overlord {
             ToOverlordMessage::AdvertiseRelayListNextChunk(event, relays) => {
                 self.advertise_relay_list_next_chunk(event, relays).await?;
             }
-            ToOverlordMessage::AuthApproved(relay_url) => {
-                self.auth_approved(relay_url)?;
+            ToOverlordMessage::AuthApproved(relay_url, permanent) => {
+                self.auth_approved(relay_url, permanent)?;
             }
-            ToOverlordMessage::AuthDeclined(relay_url) => {
-                self.auth_declined(relay_url)?;
+            ToOverlordMessage::AuthDeclined(relay_url, permanent) => {
+                self.auth_declined(relay_url, permanent)?;
             }
             ToOverlordMessage::ChangePassphrase { old, new } => {
                 Self::change_passphrase(old, new).await?;
@@ -582,11 +553,11 @@ impl Overlord {
             ToOverlordMessage::ClearPersonList(list) => {
                 self.clear_person_list(list)?;
             }
-            ToOverlordMessage::ConnectApproved(relay_url) => {
-                self.connect_approved(relay_url).await?;
+            ToOverlordMessage::ConnectApproved(relay_url, permanent) => {
+                self.connect_approved(relay_url, permanent).await?;
             }
-            ToOverlordMessage::ConnectDeclined(relay_url) => {
-                self.connect_declined(relay_url).await?;
+            ToOverlordMessage::ConnectDeclined(relay_url, permanent) => {
+                self.connect_declined(relay_url, permanent).await?;
             }
             ToOverlordMessage::DelegationReset => {
                 Self::delegation_reset().await?;
@@ -744,9 +715,6 @@ impl Overlord {
             }
             ToOverlordMessage::SubscribeNip46(relays) => {
                 self.subscribe_nip46(relays).await?;
-            }
-            ToOverlordMessage::Shutdown => {
-                Self::shutdown()?;
             }
             ToOverlordMessage::UnlockKey(password) => {
                 Self::unlock_key(password)?;
@@ -937,15 +905,17 @@ impl Overlord {
 
     /// User has approved authentication on this relay. Save this result for later
     /// and inform the minion.
-    pub fn auth_approved(&mut self, relay_url: RelayUrl) -> Result<(), Error> {
-        // Save the answer in the relay record
-        GLOBALS.storage.modify_relay(
-            &relay_url,
-            |r| {
-                r.allow_auth = Some(true);
-            },
-            None,
-        )?;
+    pub fn auth_approved(&mut self, relay_url: RelayUrl, permanent: bool) -> Result<(), Error> {
+        if permanent {
+            // Save the answer in the relay record
+            GLOBALS.storage.modify_relay(
+                &relay_url,
+                |r| {
+                    r.allow_auth = Some(true);
+                },
+                None,
+            )?;
+        }
 
         if GLOBALS.connected_relays.contains_key(&relay_url) {
             // Tell the minion
@@ -961,7 +931,7 @@ impl Overlord {
             GLOBALS
                 .auth_requests
                 .write()
-                .retain(|url| *url != relay_url);
+                .retain(|(url, _)| *url != relay_url);
         }
 
         Ok(())
@@ -969,15 +939,17 @@ impl Overlord {
 
     /// User has declined authentication on this relay. Save this result for later
     /// and inform the minion.
-    pub fn auth_declined(&mut self, relay_url: RelayUrl) -> Result<(), Error> {
-        // Save the answer in the relay record
-        GLOBALS.storage.modify_relay(
-            &relay_url,
-            |r| {
-                r.allow_auth = Some(false);
-            },
-            None,
-        )?;
+    pub fn auth_declined(&mut self, relay_url: RelayUrl, permanent: bool) -> Result<(), Error> {
+        if permanent {
+            // Save the answer in the relay record
+            GLOBALS.storage.modify_relay(
+                &relay_url,
+                |r| {
+                    r.allow_auth = Some(false);
+                },
+                None,
+            )?;
+        }
 
         if GLOBALS.connected_relays.contains_key(&relay_url) {
             // Tell the minion
@@ -993,7 +965,7 @@ impl Overlord {
             GLOBALS
                 .auth_requests
                 .write()
-                .retain(|url| *url != relay_url);
+                .retain(|(url, _)| *url != relay_url);
         }
 
         Ok(())
@@ -1016,19 +988,25 @@ impl Overlord {
 
     /// User has approved connection to this relay. Save this result for later
     /// and inform the minion.
-    pub async fn connect_approved(&mut self, relay_url: RelayUrl) -> Result<(), Error> {
-        // Save the answer in the relay record
-        GLOBALS.storage.modify_relay(
-            &relay_url,
-            |r| {
-                r.allow_connect = Some(true);
-            },
-            None,
-        )?;
+    pub async fn connect_approved(
+        &mut self,
+        relay_url: RelayUrl,
+        permanent: bool,
+    ) -> Result<(), Error> {
+        if permanent {
+            // Save the answer in the relay record
+            GLOBALS.storage.modify_relay(
+                &relay_url,
+                |r| {
+                    r.allow_connect = Some(true);
+                },
+                None,
+            )?;
+        }
 
         // Start the job
         let reqs = GLOBALS.connect_requests.read().clone();
-        for (url, jobs) in &reqs {
+        for (url, jobs, _temporary) in &reqs {
             if *url == relay_url {
                 self.engage_minion(url.clone(), jobs.clone()).await?;
                 // let the loop continue, it is possible the overlord tried to engage this
@@ -1040,28 +1018,34 @@ impl Overlord {
         GLOBALS
             .connect_requests
             .write()
-            .retain(|(url, _)| *url != relay_url);
+            .retain(|(url, _, _)| *url != relay_url);
 
         Ok(())
     }
 
     /// User has declined connection to this relay. Save this result for later
     /// and inform the minion.
-    pub async fn connect_declined(&mut self, relay_url: RelayUrl) -> Result<(), Error> {
-        // Save the answer in the relay record
-        GLOBALS.storage.modify_relay(
-            &relay_url,
-            |r| {
-                r.allow_connect = Some(false);
-            },
-            None,
-        )?;
+    pub async fn connect_declined(
+        &mut self,
+        relay_url: RelayUrl,
+        permanent: bool,
+    ) -> Result<(), Error> {
+        if permanent {
+            // Save the answer in the relay record
+            GLOBALS.storage.modify_relay(
+                &relay_url,
+                |r| {
+                    r.allow_connect = Some(false);
+                },
+                None,
+            )?;
+        }
 
         // Remove the connect requests entry
         GLOBALS
             .connect_requests
             .write()
-            .retain(|(url, _)| *url != relay_url);
+            .retain(|(url, _, _)| *url != relay_url);
 
         Ok(())
     }
@@ -2764,6 +2748,7 @@ impl Overlord {
     pub async fn start_long_lived_subscriptions(&mut self) -> Result<(), Error> {
         // Intialize the RelayPicker
         GLOBALS.relay_picker.init().await?;
+        GLOBALS.connected_relays.clear();
 
         // Pick Relays and start Minions
         if !GLOBALS.storage.read_setting_offline() {
@@ -2906,13 +2891,6 @@ impl Overlord {
             .await?;
         }
 
-        Ok(())
-    }
-
-    /// Shutdown gossip
-    pub fn shutdown() -> Result<(), Error> {
-        tracing::info!("Overlord shutting down");
-        GLOBALS.shutting_down.store(true, Ordering::Relaxed);
         Ok(())
     }
 

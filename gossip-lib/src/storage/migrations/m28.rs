@@ -31,7 +31,7 @@ impl Storage {
             if person.petname == Some("".to_string()) {
                 person.petname = None;
                 let bytes = serde_json::to_vec(&person)?;
-                self.db_people2()?.put(txn, &key, &bytes)?;
+                self.db_people2()?.put(txn, key, &bytes)?;
             }
         }
         Ok(())

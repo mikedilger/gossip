@@ -85,23 +85,29 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         // If we have write relays, show those
         if let Ok(pairs) = GLOBALS.storage.get_best_relays(pubkey, Direction::Write) {
             if !pairs.is_empty() {
-                found = true;
-                ui.label("Good news: we found your profile!");
-                ui.label("Please choose one relay to load your profile (kind: 03) from, or specify a manual relay below:");
-                for (url, _score) in pairs {
-                    ui.add_space(10.0);
-                    ui.horizontal(|ui| {
-                        ui.label(url.as_str());
-                        if ui.button("Load").clicked() {
-                            let _ =
-                                GLOBALS
-                                    .to_overlord
-                                    .send(ToOverlordMessage::SubscribeConfig(Some(vec![
-                                        url.to_owned()
-                                    ])));
-                        }
-                    });
-                }
+                egui::ScrollArea::vertical()
+                .max_width(f32::INFINITY)
+                .max_height(ctx.screen_rect().height() - 340.0)
+                .show(ui, |ui| {
+                    found = true;
+                    ui.label("Good news: we found your profile!");
+                    ui.label("Please choose one relay to load your profile (kind: 03) from, or specify a manual relay below:");
+                    for (url, _score) in pairs {
+                        ui.add_space(10.0);
+                        ui.horizontal(|ui| {
+                            ui.label(url.as_str());
+                            app.theme.accent_button_1_style(ui.style_mut());
+                            if ui.button("Load").clicked() {
+                                let _ =
+                                    GLOBALS
+                                        .to_overlord
+                                        .send(ToOverlordMessage::SubscribeConfig(Some(vec![
+                                            url.to_owned()
+                                        ])));
+                            }
+                        });
+                    }
+                });
             }
         }
 

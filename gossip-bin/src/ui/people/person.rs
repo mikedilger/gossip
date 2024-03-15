@@ -455,7 +455,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                     ui.add_space(10.0);
                     ui.heading("Public Key (npub)");
                     ui.add_space(10.0);
-                    app.render_qr(ui, ctx, "person_qr", &npub);
+                    app.render_qr(ui, "person_qr", &npub);
                     ui.add_space(10.0);
                     ui.label(&npub);
                     ui.add_space(10.0);
@@ -474,7 +474,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                     ui.add_space(10.0);
                     ui.heading("Lightning Network Address (lud06)");
                     ui.add_space(10.0);
-                    app.render_qr(ui, ctx, "person_qr", &lud06);
+                    app.render_qr(ui, "person_qr", &lud06);
                     ui.add_space(10.0);
                     ui.label(&lud06);
                     ui.add_space(10.0);
@@ -493,7 +493,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                     ui.add_space(10.0);
                     ui.heading("Lightning Network Address (lud16)");
                     ui.add_space(10.0);
-                    app.render_qr(ui, ctx, "person_qr", &lud16);
+                    app.render_qr(ui, "person_qr", &lud16);
                     ui.add_space(10.0);
                     ui.label(&lud16);
                     ui.add_space(10.0);

@@ -1,4 +1,4 @@
-use gossip_lib::{Error, Storage, GLOBALS};
+use gossip_lib::{Error, RunState, Storage, GLOBALS};
 use nostr_types::PublicKey;
 use paste::paste;
 
@@ -362,6 +362,14 @@ impl UnsavedSettings {
         save_setting!(prune_period_days, self, txn);
         save_setting!(cache_prune_period_days, self, txn);
         txn.commit()?;
+
+        let runstate = *GLOBALS.read_runstate.borrow();
+        if self.offline && runstate == RunState::Online {
+            let _ = GLOBALS.write_runstate.send(RunState::Offline);
+        } else if !self.offline && runstate == RunState::Offline {
+            let _ = GLOBALS.write_runstate.send(RunState::Online);
+        }
+
         Ok(())
     }
 }

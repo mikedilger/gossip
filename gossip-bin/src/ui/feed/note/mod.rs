@@ -22,6 +22,7 @@ use nostr_types::{
     UncheckedUrl,
 };
 
+#[derive(Default)]
 pub struct NoteRenderData {
     /// Height of the post
     /// This is only used in feed_post_inner_indent() and is often just set to 0.0, but should
@@ -137,7 +138,6 @@ pub(super) fn render_note(
 
                             render_note_inner(
                                 app,
-                                ctx,
                                 ui,
                                 note_ref.clone(),
                                 &render_data,
@@ -204,9 +204,8 @@ pub(super) fn render_note(
 }
 
 // FIXME, create some way to limit the arguments here.
-fn render_note_inner(
+pub fn render_note_inner(
     app: &mut GossipUi,
-    ctx: &Context,
     ui: &mut Ui,
     note_ref: Rc<RefCell<NoteData>>,
     render_data: &NoteRenderData,
@@ -220,7 +219,7 @@ fn render_note_inner(
         let avatar = if note.muted() {
             // no avatars for muted people
             app.placeholder_avatar.clone()
-        } else if let Some(avatar) = app.try_get_avatar(ctx, &note.author.pubkey) {
+        } else if let Some(avatar) = app.try_get_avatar(ui.ctx(), &note.author.pubkey) {
             avatar
         } else {
             app.placeholder_avatar.clone()
@@ -292,7 +291,7 @@ fn render_note_inner(
 
                 // render avatar
                 if widgets::paint_avatar(ui, &note.author, &avatar, avatar_size).clicked() {
-                    app.set_page(ctx, Page::Person(note.author.pubkey));
+                    app.set_page(ui.ctx(), Page::Person(note.author.pubkey));
                 };
 
                 ui.add_space(avatar_margin_left);
@@ -310,7 +309,7 @@ fn render_note_inner(
                             let nam = format!("▲ #{}", gossip_lib::names::hex_id_short(&idhex));
                             if ui.link(&nam).clicked() {
                                 app.set_page(
-                                    ctx,
+                                    ui.ctx(),
                                     Page::Feed(FeedKind::Thread {
                                         id: irt,
                                         referenced_by: note.event.id,
@@ -332,7 +331,7 @@ fn render_note_inner(
                                 let nam = format!("▲ #{}", gossip_lib::names::hex_id_short(&idhex));
                                 if ui.link(&nam).clicked() {
                                     app.set_page(
-                                        ctx,
+                                        ui.ctx(),
                                         Page::Feed(FeedKind::Thread {
                                             id: e.id,
                                             referenced_by: note.event.id,
@@ -425,7 +424,10 @@ fn render_note_inner(
                                 if ui.button("View DM Channel").clicked() {
                                     if let Some(channel) = DmChannel::from_event(&note.event, None)
                                     {
-                                        app.set_page(ctx, Page::Feed(FeedKind::DmChat(channel)));
+                                        app.set_page(
+                                            ui.ctx(),
+                                            Page::Feed(FeedKind::DmChat(channel)),
+                                        );
                                     } else {
                                         GLOBALS.status_queue.write().write(
                                             "Could not determine DM channel for that note."
@@ -437,7 +439,7 @@ fn render_note_inner(
                             } else {
                                 if ui.button("View Thread").clicked() {
                                     app.set_page(
-                                        ctx,
+                                        ui.ctx(),
                                         Page::Feed(FeedKind::Thread {
                                             id: note.event.id,
                                             referenced_by: note.event.id,
@@ -588,7 +590,7 @@ fn render_note_inner(
                         {
                             if note.event.kind.is_direct_message_related() {
                                 if let Some(channel) = DmChannel::from_event(&note.event, None) {
-                                    app.set_page(ctx, Page::Feed(FeedKind::DmChat(channel)));
+                                    app.set_page(ui.ctx(), Page::Feed(FeedKind::DmChat(channel)));
                                 } else {
                                     GLOBALS.status_queue.write().write(
                                         "Could not determine DM channel for that note.".to_string(),
@@ -596,7 +598,7 @@ fn render_note_inner(
                                 }
                             } else {
                                 app.set_page(
-                                    ctx,
+                                    ui.ctx(),
                                     Page::Feed(FeedKind::Thread {
                                         id: note.event.id,
                                         referenced_by: note.event.id,
@@ -624,7 +626,7 @@ fn render_note_inner(
                             // FIXME IN EGUI: constrain is moving the box left for all of these boxes
                             // even if they have different IDs and don't need it.
                             .constrain(true)
-                            .show(ctx, |ui| {
+                            .show(ui.ctx(), |ui| {
                                 ui.set_min_width(200.0);
                                 egui::Frame::popup(&app.theme.get_style()).show(ui, |ui| {
                                     if let Ok(seen_on) =
@@ -666,7 +668,6 @@ fn render_note_inner(
                 render_content(
                     app,
                     ui,
-                    ctx,
                     note_ref.clone(),
                     !note.deletions.is_empty(),
                     content_margin_left,
@@ -846,7 +847,7 @@ fn render_note_inner(
                                                 DmChannel::from_event(&note.event, None)
                                             {
                                                 app.set_page(
-                                                    ctx,
+                                                    ui.ctx(),
                                                     Page::Feed(FeedKind::DmChat(channel.clone())),
                                                 );
                                                 app.draft_needs_focus = true;
@@ -1012,7 +1013,7 @@ fn render_note_inner(
                             if let Some(zapnoteid) = app.note_being_zapped {
                                 if zapnoteid == note.event.id {
                                     ui.horizontal_wrapped(|ui| {
-                                        app.render_zap_area(ui, ctx);
+                                        app.render_zap_area(ui);
                                     });
                                     if ui
                                         .add(CopyButton::new())
@@ -1061,7 +1062,6 @@ fn render_subject(ui: &mut Ui, event: &Event) {
 fn render_content(
     app: &mut GossipUi,
     ui: &mut Ui,
-    ctx: &Context,
     note_ref: Rc<RefCell<NoteData>>,
     as_deleted: bool,
     content_margin_left: f32,
@@ -1099,10 +1099,10 @@ fn render_content(
                     } else if app.render_qr == Some(event.id) {
                         if note.event.kind == EventKind::EncryptedDirectMessage {
                             if let Ok(m) = GLOBALS.identity.decrypt_event_contents(&note.event) {
-                                app.render_qr(ui, ctx, "feedqr", m.trim());
+                                app.render_qr(ui, "feedqr", m.trim());
                             }
                         } else {
-                            app.render_qr(ui, ctx, "feedqr", event.content.trim());
+                            app.render_qr(ui, "feedqr", event.content.trim());
                         }
                     } else if event.content_warning().is_some()
                         && !app.approved.contains(&event.id)
@@ -1125,7 +1125,6 @@ fn render_content(
                             render_repost(
                                 app,
                                 ui,
-                                ctx,
                                 &note.repost,
                                 inner_ref,
                                 content_margin_left,
@@ -1140,7 +1139,6 @@ fn render_content(
                             render_repost(
                                 app,
                                 ui,
-                                ctx,
                                 &note.repost,
                                 inner_ref,
                                 content_margin_left,
@@ -1154,7 +1152,6 @@ fn render_content(
                                         render_repost(
                                             app,
                                             ui,
-                                            ctx,
                                             &note.repost,
                                             note_data,
                                             content_margin_left,
@@ -1195,7 +1192,6 @@ fn render_content(
                         content::render_content(
                             app,
                             ui,
-                            ctx,
                             note_ref.clone(),
                             as_deleted,
                             content_margin_left,
@@ -1210,7 +1206,6 @@ fn render_content(
 fn render_repost(
     app: &mut GossipUi,
     ui: &mut Ui,
-    ctx: &Context,
     parent_repost: &Option<RepostType>,
     repost_ref: Rc<RefCell<NoteData>>,
     content_margin_left: f32,
@@ -1269,7 +1264,6 @@ fn render_repost(
                         // FIXME: don't recurse forever
                         render_note_inner(
                             app,
-                            ctx,
                             ui,
                             repost_ref.clone(),
                             &render_data,
@@ -1281,7 +1275,7 @@ fn render_repost(
 
                         // Record if the rendered repost was visible
                         {
-                            let screen_rect = ctx.input(|i| i.screen_rect); // Rect
+                            let screen_rect = ui.ctx().input(|i| i.screen_rect); // Rect
                             let offscreen = bottom.y < 0.0 || top.y > screen_rect.max.y;
                             if !offscreen {
                                 // Record that this note was visibly rendered

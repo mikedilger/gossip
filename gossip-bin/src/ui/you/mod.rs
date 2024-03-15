@@ -31,7 +31,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     ui.separator();
                     ui.add_space(10.0);
 
-                    show_pub_key_detail(app, ctx, ui);
+                    show_pub_key_detail(app, ui);
 
                     ui.add_space(10.0);
                     ui.separator();
@@ -77,7 +77,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     ui.separator();
                     ui.add_space(10.0);
 
-                    show_pub_key_detail(app, ctx, ui);
+                    show_pub_key_detail(app, ui);
 
                     ui.add_space(10.0);
                     ui.separator();
@@ -85,7 +85,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
                     offer_delete(app, ui);
                 } else if GLOBALS.identity.public_key().is_some() {
-                    show_pub_key_detail(app, ctx, ui);
+                    show_pub_key_detail(app, ui);
 
                     ui.add_space(10.0);
                     ui.separator();
@@ -123,7 +123,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     }
 }
 
-fn show_pub_key_detail(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
+fn show_pub_key_detail(app: &mut GossipUi, ui: &mut Ui) {
     // Render public key if available
     if let Some(public_key) = GLOBALS.identity.public_key() {
         ui.heading("Public Key");
@@ -145,7 +145,7 @@ fn show_pub_key_detail(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
             }
         });
         ui.add_space(10.0);
-        app.render_qr(ui, ctx, "you_npub_qr", &bech32);
+        app.render_qr(ui, "you_npub_qr", &bech32);
 
         ui.add_space(10.0);
         ui.separator();
@@ -163,7 +163,7 @@ fn show_pub_key_detail(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                 }
             });
             ui.add_space(10.0);
-            app.render_qr(ui, ctx, "you_nprofile_qr", &nprofile);
+            app.render_qr(ui, "you_nprofile_qr", &nprofile);
         }
     }
 }

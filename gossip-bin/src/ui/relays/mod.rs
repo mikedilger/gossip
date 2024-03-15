@@ -105,6 +105,10 @@ pub(super) enum RelayFilter {
     Advertise,
     Private,
     Hidden,
+    AlwaysAllowConnect,
+    NeverAllowConnect,
+    AlwaysAllowAuthenticate,
+    NeverAllowAuthenticate,
 }
 
 impl RelayFilter {
@@ -117,6 +121,10 @@ impl RelayFilter {
             RelayFilter::Advertise => "Advertise",
             RelayFilter::Private => "Private",
             RelayFilter::Hidden => "Hidden",
+            RelayFilter::AlwaysAllowConnect => "Always allow connect",
+            RelayFilter::NeverAllowConnect => "Never allow connect",
+            RelayFilter::AlwaysAllowAuthenticate => "Always allow auth",
+            RelayFilter::NeverAllowAuthenticate => "Never allow auth",
         }
     }
 }
@@ -287,7 +295,7 @@ pub(super) fn entry_dialog(ctx: &Context, app: &mut GossipUi) {
             ui.painter().rect_filled(
                 ctx.screen_rect(),
                 egui::Rounding::same(0.0),
-                egui::Color32::from_rgba_unmultiplied(0x9f, 0x9f, 0x9f, 102),
+                egui::Color32::from_rgba_unmultiplied(0, 0, 0, 80),
             );
         });
 
@@ -581,6 +589,26 @@ pub(super) fn relay_filter_combo(app: &mut GossipUi, ui: &mut Ui) {
                 RelayFilter::Hidden,
                 RelayFilter::Hidden.get_name(),
             );
+            ui.selectable_value(
+                &mut app.relays.filter,
+                RelayFilter::AlwaysAllowConnect,
+                RelayFilter::AlwaysAllowConnect.get_name(),
+            );
+            ui.selectable_value(
+                &mut app.relays.filter,
+                RelayFilter::NeverAllowConnect,
+                RelayFilter::NeverAllowConnect.get_name(),
+            );
+            ui.selectable_value(
+                &mut app.relays.filter,
+                RelayFilter::AlwaysAllowAuthenticate,
+                RelayFilter::AlwaysAllowAuthenticate.get_name(),
+            );
+            ui.selectable_value(
+                &mut app.relays.filter,
+                RelayFilter::NeverAllowAuthenticate,
+                RelayFilter::NeverAllowAuthenticate.get_name(),
+            );
         });
 }
 
@@ -641,6 +669,10 @@ pub(super) fn filter_relay(rui: &RelayUi, ri: &Relay) -> bool {
                 && !ri.has_usage_bits(Relay::OUTBOX)
         }
         RelayFilter::Hidden => ri.hidden,
+        RelayFilter::AlwaysAllowConnect => ri.allow_connect == Some(true),
+        RelayFilter::NeverAllowConnect => ri.allow_connect == Some(false),
+        RelayFilter::AlwaysAllowAuthenticate => ri.allow_auth == Some(true),
+        RelayFilter::NeverAllowAuthenticate => ri.allow_auth == Some(false),
     };
 
     search && filter
