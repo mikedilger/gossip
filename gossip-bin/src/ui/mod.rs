@@ -2258,7 +2258,7 @@ fn approval_dialog(ctx: &Context, app: &mut GossipUi) {
             ui.painter().rect_filled(
                 ctx.screen_rect(),
                 egui::Rounding::same(0.0),
-                egui::Color32::from_rgba_unmultiplied(0x9f, 0x9f, 0x9f, 102),
+                egui::Color32::from_rgba_unmultiplied(0, 0, 0, 80),
             );
         });
 

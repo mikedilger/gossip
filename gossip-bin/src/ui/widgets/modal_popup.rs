@@ -48,11 +48,7 @@ pub fn modal_popup(
             ui.painter().rect_filled(
                 ui.ctx().screen_rect(),
                 egui::Rounding::same(0.0),
-                if ui.visuals().dark_mode {
-                    egui::Color32::from_rgba_unmultiplied(255, 255, 255, 1)
-                } else {
-                    egui::Color32::from_rgba_unmultiplied(0, 0, 0, 60)
-                },
+                egui::Color32::from_rgba_unmultiplied(0, 0, 0, 80),
             );
         });
 
