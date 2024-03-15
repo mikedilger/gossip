@@ -1,7 +1,7 @@
 use super::theme::FeedProperties;
 use super::{widgets, GossipUi, Page};
 use eframe::egui::{self, Align, Rect};
-use egui::{Context, Frame, RichText, Ui, Vec2};
+use egui::{Context, RichText, Ui, Vec2};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::FeedKind;
 use gossip_lib::GLOBALS;
@@ -31,7 +31,6 @@ struct FeedNoteParams {
 #[derive(Default)]
 pub(super) struct Feeds {
     thread_needs_scroll: bool,
-    scroll_to_note: Option<Rect>,
 }
 
 pub(super) fn enter_feed(app: &mut GossipUi, kind: FeedKind) {
@@ -255,14 +254,10 @@ fn render_a_feed(
         is_thread: threaded,
     };
 
-    if let Some(rect) = app.feeds.scroll_to_note.take() {
-        ui.scroll_to_rect(rect, Some(Align::Center));
-    }
-
     app.vert_scroll_area()
         .id_source(scroll_area_id)
         .show(ui, |ui| {
-            Frame::none()
+            egui::Frame::none()
                 .rounding(app.theme.feed_scroll_rounding(&feed_properties))
                 .fill(app.theme.feed_scroll_fill(&feed_properties))
                 .stroke(app.theme.feed_scroll_stroke(&feed_properties))
@@ -322,8 +317,8 @@ fn render_a_feed(
                             },
                         );
                     }
+                    ui.add_space(100.0);
                 });
-            ui.add_space(100.0);
         });
 }
 
@@ -344,6 +339,14 @@ fn render_note_maybe_fake(
 
     let screen_rect = ctx.input(|i| i.screen_rect); // Rect
     let pos2 = ui.next_widget_position();
+
+    let is_main_event: bool = {
+        let feed_kind = GLOBALS.feed.get_feed_kind();
+        match feed_kind {
+            FeedKind::Thread { id: thread_id, .. } => thread_id == id,
+            _ => false,
+        }
+    };
 
     // If too far off of the screen, don't actually render the post, just make some space
     // so the scrollbar isn't messed up
@@ -375,6 +378,18 @@ fn render_note_maybe_fake(
     if after_the_bottom || before_the_top {
         // Don't actually render, just make space for scrolling purposes
         ui.add_space(height);
+
+        // we also need to scroll to not-rendered notes
+        if is_main_event && app.feeds.thread_needs_scroll {
+            // keep auto-scrolling until user scrolls
+            if app.current_scroll_offset != 0.0 {
+                app.feeds.thread_needs_scroll = false;
+            }
+            ui.scroll_to_rect(
+                Rect::from_min_size(pos2, egui::vec2(ui.available_width(), height)),
+                Some(Align::Center),
+            );
+        }
 
         // Yes, and we need to fake render threads to get their approx height too.
         if threaded && !as_reply_to && !app.collapsed.contains(&id) {
