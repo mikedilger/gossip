@@ -57,7 +57,6 @@ pub struct NoteRenderData {
 pub(super) fn render_note(
     app: &mut GossipUi,
     ctx: &Context,
-    _frame: &mut eframe::Frame,
     ui: &mut Ui,
     feed_note_params: FeedNoteParams,
 ) {
@@ -193,7 +192,6 @@ pub(super) fn render_note(
                 super::render_note_maybe_fake(
                     app,
                     ctx,
-                    _frame,
                     ui,
                     FeedNoteParams {
                         id: *reply_id,

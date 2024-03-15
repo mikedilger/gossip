@@ -1455,7 +1455,7 @@ impl eframe::App for GossipUi {
                 self.begin_ui(ui);
                 match self.page {
                     Page::DmChatList => dm_chat_list::update(self, ctx, frame, ui),
-                    Page::Feed(_) => feed::update(self, ctx, frame, ui),
+                    Page::Feed(_) => feed::update(self, ctx, ui),
                     Page::PeopleLists | Page::PeopleList(_) | Page::Person(_) => {
                         people::update(self, ctx, frame, ui)
                     }

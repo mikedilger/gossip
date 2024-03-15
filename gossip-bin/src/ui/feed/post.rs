@@ -145,7 +145,7 @@ pub(in crate::ui) fn posting_area(
             };
             match &dm_channel {
                 Some(dmc) => dm_posting_area(app, ctx, frame, ui, dmc),
-                None => real_posting_area(app, ctx, frame, ui),
+                None => real_posting_area(app, ctx, ui),
             }
         }
     });
@@ -314,7 +314,7 @@ fn dm_posting_area(
     }
 }
 
-fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
+fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
     // Maybe render post we are replying to or reposting
 
     let compose_area_id: egui::Id = egui::Id::new("compose_area");
@@ -333,7 +333,6 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                         super::note::render_note(
                             app,
                             ctx,
-                            frame,
                             ui,
                             FeedNoteParams {
                                 id,

@@ -47,7 +47,7 @@ pub(super) fn enter_feed(app: &mut GossipUi, kind: FeedKind) {
     }
 }
 
-pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
+pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
     if GLOBALS.ui_invalidate_all.load(Ordering::Relaxed) {
         app.notes.cache_invalidate_all();
         GLOBALS.ui_invalidate_all.store(false, Ordering::Relaxed);
@@ -127,7 +127,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 },
             );
             ui.add_space(6.0);
-            render_a_feed(app, ctx, frame, ui, feed, false, &id, load_more);
+            render_a_feed(app, ctx, ui, feed, false, &id, load_more);
         }
         FeedKind::Inbox(indirect) => {
             if read_setting!(public_key).is_none() {
@@ -173,14 +173,13 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 },
             );
             ui.add_space(6.0);
-            render_a_feed(app, ctx, frame, ui, feed, false, id, load_more);
+            render_a_feed(app, ctx, ui, feed, false, id, load_more);
         }
         FeedKind::Thread { id, .. } => {
             if let Some(parent) = GLOBALS.feed.get_thread_parent() {
                 render_a_feed(
                     app,
                     ctx,
-                    frame,
                     ui,
                     vec![parent],
                     true,
@@ -206,7 +205,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             render_a_feed(
                 app,
                 ctx,
-                frame,
                 ui,
                 feed,
                 false,
@@ -235,7 +233,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
             let feed = GLOBALS.feed.get_dm_chat_feed();
             let id = channel.unique_id();
-            render_a_feed(app, ctx, frame, ui, feed, false, &id, load_more);
+            render_a_feed(app, ctx, ui, feed, false, &id, load_more);
         }
     }
 
@@ -247,7 +245,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 fn render_a_feed(
     app: &mut GossipUi,
     ctx: &Context,
-    frame: &mut eframe::Frame,
     ui: &mut Ui,
     feed: Vec<Id>,
     threaded: bool,
@@ -277,7 +274,6 @@ fn render_a_feed(
                         render_note_maybe_fake(
                             app,
                             ctx,
-                            frame,
                             ui,
                             FeedNoteParams {
                                 id: *id,
@@ -334,7 +330,6 @@ fn render_a_feed(
 fn render_note_maybe_fake(
     app: &mut GossipUi,
     ctx: &Context,
-    _frame: &mut eframe::Frame,
     ui: &mut Ui,
     feed_note_params: FeedNoteParams,
 ) {
@@ -361,7 +356,6 @@ fn render_note_maybe_fake(
             note::render_note(
                 app,
                 ctx,
-                _frame,
                 ui,
                 FeedNoteParams {
                     id,
@@ -401,7 +395,6 @@ fn render_note_maybe_fake(
                 render_note_maybe_fake(
                     app,
                     ctx,
-                    _frame,
                     ui,
                     FeedNoteParams {
                         id: *reply_id,
@@ -418,7 +411,6 @@ fn render_note_maybe_fake(
         note::render_note(
             app,
             ctx,
-            _frame,
             ui,
             FeedNoteParams {
                 id,
