@@ -610,7 +610,20 @@ impl GossipUi {
                 .load_texture("options_symbol", color_image, TextureOptions::LINEAR)
         };
 
-        let mut start_page = Page::Feed(FeedKind::List(PersonList::Followed, false));
+        let mainfeed_include_nonroot = cctx
+            .egui_ctx
+            .data_mut(|d| d.get_persisted(egui::Id::new("mainfeed_include_nonroot")))
+            .unwrap_or(false);
+
+        let inbox_include_indirect = cctx
+            .egui_ctx
+            .data_mut(|d| d.get_persisted(egui::Id::new("inbox_include_indirect")))
+            .unwrap_or(false);
+
+        let mut start_page = Page::Feed(FeedKind::List(
+            PersonList::Followed,
+            mainfeed_include_nonroot,
+        ));
 
         // Possibly enter the wizard instead
         let mut wizard_state: WizardState = Default::default();
@@ -658,14 +671,8 @@ impl GossipUi {
             setting_active_person: false,
             page: start_page,
             history: vec![],
-            mainfeed_include_nonroot: cctx
-                .egui_ctx
-                .data_mut(|d| d.get_persisted(egui::Id::new("mainfeed_include_nonroot")))
-                .unwrap_or(false),
-            inbox_include_indirect: cctx
-                .egui_ctx
-                .data_mut(|d| d.get_persisted(egui::Id::new("inbox_include_indirect")))
-                .unwrap_or(false),
+            mainfeed_include_nonroot,
+            inbox_include_indirect,
             submenu_ids,
             settings_tab: SettingsTab::Id,
             feeds: feed::Feeds::default(),
@@ -1223,6 +1230,9 @@ impl eframe::App for GossipUi {
 
             // Set initial menu state, Feed open since initial page is Following.
             self.open_menu(ctx, SubMenu::Feeds);
+
+            // Init first page
+            self.set_page_inner(ctx, self.page.clone());
         }
 
         let max_fps = read_setting!(max_fps) as f32;
