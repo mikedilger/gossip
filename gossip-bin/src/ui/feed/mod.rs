@@ -257,17 +257,18 @@ fn render_a_feed(
     let feed_properties = FeedProperties {
         is_thread: threaded,
     };
-    Frame::none()
-        .rounding(app.theme.feed_scroll_rounding(&feed_properties))
-        .fill(app.theme.feed_scroll_fill(&feed_properties))
-        .stroke(app.theme.feed_scroll_stroke(&feed_properties))
-        .show(ui, |ui| {
-            if let Some(rect) = app.feeds.scroll_to_note.take() {
-                ui.scroll_to_rect(rect, Some(Align::Center));
-            }
 
-            app.vert_scroll_area()
-                .id_source(scroll_area_id)
+    if let Some(rect) = app.feeds.scroll_to_note.take() {
+        ui.scroll_to_rect(rect, Some(Align::Center));
+    }
+
+    app.vert_scroll_area()
+        .id_source(scroll_area_id)
+        .show(ui, |ui| {
+            Frame::none()
+                .rounding(app.theme.feed_scroll_rounding(&feed_properties))
+                .fill(app.theme.feed_scroll_fill(&feed_properties))
+                .stroke(app.theme.feed_scroll_stroke(&feed_properties))
                 .show(ui, |ui| {
                     let iter = feed.iter();
                     let first = feed.first();
