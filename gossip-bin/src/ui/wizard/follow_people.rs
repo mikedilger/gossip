@@ -48,7 +48,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     ));
     ui.add_space(10.0);
 
-    egui::ScrollArea::new([false, true])
+    app.vert_scroll_area()
         .max_width(f32::INFINITY)
         .max_height(ctx.screen_rect().height() - 400.0)
         .show(ui, |ui| {

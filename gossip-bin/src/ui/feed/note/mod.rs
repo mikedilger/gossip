@@ -152,6 +152,12 @@ pub(super) fn render_note(
             let bottom = ui.next_widget_position();
             app.height.insert(id, bottom.y - top.y);
 
+            // scroll to this note if it's the main note of a thread and the user hasn't scrolled yet
+            if app.feeds.thread_needs_scroll && is_main_event {
+                app.feeds.thread_needs_scroll = false;
+                app.feeds.scroll_to_note = Some(inner_response.response.rect);
+            }
+
             // Mark post as viewed if hovered AND we are not scrolling
             if !viewed && inner_response.response.hovered() && app.current_scroll_offset == 0.0 {
                 let _ = GLOBALS.storage.mark_event_viewed(id, None);

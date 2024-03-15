@@ -428,6 +428,9 @@ struct GossipUi {
     submenu_ids: HashMap<SubMenu, egui::Id>,
     settings_tab: SettingsTab,
 
+    // Feeds
+    feeds: feed::Feeds,
+
     // General Data
     about: About,
     icon: TextureHandle,
@@ -665,6 +668,7 @@ impl GossipUi {
                 .unwrap_or(false),
             submenu_ids,
             settings_tab: SettingsTab::Id,
+            feeds: feed::Feeds::default(),
             about: About::new(),
             icon: icon_texture_handle,
             placeholder_avatar: placeholder_avatar_texture_handle,
@@ -818,14 +822,17 @@ impl GossipUi {
         match &page {
             Page::Feed(FeedKind::DmChat(channel)) => {
                 GLOBALS.feed.set_feed_to_dmchat(channel.to_owned());
+                feed::enter_feed(self, FeedKind::DmChat(channel.clone()));
                 self.close_all_menus_except_feeds(ctx);
             }
             Page::Feed(FeedKind::List(list, with_replies)) => {
                 GLOBALS.feed.set_feed_to_main(*list, *with_replies);
+                feed::enter_feed(self, FeedKind::List(*list, *with_replies));
                 self.open_menu(ctx, SubMenu::Feeds);
             }
             Page::Feed(FeedKind::Inbox(indirect)) => {
                 GLOBALS.feed.set_feed_to_inbox(*indirect);
+                feed::enter_feed(self, FeedKind::Inbox(*indirect));
                 self.close_all_menus_except_feeds(ctx);
             }
             Page::Feed(FeedKind::Thread {
@@ -836,10 +843,19 @@ impl GossipUi {
                 GLOBALS
                     .feed
                     .set_feed_to_thread(*id, *referenced_by, *author);
+                feed::enter_feed(
+                    self,
+                    FeedKind::Thread {
+                        id: *id,
+                        referenced_by: *referenced_by,
+                        author: *author,
+                    },
+                );
                 self.close_all_menus_except_feeds(ctx);
             }
             Page::Feed(FeedKind::Person(pubkey)) => {
                 GLOBALS.feed.set_feed_to_person(pubkey.to_owned());
+                feed::enter_feed(self, FeedKind::Person(*pubkey));
                 self.close_all_menus_except_feeds(ctx);
             }
             Page::PeopleLists => {
@@ -2277,10 +2293,8 @@ fn approval_dialog(ctx: &Context, app: &mut GossipUi) {
         frame.show(ui, |ui| {
             ui.set_min_size(egui::vec2(ctx.screen_rect().width() * 0.75, 0.0));
             ui.set_max_size(ctx.screen_rect().size() * 0.75);
-            ScrollArea::vertical().show(ui, |ui| {
-                ui.vertical(|ui| {
-                    approval_dialog_inner(app, ui);
-                });
+            app.vert_scroll_area().show(ui, |ui| {
+                approval_dialog_inner(app, ui);
             });
         });
     });

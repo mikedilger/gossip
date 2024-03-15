@@ -68,32 +68,34 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     ui.add_space(10.0);
     ui.separator();
 
-    app.vert_scroll_area().id_source("settings").show(ui, |ui| {
-        ui.horizontal_wrapped(|ui| {
-            ui.selectable_value(&mut app.settings_tab, SettingsTab::Id, "Identity");
-            ui.label("|");
-            ui.selectable_value(&mut app.settings_tab, SettingsTab::Ui, "Ui");
-            ui.label("|");
-            ui.selectable_value(&mut app.settings_tab, SettingsTab::Content, "Content");
-            ui.label("|");
-            ui.selectable_value(&mut app.settings_tab, SettingsTab::Network, "Network");
-            ui.label("|");
-            ui.selectable_value(&mut app.settings_tab, SettingsTab::Posting, "Posting");
-            ui.label("|");
-            ui.selectable_value(&mut app.settings_tab, SettingsTab::Database, "Storage");
-        });
+    egui::ScrollArea::new([true, true])
+        .id_source("settings")
+        .show(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.selectable_value(&mut app.settings_tab, SettingsTab::Id, "Identity");
+                ui.label("|");
+                ui.selectable_value(&mut app.settings_tab, SettingsTab::Ui, "Ui");
+                ui.label("|");
+                ui.selectable_value(&mut app.settings_tab, SettingsTab::Content, "Content");
+                ui.label("|");
+                ui.selectable_value(&mut app.settings_tab, SettingsTab::Network, "Network");
+                ui.label("|");
+                ui.selectable_value(&mut app.settings_tab, SettingsTab::Posting, "Posting");
+                ui.label("|");
+                ui.selectable_value(&mut app.settings_tab, SettingsTab::Database, "Storage");
+            });
 
-        ui.add_space(10.0);
-        ui.separator();
-        ui.add_space(10.0);
+            ui.add_space(10.0);
+            ui.separator();
+            ui.add_space(10.0);
 
-        egui::ScrollArea::new([true, true]).show(ui, |ui| match app.settings_tab {
-            SettingsTab::Content => content::update(app, ctx, frame, ui),
-            SettingsTab::Database => database::update(app, ctx, frame, ui),
-            SettingsTab::Id => id::update(app, ctx, frame, ui),
-            SettingsTab::Network => network::update(app, ctx, frame, ui),
-            SettingsTab::Posting => posting::update(app, ctx, frame, ui),
-            SettingsTab::Ui => ui::update(app, ctx, frame, ui),
+            match app.settings_tab {
+                SettingsTab::Content => content::update(app, ctx, frame, ui),
+                SettingsTab::Database => database::update(app, ctx, frame, ui),
+                SettingsTab::Id => id::update(app, ctx, frame, ui),
+                SettingsTab::Network => network::update(app, ctx, frame, ui),
+                SettingsTab::Posting => posting::update(app, ctx, frame, ui),
+                SettingsTab::Ui => ui::update(app, ctx, frame, ui),
+            }
         });
-    });
 }

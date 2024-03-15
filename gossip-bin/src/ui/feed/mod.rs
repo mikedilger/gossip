@@ -1,6 +1,6 @@
 use super::theme::FeedProperties;
 use super::{widgets, GossipUi, Page};
-use eframe::egui;
+use eframe::egui::{self, Align, Rect};
 use egui::{Context, Frame, RichText, Ui, Vec2};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::FeedKind;
@@ -26,6 +26,25 @@ struct FeedNoteParams {
     threaded: bool,
     is_first: bool,
     is_last: bool,
+}
+
+#[derive(Default)]
+pub(super) struct Feeds {
+    thread_needs_scroll: bool,
+    scroll_to_note: Option<Rect>,
+}
+
+pub(super) fn enter_feed(app: &mut GossipUi, kind: FeedKind) {
+    match kind {
+        FeedKind::Thread {
+            id: _,
+            referenced_by: _,
+            author: _,
+        } => {
+            app.feeds.thread_needs_scroll = true;
+        }
+        _ => {}
+    }
 }
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
@@ -238,14 +257,17 @@ fn render_a_feed(
     let feed_properties = FeedProperties {
         is_thread: threaded,
     };
-
-    app.vert_scroll_area()
-        .id_source(scroll_area_id)
+    Frame::none()
+        .rounding(app.theme.feed_scroll_rounding(&feed_properties))
+        .fill(app.theme.feed_scroll_fill(&feed_properties))
+        .stroke(app.theme.feed_scroll_stroke(&feed_properties))
         .show(ui, |ui| {
-            Frame::none()
-                .rounding(app.theme.feed_scroll_rounding(&feed_properties))
-                .fill(app.theme.feed_scroll_fill(&feed_properties))
-                .stroke(app.theme.feed_scroll_stroke(&feed_properties))
+            if let Some(rect) = app.feeds.scroll_to_note.take() {
+                ui.scroll_to_rect(rect, Some(Align::Center));
+            }
+
+            app.vert_scroll_area()
+                .id_source(scroll_area_id)
                 .show(ui, |ui| {
                     let iter = feed.iter();
                     let first = feed.first();

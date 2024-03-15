@@ -85,7 +85,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         // If we have write relays, show those
         if let Ok(pairs) = GLOBALS.storage.get_best_relays(pubkey, Direction::Write) {
             if !pairs.is_empty() {
-                egui::ScrollArea::vertical()
+                app.vert_scroll_area()
                 .max_width(f32::INFINITY)
                 .max_height(ctx.screen_rect().height() - 340.0)
                 .show(ui, |ui| {

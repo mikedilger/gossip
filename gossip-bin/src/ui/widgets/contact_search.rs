@@ -53,7 +53,7 @@ pub(in crate::ui) fn show_contact_search(
     if is_open {
         area.show(ui.ctx(), |ui| {
             frame.show(ui, |ui| {
-                egui::ScrollArea::vertical()
+                app.vert_scroll_area()
                     .max_width(super::TAGG_WIDTH)
                     .max_height(250.0)
                     .show(ui, |ui| {
