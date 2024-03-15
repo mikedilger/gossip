@@ -1151,9 +1151,9 @@ impl Storage {
             if relay.has_usage_bits(Relay::READ | Relay::WRITE) {
                 relay_list.0.insert(relay.url, RelayUsage::Both);
             } else if relay.has_usage_bits(Relay::WRITE) {
-                relay_list.0.insert(relay.url, RelayUsage::Write);
+                relay_list.0.insert(relay.url, RelayUsage::Outbox);
             } else if relay.has_usage_bits(Relay::READ) {
-                relay_list.0.insert(relay.url, RelayUsage::Read);
+                relay_list.0.insert(relay.url, RelayUsage::Inbox);
             }
         }
 
@@ -1205,16 +1205,16 @@ impl Storage {
                 if let Some(mut dbrelay) = self.read_relay(relay_url)? {
                     // Set bits
                     let update_bits = match usage {
-                        RelayUsage::Read => Relay::INBOX,
-                        RelayUsage::Write => Relay::OUTBOX,
+                        RelayUsage::Inbox => Relay::INBOX,
+                        RelayUsage::Outbox => Relay::OUTBOX,
                         RelayUsage::Both => Relay::INBOX | Relay::OUTBOX,
                     };
                     dbrelay.set_usage_bits(update_bits);
 
                     // Clear bits
                     match usage {
-                        RelayUsage::Read => dbrelay.clear_usage_bits(Relay::OUTBOX),
-                        RelayUsage::Write => dbrelay.clear_usage_bits(Relay::INBOX),
+                        RelayUsage::Inbox => dbrelay.clear_usage_bits(Relay::OUTBOX),
+                        RelayUsage::Outbox => dbrelay.clear_usage_bits(Relay::INBOX),
                         _ => {}
                     };
 
@@ -1224,8 +1224,8 @@ impl Storage {
                     // Create and set bits
                     let mut dbrelay = Relay::new(relay_url.to_owned());
                     let create_bits = match usage {
-                        RelayUsage::Read => Relay::INBOX | Relay::READ,
-                        RelayUsage::Write => Relay::OUTBOX | Relay::WRITE,
+                        RelayUsage::Inbox => Relay::INBOX | Relay::READ,
+                        RelayUsage::Outbox => Relay::OUTBOX | Relay::WRITE,
                         RelayUsage::Both => {
                             Relay::INBOX | Relay::READ | Relay::OUTBOX | Relay::WRITE
                         }
@@ -1275,8 +1275,8 @@ impl Storage {
             let orig_write = pr.write;
             match relay_list.0.get(&pr.url) {
                 Some(usage) => {
-                    pr.read = *usage == RelayUsage::Read || *usage == RelayUsage::Both;
-                    pr.write = *usage == RelayUsage::Write || *usage == RelayUsage::Both;
+                    pr.read = *usage == RelayUsage::Inbox || *usage == RelayUsage::Both;
+                    pr.write = *usage == RelayUsage::Outbox || *usage == RelayUsage::Both;
                 }
                 None => {
                     pr.read = false;

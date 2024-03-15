@@ -418,9 +418,9 @@ async fn process_somebody_elses_contact_list(event: &Event) -> Result<(), Error>
                 if simple_relay_usage.read && simple_relay_usage.write {
                     relay_list.0.insert(relay_url, RelayUsage::Both);
                 } else if simple_relay_usage.read {
-                    relay_list.0.insert(relay_url, RelayUsage::Read);
+                    relay_list.0.insert(relay_url, RelayUsage::Inbox);
                 } else if simple_relay_usage.write {
-                    relay_list.0.insert(relay_url, RelayUsage::Write);
+                    relay_list.0.insert(relay_url, RelayUsage::Outbox);
                 }
             }
         }
