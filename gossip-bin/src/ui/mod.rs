@@ -2298,12 +2298,17 @@ fn approval_dialog(ctx: &Context, app: &mut GossipUi) {
 
     area.show(ctx, |ui| {
         frame.fill = ui.visuals().extreme_bg_color;
-        frame.inner_margin = egui::Margin::symmetric(40.0, 40.0);
+        frame.inner_margin = egui::Margin {
+            left: 40.0,
+            right: 20.0,
+            top: 40.0,
+            bottom: 40.0,
+        };
         frame.rounding = egui::Rounding::same(10.0);
         frame.show(ui, |ui| {
             ui.set_min_size(egui::vec2(ctx.screen_rect().width() * 0.75, 0.0));
             ui.set_max_size(ctx.screen_rect().size() * 0.75);
-            app.vert_scroll_area().show(ui, |ui| {
+            egui::ScrollArea::vertical().show(ui, |ui| {
                 approval_dialog_inner(app, ui);
             });
         });
@@ -2351,9 +2356,15 @@ fn approval_dialog_inner(app: &mut GossipUi, ui: &mut Ui) {
     };
 
     const ALIGN: egui::Align = egui::Align::Center;
-    const HEIGHT: f32 = 40.0;
+    const HEIGHT: f32 = 30.0;
     const TRUNC: f32 = 360.0;
     const SWITCH_SIZE: Vec2 = Vec2 { x: 46.0, y: 23.0 };
+    const MARGIN: egui::Margin = egui::Margin {
+        left: 0.0,
+        right: 20.0,
+        top: 2.0,
+        bottom: 2.0,
+    };
 
     // ---- start UI ----
 
@@ -2363,11 +2374,11 @@ fn approval_dialog_inner(app: &mut GossipUi, ui: &mut Ui) {
 
             // Draw "remember" explanation text
             ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
-                let (response, painter) = ui.allocate_painter(vec2(240.0, 30.0), Sense::hover());
+                let (response, painter) = ui.allocate_painter(vec2(250.0, 30.0), Sense::hover());
                 let rect = response.rect;
                 let color = Color32::from_gray(110); // FIXME use new palette and UI elements
                 let top_left = painter.round_pos_to_pixels(rect.left_bottom() - vec2(0.0, 20.0));
-                let top_right = painter.round_pos_to_pixels(top_left + vec2(30.0, 0.0));
+                let top_right = painter.round_pos_to_pixels(top_left + vec2(25.0, 0.0));
                 painter.line_segment(
                     [rect.left_bottom(), top_left],
                     egui::Stroke::new(2.0, color),
@@ -2385,16 +2396,19 @@ fn approval_dialog_inner(app: &mut GossipUi, ui: &mut Ui) {
 
         // Auth approvals
         for (url, permanent) in GLOBALS.auth_requests.write().iter_mut() {
-            widgets::list_entry::make_frame(ui, Some(app.theme.main_content_bgcolor()))
-                .fill(Color32::TRANSPARENT)
-                .inner_margin(egui::Margin::symmetric(10.0, 10.0))
+            widgets::list_entry::make_frame(ui, Some(Color32::TRANSPARENT))
+                .inner_margin(MARGIN)
                 .show(ui, |ui| {
                     ui.set_min_width(ui.available_width());
                     ui.set_height(HEIGHT);
                     ui.with_layout(egui::Layout::left_to_right(ALIGN), |ui| {
                         let text = format!("Authenticate to {}", url);
-                        widgets::truncated_label(ui, url.to_string(), ui.available_width() - TRUNC)
-                            .on_hover_text(text);
+                        widgets::truncated_label(
+                            ui,
+                            url.to_string().trim_end_matches("/"),
+                            ui.available_width() - TRUNC,
+                        )
+                        .on_hover_text(text);
                         ui.with_layout(egui::Layout::right_to_left(ALIGN), |ui| {
                             ui.scope(|ui| {
                                 decline_style(app, ui.style_mut());
@@ -2434,16 +2448,19 @@ fn approval_dialog_inner(app: &mut GossipUi, ui: &mut Ui) {
         for (url, jobs, permanent) in GLOBALS.connect_requests.write().iter_mut() {
             let jobstrs: Vec<String> = jobs.iter().map(|j| format!("{:?}", j.reason)).collect();
 
-            widgets::list_entry::make_frame(ui, Some(app.theme.main_content_bgcolor()))
-                .fill(Color32::TRANSPARENT)
-                .inner_margin(egui::Margin::symmetric(10.0, 10.0))
+            widgets::list_entry::make_frame(ui, Some(Color32::TRANSPARENT))
+                .inner_margin(MARGIN)
                 .show(ui, |ui| {
                     ui.set_min_width(ui.available_width());
                     ui.set_height(HEIGHT);
                     ui.with_layout(egui::Layout::left_to_right(ALIGN), |ui| {
                         let text = format!("Connect to {} for {}", url, jobstrs.join(", "));
-                        widgets::truncated_label(ui, url.to_string(), ui.available_width() - TRUNC)
-                            .on_hover_text(text);
+                        widgets::truncated_label(
+                            ui,
+                            url.to_string().trim_end_matches("/"),
+                            ui.available_width() - TRUNC,
+                        )
+                        .on_hover_text(text);
                         ui.with_layout(egui::Layout::right_to_left(ALIGN), |ui| {
                             ui.scope(|ui| {
                                 decline_style(app, ui.style_mut());
@@ -2484,7 +2501,7 @@ fn approval_dialog_inner(app: &mut GossipUi, ui: &mut Ui) {
     // NIP-46 approvals
     for (name, pubkey, parsed_command) in GLOBALS.nip46_approval_requests.read().iter() {
         widgets::list_entry::make_frame(ui, Some(app.theme.main_content_bgcolor()))
-            .inner_margin(egui::Margin::symmetric(10.0, 10.0))
+            .inner_margin(MARGIN)
             .show(ui, |ui| {
                 ui.set_min_width(ui.available_width());
                 ui.set_height(HEIGHT);
