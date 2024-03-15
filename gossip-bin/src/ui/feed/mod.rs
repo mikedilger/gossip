@@ -40,7 +40,9 @@ pub(super) fn enter_feed(app: &mut GossipUi, kind: FeedKind) {
             referenced_by: _,
             author: _,
         } => {
-            app.feeds.thread_needs_scroll = true;
+            if app.unsaved_settings.feed_thread_scroll_to_main_event {
+                app.feeds.thread_needs_scroll = true;
+            }
         }
         _ => {}
     }

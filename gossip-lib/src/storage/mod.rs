@@ -772,6 +772,12 @@ impl Storage {
         8000
     );
     def_setting!(
+        feed_thread_scroll_to_main_event,
+        b"feed_thread_scroll_to_main_event",
+        bool,
+        true
+    );
+    def_setting!(
         theme_variant,
         b"theme_variant",
         String,
