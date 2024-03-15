@@ -438,6 +438,48 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                     app.set_page(ctx, Page::YourMetadata);
                                 }
                             }
+
+                            ui.add_space(BTN_SPACING);
+
+                            let inlist = GLOBALS
+                                .storage
+                                .is_person_in_list(&pubkey, gossip_lib::PersonList::Followed)
+                                .unwrap_or_default();
+                            if inlist {
+                                ui.scope(|ui| {
+                                    app.theme.accent_button_danger_hover(ui.style_mut());
+                                    if ui
+                                        .add(
+                                            egui::Button::new("Unfollow")
+                                                .min_size(MIN_SIZE)
+                                                .rounding(BTN_ROUNDING),
+                                        )
+                                        .clicked()
+                                    {
+                                        let _ = GLOBALS.storage.remove_person_from_list(
+                                            &pubkey,
+                                            gossip_lib::PersonList::Followed,
+                                            None,
+                                        );
+                                    }
+                                });
+                            } else {
+                                if ui
+                                    .add(
+                                        egui::Button::new("Follow")
+                                            .min_size(MIN_SIZE)
+                                            .rounding(BTN_ROUNDING),
+                                    )
+                                    .clicked()
+                                {
+                                    let _ = GLOBALS.storage.add_person_to_list(
+                                        &pubkey,
+                                        gossip_lib::PersonList::Followed,
+                                        true,
+                                        None,
+                                    );
+                                }
+                            }
                         });
                     });
                 });
