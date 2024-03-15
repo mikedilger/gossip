@@ -47,7 +47,7 @@ fallible-iterator = "0.2"
 filetime = "0.2"
 futures = "0.3"
 futures-util = "0.3"
-gossip-relay-picker = { git = "https://github.com/mikedilger/gossip-relay-picker", rev = "31d25228e2b996ad6a419bbd0444e3c9807ec354" }
+gossip-relay-picker = { git = "https://github.com/mikedilger/gossip-relay-picker", rev = "19d87ab9abf40ba9a7fa36e6d060ee38808c30e7" }
 heed = { git = "https://github.com/meilisearch/heed", rev = "64fd6fec293c0dee94855b8267557ce03e7ce5d8" }
 hex = "0.4"
 http = "1.0"

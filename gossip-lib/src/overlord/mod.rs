@@ -16,14 +16,14 @@ use crate::tags::{
     add_addr_to_tags, add_event_to_tags, add_pubkey_to_tags, add_subject_to_tags_if_missing,
 };
 use crate::RunState;
-use gossip_relay_picker::{Direction, RelayAssignment};
+use gossip_relay_picker::RelayAssignment;
 use heed::RwTxn;
 use http::StatusCode;
 use minion::{Minion, MinionExitReason};
 use nostr_types::{
     ContentEncryptionAlgorithm, EncryptedPrivateKey, Event, EventAddr, EventKind, EventReference,
     Id, IdHex, Metadata, MilliSatoshi, NostrBech32, PayRequestData, PreEvent, PrivateKey, Profile,
-    PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime,
+    PublicKey, RelayUrl, RelayUsage, Tag, UncheckedUrl, Unixtime,
 };
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
@@ -1618,7 +1618,7 @@ impl Overlord {
         // Get write relays for the person
         let relays: Vec<RelayUrl> = GLOBALS
             .storage
-            .get_best_relays(pubkey, Direction::Write)?
+            .get_best_relays(pubkey, RelayUsage::Outbox)?
             .drain(..)
             .take(num_relays_per_person as usize + 1)
             .map(|(relay, _rank)| relay)
@@ -2004,7 +2004,7 @@ impl Overlord {
             for pubkey in tagged_pubkeys.drain(..) {
                 let best_relays: Vec<RelayUrl> = GLOBALS
                     .storage
-                    .get_best_relays(pubkey, Direction::Read)?
+                    .get_best_relays(pubkey, RelayUsage::Inbox)?
                     .drain(..)
                     .take(num_relays_per_person as usize + 1)
                     .map(|(u, _)| u)
@@ -2246,7 +2246,7 @@ impl Overlord {
         for pubkey in &pubkeys {
             for relayscore in GLOBALS
                 .storage
-                .get_best_relays(*pubkey, Direction::Write)?
+                .get_best_relays(*pubkey, RelayUsage::Outbox)?
                 .drain(..)
                 .take(num_relays_per_person as usize + 1)
             {
@@ -2563,7 +2563,7 @@ impl Overlord {
 
         let relays: Vec<RelayUrl> = GLOBALS
             .storage
-            .get_best_relays(pubkey, Direction::Write)?
+            .get_best_relays(pubkey, RelayUsage::Outbox)?
             .drain(..)
             .take(num_relays_per_person as usize + 1)
             .map(|(relay, _rank)| relay)
@@ -2637,7 +2637,7 @@ impl Overlord {
         if let Some(pk) = author {
             let author_relays: Vec<RelayUrl> = GLOBALS
                 .storage
-                .get_best_relays(pk, Direction::Write)?
+                .get_best_relays(pk, RelayUsage::Outbox)?
                 .drain(..)
                 .take(num_relays_per_person as usize + 1)
                 .map(|pair| pair.0)
@@ -2671,7 +2671,7 @@ impl Overlord {
                 } else {
                     let tagged_person_relays: Vec<RelayUrl> = GLOBALS
                         .storage
-                        .get_best_relays(pk, Direction::Write)?
+                        .get_best_relays(pk, RelayUsage::Outbox)?
                         .drain(..)
                         .take(num_relays_per_person as usize + 1)
                         .map(|pair| pair.0)
@@ -2921,7 +2921,9 @@ impl Overlord {
         // for it's retry logic
         GLOBALS.people.metadata_fetch_initiated(&[pubkey]);
 
-        let best_relays = GLOBALS.storage.get_best_relays(pubkey, Direction::Write)?;
+        let best_relays = GLOBALS
+            .storage
+            .get_best_relays(pubkey, RelayUsage::Outbox)?;
         let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
 
         // we do 1 more than num_relays_per_person, which is really for main posts,
@@ -2960,7 +2962,9 @@ impl Overlord {
         let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
         let mut map: HashMap<RelayUrl, Vec<PublicKey>> = HashMap::new();
         for pubkey in pubkeys.drain(..) {
-            let best_relays = GLOBALS.storage.get_best_relays(pubkey, Direction::Write)?;
+            let best_relays = GLOBALS
+                .storage
+                .get_best_relays(pubkey, RelayUsage::Outbox)?;
             for (relay_url, _score) in best_relays.iter().take(num_relays_per_person as usize + 1) {
                 map.entry(relay_url.to_owned())
                     .and_modify(|entry| entry.push(pubkey))
@@ -3477,7 +3481,7 @@ impl Overlord {
             // Add the read relays of the target person
             let mut target_read_relays = GLOBALS
                 .storage
-                .get_best_relays(target_pubkey, Direction::Read)?;
+                .get_best_relays(target_pubkey, RelayUsage::Inbox)?;
             let target_read_relays: Vec<RelayUrl> =
                 target_read_relays.drain(..).map(|pair| pair.0).collect();
             relays.extend(target_read_relays);

@@ -5,8 +5,7 @@ use egui::{Color32, Context, RichText, Ui};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::Relay;
 use gossip_lib::GLOBALS;
-use gossip_relay_picker::Direction;
-use nostr_types::RelayUrl;
+use nostr_types::{RelayUrl, RelayUsage};
 
 use super::continue_control;
 
@@ -83,7 +82,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         let mut found = false;
 
         // If we have write relays, show those
-        if let Ok(pairs) = GLOBALS.storage.get_best_relays(pubkey, Direction::Write) {
+        if let Ok(pairs) = GLOBALS.storage.get_best_relays(pubkey, RelayUsage::Outbox) {
             if !pairs.is_empty() {
                 app.vert_scroll_area()
                 .max_width(f32::INFINITY)

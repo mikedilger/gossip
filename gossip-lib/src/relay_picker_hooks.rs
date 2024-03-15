@@ -1,8 +1,8 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use async_trait::async_trait;
-use gossip_relay_picker::{Direction, RelayPickerHooks};
-use nostr_types::{PublicKey, RelayUrl};
+use gossip_relay_picker::RelayPickerHooks;
+use nostr_types::{PublicKey, RelayUrl, RelayUsage};
 
 /// Hooks for the relay picker
 #[derive(Default)]
@@ -20,13 +20,13 @@ impl RelayPickerHooks for Hooks {
         }
     }
 
-    /// Returns all relays that this public key uses in the given Direction
+    /// Returns all relays that this public key uses in the given RelayUsage
     async fn get_relays_for_pubkey(
         &self,
         pubkey: PublicKey,
-        direction: Direction,
+        usage: RelayUsage,
     ) -> Result<Vec<(RelayUrl, u64)>, Error> {
-        GLOBALS.storage.get_best_relays(pubkey, direction)
+        GLOBALS.storage.get_best_relays(pubkey, usage)
     }
 
     /// Is the relay currently connected?

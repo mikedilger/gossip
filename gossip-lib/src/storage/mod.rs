@@ -53,7 +53,6 @@ use crate::person_relay::PersonRelay;
 use crate::profile::Profile;
 use crate::relationship::{RelationshipByAddr, RelationshipById};
 use crate::relay::Relay;
-use gossip_relay_picker::Direction;
 use heed::types::UnalignedSlice;
 use heed::{Database, Env, EnvFlags, EnvOpenOptions, RwTxn};
 use nostr_types::{
@@ -2087,19 +2086,25 @@ impl Storage {
 
     /// Get the best relays for a person, given a direction.
     ///
-    /// This returns the relays for a person, along with a score, in order of score
+    /// This returns the relays for a person, along with a score, in order of score.
+    /// usage must not be RelayUsage::Both
     pub fn get_best_relays(
         &self,
         pubkey: PublicKey,
-        dir: Direction,
+        usage: RelayUsage,
     ) -> Result<Vec<(RelayUrl, u64)>, Error> {
         let person_relays = self.get_person_relays(pubkey)?;
 
         // Note: the following read_rank and write_rank do not consider our own
         // rank or the success rate.
-        let mut ranked_relays = match dir {
-            Direction::Write => PersonRelay::write_rank(person_relays),
-            Direction::Read => PersonRelay::read_rank(person_relays),
+        let mut ranked_relays = match usage {
+            RelayUsage::Outbox => PersonRelay::write_rank(person_relays),
+            RelayUsage::Inbox => PersonRelay::read_rank(person_relays),
+            RelayUsage::Both => {
+                return Err(
+                    ErrorKind::General("RelayUsage::Both is not allowed here".to_string()).into(),
+                )
+            }
         };
 
         // Modulate these scores with our local rankings
@@ -2119,8 +2124,8 @@ impl Storage {
         if ranked_relays.len() < (num_relays_per_person + 1) {
             let how_many_more = (num_relays_per_person + 1) - ranked_relays.len();
             let score = 2;
-            match dir {
-                Direction::Write => {
+            match usage {
+                RelayUsage::Outbox => {
                     // substitute our read relays
                     let additional: Vec<(RelayUrl, u64)> = self
                         .filter_relays(|r| {
@@ -2135,7 +2140,7 @@ impl Storage {
 
                     ranked_relays.extend(additional);
                 }
-                Direction::Read => {
+                RelayUsage::Inbox => {
                     // substitute our write relays???
                     let additional: Vec<(RelayUrl, u64)> = self
                         .filter_relays(|r| {
@@ -2149,6 +2154,12 @@ impl Storage {
                         .collect();
 
                     ranked_relays.extend(additional);
+                }
+                RelayUsage::Both => {
+                    return Err(ErrorKind::General(
+                        "RelayUsage::Both is not allowed here".to_string(),
+                    )
+                    .into());
                 }
             }
         }

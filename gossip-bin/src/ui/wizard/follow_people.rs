@@ -7,8 +7,7 @@ use eframe::egui;
 use egui::{Context, RichText, Ui};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{PersonList, GLOBALS};
-use gossip_relay_picker::Direction;
-use nostr_types::{Profile, PublicKey};
+use nostr_types::{Profile, PublicKey, RelayUsage};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     if app.wizard_state.pubkey.is_none() && !app.wizard_state.follow_only {
@@ -90,7 +89,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                                         // We don't have metadata
                                         if let Ok(outboxes) = GLOBALS
                                             .storage
-                                            .get_best_relays(pubkey, Direction::Write)
+                                            .get_best_relays(pubkey, RelayUsage::Outbox)
                                         {
                                             if !outboxes.is_empty() {
                                                 // But we have their outboxes

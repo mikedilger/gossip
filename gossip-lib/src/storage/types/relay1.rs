@@ -1,7 +1,6 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use gossip_relay_picker::Direction;
-use nostr_types::{Id, RelayInformationDocument, RelayUrl, Unixtime};
+use nostr_types::{Id, RelayInformationDocument, RelayUrl, RelayUsage, Unixtime};
 use serde::{Deserialize, Serialize};
 
 // THIS IS HISTORICAL FOR MIGRATIONS AND THE STRUCTURES SHOULD NOT BE EDITED
@@ -152,7 +151,7 @@ impl Relay1 {
         let maybepubkey = GLOBALS.storage.read_setting_public_key();
         if let Some(pubkey) = maybepubkey {
             let my_inbox_relays: Vec<(RelayUrl, u64)> =
-                GLOBALS.storage.get_best_relays(pubkey, Direction::Read)?;
+                GLOBALS.storage.get_best_relays(pubkey, RelayUsage::Inbox)?;
 
             // Find the first-best intersection
             for mir in &my_inbox_relays {
