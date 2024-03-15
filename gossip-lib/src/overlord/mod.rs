@@ -349,7 +349,17 @@ impl Overlord {
                     payload: job.payload.clone(),
                 });
 
-                // And record
+                // Record the job:
+                // If the relay already has a job of the same RelayConnectionReason
+                // and that reason is not persistent, then this job replaces that
+                // one (e.g. FetchAugments)
+                if !job.reason.persistent() {
+                    let vec = refmut.value_mut();
+                    if let Some(pos) = vec.iter().position(|e| e.reason == job.reason) {
+                        vec[pos] = job;
+                        return Ok(());
+                    }
+                }
                 refmut.value_mut().push(job);
             }
         } else {
@@ -3337,11 +3347,6 @@ impl Overlord {
         // Create jobs for minions
         for (relay_url, ids) in augment_subs.drain() {
             let ids_hex: Vec<IdHex> = ids.iter().map(|i| (*i).into()).collect();
-
-            /*
-            FIXME - since this resubscribes, we should drop or merge into any existing RelayJob
-            so we don't get a large set of RelayJobs that are all "FetchAugments" on the same relay
-             */
 
             self.engage_minion(
                 relay_url,
