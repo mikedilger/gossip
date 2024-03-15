@@ -1366,6 +1366,17 @@ impl eframe::App for GossipUi {
         // Side panel
         self.side_panel(ctx);
 
+        let has_warning = {
+            #[cfg(feature = "video-ffmpeg")]
+            {
+                self.audio_device.is_none()
+            }
+            #[cfg(not(feature = "video-ffmpeg"))]
+            {
+                false
+            }
+        };
+
         egui::TopBottomPanel::top("top-area")
             .frame(
                 egui::Frame::side_top_panel(&self.theme.get_style()).inner_margin(egui::Margin {
@@ -1378,9 +1389,19 @@ impl eframe::App for GossipUi {
             .resizable(true)
             .show_animated(
                 ctx,
-                self.show_post_area_fn() && read_setting!(posting_area_at_top),
+                (self.show_post_area_fn() && read_setting!(posting_area_at_top)) || has_warning,
                 |ui| {
                     self.begin_ui(ui);
+                    #[cfg(feature = "video-ffmpeg")]
+                    {
+                        if self.audio_device.is_none() {
+                            widgets::warning_frame(ui, &self, |ui| {
+                                ui.label("You have compiled gossip with 'video-ffmpeg' option but no audio device was found on your system. Make sure you have followed the instructions at");
+                                ui.hyperlink("https://github.com/Rust-SDL2/rust-sdl2");
+                                ui.label("and installed 'libsdl2-dev' package for your system.");
+                            });
+                        }
+                    }
                     feed::post::posting_area(self, ctx, frame, ui);
                 },
             );

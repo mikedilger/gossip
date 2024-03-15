@@ -164,6 +164,28 @@ pub(super) fn set_important_button_visuals(ui: &mut Ui, app: &GossipUi) {
     visuals.widgets.inactive.fg_stroke.color = app.theme.get_style().visuals.extreme_bg_color;
 }
 
+#[allow(dead_code)]
+pub(crate) fn warning_frame<R>(ui: &mut Ui, app: &GossipUi, inner: impl Fn(&mut Ui) -> R) -> R {
+    egui::Frame::none()
+        .outer_margin(egui::Margin {
+            left: -20.0,
+            right: -20.0,
+            top: -10.0,
+            bottom: 0.0,
+        })
+        .inner_margin(egui::Margin::same(10.0))
+        .fill(app.theme.accent_complementary_color())
+        .show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            ui.horizontal_wrapped(|ui| {
+                ui.visuals_mut().override_text_color = Some(egui::Color32::WHITE);
+                inner(ui)
+            })
+            .inner
+        })
+        .inner
+}
+
 // /// UTF-8 safe truncate (String::truncate() can panic)
 // #[inline]
 // pub fn safe_truncate(s: &str, max_chars: usize) -> &str {
