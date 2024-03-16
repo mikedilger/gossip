@@ -244,7 +244,8 @@ pub async fn run() {
                     crate::people::People::start();
 
                     // Start periodic tasks in pending
-                    crate::pending::start();
+                    // DISABLED until the UI is ready to implement.
+                    // crate::pending::start();
 
                     // Start long-lived subscriptions
                     // (this also does a relay_picker init)
