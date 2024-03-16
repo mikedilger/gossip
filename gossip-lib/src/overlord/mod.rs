@@ -1320,7 +1320,21 @@ impl Overlord {
     }
 
     /// Fetch an event from a specific relay by event `Id`
-    pub async fn fetch_event(&mut self, id: Id, relay_urls: Vec<RelayUrl>) -> Result<(), Error> {
+    pub async fn fetch_event(
+        &mut self,
+        id: Id,
+        mut relay_urls: Vec<RelayUrl>,
+    ) -> Result<(), Error> {
+        // Use READ relays if relays are unknown
+        if relay_urls.is_empty() {
+            relay_urls = GLOBALS
+                .storage
+                .filter_relays(|r| r.has_usage_bits(Relay::READ) && r.rank != 0)?
+                .iter()
+                .map(|relay| relay.url.clone())
+                .collect();
+        }
+
         // Don't do this if we already have the event
         if !GLOBALS.storage.has_event(id)? {
             // Note: minions will remember if they get the same id multiple times
