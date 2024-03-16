@@ -90,13 +90,16 @@ pub use fetcher::Fetcher;
 mod filter;
 
 mod globals;
-pub use globals::{Globals, ZapState, GLOBALS};
+pub use globals::{Globals, GLOBALS};
 
 mod gossip_identity;
 pub use gossip_identity::GossipIdentity;
 
 mod media;
 pub use media::Media;
+
+mod misc;
+pub use misc::ZapState;
 
 /// Rendering various names of users
 pub mod names;

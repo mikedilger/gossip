@@ -5,6 +5,7 @@ use crate::feed::Feed;
 use crate::fetcher::Fetcher;
 use crate::gossip_identity::GossipIdentity;
 use crate::media::Media;
+use crate::misc::ZapState;
 use crate::nip46::ParsedCommand;
 use crate::pending::Pending;
 use crate::people::{People, Person};
@@ -15,9 +16,7 @@ use crate::storage::Storage;
 use crate::RunState;
 use dashmap::{DashMap, DashSet};
 use gossip_relay_picker::RelayPicker;
-use nostr_types::{
-    Event, Id, PayRequestData, Profile, PublicKey, RelayUrl, RelayUsage, UncheckedUrl,
-};
+use nostr_types::{Event, Id, Profile, PublicKey, RelayUrl, RelayUsage};
 use parking_lot::RwLock as PRwLock;
 use regex::Regex;
 use rhai::{Engine, AST};
@@ -27,16 +26,6 @@ use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize};
 use tokio::sync::watch::Receiver as WatchReceiver;
 use tokio::sync::watch::Sender as WatchSender;
 use tokio::sync::{broadcast, mpsc, Mutex, Notify, RwLock};
-
-/// The state that a Zap is in (it moves through 5 states before it is complete)
-#[derive(Debug, Clone)]
-pub enum ZapState {
-    None,
-    CheckingLnurl(Id, PublicKey, UncheckedUrl),
-    SeekingAmount(Id, PublicKey, PayRequestData, UncheckedUrl),
-    LoadingInvoice(Id, PublicKey),
-    ReadyToPay(Id, String), // String is the Zap Invoice as a string, to be shown as a QR code
-}
 
 /// Global data shared between threads. Access via the static ref `GLOBALS`.
 pub struct Globals {

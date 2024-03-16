@@ -7,7 +7,8 @@ use crate::comms::{
 use crate::dm_channel::DmChannel;
 use crate::error::{Error, ErrorKind};
 use crate::feed::FeedKind;
-use crate::globals::{Globals, ZapState, GLOBALS};
+use crate::globals::{Globals, GLOBALS};
+use crate::misc::ZapState;
 use crate::nip46::{Approval, ParsedCommand};
 use crate::people::{Person, PersonList};
 use crate::person_relay::PersonRelay;
