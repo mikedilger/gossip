@@ -9,3 +9,10 @@ pub enum ZapState {
     LoadingInvoice(Id, PublicKey),
     ReadyToPay(Id, String), // String is the Zap Invoice as a string, to be shown as a QR code
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Freshness {
+    NeverSought,
+    Stale,
+    Fresh,
+}

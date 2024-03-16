@@ -2876,7 +2876,9 @@ impl Overlord {
     /// theconfigured discover relays)
     ///
     /// Caller should probably check Person.relay_list_last_sought first to make sure we don't
-    /// already have an in-flight request doing this.
+    /// already have an in-flight request doing this.  This can be done with:
+    ///    GLOBALS.people.person_needs_relay_list()
+    ///    GLOBALS.people.get_subscribed_pubkeys_needing_relay_lists()
     pub async fn subscribe_discover(
         &mut self,
         pubkeys: Vec<PublicKey>,

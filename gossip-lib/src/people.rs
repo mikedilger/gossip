@@ -1,6 +1,7 @@
 use crate::comms::ToOverlordMessage;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
+use crate::misc::Freshness;
 use dashmap::{DashMap, DashSet};
 use image::RgbaImage;
 use nostr_types::{
@@ -146,6 +147,29 @@ impl People {
             vec.iter().map(|p| p.pubkey).collect()
         } else {
             vec![]
+        }
+    }
+
+    /// Get if a person needs a relay list
+    pub fn person_needs_relay_list(pubkey: PublicKey) -> Freshness {
+        let staletime = Unixtime::now().unwrap().0
+            - 60 * 60
+                * GLOBALS
+                    .storage
+                    .read_setting_relay_list_becomes_stale_hours() as i64;
+
+        match GLOBALS.storage.read_person(&pubkey) {
+            Err(_) => Freshness::NeverSought,
+            Ok(None) => Freshness::NeverSought,
+            Ok(Some(p)) => {
+                if p.relay_list_last_sought == 0 {
+                    Freshness::NeverSought
+                } else if p.relay_list_last_sought < staletime {
+                    Freshness::Stale
+                } else {
+                    Freshness::Fresh
+                }
+            }
         }
     }
 
