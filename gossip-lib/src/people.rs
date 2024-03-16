@@ -140,7 +140,7 @@ impl People {
 
         if let Ok(vec) = GLOBALS.storage.filter_people(|p| {
             p.is_subscribed_to()
-                && p.relay_list_last_received < stale
+                && p.relay_list_last_sought < stale
                 && among_these.contains(&p.pubkey)
         }) {
             vec.iter().map(|p| p.pubkey).collect()
@@ -826,7 +826,7 @@ impl People {
             None => Person::new(pubkey),
         };
 
-        person.relay_list_last_received = now;
+        person.relay_list_last_sought = now;
         if let Some(old_at) = person.relay_list_created_at {
             if created_at < old_at {
                 retval = false;
