@@ -89,6 +89,7 @@ pub struct UnsavedSettings {
     pub follow_os_dark_mode: bool,
     pub override_dpi: Option<u32>,
     pub highlight_unread_events: bool,
+    pub feed_newest_at_bottom: bool,
     pub posting_area_at_top: bool,
     pub status_bar: bool,
     pub image_resize_algorithm: String,
@@ -172,6 +173,7 @@ impl Default for UnsavedSettings {
             follow_os_dark_mode: default_setting!(follow_os_dark_mode),
             override_dpi: default_setting!(override_dpi),
             highlight_unread_events: default_setting!(highlight_unread_events),
+            feed_newest_at_bottom: default_setting!(feed_newest_at_bottom),
             posting_area_at_top: default_setting!(posting_area_at_top),
             status_bar: default_setting!(status_bar),
             image_resize_algorithm: default_setting!(image_resize_algorithm),
@@ -257,6 +259,7 @@ impl UnsavedSettings {
             follow_os_dark_mode: load_setting!(follow_os_dark_mode),
             override_dpi: load_setting!(override_dpi),
             highlight_unread_events: load_setting!(highlight_unread_events),
+            feed_newest_at_bottom: load_setting!(feed_newest_at_bottom),
             posting_area_at_top: load_setting!(posting_area_at_top),
             status_bar: load_setting!(status_bar),
             image_resize_algorithm: load_setting!(image_resize_algorithm),
@@ -338,6 +341,7 @@ impl UnsavedSettings {
         save_setting!(follow_os_dark_mode, self, txn);
         save_setting!(override_dpi, self, txn);
         save_setting!(highlight_unread_events, self, txn);
+        save_setting!(feed_newest_at_bottom, self, txn);
         save_setting!(posting_area_at_top, self, txn);
         save_setting!(status_bar, self, txn);
         save_setting!(image_resize_algorithm, self, txn);

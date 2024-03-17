@@ -791,6 +791,7 @@ impl Storage {
         bool,
         true
     );
+    def_setting!(feed_newest_at_bottom, b"feed_newest_at_bottom", bool, false);
     def_setting!(posting_area_at_top, b"posting_area_at_top", bool, true);
     def_setting!(status_bar, b"status_bar", bool, false);
     def_setting!(
