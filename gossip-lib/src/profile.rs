@@ -30,6 +30,13 @@ pub struct Profile {
 
 impl Profile {
     fn new() -> Result<Profile, Error> {
+        if cfg!(feature = "appimage") {
+            // Because AppImage only changes $HOME (and not $XDG_DATA_HOME), we unset
+            // $XDG_DATA_HOME and let it use the changed $HOME on linux to find the
+            // data directory
+            std::env::remove_var("XDG_DATA_HOME");
+        }
+
         // Get system standard directory for user data
         let data_dir = dirs::data_dir()
             .ok_or::<Error>("Cannot find a directory to store application data.".into())?;
