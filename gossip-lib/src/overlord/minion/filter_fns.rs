@@ -176,6 +176,8 @@ pub fn outbox(since: Unixtime) -> Vec<Filter> {
     }
 }
 
+// This FORCES the fetch of relay lists without checking if we need them.
+// See also relay_lists() which checks if they are needed first.
 pub fn discover(pubkeys: &[PublicKey]) -> Vec<Filter> {
     let pkp: Vec<PublicKeyHex> = pubkeys.iter().map(|pk| pk.into()).collect();
     vec![Filter {
