@@ -1163,16 +1163,20 @@ impl Storage {
     pub fn process_relay_list(&self, event: &Event) -> Result<(), Error> {
         let mut txn = self.env.write_txn()?;
 
-        // Check if this relay list is newer than the stamp we have for its author
         if let Some(mut person) = self.read_person(&event.pubkey)? {
-            // Mark that we received it (changes fetch duration for next time)
+            // Mark that we received it.
+            // This prevents us from refetching again and again.
             person.relay_list_last_received = Unixtime::now().unwrap().0;
 
+            // Check if this relay list is newer than the stamp we have for its author
             if let Some(previous_at) = person.relay_list_created_at {
                 if event.created_at.0 <= previous_at {
+                    // This list is old. But let's save the last_received setting:
+                    self.write_person(&person, Some(&mut txn))?;
                     return Ok(());
                 }
             }
+            // If we got here, the list is new.
 
             // Mark when it was created
             person.relay_list_created_at = Some(event.created_at.0);
