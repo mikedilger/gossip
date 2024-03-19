@@ -2022,6 +2022,23 @@ impl Storage {
         self.read_person2(pubkey)
     }
 
+    /// Read a person record, create if missing
+    #[inline]
+    pub fn read_or_create_person<'a>(
+        &'a self,
+        pubkey: &PublicKey,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<Person, Error> {
+        match self.read_person(pubkey)? {
+            Some(p) => Ok(p),
+            None => {
+                let person = Person::new(pubkey.to_owned());
+                self.write_person(&person, rw_txn)?;
+                Ok(person)
+            }
+        }
+    }
+
     /// Write a new person record only if missing
     pub fn write_person_if_missing<'a>(
         &'a self,
