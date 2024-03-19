@@ -239,6 +239,9 @@ pub async fn process_new_event(
     // Invalidate UI events indicated by those relationships
     GLOBALS.ui_notes_to_invalidate.write().extend(&invalid_ids);
 
+    // Let seeker know about this event id (in case it was sought)
+    GLOBALS.seeker.found_or_cancel(event.id);
+
     // If metadata, update person
     if event.kind == EventKind::Metadata {
         let metadata: Metadata = serde_json::from_str(&event.content)?;
@@ -272,6 +275,11 @@ pub async fn process_new_event(
         }
     } else if event.kind == EventKind::RelayList {
         GLOBALS.storage.process_relay_list(event)?;
+
+        // Let the seeker know we now have relays for this author, in case the seeker
+        // wants to update it's state
+        // (we might not, but by this point we have tried)
+        GLOBALS.seeker.found_author_relays(event.pubkey);
 
         // the following also refreshes scores before it picks relays
         let _ = GLOBALS
