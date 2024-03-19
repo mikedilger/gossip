@@ -2874,11 +2874,25 @@ impl Overlord {
 
     /// Subscribe to the multiple user's relay lists (optionally on the given relays, otherwise using
     /// theconfigured discover relays)
+    ///
+    /// Caller should probably check Person.relay_list_last_sought first to make sure we don't
+    /// already have an in-flight request doing this.
     pub async fn subscribe_discover(
         &mut self,
         pubkeys: Vec<PublicKey>,
         relays: Option<Vec<RelayUrl>>,
     ) -> Result<(), Error> {
+        // Mark for each person that we are seeking their relay list
+        // so that we don't repeat this for a while
+        let now = Unixtime::now().unwrap();
+        let mut txn = GLOBALS.storage.get_write_txn()?;
+        for pk in pubkeys.iter() {
+            let mut person = GLOBALS.storage.read_or_create_person(pk, Some(&mut txn))?;
+            person.relay_list_last_sought = now.0;
+            GLOBALS.storage.write_person(&person, Some(&mut txn))?;
+        }
+        txn.commit()?;
+
         // Discover their relays
         let discover_relay_urls: Vec<RelayUrl> = match relays {
             Some(r) => r,

@@ -817,8 +817,6 @@ impl People {
         pubkey: PublicKey,
         created_at: i64,
     ) -> Result<bool, Error> {
-        let now = Unixtime::now().unwrap().0;
-
         let mut retval = false;
 
         let mut person = match GLOBALS.storage.read_person(&pubkey)? {
@@ -826,7 +824,6 @@ impl People {
             None => Person::new(pubkey),
         };
 
-        person.relay_list_last_sought = now;
         if let Some(old_at) = person.relay_list_created_at {
             if created_at < old_at {
                 retval = false;
