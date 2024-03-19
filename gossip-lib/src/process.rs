@@ -286,21 +286,33 @@ pub async fn process_new_event(
             .to_overlord
             .send(ToOverlordMessage::RefreshScoresAndPickRelays);
     } else if event.kind == EventKind::Repost {
-        // If the content is a repost, seek the event it reposts
-        for eref in event.mentions().iter() {
-            match eref {
-                EventReference::Id(id, optrelay, _marker) => {
-                    if let Some(rurl) = optrelay {
-                        let _ = GLOBALS
-                            .to_overlord
-                            .send(ToOverlordMessage::FetchEvent(*id, vec![rurl.to_owned()]));
+        // If it has a json encoded inner event
+        if let Ok(inner_event) = serde_json::from_str::<Event>(&event.content) {
+            // Seek that event by id and author
+            GLOBALS
+                .seeker
+                .seek_id_and_author(inner_event.id, inner_event.pubkey)?;
+        } else {
+            // If the content is a repost, seek the event it reposts
+            for eref in event.mentions().iter() {
+                match eref {
+                    EventReference::Id(id, optrelay, _marker) => {
+                        if let Some(rurl) = optrelay {
+                            GLOBALS
+                                .seeker
+                                .seek_id_and_relays(*id, vec![rurl.to_owned()]);
+                        } else {
+                            // Even if the event tags the author, we have no way to coorelate
+                            // the nevent with that tag.
+                            GLOBALS.seeker.seek_id(*id);
+                        }
                     }
-                }
-                EventReference::Addr(ea) => {
-                    if !ea.relays.is_empty() {
-                        let _ = GLOBALS
-                            .to_overlord
-                            .send(ToOverlordMessage::FetchEventAddr(ea.clone()));
+                    EventReference::Addr(ea) => {
+                        if !ea.relays.is_empty() {
+                            let _ = GLOBALS
+                                .to_overlord
+                                .send(ToOverlordMessage::FetchEventAddr(ea.clone()));
+                        }
                     }
                 }
             }
