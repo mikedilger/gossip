@@ -1420,7 +1420,7 @@ impl Overlord {
         list: PersonList,
         public: bool,
     ) -> Result<(), Error> {
-        GLOBALS.people.follow(&pubkey, true, list, public, true)?;
+        GLOBALS.people.follow(&pubkey, true, list, public)?;
         tracing::debug!("Followed {}", &pubkey.as_hex_string());
         Ok(())
     }
@@ -1464,7 +1464,7 @@ impl Overlord {
         // Follow
         GLOBALS
             .people
-            .follow(&nprofile.pubkey, true, list, public, true)?;
+            .follow(&nprofile.pubkey, true, list, public)?;
 
         GLOBALS
             .status_queue

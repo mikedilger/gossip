@@ -753,7 +753,6 @@ impl People {
         follow: bool,
         list: PersonList,
         public: bool,
-        discover: bool, // if you also want to subscribe to their relay list
     ) -> Result<(), Error> {
         if follow {
             GLOBALS
@@ -762,6 +761,18 @@ impl People {
 
             // Add to the relay picker. If they are already there, it will be ok.
             GLOBALS.relay_picker.add_someone(*pubkey)?;
+
+            // Maybe seek relay list (if needed)
+            let seek_relay_list = match Self::person_needs_relay_list(*pubkey) {
+                Freshness::NeverSought => true,
+                Freshness::Stale => true,
+                Freshness::Fresh => false,
+            };
+            if seek_relay_list {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::SubscribeDiscover(vec![*pubkey], None));
+            };
         } else {
             GLOBALS
                 .storage
@@ -776,12 +787,6 @@ impl People {
         let _ = GLOBALS
             .to_overlord
             .send(ToOverlordMessage::RefreshScoresAndPickRelays);
-
-        if follow && discover {
-            let _ = GLOBALS
-                .to_overlord
-                .send(ToOverlordMessage::SubscribeDiscover(vec![*pubkey], None));
-        }
 
         Ok(())
     }

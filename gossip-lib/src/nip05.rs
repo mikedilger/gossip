@@ -122,7 +122,7 @@ pub async fn get_and_follow_nip05(
     update_relays(&nip05, nip05file, &pubkey).await?;
 
     // Follow
-    GLOBALS.people.follow(&pubkey, true, list, public, true)?;
+    GLOBALS.people.follow(&pubkey, true, list, public)?;
 
     tracing::info!("Followed {}", &nip05);
 
