@@ -129,21 +129,17 @@ impl People {
     }
 
     /// Get all the pubkeys that need relay lists (from the given set)
-    pub fn get_subscribed_pubkeys_needing_relay_lists(
-        &self,
-        among_these: &[PublicKey],
-    ) -> Vec<PublicKey> {
+    pub fn get_subscribed_pubkeys_needing_relay_lists(&self) -> Vec<PublicKey> {
         let stale = Unixtime::now().unwrap().0
             - 60 * 60
                 * GLOBALS
                     .storage
                     .read_setting_relay_list_becomes_stale_hours() as i64;
 
-        if let Ok(vec) = GLOBALS.storage.filter_people(|p| {
-            p.is_subscribed_to()
-                && p.relay_list_last_sought < stale
-                && among_these.contains(&p.pubkey)
-        }) {
+        if let Ok(vec) = GLOBALS
+            .storage
+            .filter_people(|p| p.is_subscribed_to() && p.relay_list_last_sought < stale)
+        {
             vec.iter().map(|p| p.pubkey).collect()
         } else {
             vec![]

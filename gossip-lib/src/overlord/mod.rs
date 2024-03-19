@@ -2815,8 +2815,8 @@ impl Overlord {
         }
 
         // Separately subscribe to RelayList discovery for everyone we follow
-        // We just do this once at startup. Relay lists don't change that frequently.
-        let followed = GLOBALS.people.get_subscribed_pubkeys();
+        // who needs to seek a relay list again.
+        let followed = GLOBALS.people.get_subscribed_pubkeys_needing_relay_lists();
         self.subscribe_discover(followed, None).await?;
 
         // Separately subscribe to our outbox events on our write relays
