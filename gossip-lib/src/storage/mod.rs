@@ -1100,7 +1100,7 @@ impl Storage {
 
     //// Modify all relay records
     #[inline]
-    pub(crate) fn modify_all_relays<'a, M>(
+    pub fn modify_all_relays<'a, M>(
         &'a self,
         modify: M,
         rw_txn: Option<&mut RwTxn<'a>>,
