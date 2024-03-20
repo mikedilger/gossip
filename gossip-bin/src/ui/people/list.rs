@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 use super::{GossipUi, Page};
 use crate::ui::widgets;
 use crate::AVATAR_SIZE_F32;
-use eframe::egui;
+use eframe::egui::{self, Label, Sense};
 use egui::{Context, RichText, Ui, Vec2};
 use egui_winit::egui::text::LayoutJob;
 use egui_winit::egui::text_edit::TextEditOutput;
@@ -220,7 +220,7 @@ pub(super) fn update(
                             app.placeholder_avatar.clone()
                         };
 
-                        let avatar_response =
+                        let mut response =
                             widgets::paint_avatar(ui, person, &avatar, widgets::AvatarSize::Feed);
 
                         ui.add_space(20.0);
@@ -228,7 +228,10 @@ pub(super) fn update(
                         ui.vertical(|ui| {
                             ui.add_space(5.0);
                             ui.horizontal(|ui| {
-                                ui.label(RichText::new(person.best_name()).size(15.5));
+                                response |= ui.add(
+                                    Label::new(RichText::new(person.best_name()).size(15.5))
+                                        .sense(Sense::click()),
+                                );
 
                                 ui.add_space(10.0);
 
@@ -237,14 +240,20 @@ pub(super) fn update(
                                     .have_persons_relays(person.pubkey)
                                     .unwrap_or(false)
                                 {
-                                    ui.label(
-                                        RichText::new("Relay list not found")
-                                            .color(app.theme.warning_marker_text_color()),
+                                    response |= ui.add(
+                                        Label::new(
+                                            RichText::new("Relay list not found")
+                                                .color(app.theme.warning_marker_text_color()),
+                                        )
+                                        .sense(Sense::click()),
                                     );
                                 }
                             });
                             ui.add_space(3.0);
-                            ui.label(GossipUi::richtext_from_person_nip05(person).weak());
+                            response |= ui.add(
+                                Label::new(GossipUi::richtext_from_person_nip05(person).weak())
+                                    .sense(Sense::click()),
+                            );
                         });
 
                         ui.vertical(|ui| {
@@ -284,17 +293,21 @@ pub(super) fn update(
                                     }
                                 },
                             );
-                        });
-                        if avatar_response.clicked() {
-                            app.set_page(ctx, Page::Person(person.pubkey));
-                        }
-                    });
+                            response
+                        })
+                        .inner
+                    })
+                    .inner
                 },
             );
             if row_response
                 .response
                 .on_hover_cursor(egui::CursorIcon::PointingHand)
                 .clicked()
+                || row_response
+                    .inner
+                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                    .clicked()
             {
                 app.set_page(ctx, Page::Person(person.pubkey));
             }
