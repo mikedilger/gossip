@@ -27,6 +27,7 @@ pub(in crate::ui) struct ListUi {
     add_contact_searched: Option<String>,
     add_contact_search_results: Vec<(String, PublicKey)>,
     add_contact_search_selected: Option<usize>,
+    add_contact_error: Option<String>,
 
     entering_follow_someone_on_list: bool,
     clear_list_needs_confirm: bool,
@@ -49,6 +50,7 @@ impl ListUi {
             add_contact_searched: None,
             add_contact_search_results: Vec::new(),
             add_contact_search_selected: None,
+            add_contact_error: None,
 
             entering_follow_someone_on_list: false,
             clear_list_needs_confirm: false,
@@ -350,7 +352,7 @@ fn render_add_contact_popup(
     list: PersonList,
     metadata: &PersonListMetadata,
 ) {
-    const DLG_SIZE: Vec2 = vec2(400.0, 240.0);
+    const DLG_SIZE: Vec2 = vec2(400.0, 260.0);
     let ret = crate::ui::widgets::modal_popup(ui, DLG_SIZE, DLG_SIZE, true, |ui| {
         let enter_key;
         (app.people_list.add_contact_search_selected, enter_key) =
@@ -365,6 +367,18 @@ fn render_add_contact_popup(
             };
 
         ui.heading("Add contact to the list");
+        ui.add_space(8.0);
+
+        // error block
+        ui.label(
+            RichText::new(
+                app.people_list
+                    .add_contact_error
+                    .as_ref()
+                    .unwrap_or(&"".to_string()),
+            )
+            .color(app.theme.warning_marker_text_color()),
+        );
         ui.add_space(8.0);
 
         ui.label("Search for known contacts to add");
@@ -466,10 +480,7 @@ fn render_add_contact_popup(
                             mark_refresh(app);
                         } else {
                             add_failed = true;
-                            GLOBALS
-                                .status_queue
-                                .write()
-                                .write("Invalid pubkey.".to_string());
+                            app.people_list.add_contact_error = Some("Invalid pubkey.".to_string());
                         }
                         if !add_failed {
                             app.add_contact = "".to_owned();
