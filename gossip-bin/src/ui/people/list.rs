@@ -684,6 +684,11 @@ pub(super) fn render_more_list_actions(
     count: usize,
     on_list: bool,
 ) {
+    // do not show for "Following" and "Muted" when they are empty
+    if !on_list && !matches!(list, PersonList::Custom(_)) && count == 0 {
+        return;
+    }
+
     if on_list {
         app.theme.accent_button_1_style(ui.style_mut());
     }
