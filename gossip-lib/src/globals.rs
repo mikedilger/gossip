@@ -57,8 +57,14 @@ pub struct Globals {
     /// All nostr people records currently loaded into memory, keyed by pubkey
     pub people: People,
 
-    /// The relays currently connected to
+    /// The relays currently connected to. It tracks the jobs that relay is assigned.
+    /// As the minion completes jobs, code modifies this jobset, removing those completed
+    /// jobs.
     pub connected_relays: DashMap<RelayUrl, Vec<RelayJob>>,
+
+    /// The relays not connected to, and which we will not connect to again until some
+    /// time passes, but which we still have jobs for
+    pub penalty_box_relays: DashMap<RelayUrl, Vec<RelayJob>>,
 
     /// The relay picker, used to pick the next relay
     pub relay_picker: RelayPicker<Hooks>,
@@ -186,6 +192,7 @@ lazy_static! {
             tmp_overlord_receiver: Mutex::new(Some(tmp_overlord_receiver)),
             people: People::new(),
             connected_relays: DashMap::new(),
+            penalty_box_relays: DashMap::new(),
             relay_picker: Default::default(),
             identity: GossipIdentity::default(),
             dismissed: RwLock::new(Vec::new()),
