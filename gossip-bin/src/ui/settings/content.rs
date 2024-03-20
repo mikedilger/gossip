@@ -44,6 +44,11 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ui.add(Slider::new(&mut app.unsaved_settings.feed_recompute_interval_ms, 1000..=12000).text("milliseconds"));
     });
 
+    ui.checkbox(
+        &mut app.unsaved_settings.feed_thread_scroll_to_main_event,
+        "Initially scroll to the highlighted note when entering a Thread",
+    );
+
     ui.add_space(10.0);
     ui.heading("Event Selection Settings");
     ui.add_space(10.0);

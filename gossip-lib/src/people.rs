@@ -2,11 +2,10 @@ use crate::comms::ToOverlordMessage;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use dashmap::{DashMap, DashSet};
-use gossip_relay_picker::Direction;
 use image::RgbaImage;
 use nostr_types::{
-    ContentEncryptionAlgorithm, Event, EventKind, Metadata, PreEvent, PublicKey, RelayUrl, Tag,
-    UncheckedUrl, Unixtime, Url,
+    ContentEncryptionAlgorithm, Event, EventKind, Metadata, PreEvent, PublicKey, RelayUrl,
+    RelayUsage, Tag, UncheckedUrl, Unixtime, Url,
 };
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
@@ -677,7 +676,9 @@ impl People {
             // Only include recommended relay urls in public entries, and not in the mute list
             let recommended_relay_url = {
                 if kind != EventKind::MuteList && public {
-                    let relays = GLOBALS.storage.get_best_relays(*pubkey, Direction::Write)?;
+                    let relays = GLOBALS
+                        .storage
+                        .get_best_relays(*pubkey, RelayUsage::Outbox)?;
                     relays.first().map(|(u, _)| u.to_unchecked_url())
                 } else {
                     None
@@ -883,7 +884,9 @@ impl People {
         *self.active_person.write().await = Some(pubkey);
 
         // Load their relays
-        let best_relays = GLOBALS.storage.get_best_relays(pubkey, Direction::Write)?;
+        let best_relays = GLOBALS
+            .storage
+            .get_best_relays(pubkey, RelayUsage::Outbox)?;
         *self.active_persons_write_relays.write().await = best_relays;
 
         Ok(())

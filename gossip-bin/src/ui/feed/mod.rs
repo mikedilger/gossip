@@ -1,7 +1,7 @@
 use super::theme::FeedProperties;
 use super::{widgets, GossipUi, Page};
-use eframe::egui;
-use egui::{Context, Frame, RichText, Ui, Vec2};
+use eframe::egui::{self, Align, Rect};
+use egui::{Context, RichText, Ui, Vec2};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::FeedKind;
 use gossip_lib::GLOBALS;
@@ -28,7 +28,27 @@ struct FeedNoteParams {
     is_last: bool,
 }
 
-pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
+#[derive(Default)]
+pub(super) struct Feeds {
+    thread_needs_scroll: bool,
+}
+
+pub(super) fn enter_feed(app: &mut GossipUi, kind: FeedKind) {
+    match kind {
+        FeedKind::Thread {
+            id: _,
+            referenced_by: _,
+            author: _,
+        } => {
+            if app.unsaved_settings.feed_thread_scroll_to_main_event {
+                app.feeds.thread_needs_scroll = true;
+            }
+        }
+        _ => {}
+    }
+}
+
+pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
     if GLOBALS.ui_invalidate_all.load(Ordering::Relaxed) {
         app.notes.cache_invalidate_all();
         GLOBALS.ui_invalidate_all.store(false, Ordering::Relaxed);
@@ -108,7 +128,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 },
             );
             ui.add_space(6.0);
-            render_a_feed(app, ctx, frame, ui, feed, false, &id, load_more);
+            render_a_feed(app, ctx, ui, feed, false, &id, load_more);
         }
         FeedKind::Inbox(indirect) => {
             if read_setting!(public_key).is_none() {
@@ -154,14 +174,13 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 },
             );
             ui.add_space(6.0);
-            render_a_feed(app, ctx, frame, ui, feed, false, id, load_more);
+            render_a_feed(app, ctx, ui, feed, false, id, load_more);
         }
         FeedKind::Thread { id, .. } => {
             if let Some(parent) = GLOBALS.feed.get_thread_parent() {
                 render_a_feed(
                     app,
                     ctx,
-                    frame,
                     ui,
                     vec![parent],
                     true,
@@ -187,7 +206,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             render_a_feed(
                 app,
                 ctx,
-                frame,
                 ui,
                 feed,
                 false,
@@ -216,7 +234,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 
             let feed = GLOBALS.feed.get_dm_chat_feed();
             let id = channel.unique_id();
-            render_a_feed(app, ctx, frame, ui, feed, false, &id, load_more);
+            render_a_feed(app, ctx, ui, feed, false, &id, load_more);
         }
     }
 
@@ -228,7 +246,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 fn render_a_feed(
     app: &mut GossipUi,
     ctx: &Context,
-    frame: &mut eframe::Frame,
     ui: &mut Ui,
     feed: Vec<Id>,
     threaded: bool,
@@ -242,7 +259,7 @@ fn render_a_feed(
     app.vert_scroll_area()
         .id_source(scroll_area_id)
         .show(ui, |ui| {
-            Frame::none()
+            egui::Frame::none()
                 .rounding(app.theme.feed_scroll_rounding(&feed_properties))
                 .fill(app.theme.feed_scroll_fill(&feed_properties))
                 .stroke(app.theme.feed_scroll_stroke(&feed_properties))
@@ -254,7 +271,6 @@ fn render_a_feed(
                         render_note_maybe_fake(
                             app,
                             ctx,
-                            frame,
                             ui,
                             FeedNoteParams {
                                 id: *id,
@@ -303,15 +319,14 @@ fn render_a_feed(
                             },
                         );
                     }
+                    ui.add_space(100.0);
                 });
-            ui.add_space(100.0);
         });
 }
 
 fn render_note_maybe_fake(
     app: &mut GossipUi,
     ctx: &Context,
-    _frame: &mut eframe::Frame,
     ui: &mut Ui,
     feed_note_params: FeedNoteParams,
 ) {
@@ -327,6 +342,14 @@ fn render_note_maybe_fake(
     let screen_rect = ctx.input(|i| i.screen_rect); // Rect
     let pos2 = ui.next_widget_position();
 
+    let is_main_event: bool = {
+        let feed_kind = GLOBALS.feed.get_feed_kind();
+        match feed_kind {
+            FeedKind::Thread { id: thread_id, .. } => thread_id == id,
+            _ => false,
+        }
+    };
+
     // If too far off of the screen, don't actually render the post, just make some space
     // so the scrollbar isn't messed up
     let height = match app.height.get(&id) {
@@ -338,7 +361,6 @@ fn render_note_maybe_fake(
             note::render_note(
                 app,
                 ctx,
-                _frame,
                 ui,
                 FeedNoteParams {
                     id,
@@ -359,6 +381,18 @@ fn render_note_maybe_fake(
         // Don't actually render, just make space for scrolling purposes
         ui.add_space(height);
 
+        // we also need to scroll to not-rendered notes
+        if is_main_event && app.feeds.thread_needs_scroll {
+            // keep auto-scrolling until user scrolls
+            if app.current_scroll_offset != 0.0 {
+                app.feeds.thread_needs_scroll = false;
+            }
+            ui.scroll_to_rect(
+                Rect::from_min_size(pos2, egui::vec2(ui.available_width(), height)),
+                Some(Align::Center),
+            );
+        }
+
         // Yes, and we need to fake render threads to get their approx height too.
         if threaded && !as_reply_to && !app.collapsed.contains(&id) {
             let mut replies = Vec::new();
@@ -378,7 +412,6 @@ fn render_note_maybe_fake(
                 render_note_maybe_fake(
                     app,
                     ctx,
-                    _frame,
                     ui,
                     FeedNoteParams {
                         id: *reply_id,
@@ -395,7 +428,6 @@ fn render_note_maybe_fake(
         note::render_note(
             app,
             ctx,
-            _frame,
             ui,
             FeedNoteParams {
                 id,

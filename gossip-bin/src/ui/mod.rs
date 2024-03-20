@@ -428,6 +428,9 @@ struct GossipUi {
     submenu_ids: HashMap<SubMenu, egui::Id>,
     settings_tab: SettingsTab,
 
+    // Feeds
+    feeds: feed::Feeds,
+
     // General Data
     about: About,
     icon: TextureHandle,
@@ -607,12 +610,26 @@ impl GossipUi {
                 .load_texture("options_symbol", color_image, TextureOptions::LINEAR)
         };
 
-        let mut start_page = Page::Feed(FeedKind::List(PersonList::Followed, false));
+        let mainfeed_include_nonroot = cctx
+            .egui_ctx
+            .data_mut(|d| d.get_persisted(egui::Id::new("mainfeed_include_nonroot")))
+            .unwrap_or(false);
+
+        let inbox_include_indirect = cctx
+            .egui_ctx
+            .data_mut(|d| d.get_persisted(egui::Id::new("inbox_include_indirect")))
+            .unwrap_or(false);
+
+        let mut start_page = Page::Feed(FeedKind::List(
+            PersonList::Followed,
+            mainfeed_include_nonroot,
+        ));
 
         // Possibly enter the wizard instead
         let mut wizard_state: WizardState = Default::default();
         let wizard_complete = GLOBALS.storage.get_flag_wizard_complete();
         if !wizard_complete {
+            wizard_state.init();
             if let Some(wp) = wizard::start_wizard_page(&mut wizard_state) {
                 start_page = Page::Wizard(wp);
             }
@@ -655,16 +672,11 @@ impl GossipUi {
             setting_active_person: false,
             page: start_page,
             history: vec![],
-            mainfeed_include_nonroot: cctx
-                .egui_ctx
-                .data_mut(|d| d.get_persisted(egui::Id::new("mainfeed_include_nonroot")))
-                .unwrap_or(false),
-            inbox_include_indirect: cctx
-                .egui_ctx
-                .data_mut(|d| d.get_persisted(egui::Id::new("inbox_include_indirect")))
-                .unwrap_or(false),
+            mainfeed_include_nonroot,
+            inbox_include_indirect,
             submenu_ids,
             settings_tab: SettingsTab::Id,
+            feeds: feed::Feeds::default(),
             about: About::new(),
             icon: icon_texture_handle,
             placeholder_avatar: placeholder_avatar_texture_handle,
@@ -818,14 +830,17 @@ impl GossipUi {
         match &page {
             Page::Feed(FeedKind::DmChat(channel)) => {
                 GLOBALS.feed.set_feed_to_dmchat(channel.to_owned());
+                feed::enter_feed(self, FeedKind::DmChat(channel.clone()));
                 self.close_all_menus_except_feeds(ctx);
             }
             Page::Feed(FeedKind::List(list, with_replies)) => {
                 GLOBALS.feed.set_feed_to_main(*list, *with_replies);
+                feed::enter_feed(self, FeedKind::List(*list, *with_replies));
                 self.open_menu(ctx, SubMenu::Feeds);
             }
             Page::Feed(FeedKind::Inbox(indirect)) => {
                 GLOBALS.feed.set_feed_to_inbox(*indirect);
+                feed::enter_feed(self, FeedKind::Inbox(*indirect));
                 self.close_all_menus_except_feeds(ctx);
             }
             Page::Feed(FeedKind::Thread {
@@ -836,10 +851,19 @@ impl GossipUi {
                 GLOBALS
                     .feed
                     .set_feed_to_thread(*id, *referenced_by, *author);
+                feed::enter_feed(
+                    self,
+                    FeedKind::Thread {
+                        id: *id,
+                        referenced_by: *referenced_by,
+                        author: *author,
+                    },
+                );
                 self.close_all_menus_except_feeds(ctx);
             }
             Page::Feed(FeedKind::Person(pubkey)) => {
                 GLOBALS.feed.set_feed_to_person(pubkey.to_owned());
+                feed::enter_feed(self, FeedKind::Person(*pubkey));
                 self.close_all_menus_except_feeds(ctx);
             }
             Page::PeopleLists => {
@@ -1207,6 +1231,9 @@ impl eframe::App for GossipUi {
 
             // Set initial menu state, Feed open since initial page is Following.
             self.open_menu(ctx, SubMenu::Feeds);
+
+            // Init first page
+            self.set_page_inner(ctx, self.page.clone());
         }
 
         let max_fps = read_setting!(max_fps) as f32;
@@ -1429,7 +1456,7 @@ impl eframe::App for GossipUi {
                 self.begin_ui(ui);
                 match self.page {
                     Page::DmChatList => dm_chat_list::update(self, ctx, frame, ui),
-                    Page::Feed(_) => feed::update(self, ctx, frame, ui),
+                    Page::Feed(_) => feed::update(self, ctx, ui),
                     Page::PeopleLists | Page::PeopleList(_) | Page::Person(_) => {
                         people::update(self, ctx, frame, ui)
                     }
@@ -2272,53 +2299,45 @@ fn approval_dialog(ctx: &Context, app: &mut GossipUi) {
 
     area.show(ctx, |ui| {
         frame.fill = ui.visuals().extreme_bg_color;
-        frame.inner_margin = egui::Margin::symmetric(40.0, 40.0);
+        frame.inner_margin = egui::Margin {
+            left: 40.0,
+            right: 20.0,
+            top: 40.0,
+            bottom: 40.0,
+        };
         frame.rounding = egui::Rounding::same(10.0);
         frame.show(ui, |ui| {
             ui.set_min_size(egui::vec2(ctx.screen_rect().width() * 0.75, 0.0));
             ui.set_max_size(ctx.screen_rect().size() * 0.75);
-            ScrollArea::vertical().show(ui, |ui| {
-                ui.vertical(|ui| {
-                    approval_dialog_inner(app, ui);
-                });
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                approval_dialog_inner(app, ui);
             });
         });
     });
 }
 
 fn approval_dialog_inner(app: &mut GossipUi, ui: &mut Ui) {
-    // let section = |ui: &mut Ui, name: &str| {
-    //     ui.scope(|ui| {
-    //         ui.add_space(10.0);
-    //         ui.label(name);
-    //         ui.style_mut().visuals.widgets.noninteractive.bg_stroke =
-    //             egui::Stroke::new(1.0, app.theme.accent_color());
-    //         ui.add(egui::Separator::default().spacing(0.0));
-    //         ui.add_space(5.0);
-    //     });
-    // };
-
-    let decline_style = |_app: &GossipUi, style: &mut Style| {
-        let accent_color = Color32::from_gray(0x26);
+    let decline_style = |app: &GossipUi, style: &mut Style| {
+        let (bg_color, text_color) = if app.theme.dark_mode {
+            (Color32::WHITE, Color32::from_gray(0x26))
+        } else {
+            (Color32::from_gray(0x26), Color32::WHITE)
+        };
         style.spacing.button_padding = vec2(16.0, 4.0);
-        style.visuals.widgets.noninteractive.weak_bg_fill = accent_color;
-        style.visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0, Color32::WHITE);
-        style.visuals.widgets.inactive.weak_bg_fill = accent_color;
-        style.visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, Color32::WHITE);
+        style.visuals.widgets.noninteractive.weak_bg_fill = bg_color;
+        style.visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0, text_color);
+        style.visuals.widgets.inactive.weak_bg_fill = bg_color;
+        style.visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, text_color);
         style.visuals.widgets.hovered.weak_bg_fill =
-            <DefaultTheme as ThemeDef>::darken_color(accent_color, 0.2);
-        style.visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.0, Color32::WHITE);
-        style.visuals.widgets.hovered.bg_stroke = egui::Stroke::new(
-            1.0,
-            <DefaultTheme as ThemeDef>::darken_color(accent_color, 0.2),
-        );
+            <DefaultTheme as ThemeDef>::darken_color(bg_color, 0.2);
+        style.visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.0, text_color);
+        style.visuals.widgets.hovered.bg_stroke =
+            egui::Stroke::new(1.0, <DefaultTheme as ThemeDef>::darken_color(bg_color, 0.2));
         style.visuals.widgets.active.weak_bg_fill =
-            <DefaultTheme as ThemeDef>::darken_color(accent_color, 0.4);
-        style.visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0, Color32::WHITE);
-        style.visuals.widgets.active.bg_stroke = egui::Stroke::new(
-            1.0,
-            <DefaultTheme as ThemeDef>::darken_color(accent_color, 0.4),
-        );
+            <DefaultTheme as ThemeDef>::darken_color(bg_color, 0.4);
+        style.visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0, text_color);
+        style.visuals.widgets.active.bg_stroke =
+            egui::Stroke::new(1.0, <DefaultTheme as ThemeDef>::darken_color(bg_color, 0.4));
     };
 
     let approve_style = |app: &GossipUi, style: &mut Style| {
@@ -2326,10 +2345,26 @@ fn approval_dialog_inner(app: &mut GossipUi, ui: &mut Ui) {
         style.spacing.button_padding = vec2(16.0, 4.0);
     };
 
+    let separator = |ui: &mut Ui| {
+        ui.add_sized(
+            vec2(
+                ui.available_width() - 20.0 - ui.spacing().item_spacing.y,
+                6.0,
+            ),
+            egui::Separator::default(),
+        );
+    };
+
     const ALIGN: egui::Align = egui::Align::Center;
-    const HEIGHT: f32 = 40.0;
-    const TRUNC: f32 = 360.0;
+    const HEIGHT: f32 = 23.0;
+    const TRUNC: f32 = 340.0;
     const SWITCH_SIZE: Vec2 = Vec2 { x: 46.0, y: 23.0 };
+    const MARGIN: egui::Margin = egui::Margin {
+        left: 0.0,
+        right: 20.0,
+        top: 5.0,
+        bottom: 5.0,
+    };
 
     // ---- start UI ----
 
@@ -2339,11 +2374,11 @@ fn approval_dialog_inner(app: &mut GossipUi, ui: &mut Ui) {
 
             // Draw "remember" explanation text
             ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
-                let (response, painter) = ui.allocate_painter(vec2(240.0, 30.0), Sense::hover());
+                let (response, painter) = ui.allocate_painter(vec2(250.0, 30.0), Sense::hover());
                 let rect = response.rect;
                 let color = Color32::from_gray(110); // FIXME use new palette and UI elements
                 let top_left = painter.round_pos_to_pixels(rect.left_bottom() - vec2(0.0, 20.0));
-                let top_right = painter.round_pos_to_pixels(top_left + vec2(30.0, 0.0));
+                let top_right = painter.round_pos_to_pixels(top_left + vec2(25.0, 0.0));
                 painter.line_segment(
                     [rect.left_bottom(), top_left],
                     egui::Stroke::new(2.0, color),
@@ -2361,16 +2396,19 @@ fn approval_dialog_inner(app: &mut GossipUi, ui: &mut Ui) {
 
         // Auth approvals
         for (url, permanent) in GLOBALS.auth_requests.write().iter_mut() {
-            widgets::list_entry::make_frame(ui, Some(app.theme.main_content_bgcolor()))
-                .fill(Color32::TRANSPARENT)
-                .inner_margin(egui::Margin::symmetric(10.0, 10.0))
+            widgets::list_entry::make_frame(ui, Some(Color32::TRANSPARENT))
+                .inner_margin(MARGIN)
                 .show(ui, |ui| {
                     ui.set_min_width(ui.available_width());
                     ui.set_height(HEIGHT);
                     ui.with_layout(egui::Layout::left_to_right(ALIGN), |ui| {
                         let text = format!("Authenticate to {}", url);
-                        widgets::truncated_label(ui, url.to_string(), ui.available_width() - TRUNC)
-                            .on_hover_text(text);
+                        widgets::truncated_label(
+                            ui,
+                            url.to_string().trim_end_matches("/"),
+                            ui.available_width() - TRUNC,
+                        )
+                        .on_hover_text(text);
                         ui.with_layout(egui::Layout::right_to_left(ALIGN), |ui| {
                             ui.scope(|ui| {
                                 decline_style(app, ui.style_mut());
@@ -2403,23 +2441,26 @@ fn approval_dialog_inner(app: &mut GossipUi, ui: &mut Ui) {
                         });
                     });
                 });
-            ui.separator();
+            separator(ui);
         }
 
         // Connect approvals
         for (url, jobs, permanent) in GLOBALS.connect_requests.write().iter_mut() {
             let jobstrs: Vec<String> = jobs.iter().map(|j| format!("{:?}", j.reason)).collect();
 
-            widgets::list_entry::make_frame(ui, Some(app.theme.main_content_bgcolor()))
-                .fill(Color32::TRANSPARENT)
-                .inner_margin(egui::Margin::symmetric(10.0, 10.0))
+            widgets::list_entry::make_frame(ui, Some(Color32::TRANSPARENT))
+                .inner_margin(MARGIN)
                 .show(ui, |ui| {
                     ui.set_min_width(ui.available_width());
                     ui.set_height(HEIGHT);
                     ui.with_layout(egui::Layout::left_to_right(ALIGN), |ui| {
                         let text = format!("Connect to {} for {}", url, jobstrs.join(", "));
-                        widgets::truncated_label(ui, url.to_string(), ui.available_width() - TRUNC)
-                            .on_hover_text(text);
+                        widgets::truncated_label(
+                            ui,
+                            url.to_string().trim_end_matches("/"),
+                            ui.available_width() - TRUNC,
+                        )
+                        .on_hover_text(text);
                         ui.with_layout(egui::Layout::right_to_left(ALIGN), |ui| {
                             ui.scope(|ui| {
                                 decline_style(app, ui.style_mut());
@@ -2453,14 +2494,14 @@ fn approval_dialog_inner(app: &mut GossipUi, ui: &mut Ui) {
                         });
                     });
                 });
-            ui.separator();
+            separator(ui);
         }
     }
 
     // NIP-46 approvals
     for (name, pubkey, parsed_command) in GLOBALS.nip46_approval_requests.read().iter() {
         widgets::list_entry::make_frame(ui, Some(app.theme.main_content_bgcolor()))
-            .inner_margin(egui::Margin::symmetric(10.0, 10.0))
+            .inner_margin(MARGIN)
             .show(ui, |ui| {
                 ui.set_min_width(ui.available_width());
                 ui.set_height(HEIGHT);
@@ -2559,6 +2600,6 @@ fn approval_dialog_inner(app: &mut GossipUi, ui: &mut Ui) {
                     }
                 }
             });
-        ui.separator();
+        separator(ui);
     }
 }

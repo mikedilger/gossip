@@ -7,7 +7,8 @@ use crate::comms::{
 use crate::dm_channel::DmChannel;
 use crate::error::{Error, ErrorKind};
 use crate::feed::FeedKind;
-use crate::globals::{Globals, ZapState, GLOBALS};
+use crate::globals::{Globals, GLOBALS};
+use crate::misc::ZapState;
 use crate::nip46::{Approval, ParsedCommand};
 use crate::people::{Person, PersonList};
 use crate::person_relay::PersonRelay;
@@ -16,14 +17,14 @@ use crate::tags::{
     add_addr_to_tags, add_event_to_tags, add_pubkey_to_tags, add_subject_to_tags_if_missing,
 };
 use crate::RunState;
-use gossip_relay_picker::{Direction, RelayAssignment};
+use gossip_relay_picker::RelayAssignment;
 use heed::RwTxn;
 use http::StatusCode;
 use minion::{Minion, MinionExitReason};
 use nostr_types::{
     ContentEncryptionAlgorithm, EncryptedPrivateKey, Event, EventAddr, EventKind, EventReference,
     Id, IdHex, Metadata, MilliSatoshi, NostrBech32, PayRequestData, PreEvent, PrivateKey, Profile,
-    PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime,
+    PublicKey, RelayUrl, RelayUsage, Tag, UncheckedUrl, Unixtime,
 };
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
@@ -349,7 +350,17 @@ impl Overlord {
                     payload: job.payload.clone(),
                 });
 
-                // And record
+                // Record the job:
+                // If the relay already has a job of the same RelayConnectionReason
+                // and that reason is not persistent, then this job replaces that
+                // one (e.g. FetchAugments)
+                if !job.reason.persistent() {
+                    let vec = refmut.value_mut();
+                    if let Some(pos) = vec.iter().position(|e| e.reason == job.reason) {
+                        vec[pos] = job;
+                        return Ok(());
+                    }
+                }
                 refmut.value_mut().push(job);
             }
         } else {
@@ -1618,7 +1629,7 @@ impl Overlord {
         // Get write relays for the person
         let relays: Vec<RelayUrl> = GLOBALS
             .storage
-            .get_best_relays(pubkey, Direction::Write)?
+            .get_best_relays(pubkey, RelayUsage::Outbox)?
             .drain(..)
             .take(num_relays_per_person as usize + 1)
             .map(|(relay, _rank)| relay)
@@ -2004,7 +2015,7 @@ impl Overlord {
             for pubkey in tagged_pubkeys.drain(..) {
                 let best_relays: Vec<RelayUrl> = GLOBALS
                     .storage
-                    .get_best_relays(pubkey, Direction::Read)?
+                    .get_best_relays(pubkey, RelayUsage::Inbox)?
                     .drain(..)
                     .take(num_relays_per_person as usize + 1)
                     .map(|(u, _)| u)
@@ -2246,7 +2257,7 @@ impl Overlord {
         for pubkey in &pubkeys {
             for relayscore in GLOBALS
                 .storage
-                .get_best_relays(*pubkey, Direction::Write)?
+                .get_best_relays(*pubkey, RelayUsage::Outbox)?
                 .drain(..)
                 .take(num_relays_per_person as usize + 1)
             {
@@ -2563,7 +2574,7 @@ impl Overlord {
 
         let relays: Vec<RelayUrl> = GLOBALS
             .storage
-            .get_best_relays(pubkey, Direction::Write)?
+            .get_best_relays(pubkey, RelayUsage::Outbox)?
             .drain(..)
             .take(num_relays_per_person as usize + 1)
             .map(|(relay, _rank)| relay)
@@ -2637,7 +2648,7 @@ impl Overlord {
         if let Some(pk) = author {
             let author_relays: Vec<RelayUrl> = GLOBALS
                 .storage
-                .get_best_relays(pk, Direction::Write)?
+                .get_best_relays(pk, RelayUsage::Outbox)?
                 .drain(..)
                 .take(num_relays_per_person as usize + 1)
                 .map(|pair| pair.0)
@@ -2671,7 +2682,7 @@ impl Overlord {
                 } else {
                     let tagged_person_relays: Vec<RelayUrl> = GLOBALS
                         .storage
-                        .get_best_relays(pk, Direction::Write)?
+                        .get_best_relays(pk, RelayUsage::Outbox)?
                         .drain(..)
                         .take(num_relays_per_person as usize + 1)
                         .map(|pair| pair.0)
@@ -2921,7 +2932,9 @@ impl Overlord {
         // for it's retry logic
         GLOBALS.people.metadata_fetch_initiated(&[pubkey]);
 
-        let best_relays = GLOBALS.storage.get_best_relays(pubkey, Direction::Write)?;
+        let best_relays = GLOBALS
+            .storage
+            .get_best_relays(pubkey, RelayUsage::Outbox)?;
         let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
 
         // we do 1 more than num_relays_per_person, which is really for main posts,
@@ -2960,7 +2973,9 @@ impl Overlord {
         let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
         let mut map: HashMap<RelayUrl, Vec<PublicKey>> = HashMap::new();
         for pubkey in pubkeys.drain(..) {
-            let best_relays = GLOBALS.storage.get_best_relays(pubkey, Direction::Write)?;
+            let best_relays = GLOBALS
+                .storage
+                .get_best_relays(pubkey, RelayUsage::Outbox)?;
             for (relay_url, _score) in best_relays.iter().take(num_relays_per_person as usize + 1) {
                 map.entry(relay_url.to_owned())
                     .and_modify(|entry| entry.push(pubkey))
@@ -3290,32 +3305,57 @@ impl Overlord {
     /// for events currently in view, to keep them small.
     ///
     /// WARNING: DO NOT CALL TOO OFTEN or relays will hate you.
-    pub async fn visible_notes_changed(&mut self, visible: Vec<Id>) -> Result<(), Error> {
-        let visible: Vec<IdHex> = visible.iter().map(|i| (*i).into()).collect();
+    pub async fn visible_notes_changed(&mut self, mut visible: Vec<Id>) -> Result<(), Error> {
+        let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
 
-        let mut persistent_relay_urls: Vec<RelayUrl> = GLOBALS
-            .connected_relays
-            .iter()
-            .filter_map(|r| {
-                for job in r.value() {
-                    if job.reason.persistent() {
-                        return Some(r.key().clone());
-                    }
+        // Work out which relays to use to find augments for which ids
+        let mut augment_subs: HashMap<RelayUrl, Vec<Id>> = HashMap::new();
+        for id in visible.drain(..) {
+            // Use the relays that the event was seen on. These are likely to contain
+            // the reactions.
+            for (relay_url, _) in GLOBALS.storage.get_event_seen_on_relay(id)?.drain(..) {
+                augment_subs
+                    .entry(relay_url)
+                    .and_modify(|vec| {
+                        if !vec.contains(&id) {
+                            vec.push(id)
+                        }
+                    })
+                    .or_insert(vec![id]);
+            }
+
+            if let Some(event) = GLOBALS.storage.read_event(id)? {
+                // Use the inbox of the author. NIP-65 compliant clients should be sending their
+                // reactions to the author.
+                for (relay_url, _) in GLOBALS
+                    .storage
+                    .get_best_relays(event.pubkey, RelayUsage::Inbox)?
+                    .drain(..)
+                    .take(num_relays_per_person as usize + 1)
+                {
+                    augment_subs
+                        .entry(relay_url)
+                        .and_modify(|vec| {
+                            if !vec.contains(&id) {
+                                vec.push(id)
+                            }
+                        })
+                        .or_insert(vec![id]);
                 }
-                None
-            })
-            .collect();
+            }
+        }
 
-        // Resubscribe to augments on all relays that have
-        // any feed-event subscriptions (see filter above)
-        for url in persistent_relay_urls.drain(..) {
+        // Create jobs for minions
+        for (relay_url, ids) in augment_subs.drain() {
+            let ids_hex: Vec<IdHex> = ids.iter().map(|i| (*i).into()).collect();
+
             self.engage_minion(
-                url,
+                relay_url,
                 vec![RelayJob {
                     reason: RelayConnectionReason::FetchAugments,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeAugments(visible.clone()),
+                        detail: ToMinionPayloadDetail::SubscribeAugments(ids_hex),
                     },
                 }],
             )
@@ -3477,7 +3517,7 @@ impl Overlord {
             // Add the read relays of the target person
             let mut target_read_relays = GLOBALS
                 .storage
-                .get_best_relays(target_pubkey, Direction::Read)?;
+                .get_best_relays(target_pubkey, RelayUsage::Inbox)?;
             let target_read_relays: Vec<RelayUrl> =
                 target_read_relays.drain(..).map(|pair| pair.0).collect();
             relays.extend(target_read_relays);

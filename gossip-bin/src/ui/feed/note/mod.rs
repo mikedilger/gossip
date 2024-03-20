@@ -57,7 +57,6 @@ pub struct NoteRenderData {
 pub(super) fn render_note(
     app: &mut GossipUi,
     ctx: &Context,
-    _frame: &mut eframe::Frame,
     ui: &mut Ui,
     feed_note_params: FeedNoteParams,
 ) {
@@ -152,6 +151,15 @@ pub(super) fn render_note(
             let bottom = ui.next_widget_position();
             app.height.insert(id, bottom.y - top.y);
 
+            // scroll to this note if it's the main note of a thread and the user hasn't scrolled yet
+            if is_main_event && app.feeds.thread_needs_scroll {
+                // keep auto-scrolling untill user scrolls
+                if app.current_scroll_offset != 0.0 {
+                    app.feeds.thread_needs_scroll = false;
+                }
+                inner_response.response.scroll_to_me(Some(Align::Center));
+            }
+
             // Mark post as viewed if hovered AND we are not scrolling
             if !viewed && inner_response.response.hovered() && app.current_scroll_offset == 0.0 {
                 let _ = GLOBALS.storage.mark_event_viewed(id, None);
@@ -187,7 +195,6 @@ pub(super) fn render_note(
                 super::render_note_maybe_fake(
                     app,
                     ctx,
-                    _frame,
                     ui,
                     FeedNoteParams {
                         id: *reply_id,

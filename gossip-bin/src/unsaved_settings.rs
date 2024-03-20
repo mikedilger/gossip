@@ -83,6 +83,7 @@ pub struct UnsavedSettings {
     pub max_fps: u32,
     pub recompute_feed_periodically: bool,
     pub feed_recompute_interval_ms: u32,
+    pub feed_thread_scroll_to_main_event: bool,
     pub theme_variant: String,
     pub dark_mode: bool,
     pub follow_os_dark_mode: bool,
@@ -165,6 +166,7 @@ impl Default for UnsavedSettings {
             max_fps: default_setting!(max_fps),
             recompute_feed_periodically: default_setting!(recompute_feed_periodically),
             feed_recompute_interval_ms: default_setting!(feed_recompute_interval_ms),
+            feed_thread_scroll_to_main_event: default_setting!(feed_thread_scroll_to_main_event),
             theme_variant: default_setting!(theme_variant),
             dark_mode: default_setting!(dark_mode),
             follow_os_dark_mode: default_setting!(follow_os_dark_mode),
@@ -249,6 +251,7 @@ impl UnsavedSettings {
             max_fps: load_setting!(max_fps),
             recompute_feed_periodically: load_setting!(recompute_feed_periodically),
             feed_recompute_interval_ms: load_setting!(feed_recompute_interval_ms),
+            feed_thread_scroll_to_main_event: load_setting!(feed_thread_scroll_to_main_event),
             theme_variant: load_setting!(theme_variant),
             dark_mode: load_setting!(dark_mode),
             follow_os_dark_mode: load_setting!(follow_os_dark_mode),
@@ -329,6 +332,7 @@ impl UnsavedSettings {
         save_setting!(max_fps, self, txn);
         save_setting!(recompute_feed_periodically, self, txn);
         save_setting!(feed_recompute_interval_ms, self, txn);
+        save_setting!(feed_thread_scroll_to_main_event, self, txn);
         save_setting!(theme_variant, self, txn);
         save_setting!(dark_mode, self, txn);
         save_setting!(follow_os_dark_mode, self, txn);

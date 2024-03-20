@@ -78,6 +78,7 @@ impl Pending {
     }
 }
 
+#[allow(dead_code)]
 pub fn start() {
     task::spawn(async {
         let mut read_runstate = GLOBALS.read_runstate.clone();

@@ -14,7 +14,7 @@ use std::collections::BTreeMap;
 
 const MIN_OUTBOX: usize = 3;
 const MIN_INBOX: usize = 2;
-const MIN_DISCOVERY: usize = 1;
+const MIN_DISCOVERY: usize = 4;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     let read_relay = |url: &RelayUrl| GLOBALS.storage.read_or_create_relay(url, None).unwrap();
@@ -135,7 +135,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     ui.label(RichText::new(" - OK").color(Color32::GREEN));
                 } else {
                     ui.label(
-                        RichText::new(" - You should have one")
+                        RichText::new(" - We suggest 4")
                             .color(app.theme.warning_marker_text_color()),
                     );
                 }
