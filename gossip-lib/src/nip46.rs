@@ -529,7 +529,7 @@ pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Er
         return Ok(()); // no need to pass back error
     }
 
-    if params.len() != 2 {
+    if params.len() < 2 {
         send_response(
             id.clone(),
             "".to_owned(),
@@ -546,7 +546,7 @@ pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Er
             send_response(
                 id.clone(),
                 "".to_owned(),
-                "connect requires two parameters".to_string(),
+                "No public key".to_string(),
                 event.pubkey,
                 reply_relays,
             )?;
