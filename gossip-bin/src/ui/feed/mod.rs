@@ -256,10 +256,7 @@ fn render_a_feed(
         is_thread: threaded,
     };
 
-    let feed_newest_at_bottom = GLOBALS.storage.read_setting_feed_newest_at_bottom();
-
     app.vert_scroll_area()
-        .stick_to_bottom(feed_newest_at_bottom)
         .id_source(scroll_area_id)
         .show(ui, |ui| {
             egui::Frame::none()
@@ -267,80 +264,64 @@ fn render_a_feed(
                 .fill(app.theme.feed_scroll_fill(&feed_properties))
                 .stroke(app.theme.feed_scroll_stroke(&feed_properties))
                 .show(ui, |ui| {
-                    if feed_newest_at_bottom {
-                        ui.add_space(50.0);
-                        if offer_load_more {
-                            render_load_more(app, ui)
-                        }
-                        ui.add_space(50.0);
-
-                        for id in feed.iter().rev() {
-                            render_note_maybe_fake(
-                                app,
-                                ctx,
-                                ui,
-                                FeedNoteParams {
-                                    id: *id,
-                                    indent: 0,
-                                    as_reply_to: false,
-                                    threaded,
-                                    is_first: Some(id) == feed.last(),
-                                    is_last: Some(id) == feed.first(),
-                                },
-                            );
-                        }
-                    } else {
-                        for id in feed.iter() {
-                            render_note_maybe_fake(
-                                app,
-                                ctx,
-                                ui,
-                                FeedNoteParams {
-                                    id: *id,
-                                    indent: 0,
-                                    as_reply_to: false,
-                                    threaded,
-                                    is_first: Some(id) == feed.first(),
-                                    is_last: Some(id) == feed.last(),
-                                },
-                            );
-                        }
-
-                        ui.add_space(50.0);
-                        if offer_load_more {
-                            render_load_more(app, ui)
-                        }
-                        ui.add_space(50.0);
+                    let iter = feed.iter();
+                    let first = feed.first();
+                    let last = feed.last();
+                    for id in iter {
+                        render_note_maybe_fake(
+                            app,
+                            ctx,
+                            ui,
+                            FeedNoteParams {
+                                id: *id,
+                                indent: 0,
+                                as_reply_to: false,
+                                threaded,
+                                is_first: Some(id) == first,
+                                is_last: Some(id) == last,
+                            },
+                        );
                     }
+
+                    let recomputing = GLOBALS
+                        .feed
+                        .recompute_lock
+                        .load(std::sync::atomic::Ordering::Relaxed);
+
+                    if !recomputing && offer_load_more {
+                        ui.add_space(50.0);
+                        ui.with_layout(
+                            egui::Layout::top_down(egui::Align::Center)
+                                .with_cross_align(egui::Align::Center),
+                            |ui| {
+                                app.theme.accent_button_1_style(ui.style_mut());
+                                ui.spacing_mut().button_padding.x *= 3.0;
+                                ui.spacing_mut().button_padding.y *= 2.0;
+                                let response = ui.add(egui::Button::new("Load More"));
+                                if response.clicked() {
+                                    let _ = GLOBALS
+                                        .to_overlord
+                                        .send(ToOverlordMessage::LoadMoreCurrentFeed);
+                                }
+
+                                // draw some nice lines left and right of the button
+                                let stroke = egui::Stroke::new(1.5, ui.visuals().extreme_bg_color);
+                                let width =
+                                    (ui.available_width() - response.rect.width()) / 2.0 - 20.0;
+                                let left_start =
+                                    response.rect.left_center() - egui::vec2(10.0, 0.0);
+                                let left_end = left_start - egui::vec2(width, 0.0);
+                                ui.painter().line_segment([left_start, left_end], stroke);
+                                let right_start =
+                                    response.rect.right_center() + egui::vec2(10.0, 0.0);
+                                let right_end = right_start + egui::vec2(width, 0.0);
+                                ui.painter().line_segment([right_start, right_end], stroke);
+                            },
+                        );
+                    }
+                    ui.add_space(100.0);
                 });
         });
-}
-
-fn render_load_more(app: &mut GossipUi, ui: &mut Ui) {
-    ui.with_layout(
-        egui::Layout::top_down(egui::Align::Center).with_cross_align(egui::Align::Center),
-        |ui| {
-            app.theme.accent_button_1_style(ui.style_mut());
-            ui.spacing_mut().button_padding.x *= 3.0;
-            ui.spacing_mut().button_padding.y *= 2.0;
-            let response = ui.add(egui::Button::new("Load More"));
-            if response.clicked() {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::LoadMoreCurrentFeed);
-            }
-
-            // draw some nice lines left and right of the button
-            let stroke = egui::Stroke::new(1.5, ui.visuals().extreme_bg_color);
-            let width = (ui.available_width() - response.rect.width()) / 2.0 - 20.0;
-            let left_start = response.rect.left_center() - egui::vec2(10.0, 0.0);
-            let left_end = left_start - egui::vec2(width, 0.0);
-            ui.painter().line_segment([left_start, left_end], stroke);
-            let right_start = response.rect.right_center() + egui::vec2(10.0, 0.0);
-            let right_end = right_start + egui::vec2(width, 0.0);
-            ui.painter().line_segment([right_start, right_end], stroke);
-        },
-    );
 }
 
 fn render_note_maybe_fake(
