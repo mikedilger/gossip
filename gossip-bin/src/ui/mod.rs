@@ -383,6 +383,9 @@ struct GossipUi {
     audio_device: Option<AudioDevice>,
     #[cfg(feature = "video-ffmpeg")]
     video_players: HashMap<Url, Rc<RefCell<egui_video::Player>>>,
+    // dismissed libsdl2 warning
+    #[cfg(feature = "video-ffmpeg")]
+    warn_no_libsdl2_dismissed: bool,
 
     initializing: bool,
 
@@ -652,6 +655,8 @@ impl GossipUi {
             audio_device,
             #[cfg(feature = "video-ffmpeg")]
             video_players: HashMap::new(),
+            #[cfg(feature = "video-ffmpeg")]
+            warn_no_libsdl2_dismissed: false,
             initializing: true,
             next_frame: Instant::now(),
             override_dpi,
@@ -1415,11 +1420,14 @@ impl eframe::App for GossipUi {
                     self.begin_ui(ui);
                     #[cfg(feature = "video-ffmpeg")]
                     {
-                        if self.audio_device.is_none() {
-                            widgets::warning_frame(ui, &self, |ui| {
+                        if !self.warn_no_libsdl2_dismissed && self.audio_device.is_none() {
+                            widgets::warning_frame(ui, self, |ui, app| {
                                 ui.label("You have compiled gossip with 'video-ffmpeg' option but no audio device was found on your system. Make sure you have followed the instructions at");
                                 ui.hyperlink("https://github.com/Rust-SDL2/rust-sdl2");
                                 ui.label("and installed 'libsdl2-dev' package for your system.");
+                                if ui.link("dismiss message").clicked() {
+                                    app.warn_no_libsdl2_dismissed = true;
+                                }
                             });
                         }
                     }

@@ -165,7 +165,11 @@ pub(super) fn set_important_button_visuals(ui: &mut Ui, app: &GossipUi) {
 }
 
 #[allow(dead_code)]
-pub(crate) fn warning_frame<R>(ui: &mut Ui, app: &GossipUi, inner: impl Fn(&mut Ui) -> R) -> R {
+pub(crate) fn warning_frame<R>(
+    ui: &mut Ui,
+    app: &mut GossipUi,
+    inner: impl FnOnce(&mut Ui, &mut GossipUi) -> R,
+) -> R {
     egui::Frame::none()
         .outer_margin(egui::Margin {
             left: -20.0,
@@ -179,7 +183,7 @@ pub(crate) fn warning_frame<R>(ui: &mut Ui, app: &GossipUi, inner: impl Fn(&mut 
             ui.set_width(ui.available_width());
             ui.horizontal_wrapped(|ui| {
                 ui.visuals_mut().override_text_color = Some(egui::Color32::WHITE);
-                inner(ui)
+                inner(ui, app)
             })
             .inner
         })
