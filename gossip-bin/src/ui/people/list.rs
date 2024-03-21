@@ -711,8 +711,8 @@ pub(super) fn render_more_list_actions(
     count: usize,
     on_list: bool,
 ) {
-    // do not show for "Following" and "Muted" when they are empty
-    if !on_list && !matches!(list, PersonList::Custom(_)) && count == 0 {
+    // do not show for "Following" and "Muted"
+    if !on_list && !matches!(list, PersonList::Custom(_)) {
         return;
     }
 
@@ -728,12 +728,6 @@ pub(super) fn render_more_list_actions(
             if on_list {
                 app.theme.accent_button_1_style(ui.style_mut());
                 ui.spacing_mut().item_spacing.y = 15.0;
-            }
-            if !on_list {
-                if ui.button("View Contacts").clicked() {
-                    app.set_page(ui.ctx(), Page::PeopleList(list));
-                    *is_open = false;
-                }
             }
             if matches!(list, PersonList::Custom(_)) {
                 if ui.button("Rename").clicked() {
