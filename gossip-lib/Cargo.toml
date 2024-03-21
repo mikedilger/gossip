@@ -35,6 +35,9 @@ rustls-tls-native = [
   "tokio-tungstenite/rustls-tls-native-roots"
 ]
 
+# Make tweaks for AppImage
+appimage = []
+
 [dependencies]
 async-recursion = "1.0"
 async-trait = "0.1"

@@ -32,7 +32,7 @@ impl Storage {
                 nip05_valid: person1.nip05_valid,
                 nip05_last_checked: person1.nip05_last_checked,
                 relay_list_created_at: person1.relay_list_created_at,
-                relay_list_last_received: person1.relay_list_last_received,
+                relay_list_last_sought: person1.relay_list_last_received,
             };
             self.write_person2(&person2, Some(txn))?;
             count += 1;

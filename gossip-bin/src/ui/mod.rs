@@ -629,6 +629,7 @@ impl GossipUi {
         let mut wizard_state: WizardState = Default::default();
         let wizard_complete = GLOBALS.storage.get_flag_wizard_complete();
         if !wizard_complete {
+            wizard_state.init();
             if let Some(wp) = wizard::start_wizard_page(&mut wizard_state) {
                 start_page = Page::Wizard(wp);
             }
@@ -1172,9 +1173,20 @@ impl GossipUi {
 
                 // ---- "plus icon" ----
                 if !self.show_post_area_fn() && self.page.show_post_icon() {
-                    let bottom_right = ui.ctx().screen_rect().right_bottom();
-                    let pos = bottom_right
-                        + Vec2::new(-crate::AVATAR_SIZE_F32 * 2.0, -crate::AVATAR_SIZE_F32 * 2.0);
+                    let feed_newest_at_bottom =
+                        GLOBALS.storage.read_setting_feed_newest_at_bottom();
+                    let pos = if feed_newest_at_bottom {
+                        let top_right = ui.ctx().screen_rect().right_top();
+                        top_right
+                            + Vec2::new(-crate::AVATAR_SIZE_F32 * 2.0, crate::AVATAR_SIZE_F32 * 2.0)
+                    } else {
+                        let bottom_right = ui.ctx().screen_rect().right_bottom();
+                        bottom_right
+                            + Vec2::new(
+                                -crate::AVATAR_SIZE_F32 * 2.0,
+                                -crate::AVATAR_SIZE_F32 * 2.0,
+                            )
+                    };
 
                     egui::Area::new(ui.next_auto_id())
                         .movable(false)
@@ -1194,6 +1206,15 @@ impl GossipUi {
                                     } else {
                                         RichText::new("\u{1f513}").size(20.0)
                                     };
+                                    let fill_color = {
+                                        let fill_color_tuple = self.theme.accent_color().to_tuple();
+                                        Color32::from_rgba_premultiplied(
+                                            fill_color_tuple.0,
+                                            fill_color_tuple.1,
+                                            fill_color_tuple.2,
+                                            128, // half transparent
+                                        )
+                                    };
                                     let response = ui.add_sized(
                                         [crate::AVATAR_SIZE_F32, crate::AVATAR_SIZE_F32],
                                         egui::Button::new(
@@ -1201,7 +1222,7 @@ impl GossipUi {
                                         )
                                         .stroke(egui::Stroke::NONE)
                                         .rounding(egui::Rounding::same(crate::AVATAR_SIZE_F32))
-                                        .fill(self.theme.accent_color()),
+                                        .fill(fill_color),
                                     );
                                     if response.clicked() {
                                         self.show_post_area = true;
@@ -1592,21 +1613,14 @@ impl GossipUi {
                     }
                 }
                 if !followed && ui.button("Follow").clicked() {
-                    let _ = GLOBALS.people.follow(
-                        &person.pubkey,
-                        true,
-                        PersonList::Followed,
-                        true,
-                        true,
-                    );
+                    let _ = GLOBALS
+                        .people
+                        .follow(&person.pubkey, true, PersonList::Followed, true);
                 } else if followed && ui.button("Unfollow").clicked() {
-                    let _ = GLOBALS.people.follow(
-                        &person.pubkey,
-                        false,
-                        PersonList::Followed,
-                        true,
-                        false,
-                    );
+                    let _ =
+                        GLOBALS
+                            .people
+                            .follow(&person.pubkey, false, PersonList::Followed, true);
                 }
 
                 // Do not show 'Mute' if this is yourself

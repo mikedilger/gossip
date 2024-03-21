@@ -90,13 +90,16 @@ pub use fetcher::Fetcher;
 mod filter;
 
 mod globals;
-pub use globals::{Globals, ZapState, GLOBALS};
+pub use globals::{Globals, GLOBALS};
 
 mod gossip_identity;
 pub use gossip_identity::GossipIdentity;
 
 mod media;
 pub use media::Media;
+
+mod misc;
+pub use misc::ZapState;
 
 /// Rendering various names of users
 pub mod names;
@@ -132,6 +135,9 @@ pub use relay::Relay;
 
 mod relay_picker_hooks;
 pub use relay_picker_hooks::Hooks;
+
+mod seeker;
+pub use seeker::Seeker;
 
 mod status;
 pub use status::StatusQueue;
@@ -240,11 +246,15 @@ pub async fn run() {
                     // Start the fetcher
                     crate::fetcher::Fetcher::start();
 
+                    // Start the seeker
+                    crate::seeker::Seeker::start();
+
                     // Start periodic tasks in people manager (after signer)
                     crate::people::People::start();
 
                     // Start periodic tasks in pending
-                    crate::pending::start();
+                    // DISABLED until the UI is ready to implement.
+                    // crate::pending::start();
 
                     // Start long-lived subscriptions
                     // (this also does a relay_picker init)

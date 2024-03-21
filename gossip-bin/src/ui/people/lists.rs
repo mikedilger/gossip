@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 
 use super::{GossipUi, Page};
 use crate::ui::widgets;
-use eframe::egui;
+use eframe::egui::{self, Sense};
 use egui::{Context, Ui};
 use egui_winit::egui::{Label, RichText};
 use gossip_lib::{PersonList, PersonListMetadata, GLOBALS};
@@ -55,22 +55,39 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
                         ui.vertical(|ui| {
                             ui.horizontal(|ui| {
-                                ui.add(Label::new(
-                                    RichText::new(&metadata.title).heading().color(color),
-                                ));
-                                ui.label(format!("({})", metadata.len));
+                                let mut response = ui.add(
+                                    Label::new(
+                                        RichText::new(&metadata.title).heading().color(color),
+                                    )
+                                    .selectable(false)
+                                    .sense(egui::Sense::click()),
+                                );
+
+                                response |= ui.add(
+                                    Label::new(format!("({})", metadata.len))
+                                        .selectable(false)
+                                        .sense(Sense::click()),
+                                );
                                 if metadata.favorite {
-                                    ui.add(Label::new(
-                                        RichText::new("★")
-                                            .size(18.0)
-                                            .color(app.theme.accent_complementary_color()),
-                                    ));
+                                    response |= ui.add(
+                                        Label::new(
+                                            RichText::new("★")
+                                                .size(18.0)
+                                                .color(app.theme.accent_complementary_color()),
+                                        )
+                                        .selectable(false)
+                                        .sense(Sense::click()),
+                                    );
                                 }
                                 if metadata.private {
-                                    ui.add(Label::new(
-                                        RichText::new("😎")
-                                            .color(app.theme.accent_complementary_color()),
-                                    ));
+                                    response |= ui.add(
+                                        Label::new(
+                                            RichText::new("😎")
+                                                .color(app.theme.accent_complementary_color()),
+                                        )
+                                        .selectable(false)
+                                        .sense(Sense::click()),
+                                    );
                                 }
 
                                 ui.with_layout(
@@ -87,14 +104,21 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                                         );
                                     },
                                 );
-                            });
-                        });
+                                response
+                            })
+                            .inner
+                        })
+                        .inner
                     },
                 );
                 if row_response
                     .response
                     .on_hover_cursor(egui::CursorIcon::PointingHand)
                     .clicked()
+                    || row_response
+                        .inner
+                        .on_hover_cursor(egui::CursorIcon::PointingHand)
+                        .clicked()
                 {
                     app.set_page(ctx, Page::PeopleList(list));
                 }

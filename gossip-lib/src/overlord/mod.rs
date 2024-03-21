@@ -7,7 +7,8 @@ use crate::comms::{
 use crate::dm_channel::DmChannel;
 use crate::error::{Error, ErrorKind};
 use crate::feed::FeedKind;
-use crate::globals::{Globals, ZapState, GLOBALS};
+use crate::globals::{Globals, GLOBALS};
+use crate::misc::ZapState;
 use crate::nip46::{Approval, ParsedCommand};
 use crate::people::{Person, PersonList};
 use crate::person_relay::PersonRelay;
@@ -362,6 +363,14 @@ impl Overlord {
                 }
                 refmut.value_mut().push(job);
             }
+        } else if GLOBALS.penalty_box_relays.contains_key(&url) {
+            // It is in the penalty box.
+            // To avoid a race condition with the task that removes it from the penalty
+            // box we have to use entry to make sure it was still there
+            GLOBALS
+                .penalty_box_relays
+                .entry(url)
+                .and_modify(|existing_jobs| Self::extend_jobs(existing_jobs, jobs));
         } else {
             // Start up the minion
             let mut minion = Minion::new(url.clone()).await?;
@@ -400,11 +409,15 @@ impl Overlord {
         // Remove from our hashmap
         self.minions_task_url.remove(&id);
 
-        // Set to not connected
-        let relayjobs = GLOBALS.connected_relays.remove(&url).map(|(_, v)| v);
+        // Set to not connected, and take any unfinished jobs
+        let mut relayjobs = match GLOBALS.connected_relays.remove(&url).map(|(_, v)| v) {
+            Some(jobs) => jobs,
+            None => vec![],
+        };
 
+        // Exclusion will be non-zero if there was a failure.  It will be zero if we
+        // succeeded
         let mut exclusion: u64;
-        let mut completed: bool = false;
 
         match join_result {
             Err(join_error) => {
@@ -421,36 +434,37 @@ impl Overlord {
                     }
                     exclusion = match exitreason {
                         MinionExitReason::GotDisconnected => 120,
+                        MinionExitReason::GotShutdownMessage => 0,
                         MinionExitReason::GotWSClose => 120,
+                        MinionExitReason::LostOverlord => 0,
+                        MinionExitReason::SubscriptionsHaveCompleted => {
+                            relayjobs = vec![];
+                            0
+                        }
                         MinionExitReason::Unknown => 120,
-                        MinionExitReason::SubscriptionsHaveCompleted => 5,
-                        _ => 5,
                     };
-
-                    // Remember if the relay says all the jobs have completed
-                    if matches!(exitreason, MinionExitReason::SubscriptionsHaveCompleted) {
-                        completed = true;
-                    }
                 }
                 Err(e) => {
                     Self::bump_failure_count(&url);
                     tracing::error!("Minion {} completed with error: {}", &url, e);
                     exclusion = 120;
                     if let ErrorKind::RelayRejectedUs = e.kind {
-                        exclusion = 60 * 60 * 24 * 365; // don't connect again, practically
+                        exclusion = u64::MAX;
+                    } else if let ErrorKind::ReqwestHttpError(_) = e.kind {
+                        exclusion = u64::MAX;
                     } else if let ErrorKind::Websocket(wserror) = e.kind {
                         if let tungstenite::error::Error::Http(response) = wserror {
                             exclusion = match response.status() {
-                                StatusCode::MOVED_PERMANENTLY => 60 * 60 * 24,
-                                StatusCode::PERMANENT_REDIRECT => 60 * 60 * 24,
-                                StatusCode::UNAUTHORIZED => 60 * 60 * 24,
-                                StatusCode::PAYMENT_REQUIRED => 60 * 60 * 24,
-                                StatusCode::FORBIDDEN => 60 * 60 * 24,
-                                StatusCode::NOT_FOUND => 60 * 60 * 24,
-                                StatusCode::PROXY_AUTHENTICATION_REQUIRED => 60 * 60 * 24,
-                                StatusCode::UNAVAILABLE_FOR_LEGAL_REASONS => 60 * 60 * 24,
-                                StatusCode::NOT_IMPLEMENTED => 60 * 60 * 24,
-                                StatusCode::BAD_GATEWAY => 60 * 60 * 24,
+                                StatusCode::MOVED_PERMANENTLY => u64::MAX,
+                                StatusCode::PERMANENT_REDIRECT => u64::MAX,
+                                StatusCode::UNAUTHORIZED => u64::MAX,
+                                StatusCode::PAYMENT_REQUIRED => u64::MAX,
+                                StatusCode::FORBIDDEN => u64::MAX,
+                                StatusCode::NOT_FOUND => u64::MAX,
+                                StatusCode::PROXY_AUTHENTICATION_REQUIRED => u64::MAX,
+                                StatusCode::UNAVAILABLE_FOR_LEGAL_REASONS => u64::MAX,
+                                StatusCode::NOT_IMPLEMENTED => u64::MAX,
+                                StatusCode::BAD_GATEWAY => u64::MAX,
                                 s if s.as_u16() >= 400 => 120,
                                 _ => 120,
                             };
@@ -471,9 +485,9 @@ impl Overlord {
             },
         };
 
-        // We might need to act upon this minion exiting
+        // Act upon this minion exiting, unless we are quitting
         if self.read_runstate.borrow().going_online() {
-            self.recover_from_minion_exit(url, relayjobs, exclusion, completed)
+            self.recover_from_minion_exit(url, relayjobs, exclusion)
                 .await;
         }
     }
@@ -481,9 +495,8 @@ impl Overlord {
     async fn recover_from_minion_exit(
         &mut self,
         url: RelayUrl,
-        jobs: Option<Vec<RelayJob>>,
+        jobs: Vec<RelayJob>,
         exclusion: u64,
-        completed: bool,
     ) {
         // Let the relay picker know it disconnected
         GLOBALS
@@ -496,44 +509,66 @@ impl Overlord {
         }
         self.pick_relays().await;
 
-        if let Some(mut jobs) = jobs {
-            // Remove any advertise jobs from the active set
-            for job in &jobs {
-                GLOBALS.active_advertise_jobs.remove(&job.payload.job_id);
-            }
-
-            if completed {
-                return;
-            }
-
-            // If we have any persistent jobs, restart after a delay
-            let persistent_jobs: Vec<RelayJob> = jobs
-                .drain(..)
-                .filter(|job| job.reason.persistent())
-                .collect();
-
-            if !persistent_jobs.is_empty() {
-                // Do it after a delay
-                std::mem::drop(tokio::spawn(async move {
-                    // Delay for exclusion first
-                    tracing::info!(
-                        "Minion {} will restart in {} seconds to continue persistent jobs",
-                        &url,
-                        exclusion
-                    );
-                    tokio::time::sleep(Duration::new(exclusion, 0)).await;
-                    let _ = GLOBALS
-                        .to_overlord
-                        .send(ToOverlordMessage::ReengageMinion(url, persistent_jobs));
-                }));
-            }
+        if exclusion == 0 {
+            return;
         }
+
+        // Remove any advertise jobs from the active set
+        for job in &jobs {
+            GLOBALS.active_advertise_jobs.remove(&job.payload.job_id);
+        }
+
+        if jobs.is_empty() {
+            return;
+        }
+
+        // OK we have an exclusion and unfinished jobs.
+        //
+        // Add this relay to the penalty box, and setup a task to reengage
+        // it after the exclusion completes
+        let exclusion = exclusion.max(10); // safety catch, minimum exclusion is 10s
+
+        GLOBALS.penalty_box_relays.insert(url.clone(), jobs);
+
+        tracing::info!(
+            "Minion {} will restart in {} seconds to continue persistent jobs",
+            &url,
+            exclusion
+        );
+
+        if exclusion != u64::MAX {
+            // Re-engage after the delay
+            std::mem::drop(tokio::spawn(async move {
+                tokio::time::sleep(Duration::new(exclusion, 0)).await;
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::ReengageMinion(url));
+            }));
+        }
+        // otherwise leave it in the penalty box forever
+    }
+
+    async fn reengage_minion(&mut self, url: RelayUrl) -> Result<(), Error> {
+        // Take from penalty box
+        if let Some(pair) = GLOBALS.penalty_box_relays.remove(&url) {
+            self.engage_minion(url, pair.1).await?;
+        }
+
+        Ok(())
     }
 
     fn bump_failure_count(url: &RelayUrl) {
         if let Ok(Some(mut relay)) = GLOBALS.storage.read_relay(url) {
             relay.failure_count += 1;
             let _ = GLOBALS.storage.write_relay(&relay, None);
+        }
+    }
+
+    fn extend_jobs(jobs: &mut Vec<RelayJob>, mut more: Vec<RelayJob>) {
+        for newjob in more.drain(..) {
+            if !jobs.iter().any(|job| job.matches(&newjob)) {
+                jobs.push(newjob)
+            }
         }
     }
 
@@ -683,8 +718,8 @@ impl Overlord {
             ToOverlordMessage::RankRelay(relay_url, rank) => {
                 Self::rank_relay(relay_url, rank)?;
             }
-            ToOverlordMessage::ReengageMinion(url, persistent_jobs) => {
-                self.engage_minion(url, persistent_jobs).await?;
+            ToOverlordMessage::ReengageMinion(url) => {
+                self.reengage_minion(url).await?;
             }
             ToOverlordMessage::RefreshSubscribedMetadata => {
                 self.refresh_subscribed_metadata().await?;
@@ -1319,7 +1354,21 @@ impl Overlord {
     }
 
     /// Fetch an event from a specific relay by event `Id`
-    pub async fn fetch_event(&mut self, id: Id, relay_urls: Vec<RelayUrl>) -> Result<(), Error> {
+    pub async fn fetch_event(
+        &mut self,
+        id: Id,
+        mut relay_urls: Vec<RelayUrl>,
+    ) -> Result<(), Error> {
+        // Use READ relays if relays are unknown
+        if relay_urls.is_empty() {
+            relay_urls = GLOBALS
+                .storage
+                .filter_relays(|r| r.has_usage_bits(Relay::READ) && r.rank != 0)?
+                .iter()
+                .map(|relay| relay.url.clone())
+                .collect();
+        }
+
         // Don't do this if we already have the event
         if !GLOBALS.storage.has_event(id)? {
             // Note: minions will remember if they get the same id multiple times
@@ -1371,7 +1420,7 @@ impl Overlord {
         list: PersonList,
         public: bool,
     ) -> Result<(), Error> {
-        GLOBALS.people.follow(&pubkey, true, list, public, true)?;
+        GLOBALS.people.follow(&pubkey, true, list, public)?;
         tracing::debug!("Followed {}", &pubkey.as_hex_string());
         Ok(())
     }
@@ -1415,7 +1464,7 @@ impl Overlord {
         // Follow
         GLOBALS
             .people
-            .follow(&nprofile.pubkey, true, list, public, true)?;
+            .follow(&nprofile.pubkey, true, list, public)?;
 
         GLOBALS
             .status_queue
@@ -2766,8 +2815,8 @@ impl Overlord {
         }
 
         // Separately subscribe to RelayList discovery for everyone we follow
-        // We just do this once at startup. Relay lists don't change that frequently.
-        let followed = GLOBALS.people.get_subscribed_pubkeys();
+        // who needs to seek a relay list again.
+        let followed = GLOBALS.people.get_subscribed_pubkeys_needing_relay_lists();
         self.subscribe_discover(followed, None).await?;
 
         // Separately subscribe to our outbox events on our write relays
@@ -2825,11 +2874,27 @@ impl Overlord {
 
     /// Subscribe to the multiple user's relay lists (optionally on the given relays, otherwise using
     /// theconfigured discover relays)
+    ///
+    /// Caller should probably check Person.relay_list_last_sought first to make sure we don't
+    /// already have an in-flight request doing this.  This can be done with:
+    ///    GLOBALS.people.person_needs_relay_list()
+    ///    GLOBALS.people.get_subscribed_pubkeys_needing_relay_lists()
     pub async fn subscribe_discover(
         &mut self,
         pubkeys: Vec<PublicKey>,
         relays: Option<Vec<RelayUrl>>,
     ) -> Result<(), Error> {
+        // Mark for each person that we are seeking their relay list
+        // so that we don't repeat this for a while
+        let now = Unixtime::now().unwrap();
+        let mut txn = GLOBALS.storage.get_write_txn()?;
+        for pk in pubkeys.iter() {
+            let mut person = GLOBALS.storage.read_or_create_person(pk, Some(&mut txn))?;
+            person.relay_list_last_sought = now.0;
+            GLOBALS.storage.write_person(&person, Some(&mut txn))?;
+        }
+        txn.commit()?;
+
         // Discover their relays
         let discover_relay_urls: Vec<RelayUrl> = match relays {
             Some(r) => r,

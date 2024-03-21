@@ -29,32 +29,6 @@ pub fn general_feed(
     filters
 }
 
-pub fn relay_lists(authors: &[PublicKey]) -> Vec<Filter> {
-    // Try to find where people post.
-    // Subscribe to kind-10002 `RelayList`s to see where people post.
-    // Subscribe to ContactLists so we can look at the contents and
-    //   divine relays people write to (if using a client that does that).
-    // BUT ONLY for people where this kind of data hasn't been received
-    // in the last 8 hours (so we don't do it every client restart).
-    let keys_needing_relay_lists: Vec<PublicKeyHex> = GLOBALS
-        .people
-        .get_subscribed_pubkeys_needing_relay_lists(authors)
-        .drain(..)
-        .map(|pk| pk.into())
-        .collect();
-
-    if !keys_needing_relay_lists.is_empty() {
-        vec![Filter {
-            authors: keys_needing_relay_lists,
-            kinds: vec![EventKind::RelayList, EventKind::ContactList],
-            // No since. These are replaceable events, we should only get 1 per person.
-            ..Default::default()
-        }]
-    } else {
-        vec![]
-    }
-}
-
 pub fn augments(ids: &[IdHex]) -> Vec<Filter> {
     let event_kinds = crate::feed::feed_augment_event_kinds();
 
@@ -176,6 +150,8 @@ pub fn outbox(since: Unixtime) -> Vec<Filter> {
     }
 }
 
+// This FORCES the fetch of relay lists without checking if we need them.
+// See also relay_lists() which checks if they are needed first.
 pub fn discover(pubkeys: &[PublicKey]) -> Vec<Filter> {
     let pkp: Vec<PublicKeyHex> = pubkeys.iter().map(|pk| pk.into()).collect();
     vec![Filter {

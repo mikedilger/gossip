@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 use super::{GossipUi, Page};
 use crate::ui::widgets;
 use crate::AVATAR_SIZE_F32;
-use eframe::egui;
+use eframe::egui::{self, Label, Sense};
 use egui::{Context, RichText, Ui, Vec2};
 use egui_winit::egui::text::LayoutJob;
 use egui_winit::egui::text_edit::TextEditOutput;
@@ -27,6 +27,7 @@ pub(in crate::ui) struct ListUi {
     add_contact_searched: Option<String>,
     add_contact_search_results: Vec<(String, PublicKey)>,
     add_contact_search_selected: Option<usize>,
+    add_contact_error: Option<String>,
 
     entering_follow_someone_on_list: bool,
     clear_list_needs_confirm: bool,
@@ -49,6 +50,7 @@ impl ListUi {
             add_contact_searched: None,
             add_contact_search_results: Vec::new(),
             add_contact_search_selected: None,
+            add_contact_error: None,
 
             entering_follow_someone_on_list: false,
             clear_list_needs_confirm: false,
@@ -218,7 +220,7 @@ pub(super) fn update(
                             app.placeholder_avatar.clone()
                         };
 
-                        let avatar_response =
+                        let mut response =
                             widgets::paint_avatar(ui, person, &avatar, widgets::AvatarSize::Feed);
 
                         ui.add_space(20.0);
@@ -226,7 +228,11 @@ pub(super) fn update(
                         ui.vertical(|ui| {
                             ui.add_space(5.0);
                             ui.horizontal(|ui| {
-                                ui.label(RichText::new(person.best_name()).size(15.5));
+                                response |= ui.add(
+                                    Label::new(RichText::new(person.best_name()).size(15.5))
+                                        .selectable(false)
+                                        .sense(Sense::click()),
+                                );
 
                                 ui.add_space(10.0);
 
@@ -235,14 +241,22 @@ pub(super) fn update(
                                     .have_persons_relays(person.pubkey)
                                     .unwrap_or(false)
                                 {
-                                    ui.label(
-                                        RichText::new("Relay list not found")
-                                            .color(app.theme.warning_marker_text_color()),
+                                    response |= ui.add(
+                                        Label::new(
+                                            RichText::new("Relay list not found")
+                                                .color(app.theme.warning_marker_text_color()),
+                                        )
+                                        .selectable(false)
+                                        .sense(Sense::click()),
                                     );
                                 }
                             });
                             ui.add_space(3.0);
-                            ui.label(GossipUi::richtext_from_person_nip05(person).weak());
+                            response |= ui.add(
+                                Label::new(GossipUi::richtext_from_person_nip05(person).weak())
+                                    .selectable(false)
+                                    .sense(Sense::click()),
+                            );
                         });
 
                         ui.vertical(|ui| {
@@ -266,7 +280,7 @@ pub(super) fn update(
 
                                     if list != PersonList::Followed {
                                         // private / public switch
-                                        ui.label("Private");
+                                        ui.add(Label::new("Private").selectable(false));
                                         if ui
                                             .add(widgets::Switch::onoff(&app.theme, &mut private))
                                             .clicked()
@@ -282,17 +296,21 @@ pub(super) fn update(
                                     }
                                 },
                             );
-                        });
-                        if avatar_response.clicked() {
-                            app.set_page(ctx, Page::Person(person.pubkey));
-                        }
-                    });
+                            response
+                        })
+                        .inner
+                    })
+                    .inner
                 },
             );
             if row_response
                 .response
                 .on_hover_cursor(egui::CursorIcon::PointingHand)
                 .clicked()
+                || row_response
+                    .inner
+                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                    .clicked()
             {
                 app.set_page(ctx, Page::Person(person.pubkey));
             }
@@ -350,7 +368,7 @@ fn render_add_contact_popup(
     list: PersonList,
     metadata: &PersonListMetadata,
 ) {
-    const DLG_SIZE: Vec2 = vec2(400.0, 240.0);
+    const DLG_SIZE: Vec2 = vec2(400.0, 260.0);
     let ret = crate::ui::widgets::modal_popup(ui, DLG_SIZE, DLG_SIZE, true, |ui| {
         let enter_key;
         (app.people_list.add_contact_search_selected, enter_key) =
@@ -365,6 +383,18 @@ fn render_add_contact_popup(
             };
 
         ui.heading("Add contact to the list");
+        ui.add_space(8.0);
+
+        // error block
+        ui.label(
+            RichText::new(
+                app.people_list
+                    .add_contact_error
+                    .as_ref()
+                    .unwrap_or(&"".to_string()),
+            )
+            .color(app.theme.warning_marker_text_color()),
+        );
         ui.add_space(8.0);
 
         ui.label("Search for known contacts to add");
@@ -466,10 +496,7 @@ fn render_add_contact_popup(
                             mark_refresh(app);
                         } else {
                             add_failed = true;
-                            GLOBALS
-                                .status_queue
-                                .write()
-                                .write("Invalid pubkey.".to_string());
+                            app.people_list.add_contact_error = Some("Invalid pubkey.".to_string());
                         }
                         if !add_failed {
                             app.add_contact = "".to_owned();
@@ -684,6 +711,11 @@ pub(super) fn render_more_list_actions(
     count: usize,
     on_list: bool,
 ) {
+    // do not show for "Following" and "Muted"
+    if !on_list && !matches!(list, PersonList::Custom(_)) {
+        return;
+    }
+
     if on_list {
         app.theme.accent_button_1_style(ui.style_mut());
     }
@@ -696,12 +728,6 @@ pub(super) fn render_more_list_actions(
             if on_list {
                 app.theme.accent_button_1_style(ui.style_mut());
                 ui.spacing_mut().item_spacing.y = 15.0;
-            }
-            if !on_list {
-                if ui.button("View Contacts").clicked() {
-                    app.set_page(ui.ctx(), Page::PeopleList(list));
-                    *is_open = false;
-                }
             }
             if matches!(list, PersonList::Custom(_)) {
                 if ui.button("Rename").clicked() {

@@ -29,7 +29,7 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 30] = [
+const COMMANDS: [Command; 31] = [
     Command {
         cmd: "oneshot",
         usage_params: "{depends}",
@@ -44,6 +44,11 @@ const COMMANDS: [Command; 30] = [
         cmd: "add_person_list",
         usage_params: "<listname>",
         desc: "add a new person list with the given name",
+    },
+    Command {
+        cmd: "backdate_eose",
+        usage_params: "",
+        desc: "backdate last_general_eose_at by 24 hours for every relay",
     },
     Command {
         cmd: "bech32_decode",
@@ -202,6 +207,7 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
         "oneshot" => oneshot(command, args)?,
         "add_person_relay" => add_person_relay(command, args)?,
         "add_person_list" => add_person_list(command, args)?,
+        "backdate_eose" => backdate_eose()?,
         "bech32_decode" => bech32_decode(command, args)?,
         "bech32_encode_event_addr" => bech32_encode_event_addr(command, args)?,
         "decrypt" => decrypt(command, args)?,
@@ -304,6 +310,24 @@ pub fn add_person_list(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     };
 
     let _list = GLOBALS.storage.allocate_person_list(&metadata, None)?;
+    Ok(())
+}
+
+pub fn backdate_eose() -> Result<(), Error> {
+    let now = Unixtime::now().unwrap();
+    let ago = (now.0 - 60 * 60 * 24) as u64;
+
+    GLOBALS.storage.modify_all_relays(
+        |relay| {
+            if let Some(eose) = relay.last_general_eose_at {
+                if eose > ago {
+                    relay.last_general_eose_at = Some(ago);
+                }
+            }
+        },
+        None,
+    )?;
+
     Ok(())
 }
 

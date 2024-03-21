@@ -5,19 +5,19 @@ use crate::feed::Feed;
 use crate::fetcher::Fetcher;
 use crate::gossip_identity::GossipIdentity;
 use crate::media::Media;
+use crate::misc::ZapState;
 use crate::nip46::ParsedCommand;
 use crate::pending::Pending;
 use crate::people::{People, Person};
 use crate::relay::Relay;
 use crate::relay_picker_hooks::Hooks;
+use crate::seeker::Seeker;
 use crate::status::StatusQueue;
 use crate::storage::Storage;
 use crate::RunState;
 use dashmap::{DashMap, DashSet};
 use gossip_relay_picker::RelayPicker;
-use nostr_types::{
-    Event, Id, PayRequestData, Profile, PublicKey, RelayUrl, RelayUsage, UncheckedUrl,
-};
+use nostr_types::{Event, Id, Profile, PublicKey, RelayUrl, RelayUsage};
 use parking_lot::RwLock as PRwLock;
 use regex::Regex;
 use rhai::{Engine, AST};
@@ -27,16 +27,6 @@ use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize};
 use tokio::sync::watch::Receiver as WatchReceiver;
 use tokio::sync::watch::Sender as WatchSender;
 use tokio::sync::{broadcast, mpsc, Mutex, Notify, RwLock};
-
-/// The state that a Zap is in (it moves through 5 states before it is complete)
-#[derive(Debug, Clone)]
-pub enum ZapState {
-    None,
-    CheckingLnurl(Id, PublicKey, UncheckedUrl),
-    SeekingAmount(Id, PublicKey, PayRequestData, UncheckedUrl),
-    LoadingInvoice(Id, PublicKey),
-    ReadyToPay(Id, String), // String is the Zap Invoice as a string, to be shown as a QR code
-}
 
 /// Global data shared between threads. Access via the static ref `GLOBALS`.
 pub struct Globals {
@@ -68,8 +58,14 @@ pub struct Globals {
     /// All nostr people records currently loaded into memory, keyed by pubkey
     pub people: People,
 
-    /// The relays currently connected to
+    /// The relays currently connected to. It tracks the jobs that relay is assigned.
+    /// As the minion completes jobs, code modifies this jobset, removing those completed
+    /// jobs.
     pub connected_relays: DashMap<RelayUrl, Vec<RelayJob>>,
+
+    /// The relays not connected to, and which we will not connect to again until some
+    /// time passes, but which we still have jobs for
+    pub penalty_box_relays: DashMap<RelayUrl, Vec<RelayJob>>,
 
     /// The relay picker, used to pick the next relay
     pub relay_picker: RelayPicker<Hooks>,
@@ -85,6 +81,9 @@ pub struct Globals {
 
     /// Fetcher
     pub fetcher: Fetcher,
+
+    /// Seeker
+    pub seeker: Seeker,
 
     /// Failed Avatars
     /// If in this map, the avatar failed to load or process and is unrecoverable
@@ -197,11 +196,13 @@ lazy_static! {
             tmp_overlord_receiver: Mutex::new(Some(tmp_overlord_receiver)),
             people: People::new(),
             connected_relays: DashMap::new(),
+            penalty_box_relays: DashMap::new(),
             relay_picker: Default::default(),
             identity: GossipIdentity::default(),
             dismissed: RwLock::new(Vec::new()),
             feed: Feed::new(),
             fetcher: Fetcher::new(),
+            seeker: Seeker::new(),
             failed_avatars: RwLock::new(HashSet::new()),
             pixels_per_point_times_100: AtomicU32::new(139), // 100 dpi, 1/72th inch => 1.38888
             status_queue: PRwLock::new(StatusQueue::new(

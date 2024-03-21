@@ -143,7 +143,7 @@ pub enum ToOverlordMessage {
     RankRelay(RelayUrl, u8),
 
     /// internal (the overlord sends messages to itself sometimes!)
-    ReengageMinion(RelayUrl, Vec<RelayJob>),
+    ReengageMinion(RelayUrl),
 
     /// Calls [refresh_scores_and_pick_relays](crate::Overlord::refresh_scores_and_pick_relays)
     RefreshScoresAndPickRelays,
@@ -235,7 +235,7 @@ pub(crate) struct ToMinionPayload {
     pub detail: ToMinionPayloadDetail,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) enum ToMinionPayloadDetail {
     AdvertiseRelayList(Box<Event>),
     AuthApproved,
@@ -353,4 +353,11 @@ pub struct RelayJob {
     // NOTE, there is other per-relay data stored elsewhere in
     //   overlord.minions_task_url
     //   GLOBALS.relay_picker
+}
+
+impl RelayJob {
+    // This is like equality, but ignores the random job id
+    pub fn matches(&self, other: &RelayJob) -> bool {
+        self.reason == other.reason && self.payload.detail == other.payload.detail
+    }
 }

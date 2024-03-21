@@ -791,6 +791,7 @@ impl Storage {
         bool,
         true
     );
+    def_setting!(feed_newest_at_bottom, b"feed_newest_at_bottom", bool, false);
     def_setting!(posting_area_at_top, b"posting_area_at_top", bool, true);
     def_setting!(status_bar, b"status_bar", bool, false);
     def_setting!(
@@ -1100,7 +1101,7 @@ impl Storage {
 
     //// Modify all relay records
     #[inline]
-    pub(crate) fn modify_all_relays<'a, M>(
+    pub fn modify_all_relays<'a, M>(
         &'a self,
         modify: M,
         rw_txn: Option<&mut RwTxn<'a>>,
@@ -1163,16 +1164,16 @@ impl Storage {
     pub fn process_relay_list(&self, event: &Event) -> Result<(), Error> {
         let mut txn = self.env.write_txn()?;
 
-        // Check if this relay list is newer than the stamp we have for its author
         if let Some(mut person) = self.read_person(&event.pubkey)? {
-            // Mark that we received it (changes fetch duration for next time)
-            person.relay_list_last_received = Unixtime::now().unwrap().0;
-
+            // Check if this relay list is newer than the stamp we have for its author
             if let Some(previous_at) = person.relay_list_created_at {
                 if event.created_at.0 <= previous_at {
+                    // This list is old. But let's save the last_received setting:
+                    self.write_person(&person, Some(&mut txn))?;
                     return Ok(());
                 }
             }
+            // If we got here, the list is new.
 
             // Mark when it was created
             person.relay_list_created_at = Some(event.created_at.0);
@@ -2015,6 +2016,23 @@ impl Storage {
     #[inline]
     pub fn read_person(&self, pubkey: &PublicKey) -> Result<Option<Person>, Error> {
         self.read_person2(pubkey)
+    }
+
+    /// Read a person record, create if missing
+    #[inline]
+    pub fn read_or_create_person<'a>(
+        &'a self,
+        pubkey: &PublicKey,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<Person, Error> {
+        match self.read_person(pubkey)? {
+            Some(p) => Ok(p),
+            None => {
+                let person = Person::new(pubkey.to_owned());
+                self.write_person(&person, rw_txn)?;
+                Ok(person)
+            }
+        }
     }
 
     /// Write a new person record only if missing

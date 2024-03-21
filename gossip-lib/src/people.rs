@@ -1,6 +1,7 @@
 use crate::comms::ToOverlordMessage;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
+use crate::misc::Freshness;
 use dashmap::{DashMap, DashSet};
 use image::RgbaImage;
 use nostr_types::{
@@ -106,11 +107,19 @@ impl People {
     }
 
     /// Get all the pubkeys that the user subscribes to in any list
+    /// (We also force the current user into this list)
     pub fn get_subscribed_pubkeys(&self) -> Vec<PublicKey> {
         // We subscribe to all people in all lists.
         // This is no longer synonomous with the ContactList list
         match GLOBALS.storage.get_people_in_all_followed_lists() {
-            Ok(people) => people,
+            Ok(mut people) => {
+                if let Some(pk) = GLOBALS.identity.public_key() {
+                    if !people.contains(&pk) {
+                        people.push(pk);
+                    }
+                }
+                people
+            }
             Err(e) => {
                 tracing::error!("{}", e);
                 vec![]
@@ -128,24 +137,43 @@ impl People {
     }
 
     /// Get all the pubkeys that need relay lists (from the given set)
-    pub fn get_subscribed_pubkeys_needing_relay_lists(
-        &self,
-        among_these: &[PublicKey],
-    ) -> Vec<PublicKey> {
+    pub fn get_subscribed_pubkeys_needing_relay_lists(&self) -> Vec<PublicKey> {
         let stale = Unixtime::now().unwrap().0
             - 60 * 60
                 * GLOBALS
                     .storage
                     .read_setting_relay_list_becomes_stale_hours() as i64;
 
-        if let Ok(vec) = GLOBALS.storage.filter_people(|p| {
-            p.is_subscribed_to()
-                && p.relay_list_last_received < stale
-                && among_these.contains(&p.pubkey)
-        }) {
+        if let Ok(vec) = GLOBALS
+            .storage
+            .filter_people(|p| p.is_subscribed_to() && p.relay_list_last_sought < stale)
+        {
             vec.iter().map(|p| p.pubkey).collect()
         } else {
             vec![]
+        }
+    }
+
+    /// Get if a person needs a relay list
+    pub fn person_needs_relay_list(pubkey: PublicKey) -> Freshness {
+        let staletime = Unixtime::now().unwrap().0
+            - 60 * 60
+                * GLOBALS
+                    .storage
+                    .read_setting_relay_list_becomes_stale_hours() as i64;
+
+        match GLOBALS.storage.read_person(&pubkey) {
+            Err(_) => Freshness::NeverSought,
+            Ok(None) => Freshness::NeverSought,
+            Ok(Some(p)) => {
+                if p.relay_list_last_sought == 0 {
+                    Freshness::NeverSought
+                } else if p.relay_list_last_sought < staletime {
+                    Freshness::Stale
+                } else {
+                    Freshness::Fresh
+                }
+            }
         }
     }
 
@@ -729,7 +757,6 @@ impl People {
         follow: bool,
         list: PersonList,
         public: bool,
-        discover: bool, // if you also want to subscribe to their relay list
     ) -> Result<(), Error> {
         if follow {
             GLOBALS
@@ -738,6 +765,18 @@ impl People {
 
             // Add to the relay picker. If they are already there, it will be ok.
             GLOBALS.relay_picker.add_someone(*pubkey)?;
+
+            // Maybe seek relay list (if needed)
+            let seek_relay_list = match Self::person_needs_relay_list(*pubkey) {
+                Freshness::NeverSought => true,
+                Freshness::Stale => true,
+                Freshness::Fresh => false,
+            };
+            if seek_relay_list {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::SubscribeDiscover(vec![*pubkey], None));
+            };
         } else {
             GLOBALS
                 .storage
@@ -752,12 +791,6 @@ impl People {
         let _ = GLOBALS
             .to_overlord
             .send(ToOverlordMessage::RefreshScoresAndPickRelays);
-
-        if follow && discover {
-            let _ = GLOBALS
-                .to_overlord
-                .send(ToOverlordMessage::SubscribeDiscover(vec![*pubkey], None));
-        }
 
         Ok(())
     }
@@ -817,8 +850,6 @@ impl People {
         pubkey: PublicKey,
         created_at: i64,
     ) -> Result<bool, Error> {
-        let now = Unixtime::now().unwrap().0;
-
         let mut retval = false;
 
         let mut person = match GLOBALS.storage.read_person(&pubkey)? {
@@ -826,7 +857,6 @@ impl People {
             None => Person::new(pubkey),
         };
 
-        person.relay_list_last_received = now;
         if let Some(old_at) = person.relay_list_created_at {
             if created_at < old_at {
                 retval = false;

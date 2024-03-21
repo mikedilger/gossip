@@ -76,6 +76,13 @@ impl Default for WizardState {
     }
 }
 impl WizardState {
+    pub fn init(&mut self) {
+        if self.need_discovery_relays() {
+            let purplepages = RelayUrl::try_from_str("wss://purplepag.es/").unwrap();
+            super::modify_relay(&purplepages, |relay| relay.set_usage_bits(Relay::DISCOVER));
+        }
+    }
+
     pub fn update(&mut self) {
         self.follow_only = GLOBALS.storage.get_flag_following_only();
 
@@ -111,11 +118,6 @@ impl WizardState {
             .drain(..)
             .map(|(pk, _)| (Some(pk), None))
             .collect();
-
-        if self.need_discovery_relays() {
-            let purplepages = RelayUrl::try_from_str("wss://purplepag.es/").unwrap();
-            super::modify_relay(&purplepages, |relay| relay.set_usage_bits(Relay::DISCOVER));
-        }
 
         // Copy any new status queue messages into our local error variable
         let last_status_queue_message = GLOBALS.status_queue.read().read_last();
