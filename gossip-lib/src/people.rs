@@ -106,11 +106,19 @@ impl People {
     }
 
     /// Get all the pubkeys that the user subscribes to in any list
+    /// (We also force the current user into this list)
     pub fn get_subscribed_pubkeys(&self) -> Vec<PublicKey> {
         // We subscribe to all people in all lists.
         // This is no longer synonomous with the ContactList list
         match GLOBALS.storage.get_people_in_all_followed_lists() {
-            Ok(people) => people,
+            Ok(mut people) => {
+                if let Some(pk) = GLOBALS.identity.public_key() {
+                    if !people.contains(&pk) {
+                        people.push(pk);
+                    }
+                }
+                people
+            }
             Err(e) => {
                 tracing::error!("{}", e);
                 vec![]
