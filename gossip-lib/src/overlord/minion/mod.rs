@@ -638,9 +638,7 @@ impl Minion {
             }
         };
 
-        let mut filters = filter_fns::general_feed(&self.general_feed_keys, since, None);
-        let filters2 = filter_fns::relay_lists(&self.general_feed_keys);
-        filters.extend(filters2);
+        let filters = filter_fns::general_feed(&self.general_feed_keys, since, None);
 
         if filters.is_empty() {
             self.unsubscribe("general_feed").await?;
@@ -682,9 +680,7 @@ impl Minion {
                 None => self.compute_since(GLOBALS.storage.read_setting_feed_chunk()),
             };
 
-            let mut filters = filter_fns::general_feed(&new_keys, since, None);
-            let filters2 = filter_fns::relay_lists(&new_keys);
-            filters.extend(filters2);
+            let filters = filter_fns::general_feed(&new_keys, since, None);
 
             if !filters.is_empty() {
                 self.subscribe(filters, "temp_general_feed_update", job_id)

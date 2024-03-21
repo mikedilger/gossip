@@ -136,6 +136,9 @@ pub use relay::Relay;
 mod relay_picker_hooks;
 pub use relay_picker_hooks::Hooks;
 
+mod seeker;
+pub use seeker::Seeker;
+
 mod status;
 pub use status::StatusQueue;
 
@@ -242,6 +245,9 @@ pub async fn run() {
                 if last_runstate == RunState::Online {
                     // Start the fetcher
                     crate::fetcher::Fetcher::start();
+
+                    // Start the seeker
+                    crate::seeker::Seeker::start();
 
                     // Start periodic tasks in people manager (after signer)
                     crate::people::People::start();

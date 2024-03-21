@@ -1420,7 +1420,7 @@ impl Overlord {
         list: PersonList,
         public: bool,
     ) -> Result<(), Error> {
-        GLOBALS.people.follow(&pubkey, true, list, public, true)?;
+        GLOBALS.people.follow(&pubkey, true, list, public)?;
         tracing::debug!("Followed {}", &pubkey.as_hex_string());
         Ok(())
     }
@@ -1464,7 +1464,7 @@ impl Overlord {
         // Follow
         GLOBALS
             .people
-            .follow(&nprofile.pubkey, true, list, public, true)?;
+            .follow(&nprofile.pubkey, true, list, public)?;
 
         GLOBALS
             .status_queue
@@ -2815,8 +2815,8 @@ impl Overlord {
         }
 
         // Separately subscribe to RelayList discovery for everyone we follow
-        // We just do this once at startup. Relay lists don't change that frequently.
-        let followed = GLOBALS.people.get_subscribed_pubkeys();
+        // who needs to seek a relay list again.
+        let followed = GLOBALS.people.get_subscribed_pubkeys_needing_relay_lists();
         self.subscribe_discover(followed, None).await?;
 
         // Separately subscribe to our outbox events on our write relays
@@ -2874,11 +2874,27 @@ impl Overlord {
 
     /// Subscribe to the multiple user's relay lists (optionally on the given relays, otherwise using
     /// theconfigured discover relays)
+    ///
+    /// Caller should probably check Person.relay_list_last_sought first to make sure we don't
+    /// already have an in-flight request doing this.  This can be done with:
+    ///    GLOBALS.people.person_needs_relay_list()
+    ///    GLOBALS.people.get_subscribed_pubkeys_needing_relay_lists()
     pub async fn subscribe_discover(
         &mut self,
         pubkeys: Vec<PublicKey>,
         relays: Option<Vec<RelayUrl>>,
     ) -> Result<(), Error> {
+        // Mark for each person that we are seeking their relay list
+        // so that we don't repeat this for a while
+        let now = Unixtime::now().unwrap();
+        let mut txn = GLOBALS.storage.get_write_txn()?;
+        for pk in pubkeys.iter() {
+            let mut person = GLOBALS.storage.read_or_create_person(pk, Some(&mut txn))?;
+            person.relay_list_last_sought = now.0;
+            GLOBALS.storage.write_person(&person, Some(&mut txn))?;
+        }
+        txn.commit()?;
+
         // Discover their relays
         let discover_relay_urls: Vec<RelayUrl> = match relays {
             Some(r) => r,

@@ -11,6 +11,7 @@ use crate::pending::Pending;
 use crate::people::{People, Person};
 use crate::relay::Relay;
 use crate::relay_picker_hooks::Hooks;
+use crate::seeker::Seeker;
 use crate::status::StatusQueue;
 use crate::storage::Storage;
 use crate::RunState;
@@ -80,6 +81,9 @@ pub struct Globals {
 
     /// Fetcher
     pub fetcher: Fetcher,
+
+    /// Seeker
+    pub seeker: Seeker,
 
     /// Failed Avatars
     /// If in this map, the avatar failed to load or process and is unrecoverable
@@ -198,6 +202,7 @@ lazy_static! {
             dismissed: RwLock::new(Vec::new()),
             feed: Feed::new(),
             fetcher: Fetcher::new(),
+            seeker: Seeker::new(),
             failed_avatars: RwLock::new(HashSet::new()),
             pixels_per_point_times_100: AtomicU32::new(139), // 100 dpi, 1/72th inch => 1.38888
             status_queue: PRwLock::new(StatusQueue::new(

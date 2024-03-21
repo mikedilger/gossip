@@ -1165,10 +1165,6 @@ impl Storage {
         let mut txn = self.env.write_txn()?;
 
         if let Some(mut person) = self.read_person(&event.pubkey)? {
-            // Mark that we received it.
-            // This prevents us from refetching again and again.
-            person.relay_list_last_received = Unixtime::now().unwrap().0;
-
             // Check if this relay list is newer than the stamp we have for its author
             if let Some(previous_at) = person.relay_list_created_at {
                 if event.created_at.0 <= previous_at {
@@ -2020,6 +2016,23 @@ impl Storage {
     #[inline]
     pub fn read_person(&self, pubkey: &PublicKey) -> Result<Option<Person>, Error> {
         self.read_person2(pubkey)
+    }
+
+    /// Read a person record, create if missing
+    #[inline]
+    pub fn read_or_create_person<'a>(
+        &'a self,
+        pubkey: &PublicKey,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<Person, Error> {
+        match self.read_person(pubkey)? {
+            Some(p) => Ok(p),
+            None => {
+                let person = Person::new(pubkey.to_owned());
+                self.write_person(&person, rw_txn)?;
+                Ok(person)
+            }
+        }
     }
 
     /// Write a new person record only if missing

@@ -34,9 +34,10 @@ pub struct Person2 {
     /// for an update)
     pub relay_list_created_at: Option<i64>,
 
-    /// When their relay list was last received (to determine if we need to
+    /// When their relay list was last sought (to determine if we need to
     /// check for an update)
-    pub relay_list_last_received: i64,
+    #[serde(rename = "relay_list_last_received")]
+    pub relay_list_last_sought: i64,
 }
 
 impl Person2 {
@@ -50,7 +51,7 @@ impl Person2 {
             nip05_valid: false,
             nip05_last_checked: None,
             relay_list_created_at: None,
-            relay_list_last_received: 0,
+            relay_list_last_sought: 0,
         }
     }
 
