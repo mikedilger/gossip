@@ -336,17 +336,17 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                     relays.sort_by(|a, b| b.1.cmp(&a.1)); // list in score order
                     let relays_str: String = relays
                         .iter()
-                        .filter(|f| f.1 > 5) // do not list low-score relays
-                        .map(|f| f.0.host())
+                        .filter(|f| f.1 >= 10) // do not list low-score relays
+                        .map(|f| format!("{} ({})", f.0.host(), f.1))
                         .collect::<Vec<String>>()
                         .join(", ");
 
-                    profile_item(ui, app, width, "Relays", relays_str);
+                    profile_item(ui, app, width, "Outbox Relays", relays_str);
 
                     // Option to manually add a relay for them
                     make_frame().show(ui, |ui| {
                         ui.vertical(|ui| {
-                            item_label(ui, "Manual Relay");
+                            item_label(ui, "Manually add an Outbox Relay");
                             ui.add_space(ITEM_V_SPACE);
                             ui.horizontal(|ui| {
                                 ui.add(text_edit_line!(app, app.add_relay).hint_text("wss://..."));
