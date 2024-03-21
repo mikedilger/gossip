@@ -230,6 +230,7 @@ pub(super) fn update(
                             ui.horizontal(|ui| {
                                 response |= ui.add(
                                     Label::new(RichText::new(person.best_name()).size(15.5))
+                                        .selectable(false)
                                         .sense(Sense::click()),
                                 );
 
@@ -245,6 +246,7 @@ pub(super) fn update(
                                             RichText::new("Relay list not found")
                                                 .color(app.theme.warning_marker_text_color()),
                                         )
+                                        .selectable(false)
                                         .sense(Sense::click()),
                                     );
                                 }
@@ -252,6 +254,7 @@ pub(super) fn update(
                             ui.add_space(3.0);
                             response |= ui.add(
                                 Label::new(GossipUi::richtext_from_person_nip05(person).weak())
+                                    .selectable(false)
                                     .sense(Sense::click()),
                             );
                         });
@@ -277,7 +280,7 @@ pub(super) fn update(
 
                                     if list != PersonList::Followed {
                                         // private / public switch
-                                        ui.label("Private");
+                                        ui.add(Label::new("Private").selectable(false));
                                         if ui
                                             .add(widgets::Switch::onoff(&app.theme, &mut private))
                                             .clicked()

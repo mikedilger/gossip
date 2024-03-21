@@ -59,11 +59,14 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                                     Label::new(
                                         RichText::new(&metadata.title).heading().color(color),
                                     )
+                                    .selectable(false)
                                     .sense(egui::Sense::click()),
                                 );
 
                                 response |= ui.add(
-                                    Label::new(format!("({})", metadata.len)).sense(Sense::click()),
+                                    Label::new(format!("({})", metadata.len))
+                                        .selectable(false)
+                                        .sense(Sense::click()),
                                 );
                                 if metadata.favorite {
                                     response |= ui.add(
@@ -72,6 +75,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                                                 .size(18.0)
                                                 .color(app.theme.accent_complementary_color()),
                                         )
+                                        .selectable(false)
                                         .sense(Sense::click()),
                                     );
                                 }
@@ -81,6 +85,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                                             RichText::new("😎")
                                                 .color(app.theme.accent_complementary_color()),
                                         )
+                                        .selectable(false)
                                         .sense(Sense::click()),
                                     );
                                 }
