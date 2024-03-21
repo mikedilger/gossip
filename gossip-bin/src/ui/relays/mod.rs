@@ -229,6 +229,10 @@ pub(super) fn relay_scroll_list(
                 widget.set_connected(is_connected);
                 widget.set_timeout(timeout_until);
                 widget.set_reasons(reasons);
+                widget.auth_require_permission(app.unsaved_settings.relay_auth_requires_approval);
+                widget.conn_require_permission(
+                    app.unsaved_settings.relay_connection_requires_approval,
+                );
                 if let Some(ref assignment) = GLOBALS.relay_picker.get_relay_assignment(&db_url) {
                     widget.set_user_count(assignment.pubkeys.len());
                 }

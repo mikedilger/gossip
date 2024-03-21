@@ -18,11 +18,13 @@ const LIST_VIEW_HEIGHT: f32 = 60.0;
 /// Height of the list view (width always max. available)
 const DETAIL_VIEW_HEIGHT: f32 = 80.0;
 /// Height of the edit view (width always max. available)
-const EDIT_VIEW_HEIGHT: f32 = 300.0;
+const EDIT_VIEW_HEIGHT: f32 = 250.0;
+/// Height required for one auth-permission drop-down
+const EDIT_VIEW_AUTH_PERM_HEIGHT: f32 = 25.0;
 /// Y-offset for first separator
 const HLINE_1_Y_OFFSET: f32 = LIST_VIEW_HEIGHT - 12.0;
 /// Y-offset for second separator
-const HLINE_2_Y_OFFSET: f32 = 230.0;
+const HLINE_2_Y_OFFSET: f32 = 180.0;
 /// Y top for the detail section
 const DETAIL_SECTION_TOP: f32 = TEXT_TOP + LIST_VIEW_HEIGHT;
 /// Size of edit button
@@ -185,6 +187,8 @@ pub struct RelayEntry {
     bg_fill: Color32,
     // highlight: Option<Color32>,
     option_symbol: TextureId,
+    auth_require_permission: bool,
+    conn_require_permission: bool,
 }
 
 impl RelayEntry {
@@ -208,6 +212,8 @@ impl RelayEntry {
             bg_fill: app.theme.main_content_bgcolor(),
             // highlight: None,
             option_symbol: (&app.options_symbol).into(),
+            auth_require_permission: false,
+            conn_require_permission: false,
         }
     }
 
@@ -251,6 +257,14 @@ impl RelayEntry {
 
     pub fn set_reasons(&mut self, reasons: String) {
         self.reasons = reasons;
+    }
+
+    pub fn auth_require_permission(&mut self, require_permission: bool) {
+        self.auth_require_permission = require_permission;
+    }
+
+    pub fn conn_require_permission(&mut self, require_permission: bool) {
+        self.conn_require_permission = require_permission;
     }
 
     // pub fn view(&self) -> RelayEntryView {
@@ -1108,22 +1122,25 @@ impl RelayEntry {
         let perm_rect = Rect::from_min_size(pos, PERMISSION_SECTION_SIZE);
 
         ui.allocate_ui_at_rect(perm_rect, |ui| {
-            let mut connect_permission = Permission::from(self.relay.allow_connect);
-            let response = permission_combo(ui, &mut connect_permission, "Allow Connect:");
-            if response.is_some() && response.unwrap().changed() {
-                modify_relay(&self.relay.url, |relay| {
-                    relay.allow_connect = connect_permission.into();
-                });
+            if self.conn_require_permission {
+                let mut connect_permission = Permission::from(self.relay.allow_connect);
+                let response = permission_combo(ui, &mut connect_permission, "Allow Connect:");
+                if response.is_some() && response.unwrap().changed() {
+                    modify_relay(&self.relay.url, |relay| {
+                        relay.allow_connect = connect_permission.into();
+                    });
+                }
+                ui.add_space(3.0);
             }
 
-            ui.add_space(3.0);
-
-            let mut auth_permission = Permission::from(self.relay.allow_auth);
-            let response = permission_combo(ui, &mut auth_permission, "Allow Auth:");
-            if response.is_some() && response.unwrap().changed() {
-                modify_relay(&self.relay.url, |relay| {
-                    relay.allow_auth = auth_permission.into();
-                });
+            if self.auth_require_permission {
+                let mut auth_permission = Permission::from(self.relay.allow_auth);
+                let response = permission_combo(ui, &mut auth_permission, "Allow Auth:");
+                if response.is_some() && response.unwrap().changed() {
+                    modify_relay(&self.relay.url, |relay| {
+                        relay.allow_auth = auth_permission.into();
+                    });
+                }
             }
         });
     }
@@ -1171,7 +1188,20 @@ impl RelayEntry {
     }
 
     fn update_edit_view(mut self, ui: &mut Ui) -> Response {
-        let size = vec2(ui.available_width(), EDIT_VIEW_HEIGHT);
+        let (height, hline2_offset) =
+            match (self.auth_require_permission, self.conn_require_permission) {
+                (true, true) => (
+                    EDIT_VIEW_HEIGHT + 2.0 * EDIT_VIEW_AUTH_PERM_HEIGHT,
+                    HLINE_2_Y_OFFSET + 2.0 * EDIT_VIEW_AUTH_PERM_HEIGHT,
+                ),
+                (true, false) | (false, true) => (
+                    EDIT_VIEW_HEIGHT + EDIT_VIEW_AUTH_PERM_HEIGHT,
+                    HLINE_2_Y_OFFSET + EDIT_VIEW_AUTH_PERM_HEIGHT,
+                ),
+                (false, false) => (EDIT_VIEW_HEIGHT, HLINE_2_Y_OFFSET),
+            };
+
+        let size = vec2(ui.available_width(), height);
         let rect = Rect::from_min_size(ui.next_widget_position(), size);
 
         let mut response = ui.interact(rect, self.make_id("frame"), egui::Sense::hover());
@@ -1185,7 +1215,7 @@ impl RelayEntry {
             self.paint_nip11(ui, &rect);
             self.paint_usage_settings(ui, &rect);
             self.paint_permissions(ui, &rect);
-            paint_hline(ui, &rect, HLINE_2_Y_OFFSET);
+            paint_hline(ui, &rect, hline2_offset);
             response |= self.paint_lower_buttons(ui, &rect);
             response |= self.paint_close_btn(ui, &rect);
         }
