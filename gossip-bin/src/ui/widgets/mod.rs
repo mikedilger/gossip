@@ -109,9 +109,11 @@ pub fn truncated_label(ui: &mut Ui, text: impl Into<WidgetText>, max_width: f32)
 }
 
 /// Create a clickable label
-pub fn clickable_label(ui: &mut Ui, text: impl Into<WidgetText>) -> Response {
-    let label = egui::Label::new(text).sense(Sense::click());
-    ui.add(label).on_hover_cursor(egui::CursorIcon::Default)
+pub fn clickable_label(ui: &mut Ui, enabled: bool, text: impl Into<WidgetText>) -> Response {
+    let label = egui::Label::new(text)
+        .selectable(false)
+        .sense(Sense::click());
+    ui.add_enabled(enabled, label)
 }
 
 pub fn break_anywhere_hyperlink_to(ui: &mut Ui, text: impl Into<WidgetText>, url: impl ToString) {

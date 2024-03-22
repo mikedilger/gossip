@@ -791,7 +791,6 @@ impl Storage {
         bool,
         true
     );
-    def_setting!(feed_newest_at_bottom, b"feed_newest_at_bottom", bool, false);
     def_setting!(posting_area_at_top, b"posting_area_at_top", bool, true);
     def_setting!(status_bar, b"status_bar", bool, false);
     def_setting!(
@@ -2130,7 +2129,7 @@ impl Storage {
             let relay = self.read_or_create_relay(&ranked_relay.0, None)?;
             ranked_relay.1 = (ranked_relay.1 as f32
                 * (relay.rank as f32 / 3.0)
-                * (relay.success_rate() * 2.0)) as u64;
+                * (0.75 + 0.25 * relay.success_rate())) as u64;
         }
 
         // Resort

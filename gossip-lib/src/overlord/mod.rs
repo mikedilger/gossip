@@ -2654,6 +2654,15 @@ impl Overlord {
     ) -> Result<(), Error> {
         let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
 
+        // Seek the main event if we don't have it
+        if GLOBALS.storage.read_event(id)?.is_none() {
+            if let Some(pk) = author {
+                GLOBALS.seeker.seek_id_and_author(id, pk)?;
+            } else {
+                GLOBALS.seeker.seek_id(id);
+            }
+        }
+
         // We are responsible for loading all the ancestors and all the replies, and
         // process.rs is responsible for building the relationships.
         // The UI can only show events if they are loaded into memory and the relationships

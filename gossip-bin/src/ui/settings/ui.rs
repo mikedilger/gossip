@@ -15,10 +15,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         &mut app.unsaved_settings.posting_area_at_top,
         "Show posting area at the top instead of the bottom",
     );
-    ui.checkbox(
-        &mut app.unsaved_settings.feed_newest_at_bottom,
-        "Order feed with newest at bottom (intead of top)",
-    );
 
     ui.add_space(20.0);
     ui.horizontal(|ui| {

@@ -43,7 +43,7 @@ impl Notes {
             // get a mutable reference to update reactions, then give it back
             if let Some(pair) = self.notes.get(id) {
                 if let Ok(mut mut_ref) = pair.try_borrow_mut() {
-                    mut_ref.update_reactions();
+                    mut_ref.update();
                 }
             }
             // return from cache
