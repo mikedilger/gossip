@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use nostr_types::{
     ContentSegment, Event, EventDelegation, EventKind, Id, MilliSatoshi, NostrBech32, PublicKey,
-    ShatteredContent,
+    RelayUrl, ShatteredContent, Unixtime,
 };
 
 #[derive(PartialEq)]
@@ -53,6 +53,9 @@ pub(crate) struct NoteData {
 
     /// The total amount of MilliSatoshi zapped to this note
     pub zaptotal: MilliSatoshi,
+
+    /// Relays this event was seen on and when, if any
+    pub seen_on: Vec<(RelayUrl, Unixtime)>,
 
     /// Has the current user reacted to this post?
     pub self_already_reacted: bool,
@@ -243,6 +246,11 @@ impl NoteData {
             _ => HashMap::new(),
         };
 
+        let seen_on = GLOBALS
+            .storage
+            .get_event_seen_on_relay(event.id)
+            .unwrap_or_default();
+
         NoteData {
             event,
             delegation,
@@ -254,6 +262,7 @@ impl NoteData {
             mentions,
             reactions,
             zaptotal,
+            seen_on,
             self_already_reacted,
             shattered_content,
             error_content,
@@ -262,7 +271,7 @@ impl NoteData {
         }
     }
 
-    pub(super) fn update_reactions(&mut self) {
+    pub(super) fn update(&mut self) {
         let (mut reactions, self_already_reacted) = GLOBALS
             .storage
             .get_reactions(self.event.id)
@@ -272,6 +281,14 @@ impl NoteData {
         self.reactions.append(&mut reactions);
 
         self.self_already_reacted = self_already_reacted;
+
+        let mut seen_on = GLOBALS
+            .storage
+            .get_event_seen_on_relay(self.event.id)
+            .unwrap_or_default();
+
+        self.seen_on.clear();
+        self.seen_on.append(&mut seen_on);
     }
 
     #[allow(dead_code)]

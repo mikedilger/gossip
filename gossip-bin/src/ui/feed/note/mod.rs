@@ -284,15 +284,6 @@ pub fn render_note_inner(
         let content_margin_left = AVATAR_SIZE_F32 + inner_margin.left;
         let footer_margin_left = content_margin_left;
 
-        let relays = match GLOBALS.storage.get_event_seen_on_relay(note.event.id) {
-            Ok(vec) => vec
-                .iter()
-                .map(|(url, _)| url.to_unchecked_url())
-                .take(3)
-                .collect(),
-            Err(_) => vec![],
-        };
-
         ui.vertical(|ui| {
             // First row
 
@@ -429,6 +420,13 @@ pub fn render_note_inner(
 
                 ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                     widgets::MoreMenu::simple(ui, app).show(ui, |ui, keep_open| {
+                        let relays: Vec<UncheckedUrl> = note
+                            .seen_on
+                            .iter()
+                            .map(|(url, _)| url.to_unchecked_url())
+                            .take(3)
+                            .collect();
+
                         if !render_data.is_main_event {
                             if note.event.kind.is_direct_message_related() {
                                 if ui.button("View DM Channel").clicked() {
@@ -639,10 +637,8 @@ pub fn render_note_inner(
                             .show(ui.ctx(), |ui| {
                                 ui.set_min_width(200.0);
                                 egui::Frame::popup(&app.theme.get_style()).show(ui, |ui| {
-                                    if let Ok(seen_on) =
-                                        GLOBALS.storage.get_event_seen_on_relay(note.event.id)
-                                    {
-                                        for (url, _) in seen_on.iter() {
+                                    if !note.seen_on.is_empty() {
+                                        for (url, _) in note.seen_on.iter() {
                                             ui.label(url.as_str());
                                         }
                                     } else {
@@ -775,6 +771,7 @@ pub fn render_note_inner(
                                         // Button to Repost
                                         if widgets::clickable_label(
                                             ui,
+                                            true,
                                             RichText::new("↻").size(18.0),
                                         )
                                         .on_hover_text("Repost")
@@ -790,11 +787,19 @@ pub fn render_note_inner(
                                         // Button to quote note
                                         if widgets::clickable_label(
                                             ui,
+                                            true,
                                             RichText::new("“…”").size(18.0),
                                         )
                                         .on_hover_text("Quote")
                                         .clicked()
                                         {
+                                            let relays: Vec<UncheckedUrl> = note
+                                                .seen_on
+                                                .iter()
+                                                .map(|(url, _)| url.to_unchecked_url())
+                                                .take(3)
+                                                .collect();
+
                                             if !app.draft_data.draft.ends_with(' ')
                                                 && !app.draft_data.draft.is_empty()
                                             {
@@ -844,6 +849,7 @@ pub fn render_note_inner(
 
                                     if widgets::clickable_label(
                                         ui,
+                                        true,
                                         RichText::new(reply_icon).size(18.0),
                                     )
                                     .on_hover_text("Reply")
@@ -877,9 +883,13 @@ pub fn render_note_inner(
                                 }
 
                                 // Button to render raw
-                                if widgets::clickable_label(ui, RichText::new("🥩").size(13.0))
-                                    .on_hover_text("Raw")
-                                    .clicked()
+                                if widgets::clickable_label(
+                                    ui,
+                                    true,
+                                    RichText::new("🥩").size(13.0),
+                                )
+                                .on_hover_text("Raw")
+                                .clicked()
                                 {
                                     if app.render_raw != Some(note.event.id) {
                                         app.render_raw = Some(note.event.id);
@@ -892,7 +902,7 @@ pub fn render_note_inner(
                                 ui.add_space(24.0);
 
                                 // Button to render QR code
-                                if widgets::clickable_label(ui, RichText::new("⚃").size(16.0))
+                                if widgets::clickable_label(ui, true, RichText::new("⚃").size(16.0))
                                     .on_hover_text("QR Code")
                                     .clicked()
                                 {
@@ -918,51 +928,37 @@ pub fn render_note_inner(
                                         }
                                     }
 
-                                    let mut has_seen_on_relays = false;
-                                    if let Ok(seen_on) =
-                                        GLOBALS.storage.get_event_seen_on_relay(note.event.id)
-                                    {
-                                        if !seen_on.is_empty() {
-                                            has_seen_on_relays = true;
-                                        }
-                                    }
-
                                     if let Some(lnurl) = zap_lnurl {
-                                        if has_seen_on_relays {
-                                            if widgets::clickable_label(
-                                                ui,
-                                                RichText::new("⚡").size(18.0),
-                                            )
-                                            .on_hover_text("ZAP")
-                                            .clicked()
-                                            {
-                                                if GLOBALS.identity.is_unlocked() {
-                                                    let _ = GLOBALS.to_overlord.send(
-                                                        ToOverlordMessage::ZapStart(
-                                                            note.event.id,
-                                                            note.event.pubkey,
-                                                            UncheckedUrl(lnurl),
-                                                        ),
-                                                    );
-                                                } else {
-                                                    GLOBALS.status_queue.write().write(
-                                                        "Your key is not setup.".to_string(),
-                                                    );
-                                                }
+                                        if widgets::clickable_label(
+                                            ui,
+                                            true,
+                                            RichText::new("⚡").size(18.0),
+                                        )
+                                        .on_hover_text("ZAP")
+                                        .clicked()
+                                        {
+                                            if GLOBALS.identity.is_unlocked() {
+                                                let _ = GLOBALS.to_overlord.send(
+                                                    ToOverlordMessage::ZapStart(
+                                                        note.event.id,
+                                                        note.event.pubkey,
+                                                        UncheckedUrl(lnurl),
+                                                    ),
+                                                );
+                                            } else {
+                                                GLOBALS
+                                                    .status_queue
+                                                    .write()
+                                                    .write("Your key is not setup.".to_string());
                                             }
-                                        } else {
-                                            widgets::clickable_label(
-                                                ui,
-                                                RichText::new("⚡").weak().size(18.0),
-                                            )
-                                            .on_hover_text("Note is not zappable (no relays)");
                                         }
                                     } else {
                                         widgets::clickable_label(
                                             ui,
-                                            RichText::new("⚡").weak().size(18.0),
+                                            false,
+                                            RichText::new("⚡").size(18.0),
                                         )
-                                        .on_hover_text("Note is not zappable (no lnurl)");
+                                        .on_disabled_hover_text("Note is not zappable (no lnurl)");
                                     }
 
                                     // Show the zap total
@@ -978,15 +974,15 @@ pub fn render_note_inner(
                                         true => "♥",
                                         false => "♡",
                                     };
-                                    if ui
-                                        .add(
-                                            Label::new(
-                                                RichText::new(default_reaction_icon).size(20.0),
-                                            )
-                                            .sense(Sense::click()),
-                                        )
-                                        .on_hover_cursor(egui::CursorIcon::Default)
-                                        .clicked()
+                                    if widgets::clickable_label(
+                                        ui,
+                                        true,
+                                        RichText::new(default_reaction_icon).size(20.0),
+                                    )
+                                    .on_disabled_hover_text(
+                                        "Can't react to note (no known relays for note)",
+                                    )
+                                    .clicked()
                                     {
                                         if !GLOBALS.identity.is_unlocked() {
                                             GLOBALS
