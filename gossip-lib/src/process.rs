@@ -2,7 +2,8 @@ use crate::comms::ToOverlordMessage;
 use crate::error::Error;
 use crate::filter::EventFilterAction;
 use crate::globals::GLOBALS;
-use crate::people::{PersonList, PersonListMetadata};
+use crate::misc::Freshness;
+use crate::people::{People, PersonList, PersonListMetadata};
 use crate::person_relay::PersonRelay;
 use crate::relationship::{RelationshipByAddr, RelationshipById};
 use async_recursion::async_recursion;
@@ -291,6 +292,19 @@ pub async fn process_new_event(
     } else if event.kind == EventKind::Repost {
         // If it has a json encoded inner event
         if let Ok(inner_event) = serde_json::from_str::<Event>(&event.content) {
+            // Maybe seek the relay list of the event author
+            match People::person_needs_relay_list(inner_event.pubkey) {
+                Freshness::NeverSought | Freshness::Stale => {
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::SubscribeDiscover(
+                            vec![inner_event.pubkey],
+                            None,
+                        ));
+                }
+                _ => {}
+            }
+
             // process the inner event
             process_new_event(&inner_event, None, None, verify, false).await?;
 
