@@ -805,37 +805,37 @@ impl Storage {
         relay_list_becomes_stale_hours,
         b"relay_list_becomes_stale_hours",
         u64,
-        8
+        1
     );
     def_setting!(
         metadata_becomes_stale_hours,
         b"metadata_becomes_stale_hours",
         u64,
-        8
+        4
     );
     def_setting!(
         nip05_becomes_stale_if_valid_hours,
         b"nip05_becomes_stale_if_valid_hours",
         u64,
-        8
+        6
     );
     def_setting!(
         nip05_becomes_stale_if_invalid_minutes,
         b"nip05_becomes_stale_if_invalid_minutes",
         u64,
-        30
+        15
     );
     def_setting!(
         avatar_becomes_stale_hours,
         b"avatar_becomes_stale_hours",
         u64,
-        8
+        5
     );
     def_setting!(
         media_becomes_stale_hours,
         b"media_becomes_stale_hours",
         u64,
-        8
+        5
     );
     def_setting!(
         max_websocket_message_size_kb,

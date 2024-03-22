@@ -199,7 +199,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         ui.add(
             Slider::new(
                 &mut app.unsaved_settings.relay_list_becomes_stale_hours,
-                2..=40,
+                1..=24,
             )
             .text("hours"),
         );
@@ -209,7 +209,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         ui.add(
             Slider::new(
                 &mut app.unsaved_settings.metadata_becomes_stale_hours,
-                2..=40,
+                1..=24,
             )
             .text("hours"),
         );
@@ -219,7 +219,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         ui.add(
             Slider::new(
                 &mut app.unsaved_settings.nip05_becomes_stale_if_valid_hours,
-                2..=40,
+                1..=24,
             )
             .text("hours"),
         );
@@ -237,13 +237,13 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     ui.horizontal(|ui| {
         ui.label("How long before an avatar image becomes stale and needs rechecking?");
         ui.add(
-            Slider::new(&mut app.unsaved_settings.avatar_becomes_stale_hours, 2..=40).text("hours"),
+            Slider::new(&mut app.unsaved_settings.avatar_becomes_stale_hours, 1..=24).text("hours"),
         );
     });
     ui.horizontal(|ui| {
         ui.label("How long before event media becomes stale and needs rechecking?");
         ui.add(
-            Slider::new(&mut app.unsaved_settings.media_becomes_stale_hours, 2..=40).text("hours"),
+            Slider::new(&mut app.unsaved_settings.media_becomes_stale_hours, 1..=24).text("hours"),
         );
     });
 
