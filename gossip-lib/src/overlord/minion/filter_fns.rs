@@ -193,7 +193,7 @@ pub fn thread(main: IdHex, ancestors: &[IdHex], spamsafe: bool) -> Vec<Filter> {
     }
 
     // Allow all feed related event kinds (excluding DMs)
-    let event_kinds = crate::feed::feed_related_event_kinds(false);
+    let event_kinds = crate::feed::feed_displayable_event_kinds(false);
 
     let filter = {
         let mut filter = Filter {
