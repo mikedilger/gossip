@@ -291,7 +291,10 @@ pub async fn process_new_event(
     } else if event.kind == EventKind::Repost {
         // If it has a json encoded inner event
         if let Ok(inner_event) = serde_json::from_str::<Event>(&event.content) {
-            // Seek that event by id and author
+            // process the inner event
+            process_new_event(&inner_event, None, None, verify, false).await?;
+
+            // Seek additional info for this event by id and author
             GLOBALS
                 .seeker
                 .seek_id_and_author(inner_event.id, inner_event.pubkey)?;
