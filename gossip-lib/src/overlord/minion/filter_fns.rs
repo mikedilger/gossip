@@ -188,18 +188,8 @@ pub fn thread(main: IdHex, ancestors: &[IdHex], spamsafe: bool) -> Vec<Filter> {
             ..Default::default()
         });
 
-        // Get reactions to ancestors, but not replies
-        let kinds = crate::feed::feed_augment_event_kinds();
-        let filter = {
-            let mut filter = Filter {
-                kinds,
-                ..Default::default()
-            };
-            let values = ancestors.iter().map(|id| id.to_string()).collect();
-            filter.set_tag_values('e', values);
-            filter
-        };
-        filters.push(filter);
+        // NOTE: we do not need to query for reactions to ancestors anymore.
+        // We now use 'visible notes' to periodically update augmentation subscriptions
     }
 
     // Allow all feed related event kinds (excluding DMs)
