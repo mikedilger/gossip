@@ -180,11 +180,12 @@ pub(crate) fn warning_frame<R>(
             bottom: 0.0,
         })
         .inner_margin(egui::Margin::same(10.0))
-        .fill(app.theme.accent_complementary_color())
+        .fill(egui::Color32::from_rgb(0xFB, 0xBF, 0x24))
         .show(ui, |ui| {
             ui.set_width(ui.available_width());
             ui.horizontal_wrapped(|ui| {
-                ui.visuals_mut().override_text_color = Some(egui::Color32::WHITE);
+                ui.visuals_mut().override_text_color =
+                    Some(egui::Color32::from_rgb(0x0a, 0x0a, 0x0a));
                 inner(ui, app)
             })
             .inner

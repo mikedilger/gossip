@@ -1402,12 +1402,15 @@ impl eframe::App for GossipUi {
                     {
                         if !self.warn_no_libsdl2_dismissed && self.audio_device.is_none() {
                             widgets::warning_frame(ui, self, |ui, app| {
-                                ui.label("You have compiled gossip with 'video-ffmpeg' option but no audio device was found on your system. Make sure you have followed the instructions at");
+                                ui.label("You have compiled gossip with 'video-ffmpeg' option but no audio device was found on your system. Make sure you have followed the instructions at ");
                                 ui.hyperlink("https://github.com/Rust-SDL2/rust-sdl2");
                                 ui.label("and installed 'libsdl2-dev' package for your system.");
-                                if ui.link("dismiss message").clicked() {
-                                    app.warn_no_libsdl2_dismissed = true;
-                                }
+                                ui.end_row();
+                                ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
+                                    if ui.link("dismiss message").clicked() {
+                                        app.warn_no_libsdl2_dismissed = true;
+                                    }
+                                });
                             });
                         }
                     }
