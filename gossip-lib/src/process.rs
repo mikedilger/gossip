@@ -104,6 +104,9 @@ pub async fn process_new_event(
         }
     }
 
+    // Invalidate the note itself (due to seen_on probably changing)
+    GLOBALS.ui_notes_to_invalidate.write().push(event.id);
+
     // Determine if we already had this event
     if duplicate && !process_even_if_duplicate {
         tracing::trace!(
