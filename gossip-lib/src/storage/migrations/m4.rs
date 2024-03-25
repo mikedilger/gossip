@@ -83,12 +83,12 @@ impl Storage {
         self.write_setting_posting_area_at_top(&settings.posting_area_at_top, Some(rw_txn))?;
         self.write_setting_status_bar(&settings.status_bar, Some(rw_txn))?;
         self.write_setting_image_resize_algorithm(&settings.image_resize_algorithm, Some(rw_txn))?;
-        self.write_setting_relay_list_becomes_stale_hours(
-            &settings.relay_list_becomes_stale_hours,
+        self.write_setting_relay_list_becomes_stale_minutes(
+            &(settings.relay_list_becomes_stale_hours * 60),
             Some(rw_txn),
         )?;
-        self.write_setting_metadata_becomes_stale_hours(
-            &settings.metadata_becomes_stale_hours,
+        self.write_setting_metadata_becomes_stale_minutes(
+            &(settings.metadata_becomes_stale_hours * 60),
             Some(rw_txn),
         )?;
         self.write_setting_nip05_becomes_stale_if_valid_hours(

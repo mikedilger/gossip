@@ -802,16 +802,16 @@ impl Storage {
     def_setting!(inertial_scrolling, b"inertial_scrolling", bool, true);
     def_setting!(mouse_acceleration, b"mouse_acceleration", f32, 1.0);
     def_setting!(
-        relay_list_becomes_stale_hours,
-        b"relay_list_becomes_stale_hours",
+        relay_list_becomes_stale_minutes,
+        b"relay_list_becomes_stale_minutes",
         u64,
-        1
+        20
     );
     def_setting!(
-        metadata_becomes_stale_hours,
-        b"metadata_becomes_stale_hours",
+        metadata_becomes_stale_minutes,
+        b"metadata_becomes_stale_minutes",
         u64,
-        4
+        20
     );
     def_setting!(
         nip05_becomes_stale_if_valid_hours,

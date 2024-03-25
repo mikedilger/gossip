@@ -198,20 +198,20 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         ui.label("How long before a relay list becomes stale and needs rechecking?");
         ui.add(
             Slider::new(
-                &mut app.unsaved_settings.relay_list_becomes_stale_hours,
-                1..=24,
+                &mut app.unsaved_settings.relay_list_becomes_stale_minutes,
+                5..=360,
             )
-            .text("hours"),
+            .text("minutes"),
         );
     });
     ui.horizontal(|ui| {
         ui.label("How long before metadata becomes stale and needs rechecking?");
         ui.add(
             Slider::new(
-                &mut app.unsaved_settings.metadata_becomes_stale_hours,
-                1..=24,
+                &mut app.unsaved_settings.metadata_becomes_stale_minutes,
+                5..=360,
             )
-            .text("hours"),
+            .text("minutes"),
         );
     });
     ui.horizontal(|ui| {

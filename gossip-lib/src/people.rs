@@ -139,10 +139,9 @@ impl People {
     /// Get all the pubkeys that need relay lists (from the given set)
     pub fn get_subscribed_pubkeys_needing_relay_lists(&self) -> Vec<PublicKey> {
         let stale = Unixtime::now().unwrap().0
-            - 60 * 60
-                * GLOBALS
-                    .storage
-                    .read_setting_relay_list_becomes_stale_hours() as i64;
+            - 60 * GLOBALS
+                .storage
+                .read_setting_relay_list_becomes_stale_minutes() as i64;
 
         if let Ok(vec) = GLOBALS
             .storage
@@ -157,10 +156,9 @@ impl People {
     /// Get if a person needs a relay list
     pub fn person_needs_relay_list(pubkey: PublicKey) -> Freshness {
         let staletime = Unixtime::now().unwrap().0
-            - 60 * 60
-                * GLOBALS
-                    .storage
-                    .read_setting_relay_list_becomes_stale_hours() as i64;
+            - 60 * GLOBALS
+                .storage
+                .read_setting_relay_list_becomes_stale_minutes() as i64;
 
         match GLOBALS.storage.read_person(&pubkey) {
             Err(_) => Freshness::NeverSought,
@@ -233,7 +231,9 @@ impl People {
 
         let now = Unixtime::now().unwrap();
         let stale = Duration::from_secs(
-            60 * 60 * GLOBALS.storage.read_setting_metadata_becomes_stale_hours(),
+            60 * GLOBALS
+                .storage
+                .read_setting_metadata_becomes_stale_minutes(),
         );
 
         let mut verified_need: Vec<PublicKey> = Vec::new();

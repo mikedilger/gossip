@@ -96,8 +96,8 @@ pub struct UnsavedSettings {
     pub mouse_acceleration: f32,
 
     // Staletime settings
-    pub relay_list_becomes_stale_hours: u64,
-    pub metadata_becomes_stale_hours: u64,
+    pub relay_list_becomes_stale_minutes: u64,
+    pub metadata_becomes_stale_minutes: u64,
     pub nip05_becomes_stale_if_valid_hours: u64,
     pub nip05_becomes_stale_if_invalid_minutes: u64,
     pub avatar_becomes_stale_hours: u64,
@@ -177,8 +177,8 @@ impl Default for UnsavedSettings {
             image_resize_algorithm: default_setting!(image_resize_algorithm),
             inertial_scrolling: default_setting!(inertial_scrolling),
             mouse_acceleration: default_setting!(mouse_acceleration),
-            relay_list_becomes_stale_hours: default_setting!(relay_list_becomes_stale_hours),
-            metadata_becomes_stale_hours: default_setting!(metadata_becomes_stale_hours),
+            relay_list_becomes_stale_minutes: default_setting!(relay_list_becomes_stale_minutes),
+            metadata_becomes_stale_minutes: default_setting!(metadata_becomes_stale_minutes),
             nip05_becomes_stale_if_valid_hours: default_setting!(
                 nip05_becomes_stale_if_valid_hours
             ),
@@ -262,8 +262,8 @@ impl UnsavedSettings {
             image_resize_algorithm: load_setting!(image_resize_algorithm),
             inertial_scrolling: load_setting!(inertial_scrolling),
             mouse_acceleration: load_setting!(mouse_acceleration),
-            relay_list_becomes_stale_hours: load_setting!(relay_list_becomes_stale_hours),
-            metadata_becomes_stale_hours: load_setting!(metadata_becomes_stale_hours),
+            relay_list_becomes_stale_minutes: load_setting!(relay_list_becomes_stale_minutes),
+            metadata_becomes_stale_minutes: load_setting!(metadata_becomes_stale_minutes),
             nip05_becomes_stale_if_valid_hours: load_setting!(nip05_becomes_stale_if_valid_hours),
             nip05_becomes_stale_if_invalid_minutes: load_setting!(
                 nip05_becomes_stale_if_invalid_minutes
@@ -343,8 +343,8 @@ impl UnsavedSettings {
         save_setting!(image_resize_algorithm, self, txn);
         save_setting!(inertial_scrolling, self, txn);
         save_setting!(mouse_acceleration, self, txn);
-        save_setting!(relay_list_becomes_stale_hours, self, txn);
-        save_setting!(metadata_becomes_stale_hours, self, txn);
+        save_setting!(relay_list_becomes_stale_minutes, self, txn);
+        save_setting!(metadata_becomes_stale_minutes, self, txn);
         save_setting!(nip05_becomes_stale_if_valid_hours, self, txn);
         save_setting!(nip05_becomes_stale_if_invalid_minutes, self, txn);
         save_setting!(avatar_becomes_stale_hours, self, txn);
