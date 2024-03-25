@@ -179,7 +179,9 @@ impl Overlord {
         if GLOBALS.storage.read_setting_offline() {
             let _ = GLOBALS.write_runstate.send(RunState::Offline);
         } else {
-            let _ = GLOBALS.write_runstate.send(RunState::Online);
+            if *GLOBALS.read_runstate.borrow() != RunState::ShuttingDown {
+                let _ = GLOBALS.write_runstate.send(RunState::Online);
+            }
         }
 
         'mainloop: loop {

@@ -339,8 +339,10 @@ fn complete_wizard(app: &mut GossipUi, ctx: &Context) {
         // Pause to make sure all the state transitions complete
         std::thread::sleep(std::time::Duration::from_millis(100));
 
-        // Now go online (unless in offline mode)
-        let _ = GLOBALS.write_runstate.send(RunState::Online);
+        // Now go online (unless in offline mode, or we are shutting down)
+        if *GLOBALS.read_runstate.borrow() != RunState::ShuttingDown {
+            let _ = GLOBALS.write_runstate.send(RunState::Online);
+        }
     }
 }
 
