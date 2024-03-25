@@ -1407,7 +1407,7 @@ impl eframe::App for GossipUi {
                                 ui.label("and installed 'libsdl2-dev' package for your system.");
                                 ui.end_row();
                                 ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
-                                    if ui.link("dismiss message").clicked() {
+                                    if ui.link("Dismiss message").clicked() {
                                         app.warn_no_libsdl2_dismissed = true;
                                     }
                                 });
