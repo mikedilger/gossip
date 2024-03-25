@@ -3365,7 +3365,7 @@ impl Overlord {
         match discover {
             -1 => (), // Discover subscriptions are temp / short-lived, so no action needed.
             1 => {
-                let pubkeys = GLOBALS.people.get_subscribed_pubkeys();
+                let pubkeys = GLOBALS.people.get_subscribed_pubkeys_needing_relay_lists();
                 self.subscribe_discover(pubkeys, Some(vec![new.url.clone()]))
                     .await?;
             }
