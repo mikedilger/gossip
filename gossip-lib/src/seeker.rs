@@ -4,7 +4,7 @@ use crate::globals::GLOBALS;
 use crate::misc::Freshness;
 use crate::people::People;
 use dashmap::DashMap;
-use nostr_types::{Id, PublicKey, RelayUrl, RelayUsage, Unixtime};
+use nostr_types::{EventAddr, Id, PublicKey, RelayUrl, RelayUsage, Unixtime};
 use std::time::Duration;
 use tokio::time::Instant;
 
@@ -118,6 +118,13 @@ impl Seeker {
         let when = Unixtime::now().unwrap();
         Self::seek_event_at_relays(id, relays);
         self.events.insert(id, SeekState::WaitingEvent(when));
+    }
+
+    /// Seek an event when you have an EventAddr
+    pub(crate) fn seek_event_addr(&self, addr: EventAddr) {
+        let _ = GLOBALS
+            .to_overlord
+            .send(ToOverlordMessage::FetchEventAddr(addr));
     }
 
     /// Inform the seeker that an author's relay list has just arrived
