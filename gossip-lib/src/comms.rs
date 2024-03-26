@@ -250,7 +250,7 @@ pub(crate) enum ToMinionPayloadDetail {
     SubscribeGeneralFeed(Vec<PublicKey>),
     SubscribeInbox,
     SubscribePersonFeed(PublicKey),
-    SubscribeThreadFeed(IdHex, Vec<Id>),
+    SubscribeReplies(IdHex),
     SubscribeDmChannel(DmChannel),
     SubscribeNip46,
     TempSubscribeGeneralFeedChunk(Unixtime),
@@ -258,7 +258,7 @@ pub(crate) enum ToMinionPayloadDetail {
     TempSubscribeInboxFeedChunk(Unixtime),
     TempSubscribeMetadata(Vec<PublicKey>),
     UnsubscribePersonFeed,
-    UnsubscribeThreadFeed,
+    UnsubscribeReplies,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

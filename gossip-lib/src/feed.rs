@@ -150,7 +150,7 @@ impl Feed {
                 target: "all".to_string(),
                 payload: ToMinionPayload {
                     job_id: 0,
-                    detail: ToMinionPayloadDetail::UnsubscribeThreadFeed,
+                    detail: ToMinionPayloadDetail::UnsubscribeReplies,
                 },
             });
         }

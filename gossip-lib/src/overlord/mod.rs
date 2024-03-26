@@ -2786,26 +2786,34 @@ impl Overlord {
                 target: "all".to_string(),
                 payload: ToMinionPayload {
                     job_id: 0,
-                    detail: ToMinionPayloadDetail::UnsubscribeThreadFeed,
+                    detail: ToMinionPayloadDetail::UnsubscribeReplies,
                 },
             });
 
             for url in relays.iter() {
-                // Subscribe
-                self.engage_minion(
-                    url.to_owned(),
-                    vec![RelayJob {
+                let mut jobs: Vec<RelayJob> = vec![];
+
+                // Subscribe ancestors
+                for ancestor_id in missing_ancestors.drain(..) {
+                    jobs.push(RelayJob {
                         reason: RelayConnectionReason::ReadThread,
                         payload: ToMinionPayload {
                             job_id: rand::random::<u64>(),
-                            detail: ToMinionPayloadDetail::SubscribeThreadFeed(
-                                id.into(),
-                                missing_ancestors.clone(),
-                            ),
+                            detail: ToMinionPayloadDetail::FetchEvent(ancestor_id),
                         },
-                    }],
-                )
-                .await?;
+                    });
+                }
+
+                // Subscribe replies
+                jobs.push(RelayJob {
+                    reason: RelayConnectionReason::ReadThread,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::SubscribeReplies(id.into()),
+                    },
+                });
+
+                self.engage_minion(url.to_owned(), jobs).await?;
             }
         }
 

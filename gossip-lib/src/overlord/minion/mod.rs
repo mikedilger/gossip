@@ -557,9 +557,8 @@ impl Minion {
             ToMinionPayloadDetail::SubscribePersonFeed(pubkey) => {
                 self.subscribe_person_feed(message.job_id, pubkey).await?;
             }
-            ToMinionPayloadDetail::SubscribeThreadFeed(main, parents) => {
-                self.subscribe_thread_feed(message.job_id, main, parents)
-                    .await?;
+            ToMinionPayloadDetail::SubscribeReplies(main) => {
+                self.subscribe_replies(message.job_id, main).await?;
             }
             ToMinionPayloadDetail::SubscribeDmChannel(dmchannel) => {
                 self.subscribe_dm_channel(message.job_id, dmchannel).await?;
@@ -586,8 +585,8 @@ impl Minion {
             ToMinionPayloadDetail::UnsubscribePersonFeed => {
                 self.unsubscribe("person_feed").await?;
             }
-            ToMinionPayloadDetail::UnsubscribeThreadFeed => {
-                self.unsubscribe("thread_feed").await?;
+            ToMinionPayloadDetail::UnsubscribeReplies => {
+                self.unsubscribe("replies").await?;
             }
         }
 
@@ -852,24 +851,8 @@ impl Minion {
         Ok(())
     }
 
-    async fn subscribe_thread_feed(
-        &mut self,
-        job_id: u64,
-        main: IdHex,
-        ancestor_ids: Vec<Id>,
-    ) -> Result<(), Error> {
+    async fn subscribe_replies(&mut self, job_id: u64, main: IdHex) -> Result<(), Error> {
         // NOTE we do not unsubscribe to the general feed
-
-        // Seek ancestors (eventually)
-        for id in ancestor_ids.iter() {
-            self.sought_events
-                .entry(*id)
-                .and_modify(|ess| ess.job_ids.push(job_id))
-                .or_insert(EventSeekState {
-                    job_ids: vec![job_id],
-                    asked: false,
-                });
-        }
 
         // Replies
         let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
