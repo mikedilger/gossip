@@ -9,7 +9,7 @@ use egui_winit::egui::text::LayoutJob;
 use egui_winit::egui::text_edit::TextEditOutput;
 use egui_winit::egui::vec2;
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::{FeedKind, Person, PersonList, PersonListMetadata, GLOBALS};
+use gossip_lib::{FeedKind, Freshness, People, Person, PersonList, PersonListMetadata, GLOBALS};
 use nostr_types::{Profile, PublicKey, Unixtime};
 
 pub(in crate::ui) struct ListUi {
@@ -236,21 +236,44 @@ pub(super) fn update(
 
                                 ui.add_space(10.0);
 
-                                if !GLOBALS
-                                    .storage
-                                    .have_persons_relays(person.pubkey)
-                                    .unwrap_or(false)
-                                {
-                                    response |= ui.add(
-                                        Label::new(
-                                            RichText::new("Relay list not found")
-                                                .color(app.theme.warning_marker_text_color()),
-                                        )
-                                        .selectable(false)
-                                        .sense(Sense::click()),
-                                    );
+                                let mut show_fetch_now = false;
+                                match People::person_needs_relay_list(person.pubkey) {
+                                    Freshness::NeverSought => {
+                                        response |= ui.add(
+                                            Label::new(
+                                                RichText::new("Relay list not found")
+                                                    .color(app.theme.warning_marker_text_color()),
+                                            )
+                                            .selectable(false)
+                                            .sense(Sense::click()),
+                                        );
+                                        show_fetch_now = true;
+                                    }
+                                    Freshness::Stale => {
+                                        response |= ui.add(
+                                            Label::new(
+                                                RichText::new("Relay list stale")
+                                                    .color(app.theme.warning_marker_text_color()),
+                                            )
+                                            .selectable(false)
+                                            .sense(Sense::click()),
+                                        );
+                                        show_fetch_now = true;
+                                    }
+                                    Freshness::Fresh => {}
+                                };
+                                if show_fetch_now {
+                                    if ui.button("Fetch now").clicked() {
+                                        let _ = GLOBALS.to_overlord.send(
+                                            ToOverlordMessage::SubscribeDiscover(
+                                                vec![person.pubkey],
+                                                None,
+                                            ),
+                                        );
+                                    }
                                 }
                             });
+
                             ui.add_space(3.0);
                             response |= ui.add(
                                 Label::new(GossipUi::richtext_from_person_nip05(person).weak())

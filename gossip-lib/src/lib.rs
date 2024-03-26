@@ -99,7 +99,7 @@ mod media;
 pub use media::Media;
 
 mod misc;
-pub use misc::ZapState;
+pub use misc::{Freshness, ZapState};
 
 /// Rendering various names of users
 pub mod names;

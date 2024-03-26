@@ -3,18 +3,14 @@ use crate::ui::widgets;
 use crate::ui::widgets::list_entry;
 use crate::ui::widgets::CopyButton;
 use crate::AVATAR_SIZE_F32;
-use eframe::egui;
+use eframe::egui::{self, Label};
 use egui::{Context, RichText, TextEdit, Ui, Vec2};
 use egui_winit::egui::vec2;
 use egui_winit::egui::InnerResponse;
 use egui_winit::egui::Response;
 use egui_winit::egui::Widget;
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::DmChannel;
-use gossip_lib::FeedKind;
-use gossip_lib::Person;
-use gossip_lib::PersonList;
-use gossip_lib::GLOBALS;
+use gossip_lib::{DmChannel, FeedKind, Freshness, People, Person, PersonList, GLOBALS};
 use nostr_types::{PublicKey, RelayUrl};
 use serde_json::Value;
 
@@ -331,6 +327,35 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                 if ap == pubkey {
                     need_to_set_active_person = false;
                     app.setting_active_person = false;
+
+                    let mut show_fetch_now = false;
+                    match People::person_needs_relay_list(person.pubkey) {
+                        Freshness::NeverSought => {
+                            ui.add(Label::new(
+                                RichText::new("Relay list not found")
+                                    .color(app.theme.warning_marker_text_color()),
+                            ));
+                            show_fetch_now = true;
+                        }
+                        Freshness::Stale => {
+                            ui.add(Label::new(
+                                RichText::new("Relay list stale")
+                                    .color(app.theme.warning_marker_text_color()),
+                            ));
+                            show_fetch_now = true;
+                        }
+                        Freshness::Fresh => {}
+                    };
+                    if show_fetch_now {
+                        if ui.button("Fetch now").clicked() {
+                            let _ = GLOBALS
+                                .to_overlord
+                                .send(ToOverlordMessage::SubscribeDiscover(
+                                    vec![person.pubkey],
+                                    None,
+                                ));
+                        }
+                    }
 
                     let mut relays = GLOBALS.people.get_active_person_write_relays();
                     relays.sort_by(|a, b| b.1.cmp(&a.1)); // list in score order
