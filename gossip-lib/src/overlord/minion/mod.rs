@@ -856,15 +856,25 @@ impl Minion {
         &mut self,
         job_id: u64,
         main: IdHex,
-        ancestor_ids: Vec<IdHex>,
+        ancestor_ids: Vec<Id>,
     ) -> Result<(), Error> {
         // NOTE we do not unsubscribe to the general feed
 
+        // Seek ancestors (eventually)
+        for id in ancestor_ids.iter() {
+            self.sought_events
+                .entry(*id)
+                .and_modify(|ess| ess.job_ids.push(job_id))
+                .or_insert(EventSeekState {
+                    job_ids: vec![job_id],
+                    asked: false,
+                });
+        }
+
+        // Replies
         let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
-
-        let filters = filter_fns::thread(main, &ancestor_ids, spamsafe);
-
-        self.subscribe(filters, "thread_feed", job_id).await?;
+        let filters = filter_fns::replies(main, spamsafe);
+        self.subscribe(filters, "replies", job_id).await?;
 
         Ok(())
     }
