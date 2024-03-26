@@ -263,7 +263,7 @@ pub(super) fn update(
                                     Freshness::Fresh => {}
                                 };
                                 if show_fetch_now {
-                                    if ui.button("Fetch now").clicked() {
+                                    if ui.add(egui::Button::new("Fetch now").small()).clicked() {
                                         let _ = GLOBALS.to_overlord.send(
                                             ToOverlordMessage::SubscribeDiscover(
                                                 vec![person.pubkey],
