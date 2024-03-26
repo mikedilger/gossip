@@ -1372,10 +1372,20 @@ impl eframe::App for GossipUi {
         // Side panel
         self.side_panel(ctx);
 
+        let (show_top_post_area, show_bottom_post_area) = if self.show_post_area_fn() {
+            if read_setting!(posting_area_at_top) {
+                (true, false)
+            } else {
+                (false, true)
+            }
+        } else {
+            (false, false)
+        };
+
         let has_warning = {
             #[cfg(feature = "video-ffmpeg")]
             {
-                self.audio_device.is_none()
+                !self.warn_no_libsdl2_dismissed && self.audio_device.is_none()
             }
             #[cfg(not(feature = "video-ffmpeg"))]
             {
@@ -1383,7 +1393,7 @@ impl eframe::App for GossipUi {
             }
         };
 
-        egui::TopBottomPanel::top("top-area")
+        egui::TopBottomPanel::top("top-panel")
             .frame(
                 egui::Frame::side_top_panel(&self.theme.get_style()).inner_margin(egui::Margin {
                     left: 20.0,
@@ -1395,12 +1405,12 @@ impl eframe::App for GossipUi {
             .resizable(true)
             .show_animated(
                 ctx,
-                (self.show_post_area_fn() && read_setting!(posting_area_at_top)) || has_warning,
+                show_top_post_area || has_warning,
                 |ui| {
                     self.begin_ui(ui);
                     #[cfg(feature = "video-ffmpeg")]
                     {
-                        if !self.warn_no_libsdl2_dismissed && self.audio_device.is_none() {
+                        if has_warning {
                             widgets::warning_frame(ui, self, |ui, app| {
                                 ui.label("You have compiled gossip with 'video-ffmpeg' option but no audio device was found on your system. Make sure you have followed the instructions at ");
                                 ui.hyperlink("https://github.com/Rust-SDL2/rust-sdl2");
@@ -1414,38 +1424,29 @@ impl eframe::App for GossipUi {
                             });
                         }
                     }
-                    feed::post::posting_area(self, ctx, frame, ui);
+                    if show_top_post_area {
+                        feed::post::posting_area(self, ctx, frame, ui);
+                    }
                 },
             );
 
-        let show_status = self.show_post_area_fn() && !read_setting!(posting_area_at_top);
-
         let resizable = true;
 
-        egui::TopBottomPanel::bottom("status")
+        egui::TopBottomPanel::bottom("bottom-panel")
             .frame({
                 let frame = egui::Frame::side_top_panel(&self.theme.get_style());
-                frame.inner_margin(if !read_setting!(posting_area_at_top) {
-                    egui::Margin {
-                        left: 20.0,
-                        right: 18.0,
-                        top: 10.0,
-                        bottom: 10.0,
-                    }
-                } else {
-                    egui::Margin {
-                        left: 20.0,
-                        right: 18.0,
-                        top: 1.0,
-                        bottom: 5.0,
-                    }
+                frame.inner_margin(egui::Margin {
+                    left: 20.0,
+                    right: 18.0,
+                    top: 10.0,
+                    bottom: 10.0,
                 })
             })
             .resizable(resizable)
             .show_separator_line(false)
-            .show_animated(ctx, show_status, |ui| {
+            .show_animated(ctx, show_bottom_post_area, |ui| {
                 self.begin_ui(ui);
-                if self.show_post_area_fn() && !read_setting!(posting_area_at_top) {
+                if show_bottom_post_area {
                     ui.add_space(7.0);
                     feed::post::posting_area(self, ctx, frame, ui);
                 }
