@@ -328,34 +328,12 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                     need_to_set_active_person = false;
                     app.setting_active_person = false;
 
-                    let mut show_fetch_now = false;
-                    match People::person_needs_relay_list(person.pubkey) {
-                        Freshness::NeverSought => {
-                            ui.add(Label::new(
-                                RichText::new("Relay list not found")
-                                    .color(app.theme.warning_marker_text_color()),
-                            ));
-                            show_fetch_now = true;
-                        }
-                        Freshness::Stale => {
-                            ui.add(Label::new(
-                                RichText::new("Relay list stale")
-                                    .color(app.theme.warning_marker_text_color()),
-                            ));
-                            show_fetch_now = true;
-                        }
-                        Freshness::Fresh => {}
-                    };
-                    if show_fetch_now {
-                        if ui.button("Fetch now").clicked() {
-                            let _ = GLOBALS
-                                .to_overlord
-                                .send(ToOverlordMessage::SubscribeDiscover(
-                                    vec![person.pubkey],
-                                    None,
-                                ));
-                        }
-                    }
+                    let (show_fetch_now, show_fetch_reason) =
+                        match People::person_needs_relay_list(person.pubkey) {
+                            Freshness::NeverSought => (true, "Relay list not found"),
+                            Freshness::Stale => (true, "Relay list stale"),
+                            Freshness::Fresh => (false, ""),
+                        };
 
                     let mut relays = GLOBALS.people.get_active_person_write_relays();
                     relays.sort_by(|a, b| b.1.cmp(&a.1)); // list in score order
@@ -366,7 +344,37 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                         .collect::<Vec<String>>()
                         .join(", ");
 
-                    profile_item(ui, app, width, "Outbox Relays", relays_str);
+                    // show relays
+                    make_frame().show(ui, |ui| {
+                        ui.vertical(|ui| {
+                            ui.horizontal(|ui| {
+                                item_label(ui, "Outbox Relays");
+                                if show_fetch_now {
+                                    ui.add(Label::new(
+                                        RichText::new(show_fetch_reason)
+                                            .small()
+                                            .color(app.theme.warning_marker_text_color()),
+                                    ));
+                                    if ui.add(egui::Button::new("Fetch now").small()).clicked() {
+                                        app.setting_active_person = true;
+                                        let _ = GLOBALS.to_overlord.send(
+                                            ToOverlordMessage::SubscribeDiscover(
+                                                vec![person.pubkey],
+                                                None,
+                                            ),
+                                        );
+                                        let _ = GLOBALS
+                                            .to_overlord
+                                            .send(ToOverlordMessage::SetActivePerson(pubkey));
+                                    }
+                                }
+                            });
+                            ui.add_space(ITEM_V_SPACE);
+                            ui.horizontal_wrapped(|ui| {
+                                ui.label(relays_str);
+                            });
+                        });
+                    });
 
                     // Option to manually add a relay for them
                     make_frame().show(ui, |ui| {
@@ -394,6 +402,14 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
 
                     ui.add_space(10.0);
                 }
+            }
+            if app.setting_active_person {
+                make_frame().show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.label("finding relays ");
+                        ui.add(egui::widgets::Spinner::default());
+                    });
+                });
             }
             if need_to_set_active_person && !app.setting_active_person {
                 app.setting_active_person = true;
