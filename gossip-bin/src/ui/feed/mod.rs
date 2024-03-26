@@ -34,17 +34,15 @@ pub(super) struct Feeds {
 }
 
 pub(super) fn enter_feed(app: &mut GossipUi, kind: FeedKind) {
-    match kind {
-        FeedKind::Thread {
-            id: _,
-            referenced_by: _,
-            author: _,
-        } => {
-            if app.unsaved_settings.feed_thread_scroll_to_main_event {
-                app.feeds.thread_needs_scroll = true;
-            }
+    if let FeedKind::Thread {
+        id: _,
+        referenced_by: _,
+        author: _,
+    } = kind
+    {
+        if app.unsaved_settings.feed_thread_scroll_to_main_event {
+            app.feeds.thread_needs_scroll = true;
         }
-        _ => {}
     }
 }
 

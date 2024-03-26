@@ -2398,7 +2398,7 @@ fn approval_dialog_inner(app: &mut GossipUi, ui: &mut Ui) {
                         let text = format!("Authenticate to {}", url);
                         widgets::truncated_label(
                             ui,
-                            url.to_string().trim_end_matches("/"),
+                            url.to_string().trim_end_matches('/'),
                             ui.available_width() - TRUNC,
                         )
                         .on_hover_text(text);
@@ -2450,7 +2450,7 @@ fn approval_dialog_inner(app: &mut GossipUi, ui: &mut Ui) {
                         let text = format!("Connect to {} for {}", url, jobstrs.join(", "));
                         widgets::truncated_label(
                             ui,
-                            url.to_string().trim_end_matches("/"),
+                            url.to_string().trim_end_matches('/'),
                             ui.available_width() - TRUNC,
                         )
                         .on_hover_text(text);
