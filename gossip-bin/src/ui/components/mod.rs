@@ -2,12 +2,14 @@ use eframe::egui;
 use egui::{Label, Sense, Ui};
 
 pub fn emoji_picker(ui: &mut Ui) -> Option<char> {
-    let mut emojis = "😀😁😆😅😂🤣\
-                      😕🥺😯😭😍🥰\
-                      😊🫡🤔💀🫂👀\
-                      ❤💜✨🔥⭐⚡\
-                      👍🤙🤌🙏🤝🫰\
-                      💯🎯✅👑🍆🚩"
+    let mut emojis = "😀😁😊😆😅😂🤣\
+                      😕🥺😯😭🫡😑🤭\
+                      🙄😏🤔🤨😒🙃🤭\
+                      😛🤢🤐😒😬😍🥰\
+                      🖕💩💀👀🍆👑🚩\
+                      ✨⭐⚡❤💜🫂\
+                      🤌🙏🫰\
+                      🤙🤝👍🔥🎯💯✅"
         .chars();
 
     let mut output: Option<char> = None;
