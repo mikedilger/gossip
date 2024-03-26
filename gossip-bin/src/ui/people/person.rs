@@ -337,12 +337,6 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
 
                     let mut relays = GLOBALS.people.get_active_person_write_relays();
                     relays.sort_by(|a, b| b.1.cmp(&a.1)); // list in score order
-                    let relays_str: String = relays
-                        .iter()
-                        .filter(|f| f.1 >= 10) // do not list low-score relays
-                        .map(|f| format!("{} ({})", f.0.host(), f.1))
-                        .collect::<Vec<String>>()
-                        .join(", ");
 
                     // show relays
                     make_frame().show(ui, |ui| {
@@ -371,7 +365,20 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                             });
                             ui.add_space(ITEM_V_SPACE);
                             ui.horizontal_wrapped(|ui| {
-                                ui.label(relays_str);
+                                for (relay_url, score) in relays {
+                                    if score >= 10 {
+                                        // do not list low-score relays
+                                        if ui
+                                            .link(format!("{} ({})", relay_url.host(), score))
+                                            .clicked()
+                                        {
+                                            app.set_page(
+                                                ctx,
+                                                Page::RelaysKnownNetwork(Some(relay_url)),
+                                            );
+                                        }
+                                    }
+                                }
                             });
                         });
                     });

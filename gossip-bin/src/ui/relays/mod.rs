@@ -56,14 +56,15 @@ impl RelayUi {
         }
     }
 
-    pub(super) fn enter_page(&mut self) {
+    pub(super) fn enter_page(&mut self, edit_relay: Option<&RelayUrl>) {
         // preserve search and filter but reset edits and dialogues
-        self.edit = None;
+        self.edit = edit_relay.cloned();
         self.edit_relays = Vec::new();
         self.edit_done = None;
-        self.edit_needs_scroll = false;
+        self.edit_needs_scroll = edit_relay.is_some();
         self.add_dialog_step = AddRelayDialogStep::Inactive;
         self.new_relay_url = RELAY_URL_PREPOPULATE.to_string();
+        self.filter = RelayFilter::All;
     }
 }
 
@@ -145,7 +146,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         Page::RelaysActivityMonitor => active::update(app, ctx, frame, ui),
         Page::RelaysCoverage => coverage::update(app, ctx, frame, ui),
         Page::RelaysMine => mine::update(app, ctx, frame, ui),
-        Page::RelaysKnownNetwork => known::update(app, ctx, frame, ui),
+        Page::RelaysKnownNetwork(_) => known::update(app, ctx, frame, ui),
         _ => {}
     }
 }
@@ -405,14 +406,7 @@ fn entry_dialog_step1(ui: &mut Ui, ctx: &Context, app: &mut GossipUi) {
                         ));
 
                         // send user to known relays page (where the new entry should show up)
-                        app.set_page(ctx, Page::RelaysKnownNetwork);
-                        // search for the new relay so it shows at the top
-                        app.relays.search = url.to_string();
-                        // set the new relay to edit mode
-                        app.relays.edit = Some(url);
-                        app.relays.edit_needs_scroll = true;
-                        // reset the filters so it will show
-                        app.relays.filter = RelayFilter::All;
+                        app.set_page(ctx, Page::RelaysKnownNetwork(Some(url)));
 
                         // go to next step
                         app.relays.add_dialog_step = AddRelayDialogStep::Step2AwaitOverlord;
