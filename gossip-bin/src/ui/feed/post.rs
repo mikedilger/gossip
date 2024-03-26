@@ -673,14 +673,8 @@ fn calc_tagging_search(app: &mut GossipUi) {
                 .search_people_to_tag(search)
                 .unwrap_or_default();
             pairs.sort_by(|(_, ak), (_, bk)| {
-                let af = GLOBALS
-                    .storage
-                    .is_person_in_list(ak, gossip_lib::PersonList::Followed)
-                    .unwrap_or(false);
-                let bf = GLOBALS
-                    .storage
-                    .is_person_in_list(bk, gossip_lib::PersonList::Followed)
-                    .unwrap_or(false);
+                let af = GLOBALS.storage.is_person_subscribed_to(ak).unwrap_or(false);
+                let bf = GLOBALS.storage.is_person_subscribed_to(bk).unwrap_or(false);
                 bf.cmp(&af).then(std::cmp::Ordering::Greater)
             });
             app.draft_data.tagging_search_searched = Some(search.clone());
