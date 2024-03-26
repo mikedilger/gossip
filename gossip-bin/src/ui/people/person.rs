@@ -38,9 +38,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     ui.add_space(10.0);
     ui.horizontal(|ui| {
         ui.add_space(10.0);
-        let name = GossipUi::person_name(&person);
         ui.label(
-            RichText::new(name)
+            RichText::new(person.best_name())
                 .size(22.0)
                 .color(app.theme.accent_color()),
         );

@@ -1493,20 +1493,6 @@ impl GossipUi {
         ui.set_enabled(self.enable_ui());
     }
 
-    pub fn person_name(person: &Person) -> String {
-        if let Some(petname) = &person.petname {
-            petname.clone()
-        } else if let Some(display_name) = person.display_name() {
-            display_name.to_string()
-        } else if let Some(name) = person.name() {
-            name.to_string()
-        } else if let Some(nip05) = person.nip05() {
-            nip05.to_string()
-        } else {
-            gossip_lib::names::pubkey_short(&person.pubkey)
-        }
-    }
-
     pub fn richtext_from_person_nip05(person: &Person) -> RichText {
         if let Some(mut nip05) = person.nip05().map(|s| s.to_owned()) {
             if nip05.starts_with("_@") {
@@ -1544,10 +1530,7 @@ impl GossipUi {
 
             let tag_name_menu = {
                 let text = if !profile_page {
-                    match &person.petname {
-                        Some(pn) => pn.to_owned(),
-                        None => person.best_name(),
-                    }
+                    person.best_name()
                 } else {
                     "ACTIONS".to_string()
                 };
