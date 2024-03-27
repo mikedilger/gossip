@@ -14,6 +14,7 @@ use egui_winit::egui::text_edit::TextEditOutput;
 use egui_winit::egui::{
     self, vec2, Align, FontSelection, Rect, Response, RichText, Sense, Ui, WidgetText,
 };
+use crate::ui::egui::Rounding;
 pub use nav_item::NavItem;
 
 mod relay_entry;
@@ -164,6 +165,34 @@ pub(super) fn set_important_button_visuals(ui: &mut Ui, app: &GossipUi) {
     visuals.widgets.hovered.weak_bg_fill = app.theme.navigation_text_color();
     visuals.widgets.hovered.fg_stroke.color = app.theme.accent_color();
     visuals.widgets.inactive.fg_stroke.color = app.theme.get_style().visuals.extreme_bg_color;
+}
+
+#[allow(dead_code)]
+pub(crate) fn warning_frame<R>(
+    ui: &mut Ui,
+    app: &mut GossipUi,
+    inner: impl FnOnce(&mut Ui, &mut GossipUi) -> R,
+) -> R {
+    egui::Frame::none()
+        .outer_margin(egui::Margin {
+            left: 0.0,
+            right: 0.0,
+            top: 10.0,
+            bottom: 20.0,
+        })
+        .inner_margin(egui::Margin::same(20.0))
+        .fill(egui::Color32::from_rgb(0xFB, 0xBF, 0x24))
+        .rounding(Rounding::same(4.0))
+        .show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            ui.horizontal_wrapped(|ui| {
+                ui.visuals_mut().override_text_color =
+                    Some(egui::Color32::from_rgb(0x0a, 0x0a, 0x0a));
+                inner(ui, app)
+            })
+            .inner
+        })
+        .inner
 }
 
 // /// UTF-8 safe truncate (String::truncate() can panic)
