@@ -73,6 +73,7 @@ use gossip_lib::{
     GLOBALS,
 };
 use nostr_types::ContentSegment;
+use nostr_types::RelayUrl;
 use nostr_types::{Id, Metadata, MilliSatoshi, Profile, PublicKey, UncheckedUrl, Url};
 
 use serde::Serialize;
@@ -155,7 +156,7 @@ enum Page {
     RelaysActivityMonitor,
     RelaysCoverage,
     RelaysMine,
-    RelaysKnownNetwork,
+    RelaysKnownNetwork(Option<RelayUrl>),
     Search,
     Settings,
     HelpHelp,
@@ -201,7 +202,7 @@ impl Page {
             Page::RelaysActivityMonitor => (SubMenu::Relays.as_str(), "Active Relays".into()),
             Page::RelaysCoverage => (SubMenu::Relays.as_str(), "Coverage Report".into()),
             Page::RelaysMine => (SubMenu::Relays.as_str(), "My Relays".into()),
-            Page::RelaysKnownNetwork => (SubMenu::Relays.as_str(), "Known Network".into()),
+            Page::RelaysKnownNetwork(_) => (SubMenu::Relays.as_str(), "Known Network".into()),
             Page::Search => ("Search", "Search".into()),
             Page::Settings => ("Settings", "Settings".into()),
             Page::HelpHelp => (SubMenu::Help.as_str(), "Troubleshooting".into()),
@@ -886,11 +887,12 @@ impl GossipUi {
             Page::YourKeys | Page::YourMetadata | Page::YourDelegation | Page::YourNostrConnect => {
                 self.open_menu(ctx, SubMenu::Account);
             }
-            Page::RelaysActivityMonitor
-            | Page::RelaysCoverage
-            | Page::RelaysMine
-            | Page::RelaysKnownNetwork => {
-                self.relays.enter_page();
+            Page::RelaysActivityMonitor | Page::RelaysCoverage | Page::RelaysMine => {
+                self.relays.enter_page(None);
+                self.open_menu(ctx, SubMenu::Relays);
+            }
+            Page::RelaysKnownNetwork(some_relay) => {
+                self.relays.enter_page(some_relay.as_ref());
                 self.open_menu(ctx, SubMenu::Relays);
             }
             Page::Search => {
@@ -1079,7 +1081,7 @@ impl GossipUi {
                     cstate.show_body_indented(&header_response, ui, |ui| {
                         self.add_menu_item_page(ui, Page::RelaysActivityMonitor, None, true);
                         self.add_menu_item_page(ui, Page::RelaysMine, None, true);
-                        self.add_menu_item_page(ui, Page::RelaysKnownNetwork, None, true);
+                        self.add_menu_item_page(ui, Page::RelaysKnownNetwork(None), None, true);
                         ui.vertical(|ui| {
                             ui.spacing_mut().button_padding *= 2.0;
                             ui.visuals_mut().widgets.inactive.weak_bg_fill =
@@ -1500,7 +1502,7 @@ impl eframe::App for GossipUi {
                     Page::RelaysActivityMonitor
                     | Page::RelaysCoverage
                     | Page::RelaysMine
-                    | Page::RelaysKnownNetwork => relays::update(self, ctx, frame, ui),
+                    | Page::RelaysKnownNetwork(_) => relays::update(self, ctx, frame, ui),
                     Page::Search => search::update(self, ctx, frame, ui),
                     Page::Settings => settings::update(self, ctx, frame, ui),
                     Page::HelpHelp | Page::HelpStats | Page::HelpAbout | Page::HelpTheme => {
