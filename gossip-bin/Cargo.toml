@@ -47,6 +47,7 @@ tracing-subscriber = { version = "0.3", features = [ "std", "env-filter" ] }
 url = "2.4"
 usvg = "0.35.0"
 zeroize = "1.6"
+chrono = "0.4.37"
 
 [package.metadata.deb]
 section = "web"

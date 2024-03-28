@@ -1,5 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
+use chrono::{DateTime, Local, Utc};
 use eframe::egui::{self, vec2, Color32, RichText, Style, Ui, Vec2};
 use gossip_lib::{PendingItem, GLOBALS};
 
@@ -131,17 +132,11 @@ pub(super) fn update(app: &mut GossipUi, ui: &mut Ui) {
 }
 
 fn unixtime_to_string(timestamp: u64) -> String {
-    if let Ok(stamp) =
-        time::OffsetDateTime::from_unix_timestamp(timestamp.try_into().unwrap_or_default())
-    {
-        if let Ok(formatted) = stamp.format(time::macros::format_description!(
-            "[year]-[month repr:short]-[day] [hour]:[minute]"
-        )) {
-            return formatted;
-        }
-    }
+    let time: DateTime<Utc> =
+        DateTime::from_timestamp(timestamp.try_into().unwrap_or_default(), 0).unwrap_or_default();
+    let local: DateTime<Local> = time.into();
 
-    "".to_owned()
+    local.format("%e. %b %Y %T").to_string()
 }
 
 fn decline_style(theme: &Theme, style: &mut Style) {
