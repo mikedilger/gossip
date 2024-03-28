@@ -1946,12 +1946,12 @@ impl Overlord {
                     // Possibly add a tag to the 'root'
                     let mut parent_is_root = true;
                     match parent.replies_to_root() {
-                        Some(EventReference::Id(root, maybeurl, _marker)) => {
+                        Some(EventReference::Id { id: root, author: _, mut relays, marker: _ }) => {
                             // Add an 'e' tag for the root
                             add_event_to_tags(
                                 &mut tags,
                                 root,
-                                maybeurl.map(|u| u.to_unchecked_url()),
+                                relays.pop().map(|u| u.to_unchecked_url()),
                                 "root",
                             )
                             .await;
@@ -2753,11 +2753,9 @@ impl Overlord {
             // Use relay hints in 'e' tags
             for eref in highest_parent.referred_events() {
                 match eref {
-                    EventReference::Id(id, opturl, _marker) => {
+                    EventReference::Id { id, author: _, relays: tagrelays, marker: _ } => {
                         missing_ancestors.push(id);
-                        if let Some(url) = opturl {
-                            relays.push(url);
-                        }
+                        relays.extend(tagrelays);
                     }
                     EventReference::Addr(_ea) => {
                         // FIXME - we should subscribe to these too

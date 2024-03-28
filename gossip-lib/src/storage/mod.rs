@@ -1803,7 +1803,7 @@ impl Storage {
         };
 
         match event.replies_to() {
-            Some(EventReference::Id(parent_id, _opturl, _marker)) => {
+            Some(EventReference::Id { id: parent_id, .. }) => {
                 self.get_highest_local_parent_event_id(parent_id)
             }
             Some(EventReference::Addr(ea)) => {

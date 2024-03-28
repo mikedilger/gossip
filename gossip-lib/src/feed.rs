@@ -434,7 +434,7 @@ impl Feed {
 
                                 // Include if it directly replies to one of my events
                                 match e.replies_to() {
-                                    Some(EventReference::Id(id, _url, _marker)) => {
+                                    Some(EventReference::Id { id, .. }) => {
                                         if my_event_ids.contains(&id) {
                                             return true;
                                         }

@@ -46,7 +46,7 @@ impl Storage {
     ) -> Result<(), Error> {
         // replies to
         match event.replies_to() {
-            Some(EventReference::Id(id, _, _)) => {
+            Some(EventReference::Id { id, .. }) => {
                 self.write_relationship1(id, event.id, Relationship1::Reply, Some(txn))?;
             }
             Some(EventReference::Addr(_ea)) => {
