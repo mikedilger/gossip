@@ -310,22 +310,8 @@ impl Overlord {
         Ok(())
     }
 
-    async fn engage_minion(&mut self, url: RelayUrl, mut jobs: Vec<RelayJob>) -> Result<(), Error> {
-        // Do not connect if we are offline
-        if GLOBALS.storage.read_setting_offline() {
-            return Ok(());
-        }
-
-        if jobs.is_empty() {
-            return Ok(());
-        }
-
+    async fn engage_minion(&mut self, url: RelayUrl, jobs: Vec<RelayJob>) -> Result<(), Error> {
         let relay = GLOBALS.storage.read_or_create_relay(&url, None)?;
-
-        // don't connect to rank=0 relays
-        if relay.rank == 0 {
-            return Ok(());
-        }
 
         if GLOBALS
             .storage
@@ -344,6 +330,29 @@ impl Overlord {
                 }
             }
         } // else fall through
+
+        self.engage_minion_inner(relay, url, jobs).await
+    }
+
+    async fn engage_minion_inner(
+        &mut self,
+        relay: Relay,
+        url: RelayUrl,
+        mut jobs: Vec<RelayJob>,
+    ) -> Result<(), Error> {
+        // Do not connect if we are offline
+        if GLOBALS.storage.read_setting_offline() {
+            return Ok(());
+        }
+
+        if jobs.is_empty() {
+            return Ok(());
+        }
+
+        // don't connect to rank=0 relays
+        if relay.rank == 0 {
+            return Ok(());
+        }
 
         if let Some(mut refmut) = GLOBALS.connected_relays.get_mut(&url) {
             // We are already connected. Send it the jobs
@@ -1056,7 +1065,8 @@ impl Overlord {
 
         // Start the job
         if let Some((url, jobs)) = GLOBALS.pending.take_relay_connection_request(&relay_url) {
-            self.engage_minion(url, jobs).await?;
+            let relay = GLOBALS.storage.read_or_create_relay(&url, None)?;
+            self.engage_minion_inner(relay, url, jobs).await?;
         }
 
         Ok(())
