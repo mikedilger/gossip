@@ -322,9 +322,7 @@ pub async fn process_new_event(
                             // the nevent with that tag.
                             GLOBALS.seeker.seek_id(*id);
                         } else {
-                            GLOBALS
-                                .seeker
-                                .seek_id_and_relays(*id, relays.clone());
+                            GLOBALS.seeker.seek_id_and_relays(*id, relays.clone());
                         }
                     }
                     EventReference::Addr(ea) => {
