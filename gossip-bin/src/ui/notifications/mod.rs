@@ -47,12 +47,6 @@ const ALIGN: egui::Align = egui::Align::Center;
 const HEIGHT: f32 = 23.0;
 const TRUNC: f32 = 340.0;
 const SWITCH_SIZE: Vec2 = Vec2 { x: 46.0, y: 23.0 };
-// const MARGIN: egui::Margin = egui::Margin {
-//     left: 0.0,
-//     right: 20.0,
-//     top: 5.0,
-//     bottom: 5.0,
-// };
 
 ///
 /// Calc notifications
@@ -203,13 +197,3 @@ fn approve_style(theme: &Theme, style: &mut Style) {
     theme.accent_button_1_style(style);
     style.spacing.button_padding = vec2(16.0, 4.0);
 }
-
-// fn separator(ui: &mut Ui) {
-//     ui.add_sized(
-//         vec2(
-//             ui.available_width() - 20.0 - ui.spacing().item_spacing.y,
-//             6.0,
-//         ),
-//         egui::Separator::default(),
-//     );
-// }
