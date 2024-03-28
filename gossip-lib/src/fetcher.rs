@@ -75,6 +75,14 @@ impl Fetcher {
     }
 
     pub(crate) fn start() {
+        // Initialize if not already
+        if GLOBALS.fetcher.client.read().unwrap().is_none() {
+            if let Err(e) = Self::init() {
+                tracing::error!("Fetcher failed to initialize: {e}");
+                return;
+            }
+        }
+
         // Setup periodic queue management
         tokio::task::spawn(async move {
             let mut read_runstate = GLOBALS.read_runstate.clone();

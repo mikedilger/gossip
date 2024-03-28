@@ -172,9 +172,6 @@ impl Overlord {
             .feed
             .set_feed_starts(general_feed_start, person_feed_start, inbox_feed_start);
 
-        // Init the fetcher
-        crate::fetcher::Fetcher::init()?;
-
         // Switch out of initializing RunState
         if GLOBALS.storage.read_setting_offline() {
             let _ = GLOBALS.write_runstate.send(RunState::Offline);
