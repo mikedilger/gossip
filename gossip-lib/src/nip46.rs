@@ -320,7 +320,7 @@ fn default_now() -> Option<Unixtime> {
     Some(Unixtime::now().unwrap())
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Hash, PartialEq)]
 pub struct ParsedCommand {
     pub id: String,
     pub method: String,
@@ -453,11 +453,13 @@ pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Er
         // Handle the command
         if let Err(e) = server.handle(&parsed_command) {
             if matches!(e.kind, ErrorKind::Nip46NeedApproval) {
-                GLOBALS.nip46_approval_requests.write().push((
-                    server.name.clone(),
-                    event.pubkey,
-                    parsed_command,
-                ));
+                GLOBALS
+                    .pending
+                    .insert(crate::pending::PendingItem::Nip46Request(
+                        server.name.clone(),
+                        event.pubkey,
+                        parsed_command,
+                    ));
             } else {
                 // Return the error
                 return Err(e);

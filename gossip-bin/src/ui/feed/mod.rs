@@ -14,9 +14,7 @@ mod notes;
 pub use notes::Notes;
 
 mod note;
-pub(super) use note::render_note_inner;
 pub use note::NoteRenderData;
-pub(super) use notedata::NoteData;
 pub(super) mod post;
 
 struct FeedNoteParams {

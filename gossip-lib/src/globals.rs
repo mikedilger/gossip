@@ -6,7 +6,6 @@ use crate::fetcher::Fetcher;
 use crate::gossip_identity::GossipIdentity;
 use crate::media::Media;
 use crate::misc::ZapState;
-use crate::nip46::ParsedCommand;
 use crate::pending::Pending;
 use crate::people::{People, Person};
 use crate::relay::Relay;
@@ -22,7 +21,6 @@ use parking_lot::RwLock as PRwLock;
 use regex::Regex;
 use rhai::{Engine, AST};
 use std::collections::HashSet;
-use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize};
 use tokio::sync::watch::Receiver as WatchReceiver;
 use tokio::sync::watch::Sender as WatchSender;
@@ -153,17 +151,8 @@ pub struct Globals {
     // Active advertise jobs
     pub active_advertise_jobs: DashSet<u64>,
 
-    /// Connect requests (asking the user)
-    pub connect_requests: PRwLock<Vec<(RelayUrl, Vec<RelayJob>, bool /* permanent */)>>,
-
-    /// Relay auth request (needs allow or deny)
-    pub auth_requests: PRwLock<Vec<(RelayUrl, bool /* permanent */)>>,
-
-    /// nip46 approval requests
-    pub nip46_approval_requests: PRwLock<Vec<(String, PublicKey, ParsedCommand)>>,
-
     /// Pending actions
-    pub pending: PRwLock<Vec<Pending>>,
+    pub pending: Pending,
 }
 
 lazy_static! {
@@ -230,10 +219,7 @@ lazy_static! {
             wait_for_login_notify: Notify::new(),
             wait_for_data_migration: AtomicBool::new(false),
             active_advertise_jobs: DashSet::new(),
-            connect_requests: PRwLock::new(Vec::new()),
-            auth_requests: PRwLock::new(Vec::new()),
-            nip46_approval_requests: PRwLock::new(Vec::new()),
-            pending: PRwLock::new(Vec::new()),
+            pending: Pending::new(),
         }
     };
 }
@@ -319,11 +305,5 @@ impl Globals {
         relay_urls.dedup();
 
         Ok(relay_urls)
-    }
-
-    pub fn pending_hash(&self) -> u64 {
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        self.pending.read().hash(&mut hasher);
-        hasher.finish()
     }
 }

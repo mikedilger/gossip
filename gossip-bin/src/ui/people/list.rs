@@ -1,9 +1,10 @@
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use super::{GossipUi, Page};
 use crate::ui::widgets;
 use crate::AVATAR_SIZE_F32;
-use eframe::egui::{self, Label, Sense};
+use eframe::egui::{self, Galley, Label, Sense};
 use egui::{Context, RichText, Ui, Vec2};
 use egui_winit::egui::text::LayoutJob;
 use egui_winit::egui::text_edit::TextEditOutput;
@@ -346,7 +347,7 @@ pub(in crate::ui) fn layout_list_title(
     ui: &mut Ui,
     app: &mut GossipUi,
     metadata: &PersonListMetadata,
-) -> LayoutJob {
+) -> Arc<Galley> {
     let mut layout_job = LayoutJob::default();
     let style = ui.style();
     RichText::new(format!("{} ({})", metadata.title, metadata.len))
@@ -382,7 +383,7 @@ pub(in crate::ui) fn layout_list_title(
                 egui::Align::LEFT,
             );
     }
-    layout_job
+    ui.fonts(|fonts| fonts.layout_job(layout_job))
 }
 
 fn render_add_contact_popup(
