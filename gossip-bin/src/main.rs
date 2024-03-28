@@ -86,5 +86,7 @@ fn main() -> Result<(), Error> {
     // Wait for the async thread to complete
     async_thread.join().unwrap();
 
+    tracing::info!("Gossip end.");
+
     Ok(())
 }
