@@ -67,6 +67,7 @@ use gossip_lib::{
     GLOBALS,
 };
 use nostr_types::ContentSegment;
+use nostr_types::RelayUrl;
 use nostr_types::{Id, Metadata, MilliSatoshi, Profile, PublicKey, UncheckedUrl, Url};
 
 use std::collections::{HashMap, HashSet};
@@ -150,7 +151,7 @@ enum Page {
     RelaysActivityMonitor,
     RelaysCoverage,
     RelaysMine,
-    RelaysKnownNetwork,
+    RelaysKnownNetwork(Option<RelayUrl>),
     Search,
     Settings,
     HelpHelp,
@@ -197,7 +198,7 @@ impl Page {
             Page::RelaysActivityMonitor => (SubMenu::Relays.as_str(), "Active Relays".into()),
             Page::RelaysCoverage => (SubMenu::Relays.as_str(), "Coverage Report".into()),
             Page::RelaysMine => (SubMenu::Relays.as_str(), "My Relays".into()),
-            Page::RelaysKnownNetwork => (SubMenu::Relays.as_str(), "Known Network".into()),
+            Page::RelaysKnownNetwork(_) => (SubMenu::Relays.as_str(), "Known Network".into()),
             Page::Search => ("Search", "Search".into()),
             Page::Settings => ("Settings", "Settings".into()),
             Page::HelpHelp => (SubMenu::Help.as_str(), "Troubleshooting".into()),
@@ -379,6 +380,9 @@ struct GossipUi {
     audio_device: Option<AudioDevice>,
     #[cfg(feature = "video-ffmpeg")]
     video_players: HashMap<Url, Rc<RefCell<egui_video::Player>>>,
+    // dismissed libsdl2 warning
+    #[cfg(feature = "video-ffmpeg")]
+    warn_no_libsdl2_dismissed: bool,
 
     initializing: bool,
 
@@ -649,6 +653,8 @@ impl GossipUi {
             audio_device,
             #[cfg(feature = "video-ffmpeg")]
             video_players: HashMap::new(),
+            #[cfg(feature = "video-ffmpeg")]
+            warn_no_libsdl2_dismissed: false,
             initializing: true,
             next_frame: Instant::now(),
             override_dpi,
@@ -879,11 +885,12 @@ impl GossipUi {
             Page::YourKeys | Page::YourMetadata | Page::YourDelegation | Page::YourNostrConnect => {
                 self.open_menu(ctx, SubMenu::Account);
             }
-            Page::RelaysActivityMonitor
-            | Page::RelaysCoverage
-            | Page::RelaysMine
-            | Page::RelaysKnownNetwork => {
-                self.relays.enter_page();
+            Page::RelaysActivityMonitor | Page::RelaysCoverage | Page::RelaysMine => {
+                self.relays.enter_page(None);
+                self.open_menu(ctx, SubMenu::Relays);
+            }
+            Page::RelaysKnownNetwork(some_relay) => {
+                self.relays.enter_page(some_relay.as_ref());
                 self.open_menu(ctx, SubMenu::Relays);
             }
             Page::Search => {
@@ -1084,7 +1091,7 @@ impl GossipUi {
                     cstate.show_body_indented(&header_response, ui, |ui| {
                         self.add_menu_item_page(ui, Page::RelaysActivityMonitor, None, true);
                         self.add_menu_item_page(ui, Page::RelaysMine, None, true);
-                        self.add_menu_item_page(ui, Page::RelaysKnownNetwork, None, true);
+                        self.add_menu_item_page(ui, Page::RelaysKnownNetwork(None), None, true);
                         ui.vertical(|ui| {
                             ui.spacing_mut().button_padding *= 2.0;
                             ui.visuals_mut().widgets.inactive.weak_bg_fill =
@@ -1379,7 +1386,28 @@ impl eframe::App for GossipUi {
         // Side panel
         self.side_panel(ctx);
 
-        egui::TopBottomPanel::top("top-area")
+        let (show_top_post_area, show_bottom_post_area) = if self.show_post_area_fn() {
+            if read_setting!(posting_area_at_top) {
+                (true, false)
+            } else {
+                (false, true)
+            }
+        } else {
+            (false, false)
+        };
+
+        let has_warning = {
+            #[cfg(feature = "video-ffmpeg")]
+            {
+                !self.warn_no_libsdl2_dismissed && self.audio_device.is_none()
+            }
+            #[cfg(not(feature = "video-ffmpeg"))]
+            {
+                false
+            }
+        };
+
+        egui::TopBottomPanel::top("top-panel")
             .frame(
                 egui::Frame::side_top_panel(&self.theme.get_style()).inner_margin(egui::Margin {
                     left: 20.0,
@@ -1391,41 +1419,48 @@ impl eframe::App for GossipUi {
             .resizable(true)
             .show_animated(
                 ctx,
-                self.show_post_area_fn() && read_setting!(posting_area_at_top),
+                show_top_post_area || has_warning,
                 |ui| {
                     self.begin_ui(ui);
-                    feed::post::posting_area(self, ctx, frame, ui);
+                    #[cfg(feature = "video-ffmpeg")]
+                    {
+                        if has_warning {
+                            widgets::warning_frame(ui, self, |ui, app| {
+                                ui.label("You have compiled gossip with 'video-ffmpeg' option but no audio device was found on your system. Make sure you have followed the instructions at ");
+                                ui.hyperlink("https://github.com/Rust-SDL2/rust-sdl2");
+                                ui.label("and installed 'libsdl2-dev' package for your system.");
+                                ui.end_row();
+                                ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
+                                    if ui.link("Dismiss message").clicked() {
+                                        app.warn_no_libsdl2_dismissed = true;
+                                    }
+                                });
+                            });
+                        }
+                    }
+                    if show_top_post_area {
+                        feed::post::posting_area(self, ctx, frame, ui);
+                    }
                 },
             );
 
-        let show_status = self.show_post_area_fn() && !read_setting!(posting_area_at_top);
-
         let resizable = true;
 
-        egui::TopBottomPanel::bottom("status")
+        egui::TopBottomPanel::bottom("bottom-panel")
             .frame({
                 let frame = egui::Frame::side_top_panel(&self.theme.get_style());
-                frame.inner_margin(if !read_setting!(posting_area_at_top) {
-                    egui::Margin {
-                        left: 20.0,
-                        right: 18.0,
-                        top: 10.0,
-                        bottom: 10.0,
-                    }
-                } else {
-                    egui::Margin {
-                        left: 20.0,
-                        right: 18.0,
-                        top: 1.0,
-                        bottom: 5.0,
-                    }
+                frame.inner_margin(egui::Margin {
+                    left: 20.0,
+                    right: 18.0,
+                    top: 10.0,
+                    bottom: 10.0,
                 })
             })
             .resizable(resizable)
             .show_separator_line(false)
-            .show_animated(ctx, show_status, |ui| {
+            .show_animated(ctx, show_bottom_post_area, |ui| {
                 self.begin_ui(ui);
-                if self.show_post_area_fn() && !read_setting!(posting_area_at_top) {
+                if show_bottom_post_area {
                     ui.add_space(7.0);
                     feed::post::posting_area(self, ctx, frame, ui);
                 }
@@ -1480,7 +1515,7 @@ impl eframe::App for GossipUi {
                     Page::RelaysActivityMonitor
                     | Page::RelaysCoverage
                     | Page::RelaysMine
-                    | Page::RelaysKnownNetwork => relays::update(self, ctx, frame, ui),
+                    | Page::RelaysKnownNetwork(_) => relays::update(self, ctx, frame, ui),
                     Page::Search => search::update(self, ctx, frame, ui),
                     Page::Settings => settings::update(self, ctx, frame, ui),
                     Page::HelpHelp | Page::HelpStats | Page::HelpAbout | Page::HelpTheme => {
