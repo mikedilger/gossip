@@ -1375,14 +1375,6 @@ impl eframe::App for GossipUi {
             return wizard::update(self, ctx, frame, wp);
         }
 
-        // Auth and Connect approvals
-        // if !GLOBALS.auth_requests.read().is_empty()
-        //     || !GLOBALS.connect_requests.read().is_empty()
-        //     || !GLOBALS.nip46_approval_requests.read().is_empty()
-        // {
-        //     approval_dialog(ctx, self);
-        // }
-
         // Side panel
         self.side_panel(ctx);
 
