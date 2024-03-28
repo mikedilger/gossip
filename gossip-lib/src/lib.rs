@@ -116,6 +116,7 @@ pub use overlord::Overlord;
 
 mod pending;
 pub use pending::Pending;
+pub use pending::PendingItem;
 
 mod people;
 pub use people::{hash_person_list_event, People, Person, PersonList, PersonListMetadata};
@@ -253,8 +254,7 @@ pub async fn run() {
                     crate::people::People::start();
 
                     // Start periodic tasks in pending
-                    // DISABLED until the UI is ready to implement.
-                    // crate::pending::start();
+                    crate::pending::start();
 
                     // Start long-lived subscriptions
                     // (this also does a relay_picker init)

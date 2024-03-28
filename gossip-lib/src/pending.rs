@@ -1,13 +1,32 @@
+use crate::comms::RelayJob;
 use crate::error::Error;
 use crate::globals::GLOBALS;
+use crate::nip46::ParsedCommand;
 use crate::people::PersonList;
-use nostr_types::{EventKind, RelayList, Unixtime};
+use nostr_types::{EventKind, PublicKey, RelayList, RelayUrl, Unixtime};
+use parking_lot::RwLock as PRwLock;
+use parking_lot::RwLockReadGuard as PRwLockReadGuard;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use std::time::Duration;
 use tokio::task;
 use tokio::time::Instant;
 
 #[derive(Debug, Clone, Hash, PartialEq)]
-pub enum Pending {
+pub enum PendingItem {
+    /// Relay picker wants to connect to this relay
+    RelayConnectionRequest(RelayUrl /* relay */, Vec<RelayJob> /* reasons */),
+
+    /// Relay picker wants to authenticate to this relay with a private key signature
+    RelayAuthenticationRequest(PublicKey /* account */, RelayUrl /* relay */),
+
+    /// A NIP46 remote signing request was received and requires permission
+    Nip46Request(
+        String,                      /* client name */
+        PublicKey,                   /* account */
+        crate::nip46::ParsedCommand, /* NIP46 command */
+    ),
+
     // Your relay list has changed since last advertisement, or your last advertisement
     // was over 30 days ago.
     RelayListNeverAdvertised,
@@ -16,6 +35,7 @@ pub enum Pending {
 
     // Sync list - Your local list is out of sync with the remote list, or you haven't
     // pushed an update in 30 days.
+    PersonListNeverPublished(PersonList),
     PersonListOutOfSync(PersonList),
     PersonListNotPublishedRecently(PersonList),
     // A posted event didn't make it to all the relays it should go to.
@@ -24,17 +44,179 @@ pub enum Pending {
     // RetryPost(Id),
 }
 
+pub struct Pending {
+    /// Pending actions
+    pending: PRwLock<Vec<(PendingItem, u64)>>,
+
+    /// Current hash of the pending map
+    pending_hash: PRwLock<u64>,
+}
+
+fn calculate_pending_hash(vec: &Vec<(PendingItem, u64)>) -> u64 {
+    let mut s = DefaultHasher::new();
+    vec.hash(&mut s);
+    s.finish()
+}
+impl PendingItem {
+    fn matches(&self, other: &PendingItem) -> bool {
+        match self {
+            PendingItem::RelayConnectionRequest(a_url, _) => match other {
+                PendingItem::RelayConnectionRequest(b_url, _) => a_url == b_url,
+                _ => false,
+            },
+            item => item == other,
+        }
+    }
+}
+
 impl Pending {
-    pub fn compute_pending() -> Result<Vec<Pending>, Error> {
+    pub fn new() -> Self {
+        let pending = PRwLock::new(Vec::new());
+        let pending_hash = PRwLock::new(calculate_pending_hash(&pending.read()));
+        Self {
+            pending,
+            pending_hash,
+        }
+    }
+
+    /// returns the current hash of the pending list
+    pub fn hash(&self) -> u64 {
+        let _list = self.pending.read();
+        *self.pending_hash.read()
+    }
+
+    pub fn read(&self) -> PRwLockReadGuard<Vec<(PendingItem, u64)>> {
+        self.pending.read()
+    }
+
+    /// Insert a pending item
+    /// will only insert each pending item once attempting to merge requests
+    /// timestamp will be of first entry into list
+    /// pending_hash will be updated after sorting
+    pub fn insert(&self, item: PendingItem) -> bool {
+        let mut existing = false;
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::SystemTime::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+
+        self.pending.write().iter_mut().for_each(|(entry, _)| {
+            if entry.matches(&item) {
+                match entry {
+                    // merge jobs for connection requests to the same relay
+                    PendingItem::RelayConnectionRequest(_, jobs) => {
+                        let new_jobs = match &item {
+                            PendingItem::RelayConnectionRequest(_, jobs) => Some(jobs),
+                            _ => None,
+                        };
+                        if let Some(new_jobs) = new_jobs {
+                            jobs.extend(new_jobs.iter().cloned());
+                        }
+                        existing = true;
+                    }
+                    _ => {
+                        existing = true;
+                    }
+                }
+            }
+        });
+
+        if !existing {
+            self.pending.write().push((item, now));
+            {
+                let mut list = self.pending.write();
+                list.sort_by(|a, b| b.1.cmp(&a.1));
+                *self.pending_hash.write() = calculate_pending_hash(&list);
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    pub fn take_relay_connection_request(
+        &self,
+        relay_url: &RelayUrl,
+    ) -> Option<(RelayUrl, Vec<RelayJob>)> {
+        let mut pending = self.pending.write();
+        let index = pending.iter().position(|(item, _)| match item {
+            PendingItem::RelayConnectionRequest(url, _) if url == relay_url => true,
+            _ => false,
+        });
+        if let Some(index) = index {
+            let entry = pending.remove(index);
+            match entry.0 {
+                PendingItem::RelayConnectionRequest(url, jobs) => Some((url, jobs)),
+                _ => None,
+            }
+        } else {
+            None
+        }
+    }
+
+    pub fn take_relay_authentication_request(
+        &self,
+        account: &PublicKey,
+        relay_url: &RelayUrl,
+    ) -> Option<(PublicKey, RelayUrl)> {
+        let mut pending = self.pending.write();
+        let index = pending.iter().position(|(item, _)| match item {
+            PendingItem::RelayAuthenticationRequest(pubkey, url)
+                if url == relay_url && pubkey == account =>
+            {
+                true
+            }
+            _ => false,
+        });
+        if let Some(index) = index {
+            let entry = pending.remove(index);
+            match entry.0 {
+                PendingItem::RelayAuthenticationRequest(pubkey, url) => Some((pubkey, url)),
+                _ => None,
+            }
+        } else {
+            None
+        }
+    }
+
+    pub fn take_nip46_request(
+        &self,
+        account: &PublicKey,
+        command: &ParsedCommand,
+    ) -> Option<(String, PublicKey, ParsedCommand)> {
+        let mut pending = self.pending.write();
+        let index = pending.iter().position(|(item, _)| match item {
+            PendingItem::Nip46Request(_, item_pubkey, item_command)
+                if item_pubkey == account && item_command == command =>
+            {
+                true
+            }
+            _ => false,
+        });
+        if let Some(index) = index {
+            let entry = pending.remove(index);
+            match entry.0 {
+                PendingItem::Nip46Request(name, account, cmd) => Some((name, account, cmd)),
+                _ => None,
+            }
+        } else {
+            None
+        }
+    }
+
+    pub fn remove(&self, item: &PendingItem) {
+        self.pending.write().retain(|(entry, _)| entry != item);
+    }
+
+    pub fn compute_pending(&self) -> Result<(), Error> {
         let mypubkey = match GLOBALS.identity.public_key() {
             Some(pk) => pk,
-            None => return Ok(vec![]), // nothing pending if no identity
+            None => return Ok(()), // nothing pending if no identity
         };
 
         let now = Unixtime::now().unwrap();
         let t30days = 60 * 60 * 24 * 30;
         let t90days = 60 * 60 * 24 * 90;
-        let mut pending: Vec<Pending> = Vec::new();
 
         let relay_lists = GLOBALS.storage.find_events(
             &[EventKind::RelayList],
@@ -45,40 +227,60 @@ impl Pending {
         )?;
 
         if relay_lists.is_empty() {
-            pending.push(Pending::RelayListNeverAdvertised);
+            self.insert(PendingItem::RelayListNeverAdvertised);
         } else {
+            self.remove(&PendingItem::RelayListNeverAdvertised); // remove if present
+
             let stored_relay_list = GLOBALS.storage.load_relay_list()?;
             let event_relay_list = RelayList::from_event(&relay_lists[0]);
 
             if stored_relay_list != event_relay_list {
-                pending.push(Pending::RelayListChangedSinceAdvertised);
-            } else if relay_lists[0].created_at.0 + t30days < now.0 {
-                pending.push(Pending::RelayListNotAdvertisedRecently);
+                self.insert(PendingItem::RelayListChangedSinceAdvertised);
+            } else {
+                self.remove(&PendingItem::RelayListChangedSinceAdvertised); // remove if present
+
+                if relay_lists[0].created_at.0 + t30days < now.0 {
+                    self.insert(PendingItem::RelayListNotAdvertisedRecently);
+                } else {
+                    self.remove(&PendingItem::RelayListNotAdvertisedRecently); // remove if present
+                }
             }
         }
 
         // Check each person list (if out of sync or more than 30 days ago)
         for (list, metadata) in GLOBALS.storage.get_all_person_list_metadata()?.iter() {
+            // if never published
+            if metadata.event_created_at.0 == 0 {
+                self.insert(PendingItem::PersonListNeverPublished(*list));
+                continue;
+            } else {
+                self.remove(&PendingItem::PersonListNeverPublished(*list));
+            }
+
             // If 90 days old, should be re-synced
             if metadata.event_created_at.0 + t90days < now.0 {
-                pending.push(Pending::PersonListNotPublishedRecently(*list));
+                self.insert(PendingItem::PersonListNotPublishedRecently(*list));
                 continue;
+            } else {
+                self.remove(&PendingItem::PersonListNotPublishedRecently(*list));
+                // remove if present
             }
 
             // If mismatched, should be re-synced
             let stored_hash = GLOBALS.storage.hash_person_list(*list)?;
             let last_event_hash = crate::people::hash_person_list_event(*list)?;
             if stored_hash != last_event_hash {
-                pending.push(Pending::PersonListOutOfSync(*list));
+                self.insert(PendingItem::PersonListOutOfSync(*list));
                 continue;
+            } else {
+                self.remove(&PendingItem::PersonListOutOfSync(*list)); // remove if present
             }
         }
 
-        Ok(pending)
+        Ok(())
     }
 }
 
-#[allow(dead_code)]
 pub fn start() {
     task::spawn(async {
         let mut read_runstate = GLOBALS.read_runstate.clone();
@@ -98,15 +300,13 @@ pub fn start() {
                 _ = read_runstate.wait_for(|runstate| !runstate.going_online()) => break,
             }
 
-            let pending = match Pending::compute_pending() {
-                Ok(vec) => vec,
+            match GLOBALS.pending.compute_pending() {
+                Ok(()) => {}
                 Err(e) => {
                     tracing::error!("{:?}", e);
                     continue;
                 }
             };
-
-            *GLOBALS.pending.write() = pending;
         }
 
         tracing::info!("Pending checker shutdown");

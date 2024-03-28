@@ -10,6 +10,7 @@ use crate::feed::FeedKind;
 use crate::globals::{Globals, GLOBALS};
 use crate::misc::ZapState;
 use crate::nip46::{Approval, ParsedCommand};
+use crate::pending::PendingItem;
 use crate::people::{Person, PersonList};
 use crate::person_relay::PersonRelay;
 use crate::relay::Relay;
@@ -335,10 +336,10 @@ impl Overlord {
                 Some(false) => return Ok(()), // don't connect to this relay
                 None => {
                     // Save the engage_minion request and Ask the user
-                    GLOBALS
-                        .connect_requests
-                        .write()
-                        .push((url.clone(), jobs.clone(), false));
+                    GLOBALS.pending.insert(PendingItem::RelayConnectionRequest(
+                        url.clone(),
+                        jobs.clone(),
+                    ));
                     return Ok(());
                 }
             }
@@ -975,10 +976,11 @@ impl Overlord {
             });
         } else {
             // Clear the auth request, we are no longer connected
-            GLOBALS
-                .auth_requests
-                .write()
-                .retain(|(url, _)| *url != relay_url);
+            if let Some(pubkey) = GLOBALS.identity.public_key() {
+                GLOBALS
+                    .pending
+                    .take_relay_authentication_request(&pubkey, &relay_url);
+            }
         }
 
         Ok(())
@@ -1009,10 +1011,11 @@ impl Overlord {
             });
         } else {
             // Clear the auth request, we are no longer connected
-            GLOBALS
-                .auth_requests
-                .write()
-                .retain(|(url, _)| *url != relay_url);
+            if let Some(pubkey) = GLOBALS.identity.public_key() {
+                GLOBALS
+                    .pending
+                    .take_relay_authentication_request(&pubkey, &relay_url);
+            }
         }
 
         Ok(())
@@ -1052,20 +1055,9 @@ impl Overlord {
         }
 
         // Start the job
-        let reqs = GLOBALS.connect_requests.read().clone();
-        for (url, jobs, _temporary) in &reqs {
-            if *url == relay_url {
-                self.engage_minion(url.clone(), jobs.clone()).await?;
-                // let the loop continue, it is possible the overlord tried to engage this
-                // minion more than once.
-            }
+        if let Some((url, jobs)) = GLOBALS.pending.take_relay_connection_request(&relay_url) {
+            self.engage_minion(url, jobs).await?;
         }
-
-        // Remove the connect requests entry
-        GLOBALS
-            .connect_requests
-            .write()
-            .retain(|(url, _, _)| *url != relay_url);
 
         Ok(())
     }
@@ -1089,10 +1081,7 @@ impl Overlord {
         }
 
         // Remove the connect requests entry
-        GLOBALS
-            .connect_requests
-            .write()
-            .retain(|(url, _, _)| *url != relay_url);
+        GLOBALS.pending.take_relay_connection_request(&relay_url);
 
         Ok(())
     }
@@ -1745,10 +1734,7 @@ impl Overlord {
         approval: Approval,
     ) -> Result<(), Error> {
         // Clear the request
-        GLOBALS
-            .nip46_approval_requests
-            .write()
-            .retain(|(_name, pk, pc)| *pk != pubkey || *pc != parsed_command);
+        GLOBALS.pending.take_nip46_request(&pubkey, &parsed_command);
 
         // Handle the request
         if let Some(mut server) = GLOBALS.storage.read_nip46server(pubkey)? {

@@ -194,10 +194,16 @@ impl Minion {
                     match self.dbrelay.allow_auth {
                         Some(true) => self.authenticate().await?,
                         Some(false) => (),
-                        None => GLOBALS
-                            .auth_requests
-                            .write()
-                            .push((self.url.clone(), false)),
+                        None => {
+                            if let Some(pubkey) = GLOBALS.identity.public_key() {
+                                GLOBALS.pending.insert(
+                                    crate::pending::PendingItem::RelayAuthenticationRequest(
+                                        pubkey,
+                                        self.url.clone(),
+                                    ),
+                                );
+                            }
+                        }
                     }
                 } else {
                     self.authenticate().await?

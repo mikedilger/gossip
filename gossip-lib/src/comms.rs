@@ -7,6 +7,7 @@ use nostr_types::{
     UncheckedUrl, Unixtime,
 };
 use std::fmt;
+use std::hash::{Hash, Hasher};
 
 /// This is a message sent to the Overlord. Tasks which take any amount of time,
 /// especially involving relays, are handled by the Overlord in this way. There is
@@ -235,6 +236,12 @@ pub(crate) struct ToMinionPayload {
     pub detail: ToMinionPayloadDetail,
 }
 
+impl PartialEq for ToMinionPayload {
+    fn eq(&self, other: &Self) -> bool {
+        self.detail == other.detail
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum ToMinionPayloadDetail {
     AdvertiseRelayList(Box<Event>),
@@ -261,7 +268,7 @@ pub(crate) enum ToMinionPayloadDetail {
     UnsubscribeThreadFeed,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum RelayConnectionReason {
     Advertising,
     Config,
@@ -343,7 +350,7 @@ impl RelayConnectionReason {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct RelayJob {
     // Short reason for human viewing
     pub reason: RelayConnectionReason,
@@ -353,6 +360,13 @@ pub struct RelayJob {
     // NOTE, there is other per-relay data stored elsewhere in
     //   overlord.minions_task_url
     //   GLOBALS.relay_picker
+}
+
+/// Lazy hash using only reason
+impl Hash for RelayJob {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.reason.hash(state);
+    }
 }
 
 impl RelayJob {

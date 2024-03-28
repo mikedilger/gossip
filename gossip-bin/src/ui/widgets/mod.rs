@@ -1,4 +1,6 @@
 mod avatar;
+use std::sync::Arc;
+
 pub(crate) use avatar::{paint_avatar, AvatarSize};
 
 mod contact_search;
@@ -9,6 +11,7 @@ pub(crate) mod list_entry;
 pub use copy_button::{CopyButton, COPY_SYMBOL_SIZE};
 
 mod nav_item;
+use eframe::egui::Galley;
 use egui_winit::egui::text::LayoutJob;
 use egui_winit::egui::text_edit::TextEditOutput;
 use egui_winit::egui::{
@@ -61,14 +64,16 @@ pub fn page_header<R>(
     let mut layout = LayoutJob::default();
     let title: RichText = title
         .into()
+        .heading()
         .color(ui.visuals().widgets.noninteractive.fg_stroke.color);
     title.append_to(&mut layout, ui.style(), FontSelection::Default, Align::LEFT);
-    page_header_layout(ui, layout, right_aligned_content)
+    let galley = ui.fonts(|fonts| fonts.layout_job(layout));
+    page_header_layout(ui, galley, right_aligned_content)
 }
 
 pub fn page_header_layout<R>(
     ui: &mut Ui,
-    galley: impl Into<WidgetText>,
+    galley: Arc<Galley>,
     right_aligned_content: impl FnOnce(&mut Ui) -> R,
 ) {
     ui.vertical(|ui| {
