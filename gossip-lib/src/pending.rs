@@ -145,6 +145,7 @@ impl Pending {
         });
         if let Some(index) = index {
             let entry = pending.remove(index);
+            *self.pending_hash.write() = calculate_pending_hash(&pending);
             match entry.0 {
                 PendingItem::RelayConnectionRequest(url, jobs) => Some((url, jobs)),
                 _ => None,
@@ -170,6 +171,7 @@ impl Pending {
         });
         if let Some(index) = index {
             let entry = pending.remove(index);
+            *self.pending_hash.write() = calculate_pending_hash(&pending);
             match entry.0 {
                 PendingItem::RelayAuthenticationRequest(pubkey, url) => Some((pubkey, url)),
                 _ => None,
@@ -195,6 +197,7 @@ impl Pending {
         });
         if let Some(index) = index {
             let entry = pending.remove(index);
+            *self.pending_hash.write() = calculate_pending_hash(&pending);
             match entry.0 {
                 PendingItem::Nip46Request(name, account, cmd) => Some((name, account, cmd)),
                 _ => None,
@@ -205,7 +208,9 @@ impl Pending {
     }
 
     pub fn remove(&self, item: &PendingItem) {
-        self.pending.write().retain(|(entry, _)| entry != item);
+        let mut pending = self.pending.write();
+        pending.retain(|(entry, _)| entry != item);
+        *self.pending_hash.write() = calculate_pending_hash(&pending);
     }
 
     pub fn compute_pending(&self) -> Result<(), Error> {
@@ -275,6 +280,11 @@ impl Pending {
             } else {
                 self.remove(&PendingItem::PersonListOutOfSync(*list)); // remove if present
             }
+        }
+
+        {
+            let pending = self.pending.read();
+            *self.pending_hash.write() = calculate_pending_hash(&pending);
         }
 
         Ok(())
