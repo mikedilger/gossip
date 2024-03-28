@@ -139,6 +139,43 @@ fn unixtime_to_string(timestamp: u64) -> String {
     local.format("%e. %b %Y %T").to_string()
 }
 
+fn manage_style(theme: &Theme, style: &mut Style) {
+    let (bg_color, text_color, frame_color) = if theme.dark_mode {
+        (
+            Color32::from_gray(0x0A),
+            Color32::from_gray(0xD4),
+            Color32::from_gray(0x73),
+        )
+    } else {
+        (
+            Color32::from_gray(0xF5),
+            Color32::from_gray(0x26),
+            Color32::from_gray(0xA3),
+        )
+    };
+    style.spacing.button_padding = vec2(16.0, 4.0);
+    style.visuals.widgets.noninteractive.weak_bg_fill = bg_color;
+    style.visuals.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0, frame_color);
+    style.visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0, text_color);
+    style.visuals.widgets.inactive.weak_bg_fill = bg_color;
+    style.visuals.widgets.inactive.bg_stroke = egui::Stroke::new(1.0, frame_color);
+    style.visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, text_color);
+    style.visuals.widgets.hovered.weak_bg_fill =
+        <DefaultTheme as ThemeDef>::darken_color(bg_color, 0.05);
+    style.visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.0, text_color);
+    style.visuals.widgets.hovered.bg_stroke = egui::Stroke::new(
+        1.0,
+        <DefaultTheme as ThemeDef>::darken_color(frame_color, 0.2),
+    );
+    style.visuals.widgets.active.weak_bg_fill =
+        <DefaultTheme as ThemeDef>::darken_color(bg_color, 0.4);
+    style.visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0, text_color);
+    style.visuals.widgets.active.bg_stroke = egui::Stroke::new(
+        1.0,
+        <DefaultTheme as ThemeDef>::darken_color(frame_color, 0.4),
+    );
+}
+
 fn decline_style(theme: &Theme, style: &mut Style) {
     let (bg_color, text_color) = if theme.dark_mode {
         (Color32::WHITE, Color32::from_gray(0x26))

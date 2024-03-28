@@ -73,16 +73,21 @@ fn person_list_never_published(
             metadata.title
         ));
         ui.with_layout(Layout::right_to_left(super::ALIGN), |ui| {
-            super::approve_style(theme, ui.style_mut());
-            if ui.button("Publish Now").clicked() {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::PushPersonList(list));
-            }
+            ui.scope(|ui| {
+                super::manage_style(theme, ui.style_mut());
+                if ui.button("Manage List").clicked() {
+                    new_page = Some(crate::ui::Page::PeopleList(list));
+                }
+            });
             ui.add_space(10.0);
-            if ui.link("Manage List").clicked() {
-                new_page = Some(crate::ui::Page::PeopleList(list));
-            }
+            ui.scope(|ui| {
+                super::approve_style(theme, ui.style_mut());
+                if ui.button("Publish Now").clicked() {
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::PushPersonList(list));
+                }
+            });
         });
     });
 
@@ -115,16 +120,21 @@ fn person_list_not_published_recently(
             }
         }
         ui.with_layout(Layout::right_to_left(super::ALIGN), |ui| {
-            super::approve_style(theme, ui.style_mut());
-            if ui.button("Publish Now").clicked() {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::PushPersonList(list));
-            }
+            ui.scope(|ui| {
+                super::manage_style(theme, ui.style_mut());
+                if ui.button("Manage").clicked() {
+                    new_page = Some(crate::ui::Page::PeopleList(list));
+                }
+            });
             ui.add_space(10.0);
-            if ui.link("Manage List").clicked() {
-                new_page = Some(crate::ui::Page::PeopleList(list));
-            }
+            ui.scope(|ui| {
+                super::approve_style(theme, ui.style_mut());
+                if ui.button("Publish Now").clicked() {
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::PushPersonList(list));
+                }
+            });
         });
     });
 
@@ -147,7 +157,7 @@ fn person_list_out_of_sync(theme: &Theme, ui: &mut Ui, list: PersonList) -> Opti
         ));
         ui.with_layout(Layout::right_to_left(super::ALIGN), |ui| {
             super::approve_style(theme, ui.style_mut());
-            if ui.link("Manage List").clicked() {
+            if ui.button("Manage").clicked() {
                 new_page = Some(crate::ui::Page::PeopleList(list));
             }
         });
@@ -163,16 +173,21 @@ fn relay_list_not_advertized_recently(theme: &Theme, ui: &mut Ui) -> Option<Page
         ui.set_height(super::HEIGHT);
         ui.label("Your Relay List has not been advertised recently");
         ui.with_layout(Layout::right_to_left(super::ALIGN), |ui| {
-            super::approve_style(theme, ui.style_mut());
-            if ui.button("Advertise Now").clicked() {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::AdvertiseRelayList);
-            }
+            ui.scope(|ui| {
+                super::manage_style(theme, ui.style_mut());
+                if ui.button("Manage").clicked() {
+                    new_page = Some(crate::ui::Page::RelaysMine);
+                }
+            });
             ui.add_space(10.0);
-            if ui.link("Manage Relays").clicked() {
-                new_page = Some(crate::ui::Page::RelaysMine);
-            }
+            ui.scope(|ui| {
+                super::approve_style(theme, ui.style_mut());
+                if ui.button("Advertise Now").clicked() {
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::AdvertiseRelayList);
+                }
+            });
         });
     });
 
@@ -186,16 +201,21 @@ fn relay_list_changed_since_advertised(theme: &Theme, ui: &mut Ui) -> Option<Pag
         ui.set_height(super::HEIGHT);
         ui.label("Your Relay List has changed localy");
         ui.with_layout(Layout::right_to_left(super::ALIGN), |ui| {
-            super::approve_style(theme, ui.style_mut());
-            if ui.button("Advertise Now").clicked() {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::AdvertiseRelayList);
-            }
+            ui.scope(|ui| {
+                super::manage_style(theme, ui.style_mut());
+                if ui.button("Manage").clicked() {
+                    new_page = Some(crate::ui::Page::RelaysMine);
+                }
+            });
             ui.add_space(10.0);
-            if ui.link("Manage Relays").clicked() {
-                new_page = Some(crate::ui::Page::RelaysMine);
-            }
+            ui.scope(|ui| {
+                super::approve_style(theme, ui.style_mut());
+                if ui.button("Advertise Now").clicked() {
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::AdvertiseRelayList);
+                }
+            });
         });
     });
     new_page
@@ -207,16 +227,21 @@ fn relay_list_never_advertised(theme: &Theme, ui: &mut Ui) -> Option<Page> {
         ui.set_height(super::HEIGHT);
         ui.label("Your Relay List has never been advertized before");
         ui.with_layout(Layout::right_to_left(super::ALIGN), |ui| {
-            super::approve_style(theme, ui.style_mut());
-            if ui.button("Advertise Now").clicked() {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::AdvertiseRelayList);
-            }
+            ui.scope(|ui| {
+                super::manage_style(theme, ui.style_mut());
+                if ui.button("Manage Relays").clicked() {
+                    new_page = Some(crate::ui::Page::RelaysMine);
+                }
+            });
             ui.add_space(10.0);
-            if ui.link("Manage Relays").clicked() {
-                new_page = Some(crate::ui::Page::RelaysMine);
-            }
+            ui.scope(|ui| {
+                super::approve_style(theme, ui.style_mut());
+                if ui.button("Advertise Now").clicked() {
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::AdvertiseRelayList);
+                }
+            });
         });
     });
     new_page
