@@ -245,7 +245,9 @@ impl People {
             // again will make any difference. Either the person doesn't have
             // metadata or we don't have their proper relays. So a shorter timeout
             // in this circumstance isn't such a great idea.
-            if let Some(fetching_asof) = self.fetching_metadata.get(&pubkey) {
+            let opt_fetching_asof: Option<Unixtime> =
+                self.fetching_metadata.get(&pubkey).map(|r| *r.value());
+            if let Some(fetching_asof) = opt_fetching_asof {
                 if fetching_asof.0 >= (now - stale).0 {
                     continue;
                 } else {
