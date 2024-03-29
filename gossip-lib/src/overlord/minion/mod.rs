@@ -488,10 +488,10 @@ impl Minion {
                 self.authenticate().await?;
                 if let Some(pubkey) = GLOBALS.identity.public_key() {
                     GLOBALS.pending.remove(
-                        &crate::pending::PendingItem::RelayAuthenticationRequest(
-                            pubkey,
-                            self.url.clone(),
-                        ),
+                        &crate::pending::PendingItem::RelayAuthenticationRequest {
+                            account: pubkey,
+                            relay: self.url.clone(),
+                        },
                     );
                 }
             }
@@ -499,10 +499,10 @@ impl Minion {
                 self.dbrelay.allow_auth = Some(false); // save in our memory copy of the relay
                 if let Some(pubkey) = GLOBALS.identity.public_key() {
                     GLOBALS.pending.remove(
-                        &crate::pending::PendingItem::RelayAuthenticationRequest(
-                            pubkey,
-                            self.url.clone(),
-                        ),
+                        &crate::pending::PendingItem::RelayAuthenticationRequest {
+                            account: pubkey,
+                            relay: self.url.clone(),
+                        },
                     );
                 }
             }

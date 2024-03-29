@@ -197,10 +197,10 @@ impl Minion {
                         None => {
                             if let Some(pubkey) = GLOBALS.identity.public_key() {
                                 GLOBALS.pending.insert(
-                                    crate::pending::PendingItem::RelayAuthenticationRequest(
-                                        pubkey,
-                                        self.url.clone(),
-                                    ),
+                                    crate::pending::PendingItem::RelayAuthenticationRequest {
+                                        account: pubkey,
+                                        relay: self.url.clone(),
+                                    },
                                 );
                             }
                         }

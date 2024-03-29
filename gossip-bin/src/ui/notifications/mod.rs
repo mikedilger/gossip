@@ -59,22 +59,24 @@ pub(super) fn calc(app: &mut GossipUi) {
 
         for (item, time) in GLOBALS.pending.read().iter() {
             match item {
-                PendingItem::RelayConnectionRequest(url, jobs) => app
+                PendingItem::RelayConnectionRequest { relay, jobs } => app
                     .notification_data
                     .active
-                    .push(ConnRequest::new(url.clone(), jobs.clone(), *time)),
-                PendingItem::RelayAuthenticationRequest(pubkey, url) => app
+                    .push(ConnRequest::new(relay.clone(), jobs.clone(), *time)),
+                PendingItem::RelayAuthenticationRequest { account, relay } => app
                     .notification_data
                     .active
-                    .push(AuthRequest::new(*pubkey, url.clone(), *time)),
-                PendingItem::Nip46Request(name, account, command) => {
-                    app.notification_data.active.push(Nip46Request::new(
-                        name.clone(),
-                        *account,
-                        command.clone(),
-                        *time,
-                    ))
-                }
+                    .push(AuthRequest::new(*account, relay.clone(), *time)),
+                PendingItem::Nip46Request {
+                    client_name,
+                    account,
+                    command,
+                } => app.notification_data.active.push(Nip46Request::new(
+                    client_name.clone(),
+                    *account,
+                    command.clone(),
+                    *time,
+                )),
                 item => app
                     .notification_data
                     .active

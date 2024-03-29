@@ -322,10 +322,10 @@ impl Overlord {
                 Some(false) => return Ok(()), // don't connect to this relay
                 None => {
                     // Save the engage_minion request and Ask the user
-                    GLOBALS.pending.insert(PendingItem::RelayConnectionRequest(
-                        url.clone(),
-                        jobs.clone(),
-                    ));
+                    GLOBALS.pending.insert(PendingItem::RelayConnectionRequest {
+                        relay: url.clone(),
+                        jobs: jobs.clone(),
+                    });
                     return Ok(());
                 }
             }
