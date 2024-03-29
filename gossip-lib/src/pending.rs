@@ -15,17 +15,23 @@ use tokio::time::Instant;
 #[derive(Debug, Clone, Hash, PartialEq)]
 pub enum PendingItem {
     /// Relay picker wants to connect to this relay
-    RelayConnectionRequest(RelayUrl /* relay */, Vec<RelayJob> /* reasons */),
+    RelayConnectionRequest {
+        relay: RelayUrl,
+        jobs: Vec<RelayJob>,
+    },
 
     /// Relay picker wants to authenticate to this relay with a private key signature
-    RelayAuthenticationRequest(PublicKey /* account */, RelayUrl /* relay */),
+    RelayAuthenticationRequest {
+        account: PublicKey,
+        relay: RelayUrl,
+    },
 
     /// A NIP46 remote signing request was received and requires permission
-    Nip46Request(
-        String,                      /* client name */
-        PublicKey,                   /* account */
-        crate::nip46::ParsedCommand, /* NIP46 command */
-    ),
+    Nip46Request {
+        client_name: String,
+        account: PublicKey,
+        command: crate::nip46::ParsedCommand,
+    },
 
     // Your relay list has changed since last advertisement, or your last advertisement
     // was over 30 days ago.
@@ -52,6 +58,12 @@ pub struct Pending {
     pending_hash: PRwLock<u64>,
 }
 
+impl Default for Pending {
+    fn default() -> Pending {
+        Self::new()
+    }
+}
+
 fn calculate_pending_hash(vec: &Vec<(PendingItem, u64)>) -> u64 {
     let mut s = DefaultHasher::new();
     vec.hash(&mut s);
@@ -60,8 +72,8 @@ fn calculate_pending_hash(vec: &Vec<(PendingItem, u64)>) -> u64 {
 impl PendingItem {
     fn matches(&self, other: &PendingItem) -> bool {
         match self {
-            PendingItem::RelayConnectionRequest(a_url, _) => match other {
-                PendingItem::RelayConnectionRequest(b_url, _) => a_url == b_url,
+            PendingItem::RelayConnectionRequest { relay: a_url, .. } => match other {
+                PendingItem::RelayConnectionRequest { relay: b_url, .. } => a_url == b_url,
                 _ => false,
             },
             item => item == other,
@@ -104,9 +116,9 @@ impl Pending {
             if entry.matches(&item) {
                 match entry {
                     // merge jobs for connection requests to the same relay
-                    PendingItem::RelayConnectionRequest(_, jobs) => {
+                    PendingItem::RelayConnectionRequest { jobs, .. } => {
                         let new_jobs = match &item {
-                            PendingItem::RelayConnectionRequest(_, jobs) => Some(jobs),
+                            PendingItem::RelayConnectionRequest { jobs, .. } => Some(jobs),
                             _ => None,
                         };
                         if let Some(new_jobs) = new_jobs {
@@ -128,10 +140,10 @@ impl Pending {
                 list.sort_by(|a, b| b.1.cmp(&a.1));
                 *self.pending_hash.write() = calculate_pending_hash(&list);
             }
-            return true;
+            true
+        } else {
+            false
         }
-
-        return false;
     }
 
     pub fn take_relay_connection_request(
@@ -139,15 +151,12 @@ impl Pending {
         relay_url: &RelayUrl,
     ) -> Option<(RelayUrl, Vec<RelayJob>)> {
         let mut pending = self.pending.write();
-        let index = pending.iter().position(|(item, _)| match item {
-            PendingItem::RelayConnectionRequest(url, _) if url == relay_url => true,
-            _ => false,
-        });
+        let index = pending.iter().position(|(item, _)| matches!(item, PendingItem::RelayConnectionRequest { relay, .. } if relay == relay_url));
         if let Some(index) = index {
             let entry = pending.remove(index);
             *self.pending_hash.write() = calculate_pending_hash(&pending);
             match entry.0 {
-                PendingItem::RelayConnectionRequest(url, jobs) => Some((url, jobs)),
+                PendingItem::RelayConnectionRequest { relay, jobs } => Some((relay, jobs)),
                 _ => None,
             }
         } else {
@@ -161,19 +170,14 @@ impl Pending {
         relay_url: &RelayUrl,
     ) -> Option<(PublicKey, RelayUrl)> {
         let mut pending = self.pending.write();
-        let index = pending.iter().position(|(item, _)| match item {
-            PendingItem::RelayAuthenticationRequest(pubkey, url)
-                if url == relay_url && pubkey == account =>
-            {
-                true
-            }
-            _ => false,
-        });
+        let index = pending.iter().position(|(item, _)| matches!(item, PendingItem::RelayAuthenticationRequest { account: pubkey, relay } if relay == relay_url && pubkey == account));
         if let Some(index) = index {
             let entry = pending.remove(index);
             *self.pending_hash.write() = calculate_pending_hash(&pending);
             match entry.0 {
-                PendingItem::RelayAuthenticationRequest(pubkey, url) => Some((pubkey, url)),
+                PendingItem::RelayAuthenticationRequest { account, relay } => {
+                    Some((account, relay))
+                }
                 _ => None,
             }
         } else {
@@ -187,19 +191,16 @@ impl Pending {
         command: &ParsedCommand,
     ) -> Option<(String, PublicKey, ParsedCommand)> {
         let mut pending = self.pending.write();
-        let index = pending.iter().position(|(item, _)| match item {
-            PendingItem::Nip46Request(_, item_pubkey, item_command)
-                if item_pubkey == account && item_command == command =>
-            {
-                true
-            }
-            _ => false,
-        });
+        let index = pending.iter().position(|(item, _)| matches!(item, PendingItem::Nip46Request { account: item_account, command: item_command, .. } if item_account == account && item_command == command));
         if let Some(index) = index {
             let entry = pending.remove(index);
             *self.pending_hash.write() = calculate_pending_hash(&pending);
             match entry.0 {
-                PendingItem::Nip46Request(name, account, cmd) => Some((name, account, cmd)),
+                PendingItem::Nip46Request {
+                    client_name,
+                    account,
+                    command,
+                } => Some((client_name, account, command)),
                 _ => None,
             }
         } else {

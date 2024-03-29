@@ -33,9 +33,9 @@ impl Notification for Pending {
 
     fn show(&mut self, theme: &Theme, ui: &mut Ui) -> Option<Page> {
         match self.inner {
-            PendingItem::RelayAuthenticationRequest(_, _) => None,
-            PendingItem::RelayConnectionRequest(_, _) => None,
-            PendingItem::Nip46Request(_, _, _) => None,
+            PendingItem::RelayAuthenticationRequest { .. } => None,
+            PendingItem::RelayConnectionRequest { .. } => None,
+            PendingItem::Nip46Request { .. } => None,
             PendingItem::RelayListNeverAdvertised => relay_list_never_advertised(theme, ui),
             PendingItem::RelayListChangedSinceAdvertised => {
                 relay_list_changed_since_advertised(theme, ui)

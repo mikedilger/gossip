@@ -455,11 +455,11 @@ pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Er
             if matches!(e.kind, ErrorKind::Nip46NeedApproval) {
                 GLOBALS
                     .pending
-                    .insert(crate::pending::PendingItem::Nip46Request(
-                        server.name.clone(),
-                        event.pubkey,
-                        parsed_command,
-                    ));
+                    .insert(crate::pending::PendingItem::Nip46Request {
+                        client_name: server.name.clone(),
+                        account: event.pubkey,
+                        command: parsed_command,
+                    });
             } else {
                 // Return the error
                 return Err(e);
