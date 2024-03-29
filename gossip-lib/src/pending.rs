@@ -52,6 +52,12 @@ pub struct Pending {
     pending_hash: PRwLock<u64>,
 }
 
+impl Default for Pending {
+    fn default() -> Pending {
+        Self::new()
+    }
+}
+
 fn calculate_pending_hash(vec: &Vec<(PendingItem, u64)>) -> u64 {
     let mut s = DefaultHasher::new();
     vec.hash(&mut s);
@@ -128,10 +134,10 @@ impl Pending {
                 list.sort_by(|a, b| b.1.cmp(&a.1));
                 *self.pending_hash.write() = calculate_pending_hash(&list);
             }
-            return true;
+            true
+        } else {
+            false
         }
-
-        return false;
     }
 
     pub fn take_relay_connection_request(
@@ -139,10 +145,7 @@ impl Pending {
         relay_url: &RelayUrl,
     ) -> Option<(RelayUrl, Vec<RelayJob>)> {
         let mut pending = self.pending.write();
-        let index = pending.iter().position(|(item, _)| match item {
-            PendingItem::RelayConnectionRequest(url, _) if url == relay_url => true,
-            _ => false,
-        });
+        let index = pending.iter().position(|(item, _)| matches!(item, PendingItem::RelayConnectionRequest(url, _) if url == relay_url));
         if let Some(index) = index {
             let entry = pending.remove(index);
             *self.pending_hash.write() = calculate_pending_hash(&pending);
@@ -161,14 +164,7 @@ impl Pending {
         relay_url: &RelayUrl,
     ) -> Option<(PublicKey, RelayUrl)> {
         let mut pending = self.pending.write();
-        let index = pending.iter().position(|(item, _)| match item {
-            PendingItem::RelayAuthenticationRequest(pubkey, url)
-                if url == relay_url && pubkey == account =>
-            {
-                true
-            }
-            _ => false,
-        });
+        let index = pending.iter().position(|(item, _)| matches!(item, PendingItem::RelayAuthenticationRequest(pubkey, url) if url == relay_url && pubkey == account));
         if let Some(index) = index {
             let entry = pending.remove(index);
             *self.pending_hash.write() = calculate_pending_hash(&pending);
@@ -187,14 +183,7 @@ impl Pending {
         command: &ParsedCommand,
     ) -> Option<(String, PublicKey, ParsedCommand)> {
         let mut pending = self.pending.write();
-        let index = pending.iter().position(|(item, _)| match item {
-            PendingItem::Nip46Request(_, item_pubkey, item_command)
-                if item_pubkey == account && item_command == command =>
-            {
-                true
-            }
-            _ => false,
-        });
+        let index = pending.iter().position(|(item, _)| matches!(item, PendingItem::Nip46Request(_, item_pubkey, item_command) if item_pubkey == account && item_command == command));
         if let Some(index) = index {
             let entry = pending.remove(index);
             *self.pending_hash.write() = calculate_pending_hash(&pending);

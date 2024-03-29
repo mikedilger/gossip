@@ -11,13 +11,13 @@ pub(crate) mod list_entry;
 pub use copy_button::{CopyButton, COPY_SYMBOL_SIZE};
 
 mod nav_item;
+use crate::ui::egui::Rounding;
 use eframe::egui::Galley;
 use egui_winit::egui::text::LayoutJob;
 use egui_winit::egui::text_edit::TextEditOutput;
 use egui_winit::egui::{
     self, vec2, Align, FontSelection, Rect, Response, RichText, Sense, Ui, WidgetText,
 };
-use crate::ui::egui::Rounding;
 pub use nav_item::NavItem;
 
 mod relay_entry;

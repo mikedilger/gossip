@@ -66,11 +66,11 @@ pub(super) fn calc(app: &mut GossipUi) {
                 PendingItem::RelayAuthenticationRequest(pubkey, url) => app
                     .notification_data
                     .active
-                    .push(AuthRequest::new(pubkey.clone(), url.clone(), *time)),
+                    .push(AuthRequest::new(*pubkey, url.clone(), *time)),
                 PendingItem::Nip46Request(name, account, command) => {
                     app.notification_data.active.push(Nip46Request::new(
                         name.clone(),
-                        account.clone(),
+                        *account,
                         command.clone(),
                         *time,
                     ))
