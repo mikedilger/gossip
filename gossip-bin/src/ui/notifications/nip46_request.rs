@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use eframe::egui::{Color32, Layout, RichText, Ui};
+use eframe::egui::{self, Color32, Layout, RichText, Ui};
 use gossip_lib::{
     comms::ToOverlordMessage,
     nip46::{Approval, ParsedCommand},
@@ -36,6 +36,9 @@ impl Nip46Request {
     }
 }
 
+const ALIGN: egui::Align = egui::Align::Center;
+const HEIGHT: f32 = 23.0;
+
 impl Notification for Nip46Request {
     fn timestamp(&self) -> u64 {
         self.timestamp
@@ -51,58 +54,56 @@ impl Notification for Nip46Request {
     }
 
     fn show(&mut self, theme: &Theme, ui: &mut Ui) -> Option<Page> {
-        ui.with_layout(
-            Layout::left_to_right(super::ALIGN).with_main_wrap(true),
-            |ui| {
-                ui.set_height(super::HEIGHT);
-                let text = format!(
-                    "NIP-46 Request from '{}'. Allow {}?",
-                    self.name, self.command.method
-                );
-                widgets::truncated_label(ui, text, ui.available_width() - 300.0)
-                    .on_hover_text(self.command.params.join(", "));
-                ui.with_layout(Layout::right_to_left(super::ALIGN), |ui| {
-                    ui.scope(|ui| {
-                        super::decline_style(theme, ui.style_mut());
-                        if ui.button("Decline").clicked() {
-                            let _ = GLOBALS.to_overlord.send(
-                                ToOverlordMessage::Nip46ServerOpApprovalResponse(
-                                    self.account,
-                                    self.command.clone(),
-                                    Approval::None,
-                                ),
-                            );
-                        }
-                    });
-                    ui.add_space(10.0);
-                    ui.scope(|ui| {
-                        super::approve_style(theme, ui.style_mut());
-                        if ui.button("Approve Once").clicked() {
-                            let _ = GLOBALS.to_overlord.send(
-                                ToOverlordMessage::Nip46ServerOpApprovalResponse(
-                                    self.account,
-                                    self.command.clone(),
-                                    Approval::Once,
-                                ),
-                            );
-                        }
-                    });
-                    ui.add_space(10.0);
-                    ui.scope(|ui| {
-                        super::approve_style(theme, ui.style_mut());
-                        if ui.button("Approve Always").clicked() {
-                            let _ = GLOBALS.to_overlord.send(
-                                ToOverlordMessage::Nip46ServerOpApprovalResponse(
-                                    self.account,
-                                    self.command.clone(),
-                                    Approval::Always,
-                                ),
-                            );
-                        }
-                    });
+        ui.with_layout(Layout::left_to_right(ALIGN).with_main_wrap(true), |ui| {
+            ui.set_height(HEIGHT);
+            let text = format!(
+                "NIP-46 Request from '{}'. Allow {}?",
+                self.name, self.command.method
+            );
+            widgets::truncated_label(ui, text, ui.available_width() - 300.0)
+                .on_hover_text(self.command.params.join(", "));
+            ui.with_layout(Layout::right_to_left(ALIGN), |ui| {
+                ui.set_height(HEIGHT);
+                ui.scope(|ui| {
+                    super::decline_style(theme, ui.style_mut());
+                    if ui.button("Decline").clicked() {
+                        let _ = GLOBALS.to_overlord.send(
+                            ToOverlordMessage::Nip46ServerOpApprovalResponse(
+                                self.account,
+                                self.command.clone(),
+                                Approval::None,
+                            ),
+                        );
+                    }
                 });
-            },
-        );
+                ui.add_space(10.0);
+                ui.scope(|ui| {
+                    super::approve_style(theme, ui.style_mut());
+                    if ui.button("Approve Once").clicked() {
+                        let _ = GLOBALS.to_overlord.send(
+                            ToOverlordMessage::Nip46ServerOpApprovalResponse(
+                                self.account,
+                                self.command.clone(),
+                                Approval::Once,
+                            ),
+                        );
+                    }
+                });
+                ui.add_space(10.0);
+                ui.scope(|ui| {
+                    super::approve_style(theme, ui.style_mut());
+                    if ui.button("Approve Always").clicked() {
+                        let _ = GLOBALS.to_overlord.send(
+                            ToOverlordMessage::Nip46ServerOpApprovalResponse(
+                                self.account,
+                                self.command.clone(),
+                                Approval::Always,
+                            ),
+                        );
+                    }
+                });
+            });
+        });
         for param in &self.command.params {
             if let Ok(obj) = serde_json::from_str::<serde_json::Value>(param) {
                 let mut writer = Vec::new();

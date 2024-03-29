@@ -47,9 +47,6 @@ impl NotificationData {
     }
 }
 
-const ALIGN: egui::Align = egui::Align::Center;
-const HEIGHT: f32 = 23.0;
-const TRUNC: f32 = 340.0;
 const SWITCH_SIZE: Vec2 = Vec2 { x: 46.0, y: 23.0 };
 
 ///
@@ -274,9 +271,11 @@ pub(super) fn update(app: &mut GossipUi, ui: &mut Ui) {
                 ui.set_height(37.0);
                 ui.horizontal(|ui| {
                     ui.label(
-                        egui::RichText::new(unixtime_to_string(entry.borrow().timestamp()))
-                            .weak()
-                            .small(),
+                        egui::RichText::new(unixtime_to_string(
+                            entry.borrow().timestamp().try_into().unwrap_or_default(),
+                        ))
+                        .weak()
+                        .small(),
                     );
                     ui.add_space(10.0);
                     ui.label(entry.borrow().title().small());
@@ -293,9 +292,8 @@ pub(super) fn update(app: &mut GossipUi, ui: &mut Ui) {
     }
 }
 
-fn unixtime_to_string(timestamp: u64) -> String {
-    let time: DateTime<Utc> =
-        DateTime::from_timestamp(timestamp.try_into().unwrap_or_default(), 0).unwrap_or_default();
+fn unixtime_to_string(timestamp: i64) -> String {
+    let time: DateTime<Utc> = DateTime::from_timestamp(timestamp, 0).unwrap_or_default();
     let local: DateTime<Local> = time.into();
 
     local.format("%e. %b %Y %T").to_string()

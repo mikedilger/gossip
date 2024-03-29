@@ -1,9 +1,9 @@
 use std::{cell::RefCell, rc::Rc};
 
-use eframe::egui::{Color32, Layout, RichText, Ui};
+use eframe::egui::{self, Color32, Layout, RichText, Ui};
 use gossip_lib::{comms::ToOverlordMessage, PendingItem, PersonList, GLOBALS};
 
-use crate::ui::{Page, Theme};
+use crate::ui::{widgets, Page, Theme};
 
 use super::Notification;
 
@@ -17,6 +17,10 @@ impl Pending {
         Rc::new(RefCell::new(Self { inner, timestamp }))
     }
 }
+
+const ALIGN: egui::Align = egui::Align::Center;
+const HEIGHT: f32 = 23.0;
+const TRUNC: f32 = 200.0;
 
 impl Notification for Pending {
     fn timestamp(&self) -> u64 {
@@ -54,44 +58,83 @@ impl Notification for Pending {
     }
 }
 
+fn layout(
+    theme: &Theme,
+    ui: &mut Ui,
+    description: impl FnOnce(&Theme, &mut Ui, f32) -> Option<Page>,
+    action: impl FnOnce(&Theme, &mut Ui) -> Option<Page>,
+) -> Option<Page> {
+    let mut new_page = None;
+    // "responsive" layout
+    let width = ui.available_width();
+    if width > (TRUNC * 4.0) {
+        ui.with_layout(Layout::left_to_right(egui::Align::Center), |ui| {
+            ui.set_height(HEIGHT);
+            new_page = description(theme, ui, width - TRUNC);
+            ui.with_layout(Layout::right_to_left(ALIGN), |ui| {
+                new_page = action(theme, ui);
+            });
+        });
+    } else {
+        ui.with_layout(Layout::top_down(egui::Align::LEFT), |ui| {
+            ui.with_layout(Layout::left_to_right(egui::Align::Center), |ui| {
+                ui.set_height(HEIGHT);
+                new_page = description(theme, ui, width);
+            });
+            ui.with_layout(Layout::right_to_left(ALIGN), |ui| {
+                ui.set_height(HEIGHT);
+                new_page = action(theme, ui);
+            });
+        });
+    };
+    new_page
+}
+
 fn person_list_never_published(
     theme: &Theme,
     ui: &mut Ui,
     list: gossip_lib::PersonList1,
 ) -> Option<Page> {
-    let mut new_page = None;
     let metadata = GLOBALS
         .storage
         .get_person_list_metadata(list)
         .unwrap_or_default()
         .unwrap_or_default();
 
-    ui.with_layout(Layout::left_to_right(super::ALIGN), |ui| {
-        ui.set_height(super::HEIGHT);
-        ui.label(format!(
-            "Your Person List '{}' has never been published.",
-            metadata.title
-        ));
-        ui.with_layout(Layout::right_to_left(super::ALIGN), |ui| {
-            ui.scope(|ui| {
-                super::manage_style(theme, ui.style_mut());
-                if ui.button("Manage List").clicked() {
-                    new_page = Some(crate::ui::Page::PeopleList(list));
-                }
-            });
-            ui.add_space(10.0);
-            ui.scope(|ui| {
-                super::approve_style(theme, ui.style_mut());
-                if ui.button("Publish Now").clicked() {
-                    let _ = GLOBALS
-                        .to_overlord
-                        .send(ToOverlordMessage::PushPersonList(list));
-                }
-            });
-        });
-    });
+    let description = |_theme: &Theme, ui: &mut Ui, trunc_width: f32| -> Option<Page> {
+        widgets::truncated_label(
+            ui,
+            format!(
+                "Your Person List '{}' has never been published.",
+                metadata.title
+            ),
+            trunc_width,
+        );
+        None
+    };
 
-    new_page
+    let action = |theme: &Theme, ui: &mut Ui| -> Option<Page> {
+        let mut new_page = None;
+
+        ui.scope(|ui| {
+            super::manage_style(theme, ui.style_mut());
+            if ui.button("Manage List").clicked() {
+                new_page = Some(crate::ui::Page::PeopleList(list));
+            }
+        });
+        ui.add_space(10.0);
+        ui.scope(|ui| {
+            super::approve_style(theme, ui.style_mut());
+            if ui.button("Publish Now").clicked() {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::PushPersonList(list));
+            }
+        });
+        new_page
+    };
+
+    layout(theme, ui, description, action)
 }
 
 fn person_list_not_published_recently(
@@ -99,150 +142,164 @@ fn person_list_not_published_recently(
     ui: &mut Ui,
     list: PersonList,
 ) -> Option<Page> {
-    let mut new_page = None;
     let metadata = GLOBALS
         .storage
         .get_person_list_metadata(list)
         .unwrap_or_default()
         .unwrap_or_default();
 
-    ui.with_layout(Layout::left_to_right(super::ALIGN), |ui| {
-        ui.set_height(super::HEIGHT);
-        ui.label(format!(
-            "Your Person List '{}' has not been published since",
-            metadata.title
-        ));
-        if let Ok(stamp) = time::OffsetDateTime::from_unix_timestamp(metadata.event_created_at.0) {
-            if let Ok(formatted) = stamp.format(time::macros::format_description!(
-                "[year]-[month repr:short]-[day] ([weekday repr:short]) [hour]:[minute]"
-            )) {
-                ui.label(formatted);
-            }
-        }
-        ui.with_layout(Layout::right_to_left(super::ALIGN), |ui| {
-            ui.scope(|ui| {
-                super::manage_style(theme, ui.style_mut());
-                if ui.button("Manage").clicked() {
-                    new_page = Some(crate::ui::Page::PeopleList(list));
-                }
-            });
-            ui.add_space(10.0);
-            ui.scope(|ui| {
-                super::approve_style(theme, ui.style_mut());
-                if ui.button("Publish Now").clicked() {
-                    let _ = GLOBALS
-                        .to_overlord
-                        .send(ToOverlordMessage::PushPersonList(list));
-                }
-            });
-        });
-    });
+    let description = |_theme: &Theme, ui: &mut Ui, trunc_width: f32| -> Option<Page> {
+        widgets::truncated_label(
+            ui,
+            format!(
+                "Your Person List '{}' has not been published since {}",
+                metadata.title,
+                super::unixtime_to_string(metadata.event_created_at.0)
+            ),
+            trunc_width,
+        );
+        None
+    };
+    let action = |theme: &Theme, ui: &mut Ui| -> Option<Page> {
+        let mut new_page = None;
 
-    new_page
-}
-
-fn person_list_out_of_sync(theme: &Theme, ui: &mut Ui, list: PersonList) -> Option<Page> {
-    let mut new_page = None;
-    let metadata = GLOBALS
-        .storage
-        .get_person_list_metadata(list)
-        .unwrap_or_default()
-        .unwrap_or_default();
-
-    ui.with_layout(Layout::left_to_right(super::ALIGN), |ui| {
-        ui.set_height(super::HEIGHT);
-        ui.label(format!(
-            "Your local Person List '{}' is out-of-sync with the one found on your relays",
-            metadata.title
-        ));
-        ui.with_layout(Layout::right_to_left(super::ALIGN), |ui| {
-            super::approve_style(theme, ui.style_mut());
+        ui.scope(|ui| {
+            super::manage_style(theme, ui.style_mut());
             if ui.button("Manage").clicked() {
                 new_page = Some(crate::ui::Page::PeopleList(list));
             }
         });
-    });
+        ui.add_space(10.0);
+        ui.scope(|ui| {
+            super::approve_style(theme, ui.style_mut());
+            if ui.button("Publish Now").clicked() {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::PushPersonList(list));
+            }
+        });
+        new_page
+    };
 
-    new_page
+    layout(theme, ui, description, action)
+}
+
+fn person_list_out_of_sync(theme: &Theme, ui: &mut Ui, list: PersonList) -> Option<Page> {
+    let metadata = GLOBALS
+        .storage
+        .get_person_list_metadata(list)
+        .unwrap_or_default()
+        .unwrap_or_default();
+
+    let description = |_theme: &Theme, ui: &mut Ui, trunc_width: f32| -> Option<Page> {
+        widgets::truncated_label(
+            ui,
+            format!(
+                "Your local Person List '{}' is out-of-sync with the one found on your relays",
+                metadata.title
+            ),
+            trunc_width,
+        );
+        None
+    };
+    let action = |theme: &Theme, ui: &mut Ui| -> Option<Page> {
+        let mut new_page = None;
+        super::approve_style(theme, ui.style_mut());
+        if ui.button("Manage").clicked() {
+            new_page = Some(crate::ui::Page::PeopleList(list));
+        }
+        new_page
+    };
+
+    layout(theme, ui, description, action)
 }
 
 fn relay_list_not_advertized_recently(theme: &Theme, ui: &mut Ui) -> Option<Page> {
-    let mut new_page = None;
-
-    ui.with_layout(Layout::left_to_right(super::ALIGN), |ui| {
-        ui.set_height(super::HEIGHT);
-        ui.label("Your Relay List has not been advertised recently");
-        ui.with_layout(Layout::right_to_left(super::ALIGN), |ui| {
-            ui.scope(|ui| {
-                super::manage_style(theme, ui.style_mut());
-                if ui.button("Manage").clicked() {
-                    new_page = Some(crate::ui::Page::RelaysMine);
-                }
-            });
-            ui.add_space(10.0);
-            ui.scope(|ui| {
-                super::approve_style(theme, ui.style_mut());
-                if ui.button("Advertise Now").clicked() {
-                    let _ = GLOBALS
-                        .to_overlord
-                        .send(ToOverlordMessage::AdvertiseRelayList);
-                }
-            });
+    let description = |_theme: &Theme, ui: &mut Ui, trunc_width: f32| -> Option<Page> {
+        widgets::truncated_label(
+            ui,
+            "Your Relay List has not been advertised recently",
+            trunc_width,
+        );
+        None
+    };
+    let action = |theme: &Theme, ui: &mut Ui| -> Option<Page> {
+        let mut new_page = None;
+        ui.scope(|ui| {
+            super::manage_style(theme, ui.style_mut());
+            if ui.button("Manage").clicked() {
+                new_page = Some(crate::ui::Page::RelaysMine);
+            }
         });
-    });
+        ui.add_space(10.0);
+        ui.scope(|ui| {
+            super::approve_style(theme, ui.style_mut());
+            if ui.button("Advertise Now").clicked() {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::AdvertiseRelayList);
+            }
+        });
+        new_page
+    };
 
-    new_page
+    layout(theme, ui, description, action)
 }
 
 fn relay_list_changed_since_advertised(theme: &Theme, ui: &mut Ui) -> Option<Page> {
-    let mut new_page = None;
-
-    ui.with_layout(Layout::left_to_right(super::ALIGN), |ui| {
-        ui.set_height(super::HEIGHT);
-        ui.label("Your Relay List has changed localy");
-        ui.with_layout(Layout::right_to_left(super::ALIGN), |ui| {
-            ui.scope(|ui| {
-                super::manage_style(theme, ui.style_mut());
-                if ui.button("Manage").clicked() {
-                    new_page = Some(crate::ui::Page::RelaysMine);
-                }
-            });
-            ui.add_space(10.0);
-            ui.scope(|ui| {
-                super::approve_style(theme, ui.style_mut());
-                if ui.button("Advertise Now").clicked() {
-                    let _ = GLOBALS
-                        .to_overlord
-                        .send(ToOverlordMessage::AdvertiseRelayList);
-                }
-            });
+    let description = |_theme: &Theme, ui: &mut Ui, trunc_width: f32| -> Option<Page> {
+        widgets::truncated_label(ui, "Your Relay List has changed localy", trunc_width);
+        None
+    };
+    let action = |theme: &Theme, ui: &mut Ui| -> Option<Page> {
+        let mut new_page = None;
+        ui.scope(|ui| {
+            super::manage_style(theme, ui.style_mut());
+            if ui.button("Manage").clicked() {
+                new_page = Some(crate::ui::Page::RelaysMine);
+            }
         });
-    });
-    new_page
+        ui.add_space(10.0);
+        ui.scope(|ui| {
+            super::approve_style(theme, ui.style_mut());
+            if ui.button("Advertise Now").clicked() {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::AdvertiseRelayList);
+            }
+        });
+        new_page
+    };
+    layout(theme, ui, description, action)
 }
 
 fn relay_list_never_advertised(theme: &Theme, ui: &mut Ui) -> Option<Page> {
-    let mut new_page = None;
-    ui.with_layout(Layout::left_to_right(super::ALIGN), |ui| {
-        ui.set_height(super::HEIGHT);
-        ui.label("Your Relay List has never been advertized before");
-        ui.with_layout(Layout::right_to_left(super::ALIGN), |ui| {
-            ui.scope(|ui| {
-                super::manage_style(theme, ui.style_mut());
-                if ui.button("Manage Relays").clicked() {
-                    new_page = Some(crate::ui::Page::RelaysMine);
-                }
-            });
-            ui.add_space(10.0);
-            ui.scope(|ui| {
-                super::approve_style(theme, ui.style_mut());
-                if ui.button("Advertise Now").clicked() {
-                    let _ = GLOBALS
-                        .to_overlord
-                        .send(ToOverlordMessage::AdvertiseRelayList);
-                }
-            });
+    let description = |_theme: &Theme, ui: &mut Ui, trunc_width: f32| -> Option<Page> {
+        widgets::truncated_label(
+            ui,
+            "Your Relay List has never been advertized before",
+            trunc_width,
+        );
+        None
+    };
+    let action = |theme: &Theme, ui: &mut Ui| -> Option<Page> {
+        let mut new_page = None;
+        ui.scope(|ui| {
+            super::manage_style(theme, ui.style_mut());
+            if ui.button("Manage Relays").clicked() {
+                new_page = Some(crate::ui::Page::RelaysMine);
+            }
         });
-    });
-    new_page
+        ui.add_space(10.0);
+        ui.scope(|ui| {
+            super::approve_style(theme, ui.style_mut());
+            if ui.button("Advertise Now").clicked() {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::AdvertiseRelayList);
+            }
+        });
+        new_page
+    };
+    layout(theme, ui, description, action)
 }
