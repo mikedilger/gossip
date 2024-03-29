@@ -68,12 +68,18 @@ impl ThemeDef for DefaultTheme {
     fn accent_light_w20() -> Color32 {
         Color32::from_rgb(0x77, 0x95, 0xAA)
     }
+    fn red_100() -> Color32 {
+        Color32::from_rgb(0xFE, 0xE2, 0xE2)
+    } // #FEE2E2
     fn red_500() -> Color32 {
         Color32::from_rgb(0xef, 0x44, 0x44)
     } // #EF4444
     fn lime_500() -> Color32 {
         Color32::from_rgb(0x22, 0xc5, 0x5e)
     } // #22C55E
+    fn amber_100() -> Color32 {
+        Color32::from_rgb(0xFE, 0xF3, 0xC7)
+    } // #FEF3C7
     fn amber_400() -> Color32 {
         Color32::from_rgb(0xfb, 0xbf, 0x24)
     } // #FBBF24
@@ -604,10 +610,11 @@ impl ThemeDef for DefaultTheme {
     }
 
     fn navigation_bg_fill(dark_mode: bool) -> eframe::egui::Color32 {
-        let mut hsva: ecolor::HsvaGamma = Self::get_style(dark_mode).visuals.panel_fill.into();
-        let delta = if dark_mode { 1.3 } else { 0.90 };
-        hsva.v *= delta;
-        hsva.into()
+        if dark_mode {
+            Color32::from_gray(0x26)
+        } else {
+            Color32::from_gray(0xE1)
+        }
     }
 
     fn navigation_text_deactivated_color(dark_mode: bool) -> eframe::egui::Color32 {

@@ -176,6 +176,12 @@ macro_rules! theme_dispatch {
                 }
             }
 
+            pub fn red_100(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::red_100(), )+
+                }
+            }
+
             pub fn red_500(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::red_500(), )+
@@ -185,6 +191,12 @@ macro_rules! theme_dispatch {
             pub fn lime_500(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::lime_500(), )+
+                }
+            }
+
+            pub fn amber_100(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::amber_100(), )+
                 }
             }
 
@@ -520,8 +532,10 @@ pub trait ThemeDef: Send + Sync {
     fn accent_light() -> Color32;
     fn accent_light_b20() -> Color32; // overlay 20% black
     fn accent_light_w20() -> Color32; // overlay 20% white
+    fn red_100() -> Color32;
     fn red_500() -> Color32;
     fn lime_500() -> Color32;
+    fn amber_100() -> Color32;
     fn amber_400() -> Color32;
 
     // Used for strokes, lines, and text in various places

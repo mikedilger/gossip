@@ -1072,18 +1072,6 @@ impl GossipUi {
                     }
                 }
 
-                ui.add_space(10.0);
-
-                // ---- Notifications (TODO: move to dedicated icons) ----
-                {
-                    if self
-                        .add_selected_label(ui, self.page == Page::Notifications, "Notifications")
-                        .clicked()
-                    {
-                        self.set_page(ctx, Page::Notifications);
-                    }
-                }
-
                 // ---- Relays SubMenu ----
                 {
                     let (mut cstate, header_response) =
@@ -1149,6 +1137,8 @@ impl GossipUi {
 
                 // -- Status Area
                 ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
+                    notifications::draw_icons(self, ui);
+
                     // -- DEBUG status area
                     if read_setting!(status_bar) {
                         let in_flight = GLOBALS.fetcher.requests_in_flight();
