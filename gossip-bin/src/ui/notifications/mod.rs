@@ -136,15 +136,15 @@ fn unixtime_to_string(timestamp: u64) -> String {
 fn manage_style(theme: &Theme, style: &mut Style) {
     let (bg_color, text_color, frame_color) = if theme.dark_mode {
         (
-            Color32::from_gray(0x0A),
-            Color32::from_gray(0xD4),
-            Color32::from_gray(0x73),
+            theme.neutral_950(),
+            theme.neutral_300(),
+            theme.neutral_500(),
         )
     } else {
         (
-            Color32::from_gray(0xF5),
-            Color32::from_gray(0x26),
-            Color32::from_gray(0xA3),
+            theme.neutral_100(),
+            theme.neutral_800(),
+            theme.neutral_400(),
         )
     };
     style.spacing.button_padding = vec2(16.0, 4.0);
@@ -172,9 +172,9 @@ fn manage_style(theme: &Theme, style: &mut Style) {
 
 fn decline_style(theme: &Theme, style: &mut Style) {
     let (bg_color, text_color) = if theme.dark_mode {
-        (Color32::WHITE, Color32::from_gray(0x26))
+        (Color32::WHITE, theme.neutral_800())
     } else {
-        (Color32::from_gray(0x26), Color32::WHITE)
+        (theme.neutral_800(), Color32::WHITE)
     };
     style.spacing.button_padding = vec2(16.0, 4.0);
     style.visuals.widgets.noninteractive.weak_bg_fill = bg_color;

@@ -67,10 +67,131 @@ macro_rules! theme_dispatch {
             }
         }
 
+        #[allow(dead_code)]
         impl Theme {
-            #[allow(dead_code)]
             pub fn name(&self) -> &'static str {
                 self.variant.name()
+            }
+
+            // Palette
+            pub fn neutral_50(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::neutral_50(), )+
+                }
+            }
+
+            pub fn neutral_100(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::neutral_100(), )+
+                }
+            }
+
+            pub fn neutral_200(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::neutral_200(), )+
+                }
+            }
+
+            pub fn neutral_300(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::neutral_300(), )+
+                }
+            }
+
+            pub fn neutral_400(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::neutral_400(), )+
+                }
+            }
+
+            pub fn neutral_500(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::neutral_500(), )+
+                }
+            }
+
+            pub fn neutral_600(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::neutral_600(), )+
+                }
+            }
+
+            pub fn neutral_700(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::neutral_700(), )+
+                }
+            }
+
+            pub fn neutral_800(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::neutral_800(), )+
+                }
+            }
+
+            pub fn neutral_900(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::neutral_900(), )+
+                }
+            }
+
+            pub fn neutral_950(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::neutral_950(), )+
+                }
+            }
+
+            pub fn accent_dark(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::accent_dark(), )+
+                }
+            }
+
+            pub fn accent_dark_b20(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::accent_dark_b20(), )+
+                }
+            }
+
+            pub fn accent_dark_w20(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::accent_dark_w20(), )+
+                }
+            }
+
+            pub fn accent_light(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::accent_light(), )+
+                }
+            }
+
+            pub fn accent_light_b20(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::accent_light_b20(), )+
+                }
+            }
+
+            pub fn accent_light_w20(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::accent_light_w20(), )+
+                }
+            }
+
+            pub fn red_500(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::red_500(), )+
+                }
+            }
+
+            pub fn lime_500(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::lime_500(), )+
+                }
+            }
+
+            pub fn amber_400(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::amber_400(), )+
+                }
             }
 
             pub fn accent_color(&self) -> Color32 {
@@ -380,6 +501,28 @@ theme_dispatch!(ThemeVariant::Default, DefaultTheme, "Default");
 pub trait ThemeDef: Send + Sync {
     // User facing name
     fn name() -> &'static str;
+
+    // Palette
+    fn neutral_50() -> Color32;
+    fn neutral_100() -> Color32;
+    fn neutral_200() -> Color32;
+    fn neutral_300() -> Color32;
+    fn neutral_400() -> Color32;
+    fn neutral_500() -> Color32;
+    fn neutral_600() -> Color32;
+    fn neutral_700() -> Color32;
+    fn neutral_800() -> Color32;
+    fn neutral_900() -> Color32;
+    fn neutral_950() -> Color32;
+    fn accent_dark() -> Color32;
+    fn accent_dark_b20() -> Color32; // overlay 20% black
+    fn accent_dark_w20() -> Color32; // overlay 20% white
+    fn accent_light() -> Color32;
+    fn accent_light_b20() -> Color32; // overlay 20% black
+    fn accent_light_w20() -> Color32; // overlay 20% white
+    fn red_500() -> Color32;
+    fn lime_500() -> Color32;
+    fn amber_400() -> Color32;
 
     // Used for strokes, lines, and text in various places
     fn accent_color(dark_mode: bool) -> Color32;
