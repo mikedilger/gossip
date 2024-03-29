@@ -78,7 +78,7 @@ impl People {
         task::spawn(async {
             let mut read_runstate = GLOBALS.read_runstate.clone();
             read_runstate.mark_unchanged();
-            if !read_runstate.borrow().going_online() {
+            if read_runstate.borrow().going_offline() {
                 return;
             }
 
@@ -95,7 +95,7 @@ impl People {
                             GLOBALS.storage.read_setting_fetcher_metadata_looptime_ms();
                         sleep.as_mut().reset(Instant::now() + Duration::from_millis(fetch_metadata_looptime_ms));
                     },
-                    _ = read_runstate.wait_for(|runstate| !runstate.going_online()) => break,
+                    _ = read_runstate.wait_for(|runstate| runstate.going_offline()) => break,
                 }
 
                 // We fetch needed metadata

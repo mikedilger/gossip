@@ -336,8 +336,8 @@ impl Minion {
         ping_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         ping_timer.tick().await; // use up the first immediate tick.
 
-        // Periodic Task timer (3 sec)
-        let mut task_timer = tokio::time::interval(std::time::Duration::new(3, 0));
+        // Periodic Task timer (1.5 sec)
+        let mut task_timer = tokio::time::interval(std::time::Duration::new(1, 500_000_000));
         task_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         task_timer.tick().await; // use up the first immediate tick.
 
@@ -565,9 +565,8 @@ impl Minion {
             ToMinionPayloadDetail::SubscribePersonFeed(pubkey) => {
                 self.subscribe_person_feed(message.job_id, pubkey).await?;
             }
-            ToMinionPayloadDetail::SubscribeThreadFeed(main, parents) => {
-                self.subscribe_thread_feed(message.job_id, main, parents)
-                    .await?;
+            ToMinionPayloadDetail::SubscribeReplies(main) => {
+                self.subscribe_replies(message.job_id, main).await?;
             }
             ToMinionPayloadDetail::SubscribeDmChannel(dmchannel) => {
                 self.subscribe_dm_channel(message.job_id, dmchannel).await?;
@@ -594,8 +593,8 @@ impl Minion {
             ToMinionPayloadDetail::UnsubscribePersonFeed => {
                 self.unsubscribe("person_feed").await?;
             }
-            ToMinionPayloadDetail::UnsubscribeThreadFeed => {
-                self.unsubscribe("thread_feed").await?;
+            ToMinionPayloadDetail::UnsubscribeReplies => {
+                self.unsubscribe("replies").await?;
             }
         }
 
@@ -860,19 +859,13 @@ impl Minion {
         Ok(())
     }
 
-    async fn subscribe_thread_feed(
-        &mut self,
-        job_id: u64,
-        main: IdHex,
-        ancestor_ids: Vec<IdHex>,
-    ) -> Result<(), Error> {
+    async fn subscribe_replies(&mut self, job_id: u64, main: IdHex) -> Result<(), Error> {
         // NOTE we do not unsubscribe to the general feed
 
+        // Replies
         let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
-
-        let filters = filter_fns::thread(main, &ancestor_ids, spamsafe);
-
-        self.subscribe(filters, "thread_feed", job_id).await?;
+        let filters = filter_fns::replies(main, spamsafe);
+        self.subscribe(filters, "replies", job_id).await?;
 
         Ok(())
     }

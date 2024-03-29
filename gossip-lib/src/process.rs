@@ -316,15 +316,13 @@ pub async fn process_new_event(
             // If the content is a repost, seek the event it reposts
             for eref in event.mentions().iter() {
                 match eref {
-                    EventReference::Id(id, optrelay, _marker) => {
-                        if let Some(rurl) = optrelay {
-                            GLOBALS
-                                .seeker
-                                .seek_id_and_relays(*id, vec![rurl.to_owned()]);
-                        } else {
+                    EventReference::Id { id, relays, .. } => {
+                        if relays.is_empty() {
                             // Even if the event tags the author, we have no way to coorelate
                             // the nevent with that tag.
                             GLOBALS.seeker.seek_id(*id);
+                        } else {
+                            GLOBALS.seeker.seek_id_and_relays(*id, relays.clone());
                         }
                     }
                     EventReference::Addr(ea) => {
@@ -488,7 +486,7 @@ pub(crate) fn process_relationships_of_event<'a>(
     let mut f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
         // replies to
         match event.replies_to() {
-            Some(EventReference::Id(id, _, _)) => {
+            Some(EventReference::Id { id, .. }) => {
                 GLOBALS.storage.write_relationship_by_id(
                     id,
                     event.id,
@@ -525,7 +523,7 @@ pub(crate) fn process_relationships_of_event<'a>(
         if let Some((vec, reason)) = event.deletes() {
             for er in vec.iter() {
                 match er {
-                    EventReference::Id(id, _, _) => {
+                    EventReference::Id { id, .. } => {
                         // If we have the event,
                         // Actually delete at this point in some cases
                         if let Some(deleted_event) = GLOBALS.storage.read_event(*id)? {

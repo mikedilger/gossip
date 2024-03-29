@@ -175,22 +175,10 @@ pub fn person_feed(pubkey: PublicKey, since: Unixtime, until: Option<Unixtime>) 
     }]
 }
 
-pub fn thread(main: IdHex, ancestors: &[IdHex], spamsafe: bool) -> Vec<Filter> {
+// ancestors can be done with FetchEvent, FetchEventAddr
+
+pub fn replies(main: IdHex, spamsafe: bool) -> Vec<Filter> {
     let mut filters: Vec<Filter> = Vec::new();
-
-    if !ancestors.is_empty() {
-        // We allow spammy ancestors since a descendant is sought, so spamsafe
-        // isn't relevant to these ancestor filters
-
-        // Get ancestors we know of so far
-        filters.push(Filter {
-            ids: ancestors.to_vec(),
-            ..Default::default()
-        });
-
-        // NOTE: we do not need to query for reactions to ancestors anymore.
-        // We now use 'visible notes' to periodically update augmentation subscriptions
-    }
 
     // Allow all feed related event kinds (excluding DMs)
     let event_kinds = crate::feed::feed_displayable_event_kinds(false);

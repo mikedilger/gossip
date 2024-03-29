@@ -295,7 +295,7 @@ pub fn start() {
     task::spawn(async {
         let mut read_runstate = GLOBALS.read_runstate.clone();
         read_runstate.mark_unchanged();
-        if !read_runstate.borrow().going_online() {
+        if read_runstate.borrow().going_offline() {
             return;
         }
 
@@ -307,7 +307,7 @@ pub fn start() {
                 _ = &mut sleep => {
                     sleep.as_mut().reset(Instant::now() + Duration::from_secs(15));
                 },
-                _ = read_runstate.wait_for(|runstate| !runstate.going_online()) => break,
+                _ = read_runstate.wait_for(|runstate| runstate.going_offline()) => break,
             }
 
             match GLOBALS.pending.compute_pending() {

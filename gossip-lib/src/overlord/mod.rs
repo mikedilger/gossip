@@ -173,9 +173,6 @@ impl Overlord {
             .feed
             .set_feed_starts(general_feed_start, person_feed_start, inbox_feed_start);
 
-        // Init the fetcher
-        crate::fetcher::Fetcher::init()?;
-
         // Switch out of initializing RunState
         if GLOBALS.storage.read_setting_offline() {
             let _ = GLOBALS.write_runstate.send(RunState::Offline);
@@ -1942,12 +1939,17 @@ impl Overlord {
                     // Possibly add a tag to the 'root'
                     let mut parent_is_root = true;
                     match parent.replies_to_root() {
-                        Some(EventReference::Id(root, maybeurl, _marker)) => {
+                        Some(EventReference::Id {
+                            id: root,
+                            author: _,
+                            mut relays,
+                            marker: _,
+                        }) => {
                             // Add an 'e' tag for the root
                             add_event_to_tags(
                                 &mut tags,
                                 root,
-                                maybeurl.map(|u| u.to_unchecked_url()),
+                                relays.pop().map(|u| u.to_unchecked_url()),
                                 "root",
                             )
                             .await;
@@ -2749,11 +2751,14 @@ impl Overlord {
             // Use relay hints in 'e' tags
             for eref in highest_parent.referred_events() {
                 match eref {
-                    EventReference::Id(id, opturl, _marker) => {
+                    EventReference::Id {
+                        id,
+                        author: _,
+                        relays: tagrelays,
+                        marker: _,
+                    } => {
                         missing_ancestors.push(id);
-                        if let Some(url) = opturl {
-                            relays.push(url);
-                        }
+                        relays.extend(tagrelays);
                     }
                     EventReference::Addr(_ea) => {
                         // FIXME - we should subscribe to these too
@@ -2762,10 +2767,8 @@ impl Overlord {
             }
         }
 
-        let mut missing_ancestors_hex: Vec<IdHex> =
-            missing_ancestors.iter().map(|id| (*id).into()).collect();
-        missing_ancestors_hex.sort_by(|a, b| a.as_str().cmp(b.as_str()));
-        missing_ancestors_hex.dedup();
+        missing_ancestors.sort();
+        missing_ancestors.dedup();
 
         // Subscribe on relays
         if relays.is_empty() {
@@ -2784,26 +2787,34 @@ impl Overlord {
                 target: "all".to_string(),
                 payload: ToMinionPayload {
                     job_id: 0,
-                    detail: ToMinionPayloadDetail::UnsubscribeThreadFeed,
+                    detail: ToMinionPayloadDetail::UnsubscribeReplies,
                 },
             });
 
             for url in relays.iter() {
-                // Subscribe
-                self.engage_minion(
-                    url.to_owned(),
-                    vec![RelayJob {
+                let mut jobs: Vec<RelayJob> = vec![];
+
+                // Subscribe ancestors
+                for ancestor_id in missing_ancestors.drain(..) {
+                    jobs.push(RelayJob {
                         reason: RelayConnectionReason::ReadThread,
                         payload: ToMinionPayload {
                             job_id: rand::random::<u64>(),
-                            detail: ToMinionPayloadDetail::SubscribeThreadFeed(
-                                id.into(),
-                                missing_ancestors_hex.clone(),
-                            ),
+                            detail: ToMinionPayloadDetail::FetchEvent(ancestor_id),
                         },
-                    }],
-                )
-                .await?;
+                    });
+                }
+
+                // Subscribe replies
+                jobs.push(RelayJob {
+                    reason: RelayConnectionReason::ReadThread,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::SubscribeReplies(id.into()),
+                    },
+                });
+
+                self.engage_minion(url.to_owned(), jobs).await?;
             }
         }
 

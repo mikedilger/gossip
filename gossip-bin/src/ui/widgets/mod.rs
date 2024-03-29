@@ -15,9 +15,8 @@ use eframe::egui::Galley;
 use egui_winit::egui::text::LayoutJob;
 use egui_winit::egui::text_edit::TextEditOutput;
 use egui_winit::egui::{
-    self, vec2, Align, FontSelection, Rect, Response, RichText, Sense, Ui, WidgetText,
+    self, vec2, Align, FontSelection, Rect, Response, RichText, Rounding, Sense, Ui, WidgetText,
 };
-use crate::ui::egui::Rounding;
 pub use nav_item::NavItem;
 
 mod relay_entry;

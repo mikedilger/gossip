@@ -303,7 +303,7 @@ pub fn render_note_inner(
 
                 ui.horizontal_wrapped(|ui| {
                     match note.event.replies_to() {
-                        Some(EventReference::Id(irt, _, _)) => {
+                        Some(EventReference::Id { id: irt, .. }) => {
                             ui.add_space(8.0);
                             ui.style_mut().override_text_style = Some(TextStyle::Small);
                             let idhex: IdHex = irt.into();
@@ -1152,7 +1152,7 @@ fn render_content(
                             );
                         } else {
                             match event.mentions().first() {
-                                Some(EventReference::Id(id, _, _)) => {
+                                Some(EventReference::Id { id, .. }) => {
                                     if let Some(note_data) = app.notes.try_update_and_get(id) {
                                         // TODO block additional repost recursion
                                         render_repost(
