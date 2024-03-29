@@ -283,4 +283,6 @@ pub async fn run() {
     } else {
         tracing::info!("LMDB synced.");
     }
+
+    tracing::error!("If gossip fails to exit at this point, you can safely kill the process.");
 }
