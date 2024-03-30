@@ -12,6 +12,7 @@ use serde::Serialize;
 use crate::ui::{widgets, Page, Theme};
 
 pub use super::Notification;
+use super::NotificationFilter;
 
 pub struct Nip46Request {
     client_name: String,
@@ -51,6 +52,14 @@ impl<'a> Notification<'a> for Nip46Request {
     fn title(&self) -> RichText {
         RichText::new("NIP46 Signing request".to_uppercase())
             .color(Color32::from_rgb(0xEF, 0x44, 0x44))
+    }
+
+    fn matches_filter(&self, filter: &NotificationFilter) -> bool {
+        match filter {
+            NotificationFilter::All => true,
+            NotificationFilter::Nip46Request => true,
+            _ => false,
+        }
     }
 
     fn item(&'a self) -> &'a PendingItem {

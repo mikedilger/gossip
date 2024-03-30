@@ -5,7 +5,7 @@ use gossip_lib::{comms::ToOverlordMessage, PendingItem, PersonList, GLOBALS};
 
 use crate::ui::{widgets, Page, Theme};
 
-use super::Notification;
+use super::{Notification, NotificationFilter};
 
 pub struct Pending {
     inner: gossip_lib::PendingItem,
@@ -29,6 +29,14 @@ impl<'a> Notification<'a> for Pending {
 
     fn title(&self) -> RichText {
         RichText::new("Pending".to_uppercase()).color(Color32::from_rgb(0xFB, 0xBF, 0x24))
+    }
+
+    fn matches_filter(&self, filter: &NotificationFilter) -> bool {
+        match filter {
+            NotificationFilter::All => true,
+            NotificationFilter::PendingItem => true,
+            _ => false,
+        }
     }
 
     fn item(&'a self) -> &'a PendingItem {

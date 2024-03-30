@@ -10,6 +10,7 @@ use nostr_types::RelayUrl;
 use crate::ui::{widgets, Page, Theme};
 
 pub use super::Notification;
+use super::NotificationFilter;
 pub struct ConnRequest {
     relay: RelayUrl,
     jobs: Vec<RelayJob>,
@@ -45,6 +46,14 @@ impl<'a> Notification<'a> for ConnRequest {
 
     fn title(&self) -> RichText {
         RichText::new("Relay Request".to_uppercase()).color(Color32::from_rgb(0xEF, 0x44, 0x44))
+    }
+
+    fn matches_filter(&self, filter: &NotificationFilter) -> bool {
+        match filter {
+            NotificationFilter::All => true,
+            NotificationFilter::RelayConnectionRequest => true,
+            _ => false,
+        }
     }
 
     fn item(&'a self) -> &'a PendingItem {

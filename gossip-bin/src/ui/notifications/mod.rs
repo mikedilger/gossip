@@ -20,9 +20,34 @@ mod conn_request;
 mod nip46_request;
 mod pending;
 
+#[derive(PartialEq, Default)]
+pub enum NotificationFilter {
+    #[default]
+    All,
+    RelayAuthenticationRequest,
+    RelayConnectionRequest,
+    Nip46Request,
+    PendingItem,
+}
+
+impl NotificationFilter {
+    fn get_name(&self) -> String {
+        match self {
+            NotificationFilter::All => "All".to_owned(),
+            NotificationFilter::RelayAuthenticationRequest => {
+                "Relay Authentication Request".to_owned()
+            }
+            NotificationFilter::RelayConnectionRequest => "Relay Connection Request".to_owned(),
+            NotificationFilter::Nip46Request => "NIP46 Request".to_owned(),
+            NotificationFilter::PendingItem => "Pending Items".to_owned(),
+        }
+    }
+}
+
 pub trait Notification<'a> {
     fn timestamp(&self) -> u64;
     fn title(&self) -> RichText;
+    fn matches_filter(&self, filter: &NotificationFilter) -> bool;
     fn item(&'a self) -> &'a PendingItem;
     fn get_remember(&self) -> bool;
     fn set_remember(&mut self, value: bool);
@@ -37,6 +62,7 @@ pub struct NotificationData {
     last_pending_hash: u64,
     num_notif_relays: usize,
     num_notif_pending: usize,
+    filter: NotificationFilter,
 }
 
 impl NotificationData {
@@ -46,6 +72,7 @@ impl NotificationData {
             last_pending_hash: 0,
             num_notif_relays: 0,
             num_notif_pending: 0,
+            filter: Default::default(),
         }
     }
 }
@@ -285,28 +312,27 @@ pub(super) fn draw_icons(app: &mut GossipUi, ui: &mut Ui) {
 /// Show the Notifications page view
 ///
 pub(super) fn update(app: &mut GossipUi, ui: &mut Ui) {
-    widgets::page_header(ui, "Notifications", |_| {});
+    widgets::page_header(ui, "Notifications", |ui| notification_filter_combo(app, ui));
 
     let mut new_page = None;
     app.vert_scroll_area().show(ui, |ui| {
         for entry in &app.notification_data.active {
+            if !entry.borrow().matches_filter(&app.notification_data.filter) {
+                continue;
+            }
             widgets::list_entry::make_frame(ui, None).show(ui, |ui| {
                 ui.set_min_width(ui.available_width());
                 ui.set_height(37.0);
                 ui.horizontal(|ui| {
                     ui.label(
                         egui::RichText::new(unixtime_to_string(
-                            entry
-                                .borrow_mut()
-                                .timestamp()
-                                .try_into()
-                                .unwrap_or_default(),
+                            entry.borrow().timestamp().try_into().unwrap_or_default(),
                         ))
                         .weak()
                         .small(),
                     );
                     ui.add_space(10.0);
-                    ui.label(entry.borrow_mut().title().small());
+                    ui.label(entry.borrow().title().small());
                 });
                 new_page = entry.borrow_mut().show(&app.theme, ui);
             });
@@ -390,4 +416,38 @@ fn decline_style(theme: &Theme, style: &mut Style) {
 fn approve_style(theme: &Theme, style: &mut Style) {
     theme.accent_button_1_style(style);
     style.spacing.button_padding = vec2(16.0, 4.0);
+}
+
+pub fn notification_filter_combo(app: &mut GossipUi, ui: &mut Ui) {
+    let filter_combo = egui::ComboBox::from_id_source(egui::Id::from("NotificationFilterCombo"));
+    filter_combo
+        .selected_text(app.notification_data.filter.get_name())
+        .width(210.0)
+        .show_ui(ui, |ui| {
+            ui.selectable_value(
+                &mut app.notification_data.filter,
+                NotificationFilter::All,
+                NotificationFilter::All.get_name(),
+            );
+            ui.selectable_value(
+                &mut app.notification_data.filter,
+                NotificationFilter::RelayAuthenticationRequest,
+                NotificationFilter::RelayAuthenticationRequest.get_name(),
+            );
+            ui.selectable_value(
+                &mut app.notification_data.filter,
+                NotificationFilter::RelayConnectionRequest,
+                NotificationFilter::RelayConnectionRequest.get_name(),
+            );
+            ui.selectable_value(
+                &mut app.notification_data.filter,
+                NotificationFilter::Nip46Request,
+                NotificationFilter::Nip46Request.get_name(),
+            );
+            ui.selectable_value(
+                &mut app.notification_data.filter,
+                NotificationFilter::PendingItem,
+                NotificationFilter::PendingItem.get_name(),
+            );
+        });
 }
