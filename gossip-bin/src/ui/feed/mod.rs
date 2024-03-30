@@ -255,9 +255,16 @@ fn render_a_feed(
     };
 
     app.vert_scroll_area()
+        .auto_shrink(false)
         .id_source(scroll_area_id)
         .show(ui, |ui| {
             egui::Frame::none()
+                .outer_margin(egui::Margin {
+                    left: 0.0,
+                    right: 10.0,
+                    top: 0.0,
+                    bottom: 0.0,
+                })
                 .rounding(app.theme.feed_scroll_rounding(&feed_properties))
                 .fill(app.theme.feed_scroll_fill(&feed_properties))
                 .stroke(app.theme.feed_scroll_stroke(&feed_properties))
