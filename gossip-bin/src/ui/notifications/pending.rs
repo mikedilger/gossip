@@ -22,7 +22,7 @@ const ALIGN: egui::Align = egui::Align::Center;
 const HEIGHT: f32 = 23.0;
 const TRUNC: f32 = 200.0;
 
-impl Notification for Pending {
+impl<'a> Notification<'a> for Pending {
     fn timestamp(&self) -> u64 {
         self.timestamp
     }
@@ -31,8 +31,16 @@ impl Notification for Pending {
         RichText::new("Pending".to_uppercase()).color(Color32::from_rgb(0xFB, 0xBF, 0x24))
     }
 
-    fn summary(&self) -> String {
-        todo!()
+    fn item(&'a self) -> &'a PendingItem {
+        &self.inner
+    }
+
+    fn get_remember(&self) -> bool {
+        false
+    }
+
+    fn set_remember(&mut self, _value: bool) {
+        // nothing
     }
 
     fn show(&mut self, theme: &Theme, ui: &mut Ui) -> Option<Page> {

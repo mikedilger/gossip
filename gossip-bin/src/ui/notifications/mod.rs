@@ -20,14 +20,17 @@ mod conn_request;
 mod nip46_request;
 mod pending;
 
-pub trait Notification {
+pub trait Notification<'a> {
     fn timestamp(&self) -> u64;
     fn title(&self) -> RichText;
-    fn summary(&self) -> String;
+    fn item(&'a self) -> &'a PendingItem;
+    fn get_remember(&self) -> bool;
+    fn set_remember(&mut self, value: bool);
     fn show(&mut self, theme: &Theme, ui: &mut Ui) -> Option<Page>;
 }
 
-type NotificationHandle = Rc<RefCell<dyn Notification>>;
+type NotificationHandle = Rc<RefCell<dyn for<'handle> Notification<'handle>>>;
+const SWITCH_SIZE: Vec2 = Vec2 { x: 46.0, y: 23.0 };
 
 pub struct NotificationData {
     active: Vec<NotificationHandle>,
@@ -47,8 +50,6 @@ impl NotificationData {
     }
 }
 
-const SWITCH_SIZE: Vec2 = Vec2 { x: 46.0, y: 23.0 };
-
 ///
 /// Calc notifications
 ///
@@ -56,50 +57,73 @@ pub(super) fn calc(app: &mut GossipUi) {
     let hash = GLOBALS.pending.hash();
     // recalc if hash changed
     if app.notification_data.last_pending_hash != hash {
-        app.notification_data.active.clear();
         app.notification_data.num_notif_relays = 0;
         app.notification_data.num_notif_pending = 0;
 
+        let mut new_active: Vec<NotificationHandle> = Vec::new();
+
         for (item, time) in GLOBALS.pending.read().iter() {
             match item {
-                PendingItem::RelayConnectionRequest { relay, jobs } => {
-                    app.notification_data.active.push(ConnRequest::new(
-                        relay.clone(),
-                        jobs.clone(),
-                        *time,
-                    ));
+                PendingItem::RelayConnectionRequest { relay, .. } => {
+                    let new_entry = ConnRequest::new(item.clone(), *time);
                     app.notification_data.num_notif_relays.add_assign(1);
+
+                    // find old entry if any and copy setting
+                    for entry in app.notification_data.active.iter() {
+                        match entry.try_borrow() {
+                            Ok(entry) => match entry.item() {
+                                PendingItem::RelayConnectionRequest {
+                                    relay: old_relay,
+                                    jobs: _,
+                                } if old_relay == relay => {
+                                    new_entry.borrow_mut().set_remember(entry.get_remember());
+                                }
+                                _ => {}
+                            },
+                            Err(_) => {}
+                        }
+                    }
+
+                    new_active.push(new_entry);
                 }
                 PendingItem::RelayAuthenticationRequest { account, relay } => {
-                    app.notification_data.active.push(AuthRequest::new(
-                        *account,
-                        relay.clone(),
-                        *time,
-                    ));
+                    let new_entry = AuthRequest::new(item.clone(), *time);
                     app.notification_data.num_notif_relays.add_assign(1);
+
+                    // find old entry if any and copy setting
+                    for entry in app.notification_data.active.iter() {
+                        match entry.try_borrow() {
+                            Ok(entry) => match entry.item() {
+                                PendingItem::RelayAuthenticationRequest {
+                                    account: old_account,
+                                    relay: old_relay,
+                                } if old_account == account && old_relay == relay => {
+                                    new_entry.borrow_mut().set_remember(entry.get_remember());
+                                }
+                                _ => {}
+                            },
+                            Err(_) => {}
+                        }
+                    }
+
+                    new_active.push(new_entry);
                 }
                 PendingItem::Nip46Request {
-                    client_name,
-                    account,
-                    command,
+                    client_name: _,
+                    account: _,
+                    command: _,
                 } => {
-                    app.notification_data.active.push(Nip46Request::new(
-                        client_name.clone(),
-                        *account,
-                        command.clone(),
-                        *time,
-                    ));
+                    new_active.push(Nip46Request::new(item.clone(), *time));
                     app.notification_data.num_notif_pending.add_assign(1);
                 }
                 item => {
-                    app.notification_data
-                        .active
-                        .push(Pending::new(item.clone(), *time));
+                    new_active.push(Pending::new(item.clone(), *time));
                     app.notification_data.num_notif_pending.add_assign(1);
                 }
             }
         }
 
+        app.notification_data.active = new_active;
         app.notification_data.last_pending_hash = hash;
     }
 }
@@ -272,13 +296,17 @@ pub(super) fn update(app: &mut GossipUi, ui: &mut Ui) {
                 ui.horizontal(|ui| {
                     ui.label(
                         egui::RichText::new(unixtime_to_string(
-                            entry.borrow().timestamp().try_into().unwrap_or_default(),
+                            entry
+                                .borrow_mut()
+                                .timestamp()
+                                .try_into()
+                                .unwrap_or_default(),
                         ))
                         .weak()
                         .small(),
                     );
                     ui.add_space(10.0);
-                    ui.label(entry.borrow().title().small());
+                    ui.label(entry.borrow_mut().title().small());
                 });
                 new_page = entry.borrow_mut().show(&app.theme, ui);
             });

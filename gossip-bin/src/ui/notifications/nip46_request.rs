@@ -4,7 +4,7 @@ use eframe::egui::{self, Color32, Layout, RichText, Ui};
 use gossip_lib::{
     comms::ToOverlordMessage,
     nip46::{Approval, ParsedCommand},
-    GLOBALS,
+    PendingItem, GLOBALS,
 };
 use nostr_types::PublicKey;
 use serde::Serialize;
@@ -14,32 +14,36 @@ use crate::ui::{widgets, Page, Theme};
 pub use super::Notification;
 
 pub struct Nip46Request {
-    name: String,
+    client_name: String,
     account: PublicKey,
     command: ParsedCommand,
+    item: PendingItem,
     timestamp: u64,
 }
 
 impl Nip46Request {
-    pub fn new(
-        name: String,
-        account: PublicKey,
-        command: ParsedCommand,
-        timestamp: u64,
-    ) -> Rc<RefCell<Self>> {
-        Rc::new(RefCell::new(Self {
-            name,
-            account,
-            command,
-            timestamp,
-        }))
+    pub fn new(item: PendingItem, timestamp: u64) -> Rc<RefCell<Self>> {
+        match &item {
+            PendingItem::Nip46Request {
+                client_name,
+                account,
+                command,
+            } => Rc::new(RefCell::new(Self {
+                client_name: client_name.clone(),
+                account: account.clone(),
+                command: command.clone(),
+                item,
+                timestamp,
+            })),
+            _ => panic!("Only accepts PendingItem::Nip46Request"),
+        }
     }
 }
 
 const ALIGN: egui::Align = egui::Align::Center;
 const HEIGHT: f32 = 23.0;
 
-impl Notification for Nip46Request {
+impl<'a> Notification<'a> for Nip46Request {
     fn timestamp(&self) -> u64 {
         self.timestamp
     }
@@ -49,8 +53,16 @@ impl Notification for Nip46Request {
             .color(Color32::from_rgb(0xEF, 0x44, 0x44))
     }
 
-    fn summary(&self) -> String {
-        todo!()
+    fn item(&'a self) -> &'a PendingItem {
+        &self.item
+    }
+
+    fn get_remember(&self) -> bool {
+        false
+    }
+
+    fn set_remember(&mut self, _value: bool) {
+        // nothing
     }
 
     fn show(&mut self, theme: &Theme, ui: &mut Ui) -> Option<Page> {
@@ -58,7 +70,7 @@ impl Notification for Nip46Request {
             ui.set_height(HEIGHT);
             let text = format!(
                 "NIP-46 Request from '{}'. Allow {}?",
-                self.name, self.command.method
+                self.client_name, self.command.method
             );
             widgets::truncated_label(ui, text, ui.available_width() - 300.0)
                 .on_hover_text(self.command.params.join(", "));
@@ -69,7 +81,7 @@ impl Notification for Nip46Request {
                     if ui.button("Decline").clicked() {
                         let _ = GLOBALS.to_overlord.send(
                             ToOverlordMessage::Nip46ServerOpApprovalResponse(
-                                self.account,
+                                self.account.clone(),
                                 self.command.clone(),
                                 Approval::None,
                             ),
@@ -82,7 +94,7 @@ impl Notification for Nip46Request {
                     if ui.button("Approve Once").clicked() {
                         let _ = GLOBALS.to_overlord.send(
                             ToOverlordMessage::Nip46ServerOpApprovalResponse(
-                                self.account,
+                                self.account.clone(),
                                 self.command.clone(),
                                 Approval::Once,
                             ),
@@ -95,7 +107,7 @@ impl Notification for Nip46Request {
                     if ui.button("Approve Always").clicked() {
                         let _ = GLOBALS.to_overlord.send(
                             ToOverlordMessage::Nip46ServerOpApprovalResponse(
-                                self.account,
+                                self.account.clone(),
                                 self.command.clone(),
                                 Approval::Always,
                             ),

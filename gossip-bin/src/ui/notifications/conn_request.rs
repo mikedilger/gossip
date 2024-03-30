@@ -3,7 +3,7 @@ use std::{cell::RefCell, rc::Rc};
 use eframe::egui::{self, Color32, Layout, RichText, Ui};
 use gossip_lib::{
     comms::{RelayJob, ToOverlordMessage},
-    GLOBALS,
+    PendingItem, GLOBALS,
 };
 use nostr_types::RelayUrl;
 
@@ -11,20 +11,25 @@ use crate::ui::{widgets, Page, Theme};
 
 pub use super::Notification;
 pub struct ConnRequest {
-    relay_url: RelayUrl,
+    relay: RelayUrl,
     jobs: Vec<RelayJob>,
+    item: PendingItem,
     timestamp: u64,
-    make_permanent: bool,
+    remember: bool,
 }
 
 impl ConnRequest {
-    pub fn new(relay_url: RelayUrl, jobs: Vec<RelayJob>, timestamp: u64) -> Rc<RefCell<Self>> {
-        Rc::new(RefCell::new(Self {
-            relay_url,
-            jobs,
-            timestamp,
-            make_permanent: false,
-        }))
+    pub fn new(item: PendingItem, timestamp: u64) -> Rc<RefCell<Self>> {
+        match &item {
+            PendingItem::RelayConnectionRequest { relay, jobs } => Rc::new(RefCell::new(Self {
+                relay: relay.clone(),
+                jobs: jobs.clone(),
+                item,
+                timestamp,
+                remember: false,
+            })),
+            _ => panic!("Only accepts PendingItem::RelayConnectionRequest"),
+        }
     }
 }
 
@@ -33,7 +38,7 @@ const TRUNC: f32 = 340.0;
 /// min-height of each section
 const HEIGHT: f32 = 23.0;
 
-impl Notification for ConnRequest {
+impl<'a> Notification<'a> for ConnRequest {
     fn timestamp(&self) -> u64 {
         self.timestamp
     }
@@ -42,8 +47,16 @@ impl Notification for ConnRequest {
         RichText::new("Relay Request".to_uppercase()).color(Color32::from_rgb(0xEF, 0x44, 0x44))
     }
 
-    fn summary(&self) -> String {
-        todo!()
+    fn item(&'a self) -> &'a PendingItem {
+        &self.item
+    }
+
+    fn get_remember(&self) -> bool {
+        self.remember
+    }
+
+    fn set_remember(&mut self, value: bool) {
+        self.remember = value;
     }
 
     fn show(&mut self, theme: &Theme, ui: &mut Ui) -> Option<Page> {
@@ -62,17 +75,11 @@ impl Notification for ConnRequest {
             ui.set_height(HEIGHT);
             ui.label("Connect to");
             if ui
-                .link(
-                    myself
-                        .relay_url
-                        .as_url_crate_url()
-                        .domain()
-                        .unwrap_or_default(),
-                )
+                .link(myself.relay.as_url_crate_url().domain().unwrap_or_default())
                 .on_hover_text("Edit this Relay in your Relay settings")
                 .clicked()
             {
-                *new_page = Some(Page::RelaysKnownNetwork(Some(myself.relay_url.clone())));
+                *new_page = Some(Page::RelaysKnownNetwork(Some(myself.relay.clone())));
             }
 
             if myself.jobs.len() > 1 {
@@ -96,8 +103,8 @@ impl Notification for ConnRequest {
                         super::decline_style(theme, ui.style_mut());
                         if ui.button("Decline").clicked() {
                             let _ = GLOBALS.to_overlord.send(ToOverlordMessage::ConnectDeclined(
-                                myself.relay_url.to_owned(),
-                                myself.make_permanent,
+                                myself.relay.to_owned(),
+                                myself.remember,
                             ));
                         }
                     });
@@ -106,14 +113,14 @@ impl Notification for ConnRequest {
                         super::approve_style(theme, ui.style_mut());
                         if ui.button("Approve").clicked() {
                             let _ = GLOBALS.to_overlord.send(ToOverlordMessage::ConnectApproved(
-                                myself.relay_url.to_owned(),
-                                myself.make_permanent,
+                                myself.relay.to_owned(),
+                                myself.remember,
                             ));
                         }
                     });
                     ui.add_space(10.0);
                     ui.label("Remember");
-                    widgets::switch_with_size(ui, &mut myself.make_permanent, super::SWITCH_SIZE)
+                    widgets::switch_with_size(ui, &mut myself.remember, super::SWITCH_SIZE)
                         .on_hover_text("store permission permanently");
                 });
             };
