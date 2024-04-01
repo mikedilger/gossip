@@ -69,7 +69,19 @@ impl Seeker {
     }
 
     /// Seek an event when you have the `Id` and the author `PublicKey`
-    pub(crate) fn seek_id_and_author(&self, id: Id, author: PublicKey) -> Result<(), Error> {
+    /// Additional relays can be passed in and the event will also be sought there
+    pub(crate) fn seek_id_and_author(
+        &self,
+        id: Id,
+        author: PublicKey,
+        speculative_relays: Vec<RelayUrl>,
+    ) -> Result<(), Error> {
+        // Start speculative seek (this is untracked. We will track the by author
+        // seek process instead. BUT if the event comes in, it does cancel).
+        if !speculative_relays.is_empty() {
+            Self::seek_event_at_relays(id, speculative_relays);
+        }
+
         if self.events.get(&id).is_some() {
             return Ok(()); // we are already seeking this event
         }

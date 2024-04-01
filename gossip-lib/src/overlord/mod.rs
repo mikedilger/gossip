@@ -2659,7 +2659,7 @@ impl Overlord {
         // Seek the main event if we don't have it
         if GLOBALS.storage.read_event(id)?.is_none() {
             if let Some(pk) = author {
-                GLOBALS.seeker.seek_id_and_author(id, pk)?;
+                GLOBALS.seeker.seek_id_and_author(id, pk, vec![])?;
             } else {
                 GLOBALS.seeker.seek_id(id);
             }

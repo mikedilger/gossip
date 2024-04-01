@@ -311,7 +311,7 @@ pub async fn process_new_event(
             // Seek additional info for this event by id and author
             GLOBALS
                 .seeker
-                .seek_id_and_author(inner_event.id, inner_event.pubkey)?;
+                .seek_id_and_author(inner_event.id, inner_event.pubkey, vec![])?;
         } else {
             // If the content is a repost, seek the event it reposts
             for eref in event.mentions().iter() {
