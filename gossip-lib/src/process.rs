@@ -320,7 +320,7 @@ pub async fn process_new_event(
                         if relays.is_empty() {
                             // Even if the event tags the author, we have no way to coorelate
                             // the nevent with that tag.
-                            GLOBALS.seeker.seek_id(*id);
+                            GLOBALS.seeker.seek_id(*id, vec![])?;
                         } else {
                             GLOBALS.seeker.seek_id_and_relays(*id, relays.clone());
                         }
