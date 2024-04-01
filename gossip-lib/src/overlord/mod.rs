@@ -2058,18 +2058,16 @@ impl Overlord {
             None => vec![event],
         };
 
-        let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
-
         // Determine which relays to post this to
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
         {
             // Get 'read' relays for everybody tagged in the event.
+            // We write to ALL of their read relays now
             for pubkey in tagged_pubkeys.drain(..) {
                 let best_relays: Vec<RelayUrl> = GLOBALS
                     .storage
                     .get_best_relays(pubkey, RelayUsage::Inbox)?
                     .drain(..)
-                    .take(num_relays_per_person as usize + 1)
                     .map(|(u, _)| u)
                     .collect();
                 relay_urls.extend(best_relays);
