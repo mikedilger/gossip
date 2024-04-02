@@ -1831,8 +1831,6 @@ impl Overlord {
             }
         };
 
-        let mut maybe_parent: Option<Event> = None;
-
         let pre_event = match dm_channel {
             Some(dmc) => {
                 if dmc.keys().len() > 1 {
@@ -2007,8 +2005,6 @@ impl Overlord {
                             add_subject_to_tags_if_missing(&mut tags, subject);
                         }
                     }
-
-                    maybe_parent = Some(parent);
                 }
 
                 PreEvent {
@@ -2053,10 +2049,7 @@ impl Overlord {
         crate::process::process_new_event(&event, None, None, false, false).await?;
 
         // Maybe include parent to retransmit it
-        let events = match maybe_parent {
-            Some(parent) => vec![event, parent],
-            None => vec![event],
-        };
+        let events = vec![event];
 
         // Determine which relays to post this to
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
