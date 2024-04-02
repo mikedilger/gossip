@@ -264,7 +264,7 @@ fn relay_list_not_advertized_recently(theme: &Theme, ui: &mut Ui) -> Option<Page
 
 fn relay_list_changed_since_advertised(theme: &Theme, ui: &mut Ui) -> Option<Page> {
     let description = |_theme: &Theme, ui: &mut Ui, trunc_width: f32| -> Option<Page> {
-        widgets::truncated_label(ui, "Your Relay List has changed localy", trunc_width);
+        widgets::truncated_label(ui, "Your Relay List has changed locally", trunc_width);
         None
     };
     let action = |theme: &Theme, ui: &mut Ui| -> Option<Page> {
