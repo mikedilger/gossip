@@ -212,10 +212,11 @@ impl NoteData {
             } else if has_tag_reference || has_nostr_event_reference || content_trim.is_empty() {
                 if content_trim.is_empty() {
                     // handle NIP-18 conform kind:6 with 'e' tag but no content
-                    shattered_content
-                        .segments
-                        .push(ContentSegment::TagReference(0));
-
+                    if let Some((tag, _)) = mentions.first() {
+                        shattered_content
+                            .segments
+                            .push(ContentSegment::TagReference(*tag));
+                    }
                     if event.kind == EventKind::Repost {
                         Some(RepostType::Kind6Mention)
                     } else {

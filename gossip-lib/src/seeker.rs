@@ -3,8 +3,9 @@ use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::misc::Freshness;
 use crate::people::People;
+use crate::relay::Relay;
 use dashmap::DashMap;
-use nostr_types::{Id, PublicKey, RelayUrl, RelayUsage, Unixtime};
+use nostr_types::{EventAddr, Id, PublicKey, RelayUrl, RelayUsage, Unixtime};
 use std::time::Duration;
 use tokio::time::Instant;
 
@@ -54,22 +55,43 @@ impl Seeker {
     }
 
     /// Seek an event when you only have the `Id`
-    pub(crate) fn seek_id(&self, id: Id) {
+    pub(crate) fn seek_id(&self, id: Id, speculative_relays: Vec<RelayUrl>) -> Result<(), Error> {
         if self.events.get(&id).is_some() {
-            return; // we are already seeking this event
+            return Ok(()); // we are already seeking this event
         }
 
         tracing::debug!("Seeking id={}", id.as_hex_string());
 
-        Self::seek_event_at_our_read_relays(id);
+        let mut relays: Vec<RelayUrl> = GLOBALS
+            .storage
+            .filter_relays(|r| r.has_usage_bits(Relay::READ) && r.rank != 0)?
+            .iter()
+            .map(|relay| relay.url.clone())
+            .collect();
+        relays.extend(speculative_relays);
+        Self::seek_event_at_relays(id, relays);
 
         // Remember when we asked
         let now = Unixtime::now().unwrap();
         self.events.insert(id, SeekState::WaitingEvent(now));
+
+        Ok(())
     }
 
     /// Seek an event when you have the `Id` and the author `PublicKey`
-    pub(crate) fn seek_id_and_author(&self, id: Id, author: PublicKey) -> Result<(), Error> {
+    /// Additional relays can be passed in and the event will also be sought there
+    pub(crate) fn seek_id_and_author(
+        &self,
+        id: Id,
+        author: PublicKey,
+        speculative_relays: Vec<RelayUrl>,
+    ) -> Result<(), Error> {
+        // Start speculative seek (this is untracked. We will track the by author
+        // seek process instead. BUT if the event comes in, it does cancel).
+        if !speculative_relays.is_empty() {
+            Self::seek_event_at_relays(id, speculative_relays);
+        }
+
         if self.events.get(&id).is_some() {
             return Ok(()); // we are already seeking this event
         }
@@ -120,6 +142,13 @@ impl Seeker {
         self.events.insert(id, SeekState::WaitingEvent(when));
     }
 
+    /// Seek an event when you have an EventAddr
+    pub(crate) fn seek_event_addr(&self, addr: EventAddr) {
+        let _ = GLOBALS
+            .to_overlord
+            .send(ToOverlordMessage::FetchEventAddr(addr));
+    }
+
     /// Inform the seeker that an author's relay list has just arrived
     pub(crate) fn found_author_relays(&self, pubkey: PublicKey) {
         // Instead of updating the map while we iterate (which could deadlock)
@@ -149,6 +178,8 @@ impl Seeker {
     }
 
     pub(crate) fn start() {
+        tracing::info!("Seeker startup");
+
         // Setup periodic queue management
         tokio::task::spawn(async move {
             let mut read_runstate = GLOBALS.read_runstate.clone();

@@ -239,11 +239,13 @@ pub async fn run() {
             if *read_runstate.borrow() != last_runstate {
                 last_runstate = *read_runstate.borrow();
 
-                tracing::info!("RunState changed to {:?}", *read_runstate.borrow());
+                tracing::info!("RunState changed to {:?}", last_runstate);
 
                 // If we just went online, start all the tasks that come along with that
                 // state transition
                 if last_runstate == RunState::Online {
+                    tracing::info!("Starting up online systems...");
+
                     // Start the fetcher
                     crate::fetcher::Fetcher::start();
 
@@ -283,4 +285,6 @@ pub async fn run() {
     } else {
         tracing::info!("LMDB synced.");
     }
+
+    tracing::error!("If gossip fails to exit at this point, you can safely kill the process.");
 }

@@ -1827,8 +1827,6 @@ impl Overlord {
             }
         };
 
-        let mut maybe_parent: Option<Event> = None;
-
         let pre_event = match dm_channel {
             Some(dmc) => {
                 if dmc.keys().len() > 1 {
@@ -2003,8 +2001,6 @@ impl Overlord {
                             add_subject_to_tags_if_missing(&mut tags, subject);
                         }
                     }
-
-                    maybe_parent = Some(parent);
                 }
 
                 PreEvent {
@@ -2049,23 +2045,18 @@ impl Overlord {
         crate::process::process_new_event(&event, None, None, false, false).await?;
 
         // Maybe include parent to retransmit it
-        let events = match maybe_parent {
-            Some(parent) => vec![event, parent],
-            None => vec![event],
-        };
-
-        let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
+        let events = vec![event];
 
         // Determine which relays to post this to
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
         {
             // Get 'read' relays for everybody tagged in the event.
+            // We write to ALL of their read relays now
             for pubkey in tagged_pubkeys.drain(..) {
                 let best_relays: Vec<RelayUrl> = GLOBALS
                     .storage
                     .get_best_relays(pubkey, RelayUsage::Inbox)?
                     .drain(..)
-                    .take(num_relays_per_person as usize + 1)
                     .map(|(u, _)| u)
                     .collect();
                 relay_urls.extend(best_relays);
@@ -2652,136 +2643,135 @@ impl Overlord {
         referenced_by: Id,
         author: Option<PublicKey>,
     ) -> Result<(), Error> {
+        // We need to:
+        //   1. Find the highest parent and set that in the feed
+        //   2. Find even higher parents at relays
+        //   3. Find replies to the main event at relays
+        //
+        // process.rs will build the relationships as events come in.
+        // The UI will traverse and render the replies if they are local.
+        // The UI will traverse and render the ancestors if they are local.
+
+        let (highest, higher_still) =
+            crate::misc::get_thread_highest_ancestors(EventReference::Id {
+                id,
+                author,
+                relays: vec![],
+                marker: None,
+            })?;
+
+        // Set the thread feed to the highest parent that we have or to the event itself
+        // even if we don't have it (it might be coming in soon)
+        if let Some(ref highest_event) = highest {
+            GLOBALS.feed.set_thread_parent(highest_event.id);
+        } else {
+            GLOBALS.feed.set_thread_parent(id);
+        }
+
         let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
 
-        // Seek the main event if we don't have it
-        if GLOBALS.storage.read_event(id)?.is_none() {
-            if let Some(pk) = author {
-                GLOBALS.seeker.seek_id_and_author(id, pk)?;
+        // Seek the next higher ancestor
+        {
+            // (it won't go higher right now, but if the user clicks they can climb the thread)
+            // FIXME: keep climbing somehow once this comes in.
+
+            // Let's first get additional relays the event might be on
+            let mut bonus_relays: Vec<RelayUrl> = Vec::new();
+
+            if let Some(highest_event) = highest {
+                // Include the relays where the event was seen
+                bonus_relays.extend(
+                    GLOBALS
+                        .storage
+                        .get_event_seen_on_relay(id)?
+                        .drain(..)
+                        .take(num_relays_per_person as usize + 1)
+                        .map(|(url, _time)| url),
+                );
+
+                // Include the OUTBOX relays of people tagged in the highest event
+                for (pk, opthint, _optmarker) in highest_event.people() {
+                    if let Some(url) = opthint {
+                        bonus_relays.push(url);
+                    } else {
+                        let tagged_person_relays: Vec<RelayUrl> = GLOBALS
+                            .storage
+                            .get_best_relays(pk, RelayUsage::Outbox)?
+                            .drain(..)
+                            .take(num_relays_per_person as usize + 1)
+                            .map(|pair| pair.0)
+                            .collect();
+                        bonus_relays.extend(tagged_person_relays);
+                    }
+                }
+
+                // Include relay hints in the highest event 'e' tags
+                for eref in highest_event.referred_events() {
+                    if let EventReference::Id {
+                        id: _,
+                        author: _,
+                        relays: tagrelays,
+                        marker: _,
+                    } = eref
+                    {
+                        bonus_relays.extend(tagrelays);
+                    }
+                }
             } else {
-                GLOBALS.seeker.seek_id(id);
-            }
-        }
+                // We don't have the referenced event itself.
 
-        // We are responsible for loading all the ancestors and all the replies, and
-        // process.rs is responsible for building the relationships.
-        // The UI can only show events if they are loaded into memory and the relationships
-        // exist in memory.
+                // Include the relays where the referencing event was seen.
+                bonus_relays.extend(
+                    GLOBALS
+                        .storage
+                        .get_event_seen_on_relay(referenced_by)?
+                        .drain(..)
+                        .take(num_relays_per_person as usize + 1)
+                        .map(|(url, _time)| url),
+                );
 
-        // Our task is fourfold:
-        //   ancestors from storage, replies from storage
-        //   ancestors from relays, replies from relays,
-
-        let mut missing_ancestors: Vec<Id> = Vec::new();
-
-        let mut relays: Vec<RelayUrl> = Vec::new();
-
-        // Include the relays where the referenced_by event was seen. These are
-        // likely to have the events.
-        //
-        // We do this even if they are not spam safe. The minions will use more restrictive
-        // filters if they are not spam safe.
-        relays.extend(
-            GLOBALS
-                .storage
-                .get_event_seen_on_relay(referenced_by)?
-                .drain(..)
-                .take(num_relays_per_person as usize + 1)
-                .map(|(url, _time)| url),
-        );
-        relays.extend(
-            GLOBALS
-                .storage
-                .get_event_seen_on_relay(id)?
-                .drain(..)
-                .take(num_relays_per_person as usize + 1)
-                .map(|(url, _time)| url),
-        );
-
-        // Include the write relays of the author.
-        //
-        // We do this even if they are not spam safe. The minions will use more restrictive
-        // filters if they are not spam safe.
-        if let Some(pk) = author {
-            let author_relays: Vec<RelayUrl> = GLOBALS
-                .storage
-                .get_best_relays(pk, RelayUsage::Outbox)?
-                .drain(..)
-                .take(num_relays_per_person as usize + 1)
-                .map(|pair| pair.0)
-                .collect();
-            relays.extend(author_relays);
-        }
-
-        // Climb the tree as high as we can, and if there are higher events,
-        // we will ask for those in the initial subscription
-        let highest_parent_id =
-            if let Some(hpid) = GLOBALS.storage.get_highest_local_parent_event_id(id)? {
-                hpid
-            } else {
-                // we don't have the event itself!
-                missing_ancestors.push(id);
-                id
-            };
-
-        // Set the thread feed to the highest parent that we have, or to the event itself
-        // even if we don't have it (it might be coming in soon)
-        GLOBALS.feed.set_thread_parent(highest_parent_id);
-
-        // Collect missing ancestors and potential relays further up the chain
-        if let Some(highest_parent) = GLOBALS.storage.read_event(highest_parent_id)? {
-            // Include write relays of all the p-tagged people
-            // One of them must have created the ancestor.
-            // Unfortunately, oftentimes we won't have relays for strangers.
-            for (pk, opthint, _optmarker) in highest_parent.people() {
-                if let Some(url) = opthint {
-                    relays.push(url);
-                } else {
-                    let tagged_person_relays: Vec<RelayUrl> = GLOBALS
+                // Include the relays of the author of the referencing event
+                if let Some(pk) = author {
+                    let author_relays: Vec<RelayUrl> = GLOBALS
                         .storage
                         .get_best_relays(pk, RelayUsage::Outbox)?
                         .drain(..)
                         .take(num_relays_per_person as usize + 1)
                         .map(|pair| pair.0)
                         .collect();
-                    relays.extend(tagged_person_relays);
+                    bonus_relays.extend(author_relays);
                 }
             }
 
-            // Use relay hints in 'e' tags
-            for eref in highest_parent.referred_events() {
-                match eref {
-                    EventReference::Id {
-                        id,
-                        author: _,
-                        relays: tagrelays,
-                        marker: _,
-                    } => {
-                        missing_ancestors.push(id);
-                        relays.extend(tagrelays);
-                    }
-                    EventReference::Addr(_ea) => {
-                        // FIXME - we should subscribe to these too
+            // Clean up bonus_relays
+            bonus_relays.sort();
+            bonus_relays.dedup();
+
+            match higher_still {
+                Some(EventReference::Addr(ea)) => GLOBALS.seeker.seek_event_addr(ea),
+                Some(EventReference::Id {
+                    id,
+                    author,
+                    mut relays,
+                    ..
+                }) => {
+                    if !relays.is_empty() {
+                        relays.extend(bonus_relays);
+                        relays.sort();
+                        relays.dedup();
+                        GLOBALS.seeker.seek_id_and_relays(id, relays);
+                    } else if let Some(auth) = author {
+                        GLOBALS.seeker.seek_id_and_author(id, auth, bonus_relays)?;
+                    } else {
+                        GLOBALS.seeker.seek_id(id, bonus_relays)?;
                     }
                 }
+                None => {}
             }
         }
 
-        missing_ancestors.sort();
-        missing_ancestors.dedup();
-
-        // Subscribe on relays
-        if relays.is_empty() {
-            GLOBALS
-                .status_queue
-                .write()
-                .write("Could not find any relays for that event".to_owned());
-            return Ok(());
-        } else {
-            // Clean up relays
-            relays.sort();
-            relays.dedup();
-
+        // Search for replies
+        {
             // Cancel current thread subscriptions, if any
             let _ = self.to_minions.send(ToMinionMessage {
                 target: "all".to_string(),
@@ -2791,28 +2781,66 @@ impl Overlord {
                 },
             });
 
-            for url in relays.iter() {
-                let mut jobs: Vec<RelayJob> = vec![];
+            // Let's collect relays where replies might show up
+            let mut bonus_relays: Vec<RelayUrl> = Vec::new();
 
-                // Subscribe ancestors
-                for ancestor_id in missing_ancestors.drain(..) {
-                    jobs.push(RelayJob {
-                        reason: RelayConnectionReason::ReadThread,
-                        payload: ToMinionPayload {
-                            job_id: rand::random::<u64>(),
-                            detail: ToMinionPayloadDetail::FetchEvent(ancestor_id),
-                        },
-                    });
+            if let Some(event) = GLOBALS.storage.read_event(id)? {
+                // Include all the INBOX relays of the author of the event
+                bonus_relays.extend(
+                    GLOBALS
+                        .storage
+                        .get_best_relays(event.pubkey, RelayUsage::Inbox)?
+                        .drain(..)
+                        .map(|pair| pair.0),
+                );
+
+                // Include all the relays where the event was seen
+                bonus_relays.extend(
+                    GLOBALS
+                        .storage
+                        .get_event_seen_on_relay(id)?
+                        .drain(..)
+                        .map(|(url, _time)| url),
+                );
+            } else {
+                // We don't have the event itself yet.
+
+                // Include the relays where the referencing event was seen.
+                bonus_relays.extend(
+                    GLOBALS
+                        .storage
+                        .get_event_seen_on_relay(referenced_by)?
+                        .drain(..)
+                        .take(num_relays_per_person as usize + 1)
+                        .map(|(url, _time)| url),
+                );
+
+                // Include the inbox relays of the author of the referencing event
+                if let Some(pk) = author {
+                    let author_relays: Vec<RelayUrl> = GLOBALS
+                        .storage
+                        .get_best_relays(pk, RelayUsage::Inbox)?
+                        .drain(..)
+                        .take(num_relays_per_person as usize + 1)
+                        .map(|pair| pair.0)
+                        .collect();
+                    bonus_relays.extend(author_relays);
                 }
+            }
 
+            // Clean up bonus_relays
+            bonus_relays.sort();
+            bonus_relays.dedup();
+
+            for url in bonus_relays.iter() {
                 // Subscribe replies
-                jobs.push(RelayJob {
+                let jobs: Vec<RelayJob> = vec![RelayJob {
                     reason: RelayConnectionReason::ReadThread,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
                         detail: ToMinionPayloadDetail::SubscribeReplies(id.into()),
                     },
-                });
+                }];
 
                 self.engage_minion(url.to_owned(), jobs).await?;
             }
