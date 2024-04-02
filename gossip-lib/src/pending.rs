@@ -237,7 +237,7 @@ impl Pending {
         } else {
             self.remove(&PendingItem::RelayListNeverAdvertised); // remove if present
 
-            let stored_relay_list = GLOBALS.storage.load_relay_list()?;
+            let stored_relay_list = GLOBALS.storage.load_advertised_relay_list()?;
             let event_relay_list = RelayList::from_event(&relay_lists[0]);
 
             if stored_relay_list != event_relay_list {

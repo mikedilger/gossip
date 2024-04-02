@@ -1142,8 +1142,8 @@ impl Storage {
         self.filter_relays2(f)
     }
 
-    /// Load relay list
-    pub fn load_relay_list(&self) -> Result<RelayList, Error> {
+    /// Load effective relay list
+    pub fn load_effective_relay_list(&self) -> Result<RelayList, Error> {
         let mut relay_list: RelayList = Default::default();
 
         for relay in self.filter_relays(|_| true)? {
@@ -1152,6 +1152,23 @@ impl Storage {
             } else if relay.has_usage_bits(Relay::WRITE) {
                 relay_list.0.insert(relay.url, RelayUsage::Outbox);
             } else if relay.has_usage_bits(Relay::READ) {
+                relay_list.0.insert(relay.url, RelayUsage::Inbox);
+            }
+        }
+
+        Ok(relay_list)
+    }
+
+    /// Load advertised relay list
+    pub fn load_advertised_relay_list(&self) -> Result<RelayList, Error> {
+        let mut relay_list: RelayList = Default::default();
+
+        for relay in self.filter_relays(|_| true)? {
+            if relay.has_usage_bits(Relay::INBOX | Relay::OUTBOX) {
+                relay_list.0.insert(relay.url, RelayUsage::Both);
+            } else if relay.has_usage_bits(Relay::OUTBOX) {
+                relay_list.0.insert(relay.url, RelayUsage::Outbox);
+            } else if relay.has_usage_bits(Relay::INBOX) {
                 relay_list.0.insert(relay.url, RelayUsage::Inbox);
             }
         }
