@@ -9,6 +9,7 @@ use nostr_types::{
     RelayUsage, Tag, UncheckedUrl, Unixtime, Url,
 };
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::Ordering;
 use std::time::Duration;
@@ -1016,18 +1017,19 @@ pub fn hash_person_list_event(list: PersonList) -> Result<u64, Error> {
             .get_replaceable_event(list.event_kind(), my_pubkey, &metadata.dtag)?;
 
     if let Some(event) = maybe_event {
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
 
-        // Hash public entries
+        // Collect the data in an ordered map
+        let mut map: BTreeMap<PublicKey, bool> = BTreeMap::new();
+
+        // Collect public entries
         for tag in &event.tags {
             if let Ok((pubkey, _, _)) = tag.parse_pubkey() {
                 let public = !metadata.private;
-                pubkey.hash(&mut hasher);
-                public.hash(&mut hasher);
+                map.insert(pubkey, public);
             }
         }
 
-        // Hash private entries
+        // Collect private entries
         if list != PersonList::Followed && !event.content.is_empty() {
             if GLOBALS.identity.is_unlocked() {
                 let decrypted_content =
@@ -1035,14 +1037,19 @@ pub fn hash_person_list_event(list: PersonList) -> Result<u64, Error> {
                 let tags: Vec<Tag> = serde_json::from_slice(&decrypted_content)?;
                 for tag in &tags {
                     if let Ok((pubkey, _, _)) = tag.parse_pubkey() {
-                        let public = false;
-                        pubkey.hash(&mut hasher);
-                        public.hash(&mut hasher);
+                        map.insert(pubkey, false);
                     }
                 }
             } else {
                 return Err(ErrorKind::NoPrivateKey.into());
             }
+        }
+
+        // Hash
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        for (person, private) in map.iter() {
+            person.hash(&mut hasher);
+            private.hash(&mut hasher);
         }
 
         Ok(hasher.finish())

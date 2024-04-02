@@ -5,7 +5,7 @@ use heed::types::UnalignedSlice;
 use heed::RwTxn;
 use nostr_types::PublicKey;
 use speedy::{Readable, Writable};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::hash::{Hash, Hasher};
 use std::sync::Mutex;
 
@@ -163,7 +163,9 @@ impl Storage {
 
     pub(crate) fn hash_person_list2(&self, list: PersonList1) -> Result<u64, Error> {
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        for (person, private) in self.get_people_in_list2(list)? {
+        let mut vec = self.get_people_in_list2(list)?;
+        let map: BTreeMap<PublicKey, bool> = vec.drain(..).collect();
+        for (person, private) in map.iter() {
             person.hash(&mut hasher);
             private.hash(&mut hasher);
         }
