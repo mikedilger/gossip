@@ -75,6 +75,8 @@ impl People {
 
     // Start the periodic task management
     pub(crate) fn start() {
+        tracing::info!("People manager startup");
+
         task::spawn(async {
             let mut read_runstate = GLOBALS.read_runstate.clone();
             read_runstate.mark_unchanged();

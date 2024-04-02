@@ -75,6 +75,8 @@ impl Fetcher {
     }
 
     pub(crate) fn start() {
+        tracing::info!("Fetcher startup");
+
         // Initialize if not already
         if GLOBALS.fetcher.client.read().unwrap().is_none() {
             if let Err(e) = Self::init() {

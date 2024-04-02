@@ -80,6 +80,8 @@ impl Pending {
 
 #[allow(dead_code)]
 pub fn start() {
+    tracing::info!("Pending checker startup");
+
     task::spawn(async {
         let mut read_runstate = GLOBALS.read_runstate.clone();
         read_runstate.mark_unchanged();

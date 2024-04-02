@@ -178,6 +178,8 @@ impl Seeker {
     }
 
     pub(crate) fn start() {
+        tracing::info!("Seeker startup");
+
         // Setup periodic queue management
         tokio::task::spawn(async move {
             let mut read_runstate = GLOBALS.read_runstate.clone();
