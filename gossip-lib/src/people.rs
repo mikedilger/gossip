@@ -1017,7 +1017,6 @@ pub fn hash_person_list_event(list: PersonList) -> Result<u64, Error> {
             .get_replaceable_event(list.event_kind(), my_pubkey, &metadata.dtag)?;
 
     if let Some(event) = maybe_event {
-
         // Collect the data in an ordered map
         let mut map: BTreeMap<PublicKey, bool> = BTreeMap::new();
 

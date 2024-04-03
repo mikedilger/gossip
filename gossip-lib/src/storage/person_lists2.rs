@@ -166,6 +166,11 @@ impl Storage {
         let mut vec = self.get_people_in_list2(list)?;
         let map: BTreeMap<PublicKey, bool> = vec.drain(..).collect();
         for (person, private) in map.iter() {
+            if list == PersonList1::Followed && *private == true {
+                // Follow list events cannot handle private entries.
+                // To make hashes comparable, we skip private entries
+                continue;
+            }
             person.hash(&mut hasher);
             private.hash(&mut hasher);
         }
