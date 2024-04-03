@@ -96,7 +96,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                     recompute_btn(ui);
 
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.add_space(10.0);
+                        ui.add_space(16.0);
 
                         if ui.button("Edit List").clicked() {
                             app.set_page(ctx, Page::PeopleList(list));
@@ -148,7 +148,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                     recompute_btn(ui);
 
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.add_space(10.0);
+                        ui.add_space(16.0);
                         ui.label(RichText::new("Everything").size(11.0));
                         let size = ui.spacing().interact_size.y * egui::vec2(1.6, 0.8);
                         if widgets::switch_with_size(ui, &mut app.inbox_include_indirect, size)
@@ -253,9 +253,16 @@ fn render_a_feed(
     };
 
     app.vert_scroll_area()
+        .auto_shrink(false)
         .id_source(scroll_area_id)
         .show(ui, |ui| {
             egui::Frame::none()
+                .outer_margin(egui::Margin {
+                    left: 0.0,
+                    right: 14.0,
+                    top: 0.0,
+                    bottom: 0.0,
+                })
                 .rounding(app.theme.feed_scroll_rounding(&feed_properties))
                 .fill(app.theme.feed_scroll_fill(&feed_properties))
                 .stroke(app.theme.feed_scroll_stroke(&feed_properties))
