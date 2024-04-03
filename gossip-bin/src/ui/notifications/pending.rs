@@ -32,11 +32,10 @@ impl<'a> Notification<'a> for Pending {
     }
 
     fn matches_filter(&self, filter: &NotificationFilter) -> bool {
-        match filter {
-            NotificationFilter::All => true,
-            NotificationFilter::PendingItem => true,
-            _ => false,
-        }
+        matches!(
+            filter,
+            NotificationFilter::All | NotificationFilter::PendingItem
+        )
     }
 
     fn item(&'a self) -> &'a PendingItem {

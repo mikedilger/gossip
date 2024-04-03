@@ -49,11 +49,10 @@ impl<'a> Notification<'a> for ConnRequest {
     }
 
     fn matches_filter(&self, filter: &NotificationFilter) -> bool {
-        match filter {
-            NotificationFilter::All => true,
-            NotificationFilter::RelayConnectionRequest => true,
-            _ => false,
-        }
+        matches!(
+            filter,
+            NotificationFilter::All | NotificationFilter::RelayConnectionRequest
+        )
     }
 
     fn item(&'a self) -> &'a PendingItem {

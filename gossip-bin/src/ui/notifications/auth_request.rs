@@ -23,7 +23,7 @@ impl AuthRequest {
         match &item {
             PendingItem::RelayAuthenticationRequest { account, relay } => {
                 Rc::new(RefCell::new(Self {
-                    account: account.clone(),
+                    account: *account,
                     relay: relay.clone(),
                     timestamp,
                     item,
@@ -48,11 +48,10 @@ impl<'a> Notification<'a> for AuthRequest {
     }
 
     fn matches_filter(&self, filter: &NotificationFilter) -> bool {
-        match filter {
-            NotificationFilter::All => true,
-            NotificationFilter::RelayAuthenticationRequest => true,
-            _ => false,
-        }
+        matches!(
+            filter,
+            NotificationFilter::All | NotificationFilter::RelayAuthenticationRequest
+        )
     }
 
     fn item(&'a self) -> &'a PendingItem {

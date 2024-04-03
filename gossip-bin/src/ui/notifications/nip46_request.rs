@@ -31,7 +31,7 @@ impl Nip46Request {
                 command,
             } => Rc::new(RefCell::new(Self {
                 client_name: client_name.clone(),
-                account: account.clone(),
+                account: *account,
                 command: command.clone(),
                 item,
                 timestamp,
@@ -55,11 +55,10 @@ impl<'a> Notification<'a> for Nip46Request {
     }
 
     fn matches_filter(&self, filter: &NotificationFilter) -> bool {
-        match filter {
-            NotificationFilter::All => true,
-            NotificationFilter::Nip46Request => true,
-            _ => false,
-        }
+        matches!(
+            filter,
+            NotificationFilter::All | NotificationFilter::Nip46Request
+        )
     }
 
     fn item(&'a self) -> &'a PendingItem {
@@ -90,7 +89,7 @@ impl<'a> Notification<'a> for Nip46Request {
                     if ui.button("Decline").clicked() {
                         let _ = GLOBALS.to_overlord.send(
                             ToOverlordMessage::Nip46ServerOpApprovalResponse(
-                                self.account.clone(),
+                                self.account,
                                 self.command.clone(),
                                 Approval::None,
                             ),
@@ -103,7 +102,7 @@ impl<'a> Notification<'a> for Nip46Request {
                     if ui.button("Approve Once").clicked() {
                         let _ = GLOBALS.to_overlord.send(
                             ToOverlordMessage::Nip46ServerOpApprovalResponse(
-                                self.account.clone(),
+                                self.account,
                                 self.command.clone(),
                                 Approval::Once,
                             ),
@@ -116,7 +115,7 @@ impl<'a> Notification<'a> for Nip46Request {
                     if ui.button("Approve Always").clicked() {
                         let _ = GLOBALS.to_overlord.send(
                             ToOverlordMessage::Nip46ServerOpApprovalResponse(
-                                self.account.clone(),
+                                self.account,
                                 self.command.clone(),
                                 Approval::Always,
                             ),

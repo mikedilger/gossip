@@ -97,8 +97,8 @@ pub(super) fn calc(app: &mut GossipUi) {
 
                     // find old entry if any and copy setting
                     for entry in app.notification_data.active.iter() {
-                        match entry.try_borrow() {
-                            Ok(entry) => match entry.item() {
+                        if let Ok(entry) = entry.try_borrow() {
+                            match entry.item() {
                                 PendingItem::RelayConnectionRequest {
                                     relay: old_relay,
                                     jobs: _,
@@ -106,8 +106,7 @@ pub(super) fn calc(app: &mut GossipUi) {
                                     new_entry.borrow_mut().set_remember(entry.get_remember());
                                 }
                                 _ => {}
-                            },
-                            Err(_) => {}
+                            }
                         }
                     }
 
@@ -119,8 +118,8 @@ pub(super) fn calc(app: &mut GossipUi) {
 
                     // find old entry if any and copy setting
                     for entry in app.notification_data.active.iter() {
-                        match entry.try_borrow() {
-                            Ok(entry) => match entry.item() {
+                        if let Ok(entry) = entry.try_borrow() {
+                            match entry.item() {
                                 PendingItem::RelayAuthenticationRequest {
                                     account: old_account,
                                     relay: old_relay,
@@ -128,8 +127,7 @@ pub(super) fn calc(app: &mut GossipUi) {
                                     new_entry.borrow_mut().set_remember(entry.get_remember());
                                 }
                                 _ => {}
-                            },
-                            Err(_) => {}
+                            }
                         }
                     }
 
