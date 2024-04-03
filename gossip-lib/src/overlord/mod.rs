@@ -66,7 +66,7 @@ impl Overlord {
     /// pass one half of the unbounded_channel to the overlord. You will have to steal this
     /// from GLOBALS as follows:
     ///
-    /// ```
+    /// ```no_run
     /// # use std::ops::DerefMut;
     /// # #[tokio::main]
     /// # async fn main() {
@@ -84,7 +84,7 @@ impl Overlord {
     /// You may use other `tokio` or `futures` combinators, or spawn it on it's own thread
     /// if you wish.
     ///
-    /// ```
+    /// ```no_run
     /// # use std::ops::DerefMut;
     /// # #[tokio::main]
     /// # async fn main() {
