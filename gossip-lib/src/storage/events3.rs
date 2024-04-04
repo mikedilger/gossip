@@ -69,8 +69,9 @@ impl Storage {
                 eventptr.kind,
                 eventptr.created_at,
                 eventptr.id,
-                Some(txn)
+                Some(txn),
             )?;
+            self.write_event_kci_index(eventptr.kind, eventptr.created_at, eventptr.id, Some(txn))?;
             self.write_event_ek_pk_index(eventptr.id, eventptr.kind, eventptr.pubkey, Some(txn))?;
             self.write_event_ek_c_index(
                 eventptr.id,

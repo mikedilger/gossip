@@ -18,6 +18,8 @@ pub mod types;
 // database implementations
 mod event_akci_index;
 use event_akci_index::AkciKey;
+mod event_kci_index;
+use event_kci_index::KciKey;
 
 mod event_ek_c_index1;
 mod event_ek_pk_index1;
@@ -67,6 +69,7 @@ use speedy::{Readable, Writable};
 use std::collections::{HashMap, HashSet};
 use std::ops::Bound;
 
+use self::event_kci_index::INDEXED_KINDS;
 use self::event_tag_index1::INDEXED_TAGS;
 
 // Macro to define read-and-write into "general" database, largely for settings
@@ -237,6 +240,7 @@ impl Storage {
         // old-version databases will be handled by their migration code and only
         // triggered into existence if their migration is necessary.
         let _ = self.db_event_akci_index()?;
+        let _ = self.db_event_kci_index()?;
         let _ = self.db_event_ek_c_index()?;
         let _ = self.db_event_ek_pk_index()?;
         let _ = self.db_event_tag_index()?;
@@ -406,6 +410,12 @@ impl Storage {
     pub fn get_event_akci_index_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
         Ok(self.db_event_akci_index()?.len(&txn)?)
+    }
+
+    /// The number of records in the event_kci_index table
+    pub fn get_event_kci_index_len(&self) -> Result<u64, Error> {
+        let txn = self.env.read_txn()?;
+        Ok(self.db_event_kci_index()?.len(&txn)?)
     }
 
     /// The number of records in the event_ek_pk_index table
@@ -1388,6 +1398,7 @@ impl Storage {
             //   db_relationships(), where the ID is the 2nd half of the key
             //   db_reprel()
             //   db_event_akci_index()
+            //   db_event_kci_index()
             //   db_event_ek_pk_index()
             //   db_event_ek_c_index()
 
@@ -1708,14 +1719,41 @@ impl Storage {
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let key = AkciKey::from_parts(
-                pubkey,
-                kind,
-                created_at,
-                id
-            );
+            let key = AkciKey::from_parts(pubkey, kind, created_at, id);
 
             self.db_event_akci_index()?.put(txn, key.as_slice(), &())?;
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
+    }
+
+    // We don't call this externally. Whenever we write an event, we do this
+    fn write_event_kci_index<'a>(
+        &'a self,
+        kind: EventKind,
+        created_at: Unixtime,
+        id: Id,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        // Only index if it is of an indexable kind
+        if !INDEXED_KINDS.contains(&kind) {
+            return Ok(());
+        }
+
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            let key = KciKey::from_parts(kind, created_at, id);
+
+            self.db_event_kci_index()?.put(txn, key.as_slice(), &())?;
             Ok(())
         };
 
@@ -2408,7 +2446,13 @@ impl Storage {
                     eventptr.kind,
                     eventptr.created_at,
                     eventptr.id,
-                    Some(txn)
+                    Some(txn),
+                )?;
+                self.write_event_kci_index(
+                    eventptr.kind,
+                    eventptr.created_at,
+                    eventptr.id,
+                    Some(txn),
                 )?;
                 self.write_event_ek_pk_index(
                     eventptr.id,
