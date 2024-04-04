@@ -16,6 +16,9 @@ mod migrations;
 pub mod types;
 
 // database implementations
+mod event_akci_index;
+use event_akci_index::AkciKey;
+
 mod event_ek_c_index1;
 mod event_ek_pk_index1;
 mod event_seen_on_relay1;
@@ -53,7 +56,7 @@ use crate::person_relay::PersonRelay;
 use crate::profile::Profile;
 use crate::relationship::{RelationshipByAddr, RelationshipById};
 use crate::relay::Relay;
-use heed::types::UnalignedSlice;
+use heed::types::{UnalignedSlice, Unit};
 use heed::{Database, Env, EnvFlags, EnvOpenOptions, RwTxn};
 use nostr_types::{
     EncryptedPrivateKey, Event, EventAddr, EventKind, EventReference, Id, MilliSatoshi, PublicKey,
@@ -173,6 +176,7 @@ macro_rules! def_flag {
 }
 
 type RawDatabase = Database<UnalignedSlice<u8>, UnalignedSlice<u8>>;
+type EmptyDatabase = Database<UnalignedSlice<u8>, Unit>;
 
 /// The LMDB storage engine.
 ///
@@ -232,6 +236,7 @@ impl Storage {
         //
         // old-version databases will be handled by their migration code and only
         // triggered into existence if their migration is necessary.
+        let _ = self.db_event_akci_index()?;
         let _ = self.db_event_ek_c_index()?;
         let _ = self.db_event_ek_pk_index()?;
         let _ = self.db_event_tag_index()?;
@@ -395,6 +400,12 @@ impl Storage {
     pub fn get_event_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
         Ok(self.db_events()?.len(&txn)?)
+    }
+
+    /// The number of records in the event_akci_index table
+    pub fn get_event_akci_index_len(&self) -> Result<u64, Error> {
+        let txn = self.env.read_txn()?;
+        Ok(self.db_event_akci_index()?.len(&txn)?)
     }
 
     /// The number of records in the event_ek_pk_index table
@@ -1376,6 +1387,7 @@ impl Storage {
             //   db_event_hashtags()
             //   db_relationships(), where the ID is the 2nd half of the key
             //   db_reprel()
+            //   db_event_akci_index()
             //   db_event_ek_pk_index()
             //   db_event_ek_c_index()
 
@@ -1684,6 +1696,39 @@ impl Storage {
         txn: &mut RwTxn<'a>,
     ) -> Result<Option<Event>, Error> {
         self.switch_to_rumor3(event, txn)
+    }
+
+    // We don't call this externally. Whenever we write an event, we do this
+    fn write_event_akci_index<'a>(
+        &'a self,
+        pubkey: PublicKey,
+        kind: EventKind,
+        created_at: Unixtime,
+        id: Id,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            let key = AkciKey::from_parts(
+                pubkey,
+                kind,
+                created_at,
+                id
+            );
+
+            self.db_event_akci_index()?.put(txn, key.as_slice(), &())?;
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
     }
 
     // We don't call this externally. Whenever we write an event, we do this.
@@ -2358,6 +2403,13 @@ impl Storage {
                     eventptr = &rumor;
                 }
 
+                self.write_event_akci_index(
+                    eventptr.pubkey,
+                    eventptr.kind,
+                    eventptr.created_at,
+                    eventptr.id,
+                    Some(txn)
+                )?;
                 self.write_event_ek_pk_index(
                     eventptr.id,
                     eventptr.kind,

@@ -17,6 +17,7 @@ pub enum ErrorKind {
     GroupDmsNotYetSupported,
     HttpError(http::Error),
     JoinError(tokio::task::JoinError),
+    KeySizeWrong,
     Lmdb(heed::Error),
     MaxRelaysReached,
     MpscSend(tokio::sync::mpsc::error::SendError<ToOverlordMessage>),
@@ -104,6 +105,7 @@ impl std::fmt::Display for Error {
             General(s) => write!(f, "{s}"),
             HttpError(e) => write!(f, "HTTP error: {e}"),
             JoinError(e) => write!(f, "Task join error: {e}"),
+            KeySizeWrong => write!(f, "Key size is wrong"),
             Lmdb(e) => write!(f, "LMDB: {e}"),
             MaxRelaysReached => write!(
                 f,
