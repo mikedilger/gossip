@@ -179,7 +179,9 @@ impl Storage {
             let ek: u32 = (*kind).into();
             if pubkeys.is_empty() {
                 let start_key = ek.to_be_bytes().as_slice().to_owned();
-                let iter = self.db_event_ek_pk_index1()?.prefix_iter(&txn, &start_key)?;
+                let iter = self
+                    .db_event_ek_pk_index1()?
+                    .prefix_iter(&txn, &start_key)?;
                 for result in iter {
                     let (_key, val) = result?;
                     // Take the event
@@ -190,7 +192,9 @@ impl Storage {
                 for pubkey in pubkeys {
                     let mut start_key = ek.to_be_bytes().as_slice().to_owned();
                     start_key.extend(pubkey.as_bytes());
-                    let iter = self.db_event_ek_pk_index1()?.prefix_iter(&txn, &start_key)?;
+                    let iter = self
+                        .db_event_ek_pk_index1()?
+                        .prefix_iter(&txn, &start_key)?;
                     for result in iter {
                         let (_key, val) = result?;
                         // Take the event
@@ -205,7 +209,11 @@ impl Storage {
     }
 
     /// Find events of given kinds and after the given time.
-    fn m20_find_ek_c_events(&self, kinds: &[EventKind], since: Unixtime) -> Result<HashSet<Id>, Error> {
+    fn m20_find_ek_c_events(
+        &self,
+        kinds: &[EventKind],
+        since: Unixtime,
+    ) -> Result<HashSet<Id>, Error> {
         if kinds.is_empty() {
             return Err(ErrorKind::General(
                 "find_ek_c_events() requires some event kinds to be specified.".to_string(),
