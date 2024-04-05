@@ -1464,7 +1464,14 @@ impl Storage {
             .cloned())
     }
 
-    /// Find event ids by filter.
+    /// Find events by filter.
+    ///
+    /// This function may inefficiently scrape all of storage for some filters.
+    /// To avoid an inefficent scrape, do one of these
+    ///
+    /// 1. Supply some ids
+    /// 2. Supply some authors and some kinds, or
+    /// 3. Supply some kinds, all of which are INDEXED_KINDS,
     ///
     /// The output will be sorted in reverse time order.
     pub fn find_events_by_filter<F>(&self, filter: &Filter, screen: F) -> Result<Vec<Event>, Error>
