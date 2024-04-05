@@ -24,8 +24,8 @@ use http::StatusCode;
 use minion::{Minion, MinionExitReason};
 use nostr_types::{
     ContentEncryptionAlgorithm, EncryptedPrivateKey, Event, EventAddr, EventKind, EventReference,
-    Id, IdHex, Metadata, MilliSatoshi, NostrBech32, PayRequestData, PreEvent, PrivateKey, Profile,
-    PublicKey, RelayUrl, RelayUsage, Tag, UncheckedUrl, Unixtime,
+    Filter, Id, IdHex, Metadata, MilliSatoshi, NostrBech32, PayRequestData, PreEvent, PrivateKey,
+    Profile, PublicKey, RelayUrl, RelayUsage, Tag, UncheckedUrl, Unixtime,
 };
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
@@ -1135,14 +1135,14 @@ impl Overlord {
             }
         };
 
+        let mut filter = Filter::new();
+        filter.add_event_kind(EventKind::FollowSets);
+        filter.add_author(&public_key.into());
+
         // Find all local-storage events that define the list
-        let bad_events = GLOBALS.storage.find_events(
-            &[EventKind::FollowSets],
-            &[public_key],
-            None,
-            |event| event.parameter().as_ref() == Some(&metadata.dtag),
-            false,
-        )?;
+        let bad_events = GLOBALS.storage.find_events_by_filter(&filter, |event| {
+            event.parameter().as_ref() == Some(&metadata.dtag)
+        })?;
 
         // If no list events, we are done
         if bad_events.is_empty() {
@@ -2472,24 +2472,22 @@ impl Overlord {
         if let Some(nb32) = NostrBech32::try_from_string(&text) {
             match nb32 {
                 NostrBech32::EventAddr(ea) => {
+                    let mut filter = Filter::new();
+                    filter.add_event_kind(ea.kind);
+                    filter.add_author(&ea.author.into());
+
                     if let Some(event) = GLOBALS
                         .storage
-                        .find_events(
-                            &[ea.kind],
-                            &[ea.author],
-                            None,
-                            |event| {
-                                event.tags.iter().any(|tag| {
-                                    if let Ok(d) = tag.parse_identifier() {
-                                        if d == ea.d {
-                                            return true;
-                                        }
+                        .find_events_by_filter(&filter, |event| {
+                            event.tags.iter().any(|tag| {
+                                if let Ok(d) = tag.parse_identifier() {
+                                    if d == ea.d {
+                                        return true;
                                     }
-                                    false
-                                })
-                            },
-                            true,
-                        )?
+                                }
+                                false
+                            })
+                        })?
                         .first()
                     {
                         note_search_results.push(event.clone());

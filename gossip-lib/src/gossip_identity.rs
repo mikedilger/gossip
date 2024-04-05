@@ -2,8 +2,8 @@ use crate::error::Error;
 use crate::globals::GLOBALS;
 use nostr_types::{
     ContentEncryptionAlgorithm, DelegationConditions, EncryptedPrivateKey, Event, EventKind,
-    EventV1, EventV2, Id, Identity, KeySecurity, Metadata, PreEvent, PrivateKey, PublicKey, Rumor,
-    RumorV1, RumorV2, Signature,
+    EventV1, EventV2, Filter, Id, Identity, KeySecurity, Metadata, PreEvent, PrivateKey, PublicKey,
+    Rumor, RumorV1, RumorV2, Signature,
 };
 use parking_lot::RwLock;
 use std::sync::mpsc::Sender;
@@ -64,16 +64,13 @@ impl GossipIdentity {
 
     // Any function that unlocks the private key should run this
     fn on_unlock(&self) -> Result<(), Error> {
+        let mut filter = Filter::new();
+        filter.kinds = vec![EventKind::EncryptedDirectMessage, EventKind::GiftWrap];
+
         // Invalidate DMs so they rerender decrypted
         let dms: Vec<Id> = GLOBALS
             .storage
-            .find_events(
-                &[EventKind::EncryptedDirectMessage, EventKind::GiftWrap],
-                &[],
-                None,
-                |_| true,
-                false,
-            )?
+            .find_events_by_filter(&filter, |_| true)?
             .iter()
             .map(|e| e.id)
             .collect();

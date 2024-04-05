@@ -80,12 +80,12 @@ impl Storage {
         let mut key: Vec<u8> = ek.to_be_bytes().as_slice().to_owned(); // event kind
         key.extend(event.pubkey.as_bytes()); // pubkey
         let bytes = event.id.as_slice();
-        self.db_event_ek_pk_index()?.put(txn, &key, bytes)?;
+        self.db_event_ek_pk_index1()?.put(txn, &key, bytes)?;
 
         let mut key: Vec<u8> = ek.to_be_bytes().as_slice().to_owned(); // event kind
         key.extend((i64::MAX - event.created_at.0).to_be_bytes().as_slice()); // reverse created_at
         let bytes = event.id.as_slice();
-        self.db_event_ek_c_index()?.put(txn, &key, bytes)?;
+        self.db_event_ek_c_index1()?.put(txn, &key, bytes)?;
 
         Ok(())
     }

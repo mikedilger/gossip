@@ -16,6 +16,11 @@ mod migrations;
 pub mod types;
 
 // database implementations
+mod event_akci_index;
+use event_akci_index::AkciKey;
+mod event_kci_index;
+use event_kci_index::KciKey;
+
 mod event_ek_c_index1;
 mod event_ek_pk_index1;
 mod event_seen_on_relay1;
@@ -53,17 +58,18 @@ use crate::person_relay::PersonRelay;
 use crate::profile::Profile;
 use crate::relationship::{RelationshipByAddr, RelationshipById};
 use crate::relay::Relay;
-use heed::types::UnalignedSlice;
+use heed::types::{UnalignedSlice, Unit};
 use heed::{Database, Env, EnvFlags, EnvOpenOptions, RwTxn};
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventAddr, EventKind, EventReference, Id, MilliSatoshi, PublicKey,
-    RelayList, RelayUrl, RelayUsage, Unixtime,
+    EncryptedPrivateKey, Event, EventAddr, EventKind, EventReference, Filter, Id, MilliSatoshi,
+    PublicKey, PublicKeyHex, RelayList, RelayUrl, RelayUsage, Unixtime,
 };
 use paste::paste;
 use speedy::{Readable, Writable};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::ops::Bound;
 
+use self::event_kci_index::INDEXED_KINDS;
 use self::event_tag_index1::INDEXED_TAGS;
 
 // Macro to define read-and-write into "general" database, largely for settings
@@ -173,6 +179,7 @@ macro_rules! def_flag {
 }
 
 type RawDatabase = Database<UnalignedSlice<u8>, UnalignedSlice<u8>>;
+type EmptyDatabase = Database<UnalignedSlice<u8>, Unit>;
 
 /// The LMDB storage engine.
 ///
@@ -232,8 +239,8 @@ impl Storage {
         //
         // old-version databases will be handled by their migration code and only
         // triggered into existence if their migration is necessary.
-        let _ = self.db_event_ek_c_index()?;
-        let _ = self.db_event_ek_pk_index()?;
+        let _ = self.db_event_akci_index()?;
+        let _ = self.db_event_kci_index()?;
         let _ = self.db_event_tag_index()?;
         let _ = self.db_events()?;
         let _ = self.db_event_seen_on_relay()?;
@@ -272,16 +279,6 @@ impl Storage {
     }
 
     // Database getters ---------------------------------
-
-    #[inline]
-    pub(crate) fn db_event_ek_c_index(&self) -> Result<RawDatabase, Error> {
-        self.db_event_ek_c_index1()
-    }
-
-    #[inline]
-    pub(crate) fn db_event_ek_pk_index(&self) -> Result<RawDatabase, Error> {
-        self.db_event_ek_pk_index1()
-    }
 
     #[inline]
     pub(crate) fn db_event_tag_index(&self) -> Result<RawDatabase, Error> {
@@ -397,16 +394,16 @@ impl Storage {
         Ok(self.db_events()?.len(&txn)?)
     }
 
-    /// The number of records in the event_ek_pk_index table
-    pub fn get_event_ek_pk_index_len(&self) -> Result<u64, Error> {
+    /// The number of records in the event_akci_index table
+    pub fn get_event_akci_index_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
-        Ok(self.db_event_ek_pk_index()?.len(&txn)?)
+        Ok(self.db_event_akci_index()?.len(&txn)?)
     }
 
-    /// The number of records in the event_ek_c_index table
-    pub fn get_event_ek_c_index_len(&self) -> Result<u64, Error> {
+    /// The number of records in the event_kci_index table
+    pub fn get_event_kci_index_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
-        Ok(self.db_event_ek_c_index()?.len(&txn)?)
+        Ok(self.db_event_kci_index()?.len(&txn)?)
     }
 
     /// The number of records in the event_tag index table
@@ -1376,8 +1373,8 @@ impl Storage {
             //   db_event_hashtags()
             //   db_relationships(), where the ID is the 2nd half of the key
             //   db_reprel()
-            //   db_event_ek_pk_index()
-            //   db_event_ek_c_index()
+            //   db_event_akci_index()
+            //   db_event_kci_index()
 
             Ok(())
         };
@@ -1405,19 +1402,16 @@ impl Storage {
             return Err(ErrorKind::General("Event is not replaceable.".to_owned()).into());
         }
 
-        let existing = self.find_events(
-            &[event.kind],
-            &[event.pubkey],
-            None,
-            |e| {
-                if event.kind.is_parameterized_replaceable() {
-                    e.parameter() == event.parameter()
-                } else {
-                    true
-                }
-            },
-            false,
-        )?;
+        let mut filter = Filter::new();
+        filter.add_event_kind(event.kind);
+        filter.add_author(&event.pubkey.into());
+        let existing = self.find_events_by_filter(&filter, |e| {
+            if event.kind.is_parameterized_replaceable() {
+                e.parameter() == event.parameter()
+            } else {
+                true
+            }
+        })?;
 
         let mut found_newer = false;
         for old in existing {
@@ -1454,180 +1448,208 @@ impl Storage {
             return Err(ErrorKind::General("Event kind is not replaceable".to_owned()).into());
         }
 
+        let mut filter = Filter::new();
+        filter.add_event_kind(kind);
+        filter.add_author(&pubkey.into());
+
         Ok(self
-            .find_events(
-                &[kind],
-                &[pubkey],
-                None, // any time
-                |e| {
-                    if kind.is_parameterized_replaceable() {
-                        e.parameter().as_deref() == Some(parameter)
-                    } else {
-                        true
-                    }
-                },
-                true, // sorted in reverse time order
-            )?
+            .find_events_by_filter(&filter, |e| {
+                if kind.is_parameterized_replaceable() {
+                    e.parameter().as_deref() == Some(parameter)
+                } else {
+                    true
+                }
+            })?
             .first()
             .cloned())
     }
 
-    /// Find events of given kinds and pubkeys.
-    /// You must supply kinds. You can skip the pubkeys and then only kinds will matter.
-    fn find_ek_pk_events(
-        &self,
-        kinds: &[EventKind],
-        pubkeys: &[PublicKey],
-    ) -> Result<HashSet<Id>, Error> {
-        if kinds.is_empty() {
-            return Err(ErrorKind::General(
-                "find_ek_pk_events() requires some event kinds to be specified.".to_string(),
-            )
-            .into());
-        }
-
-        let mut ids: HashSet<Id> = HashSet::new();
-        let txn = self.env.read_txn()?;
-
-        for kind in kinds {
-            let ek: u32 = (*kind).into();
-            if pubkeys.is_empty() {
-                let start_key = ek.to_be_bytes().as_slice().to_owned();
-                let iter = self.db_event_ek_pk_index()?.prefix_iter(&txn, &start_key)?;
-                for result in iter {
-                    let (_key, val) = result?;
-                    // Take the event
-                    let id = Id(val[0..32].try_into()?);
-                    ids.insert(id);
-                }
-            } else {
-                for pubkey in pubkeys {
-                    let mut start_key = ek.to_be_bytes().as_slice().to_owned();
-                    start_key.extend(pubkey.as_bytes());
-                    let iter = self.db_event_ek_pk_index()?.prefix_iter(&txn, &start_key)?;
-                    for result in iter {
-                        let (_key, val) = result?;
-                        // Take the event
-                        let id = Id(val[0..32].try_into()?);
-                        ids.insert(id);
-                    }
-                }
-            }
-        }
-
-        Ok(ids)
-    }
-
-    /// Find events of given kinds and after the given time.
-    fn find_ek_c_events(&self, kinds: &[EventKind], since: Unixtime) -> Result<HashSet<Id>, Error> {
-        if kinds.is_empty() {
-            return Err(ErrorKind::General(
-                "find_ek_c_events() requires some event kinds to be specified.".to_string(),
-            )
-            .into());
-        }
-
-        let now = Unixtime::now().unwrap();
-        let mut ids: HashSet<Id> = HashSet::new();
-        let txn = self.env.read_txn()?;
-
-        for kind in kinds {
-            let ek: u32 = (*kind).into();
-            let mut start_key = ek.to_be_bytes().as_slice().to_owned();
-            let mut end_key = start_key.clone();
-            start_key.extend((i64::MAX - now.0).to_be_bytes().as_slice()); // work back from now
-            end_key.extend((i64::MAX - since.0).to_be_bytes().as_slice()); // until since
-            let range = (Bound::Included(&*start_key), Bound::Excluded(&*end_key));
-            let iter = self.db_event_ek_c_index()?.range(&txn, &range)?;
-            for result in iter {
-                let (_key, val) = result?;
-                // Take the event
-                let id = Id(val[0..32].try_into()?);
-                ids.insert(id);
-            }
-        }
-
-        Ok(ids)
-    }
-
-    /// Find events of interest.
+    /// Find event ids by filter.
     ///
-    /// You must specify some event kinds.
-    /// If pubkeys is empty, they won't matter.
-    /// If since is None, it won't matter.
-    ///
-    /// The function f is run after the matching-so-far events have been deserialized
-    /// to finish filtering, and optionally they are sorted in reverse chronological
-    /// order.
-    pub fn find_events<F>(
-        &self,
-        kinds: &[EventKind],
-        pubkeys: &[PublicKey],
-        since: Option<Unixtime>,
-        f: F,
-        sort: bool,
-    ) -> Result<Vec<Event>, Error>
+    /// The output will be sorted in reverse time order.
+    pub fn find_events_by_filter<F>(&self, filter: &Filter, screen: F) -> Result<Vec<Event>, Error>
     where
         F: Fn(&Event) -> bool,
     {
-        let ids = self.find_event_ids(kinds, pubkeys, since)?;
-
-        // Now that we have that Ids, fetch the events
         let txn = self.env.read_txn()?;
-        let mut events: Vec<Event> = Vec::new();
-        for id in ids {
-            // this is like self.read_event(), but we supply our existing transaction
-            if let Some(bytes) = self.db_events()?.get(&txn, id.as_slice())? {
+
+        // We insert into a BTreeSet to keep them time-ordered
+        let mut output: BTreeSet<Event> = BTreeSet::new();
+
+        let mut since = filter.since.unwrap_or(Unixtime(0));
+        let until = filter.until.unwrap_or(Unixtime(i64::MAX));
+        let limit = filter.limit.unwrap_or(usize::MAX);
+
+        if !filter.ids.is_empty() {
+            // Use events table directly, we have specific ids
+
+            for idhex in filter.ids.iter() {
+                let id: Id = idhex.clone().into();
+                if output.len() >= limit {
+                    break;
+                }
+                if let Some(bytes) = self.db_events()?.get(&txn, id.as_slice())? {
+                    let event = Event::read_from_buffer(bytes)?;
+                    if filter.event_matches(&event) && screen(&event) {
+                        output.insert(event);
+                    }
+                }
+            }
+        } else if !filter.authors.is_empty() && !filter.kinds.is_empty() {
+            // akci
+            for pkh in &filter.authors {
+                let author = PublicKey::try_from_hex_string(pkh.as_str(), true)?;
+                for kind in &filter.kinds {
+                    let iter = {
+                        let start_prefix = AkciKey::from_parts(author, *kind, until, Id([0; 32]));
+                        let end_prefix = AkciKey::from_parts(author, *kind, since, Id([255; 32]));
+                        let range = (
+                            Bound::Included(start_prefix.as_slice()),
+                            Bound::Excluded(end_prefix.as_slice()),
+                        );
+                        self.db_event_akci_index()?.range(&txn, &range)?
+                    };
+
+                    // Count how many we have found of this author-kind pair, so we
+                    // can possibly update `since`
+                    let mut paircount = 0;
+
+                    'per_event: for result in iter {
+                        let (keybytes, _) = result?;
+                        let key = AkciKey::from_bytes(keybytes)?;
+                        let (_, _, created_at, id) = key.into_parts()?;
+                        if let Some(bytes) = self.db_events()?.get(&txn, id.as_slice())? {
+                            let event = Event::read_from_buffer(bytes)?;
+
+                            // If we have gone beyond since, we can stop early
+                            // (We have to check because `since` might change in this loop)
+                            if created_at < since {
+                                break 'per_event;
+                            }
+
+                            // check against the rest of the filter
+                            if filter.event_matches(&event) && screen(&event) {
+                                output.insert(event);
+                                paircount += 1;
+
+                                // Stop this pair if limited
+                                if paircount >= limit {
+                                    if created_at > since {
+                                        since = created_at;
+                                    }
+                                    break 'per_event;
+                                }
+
+                                // If kind is replaceable (and not parameterized)
+                                // then don't take any more events from this author-kind
+                                // pair.
+                                // NOTE that this optimization is difficult to implement
+                                // for other replaceable event situations
+                                if kind.is_replaceable() {
+                                    break 'per_event;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else if !filter.kinds.is_empty() && filter.kinds.iter().all(|k| INDEXED_KINDS.contains(k))
+        {
+            for kind in &filter.kinds {
+                let iter = {
+                    let start_prefix = KciKey::from_parts(*kind, until, Id([0; 32]));
+                    let end_prefix = KciKey::from_parts(*kind, since, Id([255; 32]));
+                    let range = (
+                        Bound::Included(start_prefix.as_slice()),
+                        Bound::Excluded(end_prefix.as_slice()),
+                    );
+                    self.db_event_kci_index()?.range(&txn, &range)?
+                };
+
+                // Count how many we have found of this kind, can possibly update
+                // `since`
+                let mut kindcount = 0;
+
+                'per_event: for result in iter {
+                    let (keybytes, _) = result?;
+                    let key = KciKey::from_bytes(keybytes)?;
+                    let (_, created_at, id) = key.into_parts()?;
+                    if let Some(bytes) = self.db_events()?.get(&txn, id.as_slice())? {
+                        let event = Event::read_from_buffer(bytes)?;
+
+                        // If we have gone beyond since, we can stop early
+                        // (We have to check because `since` might change in this loop)
+                        if created_at < since {
+                            break 'per_event;
+                        }
+
+                        // check against the rest of the filter
+                        if filter.event_matches(&event) && screen(&event) {
+                            output.insert(event);
+                            kindcount += 1;
+
+                            // Stop this kind if limited
+                            if kindcount >= limit {
+                                if created_at > since {
+                                    since = created_at;
+                                }
+                                break 'per_event;
+                            }
+                        }
+                    }
+                }
+            }
+        } else if !filter.kinds.is_empty() {
+            // kind scrape (can't use kci since kinds include some that are not indexed)
+            tracing::warn!("KINDS SCRAPE OF STORAGE");
+            let iter = self.db_events()?.iter(&txn)?;
+            for result in iter {
+                let (_key, bytes) = result?;
+                if let Some(kind) = Event::get_kind_from_speedy_bytes(bytes) {
+                    if filter.kinds.contains(&kind) {
+                        let event = Event::read_from_buffer(bytes)?;
+                        if filter.event_matches(&event) && screen(&event) {
+                            output.insert(event);
+                            // We can't stop at a limit because our data is unsorted
+                        }
+                    }
+                }
+            }
+        } else if !filter.authors.is_empty() {
+            // author scrape
+            tracing::warn!("AUTHOR SCRAPE OF STORAGE");
+            let iter = self.db_events()?.iter(&txn)?;
+            for result in iter {
+                let (_key, bytes) = result?;
+                if let Some(author) = Event::get_pubkey_from_speedy_bytes(bytes) {
+                    let pkh: PublicKeyHex = author.into();
+                    if filter.authors.contains(&pkh) {
+                        let event = Event::read_from_buffer(bytes)?;
+                        if filter.event_matches(&event) && screen(&event) {
+                            output.insert(event);
+                        }
+                    }
+                }
+            }
+        } else {
+            // full scrape
+            tracing::warn!("FULL SCRAPE OF STORAGE");
+            let iter = self.db_events()?.iter(&txn)?;
+            for result in iter {
+                let (_key, bytes) = result?;
                 let event = Event::read_from_buffer(bytes)?;
-                if f(&event) {
-                    events.push(event);
+                if filter.event_matches(&event) && screen(&event) {
+                    output.insert(event);
                 }
             }
         }
 
-        if sort {
-            events.sort_by(|a, b| b.created_at.cmp(&a.created_at).then(b.id.cmp(&a.id)));
-        }
-
-        Ok(events)
-    }
-
-    /// Find events of interest. This is just like find_events() but it just gives the Ids,
-    /// unsorted.
-    ///
-    /// You must specify some event kinds.
-    /// If pubkeys is empty, they won't matter.
-    /// If since is None, it won't matter.
-    ///
-    /// The function f is run after the matching-so-far events have been deserialized
-    /// to finish filtering, and optionally they are sorted in reverse chronological
-    /// order.
-    pub fn find_event_ids(
-        &self,
-        kinds: &[EventKind],
-        pubkeys: &[PublicKey],
-        since: Option<Unixtime>,
-    ) -> Result<HashSet<Id>, Error> {
-        if kinds.is_empty() {
-            return Err(ErrorKind::General(
-                "find_events() requires some event kinds to be specified.".to_string(),
-            )
-            .into());
-        }
-
-        // Get the Ids
-        let ids = match (pubkeys.is_empty(), since) {
-            (true, None) => self.find_ek_pk_events(kinds, pubkeys)?,
-            (true, Some(when)) => self.find_ek_c_events(kinds, when)?,
-            (false, None) => self.find_ek_pk_events(kinds, pubkeys)?,
-            (false, Some(when)) => {
-                let group1 = self.find_ek_pk_events(kinds, pubkeys)?;
-                let group2 = self.find_ek_c_events(kinds, when)?;
-                group1.intersection(&group2).copied().collect()
-            }
-        };
-
-        Ok(ids)
+        Ok(output
+            .iter()
+            .rev()
+            .take(limit)
+            .cloned() // FIXME when BTreeSet gets a drain() function
+            .collect())
     }
 
     /// Search all events for the text, case insensitive. Both content and tags
@@ -1686,21 +1708,19 @@ impl Storage {
         self.switch_to_rumor3(event, txn)
     }
 
-    // We don't call this externally. Whenever we write an event, we do this.
-    fn write_event_ek_pk_index<'a>(
+    // We don't call this externally. Whenever we write an event, we do this
+    fn write_event_akci_index<'a>(
         &'a self,
-        id: Id,
-        kind: EventKind,
         pubkey: PublicKey,
+        kind: EventKind,
+        created_at: Unixtime,
+        id: Id,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let ek: u32 = kind.into();
-            let mut key: Vec<u8> = ek.to_be_bytes().as_slice().to_owned(); // event kind
-            key.extend(pubkey.as_bytes()); // pubkey
-            let bytes = id.as_slice();
+            let key = AkciKey::from_parts(pubkey, kind, created_at, id);
 
-            self.db_event_ek_pk_index()?.put(txn, &key, bytes)?;
+            self.db_event_akci_index()?.put(txn, key.as_slice(), &())?;
             Ok(())
         };
 
@@ -1716,21 +1736,23 @@ impl Storage {
         Ok(())
     }
 
-    // We don't call this externally. Whenever we write an event, we do this.
-    fn write_event_ek_c_index<'a>(
+    // We don't call this externally. Whenever we write an event, we do this
+    fn write_event_kci_index<'a>(
         &'a self,
-        id: Id,
         kind: EventKind,
         created_at: Unixtime,
+        id: Id,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let ek: u32 = kind.into();
-            let mut key: Vec<u8> = ek.to_be_bytes().as_slice().to_owned(); // event kind
-            key.extend((i64::MAX - created_at.0).to_be_bytes().as_slice()); // reverse created_at
-            let bytes = id.as_slice();
+        // Only index if it is of an indexable kind
+        if !INDEXED_KINDS.contains(&kind) {
+            return Ok(());
+        }
 
-            self.db_event_ek_c_index()?.put(txn, &key, bytes)?;
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            let key = KciKey::from_parts(kind, created_at, id);
+
+            self.db_event_kci_index()?.put(txn, key.as_slice(), &())?;
             Ok(())
         };
 
@@ -2209,21 +2231,18 @@ impl Storage {
             None => return Ok(Vec::new()),
         };
 
-        let events = self.find_events(
-            &[EventKind::EncryptedDirectMessage, EventKind::GiftWrap],
-            &[],
-            None,
-            |event| {
-                if event.kind == EventKind::EncryptedDirectMessage {
-                    event.pubkey == my_pubkey || event.is_tagged(&my_pubkey)
-                    // Make sure if it has tags, only author and my_pubkey
-                    // TBD
-                } else {
-                    event.kind == EventKind::GiftWrap
-                }
-            },
-            false,
-        )?;
+        let mut filter = Filter::new();
+        filter.kinds = vec![EventKind::EncryptedDirectMessage, EventKind::GiftWrap];
+
+        let events = self.find_events_by_filter(&filter, |event| {
+            if event.kind == EventKind::EncryptedDirectMessage {
+                event.pubkey == my_pubkey || event.is_tagged(&my_pubkey)
+                // Make sure if it has tags, only author and my_pubkey
+                // TBD
+            } else {
+                event.kind == EventKind::GiftWrap
+            }
+        })?;
 
         // Map from channel to latest-message-time and unread-count
         let mut map: HashMap<DmChannel, DmChannelData> = HashMap::new();
@@ -2311,20 +2330,17 @@ impl Storage {
             None => return Ok(Vec::new()),
         };
 
-        let mut output: Vec<Event> = self.find_events(
-            &[EventKind::EncryptedDirectMessage, EventKind::GiftWrap],
-            &[],
-            Some(Unixtime(0)),
-            |event| {
-                if let Some(event_dm_channel) = DmChannel::from_event(event, Some(my_pubkey)) {
-                    if event_dm_channel == *channel {
-                        return true;
-                    }
+        let mut filter = Filter::new();
+        filter.kinds = vec![EventKind::EncryptedDirectMessage, EventKind::GiftWrap];
+
+        let mut output: Vec<Event> = self.find_events_by_filter(&filter, |event| {
+            if let Some(event_dm_channel) = DmChannel::from_event(event, Some(my_pubkey)) {
+                if event_dm_channel == *channel {
+                    return true;
                 }
-                false
-            },
-            false,
-        )?;
+            }
+            false
+        })?;
 
         // sort
         output.sort_by(|a, b| b.created_at.cmp(&a.created_at).then(b.id.cmp(&a.id)));
@@ -2340,8 +2356,6 @@ impl Storage {
     ) -> Result<(), Error> {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
             // Erase all indices first
-            self.db_event_ek_pk_index()?.clear(txn)?;
-            self.db_event_ek_c_index()?.clear(txn)?;
             self.db_event_tag_index()?.clear(txn)?;
             self.db_hashtags()?.clear(txn)?;
 
@@ -2358,16 +2372,17 @@ impl Storage {
                     eventptr = &rumor;
                 }
 
-                self.write_event_ek_pk_index(
-                    eventptr.id,
-                    eventptr.kind,
+                self.write_event_akci_index(
                     eventptr.pubkey,
-                    Some(txn),
-                )?;
-                self.write_event_ek_c_index(
-                    eventptr.id,
                     eventptr.kind,
                     eventptr.created_at,
+                    eventptr.id,
+                    Some(txn),
+                )?;
+                self.write_event_kci_index(
+                    eventptr.kind,
+                    eventptr.created_at,
+                    eventptr.id,
                     Some(txn),
                 )?;
                 self.write_event_tag_index(eventptr, Some(txn))?;

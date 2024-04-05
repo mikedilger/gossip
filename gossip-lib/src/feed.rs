@@ -3,7 +3,9 @@ use crate::dm_channel::DmChannel;
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::people::PersonList;
-use nostr_types::{Event, EventKind, EventReference, Id, PublicKey, PublicKeyHex, Unixtime};
+use nostr_types::{
+    Event, EventKind, EventReference, Filter, Id, PublicKey, PublicKeyHex, Unixtime,
+};
 use parking_lot::RwLock;
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -351,11 +353,11 @@ impl Feed {
         let current_feed_kind = self.current_feed_kind.read().to_owned();
         match current_feed_kind {
             FeedKind::List(list, with_replies) => {
-                let pubkeys: Vec<PublicKey> = GLOBALS
+                let pubkeys: Vec<PublicKeyHex> = GLOBALS
                     .storage
                     .get_people_in_list(list)?
                     .drain(..)
-                    .map(|(pk, _)| pk)
+                    .map(|(pk, _)| pk.into())
                     .collect();
 
                 let since: Unixtime = *self.general_feed_start.read();
@@ -366,14 +368,15 @@ impl Feed {
                 let events: Vec<Id> = if pubkeys.is_empty() {
                     Default::default()
                 } else {
+                    let mut filter = Filter::new();
+                    filter.authors = pubkeys;
+                    filter.kinds = kinds_without_dms;
+                    filter.since = Some(since);
+
                     GLOBALS
                         .storage
-                        .find_events(
-                            &kinds_without_dms,
-                            &pubkeys, // pubkeys
-                            Some(since),
-                            |e| {
-                                e.created_at <= now // no future events
+                        .find_events_by_filter(&filter, |e| {
+                            e.created_at <= now // no future events
                                     && e.kind != EventKind::EncryptedDirectMessage // no DMs
                                     && e.kind != EventKind::DmChat // no DMs
                                     && !dismissed.contains(&e.id) // not dismissed
@@ -382,9 +385,7 @@ impl Feed {
                                     } else {
                                         true
                                     }
-                            },
-                            true,
-                        )?
+                        })?
                         .iter()
                         .map(|e| e.id)
                         .collect()
@@ -401,13 +402,15 @@ impl Feed {
                     // 'p' tag the authors of people up the chain (see last paragraph
                     // of NIP-10)
 
-                    let my_event_ids: HashSet<Id> = GLOBALS.storage.find_event_ids(
-                        &kinds_with_dms,
-                        &[my_pubkey], // pubkeys
-                        None,         // since
-                    )?;
+                    let since = *self.inbox_feed_start.read();
 
-                    let since: Unixtime = *self.inbox_feed_start.read();
+                    let mut filter = Filter::new();
+                    filter.kinds = kinds_with_dms.clone();
+                    filter.add_author(&my_pubkey.into());
+                    filter.since = Some(since);
+                    let my_events: Vec<Event> =
+                        GLOBALS.storage.find_events_by_filter(&filter, |_| true)?;
+                    let my_event_ids: HashSet<Id> = my_events.iter().map(|e| e.id).collect();
 
                     let my_pubkeyhex: PublicKeyHex = my_pubkey.into();
 
@@ -482,7 +485,7 @@ impl Feed {
 
                 let pphex: PublicKeyHex = person_pubkey.into();
 
-                let filter = |e: &Event| {
+                let screen = |e: &Event| {
                     if dismissed.contains(&e.id) {
                         return false;
                     }
@@ -492,20 +495,19 @@ impl Feed {
                     true
                 };
 
+                let mut filter: Filter = Filter::new();
+                filter.authors = vec![person_pubkey.into()];
+                filter.kinds = kinds_without_dms.clone();
+                filter.since = Some(start);
+
                 let mut events: Vec<Event> = GLOBALS
                     .storage
-                    .find_events(
-                        &kinds_without_dms,
-                        &[person_pubkey],
-                        Some(start),
-                        filter,
-                        false,
-                    )?
+                    .find_events_by_filter(&filter, screen)?
                     .iter()
                     .chain(
                         GLOBALS
                             .storage
-                            .find_tagged_events("delegation", Some(pphex.as_str()), filter, false)?
+                            .find_tagged_events("delegation", Some(pphex.as_str()), screen, false)?
                             .iter(),
                     )
                     .map(|e| e.to_owned())

@@ -62,14 +62,16 @@ impl Storage {
                 rumor = r;
                 eventptr = &rumor;
             }
+
             // also index the event
-            self.write_event_ek_pk_index(eventptr.id, eventptr.kind, eventptr.pubkey, Some(txn))?;
-            self.write_event_ek_c_index(
-                eventptr.id,
+            self.write_event_akci_index(
+                eventptr.pubkey,
                 eventptr.kind,
                 eventptr.created_at,
+                eventptr.id,
                 Some(txn),
             )?;
+            self.write_event_kci_index(eventptr.kind, eventptr.created_at, eventptr.id, Some(txn))?;
             self.write_event3_tag_index1(eventptr, Some(txn))?;
 
             for hashtag in event.hashtags() {

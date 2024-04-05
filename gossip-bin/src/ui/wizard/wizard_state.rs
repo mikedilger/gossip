@@ -1,5 +1,5 @@
 use gossip_lib::{Person, PersonList, Relay, GLOBALS};
-use nostr_types::{Event, EventKind, PublicKey, RelayUrl};
+use nostr_types::{Event, EventKind, Filter, PublicKey, PublicKeyHex, RelayUrl};
 use std::{cell::RefCell, collections::HashSet, rc::Rc};
 
 #[derive(PartialEq, Clone, Copy, Debug)]
@@ -90,19 +90,26 @@ impl WizardState {
         self.has_private_key = GLOBALS.identity.is_unlocked();
 
         if let Some(pk) = self.pubkey {
+            let pkh: PublicKeyHex = pk.into();
+            let mut filter = Filter::new();
+            filter.add_author(&pkh);
+
+            filter.kinds = vec![EventKind::Metadata];
             self.metadata_events = GLOBALS
                 .storage
-                .find_events(&[EventKind::Metadata], &[pk], None, |_| true, true)
+                .find_events_by_filter(&filter, |_| true)
                 .unwrap_or_default();
 
+            filter.kinds = vec![EventKind::ContactList];
             self.contact_list_events = GLOBALS
                 .storage
-                .find_events(&[EventKind::ContactList], &[pk], None, |_| true, true)
+                .find_events_by_filter(&filter, |_| true)
                 .unwrap_or_default();
 
+            filter.kinds = vec![EventKind::RelayList];
             self.relay_list_events = GLOBALS
                 .storage
-                .find_events(&[EventKind::RelayList], &[pk], None, |_| true, true)
+                .find_events_by_filter(&filter, |_| true)
                 .unwrap_or_default();
 
             self.relays = GLOBALS

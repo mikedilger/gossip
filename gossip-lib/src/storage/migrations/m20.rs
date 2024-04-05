@@ -3,8 +3,10 @@ use crate::globals::GLOBALS;
 use crate::storage::types::PersonList1;
 use crate::storage::Storage;
 use heed::RwTxn;
-use nostr_types::{EventKind, EventV2, PublicKey, TagV2, Unixtime};
+use nostr_types::{EventKind, EventV2, Id, PublicKey, TagV2, Unixtime};
 use speedy::Readable;
+use std::collections::HashSet;
+use std::ops::Bound;
 
 impl Storage {
     pub(super) fn m20_trigger(&self) -> Result<(), Error> {
@@ -68,7 +70,7 @@ impl Storage {
     where
         F: Fn(&EventV2) -> bool,
     {
-        let ids = self.find_event_ids(kinds, pubkeys, since)?;
+        let ids = self.m20_find_event_ids(kinds, pubkeys, since)?;
 
         // Now that we have that Ids, fetch the events
         let txn = self.env.read_txn()?;
@@ -126,5 +128,119 @@ impl Storage {
         }
 
         Ok(())
+    }
+
+    pub fn m20_find_event_ids(
+        &self,
+        kinds: &[EventKind],
+        pubkeys: &[PublicKey],
+        since: Option<Unixtime>,
+    ) -> Result<HashSet<Id>, Error> {
+        if kinds.is_empty() {
+            return Err(ErrorKind::General(
+                "find_events() requires some event kinds to be specified.".to_string(),
+            )
+            .into());
+        }
+
+        // Get the Ids
+        let ids = match (pubkeys.is_empty(), since) {
+            (true, None) => self.m20_find_ek_pk_events(kinds, pubkeys)?,
+            (true, Some(when)) => self.m20_find_ek_c_events(kinds, when)?,
+            (false, None) => self.m20_find_ek_pk_events(kinds, pubkeys)?,
+            (false, Some(when)) => {
+                let group1 = self.m20_find_ek_pk_events(kinds, pubkeys)?;
+                let group2 = self.m20_find_ek_c_events(kinds, when)?;
+                group1.intersection(&group2).copied().collect()
+            }
+        };
+
+        Ok(ids)
+    }
+
+    /// Find events of given kinds and pubkeys.
+    /// You must supply kinds. You can skip the pubkeys and then only kinds will matter.
+    fn m20_find_ek_pk_events(
+        &self,
+        kinds: &[EventKind],
+        pubkeys: &[PublicKey],
+    ) -> Result<HashSet<Id>, Error> {
+        if kinds.is_empty() {
+            return Err(ErrorKind::General(
+                "find_ek_pk_events() requires some event kinds to be specified.".to_string(),
+            )
+            .into());
+        }
+
+        let mut ids: HashSet<Id> = HashSet::new();
+        let txn = self.env.read_txn()?;
+
+        for kind in kinds {
+            let ek: u32 = (*kind).into();
+            if pubkeys.is_empty() {
+                let start_key = ek.to_be_bytes().as_slice().to_owned();
+                let iter = self
+                    .db_event_ek_pk_index1()?
+                    .prefix_iter(&txn, &start_key)?;
+                for result in iter {
+                    let (_key, val) = result?;
+                    // Take the event
+                    let id = Id(val[0..32].try_into()?);
+                    ids.insert(id);
+                }
+            } else {
+                for pubkey in pubkeys {
+                    let mut start_key = ek.to_be_bytes().as_slice().to_owned();
+                    start_key.extend(pubkey.as_bytes());
+                    let iter = self
+                        .db_event_ek_pk_index1()?
+                        .prefix_iter(&txn, &start_key)?;
+                    for result in iter {
+                        let (_key, val) = result?;
+                        // Take the event
+                        let id = Id(val[0..32].try_into()?);
+                        ids.insert(id);
+                    }
+                }
+            }
+        }
+
+        Ok(ids)
+    }
+
+    /// Find events of given kinds and after the given time.
+    fn m20_find_ek_c_events(
+        &self,
+        kinds: &[EventKind],
+        since: Unixtime,
+    ) -> Result<HashSet<Id>, Error> {
+        if kinds.is_empty() {
+            return Err(ErrorKind::General(
+                "find_ek_c_events() requires some event kinds to be specified.".to_string(),
+            )
+            .into());
+        }
+
+        let now = Unixtime::now().unwrap();
+        let mut ids: HashSet<Id> = HashSet::new();
+        let txn = self.env.read_txn()?;
+
+        for kind in kinds {
+            let ek: u32 = (*kind).into();
+            let mut start_key = ek.to_be_bytes().as_slice().to_owned();
+            let mut end_key = start_key.clone();
+            start_key.extend((i64::MAX - now.0).to_be_bytes().as_slice()); // work back from now
+            end_key.extend((i64::MAX - since.0).to_be_bytes().as_slice()); // until since
+            let range = (Bound::Included(&*start_key), Bound::Excluded(&*end_key));
+            let iter = self.db_event_ek_c_index1()?.range(&txn, &range)?;
+            for result in iter {
+                let (_key, val) = result?;
+                // Take the event
+                let id = Id(val[0..32].try_into()?);
+                ids.insert(id);
+            }
+        }
+
+        Ok(ids)
     }
 }
