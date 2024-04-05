@@ -71,13 +71,6 @@ impl Storage {
                 Some(txn),
             )?;
             self.write_event_kci_index(eventptr.kind, eventptr.created_at, eventptr.id, Some(txn))?;
-            self.write_event_ek_pk_index(eventptr.id, eventptr.kind, eventptr.pubkey, Some(txn))?;
-            self.write_event_ek_c_index(
-                eventptr.id,
-                eventptr.kind,
-                eventptr.created_at,
-                Some(txn),
-            )?;
             self.write_event2_tag_index1(eventptr, Some(txn))?;
 
             for hashtag in event.hashtags() {

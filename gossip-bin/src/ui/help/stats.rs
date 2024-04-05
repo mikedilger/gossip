@@ -77,18 +77,6 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ui.add_space(6.0);
 
         ui.label(format!(
-            "Event Index (EK-PK): {} records",
-            GLOBALS.storage.get_event_ek_pk_index_len().unwrap_or(0)
-        ));
-        ui.add_space(6.0);
-
-        ui.label(format!(
-            "Event Index (EK-C): {} records",
-            GLOBALS.storage.get_event_ek_c_index_len().unwrap_or(0)
-        ));
-        ui.add_space(6.0);
-
-        ui.label(format!(
             "Event Index (Tags): {} records",
             GLOBALS.storage.get_event_tag_index_len().unwrap_or(0)
         ));

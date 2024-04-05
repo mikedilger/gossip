@@ -241,8 +241,6 @@ impl Storage {
         // triggered into existence if their migration is necessary.
         let _ = self.db_event_akci_index()?;
         let _ = self.db_event_kci_index()?;
-        let _ = self.db_event_ek_c_index()?;
-        let _ = self.db_event_ek_pk_index()?;
         let _ = self.db_event_tag_index()?;
         let _ = self.db_events()?;
         let _ = self.db_event_seen_on_relay()?;
@@ -281,16 +279,6 @@ impl Storage {
     }
 
     // Database getters ---------------------------------
-
-    #[inline]
-    pub(crate) fn db_event_ek_c_index(&self) -> Result<RawDatabase, Error> {
-        self.db_event_ek_c_index1()
-    }
-
-    #[inline]
-    pub(crate) fn db_event_ek_pk_index(&self) -> Result<RawDatabase, Error> {
-        self.db_event_ek_pk_index1()
-    }
 
     #[inline]
     pub(crate) fn db_event_tag_index(&self) -> Result<RawDatabase, Error> {
@@ -416,18 +404,6 @@ impl Storage {
     pub fn get_event_kci_index_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
         Ok(self.db_event_kci_index()?.len(&txn)?)
-    }
-
-    /// The number of records in the event_ek_pk_index table
-    pub fn get_event_ek_pk_index_len(&self) -> Result<u64, Error> {
-        let txn = self.env.read_txn()?;
-        Ok(self.db_event_ek_pk_index()?.len(&txn)?)
-    }
-
-    /// The number of records in the event_ek_c_index table
-    pub fn get_event_ek_c_index_len(&self) -> Result<u64, Error> {
-        let txn = self.env.read_txn()?;
-        Ok(self.db_event_ek_c_index()?.len(&txn)?)
     }
 
     /// The number of records in the event_tag index table
@@ -1399,8 +1375,6 @@ impl Storage {
             //   db_reprel()
             //   db_event_akci_index()
             //   db_event_kci_index()
-            //   db_event_ek_pk_index()
-            //   db_event_ek_c_index()
 
             Ok(())
         };
@@ -1488,84 +1462,6 @@ impl Storage {
             })?
             .first()
             .cloned())
-    }
-
-    /// Find events of given kinds and pubkeys.
-    /// You must supply kinds. You can skip the pubkeys and then only kinds will matter.
-    fn find_ek_pk_events(
-        &self,
-        kinds: &[EventKind],
-        pubkeys: &[PublicKey],
-    ) -> Result<HashSet<Id>, Error> {
-        if kinds.is_empty() {
-            return Err(ErrorKind::General(
-                "find_ek_pk_events() requires some event kinds to be specified.".to_string(),
-            )
-            .into());
-        }
-
-        let mut ids: HashSet<Id> = HashSet::new();
-        let txn = self.env.read_txn()?;
-
-        for kind in kinds {
-            let ek: u32 = (*kind).into();
-            if pubkeys.is_empty() {
-                let start_key = ek.to_be_bytes().as_slice().to_owned();
-                let iter = self.db_event_ek_pk_index()?.prefix_iter(&txn, &start_key)?;
-                for result in iter {
-                    let (_key, val) = result?;
-                    // Take the event
-                    let id = Id(val[0..32].try_into()?);
-                    ids.insert(id);
-                }
-            } else {
-                for pubkey in pubkeys {
-                    let mut start_key = ek.to_be_bytes().as_slice().to_owned();
-                    start_key.extend(pubkey.as_bytes());
-                    let iter = self.db_event_ek_pk_index()?.prefix_iter(&txn, &start_key)?;
-                    for result in iter {
-                        let (_key, val) = result?;
-                        // Take the event
-                        let id = Id(val[0..32].try_into()?);
-                        ids.insert(id);
-                    }
-                }
-            }
-        }
-
-        Ok(ids)
-    }
-
-    /// Find events of given kinds and after the given time.
-    fn find_ek_c_events(&self, kinds: &[EventKind], since: Unixtime) -> Result<HashSet<Id>, Error> {
-        if kinds.is_empty() {
-            return Err(ErrorKind::General(
-                "find_ek_c_events() requires some event kinds to be specified.".to_string(),
-            )
-            .into());
-        }
-
-        let now = Unixtime::now().unwrap();
-        let mut ids: HashSet<Id> = HashSet::new();
-        let txn = self.env.read_txn()?;
-
-        for kind in kinds {
-            let ek: u32 = (*kind).into();
-            let mut start_key = ek.to_be_bytes().as_slice().to_owned();
-            let mut end_key = start_key.clone();
-            start_key.extend((i64::MAX - now.0).to_be_bytes().as_slice()); // work back from now
-            end_key.extend((i64::MAX - since.0).to_be_bytes().as_slice()); // until since
-            let range = (Bound::Included(&*start_key), Bound::Excluded(&*end_key));
-            let iter = self.db_event_ek_c_index()?.range(&txn, &range)?;
-            for result in iter {
-                let (_key, val) = result?;
-                // Take the event
-                let id = Id(val[0..32].try_into()?);
-                ids.insert(id);
-            }
-        }
-
-        Ok(ids)
     }
 
     /// Find event ids by filter.
@@ -1857,66 +1753,6 @@ impl Storage {
             let key = KciKey::from_parts(kind, created_at, id);
 
             self.db_event_kci_index()?.put(txn, key.as_slice(), &())?;
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
-    }
-
-    // We don't call this externally. Whenever we write an event, we do this.
-    fn write_event_ek_pk_index<'a>(
-        &'a self,
-        id: Id,
-        kind: EventKind,
-        pubkey: PublicKey,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error> {
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let ek: u32 = kind.into();
-            let mut key: Vec<u8> = ek.to_be_bytes().as_slice().to_owned(); // event kind
-            key.extend(pubkey.as_bytes()); // pubkey
-            let bytes = id.as_slice();
-
-            self.db_event_ek_pk_index()?.put(txn, &key, bytes)?;
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
-    }
-
-    // We don't call this externally. Whenever we write an event, we do this.
-    fn write_event_ek_c_index<'a>(
-        &'a self,
-        id: Id,
-        kind: EventKind,
-        created_at: Unixtime,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error> {
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let ek: u32 = kind.into();
-            let mut key: Vec<u8> = ek.to_be_bytes().as_slice().to_owned(); // event kind
-            key.extend((i64::MAX - created_at.0).to_be_bytes().as_slice()); // reverse created_at
-            let bytes = id.as_slice();
-
-            self.db_event_ek_c_index()?.put(txn, &key, bytes)?;
             Ok(())
         };
 
@@ -2520,8 +2356,6 @@ impl Storage {
     ) -> Result<(), Error> {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
             // Erase all indices first
-            self.db_event_ek_pk_index()?.clear(txn)?;
-            self.db_event_ek_c_index()?.clear(txn)?;
             self.db_event_tag_index()?.clear(txn)?;
             self.db_hashtags()?.clear(txn)?;
 
@@ -2549,18 +2383,6 @@ impl Storage {
                     eventptr.kind,
                     eventptr.created_at,
                     eventptr.id,
-                    Some(txn),
-                )?;
-                self.write_event_ek_pk_index(
-                    eventptr.id,
-                    eventptr.kind,
-                    eventptr.pubkey,
-                    Some(txn),
-                )?;
-                self.write_event_ek_c_index(
-                    eventptr.id,
-                    eventptr.kind,
-                    eventptr.created_at,
                     Some(txn),
                 )?;
                 self.write_event_tag_index(eventptr, Some(txn))?;
