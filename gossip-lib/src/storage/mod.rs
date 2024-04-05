@@ -1428,19 +1428,16 @@ impl Storage {
             return Err(ErrorKind::General("Event is not replaceable.".to_owned()).into());
         }
 
-        let existing = self.find_events(
-            &[event.kind],
-            &[event.pubkey],
-            None,
-            |e| {
-                if event.kind.is_parameterized_replaceable() {
-                    e.parameter() == event.parameter()
-                } else {
-                    true
-                }
-            },
-            false,
-        )?;
+        let mut filter = Filter::new();
+        filter.add_event_kind(event.kind);
+        filter.add_author(&event.pubkey.into());
+        let existing = self.find_events_by_filter(&filter, |e| {
+            if event.kind.is_parameterized_replaceable() {
+                e.parameter() == event.parameter()
+            } else {
+                true
+            }
+        })?;
 
         let mut found_newer = false;
         for old in existing {
@@ -1477,20 +1474,18 @@ impl Storage {
             return Err(ErrorKind::General("Event kind is not replaceable".to_owned()).into());
         }
 
+        let mut filter = Filter::new();
+        filter.add_event_kind(kind);
+        filter.add_author(&pubkey.into());
+
         Ok(self
-            .find_events(
-                &[kind],
-                &[pubkey],
-                None, // any time
-                |e| {
-                    if kind.is_parameterized_replaceable() {
-                        e.parameter().as_deref() == Some(parameter)
-                    } else {
-                        true
-                    }
-                },
-                true, // sorted in reverse time order
-            )?
+            .find_events_by_filter(&filter, |e| {
+                if kind.is_parameterized_replaceable() {
+                    e.parameter().as_deref() == Some(parameter)
+                } else {
+                    true
+                }
+            })?
             .first()
             .cloned())
     }
@@ -1576,7 +1571,7 @@ impl Storage {
     /// Find event ids by filter.
     ///
     /// The output will be sorted in reverse time order.
-    pub fn find_events_by_filter<F>(&self, filter: Filter, screen: F) -> Result<Vec<Event>, Error>
+    pub fn find_events_by_filter<F>(&self, filter: &Filter, screen: F) -> Result<Vec<Event>, Error>
     where
         F: Fn(&Event) -> bool,
     {
@@ -1754,91 +1749,11 @@ impl Storage {
         }
 
         Ok(output
-           .iter()
-           .rev()
-           .take(limit)
-           .cloned() // FIXME when BTreeSet gets a drain() function
-           .collect())
-    }
-
-    /// Find events of interest.
-    ///
-    /// You must specify some event kinds.
-    /// If pubkeys is empty, they won't matter.
-    /// If since is None, it won't matter.
-    ///
-    /// The function f is run after the matching-so-far events have been deserialized
-    /// to finish filtering, and optionally they are sorted in reverse chronological
-    /// order.
-    pub fn find_events<F>(
-        &self,
-        kinds: &[EventKind],
-        pubkeys: &[PublicKey],
-        since: Option<Unixtime>,
-        f: F,
-        sort: bool,
-    ) -> Result<Vec<Event>, Error>
-    where
-        F: Fn(&Event) -> bool,
-    {
-        let ids = self.find_event_ids(kinds, pubkeys, since)?;
-
-        // Now that we have that Ids, fetch the events
-        let txn = self.env.read_txn()?;
-        let mut events: Vec<Event> = Vec::new();
-        for id in ids {
-            // this is like self.read_event(), but we supply our existing transaction
-            if let Some(bytes) = self.db_events()?.get(&txn, id.as_slice())? {
-                let event = Event::read_from_buffer(bytes)?;
-                if f(&event) {
-                    events.push(event);
-                }
-            }
-        }
-
-        if sort {
-            events.sort_by(|a, b| b.created_at.cmp(&a.created_at).then(b.id.cmp(&a.id)));
-        }
-
-        Ok(events)
-    }
-
-    /// Find events of interest. This is just like find_events() but it just gives the Ids,
-    /// unsorted.
-    ///
-    /// You must specify some event kinds.
-    /// If pubkeys is empty, they won't matter.
-    /// If since is None, it won't matter.
-    ///
-    /// The function f is run after the matching-so-far events have been deserialized
-    /// to finish filtering, and optionally they are sorted in reverse chronological
-    /// order.
-    pub fn find_event_ids(
-        &self,
-        kinds: &[EventKind],
-        pubkeys: &[PublicKey],
-        since: Option<Unixtime>,
-    ) -> Result<HashSet<Id>, Error> {
-        if kinds.is_empty() {
-            return Err(ErrorKind::General(
-                "find_events() requires some event kinds to be specified.".to_string(),
-            )
-            .into());
-        }
-
-        // Get the Ids
-        let ids = match (pubkeys.is_empty(), since) {
-            (true, None) => self.find_ek_pk_events(kinds, pubkeys)?,
-            (true, Some(when)) => self.find_ek_c_events(kinds, when)?,
-            (false, None) => self.find_ek_pk_events(kinds, pubkeys)?,
-            (false, Some(when)) => {
-                let group1 = self.find_ek_pk_events(kinds, pubkeys)?;
-                let group2 = self.find_ek_c_events(kinds, when)?;
-                group1.intersection(&group2).copied().collect()
-            }
-        };
-
-        Ok(ids)
+            .iter()
+            .rev()
+            .take(limit)
+            .cloned() // FIXME when BTreeSet gets a drain() function
+            .collect())
     }
 
     /// Search all events for the text, case insensitive. Both content and tags
@@ -2480,21 +2395,18 @@ impl Storage {
             None => return Ok(Vec::new()),
         };
 
-        let events = self.find_events(
-            &[EventKind::EncryptedDirectMessage, EventKind::GiftWrap],
-            &[],
-            None,
-            |event| {
-                if event.kind == EventKind::EncryptedDirectMessage {
-                    event.pubkey == my_pubkey || event.is_tagged(&my_pubkey)
-                    // Make sure if it has tags, only author and my_pubkey
-                    // TBD
-                } else {
-                    event.kind == EventKind::GiftWrap
-                }
-            },
-            false,
-        )?;
+        let mut filter = Filter::new();
+        filter.kinds = vec![EventKind::EncryptedDirectMessage, EventKind::GiftWrap];
+
+        let events = self.find_events_by_filter(&filter, |event| {
+            if event.kind == EventKind::EncryptedDirectMessage {
+                event.pubkey == my_pubkey || event.is_tagged(&my_pubkey)
+                // Make sure if it has tags, only author and my_pubkey
+                // TBD
+            } else {
+                event.kind == EventKind::GiftWrap
+            }
+        })?;
 
         // Map from channel to latest-message-time and unread-count
         let mut map: HashMap<DmChannel, DmChannelData> = HashMap::new();
@@ -2582,20 +2494,17 @@ impl Storage {
             None => return Ok(Vec::new()),
         };
 
-        let mut output: Vec<Event> = self.find_events(
-            &[EventKind::EncryptedDirectMessage, EventKind::GiftWrap],
-            &[],
-            Some(Unixtime(0)),
-            |event| {
-                if let Some(event_dm_channel) = DmChannel::from_event(event, Some(my_pubkey)) {
-                    if event_dm_channel == *channel {
-                        return true;
-                    }
+        let mut filter = Filter::new();
+        filter.kinds = vec![EventKind::EncryptedDirectMessage, EventKind::GiftWrap];
+
+        let mut output: Vec<Event> = self.find_events_by_filter(&filter, |event| {
+            if let Some(event_dm_channel) = DmChannel::from_event(event, Some(my_pubkey)) {
+                if event_dm_channel == *channel {
+                    return true;
                 }
-                false
-            },
-            false,
-        )?;
+            }
+            false
+        })?;
 
         // sort
         output.sort_by(|a, b| b.created_at.cmp(&a.created_at).then(b.id.cmp(&a.id)));

@@ -3,7 +3,7 @@ use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::nip46::ParsedCommand;
 use crate::people::PersonList;
-use nostr_types::{EventKind, PublicKey, RelayList, RelayUrl, Unixtime};
+use nostr_types::{EventKind, Filter, PublicKey, PublicKeyHex, RelayList, RelayUrl, Unixtime};
 use parking_lot::RwLock as PRwLock;
 use parking_lot::RwLockReadGuard as PRwLockReadGuard;
 use std::collections::hash_map::DefaultHasher;
@@ -224,13 +224,11 @@ impl Pending {
         let t30days = 60 * 60 * 24 * 30;
         let t90days = 60 * 60 * 24 * 90;
 
-        let relay_lists = GLOBALS.storage.find_events(
-            &[EventKind::RelayList],
-            &[mypubkey],
-            None,
-            |_| true,
-            true,
-        )?;
+        let pkh: PublicKeyHex = mypubkey.into();
+        let mut filter = Filter::new();
+        filter.add_event_kind(EventKind::RelayList);
+        filter.add_author(&pkh);
+        let relay_lists = GLOBALS.storage.find_events_by_filter(&filter, |_| true)?;
 
         if relay_lists.is_empty() {
             self.insert(PendingItem::RelayListNeverAdvertised);

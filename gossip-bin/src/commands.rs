@@ -4,8 +4,8 @@ use gossip_lib::GLOBALS;
 use gossip_lib::{Error, ErrorKind};
 use gossip_lib::{PersonList, PersonListMetadata};
 use nostr_types::{
-    Event, EventAddr, EventKind, Id, NostrBech32, NostrUrl, PreEvent, PrivateKey, PublicKey,
-    RelayUrl, Tag, UncheckedUrl, Unixtime,
+    Event, EventAddr, EventKind, Filter, Id, NostrBech32, NostrUrl, PreEvent, PrivateKey,
+    PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime,
 };
 use std::collections::HashSet;
 use std::env;
@@ -495,27 +495,29 @@ pub fn delete_spam_by_content(
     }
 
     // Get all event ids of the kind/since
-    let ids = GLOBALS.storage.find_event_ids(&[kind], &[], Some(since))?;
+    let mut filter = Filter::new();
+    filter.add_event_kind(kind);
+    filter.since = Some(since);
+    let events = GLOBALS.storage.find_events_by_filter(&filter, |_| true)?;
 
-    println!("Searching through {} events...", ids.len());
+    println!("Searching through {} events...", events.len());
 
     // Find events among those with matching spammy content
     let mut target_ids: Vec<Id> = Vec::new();
-    for id in ids {
+    for event in events {
         let mut matches = false;
-        if let Ok(Some(event)) = GLOBALS.storage.read_event(id) {
-            if kind == EventKind::GiftWrap {
-                if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(&event) {
-                    if rumor.content.contains(&substring) {
-                        matches = true;
-                    }
+        if kind == EventKind::GiftWrap {
+            if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(&event) {
+                if rumor.content.contains(&substring) {
+                    matches = true;
                 }
-            } else if event.content.contains(&substring) {
-                matches = true;
             }
-            if matches {
-                target_ids.push(id);
-            }
+        } else if event.content.contains(&substring) {
+            matches = true;
+        }
+
+        if matches {
+            target_ids.push(event.id);
         }
     }
 
@@ -780,10 +782,11 @@ pub fn events_of_kind(cmd: Command, mut args: env::Args) -> Result<(), Error> {
         None => return cmd.usage("Missing kind parameter".to_string()),
     };
 
-    let ids = GLOBALS.storage.find_event_ids(&[kind], &[], None)?;
-
-    for id in ids {
-        println!("{}", id.as_hex_string());
+    let mut filter = Filter::new();
+    filter.add_event_kind(kind);
+    let events = GLOBALS.storage.find_events_by_filter(&filter, |_| true)?;
+    for event in events {
+        println!("{}", event.id.as_hex_string());
     }
 
     Ok(())
@@ -800,10 +803,13 @@ pub fn events_of_pubkey_and_kind(cmd: Command, mut args: env::Args) -> Result<()
         None => return cmd.usage("Missing kind parameter".to_string()),
     };
 
-    let ids = GLOBALS.storage.find_event_ids(&[kind], &[pubkey], None)?;
+    let mut filter = Filter::new();
+    filter.add_event_kind(kind);
+    filter.add_author(&pubkey.into());
+    let events = GLOBALS.storage.find_events_by_filter(&filter, |_| true)?;
 
-    for id in ids {
-        println!("{}", id.as_hex_string());
+    for event in events {
+        println!("{}", event.id.as_hex_string());
     }
 
     Ok(())
@@ -838,12 +844,13 @@ pub fn ungiftwrap(cmd: Command, mut args: env::Args) -> Result<(), Error> {
 }
 
 pub fn giftwrap_ids(_cmd: Command) -> Result<(), Error> {
-    let ids = GLOBALS
-        .storage
-        .find_event_ids(&[EventKind::GiftWrap], &[], None)?;
+    let mut filter = Filter::new();
+    filter.add_event_kind(EventKind::GiftWrap);
 
-    for id in ids {
-        println!("{}", id.as_hex_string());
+    let events = GLOBALS.storage.find_events_by_filter(&filter, |_| true)?;
+
+    for event in events {
+        println!("{}", event.id.as_hex_string());
     }
 
     Ok(())
@@ -853,15 +860,13 @@ pub fn reprocess_recent(_cmd: Command, runtime: &Runtime) -> Result<(), Error> {
     login()?;
 
     let job = tokio::task::spawn(async move {
-        let all_kinds: Vec<EventKind> = EventKind::iter().collect();
-
         let mut ago = Unixtime::now().unwrap();
         ago.0 -= 86400;
 
-        let events = match GLOBALS
-            .storage
-            .find_events(&all_kinds, &[], Some(ago), |_| true, false)
-        {
+        let mut filter = Filter::new();
+        filter.kinds = EventKind::iter().collect(); // all kinds
+        filter.since = Some(ago);
+        let events = match GLOBALS.storage.find_events_by_filter(&filter, |_| true) {
             Ok(e) => e,
             Err(e) => {
                 println!("ERROR: {}", e);

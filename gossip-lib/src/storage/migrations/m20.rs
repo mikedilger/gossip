@@ -3,8 +3,9 @@ use crate::globals::GLOBALS;
 use crate::storage::types::PersonList1;
 use crate::storage::Storage;
 use heed::RwTxn;
-use nostr_types::{EventKind, EventV2, PublicKey, TagV2, Unixtime};
+use nostr_types::{EventKind, EventV2, Id, PublicKey, TagV2, Unixtime};
 use speedy::Readable;
+use std::collections::HashSet;
 
 impl Storage {
     pub(super) fn m20_trigger(&self) -> Result<(), Error> {
@@ -68,7 +69,7 @@ impl Storage {
     where
         F: Fn(&EventV2) -> bool,
     {
-        let ids = self.find_event_ids(kinds, pubkeys, since)?;
+        let ids = self.m20_find_event_ids(kinds, pubkeys, since)?;
 
         // Now that we have that Ids, fetch the events
         let txn = self.env.read_txn()?;
@@ -126,5 +127,33 @@ impl Storage {
         }
 
         Ok(())
+    }
+
+    pub fn m20_find_event_ids(
+        &self,
+        kinds: &[EventKind],
+        pubkeys: &[PublicKey],
+        since: Option<Unixtime>,
+    ) -> Result<HashSet<Id>, Error> {
+        if kinds.is_empty() {
+            return Err(ErrorKind::General(
+                "find_events() requires some event kinds to be specified.".to_string(),
+            )
+            .into());
+        }
+
+        // Get the Ids
+        let ids = match (pubkeys.is_empty(), since) {
+            (true, None) => self.find_ek_pk_events(kinds, pubkeys)?,
+            (true, Some(when)) => self.find_ek_c_events(kinds, when)?,
+            (false, None) => self.find_ek_pk_events(kinds, pubkeys)?,
+            (false, Some(when)) => {
+                let group1 = self.find_ek_pk_events(kinds, pubkeys)?;
+                let group2 = self.find_ek_c_events(kinds, when)?;
+                group1.intersection(&group2).copied().collect()
+            }
+        };
+
+        Ok(ids)
     }
 }
