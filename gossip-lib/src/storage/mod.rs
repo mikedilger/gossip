@@ -61,12 +61,12 @@ use crate::relay::Relay;
 use heed::types::{UnalignedSlice, Unit};
 use heed::{Database, Env, EnvFlags, EnvOpenOptions, RwTxn};
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventAddr, EventKind, EventReference, Id, MilliSatoshi, PublicKey,
-    RelayList, RelayUrl, RelayUsage, Unixtime,
+    EncryptedPrivateKey, Event, EventAddr, EventKind, EventReference, Filter, Id, MilliSatoshi,
+    PublicKey, PublicKeyHex, RelayList, RelayUrl, RelayUsage, Unixtime,
 };
 use paste::paste;
 use speedy::{Readable, Writable};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::ops::Bound;
 
 use self::event_kci_index::INDEXED_KINDS;
@@ -1571,6 +1571,194 @@ impl Storage {
         }
 
         Ok(ids)
+    }
+
+    /// Find event ids by filter.
+    ///
+    /// The output will be sorted in reverse time order.
+    pub fn find_events_by_filter<F>(&self, filter: Filter, screen: F) -> Result<Vec<Event>, Error>
+    where
+        F: Fn(&Event) -> bool,
+    {
+        let txn = self.env.read_txn()?;
+
+        // We insert into a BTreeSet to keep them time-ordered
+        let mut output: BTreeSet<Event> = BTreeSet::new();
+
+        let mut since = filter.since.unwrap_or(Unixtime(0));
+        let until = filter.until.unwrap_or(Unixtime(i64::MAX));
+        let limit = filter.limit.unwrap_or(usize::MAX);
+
+        if !filter.ids.is_empty() {
+            // Use events table directly, we have specific ids
+
+            for idhex in filter.ids.iter() {
+                let id: Id = idhex.clone().into();
+                if output.len() >= limit {
+                    break;
+                }
+                if let Some(bytes) = self.db_events()?.get(&txn, id.as_slice())? {
+                    let event = Event::read_from_buffer(bytes)?;
+                    if filter.event_matches(&event) && screen(&event) {
+                        output.insert(event);
+                    }
+                }
+            }
+        } else if !filter.authors.is_empty() && !filter.kinds.is_empty() {
+            // akci
+            for pkh in &filter.authors {
+                let author = PublicKey::try_from_hex_string(pkh.as_str(), true)?;
+                for kind in &filter.kinds {
+                    let iter = {
+                        let start_prefix = AkciKey::from_parts(author, *kind, until, Id([0; 32]));
+                        let end_prefix = AkciKey::from_parts(author, *kind, since, Id([255; 32]));
+                        let range = (
+                            Bound::Included(start_prefix.as_slice()),
+                            Bound::Excluded(end_prefix.as_slice()),
+                        );
+                        self.db_event_akci_index()?.range(&txn, &range)?
+                    };
+
+                    // Count how many we have found of this author-kind pair, so we
+                    // can possibly update `since`
+                    let mut paircount = 0;
+
+                    'per_event: for result in iter {
+                        let (keybytes, _) = result?;
+                        let key = AkciKey::from_bytes(keybytes)?;
+                        let (_, _, created_at, id) = key.into_parts()?;
+                        if let Some(bytes) = self.db_events()?.get(&txn, id.as_slice())? {
+                            let event = Event::read_from_buffer(bytes)?;
+
+                            // If we have gone beyond since, we can stop early
+                            // (We have to check because `since` might change in this loop)
+                            if created_at < since {
+                                break 'per_event;
+                            }
+
+                            // check against the rest of the filter
+                            if filter.event_matches(&event) && screen(&event) {
+                                output.insert(event);
+                                paircount += 1;
+
+                                // Stop this pair if limited
+                                if paircount >= limit {
+                                    if created_at > since {
+                                        since = created_at;
+                                    }
+                                    break 'per_event;
+                                }
+
+                                // If kind is replaceable (and not parameterized)
+                                // then don't take any more events from this author-kind
+                                // pair.
+                                // NOTE that this optimization is difficult to implement
+                                // for other replaceable event situations
+                                if kind.is_replaceable() {
+                                    break 'per_event;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else if !filter.kinds.is_empty() && filter.kinds.iter().all(|k| INDEXED_KINDS.contains(k))
+        {
+            for kind in &filter.kinds {
+                let iter = {
+                    let start_prefix = KciKey::from_parts(*kind, until, Id([0; 32]));
+                    let end_prefix = KciKey::from_parts(*kind, since, Id([255; 32]));
+                    let range = (
+                        Bound::Included(start_prefix.as_slice()),
+                        Bound::Excluded(end_prefix.as_slice()),
+                    );
+                    self.db_event_kci_index()?.range(&txn, &range)?
+                };
+
+                // Count how many we have found of this kind, can possibly update
+                // `since`
+                let mut kindcount = 0;
+
+                'per_event: for result in iter {
+                    let (keybytes, _) = result?;
+                    let key = KciKey::from_bytes(keybytes)?;
+                    let (_, created_at, id) = key.into_parts()?;
+                    if let Some(bytes) = self.db_events()?.get(&txn, id.as_slice())? {
+                        let event = Event::read_from_buffer(bytes)?;
+
+                        // If we have gone beyond since, we can stop early
+                        // (We have to check because `since` might change in this loop)
+                        if created_at < since {
+                            break 'per_event;
+                        }
+
+                        // check against the rest of the filter
+                        if filter.event_matches(&event) && screen(&event) {
+                            output.insert(event);
+                            kindcount += 1;
+
+                            // Stop this kind if limited
+                            if kindcount >= limit {
+                                if created_at > since {
+                                    since = created_at;
+                                }
+                                break 'per_event;
+                            }
+                        }
+                    }
+                }
+            }
+        } else if !filter.kinds.is_empty() {
+            // kind scrape (can't use kci since kinds include some that are not indexed)
+            tracing::warn!("KINDS SCRAPE OF STORAGE");
+            let iter = self.db_events()?.iter(&txn)?;
+            for result in iter {
+                let (_key, bytes) = result?;
+                if let Some(kind) = Event::get_kind_from_speedy_bytes(bytes) {
+                    if filter.kinds.contains(&kind) {
+                        let event = Event::read_from_buffer(bytes)?;
+                        if filter.event_matches(&event) && screen(&event) {
+                            output.insert(event);
+                            // We can't stop at a limit because our data is unsorted
+                        }
+                    }
+                }
+            }
+        } else if !filter.authors.is_empty() {
+            // author scrape
+            tracing::warn!("AUTHOR SCRAPE OF STORAGE");
+            let iter = self.db_events()?.iter(&txn)?;
+            for result in iter {
+                let (_key, bytes) = result?;
+                if let Some(author) = Event::get_pubkey_from_speedy_bytes(bytes) {
+                    let pkh: PublicKeyHex = author.into();
+                    if filter.authors.contains(&pkh) {
+                        let event = Event::read_from_buffer(bytes)?;
+                        if filter.event_matches(&event) && screen(&event) {
+                            output.insert(event);
+                        }
+                    }
+                }
+            }
+        } else {
+            // full scrape
+            tracing::warn!("FULL SCRAPE OF STORAGE");
+            let iter = self.db_events()?.iter(&txn)?;
+            for result in iter {
+                let (_key, bytes) = result?;
+                let event = Event::read_from_buffer(bytes)?;
+                if filter.event_matches(&event) && screen(&event) {
+                    output.insert(event);
+                }
+            }
+        }
+
+        Ok(output
+           .iter()
+           .rev()
+           .take(limit)
+           .cloned() // FIXME when BTreeSet gets a drain() function
+           .collect())
     }
 
     /// Find events of interest.
