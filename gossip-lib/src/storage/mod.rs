@@ -2340,7 +2340,7 @@ impl Storage {
         let mut filter = Filter::new();
         filter.kinds = vec![EventKind::EncryptedDirectMessage, EventKind::GiftWrap];
 
-        let mut output: Vec<Event> = self.find_events_by_filter(&filter, |event| {
+        let output: Vec<Event> = self.find_events_by_filter(&filter, |event| {
             if let Some(event_dm_channel) = DmChannel::from_event(event, Some(my_pubkey)) {
                 if event_dm_channel == *channel {
                     return true;
