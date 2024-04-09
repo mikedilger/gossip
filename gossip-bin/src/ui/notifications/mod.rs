@@ -157,6 +157,12 @@ pub(super) fn calc(app: &mut GossipUi) {
 /// Draw the notification icons
 ///
 pub(super) fn draw_icons(app: &mut GossipUi, ui: &mut Ui) {
+    let (no_notification_bg_color, no_notification_text_color) = if app.theme.dark_mode {
+        (app.theme.neutral_800(), app.theme.neutral_400())
+    } else {
+        (app.theme.neutral_100(), app.theme.neutral_400())
+    };
+
     const SIZE: Vec2 = Vec2 { x: 50.0, y: 25.0 };
     let frame_response = egui::Frame::none()
         .rounding(egui::Rounding::ZERO)
@@ -172,7 +178,11 @@ pub(super) fn draw_icons(app: &mut GossipUi, ui: &mut Ui) {
             top: 7.0,
             bottom: 7.0,
         })
-        .fill(Color32::from_gray(0xD4))
+        .fill(if app.theme.dark_mode {
+            app.theme.neutral_700()
+        } else {
+            app.theme.neutral_300()
+        })
         .show(ui, |ui| {
             ui.set_height(33.0);
             ui.set_width(ui.available_width());
@@ -189,14 +199,24 @@ pub(super) fn draw_icons(app: &mut GossipUi, ui: &mut Ui) {
                         ui.set_max_size(SIZE);
                         let idx = ui.painter().add(egui::Shape::Noop);
                         let mut layout_job = LayoutJob::default();
+                        let num_notifications = 0;
+                        let (bg_color, num_color) = if num_notifications > 0 {
+                            if app.theme.dark_mode {
+                                (app.theme.neutral_800(), app.theme.neutral_200())
+                            } else {
+                                (app.theme.neutral_100(), app.theme.neutral_950())
+                            }
+                        } else {
+                            (no_notification_bg_color, no_notification_text_color)
+                        };
                         RichText::new("L").color(app.theme.neutral_400()).append_to(
                             &mut layout_job,
                             ui.style(),
                             FontSelection::Default,
                             Align::LEFT,
                         );
-                        RichText::new(format!("{:3}", 0))
-                            .color(app.theme.neutral_950())
+                        RichText::new(format!("{:3}", num_notifications))
+                            .color(num_color)
                             .append_to(
                                 &mut layout_job,
                                 ui.style(),
@@ -212,7 +232,7 @@ pub(super) fn draw_icons(app: &mut GossipUi, ui: &mut Ui) {
                             egui::Shape::rect_filled(
                                 ui.min_rect(),
                                 ui.min_size().y / 2.0,
-                                app.theme.neutral_100(),
+                                bg_color,
                             ),
                         );
                     });
@@ -221,14 +241,28 @@ pub(super) fn draw_icons(app: &mut GossipUi, ui: &mut Ui) {
                         ui.set_max_size(SIZE);
                         let idx = ui.painter().add(egui::Shape::Noop);
                         let mut layout_job = LayoutJob::default();
-                        RichText::new("R").color(app.theme.red_500()).append_to(
+                        let (bg_color, sym_color, num_color) =
+                            if app.notification_data.num_notif_relays > 0 {
+                                (
+                                    app.theme.red_100(),
+                                    app.theme.red_500(),
+                                    app.theme.neutral_950(),
+                                )
+                            } else {
+                                (
+                                    no_notification_bg_color,
+                                    no_notification_text_color,
+                                    no_notification_text_color,
+                                )
+                            };
+                        RichText::new("R").color(sym_color).append_to(
                             &mut layout_job,
                             ui.style(),
                             FontSelection::Default,
                             Align::LEFT,
                         );
                         RichText::new(format!("{:3}", app.notification_data.num_notif_relays))
-                            .color(app.theme.neutral_950())
+                            .color(num_color)
                             .append_to(
                                 &mut layout_job,
                                 ui.style(),
@@ -244,7 +278,7 @@ pub(super) fn draw_icons(app: &mut GossipUi, ui: &mut Ui) {
                             egui::Shape::rect_filled(
                                 ui.min_rect(),
                                 ui.min_size().y / 2.0,
-                                app.theme.red_100(),
+                                bg_color,
                             ),
                         );
                     });
@@ -253,14 +287,28 @@ pub(super) fn draw_icons(app: &mut GossipUi, ui: &mut Ui) {
                         ui.set_max_size(SIZE);
                         let idx = ui.painter().add(egui::Shape::Noop);
                         let mut layout_job = LayoutJob::default();
-                        RichText::new("P").color(app.theme.amber_400()).append_to(
+                        let (bg_color, sym_color, num_color) =
+                            if app.notification_data.num_notif_pending > 0 {
+                                (
+                                    app.theme.amber_100(),
+                                    app.theme.amber_400(),
+                                    app.theme.neutral_950(),
+                                )
+                            } else {
+                                (
+                                    no_notification_bg_color,
+                                    no_notification_text_color,
+                                    no_notification_text_color,
+                                )
+                            };
+                        RichText::new("P").color(sym_color).append_to(
                             &mut layout_job,
                             ui.style(),
                             FontSelection::Default,
                             Align::LEFT,
                         );
                         RichText::new(format!("{:3}", app.notification_data.num_notif_pending))
-                            .color(app.theme.neutral_950())
+                            .color(num_color)
                             .append_to(
                                 &mut layout_job,
                                 ui.style(),
@@ -276,7 +324,7 @@ pub(super) fn draw_icons(app: &mut GossipUi, ui: &mut Ui) {
                             egui::Shape::rect_filled(
                                 ui.min_rect(),
                                 ui.min_size().y / 2.0,
-                                app.theme.amber_100(),
+                                bg_color,
                             ),
                         );
                     });
