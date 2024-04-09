@@ -29,7 +29,7 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 31] = [
+const COMMANDS: [Command; 32] = [
     Command {
         cmd: "oneshot",
         usage_params: "{depends}",
@@ -89,6 +89,11 @@ const COMMANDS: [Command; 31] = [
         cmd: "events_of_pubkey_and_kind",
         usage_params: "<pubkeyhex> <kind>",
         desc: "print IDs of all events from <pubkeyhex> of kind=<kind>",
+    },
+    Command {
+        cmd: "export_encrypted_key",
+        usage_params: "",
+        desc: "Export the encrypted private key",
     },
     Command {
         cmd: "giftwrap_ids",
@@ -216,6 +221,7 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
         "dpi" => override_dpi(command, args)?,
         "events_of_kind" => events_of_kind(command, args)?,
         "events_of_pubkey_and_kind" => events_of_pubkey_and_kind(command, args)?,
+        "export_encrypted_key" => export_encrypted_key()?,
         "giftwrap_ids" => giftwrap_ids(command)?,
         "help" => help(command, args)?,
         "import_event" => import_event(command, args, runtime)?,
@@ -805,6 +811,17 @@ pub fn events_of_pubkey_and_kind(cmd: Command, mut args: env::Args) -> Result<()
     for id in ids {
         println!("{}", id.as_hex_string());
     }
+
+    Ok(())
+}
+
+pub fn export_encrypted_key() -> Result<(), Error> {
+    let epk = match GLOBALS.storage.read_encrypted_private_key()? {
+        Some(epk) => epk,
+        None => return Err(ErrorKind::NoPrivateKey.into()),
+    };
+
+    println!("{}", epk);
 
     Ok(())
 }
