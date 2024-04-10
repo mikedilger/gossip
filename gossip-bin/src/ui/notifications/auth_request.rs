@@ -72,41 +72,19 @@ impl<'a> Notification<'a> for AuthRequest {
         StripBuilder::new(ui)
             .size(Size::remainder())
             .size(Size::initial(TRUNC))
-            .cell_layout(Layout::left_to_right(Align::Center))
+            .cell_layout(Layout::left_to_right(Align::Center).with_main_wrap(true))
             .horizontal(|mut strip| {
-                strip.strip(|builder| {
-                    builder
-                        .size(Size::initial(super::HEADER_HEIGHT))
-                        .size(Size::initial(14.0))
-                        .cell_layout(Layout::left_to_right(Align::TOP).with_main_wrap(true))
-                        .vertical(|mut strip| {
-                            strip.cell(|ui| {
-                                ui.label(
-                                    egui::RichText::new(super::unixtime_to_string(
-                                        self.timestamp().try_into().unwrap_or_default(),
-                                    ))
-                                    .weak()
-                                    .small(),
-                                );
-                                ui.add_space(10.0);
-                                ui.label(self.title().small());
-                            });
-                            strip.cell(|ui| {
-                                // FIXME pull account name with self.account once multiple keys are supported
-                                ui.label("Authenticate to");
-                                if ui
-                                    .link(
-                                        self.relay.as_url_crate_url().domain().unwrap_or_default(),
-                                    )
-                                    .on_hover_text("Edit this Relay in your Relay settings")
-                                    .clicked()
-                                {
-                                    new_page =
-                                        Some(Page::RelaysKnownNetwork(Some(self.relay.clone())));
-                                }
-                            });
-                        });
+                strip.cell(|ui| {
+                    // FIXME pull account name with self.account once multiple keys are supported
+                    ui.label("Authenticate to");
+                    if widgets::relay_url(ui, theme, &self.relay)
+                        .on_hover_text("Edit this Relay in your Relay settings")
+                        .clicked()
+                    {
+                        new_page = Some(Page::RelaysKnownNetwork(Some(self.relay.clone())));
+                    }
                 });
+
                 strip.cell(|ui| {
                     ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.scope(|ui| {

@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use eframe::egui::{self, Align, Color32, FontSelection, Layout, RichText, Ui};
+use eframe::egui::{self, Align, Color32, Layout, RichText, Ui};
 use egui_extras::{Size, StripBuilder};
 use gossip_lib::{
     comms::{RelayJob, ToOverlordMessage},
@@ -77,68 +77,35 @@ impl<'a> Notification<'a> for ConnRequest {
         StripBuilder::new(ui)
             .size(Size::remainder())
             .size(Size::initial(TRUNC))
-            .cell_layout(Layout::left_to_right(Align::Center))
+            .cell_layout(Layout::left_to_right(Align::Center).with_main_wrap(true))
             .horizontal(|mut strip| {
-                strip.strip(|builder| {
-                    builder
-                        .size(Size::initial(super::HEADER_HEIGHT))
-                        .size(Size::initial(14.0))
-                        .cell_layout(Layout::left_to_right(Align::TOP).with_main_wrap(true))
-                        .vertical(|mut strip| {
-                            strip.cell(|ui| {
-                                ui.label(
-                                    egui::RichText::new(super::unixtime_to_string(
-                                        self.timestamp().try_into().unwrap_or_default(),
-                                    ))
-                                    .weak()
-                                    .small(),
-                                );
-                                ui.add_space(10.0);
-                                ui.label(self.title().small());
-                            });
-                            strip.cell(|ui| {
-                                ui.label("Connect to");
-                                if ui
-                                    .link(
-                                        self.relay.as_url_crate_url().domain().unwrap_or_default(),
-                                    )
-                                    .on_hover_text("Edit this Relay in your Relay settings")
-                                    .clicked()
-                                {
-                                    new_page =
-                                        Some(Page::RelaysKnownNetwork(Some(self.relay.clone())));
-                                }
+                strip.cell(|ui| {
+                    ui.label("Connect to");
+                    if widgets::relay_url(ui, theme, &self.relay)
+                        .on_hover_text("Edit this Relay in your Relay settings")
+                        .clicked()
+                    {
+                        new_page = Some(Page::RelaysKnownNetwork(Some(self.relay.clone())));
+                    }
 
-                                let mut job = egui::text::LayoutJob::default();
-                                let label = if self.jobs.len() > 1 {
-                                    RichText::new("Reasons: ")
-                                } else {
-                                    RichText::new("Reason: ")
-                                };
-                                label.append_to(
-                                    &mut job,
-                                    ui.style(),
-                                    FontSelection::Default,
-                                    Align::Min,
-                                );
-                                RichText::new(jobstrs.join(", "))
-                                    .color(theme.accent_complementary_color())
-                                    .append_to(
-                                        &mut job,
-                                        ui.style(),
-                                        FontSelection::Default,
-                                        Align::Min,
-                                    );
-                                let galley = ui.fonts(|f| f.layout_job(job));
+                    if self.jobs.len() > 1 {
+                        ui.label(RichText::new("Reasons: "));
+                    } else {
+                        ui.label(RichText::new("Reason: "));
+                    };
 
-                                if galley.rect.width() > (ui.available_width()) {
-                                    ui.end_row();
-                                }
-
-                                ui.label(galley);
-                            });
-                        });
+                    for (i, job) in jobstrs.iter().enumerate() {
+                        if i + 1 < jobstrs.len() {
+                            ui.label(
+                                RichText::new(format!("{},", job))
+                                    .color(theme.accent_complementary_color()),
+                            );
+                        } else {
+                            ui.label(RichText::new(job).color(theme.accent_complementary_color()));
+                        }
+                    }
                 });
+
                 strip.cell(|ui| {
                     ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.scope(|ui| {

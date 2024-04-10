@@ -11,7 +11,7 @@ pub(crate) mod list_entry;
 pub use copy_button::{CopyButton, COPY_SYMBOL_SIZE};
 
 mod nav_item;
-use eframe::egui::Galley;
+use eframe::egui::{FontId, Galley};
 use egui_winit::egui::text::LayoutJob;
 use egui_winit::egui::text_edit::TextEditOutput;
 use egui_winit::egui::{
@@ -20,6 +20,7 @@ use egui_winit::egui::{
 pub use nav_item::NavItem;
 
 mod relay_entry;
+use nostr_types::RelayUrl;
 pub use relay_entry::RelayEntry;
 
 mod modal_popup;
@@ -39,7 +40,7 @@ pub use switch::{switch_custom_at, switch_with_size};
 mod textedit;
 pub use textedit::TextEdit;
 
-use super::GossipUi;
+use super::{GossipUi, Theme};
 
 pub const DROPDOWN_DISTANCE: f32 = 10.0;
 pub const TAGG_WIDTH: f32 = 200.0;
@@ -111,6 +112,33 @@ pub fn truncated_label(ui: &mut Ui, text: impl Into<WidgetText>, max_width: f32)
     // the only way to force egui to respect all our above settings
     // is to pass in the galley directly
     ui.label(galley)
+}
+
+/// Display a relay-URL
+pub fn relay_url(ui: &mut Ui, theme: &Theme, url: &RelayUrl) -> Response {
+    let (symbol, color) = if url.as_url_crate_url().scheme() == "wss" {
+        ("\u{1F512}", theme.accent_color())
+    } else {
+        ("\u{1F513}", theme.red_500())
+    };
+    let text = format!(
+        "\u{00A0}\u{00A0}{}",
+        url.as_url_crate_url().domain().unwrap_or_default()
+    );
+    let response = ui.link(text);
+
+    let mut font = FontId::default();
+    font.size *= 0.7;
+
+    ui.painter().text(
+        response.rect.left_top(),
+        egui::Align2::CENTER_TOP,
+        symbol,
+        font,
+        color,
+    );
+
+    response
 }
 
 /// Create a clickable label

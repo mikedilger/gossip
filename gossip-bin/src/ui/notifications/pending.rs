@@ -4,7 +4,7 @@ use eframe::egui::{self, Align, Color32, Layout, RichText, Ui};
 use egui_extras::{Size, StripBuilder};
 use gossip_lib::{comms::ToOverlordMessage, PendingItem, PersonList, GLOBALS};
 
-use crate::ui::{widgets, Page, Theme};
+use crate::ui::{Page, Theme};
 
 use super::{Notification, NotificationFilter};
 
@@ -77,7 +77,7 @@ impl Pending {
         &mut self,
         theme: &Theme,
         ui: &mut Ui,
-        description: impl FnOnce(&Theme, &mut Ui, f32) -> Option<Page>,
+        description: impl FnOnce(&Theme, &mut Ui) -> Option<Page>,
         action: impl FnOnce(&Theme, &mut Ui) -> Option<Page>,
     ) -> Option<Page> {
         let mut new_page = None;
@@ -85,30 +85,12 @@ impl Pending {
         StripBuilder::new(ui)
             .size(Size::remainder())
             .size(Size::initial(TRUNC))
-            .cell_layout(Layout::left_to_right(Align::Center))
+            .cell_layout(Layout::left_to_right(Align::Center).with_main_wrap(true))
             .horizontal(|mut strip| {
-                strip.strip(|builder| {
-                    builder
-                        .size(Size::initial(super::HEADER_HEIGHT))
-                        .size(Size::initial(14.0))
-                        .cell_layout(Layout::left_to_right(Align::TOP).with_main_wrap(true))
-                        .vertical(|mut strip| {
-                            strip.cell(|ui| {
-                                ui.label(
-                                    egui::RichText::new(super::unixtime_to_string(
-                                        self.timestamp().try_into().unwrap_or_default(),
-                                    ))
-                                    .weak()
-                                    .small(),
-                                );
-                                ui.add_space(10.0);
-                                ui.label(self.title().small());
-                            });
-                            strip.cell(|ui| {
-                                new_page = description(theme, ui, ui.available_width());
-                            });
-                        });
+                strip.cell(|ui| {
+                    new_page = description(theme, ui);
                 });
+
                 strip.cell(|ui| {
                     ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
                         new_page = action(theme, ui);
@@ -131,15 +113,11 @@ impl Pending {
             .unwrap_or_default()
             .unwrap_or_default();
 
-        let description = |_theme: &Theme, ui: &mut Ui, trunc_width: f32| -> Option<Page> {
-            widgets::truncated_label(
-                ui,
-                format!(
-                    "Your Person List '{}' has never been published.",
-                    metadata.title
-                ),
-                trunc_width,
-            );
+        let description = |_theme: &Theme, ui: &mut Ui| -> Option<Page> {
+            ui.label(format!(
+                "Your Person List '{}' has never been published.",
+                metadata.title
+            ));
             None
         };
 
@@ -179,16 +157,12 @@ impl Pending {
             .unwrap_or_default()
             .unwrap_or_default();
 
-        let description = |_theme: &Theme, ui: &mut Ui, trunc_width: f32| -> Option<Page> {
-            widgets::truncated_label(
-                ui,
-                format!(
-                    "Your Person List '{}' has not been published since {}",
-                    metadata.title,
-                    super::unixtime_to_string(metadata.event_created_at.0)
-                ),
-                trunc_width,
-            );
+        let description = |_theme: &Theme, ui: &mut Ui| -> Option<Page> {
+            ui.label(format!(
+                "Your Person List '{}' has not been published since {}",
+                metadata.title,
+                super::unixtime_to_string(metadata.event_created_at.0)
+            ));
             None
         };
         let action = |theme: &Theme, ui: &mut Ui| -> Option<Page> {
@@ -227,15 +201,11 @@ impl Pending {
             .unwrap_or_default()
             .unwrap_or_default();
 
-        let description = |_theme: &Theme, ui: &mut Ui, trunc_width: f32| -> Option<Page> {
-            widgets::truncated_label(
-                ui,
-                format!(
-                    "Your local Person List '{}' is out-of-sync with the one found on your relays",
-                    metadata.title
-                ),
-                trunc_width,
-            );
+        let description = |_theme: &Theme, ui: &mut Ui| -> Option<Page> {
+            ui.label(format!(
+                "Your local Person List '{}' is out-of-sync with the one found on your relays",
+                metadata.title
+            ));
             None
         };
         let action = |theme: &Theme, ui: &mut Ui| -> Option<Page> {
@@ -251,12 +221,8 @@ impl Pending {
     }
 
     fn relay_list_not_advertized_recently(&mut self, theme: &Theme, ui: &mut Ui) -> Option<Page> {
-        let description = |_theme: &Theme, ui: &mut Ui, trunc_width: f32| -> Option<Page> {
-            widgets::truncated_label(
-                ui,
-                "Your Relay List has not been advertised recently",
-                trunc_width,
-            );
+        let description = |_theme: &Theme, ui: &mut Ui| -> Option<Page> {
+            ui.label("Your Relay List has not been advertised recently");
             None
         };
         let action = |theme: &Theme, ui: &mut Ui| -> Option<Page> {
@@ -283,8 +249,8 @@ impl Pending {
     }
 
     fn relay_list_changed_since_advertised(&mut self, theme: &Theme, ui: &mut Ui) -> Option<Page> {
-        let description = |_theme: &Theme, ui: &mut Ui, trunc_width: f32| -> Option<Page> {
-            widgets::truncated_label(ui, "Your Relay List has changed locally", trunc_width);
+        let description = |_theme: &Theme, ui: &mut Ui| -> Option<Page> {
+            ui.label("Your Relay List has changed locally");
             None
         };
         let action = |theme: &Theme, ui: &mut Ui| -> Option<Page> {
@@ -310,12 +276,8 @@ impl Pending {
     }
 
     fn relay_list_never_advertised(&mut self, theme: &Theme, ui: &mut Ui) -> Option<Page> {
-        let description = |_theme: &Theme, ui: &mut Ui, trunc_width: f32| -> Option<Page> {
-            widgets::truncated_label(
-                ui,
-                "Your Relay List has never been advertized before",
-                trunc_width,
-            );
+        let description = |_theme: &Theme, ui: &mut Ui| -> Option<Page> {
+            ui.label("Your Relay List has never been advertized before");
             None
         };
         let action = |theme: &Theme, ui: &mut Ui| -> Option<Page> {
