@@ -88,39 +88,19 @@ impl<'a> Notification<'a> for Nip46Request {
                         .size(Size::initial(TRUNC))
                         .cell_layout(Layout::left_to_right(Align::Center))
                         .horizontal(|mut strip| {
-                            strip.strip(|builder| {
-                                builder
-                                    .size(Size::initial(super::HEADER_HEIGHT))
-                                    .size(Size::initial(14.0))
-                                    .cell_layout(
-                                        Layout::left_to_right(Align::TOP).with_main_wrap(true),
-                                    )
-                                    .vertical(|mut strip| {
-                                        strip.cell(|ui| {
-                                            ui.label(
-                                                egui::RichText::new(super::unixtime_to_string(
-                                                    self.timestamp().try_into().unwrap_or_default(),
-                                                ))
-                                                .weak()
-                                                .small(),
-                                            );
-                                            ui.add_space(10.0);
-                                            ui.label(self.title().small());
-                                        });
-                                        strip.cell(|ui| {
-                                            let text = format!(
-                                                "NIP-46 Request from '{}'. Allow {}?",
-                                                self.client_name, self.command.method
-                                            );
-                                            widgets::truncated_label(
-                                                ui,
-                                                text,
-                                                ui.available_width(),
-                                            )
-                                            .on_hover_text(self.command.params.join(", "));
-                                        });
-                                    });
+                            strip.cell(|ui| {
+                                let text = format!(
+                                    "NIP-46 Request from '{}'. Allow {}?",
+                                    self.client_name, self.command.method
+                                );
+                                widgets::truncated_label(
+                                    ui,
+                                    text,
+                                    ui.available_width(),
+                                )
+                                .on_hover_text(self.command.params.join(", "));
                             });
+
                             strip.cell(|ui| {
                                 ui.with_layout(Layout::right_to_left(ALIGN), |ui| {
                                     ui.set_height(HEIGHT);

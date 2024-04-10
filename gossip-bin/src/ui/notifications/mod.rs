@@ -56,7 +56,6 @@ pub trait Notification<'a> {
 
 type NotificationHandle = Rc<RefCell<dyn for<'handle> Notification<'handle>>>;
 const SWITCH_SIZE: Vec2 = Vec2 { x: 40.0, y: 20.0 };
-const HEADER_HEIGHT: f32 = 17.0;
 
 pub struct NotificationData {
     active: Vec<NotificationHandle>,
@@ -391,6 +390,19 @@ pub(super) fn update(app: &mut GossipUi, ui: &mut Ui) {
             widgets::list_entry::make_frame(ui, None).show(ui, |ui| {
                 ui.set_min_width(ui.available_width());
                 ui.set_height(37.0);
+
+                ui.horizontal(|ui| {
+                    ui.label(
+                        egui::RichText::new(unixtime_to_string(
+                            entry.borrow().timestamp().try_into().unwrap_or_default(),
+                        ))
+                        .weak()
+                        .small(),
+                    );
+                    ui.add_space(10.0);
+                    ui.label(entry.borrow().title().small());
+                });
+
                 new_page = entry.borrow_mut().show(&app.theme, ui);
             });
             if new_page.is_some() {
