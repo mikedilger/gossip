@@ -55,7 +55,8 @@ pub trait Notification<'a> {
 }
 
 type NotificationHandle = Rc<RefCell<dyn for<'handle> Notification<'handle>>>;
-const SWITCH_SIZE: Vec2 = Vec2 { x: 46.0, y: 23.0 };
+const SWITCH_SIZE: Vec2 = Vec2 { x: 40.0, y: 20.0 };
+const HEADER_HEIGHT: f32 = 17.0;
 
 pub struct NotificationData {
     active: Vec<NotificationHandle>,
@@ -134,12 +135,33 @@ pub(super) fn calc(app: &mut GossipUi) {
                     new_active.push(new_entry);
                 }
                 PendingItem::Nip46Request {
-                    client_name: _,
-                    account: _,
-                    command: _,
+                    client_name,
+                    account,
+                    command,
                 } => {
-                    new_active.push(Nip46Request::new(item.clone(), *time));
+                    let new_entry = Nip46Request::new(item.clone(), *time);
                     app.notification_data.num_notif_pending.add_assign(1);
+
+                    // find old entry if any and copy setting
+                    for entry in app.notification_data.active.iter() {
+                        if let Ok(entry) = entry.try_borrow() {
+                            match entry.item() {
+                                PendingItem::Nip46Request {
+                                    client_name: old_client_name,
+                                    account: old_account,
+                                    command: old_command,
+                                } if old_client_name == client_name
+                                    && old_account == account
+                                    && old_command.id == command.id =>
+                                {
+                                    new_entry.borrow_mut().set_remember(entry.get_remember());
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+
+                    new_active.push(new_entry);
                 }
                 item => {
                     new_active.push(Pending::new(item.clone(), *time));
@@ -369,17 +391,6 @@ pub(super) fn update(app: &mut GossipUi, ui: &mut Ui) {
             widgets::list_entry::make_frame(ui, None).show(ui, |ui| {
                 ui.set_min_width(ui.available_width());
                 ui.set_height(37.0);
-                ui.horizontal(|ui| {
-                    ui.label(
-                        egui::RichText::new(unixtime_to_string(
-                            entry.borrow().timestamp().try_into().unwrap_or_default(),
-                        ))
-                        .weak()
-                        .small(),
-                    );
-                    ui.add_space(10.0);
-                    ui.label(entry.borrow().title().small());
-                });
                 new_page = entry.borrow_mut().show(&app.theme, ui);
             });
             if new_page.is_some() {
@@ -396,7 +407,7 @@ fn unixtime_to_string(timestamp: i64) -> String {
     let time: DateTime<Utc> = DateTime::from_timestamp(timestamp, 0).unwrap_or_default();
     let local: DateTime<Local> = time.into();
 
-    local.format("%e. %b %Y %T").to_string()
+    local.format("%e %b %Y %T").to_string()
 }
 
 fn manage_style(theme: &Theme, style: &mut Style) {
@@ -413,7 +424,7 @@ fn manage_style(theme: &Theme, style: &mut Style) {
             theme.neutral_400(),
         )
     };
-    style.spacing.button_padding = vec2(16.0, 4.0);
+    style.spacing.button_padding = vec2(8.0, 3.0);
     style.visuals.widgets.noninteractive.weak_bg_fill = bg_color;
     style.visuals.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0, frame_color);
     style.visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0, text_color);
@@ -442,7 +453,7 @@ fn decline_style(theme: &Theme, style: &mut Style) {
     } else {
         (theme.neutral_800(), Color32::WHITE)
     };
-    style.spacing.button_padding = vec2(16.0, 4.0);
+    style.spacing.button_padding = vec2(8.0, 3.0);
     style.visuals.widgets.noninteractive.weak_bg_fill = bg_color;
     style.visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0, text_color);
     style.visuals.widgets.inactive.weak_bg_fill = bg_color;
@@ -461,7 +472,7 @@ fn decline_style(theme: &Theme, style: &mut Style) {
 
 fn approve_style(theme: &Theme, style: &mut Style) {
     theme.accent_button_1_style(style);
-    style.spacing.button_padding = vec2(16.0, 4.0);
+    style.spacing.button_padding = vec2(8.0, 3.0);
 }
 
 pub fn notification_filter_combo(app: &mut GossipUi, ui: &mut Ui) {

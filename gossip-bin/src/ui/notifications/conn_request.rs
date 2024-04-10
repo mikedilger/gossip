@@ -1,6 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
-use eframe::egui::{self, Color32, Layout, RichText, Ui};
+use eframe::egui::{self, Align, Color32, FontSelection, Layout, RichText, Ui};
+use egui_extras::{Size, StripBuilder};
 use gossip_lib::{
     comms::{RelayJob, ToOverlordMessage},
     PendingItem, GLOBALS,
@@ -35,9 +36,7 @@ impl ConnRequest {
 }
 
 /// width needed for action section
-const TRUNC: f32 = 340.0;
-/// min-height of each section
-const HEIGHT: f32 = 23.0;
+const TRUNC: f32 = 280.0;
 
 impl<'a> Notification<'a> for ConnRequest {
     fn timestamp(&self) -> u64 {
@@ -75,79 +74,101 @@ impl<'a> Notification<'a> for ConnRequest {
             .map(|j| format!("{:?}", j.reason))
             .collect();
 
-        let description = |myself: &mut ConnRequest,
-                           theme: &Theme,
-                           ui: &mut Ui,
-                           new_page: &mut Option<Page>,
-                           trunc_width: f32| {
-            ui.set_height(HEIGHT);
-            ui.label("Connect to");
-            if ui
-                .link(myself.relay.as_url_crate_url().domain().unwrap_or_default())
-                .on_hover_text("Edit this Relay in your Relay settings")
-                .clicked()
-            {
-                *new_page = Some(Page::RelaysKnownNetwork(Some(myself.relay.clone())));
-            }
+        StripBuilder::new(ui)
+            .size(Size::remainder())
+            .size(Size::initial(TRUNC))
+            .cell_layout(Layout::left_to_right(Align::Center))
+            .horizontal(|mut strip| {
+                strip.strip(|builder| {
+                    builder
+                        .size(Size::initial(super::HEADER_HEIGHT))
+                        .size(Size::initial(14.0))
+                        .cell_layout(Layout::left_to_right(Align::TOP).with_main_wrap(true))
+                        .vertical(|mut strip| {
+                            strip.cell(|ui| {
+                                ui.label(
+                                    egui::RichText::new(super::unixtime_to_string(
+                                        self.timestamp().try_into().unwrap_or_default(),
+                                    ))
+                                    .weak()
+                                    .small(),
+                                );
+                                ui.add_space(10.0);
+                                ui.label(self.title().small());
+                            });
+                            strip.cell(|ui| {
+                                ui.label("Connect to");
+                                if ui
+                                    .link(
+                                        self.relay.as_url_crate_url().domain().unwrap_or_default(),
+                                    )
+                                    .on_hover_text("Edit this Relay in your Relay settings")
+                                    .clicked()
+                                {
+                                    new_page =
+                                        Some(Page::RelaysKnownNetwork(Some(self.relay.clone())));
+                                }
 
-            if myself.jobs.len() > 1 {
-                ui.label("Reasons:");
-            } else {
-                ui.label("Reason:");
-            }
+                                let mut job = egui::text::LayoutJob::default();
+                                let label = if self.jobs.len() > 1 {
+                                    RichText::new("Reasons: ")
+                                } else {
+                                    RichText::new("Reason: ")
+                                };
+                                label.append_to(
+                                    &mut job,
+                                    ui.style(),
+                                    FontSelection::Default,
+                                    Align::Min,
+                                );
+                                RichText::new(jobstrs.join(", "))
+                                    .color(theme.accent_complementary_color())
+                                    .append_to(
+                                        &mut job,
+                                        ui.style(),
+                                        FontSelection::Default,
+                                        Align::Min,
+                                    );
+                                let galley = ui.fonts(|f| f.layout_job(job));
 
-            widgets::truncated_label(
-                ui,
-                RichText::new(jobstrs.join(", ")).color(theme.accent_complementary_color()),
-                trunc_width,
-            );
-        };
+                                if galley.rect.width() > (ui.available_width()) {
+                                    ui.end_row();
+                                }
 
-        let action =
-            |myself: &mut ConnRequest, theme: &Theme, ui: &mut Ui, _new_page: &mut Option<Page>| {
-                ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.set_height(HEIGHT);
-                    ui.scope(|ui| {
-                        super::decline_style(theme, ui.style_mut());
-                        if ui.button("Decline").clicked() {
-                            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::ConnectDeclined(
-                                myself.relay.to_owned(),
-                                myself.remember,
-                            ));
-                        }
-                    });
-                    ui.add_space(10.0);
-                    ui.scope(|ui| {
-                        super::approve_style(theme, ui.style_mut());
-                        if ui.button("Approve").clicked() {
-                            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::ConnectApproved(
-                                myself.relay.to_owned(),
-                                myself.remember,
-                            ));
-                        }
-                    });
-                    ui.add_space(10.0);
-                    ui.label("Remember");
-                    widgets::switch_with_size(ui, &mut myself.remember, super::SWITCH_SIZE)
-                        .on_hover_text("store permission permanently");
+                                ui.label(galley);
+                            });
+                        });
                 });
-            };
-
-        // "responsive" layout
-        let width = ui.available_width();
-        if width > (TRUNC * 2.2) {
-            ui.with_layout(Layout::left_to_right(egui::Align::Center), |ui| {
-                description(self, theme, ui, &mut new_page, width - TRUNC);
-                action(self, theme, ui, &mut new_page);
-            });
-        } else {
-            ui.with_layout(Layout::top_down(egui::Align::LEFT), |ui| {
-                ui.with_layout(Layout::left_to_right(egui::Align::Center), |ui| {
-                    description(self, theme, ui, &mut new_page, width);
+                strip.cell(|ui| {
+                    ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.scope(|ui| {
+                            super::decline_style(theme, ui.style_mut());
+                            if ui.button("Decline").clicked() {
+                                let _ =
+                                    GLOBALS.to_overlord.send(ToOverlordMessage::ConnectDeclined(
+                                        self.relay.to_owned(),
+                                        self.remember,
+                                    ));
+                            }
+                        });
+                        ui.add_space(10.0);
+                        ui.scope(|ui| {
+                            super::approve_style(theme, ui.style_mut());
+                            if ui.button("Approve").clicked() {
+                                let _ =
+                                    GLOBALS.to_overlord.send(ToOverlordMessage::ConnectApproved(
+                                        self.relay.to_owned(),
+                                        self.remember,
+                                    ));
+                            }
+                        });
+                        ui.add_space(10.0);
+                        ui.label("Remember");
+                        widgets::switch_with_size(ui, &mut self.remember, super::SWITCH_SIZE)
+                            .on_hover_text("store permission permanently");
+                    });
                 });
-                action(self, theme, ui, &mut new_page);
             });
-        };
 
         new_page
     }
