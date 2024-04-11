@@ -236,7 +236,7 @@ pub(super) fn draw_icons(app: &mut GossipUi, ui: &mut Ui) {
                             FontSelection::Default,
                             Align::LEFT,
                         );
-                        RichText::new(format!("{:3}", num_notifications))
+                        RichText::new(format!("{:2}", num_notifications))
                             .color(num_color)
                             .append_to(
                                 &mut layout_job,
@@ -282,7 +282,7 @@ pub(super) fn draw_icons(app: &mut GossipUi, ui: &mut Ui) {
                             FontSelection::Default,
                             Align::LEFT,
                         );
-                        RichText::new(format!("{:3}", app.notification_data.num_notif_relays))
+                        RichText::new(format!("{:2}", app.notification_data.num_notif_relays))
                             .color(num_color)
                             .append_to(
                                 &mut layout_job,
@@ -328,7 +328,7 @@ pub(super) fn draw_icons(app: &mut GossipUi, ui: &mut Ui) {
                             FontSelection::Default,
                             Align::LEFT,
                         );
-                        RichText::new(format!("{:3}", app.notification_data.num_notif_pending))
+                        RichText::new(format!("{:2}", app.notification_data.num_notif_pending))
                             .color(num_color)
                             .append_to(
                                 &mut layout_job,
