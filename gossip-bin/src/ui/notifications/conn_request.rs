@@ -99,11 +99,13 @@ impl<'a> Notification<'a> for ConnRequest {
 
                     if panel_width < 720.0 {
                         ui.end_row();
+                    } else {
+                        ui.add_space(20.0);
                     }
                     if self.jobs.len() > 1 {
-                        ui.label(RichText::new("Reasons: "));
+                        ui.label(RichText::new("Reasons:"));
                     } else {
-                        ui.label(RichText::new("Reason: "));
+                        ui.label(RichText::new("Reason:"));
                     };
 
                     for (i, job) in jobstrs.iter().enumerate() {
