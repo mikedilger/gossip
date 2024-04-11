@@ -2906,7 +2906,7 @@ impl Overlord {
                     reason: RelayConnectionReason::Config,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeOutbox,
+                        detail: ToMinionPayloadDetail::SubscribeConfig,
                     },
                 }],
             )

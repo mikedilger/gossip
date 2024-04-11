@@ -252,7 +252,7 @@ pub(crate) enum ToMinionPayloadDetail {
     PostEvents(Vec<Event>),
     Shutdown,
     SubscribeAugments(Vec<IdHex>),
-    SubscribeOutbox,
+    SubscribeConfig,
     SubscribeDiscover(Vec<PublicKey>),
     SubscribeGeneralFeed(Vec<PublicKey>),
     SubscribeInbox,

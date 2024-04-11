@@ -29,22 +29,7 @@ pub fn general_feed(
     filters
 }
 
-pub fn augments(ids: &[IdHex]) -> Vec<Filter> {
-    let event_kinds = crate::feed::feed_augment_event_kinds();
-
-    let filter = {
-        let mut filter = Filter {
-            kinds: event_kinds,
-            ..Default::default()
-        };
-        filter.set_tag_values('e', ids.iter().map(|id| id.to_string()).collect());
-        filter
-    };
-
-    vec![filter]
-}
-
-pub fn inbox(since: Unixtime, until: Option<Unixtime>, spamsafe: bool) -> Vec<Filter> {
+pub fn inbox_feed(since: Unixtime, until: Option<Unixtime>, spamsafe: bool) -> Vec<Filter> {
     let mut filters: Vec<Filter> = Vec::new();
 
     // GiftWrap lookback needs to be one week further back
@@ -107,7 +92,35 @@ pub fn inbox(since: Unixtime, until: Option<Unixtime>, spamsafe: bool) -> Vec<Fi
     filters
 }
 
-pub fn outbox(since: Unixtime) -> Vec<Filter> {
+pub fn person_feed(pubkey: PublicKey, since: Unixtime, until: Option<Unixtime>) -> Vec<Filter> {
+    // Allow all feed related event kinds (excluding DMs)
+    let event_kinds = crate::feed::feed_displayable_event_kinds(false);
+
+    vec![Filter {
+        authors: vec![pubkey.into()],
+        kinds: event_kinds,
+        since: Some(since),
+        until,
+        ..Default::default()
+    }]
+}
+
+pub fn augments(ids: &[IdHex]) -> Vec<Filter> {
+    let event_kinds = crate::feed::feed_augment_event_kinds();
+
+    let filter = {
+        let mut filter = Filter {
+            kinds: event_kinds,
+            ..Default::default()
+        };
+        filter.set_tag_values('e', ids.iter().map(|id| id.to_string()).collect());
+        filter
+    };
+
+    vec![filter]
+}
+
+pub fn config(since: Unixtime) -> Vec<Filter> {
     if let Some(pubkey) = GLOBALS.identity.public_key() {
         let pkh: PublicKeyHex = pubkey.into();
         let giftwrap_since = Unixtime(since.0 - 60 * 60 * 24 * 7);
@@ -158,19 +171,6 @@ pub fn discover(pubkeys: &[PublicKey]) -> Vec<Filter> {
         authors: pkp,
         kinds: vec![EventKind::RelayList],
         // these are all replaceable, no since required
-        ..Default::default()
-    }]
-}
-
-pub fn person_feed(pubkey: PublicKey, since: Unixtime, until: Option<Unixtime>) -> Vec<Filter> {
-    // Allow all feed related event kinds (excluding DMs)
-    let event_kinds = crate::feed::feed_displayable_event_kinds(false);
-
-    vec![Filter {
-        authors: vec![pubkey.into()],
-        kinds: event_kinds,
-        since: Some(since),
-        until,
         ..Default::default()
     }]
 }

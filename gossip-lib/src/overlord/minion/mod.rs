@@ -556,8 +556,8 @@ impl Minion {
             ToMinionPayloadDetail::SubscribeInbox => {
                 self.subscribe_inbox(message.job_id).await?;
             }
-            ToMinionPayloadDetail::SubscribeOutbox => {
-                self.subscribe_outbox(message.job_id).await?;
+            ToMinionPayloadDetail::SubscribeConfig => {
+                self.subscribe_config(message.job_id).await?;
             }
             ToMinionPayloadDetail::SubscribeDiscover(pubkeys) => {
                 self.subscribe_discover(message.job_id, pubkeys).await?;
@@ -714,7 +714,7 @@ impl Minion {
 
         let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
 
-        let filters = filter_fns::inbox(replies_since, None, spamsafe);
+        let filters = filter_fns::inbox_feed(replies_since, None, spamsafe);
 
         if filters.is_empty() {
             return Ok(());
@@ -737,11 +737,11 @@ impl Minion {
         Ok(())
     }
 
-    // Subscribe to the user's output (config, DMs, etc) which is on their own write relays
-    async fn subscribe_outbox(&mut self, job_id: u64) -> Result<(), Error> {
+    // Subscribe to the user's config (config, DMs, etc) which is on their own write relays
+    async fn subscribe_config(&mut self, job_id: u64) -> Result<(), Error> {
         let since = self.compute_since(GLOBALS.storage.read_setting_person_feed_chunk());
 
-        let filters = filter_fns::outbox(since);
+        let filters = filter_fns::config(since);
 
         if filters.is_empty() {
             return Ok(());
@@ -831,7 +831,7 @@ impl Minion {
 
         let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
 
-        let filters = filter_fns::inbox(since, Some(until), spamsafe);
+        let filters = filter_fns::inbox_feed(since, Some(until), spamsafe);
 
         if filters.is_empty() {
             self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
