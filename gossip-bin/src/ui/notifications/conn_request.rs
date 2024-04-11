@@ -36,7 +36,7 @@ impl ConnRequest {
 }
 
 /// width needed for action section
-const TRUNC: f32 = 280.0;
+const TRUNC: f32 = 320.0;
 
 impl<'a> Notification<'a> for ConnRequest {
     fn timestamp(&self) -> u64 {
