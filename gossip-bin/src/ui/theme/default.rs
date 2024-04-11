@@ -83,6 +83,9 @@ impl ThemeDef for DefaultTheme {
     fn amber_400() -> Color32 {
         Color32::from_rgb(0xfb, 0xbf, 0x24)
     } // #FBBF24
+    fn amber_500() -> Color32 {
+        Color32::from_rgb(0xf5, 0x92, 0x0b)
+    } // #f59e0b
 
     fn accent_color(dark_mode: bool) -> Color32 {
         if dark_mode {
