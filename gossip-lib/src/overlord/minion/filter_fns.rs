@@ -125,6 +125,16 @@ pub fn config(since: Unixtime) -> Vec<Filter> {
         let pkh: PublicKeyHex = pubkey.into();
         let giftwrap_since = Unixtime(since.0 - 60 * 60 * 24 * 7);
 
+        let giftwrap_filter = {
+            let mut f = Filter {
+                kinds: vec![EventKind::GiftWrap],
+                since: Some(giftwrap_since),
+                ..Default::default()
+            };
+            f.set_tag_values('p', vec![pkh.to_string()]);
+            f
+        };
+
         // Read back in things that we wrote out to our write relays
         // that we need
         vec![
@@ -143,12 +153,7 @@ pub fn config(since: Unixtime) -> Vec<Filter> {
                 ..Default::default()
             },
             // GiftWraps to me, recent only
-            Filter {
-                authors: vec![pkh.clone()],
-                kinds: vec![EventKind::GiftWrap],
-                since: Some(giftwrap_since),
-                ..Default::default()
-            },
+            giftwrap_filter,
             // Events I posted recently, including feed_displayable and
             //  augments (deletions, reactions, timestamp, label,reporting, and zap)
             Filter {
