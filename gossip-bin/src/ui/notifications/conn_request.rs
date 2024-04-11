@@ -38,6 +38,14 @@ impl ConnRequest {
 /// width needed for action section
 const TRUNC: f32 = 320.0;
 
+fn reasons_color(theme: &Theme) -> Color32 {
+    if theme.dark_mode {
+        theme.amber_400()
+    } else {
+        theme.amber_500()
+    }
+}
+
 impl<'a> Notification<'a> for ConnRequest {
     fn timestamp(&self) -> u64 {
         self.timestamp
@@ -102,10 +110,10 @@ impl<'a> Notification<'a> for ConnRequest {
                         if i + 1 < jobstrs.len() {
                             ui.label(
                                 RichText::new(format!("{},", job))
-                                    .color(theme.accent_complementary_color()),
+                                    .color(reasons_color(theme)),
                             );
                         } else {
-                            ui.label(RichText::new(job).color(theme.accent_complementary_color()));
+                            ui.label(RichText::new(job).color(reasons_color(theme)));
                         }
                     }
                 });

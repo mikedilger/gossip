@@ -206,6 +206,12 @@ macro_rules! theme_dispatch {
                 }
             }
 
+            pub fn amber_500(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::amber_500(), )+
+                }
+            }
+
             pub fn accent_color(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::accent_color(self.dark_mode), )+
@@ -537,6 +543,7 @@ pub trait ThemeDef: Send + Sync {
     fn lime_500() -> Color32;
     fn amber_100() -> Color32;
     fn amber_400() -> Color32;
+    fn amber_500() -> Color32;
 
     // Used for strokes, lines, and text in various places
     fn accent_color(dark_mode: bool) -> Color32;
