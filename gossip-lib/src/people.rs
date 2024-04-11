@@ -386,7 +386,7 @@ impl People {
                 self.update_nip05_last_checked(person.pubkey).await?;
                 task::spawn(async move {
                     if let Err(e) = crate::nip05::validate_nip05(person).await {
-                        tracing::error!("{}", e);
+                        tracing::warn!("{}", e);
                     }
                 });
             }
