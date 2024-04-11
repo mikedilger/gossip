@@ -2,11 +2,37 @@ use crate::dm_channel::DmChannel;
 use crate::globals::GLOBALS;
 use nostr_types::{EventKind, Filter, IdHex, PublicKey, PublicKeyHex, Unixtime};
 
-pub fn general_feed(
-    authors: &[PublicKey],
-    since: Unixtime,
-    until: Option<Unixtime>,
-) -> Vec<Filter> {
+pub enum FeedRange {
+    // Long-term subscription for anything after the given time
+    After {
+        since: Unixtime,
+    },
+
+    // Short-term subscription for up to limit events preceding the until time
+    #[allow(dead_code)]
+    Before {
+        until: Unixtime,
+        limit: usize,
+    },
+
+    // Original chunking method
+    OriginalChunk {
+        since: Unixtime,
+        until: Unixtime,
+    },
+}
+
+impl FeedRange {
+    pub fn since_until_limit(&self) -> (Option<Unixtime>, Option<Unixtime>, Option<usize>) {
+        match *self {
+            FeedRange::After { since } => (Some(since), None, None),
+            FeedRange::Before { until, limit } => (None, Some(until), Some(limit)),
+            FeedRange::OriginalChunk { since, until } => (Some(since), Some(until), None),
+        }
+    }
+}
+
+pub fn general_feed(authors: &[PublicKey], range: FeedRange) -> Vec<Filter> {
     let mut filters: Vec<Filter> = Vec::new();
 
     if authors.is_empty() {
@@ -17,29 +43,29 @@ pub fn general_feed(
 
     let event_kinds = crate::feed::feed_related_event_kinds(false);
 
+    let (since, until, limit) = range.since_until_limit();
+
     // feed related by people followed
     filters.push(Filter {
         authors: pkp,
         kinds: event_kinds.clone(),
-        since: Some(since),
+        since,
         until,
+        limit,
         ..Default::default()
     });
 
     filters
 }
 
-pub fn inbox_feed(since: Unixtime, until: Option<Unixtime>, spamsafe: bool) -> Vec<Filter> {
+pub fn inbox_feed(spamsafe: bool, range: FeedRange) -> Vec<Filter> {
     let mut filters: Vec<Filter> = Vec::new();
-
-    // GiftWrap lookback needs to be one week further back
-    // FIXME: this depends on how far other clients backdate.
-    let giftwrap_since = Unixtime(since.0 - 60 * 60 * 24 * 7);
-    let giftwrap_until = until.map(|u| Unixtime(u.0 - 60 * 60 * 24 * 7));
 
     // Allow all feed related event kinds (including DMs)
     let mut event_kinds = crate::feed::feed_related_event_kinds(true);
     event_kinds.retain(|f| *f != EventKind::GiftWrap); // gift wrap has special filter
+
+    let (since, until, limit) = range.since_until_limit();
 
     if let Some(pubkey) = GLOBALS.identity.public_key() {
         // Any mentions of me
@@ -50,8 +76,9 @@ pub fn inbox_feed(since: Unixtime, until: Option<Unixtime>, spamsafe: bool) -> V
         let filter = {
             let mut filter = Filter {
                 kinds: event_kinds,
-                since: Some(since),
+                since,
                 until,
+                limit,
                 ..Default::default()
             };
             let values = vec![pkh.to_string()];
@@ -72,14 +99,17 @@ pub fn inbox_feed(since: Unixtime, until: Option<Unixtime>, spamsafe: bool) -> V
         };
         filters.push(filter);
 
-        // Giftwrap specially looks back further
         // Giftwraps cannot be filtered by author so we have to take them regardless
         // of the spamsafe designation of the relay.
+        //
+        // Sure, the TOTAL number of giftwraps being the limit will be MORE than we need,
+        // but since giftwraps get backdated, this is probably a good thing.
         let filter = {
             let mut filter = Filter {
                 kinds: vec![EventKind::GiftWrap],
-                since: Some(giftwrap_since),
-                until: giftwrap_until,
+                since,
+                until,
+                limit,
                 ..Default::default()
             };
             let values = vec![pkh.to_string()];
@@ -92,15 +122,18 @@ pub fn inbox_feed(since: Unixtime, until: Option<Unixtime>, spamsafe: bool) -> V
     filters
 }
 
-pub fn person_feed(pubkey: PublicKey, since: Unixtime, until: Option<Unixtime>) -> Vec<Filter> {
+pub fn person_feed(pubkey: PublicKey, range: FeedRange) -> Vec<Filter> {
     // Allow all feed related event kinds (excluding DMs)
     let event_kinds = crate::feed::feed_displayable_event_kinds(false);
+
+    let (since, until, limit) = range.since_until_limit();
 
     vec![Filter {
         authors: vec![pubkey.into()],
         kinds: event_kinds,
-        since: Some(since),
+        since,
         until,
+        limit,
         ..Default::default()
     }]
 }

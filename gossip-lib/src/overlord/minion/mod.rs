@@ -1,4 +1,6 @@
 mod filter_fns;
+use filter_fns::FeedRange;
+
 mod handle_websocket;
 mod subscription;
 mod subscription_map;
@@ -548,6 +550,7 @@ impl Minion {
                 if self.general_feed_keys.is_empty() {
                     self.general_feed_keys = pubkeys;
                     self.subscribe_general_feed_initial(message.job_id).await?;
+                    //self.subscribe_general_feed_additional(message.job_id, pubkeys)
                 } else {
                     self.subscribe_general_feed_additional(message.job_id, pubkeys)
                         .await?;
@@ -645,7 +648,7 @@ impl Minion {
             }
         };
 
-        let filters = filter_fns::general_feed(&self.general_feed_keys, since, None);
+        let filters = filter_fns::general_feed(&self.general_feed_keys, FeedRange::After { since });
 
         if filters.is_empty() {
             self.unsubscribe("general_feed").await?;
@@ -687,7 +690,7 @@ impl Minion {
                 None => self.compute_since(GLOBALS.storage.read_setting_feed_chunk()),
             };
 
-            let filters = filter_fns::general_feed(&new_keys, since, None);
+            let filters = filter_fns::general_feed(&new_keys, FeedRange::After { since });
 
             if !filters.is_empty() {
                 self.subscribe(filters, "temp_general_feed_update", job_id)
@@ -714,7 +717,12 @@ impl Minion {
 
         let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
 
-        let filters = filter_fns::inbox_feed(replies_since, None, spamsafe);
+        let filters = filter_fns::inbox_feed(
+            spamsafe,
+            FeedRange::After {
+                since: replies_since,
+            },
+        );
 
         if filters.is_empty() {
             return Ok(());
@@ -775,7 +783,7 @@ impl Minion {
         let since = self.compute_since(GLOBALS.storage.read_setting_person_feed_chunk());
         self.person_feed_start = Some(since);
 
-        let filters = filter_fns::person_feed(pubkey, since, None);
+        let filters = filter_fns::person_feed(pubkey, FeedRange::After { since });
 
         if filters.is_empty() {
             self.unsubscribe_person_feed().await?;
@@ -802,7 +810,7 @@ impl Minion {
         };
         self.person_feed_start = Some(since);
 
-        let filters = filter_fns::person_feed(pubkey, since, Some(until));
+        let filters = filter_fns::person_feed(pubkey, FeedRange::OriginalChunk { since, until });
 
         if filters.is_empty() {
             self.unsubscribe_person_feed().await?;
@@ -831,7 +839,7 @@ impl Minion {
 
         let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
 
-        let filters = filter_fns::inbox_feed(since, Some(until), spamsafe);
+        let filters = filter_fns::inbox_feed(spamsafe, FeedRange::OriginalChunk { since, until });
 
         if filters.is_empty() {
             self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
@@ -1021,7 +1029,13 @@ impl Minion {
         };
         self.general_feed_start = Some(start);
 
-        let filters = filter_fns::general_feed(&self.general_feed_keys, start, Some(end));
+        let filters = filter_fns::general_feed(
+            &self.general_feed_keys,
+            FeedRange::OriginalChunk {
+                since: start,
+                until: end,
+            },
+        );
 
         if !filters.is_empty() {
             tracing::debug!(
