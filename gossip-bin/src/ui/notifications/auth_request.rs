@@ -36,7 +36,7 @@ impl AuthRequest {
     }
 }
 
-const TRUNC: f32 = 280.0;
+const TRUNC: f32 = 320.0;
 
 impl<'a> Notification<'a> for AuthRequest {
     fn timestamp(&self) -> u64 {
