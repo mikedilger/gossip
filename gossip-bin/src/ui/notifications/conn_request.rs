@@ -74,6 +74,7 @@ impl<'a> Notification<'a> for ConnRequest {
             .map(|j| format!("{:?}", j.reason))
             .collect();
 
+        let panel_width = ui.available_width();
         StripBuilder::new(ui)
             .size(Size::remainder())
             .size(Size::initial(TRUNC))
@@ -88,6 +89,9 @@ impl<'a> Notification<'a> for ConnRequest {
                         new_page = Some(Page::RelaysKnownNetwork(Some(self.relay.clone())));
                     }
 
+                    if panel_width < 720.0 {
+                        ui.end_row();
+                    }
                     if self.jobs.len() > 1 {
                         ui.label(RichText::new("Reasons: "));
                     } else {
