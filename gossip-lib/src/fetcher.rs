@@ -348,11 +348,11 @@ impl Fetcher {
                 FailOutcome::Fail => {
                     if stale {
                         if let Some(e) = err {
-                            tracing::info!(
+                            tracing::warn!(
                                 "FETCH {url}: Failed (using stale cache): {message}: {e}"
                             );
                         } else {
-                            tracing::info!("FETCH {url}: Failed (using stale cache): {message}");
+                            tracing::warn!("FETCH {url}: Failed (using stale cache): {message}");
                         }
                         // FIXME: bumping the mtime might not be the best way to do this.
                         let _ = filetime::set_file_mtime(
@@ -362,9 +362,9 @@ impl Fetcher {
                         self.urls.write().unwrap().remove(&url);
                     } else {
                         if let Some(e) = err {
-                            tracing::info!("FETCH {url}: Failed: {message}: {e}");
+                            tracing::warn!("FETCH {url}: Failed: {message}: {e}");
                         } else {
-                            tracing::info!("FETCH {url}: Failed: {message}");
+                            tracing::warn!("FETCH {url}: Failed: {message}");
                         }
                         self.urls
                             .write()
