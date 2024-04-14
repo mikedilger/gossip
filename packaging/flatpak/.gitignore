@@ -1,1 +1,4 @@
 .build-tmp
+.flatpak-builder
+flatpak-cargo-generator.py
+gossip.flatpak
