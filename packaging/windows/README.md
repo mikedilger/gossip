@@ -42,7 +42,7 @@ Upload to github releases.
 To install the package, either double-click the MSI, or
 
 ````dos
-  msiexec gossip.msi
+  msiexec /i gossip.msi
 ````
 
 To remove the package from your windows computer:
