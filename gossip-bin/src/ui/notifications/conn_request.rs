@@ -38,6 +38,14 @@ impl ConnRequest {
 /// width needed for action section
 const TRUNC: f32 = 280.0;
 
+fn reasons_color(theme: &Theme) -> Color32 {
+    if theme.dark_mode {
+        theme.amber_400()
+    } else {
+        theme.amber_500()
+    }
+}
+
 impl<'a> Notification<'a> for ConnRequest {
     fn timestamp(&self) -> u64 {
         self.timestamp
@@ -74,13 +82,14 @@ impl<'a> Notification<'a> for ConnRequest {
             .map(|j| format!("{:?}", j.reason))
             .collect();
 
+        let panel_width = ui.available_width();
         StripBuilder::new(ui)
             .size(Size::remainder())
             .size(Size::initial(TRUNC))
             .cell_layout(Layout::left_to_right(Align::Center).with_main_wrap(true))
             .horizontal(|mut strip| {
                 strip.cell(|ui| {
-                    ui.label("Connect to");
+                    ui.label("Connect to:");
                     if widgets::relay_url(ui, theme, &self.relay)
                         .on_hover_text("Edit this Relay in your Relay settings")
                         .clicked()
@@ -88,20 +97,25 @@ impl<'a> Notification<'a> for ConnRequest {
                         new_page = Some(Page::RelaysKnownNetwork(Some(self.relay.clone())));
                     }
 
-                    if self.jobs.len() > 1 {
-                        ui.label(RichText::new("Reasons: "));
+                    if panel_width < 720.0 {
+                        ui.end_row();
                     } else {
-                        ui.label(RichText::new("Reason: "));
+                        ui.add_space(20.0);
+                    }
+                    if self.jobs.len() > 1 {
+                        ui.label(RichText::new("Reasons:"));
+                    } else {
+                        ui.label(RichText::new("Reason:"));
                     };
 
                     for (i, job) in jobstrs.iter().enumerate() {
                         if i + 1 < jobstrs.len() {
                             ui.label(
                                 RichText::new(format!("{},", job))
-                                    .color(theme.accent_complementary_color()),
+                                    .color(reasons_color(theme)),
                             );
                         } else {
-                            ui.label(RichText::new(job).color(theme.accent_complementary_color()));
+                            ui.label(RichText::new(job).color(reasons_color(theme)));
                         }
                     }
                 });

@@ -36,7 +36,7 @@ impl AuthRequest {
     }
 }
 
-const TRUNC: f32 = 280.0;
+const TRUNC: f32 = 320.0;
 
 impl<'a> Notification<'a> for AuthRequest {
     fn timestamp(&self) -> u64 {
@@ -76,7 +76,7 @@ impl<'a> Notification<'a> for AuthRequest {
             .horizontal(|mut strip| {
                 strip.cell(|ui| {
                     // FIXME pull account name with self.account once multiple keys are supported
-                    ui.label("Authenticate to");
+                    ui.label("Authenticate to:");
                     if widgets::relay_url(ui, theme, &self.relay)
                         .on_hover_text("Edit this Relay in your Relay settings")
                         .clicked()
