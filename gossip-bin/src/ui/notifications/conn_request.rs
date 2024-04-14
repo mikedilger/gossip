@@ -89,7 +89,7 @@ impl<'a> Notification<'a> for ConnRequest {
             .cell_layout(Layout::left_to_right(Align::Center).with_main_wrap(true))
             .horizontal(|mut strip| {
                 strip.cell(|ui| {
-                    ui.label("Connect to");
+                    ui.label("Connect to:");
                     if widgets::relay_url(ui, theme, &self.relay)
                         .on_hover_text("Edit this Relay in your Relay settings")
                         .clicked()

@@ -116,13 +116,14 @@ pub fn truncated_label(ui: &mut Ui, text: impl Into<WidgetText>, max_width: f32)
 
 /// Display a relay-URL
 pub fn relay_url(ui: &mut Ui, theme: &Theme, url: &RelayUrl) -> Response {
-    let (symbol, color) = if url.as_url_crate_url().scheme() == "wss" {
-        ("\u{1F512}", theme.accent_color())
+    let (symbol, color, spacer) = if url.as_url_crate_url().scheme() != "wss" {
+        ("\u{00A0}\u{00A0}\u{1F513}", theme.red_500(), "\u{00A0}\u{00A0}\u{00A0}")
     } else {
-        ("\u{1F513}", theme.red_500())
+        ("", theme.accent_color(), "")
     };
     let text = format!(
-        "\u{00A0}\u{00A0}{}",
+        "{}{}",
+        spacer,
         url.as_url_crate_url().domain().unwrap_or_default()
     );
     let response = ui.link(text);
