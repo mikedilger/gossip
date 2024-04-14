@@ -117,7 +117,11 @@ pub fn truncated_label(ui: &mut Ui, text: impl Into<WidgetText>, max_width: f32)
 /// Display a relay-URL
 pub fn relay_url(ui: &mut Ui, theme: &Theme, url: &RelayUrl) -> Response {
     let (symbol, color, spacer) = if url.as_url_crate_url().scheme() != "wss" {
-        ("\u{00A0}\u{00A0}\u{1F513}", theme.red_500(), "\u{00A0}\u{00A0}\u{00A0}")
+        (
+            "\u{00A0}\u{00A0}\u{1F513}",
+            theme.red_500(),
+            "\u{00A0}\u{00A0}\u{00A0}",
+        )
     } else {
         ("", theme.accent_color(), "")
     };
