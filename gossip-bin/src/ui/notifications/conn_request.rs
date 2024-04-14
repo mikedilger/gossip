@@ -111,8 +111,7 @@ impl<'a> Notification<'a> for ConnRequest {
                     for (i, job) in jobstrs.iter().enumerate() {
                         if i + 1 < jobstrs.len() {
                             ui.label(
-                                RichText::new(format!("{},", job))
-                                    .color(reasons_color(theme)),
+                                RichText::new(format!("{},", job)).color(reasons_color(theme)),
                             );
                         } else {
                             ui.label(RichText::new(job).color(reasons_color(theme)));
