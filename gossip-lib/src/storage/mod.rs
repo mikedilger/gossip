@@ -2445,7 +2445,19 @@ impl Storage {
 
     /// Get people in a person list
     pub fn get_people_in_list(&self, list: PersonList) -> Result<Vec<(PublicKey, bool)>, Error> {
-        self.get_people_in_list2(list)
+        let people = self.get_people_in_list2(list)?;
+
+        // Update metadata.len if it is wrong
+        if let Some(mut metadata) = self.get_person_list_metadata(list)? {
+            if metadata.len != people.len() {
+                metadata.len = people.len();
+                let mut txn = self.env.write_txn()?;
+                self.set_person_list_metadata(list, &metadata, Some(&mut txn))?;
+                txn.commit()?;
+            }
+        }
+
+        Ok(people)
     }
 
     /// Hash a person list

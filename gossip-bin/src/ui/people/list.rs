@@ -926,12 +926,12 @@ fn refresh_list_data(app: &mut GossipUi, list: PersonList) {
         "REMOTE: not found on Active Relays".to_owned()
     } else if let Some(private_len) = metadata.event_private_len {
         format!(
-            "REMOTE: date={} (public_len={} private_len={})",
+            "REMOTE: date={} (public={} private={})",
             asof, metadata.event_public_len, private_len
         )
     } else {
         format!(
-            "REMOTE: date={} (public_len={})",
+            "REMOTE: date={} (public={})",
             asof, metadata.event_public_len
         )
     };
@@ -958,7 +958,7 @@ fn refresh_list_data(app: &mut GossipUi, list: PersonList) {
     app.people_list.cache_local_hash = GLOBALS.storage.hash_person_list(list).unwrap_or(0);
 
     app.people_list.cache_local_tag = format!(
-        "LOCAL: date={} (public_len={}, private_len={})",
+        "LOCAL: date={} (public={}, private={})",
         ledit, publen, privlen
     );
 

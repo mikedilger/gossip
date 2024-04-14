@@ -1029,7 +1029,7 @@ pub fn hash_person_list_event(list: PersonList) -> Result<u64, Error> {
         }
 
         // Collect private entries
-        if list != PersonList::Followed && !event.content.is_empty() {
+        if !event.content.is_empty() {
             if GLOBALS.identity.is_unlocked() {
                 let decrypted_content =
                     GLOBALS.identity.decrypt_nip04(&my_pubkey, &event.content)?;
@@ -1047,6 +1047,11 @@ pub fn hash_person_list_event(list: PersonList) -> Result<u64, Error> {
         // Hash
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         for (person, private) in map.iter() {
+            if list == PersonList::Followed && *private {
+                // Follow list events cannot handle private entries.
+                // To make hashes comparable, we skip private entries
+                continue;
+            }
             person.hash(&mut hasher);
             private.hash(&mut hasher);
         }
