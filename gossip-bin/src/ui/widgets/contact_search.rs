@@ -142,7 +142,18 @@ pub(in crate::ui) fn show_contact_search(
                             if is_selected {
                                 response.scroll_to_me(None)
                             }
-                            let clicked = response.interact(egui::Sense::click()).clicked();
+
+                            // to workaround https://github.com/emilk/egui/issues/4147
+                            // we will interact again, OVER the painted avatar and text
+                            let response = ui
+                                .interact(
+                                    response.rect,
+                                    ui.auto_id_with(pair.1.as_hex_string()).with(2),
+                                    egui::Sense::click(),
+                                )
+                                .on_hover_cursor(egui::CursorIcon::PointingHand);
+
+                            let clicked = response.clicked();
                             if clicked || (enter_key && is_selected) {
                                 on_select_callback(ui, app, output, pair);
                             }
