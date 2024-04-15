@@ -970,14 +970,17 @@ pub fn rename_person_list(cmd: Command, mut args: env::Args) -> Result<(), Error
 }
 
 pub fn login() -> Result<(), Error> {
-    if GLOBALS.identity.has_private_key() {
+    if !GLOBALS.identity.is_unlocked() {
         let mut password = rpassword::prompt_password("Password: ").unwrap();
-        let epk = match GLOBALS.storage.read_encrypted_private_key()? {
-            Some(epk) => epk,
-            None => return Err(ErrorKind::NoPrivateKey.into()),
-        };
-        GLOBALS.identity.set_encrypted_private_key(epk, &password)?;
-        GLOBALS.identity.unlock(&password)?;
+        if ! GLOBALS.identity.has_private_key() {
+            let epk = match GLOBALS.storage.read_encrypted_private_key()? {
+                Some(epk) => epk,
+                None => return Err(ErrorKind::NoPrivateKey.into()),
+            };
+            GLOBALS.identity.set_encrypted_private_key(epk, &password)?;
+        } else {
+            GLOBALS.identity.unlock(&password)?;
+        }
         password.zeroize();
     } else {
         println!("No private key, skipping login");
