@@ -4,8 +4,8 @@ use gossip_lib::GLOBALS;
 use gossip_lib::{Error, ErrorKind};
 use gossip_lib::{PersonList, PersonListMetadata};
 use nostr_types::{
-    Event, EventAddr, EventKind, Filter, Id, NostrBech32, NostrUrl, PreEvent, PrivateKey,
-    PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime,
+    EncryptedPrivateKey, Event, EventAddr, Filter, EventKind, Id, NostrBech32, NostrUrl, PreEvent,
+    PrivateKey, PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime,
 };
 use std::collections::HashSet;
 use std::env;
@@ -29,7 +29,7 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 32] = [
+const COMMANDS: [Command; 33] = [
     Command {
         cmd: "oneshot",
         usage_params: "{depends}",
@@ -104,6 +104,11 @@ const COMMANDS: [Command; 32] = [
         cmd: "help",
         usage_params: "<command>",
         desc: "show this list",
+    },
+    Command {
+        cmd: "import_encrypted_private_key",
+        usage_params: "<ncryptsec>",
+        desc: "import encrypted private key",
     },
     Command {
         cmd: "import_event",
@@ -224,6 +229,7 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
         "export_encrypted_key" => export_encrypted_key()?,
         "giftwrap_ids" => giftwrap_ids(command)?,
         "help" => help(command, args)?,
+        "import_encrypted_private_key" => import_encrypted_private_key(command, args)?,
         "import_event" => import_event(command, args, runtime)?,
         "login" => {
             login()?;
@@ -633,6 +639,27 @@ pub fn override_dpi(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     Ok(())
 }
 
+pub fn import_encrypted_private_key(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+    let input = match args.next() {
+        Some(input) => input,
+        None => return cmd.usage("Missing ncryptsec parameter".to_string()),
+    };
+
+    let epk = EncryptedPrivateKey(input);
+
+    // Verify first
+    let mut password = rpassword::prompt_password("Password: ").unwrap();
+    let _private_key = epk.decrypt(&password)?;
+    password.zeroize();
+
+    GLOBALS
+        .storage
+        .write_encrypted_private_key(Some(&epk), None)?;
+
+    println!("Saved.");
+    Ok(())
+}
+
 pub fn import_event(cmd: Command, mut args: env::Args, runtime: &Runtime) -> Result<(), Error> {
     let event = match args.next() {
         Some(json) => {
@@ -977,7 +1004,7 @@ pub fn rename_person_list(cmd: Command, mut args: env::Args) -> Result<(), Error
 pub fn login() -> Result<(), Error> {
     if !GLOBALS.identity.is_unlocked() {
         let mut password = rpassword::prompt_password("Password: ").unwrap();
-        if ! GLOBALS.identity.has_private_key() {
+        if !GLOBALS.identity.has_private_key() {
             let epk = match GLOBALS.storage.read_encrypted_private_key()? {
                 Some(epk) => epk,
                 None => return Err(ErrorKind::NoPrivateKey.into()),
