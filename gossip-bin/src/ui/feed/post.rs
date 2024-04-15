@@ -798,6 +798,7 @@ fn calc_tag_hovers(ui: &mut Ui, app: &mut GossipUi, output: &TextEditOutput) {
                         );
 
                         hovers.insert(popup_id, popup);
+                        break; // only one popup per tag, first match wins
                     }
                 }
             }
