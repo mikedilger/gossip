@@ -261,15 +261,6 @@ impl Pending {
                 self.remove(&PendingItem::PersonListNeverPublished(*list));
             }
 
-            // If 90 days old, should be re-synced
-            if metadata.event_created_at.0 + t90days < now.0 {
-                self.insert(PendingItem::PersonListNotPublishedRecently(*list));
-                continue;
-            } else {
-                self.remove(&PendingItem::PersonListNotPublishedRecently(*list));
-                // remove if present
-            }
-
             // If mismatched, should be re-synced
             let stored_hash = GLOBALS.storage.hash_person_list(*list)?;
             let last_event_hash = crate::people::hash_person_list_event(*list)?;
@@ -278,6 +269,15 @@ impl Pending {
                 continue;
             } else {
                 self.remove(&PendingItem::PersonListOutOfSync(*list)); // remove if present
+            }
+
+            // If 90 days old, should be re-synced
+            if metadata.event_created_at.0 + t90days < now.0 {
+                self.insert(PendingItem::PersonListNotPublishedRecently(*list));
+                continue;
+            } else {
+                self.remove(&PendingItem::PersonListNotPublishedRecently(*list));
+                // remove if present
             }
         }
 
