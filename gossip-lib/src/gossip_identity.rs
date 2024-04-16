@@ -225,12 +225,8 @@ impl GossipIdentity {
         Ok(self.inner.read().decrypt_event_contents(event)?)
     }
 
-    pub fn decrypt_nip04(&self, other: &PublicKey, ciphertext: &str) -> Result<Vec<u8>, Error> {
-        Ok(self.inner.read().decrypt_nip04(other, ciphertext)?)
-    }
-
-    pub fn decrypt_nip44(&self, other: &PublicKey, ciphertext: &str) -> Result<String, Error> {
-        Ok(self.inner.read().decrypt_nip44(other, ciphertext)?)
+    pub fn decrypt(&self, other: &PublicKey, ciphertext: &str) -> Result<String, Error> {
+        Ok(self.inner.read().decrypt(other, ciphertext)?)
     }
 
     pub fn nip44_conversation_key(&self, other: &PublicKey) -> Result<[u8; 32], Error> {

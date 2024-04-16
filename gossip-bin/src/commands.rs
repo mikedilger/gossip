@@ -470,7 +470,7 @@ pub fn decrypt(cmd: Command, mut args: env::Args) -> Result<(), Error> {
 
     login()?;
 
-    let plaintext = GLOBALS.identity.decrypt_nip44(&pubkey, &ciphertext)?;
+    let plaintext = GLOBALS.identity.decrypt(&pubkey, &ciphertext)?;
     println!("{}", plaintext);
 
     Ok(())

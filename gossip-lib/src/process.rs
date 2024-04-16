@@ -848,8 +848,8 @@ fn update_or_allocate_person_list_from_event(
             metadata.event_private_len = None;
         } else if GLOBALS.identity.is_unlocked() {
             let mut private_len: Option<usize> = None;
-            if let Ok(bytes) = GLOBALS.identity.decrypt_nip04(&pubkey, &event.content) {
-                if let Ok(vectags) = serde_json::from_slice::<Vec<Tag>>(&bytes) {
+            if let Ok(bytes) = GLOBALS.identity.decrypt(&pubkey, &event.content) {
+                if let Ok(vectags) = serde_json::from_str::<Vec<Tag>>(&bytes) {
                     private_len = Some(vectags.iter().filter(|t| t.tagname() == "p").count());
                 }
             }

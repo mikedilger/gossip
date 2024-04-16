@@ -3177,10 +3177,9 @@ impl Overlord {
         if list != PersonList::Followed && !event.content.is_empty() {
             if GLOBALS.identity.is_unlocked() {
                 // Private entries
-                let decrypted_content =
-                    GLOBALS.identity.decrypt_nip04(&my_pubkey, &event.content)?;
+                let decrypted_content = GLOBALS.identity.decrypt(&my_pubkey, &event.content)?;
 
-                let tags: Vec<Tag> = serde_json::from_slice(&decrypted_content)?;
+                let tags: Vec<Tag> = serde_json::from_str(&decrypted_content)?;
 
                 for tag in &tags {
                     if let Ok((pubkey, _, _)) = tag.parse_pubkey() {

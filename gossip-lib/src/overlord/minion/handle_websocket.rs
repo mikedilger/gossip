@@ -34,7 +34,7 @@ impl Minion {
                     // and ignore it if it doesn't
                     let mut it_matches = false;
                     for filter in sub.get_filters().iter() {
-                        if filter.event_matches_incomplete(&event) {
+                        if filter.event_matches(&event) {
                             it_matches = true;
                             break;
                         }
