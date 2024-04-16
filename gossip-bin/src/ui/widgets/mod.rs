@@ -16,9 +16,8 @@ pub use copy_button::{CopyButton, COPY_SYMBOL_SIZE};
 mod nav_item;
 use eframe::egui::{FontId, Galley};
 use egui_winit::egui::text::LayoutJob;
-use egui_winit::egui::text_edit::TextEditOutput;
 use egui_winit::egui::{
-    self, vec2, Align, FontSelection, Rect, Response, RichText, Rounding, Sense, Ui, WidgetText,
+    self, Align, FontSelection, Response, RichText, Rounding, Sense, Ui, WidgetText,
 };
 pub use nav_item::NavItem;
 
@@ -37,8 +36,8 @@ pub use information_popup::InformationPopup;
 pub use information_popup::ProfilePopup;
 
 mod switch;
+pub use switch::switch_custom_at;
 pub use switch::Switch;
-pub use switch::{switch_custom_at, switch_with_size};
 
 mod textedit;
 pub use textedit::TextEdit;
@@ -48,17 +47,13 @@ use super::{GossipUi, Theme};
 pub const DROPDOWN_DISTANCE: f32 = 10.0;
 pub const TAGG_WIDTH: f32 = 200.0;
 
-// pub fn break_anywhere_label(ui: &mut Ui, text: impl Into<WidgetText>) {
-//     let mut job = text.into().into_text_job(
-//         ui.style(),
-//         FontSelection::Default,
-//         ui.layout().vertical_align(),
-//     );
-//     job.job.sections.first_mut().unwrap().format.color =
-//         ui.visuals().widgets.noninteractive.fg_stroke.color;
-//     job.job.wrap.break_anywhere = true;
-//     ui.label(job.job);
-// }
+pub enum WidgetState {
+    Default,
+    Hovered,
+    Active,
+    Disabled,
+    Focused,
+}
 
 pub fn page_header<R>(
     ui: &mut Ui,
@@ -165,36 +160,6 @@ pub fn break_anywhere_hyperlink_to(ui: &mut Ui, text: impl Into<WidgetText>, url
     );
     job.wrap.break_anywhere = true;
     ui.hyperlink_to(job, url);
-}
-
-pub fn search_field(ui: &mut Ui, field: &mut String, width: f32) -> TextEditOutput {
-    // search field
-    let output = TextEdit::singleline(field)
-        .text_color(ui.visuals().widgets.inactive.fg_stroke.color)
-        .desired_width(width)
-        .show(ui);
-
-    let rect = Rect::from_min_size(
-        output.response.rect.right_top() - vec2(output.response.rect.height(), 0.0),
-        vec2(output.response.rect.height(), output.response.rect.height()),
-    );
-
-    // search clear button
-    if ui
-        .put(
-            rect,
-            NavItem::new("\u{2715}", field.is_empty())
-                .color(ui.visuals().widgets.inactive.fg_stroke.color)
-                .active_color(ui.visuals().widgets.active.fg_stroke.color)
-                .hover_color(ui.visuals().hyperlink_color)
-                .sense(Sense::click()),
-        )
-        .clicked()
-    {
-        field.clear();
-    }
-
-    output
 }
 
 pub(super) fn set_important_button_visuals(ui: &mut Ui, app: &GossipUi) {

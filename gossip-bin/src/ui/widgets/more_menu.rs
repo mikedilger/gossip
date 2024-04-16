@@ -36,7 +36,7 @@ impl MoreMenu {
             above_or_below: None,
             hover_text: None,
             accent_color: app.theme.accent_color(),
-            options_symbol: app.options_symbol.clone(),
+            options_symbol: app.assets.options_symbol.clone(),
             style: MoreMenuStyle::Simple,
         }
     }
@@ -52,7 +52,7 @@ impl MoreMenu {
             above_or_below: None,
             hover_text: None,
             accent_color: app.theme.accent_color(),
-            options_symbol: app.options_symbol.clone(),
+            options_symbol: app.assets.options_symbol.clone(),
             style: MoreMenuStyle::Bubble,
         }
     }

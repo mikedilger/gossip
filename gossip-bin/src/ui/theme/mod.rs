@@ -11,6 +11,8 @@ use std::collections::BTreeMap;
 mod default;
 pub use default::DefaultTheme;
 
+pub(super) mod test_page;
+
 pub fn apply_theme(theme: &Theme, ctx: &Context) {
     ctx.set_style(theme.get_style());
     ctx.set_fonts(theme.font_definitions());

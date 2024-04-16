@@ -306,7 +306,7 @@ pub(super) fn update(
                                         // private / public switch
                                         ui.add(Label::new("Private").selectable(false));
                                         if ui
-                                            .add(widgets::Switch::onoff(&app.theme, &mut private))
+                                            .add(widgets::Switch::small(&app.theme, &mut private))
                                             .clicked()
                                         {
                                             let _ = GLOBALS.storage.add_person_to_list(
@@ -424,8 +424,13 @@ fn render_add_contact_popup(
         ui.label("Search for known contacts to add");
         ui.add_space(8.0);
 
-        let mut output =
-            widgets::search_field(ui, &mut app.people_list.add_contact_search, f32::INFINITY);
+        let mut output = widgets::TextEdit::search(
+            &app.theme,
+            &app.assets,
+            &mut app.people_list.add_contact_search,
+        )
+        .desired_width(f32::INFINITY)
+        .show(ui);
 
         let mut selected = app.people_list.add_contact_search_selected;
         widgets::show_contact_search(
@@ -611,7 +616,7 @@ pub(super) fn render_create_list_dialog(ui: &mut Ui, app: &mut GossipUi) {
                 }
                 ui.add_space(10.0);
                 ui.horizontal(|ui| {
-                    ui.add(widgets::Switch::onoff(
+                    ui.add(widgets::Switch::small(
                         &app.theme,
                         &mut app.new_list_favorite,
                     ));

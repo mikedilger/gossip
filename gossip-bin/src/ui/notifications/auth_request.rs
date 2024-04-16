@@ -108,7 +108,8 @@ impl<'a> Notification<'a> for AuthRequest {
                         });
                         ui.add_space(10.0);
                         ui.label("Remember");
-                        widgets::switch_with_size(ui, &mut self.remember, super::SWITCH_SIZE)
+                        widgets::Switch::large(theme, &mut self.remember)
+                            .show(ui)
                             .on_hover_text("store permission permanently");
                     });
                 });

@@ -55,7 +55,6 @@ pub trait Notification<'a> {
 }
 
 type NotificationHandle = Rc<RefCell<dyn for<'handle> Notification<'handle>>>;
-const SWITCH_SIZE: Vec2 = Vec2 { x: 40.0, y: 20.0 };
 
 pub struct NotificationData {
     active: Vec<NotificationHandle>,

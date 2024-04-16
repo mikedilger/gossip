@@ -211,7 +211,7 @@ impl RelayEntry {
             accent_hover,
             bg_fill: app.theme.main_content_bgcolor(),
             // highlight: None,
-            option_symbol: (&app.options_symbol).into(),
+            option_symbol: (&app.assets.options_symbol).into(),
             auth_require_permission: false,
             conn_require_permission: false,
         }
