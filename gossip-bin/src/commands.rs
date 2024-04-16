@@ -4,7 +4,7 @@ use gossip_lib::GLOBALS;
 use gossip_lib::{Error, ErrorKind};
 use gossip_lib::{PersonList, PersonListMetadata};
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventAddr, Filter, EventKind, Id, NostrBech32, NostrUrl, PreEvent,
+    EncryptedPrivateKey, Event, EventAddr, EventKind, Filter, Id, NostrBech32, NostrUrl, PreEvent,
     PrivateKey, PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime,
 };
 use std::collections::HashSet;
