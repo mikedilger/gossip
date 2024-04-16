@@ -89,10 +89,17 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     );
 
     ui.add_space(10.0);
-    ui.add(
-        Slider::new(&mut app.unsaved_settings.mouse_acceleration, 0.5..=2.0)
-            .text("Mouse Acceleration"),
-    );
+    ui.horizontal(|ui| {
+        let accel = app.unsaved_settings.mouse_acceleration;
+        ui.add(
+            Slider::new(
+                &mut app.unsaved_settings.mouse_acceleration,
+                accel.min(0.5)..=accel.max(2.0),
+            )
+            .clamp_to_range(false)
+            .text("Mouse acceleration"),
+        );
+    });
 
     ui.add_space(20.0);
 }
