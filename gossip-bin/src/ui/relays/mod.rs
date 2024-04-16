@@ -229,7 +229,9 @@ pub(super) fn relay_scroll_list(
                 widget.set_enabled(enabled);
                 widget.set_connected(is_connected);
                 widget.set_timeout(timeout_until);
-                widget.set_reasons(reasons);
+                if app.unsaved_settings.status_bar {
+                    widget.set_reasons(reasons);
+                }
                 widget.auth_require_permission(app.unsaved_settings.relay_auth_requires_approval);
                 widget.conn_require_permission(
                     app.unsaved_settings.relay_connection_requires_approval,
