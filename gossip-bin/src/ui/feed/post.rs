@@ -798,6 +798,7 @@ fn calc_tag_hovers(ui: &mut Ui, app: &mut GossipUi, output: &TextEditOutput) {
                         );
 
                         hovers.insert(popup_id, popup);
+                        break; // only one popup per tag, first match wins
                     }
                 }
             }
@@ -862,7 +863,7 @@ fn do_replacements(draft: &str, replacements: &HashMap<String, ContentSegment>) 
         if let ContentSegment::NostrUrl(nostr_url) = content {
             output = output
                 .as_str()
-                .replace(pat, format!("nostr:{}", nostr_url.0).as_str())
+                .replacen(pat, format!("nostr:{}", nostr_url.0).as_str(), 1)
                 .to_string();
         }
     }
