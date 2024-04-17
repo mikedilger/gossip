@@ -953,14 +953,22 @@ fn refresh_list_data(app: &mut GossipUi, list: PersonList) {
         .iter()
         .filter(|(_, public)| *public)
         .count();
-    let privlen = app.people_list.cache_people.len() - publen;
+    let privlen = if list == PersonList::Followed {
+        0
+    } else {
+        app.people_list.cache_people.len() - publen
+    };
 
     app.people_list.cache_local_hash = GLOBALS.storage.hash_person_list(list).unwrap_or(0);
 
-    app.people_list.cache_local_tag = format!(
-        "LOCAL: date={} (public={}, private={})",
-        ledit, publen, privlen
-    );
+    if list == PersonList::Followed {
+        app.people_list.cache_local_tag = format!("LOCAL: date={} (public={})", ledit, publen);
+    } else {
+        app.people_list.cache_local_tag = format!(
+            "LOCAL: date={} (public={}, private={})",
+            ledit, publen, privlen
+        );
+    }
 
     app.people_list.cache_next_refresh = Instant::now() + Duration::new(1, 0);
     app.people_list.cache_last_list = Some(list);
