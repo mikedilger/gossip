@@ -227,12 +227,12 @@ pub fn dm_channel(dmchannel: DmChannel) -> Vec<Filter> {
     authors.push(pkh.clone());
 
     let mut filter = Filter {
-        authors,
+        authors: authors.clone(),
         kinds: vec![EventKind::EncryptedDirectMessage],
         ..Default::default()
     };
     // tagging the user
-    filter.set_tag_values('p', vec![pkh.to_string()]);
+    filter.set_tag_values('p', authors.iter().map(|x| x.as_str().to_owned()).collect());
 
     vec![filter]
 }
