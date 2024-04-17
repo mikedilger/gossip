@@ -1028,7 +1028,7 @@ pub fn hash_person_list_event(list: PersonList) -> Result<u64, Error> {
         }
 
         // Collect private entries
-        if !event.content.is_empty() {
+        if event.kind != EventKind::ContactList && !event.content.is_empty() {
             if GLOBALS.identity.is_unlocked() {
                 let decrypted_content = GLOBALS.identity.decrypt(&my_pubkey, &event.content)?;
                 let tags: Vec<Tag> = serde_json::from_str(&decrypted_content)?;
