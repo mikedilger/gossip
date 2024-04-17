@@ -54,7 +54,7 @@ impl RelayPickerHooks for Hooks {
 
     /// Adjusts the score for a given relay, perhaps based on relay-specific metrics
     fn adjust_score(&self, url: RelayUrl, score: u64) -> u64 {
-        match GLOBALS.storage.read_relay(&url) {
+        match GLOBALS.storage.read_relay(&url, None) {
             Err(_) => 0,
             Ok(Some(relay)) => {
                 let success_rate = relay.success_rate();

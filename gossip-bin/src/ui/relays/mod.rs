@@ -185,7 +185,7 @@ pub(super) fn relay_scroll_list(
 
                 // retrieve an updated copy of this relay when editing
                 let db_relay = if has_edit_target {
-                    if let Ok(Some(entry)) = GLOBALS.storage.read_relay(&db_url) {
+                    if let Ok(Some(entry)) = GLOBALS.storage.read_relay(&db_url, None) {
                         entry.clone() // update
                     } else {
                         db_relay // can't update
@@ -433,7 +433,7 @@ fn entry_dialog_step2(ui: &mut Ui, app: &mut GossipUi) {
         ui.add_space(10.0);
 
         // if the overlord has added the relay, we are done for now
-        if GLOBALS.storage.read_relay(&url).is_ok() {
+        if GLOBALS.storage.read_relay(&url, None).is_ok() {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
                 ui.visuals_mut().widgets.inactive.weak_bg_fill = app.theme.accent_color();
                 ui.visuals_mut().widgets.hovered.weak_bg_fill = {

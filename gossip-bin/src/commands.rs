@@ -708,7 +708,7 @@ pub fn print_event(cmd: Command, mut args: env::Args) -> Result<(), Error> {
 pub fn print_relay(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     if let Some(url) = args.next() {
         let rurl = RelayUrl::try_from_str(&url)?;
-        if let Some(relay) = GLOBALS.storage.read_relay(&rurl)? {
+        if let Some(relay) = GLOBALS.storage.read_relay(&rurl, None)? {
             println!("{}", serde_json::to_string_pretty(&relay)?);
         } else {
             println!("Relay not found.");

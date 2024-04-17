@@ -2,7 +2,7 @@ use crate::error::{Error, ErrorKind};
 use crate::storage::types::Relay2;
 use crate::storage::{RawDatabase, Storage};
 use heed::types::UnalignedSlice;
-use heed::RwTxn;
+use heed::{RoTxn, RwTxn};
 use nostr_types::RelayUrl;
 use std::sync::Mutex;
 
@@ -189,18 +189,31 @@ impl Storage {
         Ok(())
     }
 
-    pub(crate) fn read_relay2(&self, url: &RelayUrl) -> Result<Option<Relay2>, Error> {
-        // Note that we use serde instead of speedy because the complexity of the
-        // serde_json::Value type makes it difficult. Any other serde serialization
-        // should work though: Consider bincode.
-        let key = key!(url.as_str().as_bytes());
-        if key.is_empty() {
-            return Err(ErrorKind::Empty("relay url".to_owned()).into());
-        }
-        let txn = self.env.read_txn()?;
-        match self.db_relays2()?.get(&txn, key)? {
-            Some(bytes) => Ok(Some(serde_json::from_slice(bytes)?)),
-            None => Ok(None),
+    pub(crate) fn read_relay2<'a>(
+        &'a self,
+        url: &RelayUrl,
+        txn: Option<&RoTxn<'a>>,
+    ) -> Result<Option<Relay2>, Error> {
+        let f = |txn: &RoTxn<'a>| -> Result<Option<Relay2>, Error> {
+            // Note that we use serde instead of speedy because the complexity of the
+            // serde_json::Value type makes it difficult. Any other serde serialization
+            // should work though: Consider bincode.
+            let key = key!(url.as_str().as_bytes());
+            if key.is_empty() {
+                return Err(ErrorKind::Empty("relay url".to_owned()).into());
+            }
+            match self.db_relays2()?.get(txn, key)? {
+                Some(bytes) => Ok(Some(serde_json::from_slice(bytes)?)),
+                None => Ok(None),
+            }
+        };
+
+        match txn {
+            Some(txn) => f(txn),
+            None => {
+                let txn = self.env.read_txn()?;
+                f(&txn)
+            }
         }
     }
 

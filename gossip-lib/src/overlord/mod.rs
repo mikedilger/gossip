@@ -567,7 +567,7 @@ impl Overlord {
     }
 
     fn bump_failure_count(url: &RelayUrl) {
-        if let Ok(Some(mut relay)) = GLOBALS.storage.read_relay(url) {
+        if let Ok(Some(mut relay)) = GLOBALS.storage.read_relay(url, None) {
             relay.failure_count += 1;
             let _ = GLOBALS.storage.write_relay(&relay, None);
         }
@@ -908,7 +908,10 @@ impl Overlord {
         event: Box<Event>,
         relays: Vec<RelayUrl>,
     ) -> Result<(), Error> {
-        tracing::info!("Advertising relay list, {} more relays to go...", relays.len());
+        tracing::info!(
+            "Advertising relay list, {} more relays to go...",
+            relays.len()
+        );
 
         for relay_url in relays.iter().take(10) {
             let job_id = rand::random::<u64>();
@@ -1482,7 +1485,7 @@ impl Overlord {
     /// Hide or Show a relay. This adjusts the `hidden` a flag on the `Relay` record
     /// (You could easily do this yourself by talking to GLOBALS.storage directly too)
     pub fn hide_or_show_relay(relay_url: RelayUrl, hidden: bool) -> Result<(), Error> {
-        if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url)? {
+        if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url, None)? {
             relay.hidden = hidden;
             GLOBALS.storage.write_relay(&relay, None)?;
         }
@@ -2271,7 +2274,7 @@ impl Overlord {
     /// This represent a user's judgement, and is factored into how suitable a relay is for various
     /// purposes.
     pub fn rank_relay(relay_url: RelayUrl, rank: u8) -> Result<(), Error> {
-        if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url)? {
+        if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url, None)? {
             relay.rank = rank as u64;
             GLOBALS.storage.write_relay(&relay, None)?;
         }
