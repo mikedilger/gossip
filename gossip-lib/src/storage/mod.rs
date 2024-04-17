@@ -1207,6 +1207,10 @@ impl Storage {
         let relay_list = RelayList::from_event(event);
 
         if ours {
+            // If INBOX or OUTBOX is set, we also must turn on READ and WRITE
+            // or they won't actually get used.  However, we don't turn OFF
+            // these bits automatically.
+
             // Clear all current read/write bits (within the transaction)
             // note: inbox is kind10002 'read', outbox is kind10002 'write'
             self.modify_all_relays(
@@ -1216,37 +1220,18 @@ impl Storage {
 
             // Set or create read relays
             for (relay_url, usage) in relay_list.0.iter() {
+                let bits = match usage {
+                    RelayUsage::Inbox => Relay::INBOX | Relay::READ,
+                    RelayUsage::Outbox => Relay::OUTBOX | Relay::WRITE,
+                    RelayUsage::Both => Relay::INBOX | Relay::OUTBOX | Relay::READ | Relay::WRITE,
+                };
+
                 if let Some(mut dbrelay) = self.read_relay(relay_url)? {
-                    // Set bits
-                    let update_bits = match usage {
-                        RelayUsage::Inbox => Relay::INBOX,
-                        RelayUsage::Outbox => Relay::OUTBOX,
-                        RelayUsage::Both => Relay::INBOX | Relay::OUTBOX,
-                    };
-                    dbrelay.set_usage_bits(update_bits);
-
-                    // Clear bits
-                    match usage {
-                        RelayUsage::Inbox => dbrelay.clear_usage_bits(Relay::OUTBOX),
-                        RelayUsage::Outbox => dbrelay.clear_usage_bits(Relay::INBOX),
-                        _ => {}
-                    };
-
-                    // Write back
+                    dbrelay.set_usage_bits(bits);
                     self.write_relay(&dbrelay, Some(&mut txn))?;
                 } else {
-                    // Create and set bits
                     let mut dbrelay = Relay::new(relay_url.to_owned());
-                    let create_bits = match usage {
-                        RelayUsage::Inbox => Relay::INBOX | Relay::READ,
-                        RelayUsage::Outbox => Relay::OUTBOX | Relay::WRITE,
-                        RelayUsage::Both => {
-                            Relay::INBOX | Relay::READ | Relay::OUTBOX | Relay::WRITE
-                        }
-                    };
-                    dbrelay.set_usage_bits(create_bits);
-
-                    // Write back
+                    dbrelay.set_usage_bits(bits);
                     self.write_relay(&dbrelay, Some(&mut txn))?;
                 }
             }
