@@ -59,7 +59,7 @@ use crate::profile::Profile;
 use crate::relationship::{RelationshipByAddr, RelationshipById};
 use crate::relay::Relay;
 use heed::types::{UnalignedSlice, Unit};
-use heed::{Database, Env, EnvFlags, EnvOpenOptions, RwTxn};
+use heed::{Database, Env, EnvFlags, EnvOpenOptions, RoTxn, RwTxn};
 use nostr_types::{
     EncryptedPrivateKey, Event, EventAddr, EventKind, EventReference, Filter, Id, MilliSatoshi,
     PublicKey, PublicKeyHex, RelayList, RelayUrl, RelayUsage, Unixtime,
@@ -1075,10 +1075,24 @@ impl Storage {
         url: &RelayUrl,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        if self.read_relay(url)?.is_none() {
-            let dbrelay = Relay::new(url.to_owned());
-            self.write_relay(&dbrelay, rw_txn)?;
-        }
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            let rtxn = &**txn;
+            if self.read_relay(url, Some(rtxn))?.is_none() {
+                let dbrelay = Relay::new(url.to_owned());
+                self.write_relay(&dbrelay, Some(txn))?;
+            }
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
         Ok(())
     }
 
@@ -1111,8 +1125,12 @@ impl Storage {
 
     /// Read a relay record
     #[inline]
-    pub fn read_relay(&self, url: &RelayUrl) -> Result<Option<Relay>, Error> {
-        self.read_relay2(url)
+    pub fn read_relay<'a>(
+        &'a self,
+        url: &RelayUrl,
+        txn: Option<&RoTxn<'a>>,
+    ) -> Result<Option<Relay>, Error> {
+        self.read_relay2(url, txn)
     }
 
     /// Read or create relay
@@ -1121,12 +1139,25 @@ impl Storage {
         url: &RelayUrl,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<Relay, Error> {
-        match self.read_relay(url)? {
-            Some(relay) => Ok(relay),
+        let f = |txn: &mut RwTxn<'a>| -> Result<Relay, Error> {
+            let rtxn = &**txn;
+            match self.read_relay(url, Some(rtxn))? {
+                Some(relay) => Ok(relay),
+                None => {
+                    let relay = Relay::new(url.to_owned());
+                    self.write_relay(&relay, Some(txn))?;
+                    Ok(relay)
+                }
+            }
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn),
             None => {
-                let relay = Relay::new(url.to_owned());
-                self.write_relay(&relay, rw_txn)?;
-                Ok(relay)
+                let mut txn = self.env.write_txn()?;
+                let result = f(&mut txn);
+                txn.commit()?;
+                result
             }
         }
     }
@@ -1226,7 +1257,7 @@ impl Storage {
                     RelayUsage::Both => Relay::INBOX | Relay::OUTBOX | Relay::READ | Relay::WRITE,
                 };
 
-                if let Some(mut dbrelay) = self.read_relay(relay_url)? {
+                if let Some(mut dbrelay) = self.read_relay(relay_url, Some(&txn))? {
                     dbrelay.set_usage_bits(bits);
                     self.write_relay(&dbrelay, Some(&mut txn))?;
                 } else {
