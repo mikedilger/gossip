@@ -78,7 +78,7 @@ pub struct Minion {
     sought_events: HashMap<Id, EventSeekState>,
     last_message_sent: String,
     auth_challenge: String,
-    subscriptions_waiting_for_auth: Vec<(String, Unixtime)>,
+    subscriptions_waiting_for_auth: HashMap<String, Unixtime>,
     subscriptions_waiting_for_metadata: Vec<(u64, Vec<PublicKey>)>,
     subscriptions_rate_limited: Vec<String>,
     general_feed_keys: Vec<PublicKey>,
@@ -115,7 +115,7 @@ impl Minion {
             sought_events: HashMap::new(),
             last_message_sent: String::new(),
             auth_challenge: "".to_string(),
-            subscriptions_waiting_for_auth: Vec::new(),
+            subscriptions_waiting_for_auth: HashMap::new(),
             subscriptions_waiting_for_metadata: Vec::new(),
             subscriptions_rate_limited: Vec::new(),
             general_feed_keys: Vec::new(),
@@ -961,11 +961,11 @@ impl Minion {
             // Apply subscriptions that were waiting for auth
             let mut handles = std::mem::take(&mut self.subscriptions_waiting_for_auth);
             let now = Unixtime::now().unwrap();
-            for (handle, when) in handles.drain(..) {
+            for (handle, when) in handles.drain() {
                 // Do not try if we just inserted it within the last second
                 if when - now < Duration::from_secs(1) {
                     // re-insert
-                    self.subscriptions_waiting_for_auth.push((handle, when));
+                    self.subscriptions_waiting_for_auth.insert(handle, when);
                     continue;
                 }
 
@@ -1124,7 +1124,7 @@ impl Minion {
         if matches!(self.auth_state, AuthState::Waiting(_)) {
             // Save this, subscribe after AUTH completes
             self.subscriptions_waiting_for_auth
-                .push((handle.to_owned(), Unixtime::now().unwrap()));
+                .insert(handle.to_owned(), Unixtime::now().unwrap());
             return Ok(());
         }
 
