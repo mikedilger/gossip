@@ -622,9 +622,8 @@ impl People {
         let old_tags = {
             if let Some(ref event) = existing_event {
                 if !event.content.is_empty() && kind != EventKind::ContactList {
-                    let decrypted_content =
-                        GLOBALS.identity.decrypt_nip04(&my_pubkey, &event.content)?;
-                    let mut tags: Vec<Tag> = serde_json::from_slice(&decrypted_content)?;
+                    let decrypted_content = GLOBALS.identity.decrypt(&my_pubkey, &event.content)?;
+                    let mut tags: Vec<Tag> = serde_json::from_str(&decrypted_content)?;
                     tags.extend(event.tags.clone());
                     tags
                 } else {
@@ -1031,9 +1030,8 @@ pub fn hash_person_list_event(list: PersonList) -> Result<u64, Error> {
         // Collect private entries
         if event.kind != EventKind::ContactList && !event.content.is_empty() {
             if GLOBALS.identity.is_unlocked() {
-                let decrypted_content =
-                    GLOBALS.identity.decrypt_nip04(&my_pubkey, &event.content)?;
-                let tags: Vec<Tag> = serde_json::from_slice(&decrypted_content)?;
+                let decrypted_content = GLOBALS.identity.decrypt(&my_pubkey, &event.content)?;
+                let tags: Vec<Tag> = serde_json::from_str(&decrypted_content)?;
                 for tag in &tags {
                     if let Ok((pubkey, _, _)) = tag.parse_pubkey() {
                         map.insert(pubkey, false);
