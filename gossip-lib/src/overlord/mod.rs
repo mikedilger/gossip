@@ -908,7 +908,7 @@ impl Overlord {
         event: Box<Event>,
         relays: Vec<RelayUrl>,
     ) -> Result<(), Error> {
-        tracing::info!("Advertising relay list to up to 10 more relays...");
+        tracing::info!("Advertising relay list, {} more relays to go...", relays.len());
 
         for relay_url in relays.iter().take(10) {
             let job_id = rand::random::<u64>();
