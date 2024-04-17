@@ -85,8 +85,8 @@ fn setup_unconnected_service(app: &mut GossipUi, ui: &mut Ui) {
         if ui.button("CONNECT").clicked() {
         match Nip46Server::new_from_client(app.nostr_connect_string.clone()) {
         Ok(server) => {
-        // GINA - save server
-        // GINA - server needs to send 'connect' to the client
+        // save server
+        // server needs to send 'connect' to the client
     },
         Err(e) => {
         GLOBALS.status_queue.write().write(format!("{}", e));
