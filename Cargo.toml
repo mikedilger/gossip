@@ -5,12 +5,6 @@ members = [
 ]
 resolver = "2"
 
-# Force scrypt to build with release-like speed even in dev mode
-[profile.dev.package.scrypt]
-opt-level = 3
-debug-assertions = false
-overflow-checks = false
-
 [patch.crates-io]
 # override egui crate for egui_video dependency
 egui = { git =  "https://github.com/bu5hm4nn/egui", rev = "63dde4c9b311da0cae0cb9f9465bf7273227be6c" }
@@ -46,3 +40,16 @@ debug-assertions = true
 overflow-checks = true
 incremental = true
 codegen-units = 256
+
+# Scrypt needs optimization or it takes too long
+[profile.dev.package.scrypt]
+opt-level = 3
+debug-assertions = false
+overflow-checks = false
+
+# Scrypt needs optimization or it takes too long
+[profile.devel.package.scrypt]
+opt-level = 3
+debug-assertions = false
+overflow-checks = false
+
