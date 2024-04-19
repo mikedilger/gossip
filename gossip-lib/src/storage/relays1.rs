@@ -14,6 +14,7 @@ static RELAYS1_DB_CREATE_LOCK: Mutex<()> = Mutex::new(());
 static mut RELAYS1_DB: Option<RawDatabase> = None;
 
 impl Storage {
+    #[allow(dead_code)]
     pub(super) fn db_relays1(&self) -> Result<RawDatabase, Error> {
         unsafe {
             if let Some(db) = RELAYS1_DB {
@@ -44,6 +45,7 @@ impl Storage {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn get_relays1_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
         Ok(self.db_relays1()?.len(&txn)?)
@@ -81,6 +83,7 @@ impl Storage {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub(crate) fn delete_relay1<'a>(
         &'a self,
         url: &RelayUrl,
@@ -115,6 +118,7 @@ impl Storage {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub(crate) fn modify_relay1<'a, M>(
         &'a self,
         url: &RelayUrl,
@@ -153,6 +157,7 @@ impl Storage {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub(crate) fn modify_all_relays1<'a, M>(
         &'a self,
         mut modify: M,
@@ -189,6 +194,7 @@ impl Storage {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub(crate) fn read_relay1(&self, url: &RelayUrl) -> Result<Option<Relay1>, Error> {
         // Note that we use serde instead of speedy because the complexity of the
         // serde_json::Value type makes it difficult. Any other serde serialization

@@ -1,6 +1,6 @@
 [package]
 name = "gossip-lib"
-version = "0.9.0-unstable"
+version = "0.11.0-unstable"
 description = "A social media client for nostr"
 authors = ["Mike Dilger <mike@mikedilger.com>", "fiatjaf <fiatjaf@gmail.com>", "Nate Levin <natelevincycling@gmail.com>", "Nethanja Focking <nethanja@nethanja.de>", "Daniele Tonon <tonon@vitamino.it>", "jeremyd (@jeremyd)"]
 license = "MIT"
@@ -9,11 +9,34 @@ homepage = "https://github.com/mikedilger/gossip"
 edition = "2021"
 
 [features]
-default = ["rustls-tls"]
+default = ["rustls-tls-native"]
+
+# Include font for Chinese, Japanese and Korean characters
 lang-cjk = []
 
-native-tls = [ "reqwest/native-tls", "tungstenite/native-tls", "tokio-tungstenite/native-tls"]
-rustls-tls = [ "reqwest/rustls-tls", "tungstenite/rustls-tls-webpki-roots", "tokio-tungstenite/rustls-tls-webpki-roots"]
+# Use Native TLS code and native root certs
+native-tls = [
+  "reqwest/native-tls",
+  "tungstenite/native-tls",
+  "tokio-tungstenite/native-tls"
+]
+
+# Use Rust TLS code with WebPKI compiled-in root certs
+rustls-tls = [
+  "reqwest/rustls-tls-webpki-roots",
+  "tungstenite/rustls-tls-webpki-roots",
+  "tokio-tungstenite/rustls-tls-webpki-roots"
+]
+
+# Use Rust TLS  code with native root certs
+rustls-tls-native = [
+  "reqwest/rustls-tls-native-roots",
+  "tungstenite/rustls-tls-native-roots",
+  "tokio-tungstenite/rustls-tls-native-roots"
+]
+
+# Make tweaks for AppImage
+appimage = []
 
 [dependencies]
 async-recursion = "1.0"
@@ -27,16 +50,16 @@ fallible-iterator = "0.2"
 filetime = "0.2"
 futures = "0.3"
 futures-util = "0.3"
-gossip-relay-picker = { git = "https://github.com/mikedilger/gossip-relay-picker", rev = "39f9c14b1c201842c512754920f4da4987cd68b6" }
-heed = { git = "https://github.com/meilisearch/heed", rev = "02030e3bf3d26ee98d4f5343fc086a7b63289159" }
+gossip-relay-picker = { git = "https://github.com/mikedilger/gossip-relay-picker", rev = "c9058fee79ddc1a52484de2ccec9687a8f10c5e9" }
+heed = { git = "https://github.com/meilisearch/heed", rev = "64fd6fec293c0dee94855b8267557ce03e7ce5d8" }
 hex = "0.4"
-http = "0.2"
+http = "1.0"
 image = { version = "0.24.6", features = [ "png", "jpeg" ] }
 kamadak-exif = "0.5"
 lazy_static = "1.4"
 linkify = "0.9"
 mime = "0.3"
-nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "61ed6d8ab07363ee5861e7460e795b32b131460a", features = [ "speedy" ] }
+nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "ed7084a2a9e9311bb08352b7c602a8d68c70734d", features = [ "speedy" ] }
 parking_lot = "0.12"
 paste = "1.0"
 rand = "0.8"
@@ -44,17 +67,17 @@ regex = "1.8"
 reqwest = { version = "0.11", default-features=false, features = ["brotli", "deflate", "gzip", "json"] }
 resvg = "0.35.0"
 rhai = { version = "1.15", features = [ "std", "sync" ]}
-rusqlite = { version = "0.29", features = ["bundled", "chrono", "serde_json"] }
-sdl2 = { version = "0.35.2", features = ["bundled"], optional = true }
+sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", rev = "f2f1e29a416bcc22f2faf411866db2c8d9536308", features = ["bundled"], optional = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha2 = "0.10"
 speedy = { git = "https://github.com/mikedilger/speedy", rev = "b8b713a7006958616dd3ef3ba63217740b4b09c2" }
+textnonce = "1"
 tiny-skia = "0.10.0"
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
-tokio-tungstenite = { version = "0.19", default-features = false, features = [ "connect", "handshake" ] }
-tungstenite = { version = "0.19", default-features = false }
+tokio-tungstenite = { version = "0.21", default-features = false, features = [ "connect", "handshake" ] }
+tungstenite = { version = "0.21", default-features = false }
 url = "2.4"
 usvg = "0.35.0"
 zeroize = "1.6"

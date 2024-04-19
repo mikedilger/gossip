@@ -10,48 +10,66 @@ macro_rules! key {
     };
 }
 
-mod import;
 mod migrations;
 
 // type implementations
 pub mod types;
 
 // database implementations
+mod event_akci_index;
+use event_akci_index::AkciKey;
+mod event_kci_index;
+use event_kci_index::KciKey;
+
 mod event_ek_c_index1;
 mod event_ek_pk_index1;
 mod event_seen_on_relay1;
 mod event_tag_index1;
 mod event_viewed1;
 mod events1;
+mod events2;
+mod events3;
 mod hashtags1;
+mod nip46servers1;
+mod nip46servers2;
 mod people1;
 mod people2;
 mod person_lists1;
+mod person_lists2;
+mod person_lists_metadata1;
+mod person_lists_metadata2;
+mod person_lists_metadata3;
 mod person_relays1;
 mod relationships1;
+mod relationships_by_addr1;
+mod relationships_by_id1;
 mod relays1;
+mod relays2;
+mod reprel1;
 mod unindexed_giftwraps1;
+mod versioned;
 
 use crate::dm_channel::{DmChannel, DmChannelData};
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
-use crate::people::{Person, PersonList};
+use crate::nip46::{Nip46Server, Nip46UnconnectedServer};
+use crate::people::{Person, PersonList, PersonListMetadata};
 use crate::person_relay::PersonRelay;
 use crate::profile::Profile;
-use crate::relationship::Relationship;
+use crate::relationship::{RelationshipByAddr, RelationshipById};
 use crate::relay::Relay;
-use gossip_relay_picker::Direction;
-use heed::types::UnalignedSlice;
-use heed::{Database, Env, EnvFlags, EnvOpenOptions, RwTxn};
+use heed::types::{UnalignedSlice, Unit};
+use heed::{Database, Env, EnvFlags, EnvOpenOptions, RoTxn, RwTxn};
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventAddr, EventKind, Id, MilliSatoshi, PublicKey, RelayUrl, Tag,
-    Unixtime,
+    EncryptedPrivateKey, Event, EventAddr, EventKind, EventReference, Filter, Id, MilliSatoshi,
+    PublicKey, PublicKeyHex, RelayList, RelayUrl, RelayUsage, Unixtime,
 };
 use paste::paste;
 use speedy::{Readable, Writable};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::ops::Bound;
 
+use self::event_kci_index::INDEXED_KINDS;
 use self::event_tag_index1::INDEXED_TAGS;
 
 // Macro to define read-and-write into "general" database, largely for settings
@@ -95,7 +113,7 @@ macro_rules! def_setting {
                 match self.general.get(&txn, $string) {
                     Err(_) => $default,
                     Ok(None) => $default,
-                    Ok(Some(bytes)) => match $type::read_from_buffer(bytes) {
+                    Ok(Some(bytes)) => match <$type>::read_from_buffer(bytes) {
                         Ok(val) => val,
                         Err(_) => $default,
                     }
@@ -111,14 +129,57 @@ macro_rules! def_setting {
             }
 
             #[allow(dead_code)]
-            pub(crate) fn [<get_default_setting_ $field>]() -> $type {
+            pub fn [<get_default_setting_ $field>]() -> $type {
                 $default
             }
         }
     };
 }
 
+macro_rules! def_flag {
+    ($field:ident, $string:literal, $default:expr) => {
+        paste! {
+            pub fn [<set_flag_ $field>]<'a>(
+                &'a self,
+                $field: bool,
+                rw_txn: Option<&mut RwTxn<'a>>,
+            ) -> Result<(), Error> {
+                let bytes = $field.write_to_vec()?;
+
+                let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+                    Ok(self.general.put(txn, $string, &bytes)?)
+                };
+
+                match rw_txn {
+                    Some(txn) => f(txn)?,
+                    None => {
+                        let mut txn = self.env.write_txn()?;
+                        f(&mut txn)?;
+                        txn.commit()?;
+                    }
+                };
+
+                Ok(())
+            }
+
+            pub fn [<get_flag_ $field>](&self) -> bool {
+                let txn = match self.env.read_txn() {
+                    Ok(txn) => txn,
+                    Err(_) => return $default,
+                };
+
+                match self.general.get(&txn, $string) {
+                    Err(_) => $default,
+                    Ok(None) => $default,
+                    Ok(Some(bytes)) => bool::read_from_buffer(bytes).unwrap_or($default),
+                }
+            }
+        }
+    };
+}
+
 type RawDatabase = Database<UnalignedSlice<u8>, UnalignedSlice<u8>>;
+type EmptyDatabase = Database<UnalignedSlice<u8>, Unit>;
 
 /// The LMDB storage engine.
 ///
@@ -134,7 +195,7 @@ impl Storage {
     pub(crate) fn new() -> Result<Storage, Error> {
         let mut builder = EnvOpenOptions::new();
         unsafe {
-            builder.flags(EnvFlags::NO_SYNC | EnvFlags::NO_TLS);
+            builder.flags(EnvFlags::NO_TLS);
         }
         // builder.max_readers(126); // this is the default
         builder.max_dbs(32);
@@ -176,32 +237,29 @@ impl Storage {
         // because otherwise there will be MVCC visibility problems later having
         // different transactions in parallel
         //
-        // old-version databases will be handled by their migraiton code and only
+        // old-version databases will be handled by their migration code and only
         // triggered into existence if their migration is necessary.
-        let _ = self.db_event_ek_c_index()?;
-        let _ = self.db_event_ek_pk_index()?;
+        let _ = self.db_event_akci_index()?;
+        let _ = self.db_event_kci_index()?;
         let _ = self.db_event_tag_index()?;
         let _ = self.db_events()?;
         let _ = self.db_event_seen_on_relay()?;
         let _ = self.db_event_viewed()?;
         let _ = self.db_hashtags()?;
+        let _ = self.db_nip46servers()?;
         let _ = self.db_people()?;
         let _ = self.db_person_relays()?;
-        let _ = self.db_relationships()?;
+        let _ = self.db_relationships_by_id()?;
+        let _ = self.db_relationships_by_addr()?;
         let _ = self.db_relays()?;
         let _ = self.db_unindexed_giftwraps()?;
         let _ = self.db_person_lists()?;
+        let _ = self.db_person_lists_metadata()?;
 
-        // If migration level is missing, we need to import from legacy sqlite
+        // Do migrations
         match self.read_migration_level()? {
-            None => {
-                // Import from sqlite
-                self.import()?;
-                self.migrate(0)?;
-            }
-            Some(level) => {
-                self.migrate(level)?;
-            }
+            Some(level) => self.migrate(level)?,
+            None => self.init_from_empty()?,
         }
 
         Ok(())
@@ -223,23 +281,13 @@ impl Storage {
     // Database getters ---------------------------------
 
     #[inline]
-    pub(crate) fn db_event_ek_c_index(&self) -> Result<RawDatabase, Error> {
-        self.db_event_ek_c_index1()
-    }
-
-    #[inline]
-    pub(crate) fn db_event_ek_pk_index(&self) -> Result<RawDatabase, Error> {
-        self.db_event_ek_pk_index1()
-    }
-
-    #[inline]
     pub(crate) fn db_event_tag_index(&self) -> Result<RawDatabase, Error> {
         self.db_event_tag_index1()
     }
 
     #[inline]
     pub(crate) fn db_events(&self) -> Result<RawDatabase, Error> {
-        self.db_events1()
+        self.db_events3()
     }
 
     #[inline]
@@ -258,6 +306,11 @@ impl Storage {
     }
 
     #[inline]
+    pub(crate) fn db_nip46servers(&self) -> Result<RawDatabase, Error> {
+        self.db_nip46servers2()
+    }
+
+    #[inline]
     pub(crate) fn db_people(&self) -> Result<RawDatabase, Error> {
         self.db_people2()
     }
@@ -268,13 +321,18 @@ impl Storage {
     }
 
     #[inline]
-    pub(crate) fn db_relationships(&self) -> Result<RawDatabase, Error> {
-        self.db_relationships1()
+    pub(crate) fn db_relationships_by_addr(&self) -> Result<RawDatabase, Error> {
+        self.db_relationships_by_addr1()
+    }
+
+    #[inline]
+    pub(crate) fn db_relationships_by_id(&self) -> Result<RawDatabase, Error> {
+        self.db_relationships_by_id1()
     }
 
     #[inline]
     pub(crate) fn db_relays(&self) -> Result<RawDatabase, Error> {
-        self.db_relays1()
+        self.db_relays2()
     }
 
     #[inline]
@@ -284,7 +342,12 @@ impl Storage {
 
     #[inline]
     pub(crate) fn db_person_lists(&self) -> Result<RawDatabase, Error> {
-        self.db_person_lists1()
+        self.db_person_lists2()
+    }
+
+    #[inline]
+    pub(crate) fn db_person_lists_metadata(&self) -> Result<RawDatabase, Error> {
+        self.db_person_lists_metadata3()
     }
 
     // Database length functions ---------------------------------
@@ -313,10 +376,16 @@ impl Storage {
         Ok(self.db_hashtags()?.len(&txn)?)
     }
 
+    /// The number of records in the nip46servers table
+    pub fn get_nip46servers_len(&self) -> Result<u64, Error> {
+        let txn = self.env.read_txn()?;
+        Ok(self.db_nip46servers()?.len(&txn)?)
+    }
+
     /// The number of records in the relays table
     #[inline]
     pub fn get_relays_len(&self) -> Result<u64, Error> {
-        self.get_relays1_len()
+        self.get_relays2_len()
     }
 
     /// The number of records in the event table
@@ -325,16 +394,16 @@ impl Storage {
         Ok(self.db_events()?.len(&txn)?)
     }
 
-    /// The number of records in the event_ek_pk_index table
-    pub fn get_event_ek_pk_index_len(&self) -> Result<u64, Error> {
+    /// The number of records in the event_akci_index table
+    pub fn get_event_akci_index_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
-        Ok(self.db_event_ek_pk_index()?.len(&txn)?)
+        Ok(self.db_event_akci_index()?.len(&txn)?)
     }
 
-    /// The number of records in the event_ek_c_index table
-    pub fn get_event_ek_c_index_len(&self) -> Result<u64, Error> {
+    /// The number of records in the event_kci_index table
+    pub fn get_event_kci_index_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
-        Ok(self.db_event_ek_c_index()?.len(&txn)?)
+        Ok(self.db_event_kci_index()?.len(&txn)?)
     }
 
     /// The number of records in the event_tag index table
@@ -343,10 +412,18 @@ impl Storage {
         Ok(self.db_event_tag_index()?.len(&txn)?)
     }
 
-    /// The number of records in the relationships table
-    pub fn get_relationships_len(&self) -> Result<u64, Error> {
+    /// The number of records in the relationships_by_addr table
+    #[inline]
+    pub fn get_relationships_by_addr_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
-        Ok(self.db_relationships()?.len(&txn)?)
+        Ok(self.db_relationships_by_addr()?.len(&txn)?)
+    }
+
+    /// The number of records in the relationships_by_id table
+    #[inline]
+    pub fn get_relationships_by_id_len(&self) -> Result<u64, Error> {
+        let txn = self.env.read_txn()?;
+        Ok(self.db_relationships_by_id()?.len(&txn)?)
     }
 
     /// The number of records in the people table
@@ -397,7 +474,10 @@ impl Storage {
         let mut deletions: Vec<Vec<u8>> = Vec::new();
         for id in &ids {
             let start_key: &[u8] = id.as_slice();
-            for result in self.db_events()?.prefix_iter_mut(&mut txn, start_key)? {
+            for result in self
+                .db_event_seen_on_relay()?
+                .prefix_iter(&txn, start_key)?
+            {
                 let (_key, val) = result?;
                 deletions.push(val.to_owned());
             }
@@ -435,7 +515,7 @@ impl Storage {
         // Delete from relationships
         // (unfortunately because of the 2nd Id in the tag, we have to scan the whole thing)
         let mut deletions: Vec<Vec<u8>> = Vec::new();
-        for result in self.db_relationships()?.iter(&txn)? {
+        for result in self.db_relationships_by_id()?.iter(&txn)? {
             let (key, _val) = result?;
             let id = Id(key[0..32].try_into()?);
             if ids.contains(&id) {
@@ -449,7 +529,7 @@ impl Storage {
         }
         tracing::info!("PRUNE: deleting {} relationships", deletions.len());
         for deletion in deletions.drain(..) {
-            self.db_relationships()?.delete(&mut txn, &deletion)?;
+            self.db_relationships_by_id()?.delete(&mut txn, &deletion)?;
         }
 
         // delete from events
@@ -502,10 +582,10 @@ impl Storage {
     /// Write the user's encrypted private key
     pub fn write_encrypted_private_key<'a>(
         &'a self,
-        epk: &Option<EncryptedPrivateKey>,
+        epk: Option<&EncryptedPrivateKey>,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let bytes = epk.as_ref().map(|e| &e.0).write_to_vec()?;
+        let bytes = epk.map(|e| &e.0).write_to_vec()?;
 
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
             self.general.put(txn, b"encrypted_private_key", &bytes)?;
@@ -537,17 +617,17 @@ impl Storage {
         }
     }
 
-    /// Write the user's last ContactList edit time
-    pub fn write_last_contact_list_edit<'a>(
+    /// Write NIP-46 unconnected server
+    #[allow(dead_code)]
+    pub fn write_nip46_unconnected_server<'a>(
         &'a self,
-        when: i64,
+        server: &Nip46UnconnectedServer,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let bytes = when.to_be_bytes();
+        let bytes = server.write_to_vec()?;
 
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.general
-                .put(txn, b"last_contact_list_edit", bytes.as_slice())?;
+            self.general.put(txn, b"nip46_unconnected_server", &bytes)?;
             Ok(())
         };
 
@@ -563,31 +643,27 @@ impl Storage {
         Ok(())
     }
 
-    /// Read the user's last ContactList edit time
-    pub fn read_last_contact_list_edit(&self) -> Result<i64, Error> {
+    /// Read NIP-46 unconnected server
+    #[allow(dead_code)]
+    pub fn read_nip46_unconnected_server(&self) -> Result<Option<Nip46UnconnectedServer>, Error> {
         let txn = self.env.read_txn()?;
-
-        match self.general.get(&txn, b"last_contact_list_edit")? {
-            None => {
-                let now = Unixtime::now().unwrap();
-                self.write_last_contact_list_edit(now.0, None)?;
-                Ok(now.0)
+        match self.general.get(&txn, b"nip46_unconnected_server")? {
+            None => Ok(None),
+            Some(bytes) => {
+                let server = Nip46UnconnectedServer::read_from_buffer(bytes)?;
+                Ok(Some(server))
             }
-            Some(bytes) => Ok(i64::from_be_bytes(bytes[..8].try_into().unwrap())),
         }
     }
 
-    /// Write the user's last MuteList edit time
-    pub fn write_last_mute_list_edit<'a>(
+    /// Delete a NIP-46 unconnected server
+    #[allow(dead_code)]
+    pub fn delete_nip46_unconnected_server<'a>(
         &'a self,
-        when: i64,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let bytes = when.to_be_bytes();
-
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.general
-                .put(txn, b"last_mute_list_edit", bytes.as_slice())?;
+            self.general.delete(txn, b"nip46_unconnected_server")?;
             Ok(())
         };
 
@@ -603,97 +679,15 @@ impl Storage {
         Ok(())
     }
 
-    /// Read the user's last MuteList edit time
-    pub fn read_last_mute_list_edit(&self) -> Result<i64, Error> {
-        let txn = self.env.read_txn()?;
+    // Flags ------------------------------------------------------------
 
-        match self.general.get(&txn, b"last_mute_list_edit")? {
-            None => {
-                let now = Unixtime::now().unwrap();
-                self.write_last_mute_list_edit(now.0, None)?;
-                Ok(now.0)
-            }
-            Some(bytes) => Ok(i64::from_be_bytes(bytes[..8].try_into().unwrap())),
-        }
-    }
-
-    /// Write a flag, whether the user is only following people with no account (or not)
-    pub fn write_following_only<'a>(
-        &'a self,
-        following_only: bool,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error> {
-        let bytes = following_only.write_to_vec()?;
-
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.general.put(txn, b"following_only", &bytes)?;
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
-    }
-
-    /// Read a flag, whether the user is only following people with no account (or not)
-    pub fn read_following_only(&self) -> bool {
-        let txn = match self.env.read_txn() {
-            Ok(txn) => txn,
-            Err(_) => return false,
-        };
-
-        match self.general.get(&txn, b"following_only") {
-            Err(_) => false,
-            Ok(None) => false,
-            Ok(Some(bytes)) => bool::read_from_buffer(bytes).unwrap_or(false),
-        }
-    }
-
-    /// Write a flag, whether the onboarding wizard has completed
-    pub fn write_wizard_complete<'a>(
-        &'a self,
-        wizard_complete: bool,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error> {
-        let bytes = wizard_complete.write_to_vec()?;
-
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.general.put(txn, b"wizard_complete", &bytes)?;
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
-    }
-
-    /// Read a flag, whether the onboarding wizard has completed
-    pub fn read_wizard_complete(&self) -> bool {
-        let txn = match self.env.read_txn() {
-            Ok(txn) => txn,
-            Err(_) => return false,
-        };
-
-        match self.general.get(&txn, b"wizard_complete") {
-            Err(_) => false,
-            Ok(None) => false,
-            Ok(Some(bytes)) => bool::read_from_buffer(bytes).unwrap_or(false),
-        }
-    }
+    def_flag!(following_only, b"following_only", false);
+    def_flag!(wizard_complete, b"wizard_complete", false);
+    def_flag!(
+        rebuild_relationships_needed,
+        b"rebuild_relationships_needed",
+        false
+    );
 
     // Settings ----------------------------------------------------------
 
@@ -701,6 +695,7 @@ impl Storage {
     // setting value
     def_setting!(public_key, b"public_key", Option::<PublicKey>, None);
     def_setting!(log_n, b"log_n", u8, 18);
+    def_setting!(login_at_startup, b"login_at_startup", bool, true);
     def_setting!(offline, b"offline", bool, false);
     def_setting!(load_avatars, b"load_avatars", bool, true);
     def_setting!(load_media, b"load_media", bool, true);
@@ -711,15 +706,27 @@ impl Storage {
         bool,
         true
     );
+    def_setting!(
+        relay_connection_requires_approval,
+        b"relay_connection_requires_approval",
+        bool,
+        false
+    );
+    def_setting!(
+        relay_auth_requires_approval,
+        b"relay_auth_requires_approval",
+        bool,
+        false
+    );
     def_setting!(num_relays_per_person, b"num_relays_per_person", u8, 2);
     def_setting!(max_relays, b"max_relays", u8, 50);
-    def_setting!(feed_chunk, b"feed_chunk", u64, 60 * 60 * 12);
+    def_setting!(feed_chunk, b"feed_chunk", u64, 60 * 60 * 4);
     def_setting!(replies_chunk, b"replies_chunk", u64, 60 * 60 * 24 * 7);
     def_setting!(
         person_feed_chunk,
         b"person_feed_chunk",
         u64,
-        60 * 60 * 24 * 30
+        60 * 60 * 24 * 15
     );
     def_setting!(overlap, b"overlap", u64, 300);
     def_setting!(reposts, b"reposts", bool, true);
@@ -732,6 +739,7 @@ impl Storage {
         u64,
         60 * 15
     );
+    def_setting!(hide_mutes_entirely, b"hide_mutes_entirely", bool, true);
     def_setting!(reactions, b"reactions", bool, true);
     def_setting!(enable_zap_receipts, b"enable_zap_receipts", bool, true);
     def_setting!(show_media, b"show_media", bool, true);
@@ -760,6 +768,12 @@ impl Storage {
         8000
     );
     def_setting!(
+        feed_thread_scroll_to_main_event,
+        b"feed_thread_scroll_to_main_event",
+        bool,
+        true
+    );
+    def_setting!(
         theme_variant,
         b"theme_variant",
         String,
@@ -774,6 +788,7 @@ impl Storage {
         bool,
         true
     );
+    def_setting!(feed_newest_at_bottom, b"feed_newest_at_bottom", bool, false);
     def_setting!(posting_area_at_top, b"posting_area_at_top", bool, true);
     def_setting!(status_bar, b"status_bar", bool, false);
     def_setting!(
@@ -785,40 +800,40 @@ impl Storage {
     def_setting!(inertial_scrolling, b"inertial_scrolling", bool, true);
     def_setting!(mouse_acceleration, b"mouse_acceleration", f32, 1.0);
     def_setting!(
-        relay_list_becomes_stale_hours,
-        b"relay_list_becomes_stale_hours",
+        relay_list_becomes_stale_minutes,
+        b"relay_list_becomes_stale_minutes",
         u64,
-        8
+        20
     );
     def_setting!(
-        metadata_becomes_stale_hours,
-        b"metadata_becomes_stale_hours",
+        metadata_becomes_stale_minutes,
+        b"metadata_becomes_stale_minutes",
         u64,
-        8
+        20
     );
     def_setting!(
         nip05_becomes_stale_if_valid_hours,
         b"nip05_becomes_stale_if_valid_hours",
         u64,
-        8
+        6
     );
     def_setting!(
         nip05_becomes_stale_if_invalid_minutes,
         b"nip05_becomes_stale_if_invalid_minutes",
         u64,
-        30
+        15
     );
     def_setting!(
         avatar_becomes_stale_hours,
         b"avatar_becomes_stale_hours",
         u64,
-        8
+        5
     );
     def_setting!(
         media_becomes_stale_hours,
         b"media_becomes_stale_hours",
         u64,
-        8
+        5
     );
     def_setting!(
         max_websocket_message_size_kb,
@@ -854,7 +869,7 @@ impl Storage {
         fetcher_metadata_looptime_ms,
         b"fetcher_metadata_looptime_ms",
         u64,
-        3000
+        1750
     );
     def_setting!(fetcher_looptime_ms, b"fetcher_looptime_ms", u64, 1800);
     def_setting!(
@@ -896,8 +911,87 @@ impl Storage {
     );
     def_setting!(prune_period_days, b"prune_period_days", u64, 90);
     def_setting!(cache_prune_period_days, b"cache_prune_period_days", u64, 90);
+    def_setting!(
+        avoid_spam_on_unsafe_relays,
+        b"avoid_spam_on_unsafe_relays",
+        bool,
+        false
+    );
 
     // -------------------------------------------------------------------
+
+    /// Get personlist metadata
+    #[inline]
+    pub fn get_person_list_metadata(
+        &self,
+        list: PersonList,
+    ) -> Result<Option<PersonListMetadata>, Error> {
+        self.get_person_list_metadata3(list)
+    }
+
+    /// Set personlist metadata
+    #[inline]
+    pub fn set_person_list_metadata<'a>(
+        &'a self,
+        list: PersonList,
+        metadata: &PersonListMetadata,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        self.set_person_list_metadata3(list, metadata, rw_txn)
+    }
+
+    /// Get all person lists with their metadata
+    #[inline]
+    pub fn get_all_person_list_metadata(
+        &self,
+    ) -> Result<Vec<(PersonList, PersonListMetadata)>, Error> {
+        self.get_all_person_list_metadata3()
+    }
+
+    /// Find a person list by "d" tag
+    #[inline]
+    pub fn find_person_list_by_dtag(
+        &self,
+        dtag: &str,
+    ) -> Result<Option<(PersonList, PersonListMetadata)>, Error> {
+        self.find_person_list_by_dtag3(dtag)
+    }
+
+    /// Allocate a new person list
+    #[inline]
+    pub fn allocate_person_list<'a>(
+        &'a self,
+        metadata: &PersonListMetadata,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<PersonList, Error> {
+        self.allocate_person_list3(metadata, rw_txn)
+    }
+
+    /// Deallocate an empty person list
+    #[inline]
+    pub fn deallocate_person_list<'a>(
+        &'a self,
+        list: PersonList,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        self.deallocate_person_list3(list, rw_txn)
+    }
+
+    pub fn rename_person_list<'a>(
+        &'a self,
+        list: PersonList,
+        newname: String,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        let mut md = match self.get_person_list_metadata(list)? {
+            Some(md) => md,
+            None => return Err(ErrorKind::ListNotFound.into()),
+        };
+        md.title = newname;
+        md.last_edit_time = Unixtime::now().unwrap();
+        self.set_person_list_metadata(list, &md, rw_txn)?;
+        Ok(())
+    }
 
     /// Add event seen on relay
     #[inline]
@@ -956,12 +1050,12 @@ impl Storage {
     /// NOTE: this overwrites. You may wish to read first, or you might prefer
     /// [modify_relay](Storage::modify_relay)
     #[inline]
-    pub fn write_relay<'a>(
+    pub(crate) fn write_relay<'a>(
         &'a self,
         relay: &Relay,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.write_relay1(relay, rw_txn)
+        self.write_relay2(relay, rw_txn)
     }
 
     /// Delete a relay record
@@ -972,7 +1066,7 @@ impl Storage {
         url: &RelayUrl,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.delete_relay1(url, rw_txn)
+        self.delete_relay2(url, rw_txn)
     }
 
     /// Write a new relay record only if it is missing
@@ -981,16 +1075,30 @@ impl Storage {
         url: &RelayUrl,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        if self.read_relay(url)?.is_none() {
-            let dbrelay = Relay::new(url.to_owned());
-            self.write_relay(&dbrelay, rw_txn)?;
-        }
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            let rtxn = &**txn;
+            if self.read_relay(url, Some(rtxn))?.is_none() {
+                let dbrelay = Relay::new(url.to_owned());
+                self.write_relay(&dbrelay, Some(txn))?;
+            }
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
         Ok(())
     }
 
     /// Modify a relay record
     #[inline]
-    pub fn modify_relay<'a, M>(
+    pub(crate) fn modify_relay<'a, M>(
         &'a self,
         url: &RelayUrl,
         modify: M,
@@ -999,7 +1107,7 @@ impl Storage {
     where
         M: FnMut(&mut Relay),
     {
-        self.modify_relay1(url, modify, rw_txn)
+        self.modify_relay2(url, modify, rw_txn)
     }
 
     //// Modify all relay records
@@ -1012,13 +1120,46 @@ impl Storage {
     where
         M: FnMut(&mut Relay),
     {
-        self.modify_all_relays1(modify, rw_txn)
+        self.modify_all_relays2(modify, rw_txn)
     }
 
     /// Read a relay record
     #[inline]
-    pub fn read_relay(&self, url: &RelayUrl) -> Result<Option<Relay>, Error> {
-        self.read_relay1(url)
+    pub fn read_relay<'a>(
+        &'a self,
+        url: &RelayUrl,
+        txn: Option<&RoTxn<'a>>,
+    ) -> Result<Option<Relay>, Error> {
+        self.read_relay2(url, txn)
+    }
+
+    /// Read or create relay
+    pub fn read_or_create_relay<'a>(
+        &'a self,
+        url: &RelayUrl,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<Relay, Error> {
+        let f = |txn: &mut RwTxn<'a>| -> Result<Relay, Error> {
+            let rtxn = &**txn;
+            match self.read_relay(url, Some(rtxn))? {
+                Some(relay) => Ok(relay),
+                None => {
+                    let relay = Relay::new(url.to_owned());
+                    self.write_relay(&relay, Some(txn))?;
+                    Ok(relay)
+                }
+            }
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn),
+            None => {
+                let mut txn = self.env.write_txn()?;
+                let result = f(&mut txn);
+                txn.commit()?;
+                result
+            }
+        }
     }
 
     /// Read matching relay records
@@ -1027,23 +1168,57 @@ impl Storage {
     where
         F: Fn(&Relay) -> bool,
     {
-        self.filter_relays1(f)
+        self.filter_relays2(f)
+    }
+
+    /// Load effective relay list
+    pub fn load_effective_relay_list(&self) -> Result<RelayList, Error> {
+        let mut relay_list: RelayList = Default::default();
+
+        for relay in self.filter_relays(|_| true)? {
+            if relay.has_usage_bits(Relay::READ | Relay::WRITE) {
+                relay_list.0.insert(relay.url, RelayUsage::Both);
+            } else if relay.has_usage_bits(Relay::WRITE) {
+                relay_list.0.insert(relay.url, RelayUsage::Outbox);
+            } else if relay.has_usage_bits(Relay::READ) {
+                relay_list.0.insert(relay.url, RelayUsage::Inbox);
+            }
+        }
+
+        Ok(relay_list)
+    }
+
+    /// Load advertised relay list
+    pub fn load_advertised_relay_list(&self) -> Result<RelayList, Error> {
+        let mut relay_list: RelayList = Default::default();
+
+        for relay in self.filter_relays(|_| true)? {
+            if relay.has_usage_bits(Relay::INBOX | Relay::OUTBOX) {
+                relay_list.0.insert(relay.url, RelayUsage::Both);
+            } else if relay.has_usage_bits(Relay::OUTBOX) {
+                relay_list.0.insert(relay.url, RelayUsage::Outbox);
+            } else if relay.has_usage_bits(Relay::INBOX) {
+                relay_list.0.insert(relay.url, RelayUsage::Inbox);
+            }
+        }
+
+        Ok(relay_list)
     }
 
     /// Process a relay list event
     pub fn process_relay_list(&self, event: &Event) -> Result<(), Error> {
         let mut txn = self.env.write_txn()?;
 
-        // Check if this relay list is newer than the stamp we have for its author
         if let Some(mut person) = self.read_person(&event.pubkey)? {
-            // Mark that we received it (changes fetch duration for next time)
-            person.relay_list_last_received = Unixtime::now().unwrap().0;
-
+            // Check if this relay list is newer than the stamp we have for its author
             if let Some(previous_at) = person.relay_list_created_at {
                 if event.created_at.0 <= previous_at {
+                    // This list is old. But let's save the last_received setting:
+                    self.write_person(&person, Some(&mut txn))?;
                     return Ok(());
                 }
             }
+            // If we got here, the list is new.
 
             // Mark when it was created
             person.relay_list_created_at = Some(event.created_at.0);
@@ -1057,87 +1232,43 @@ impl Storage {
             if event.pubkey == pubkey {
                 tracing::info!("Processing our own relay list");
                 ours = true;
-
-                // Clear all current read/write bits (within the transaction)
-                // note: inbox is kind10002 'read', outbox is kind10002 'write'
-                self.modify_all_relays(
-                    |relay| relay.usage_bits &= !(Relay::INBOX | Relay::OUTBOX),
-                    Some(&mut txn),
-                )?;
             }
         }
 
-        // Collect the URLs for inbox(read) and outbox(write) specified in the event
-        let mut inbox_relays: Vec<RelayUrl> = Vec::new();
-        let mut outbox_relays: Vec<RelayUrl> = Vec::new();
-        for tag in event.tags.iter() {
-            if let Tag::Reference { url, marker, .. } = tag {
-                if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(url) {
-                    if let Some(m) = marker {
-                        match &*m.trim().to_lowercase() {
-                            "read" => {
-                                // 'read' means inbox and not outbox
-                                inbox_relays.push(relay_url.clone());
-                                if ours {
-                                    if let Some(mut dbrelay) = self.read_relay(&relay_url)? {
-                                        // Update
-                                        dbrelay.set_usage_bits(Relay::INBOX);
-                                        dbrelay.clear_usage_bits(Relay::OUTBOX);
-                                        self.write_relay(&dbrelay, Some(&mut txn))?;
-                                    } else {
-                                        // Insert missing relay
-                                        let mut dbrelay = Relay::new(relay_url.to_owned());
-                                        // Since we are creating, we add READ
-                                        dbrelay.set_usage_bits(Relay::INBOX | Relay::READ);
-                                        self.write_relay(&dbrelay, Some(&mut txn))?;
-                                    }
-                                }
-                            }
-                            "write" => {
-                                // 'write' means outbox and not inbox
-                                outbox_relays.push(relay_url.clone());
-                                if ours {
-                                    if let Some(mut dbrelay) = self.read_relay(&relay_url)? {
-                                        // Update
-                                        dbrelay.set_usage_bits(Relay::OUTBOX);
-                                        dbrelay.clear_usage_bits(Relay::INBOX);
-                                        self.write_relay(&dbrelay, Some(&mut txn))?;
-                                    } else {
-                                        // Create
-                                        let mut dbrelay = Relay::new(relay_url.to_owned());
-                                        // Since we are creating, we add WRITE
-                                        dbrelay.set_usage_bits(Relay::OUTBOX | Relay::WRITE);
-                                        self.write_relay(&dbrelay, Some(&mut txn))?;
-                                    }
-                                }
-                            }
-                            _ => {} // ignore unknown marker
-                        }
-                    } else {
-                        // No marker means both inbox and outbox
-                        inbox_relays.push(relay_url.clone());
-                        outbox_relays.push(relay_url.clone());
-                        if ours {
-                            if let Some(mut dbrelay) = self.read_relay(&relay_url)? {
-                                // Update
-                                dbrelay.set_usage_bits(Relay::INBOX | Relay::OUTBOX);
-                                self.write_relay(&dbrelay, Some(&mut txn))?;
-                            } else {
-                                // Create
-                                let mut dbrelay = Relay::new(relay_url.to_owned());
-                                // Since we are creating, we add READ and WRITE
-                                dbrelay.set_usage_bits(
-                                    Relay::INBOX | Relay::OUTBOX | Relay::READ | Relay::WRITE,
-                                );
-                                self.write_relay(&dbrelay, Some(&mut txn))?;
-                            }
-                        }
-                    }
+        let relay_list = RelayList::from_event(event);
+
+        if ours {
+            // If INBOX or OUTBOX is set, we also must turn on READ and WRITE
+            // or they won't actually get used.  However, we don't turn OFF
+            // these bits automatically.
+
+            // Clear all current read/write bits (within the transaction)
+            // note: inbox is kind10002 'read', outbox is kind10002 'write'
+            self.modify_all_relays(
+                |relay| relay.clear_usage_bits(Relay::INBOX | Relay::OUTBOX),
+                Some(&mut txn),
+            )?;
+
+            // Set or create read relays
+            for (relay_url, usage) in relay_list.0.iter() {
+                let bits = match usage {
+                    RelayUsage::Inbox => Relay::INBOX | Relay::READ,
+                    RelayUsage::Outbox => Relay::OUTBOX | Relay::WRITE,
+                    RelayUsage::Both => Relay::INBOX | Relay::OUTBOX | Relay::READ | Relay::WRITE,
+                };
+
+                if let Some(mut dbrelay) = self.read_relay(relay_url, Some(&txn))? {
+                    dbrelay.set_usage_bits(bits);
+                    self.write_relay(&dbrelay, Some(&mut txn))?;
+                } else {
+                    let mut dbrelay = Relay::new(relay_url.to_owned());
+                    dbrelay.set_usage_bits(bits);
+                    self.write_relay(&dbrelay, Some(&mut txn))?;
                 }
             }
         }
 
-        self.set_relay_list(event.pubkey, inbox_relays, outbox_relays, Some(&mut txn))?;
+        self.set_relay_list(event.pubkey, relay_list, Some(&mut txn))?;
 
         txn.commit()?;
         Ok(())
@@ -1147,41 +1278,41 @@ impl Storage {
     pub fn set_relay_list<'a>(
         &'a self,
         pubkey: PublicKey,
-        read_relays: Vec<RelayUrl>,
-        write_relays: Vec<RelayUrl>,
+        relay_list: RelayList,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
+        // We need to update PersonRelay records for this pubkey, including:
+        // 1) Create new ones as needed, and
+        // 2) Turn off usage on existing ones not in the relay list
+
+        // Get all their person relay records
         let mut person_relays = self.get_person_relays(pubkey)?;
 
-        'for_read_relays: for relay in &read_relays {
+        // Add new records where needed
+        'add_new: for (url, _) in relay_list.0.iter() {
             for pr in &person_relays {
-                if pr.url == *relay {
-                    continue 'for_read_relays;
+                if pr.url == *url {
+                    continue 'add_new;
                 }
             }
-            // Not found. Create a new person relay for this
-            // (last loop below will set and save)
-            let pr = PersonRelay::new(pubkey, relay.clone());
+            let pr = PersonRelay::new(pubkey, url.clone());
             person_relays.push(pr);
         }
 
-        'for_write_relays: for relay in &write_relays {
-            for pr in &person_relays {
-                if pr.url == *relay {
-                    continue 'for_write_relays;
-                }
-            }
-            // Not found. Create a new person relay for this
-            // (last loop below will set and save)
-            let pr = PersonRelay::new(pubkey, relay.clone());
-            person_relays.push(pr);
-        }
-
+        // Update each record, and save if it changed
         for mut pr in person_relays.drain(..) {
             let orig_read = pr.read;
             let orig_write = pr.write;
-            pr.read = read_relays.contains(&pr.url);
-            pr.write = write_relays.contains(&pr.url);
+            match relay_list.0.get(&pr.url) {
+                Some(usage) => {
+                    pr.read = *usage == RelayUsage::Inbox || *usage == RelayUsage::Both;
+                    pr.write = *usage == RelayUsage::Outbox || *usage == RelayUsage::Both;
+                }
+                None => {
+                    pr.read = false;
+                    pr.write = false;
+                }
+            }
             if pr.read != orig_read || pr.write != orig_write {
                 // here is some reborrow magic we needed to appease the borrow checker
                 if let Some(&mut ref mut v) = rw_txn {
@@ -1202,25 +1333,78 @@ impl Storage {
         event: &Event,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.write_event1(event, rw_txn)
+        self.write_event3(event, rw_txn)
     }
 
     /// Read an event
     #[inline]
     pub fn read_event(&self, id: Id) -> Result<Option<Event>, Error> {
-        self.read_event1(id)
+        self.read_event3(id)
     }
 
     /// If we have th event
     #[inline]
     pub fn has_event(&self, id: Id) -> Result<bool, Error> {
-        self.has_event1(id)
+        self.has_event3(id)
     }
 
     /// Delete the event
-    #[inline]
     pub fn delete_event<'a>(&'a self, id: Id, rw_txn: Option<&mut RwTxn<'a>>) -> Result<(), Error> {
-        self.delete_event1(id, rw_txn)
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            // Delete from the events table
+            self.delete_event3(id, Some(txn))?;
+
+            // Delete from event_seen_on_relay
+            {
+                // save the actual keys to delete
+                let mut deletions: Vec<Vec<u8>> = Vec::new();
+
+                let start_key: &[u8] = id.as_slice();
+
+                for result in self.db_event_seen_on_relay()?.prefix_iter(txn, start_key)? {
+                    let (_key, val) = result?;
+                    deletions.push(val.to_owned());
+                }
+
+                // actual deletion done in second pass
+                // (deleting during interation does not work in LMDB)
+                for deletion in deletions.drain(..) {
+                    self.db_event_seen_on_relay()?.delete(txn, &deletion)?;
+                }
+            }
+
+            // Delete from event_viewed
+            self.db_event_viewed()?.delete(txn, id.as_slice())?;
+
+            // DO NOT delete from relationships. The related event still applies in case
+            // this event comes back, ESPECIALLY deletion relationships!
+
+            // We cannot delete from numerous indexes because the ID
+            // is in the value, not in the key.
+            //
+            // These invalid entries will be deleted next time we
+            // rebuild indexes.
+            //
+            // These include
+            //   db_event_hashtags()
+            //   db_relationships(), where the ID is the 2nd half of the key
+            //   db_reprel()
+            //   db_event_akci_index()
+            //   db_event_kci_index()
+
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
     }
 
     /// Replace any existing event with the passed in event, if it is of a replaceable kind
@@ -1234,7 +1418,16 @@ impl Storage {
             return Err(ErrorKind::General("Event is not replaceable.".to_owned()).into());
         }
 
-        let existing = self.find_events(&[event.kind], &[event.pubkey], None, |_| true, false)?;
+        let mut filter = Filter::new();
+        filter.add_event_kind(event.kind);
+        filter.add_author(&event.pubkey.into());
+        let existing = self.find_events_by_filter(&filter, |e| {
+            if event.kind.is_parameterized_replaceable() {
+                e.parameter() == event.parameter()
+            } else {
+                true
+            }
+        })?;
 
         let mut found_newer = false;
         for old in existing {
@@ -1259,253 +1452,227 @@ impl Storage {
         Ok(true)
     }
 
-    /// Get the matching replaceable event
+    /// Get the matching replaceable event (possibly parameterized)
     /// TBD: optimize this by storing better event indexes
     pub fn get_replaceable_event(
         &self,
-        pubkey: PublicKey,
         kind: EventKind,
+        pubkey: PublicKey,
+        parameter: &str,
     ) -> Result<Option<Event>, Error> {
+        if !kind.is_replaceable() {
+            return Err(ErrorKind::General("Event kind is not replaceable".to_owned()).into());
+        }
+
+        let mut filter = Filter::new();
+        filter.add_event_kind(kind);
+        filter.add_author(&pubkey.into());
+
         Ok(self
-            .find_events(&[kind], &[pubkey], None, |_| true, true)?
+            .find_events_by_filter(&filter, |e| {
+                if kind.is_parameterized_replaceable() {
+                    e.parameter().as_deref() == Some(parameter)
+                } else {
+                    true
+                }
+            })?
             .first()
             .cloned())
     }
 
-    /// Get the matching parameterized replaceable event
-    /// TBD: use forthcoming event_tags index
-    pub fn get_parameterized_replaceable_event(
-        &self,
-        event_addr: &EventAddr,
-    ) -> Result<Option<Event>, Error> {
-        if !event_addr.kind.is_parameterized_replaceable() {
-            return Err(ErrorKind::General(
-                "Invalid EventAddr, kind is not parameterized replaceable.".to_owned(),
-            )
-            .into());
-        }
-
-        let mut events = self.find_events(
-            &[event_addr.kind],
-            &[event_addr.author],
-            None, // any time
-            |e| e.parameter().as_ref() == Some(&event_addr.d),
-            true, // sorted in reverse time order
-        )?;
-
-        let maybe_event = events.drain(..).take(1).next();
-        Ok(maybe_event)
-    }
-
-    /// Replace the matching parameterized event with the given event if it is parameterized
-    /// replaceable and is newer.
-    pub fn replace_parameterized_event<'a>(
-        &'a self,
-        event: &Event,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<bool, Error> {
-        if !event.kind.is_parameterized_replaceable() {
-            return Err(
-                ErrorKind::General("Event is not parameterized replaceable.".to_owned()).into(),
-            );
-        }
-
-        let param = match event.parameter() {
-            None => {
-                return Err(ErrorKind::General(
-                    "Event of parameterized type does not have a parameter.".to_owned(),
-                )
-                .into())
-            }
-            Some(param) => param,
-        };
-
-        let existing = self.find_events(
-            &[event.kind],
-            &[event.pubkey],
-            None,
-            |e| e.parameter().as_ref() == Some(&param),
-            false,
-        )?;
-
-        let mut found_newer = false;
-        for old in existing {
-            if old.created_at < event.created_at {
-                // here is some reborrow magic we needed to appease the borrow checker
-                if let Some(&mut ref mut v) = rw_txn {
-                    self.delete_event(old.id, Some(v))?;
-                } else {
-                    self.delete_event(old.id, None)?;
-                }
-            } else {
-                found_newer = true;
-            }
-        }
-
-        if found_newer {
-            return Ok(false); // this event is not the latest one.
-        }
-
-        self.write_event(event, rw_txn)?;
-        Ok(true)
-    }
-
-    /// Find events of given kinds and pubkeys.
-    /// You must supply kinds. You can skip the pubkeys and then only kinds will matter.
-    fn find_ek_pk_events(
-        &self,
-        kinds: &[EventKind],
-        pubkeys: &[PublicKey],
-    ) -> Result<HashSet<Id>, Error> {
-        if kinds.is_empty() {
-            return Err(ErrorKind::General(
-                "find_ek_pk_events() requires some event kinds to be specified.".to_string(),
-            )
-            .into());
-        }
-
-        let mut ids: HashSet<Id> = HashSet::new();
-        let txn = self.env.read_txn()?;
-
-        for kind in kinds {
-            let ek: u32 = (*kind).into();
-            if pubkeys.is_empty() {
-                let start_key = ek.to_be_bytes().as_slice().to_owned();
-                let iter = self.db_event_ek_pk_index()?.prefix_iter(&txn, &start_key)?;
-                for result in iter {
-                    let (_key, val) = result?;
-                    // Take the event
-                    let id = Id(val[0..32].try_into()?);
-                    ids.insert(id);
-                }
-            } else {
-                for pubkey in pubkeys {
-                    let mut start_key = ek.to_be_bytes().as_slice().to_owned();
-                    start_key.extend(pubkey.as_bytes());
-                    let iter = self.db_event_ek_pk_index()?.prefix_iter(&txn, &start_key)?;
-                    for result in iter {
-                        let (_key, val) = result?;
-                        // Take the event
-                        let id = Id(val[0..32].try_into()?);
-                        ids.insert(id);
-                    }
-                }
-            }
-        }
-
-        Ok(ids)
-    }
-
-    /// Find events of given kinds and after the given time.
-    fn find_ek_c_events(&self, kinds: &[EventKind], since: Unixtime) -> Result<HashSet<Id>, Error> {
-        if kinds.is_empty() {
-            return Err(ErrorKind::General(
-                "find_ek_c_events() requires some event kinds to be specified.".to_string(),
-            )
-            .into());
-        }
-
-        let now = Unixtime::now().unwrap();
-        let mut ids: HashSet<Id> = HashSet::new();
-        let txn = self.env.read_txn()?;
-
-        for kind in kinds {
-            let ek: u32 = (*kind).into();
-            let mut start_key = ek.to_be_bytes().as_slice().to_owned();
-            let mut end_key = start_key.clone();
-            start_key.extend((i64::MAX - now.0).to_be_bytes().as_slice()); // work back from now
-            end_key.extend((i64::MAX - since.0).to_be_bytes().as_slice()); // until since
-            let range = (Bound::Included(&*start_key), Bound::Excluded(&*end_key));
-            let iter = self.db_event_ek_c_index()?.range(&txn, &range)?;
-            for result in iter {
-                let (_key, val) = result?;
-                // Take the event
-                let id = Id(val[0..32].try_into()?);
-                ids.insert(id);
-            }
-        }
-
-        Ok(ids)
-    }
-
-    /// Find events of interest.
+    /// Find events by filter.
     ///
-    /// You must specify some event kinds.
-    /// If pubkeys is empty, they won't matter.
-    /// If since is None, it won't matter.
+    /// This function may inefficiently scrape all of storage for some filters.
+    /// To avoid an inefficent scrape, do one of these
     ///
-    /// The function f is run after the matching-so-far events have been deserialized
-    /// to finish filtering, and optionally they are sorted in reverse chronological
-    /// order.
-    pub fn find_events<F>(
-        &self,
-        kinds: &[EventKind],
-        pubkeys: &[PublicKey],
-        since: Option<Unixtime>,
-        f: F,
-        sort: bool,
-    ) -> Result<Vec<Event>, Error>
+    /// 1. Supply some ids
+    /// 2. Supply some authors and some kinds, or
+    /// 3. Supply some kinds, all of which are INDEXED_KINDS,
+    ///
+    /// The output will be sorted in reverse time order.
+    pub fn find_events_by_filter<F>(&self, filter: &Filter, screen: F) -> Result<Vec<Event>, Error>
     where
         F: Fn(&Event) -> bool,
     {
-        let ids = self.find_event_ids(kinds, pubkeys, since)?;
-
-        // Now that we have that Ids, fetch the events
         let txn = self.env.read_txn()?;
-        let mut events: Vec<Event> = Vec::new();
-        for id in ids {
-            // this is like self.read_event(), but we supply our existing transaction
-            if let Some(bytes) = self.db_events()?.get(&txn, id.as_slice())? {
+
+        // We insert into a BTreeSet to keep them time-ordered
+        let mut output: BTreeSet<Event> = BTreeSet::new();
+
+        let mut since = filter.since.unwrap_or(Unixtime(0));
+        let until = filter.until.unwrap_or(Unixtime(i64::MAX));
+        let limit = filter.limit.unwrap_or(usize::MAX);
+
+        if !filter.ids.is_empty() {
+            // Use events table directly, we have specific ids
+
+            for idhex in filter.ids.iter() {
+                let id: Id = idhex.clone().into();
+                if output.len() >= limit {
+                    break;
+                }
+                if let Some(bytes) = self.db_events()?.get(&txn, id.as_slice())? {
+                    let event = Event::read_from_buffer(bytes)?;
+                    if filter.event_matches(&event) && screen(&event) {
+                        output.insert(event);
+                    }
+                }
+            }
+        } else if !filter.authors.is_empty() && !filter.kinds.is_empty() {
+            // akci
+            for pkh in &filter.authors {
+                let author = PublicKey::try_from_hex_string(pkh.as_str(), true)?;
+                for kind in &filter.kinds {
+                    let iter = {
+                        let start_prefix = AkciKey::from_parts(author, *kind, until, Id([0; 32]));
+                        let end_prefix = AkciKey::from_parts(author, *kind, since, Id([255; 32]));
+                        let range = (
+                            Bound::Included(start_prefix.as_slice()),
+                            Bound::Excluded(end_prefix.as_slice()),
+                        );
+                        self.db_event_akci_index()?.range(&txn, &range)?
+                    };
+
+                    // Count how many we have found of this author-kind pair, so we
+                    // can possibly update `since`
+                    let mut paircount = 0;
+
+                    'per_event: for result in iter {
+                        let (keybytes, _) = result?;
+                        let key = AkciKey::from_bytes(keybytes)?;
+                        let (_, _, created_at, id) = key.into_parts()?;
+                        if let Some(bytes) = self.db_events()?.get(&txn, id.as_slice())? {
+                            let event = Event::read_from_buffer(bytes)?;
+
+                            // If we have gone beyond since, we can stop early
+                            // (We have to check because `since` might change in this loop)
+                            if created_at < since {
+                                break 'per_event;
+                            }
+
+                            // check against the rest of the filter
+                            if filter.event_matches(&event) && screen(&event) {
+                                output.insert(event);
+                                paircount += 1;
+
+                                // Stop this pair if limited
+                                if paircount >= limit {
+                                    if created_at > since {
+                                        since = created_at;
+                                    }
+                                    break 'per_event;
+                                }
+
+                                // If kind is replaceable (and not parameterized)
+                                // then don't take any more events from this author-kind
+                                // pair.
+                                // NOTE that this optimization is difficult to implement
+                                // for other replaceable event situations
+                                if kind.is_replaceable() {
+                                    break 'per_event;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else if !filter.kinds.is_empty() && filter.kinds.iter().all(|k| INDEXED_KINDS.contains(k))
+        {
+            for kind in &filter.kinds {
+                let iter = {
+                    let start_prefix = KciKey::from_parts(*kind, until, Id([0; 32]));
+                    let end_prefix = KciKey::from_parts(*kind, since, Id([255; 32]));
+                    let range = (
+                        Bound::Included(start_prefix.as_slice()),
+                        Bound::Excluded(end_prefix.as_slice()),
+                    );
+                    self.db_event_kci_index()?.range(&txn, &range)?
+                };
+
+                // Count how many we have found of this kind, can possibly update
+                // `since`
+                let mut kindcount = 0;
+
+                'per_event: for result in iter {
+                    let (keybytes, _) = result?;
+                    let key = KciKey::from_bytes(keybytes)?;
+                    let (_, created_at, id) = key.into_parts()?;
+                    if let Some(bytes) = self.db_events()?.get(&txn, id.as_slice())? {
+                        let event = Event::read_from_buffer(bytes)?;
+
+                        // If we have gone beyond since, we can stop early
+                        // (We have to check because `since` might change in this loop)
+                        if created_at < since {
+                            break 'per_event;
+                        }
+
+                        // check against the rest of the filter
+                        if filter.event_matches(&event) && screen(&event) {
+                            output.insert(event);
+                            kindcount += 1;
+
+                            // Stop this kind if limited
+                            if kindcount >= limit {
+                                if created_at > since {
+                                    since = created_at;
+                                }
+                                break 'per_event;
+                            }
+                        }
+                    }
+                }
+            }
+        } else if !filter.kinds.is_empty() {
+            // kind scrape (can't use kci since kinds include some that are not indexed)
+            tracing::warn!("KINDS SCRAPE OF STORAGE");
+            let iter = self.db_events()?.iter(&txn)?;
+            for result in iter {
+                let (_key, bytes) = result?;
+                if let Some(kind) = Event::get_kind_from_speedy_bytes(bytes) {
+                    if filter.kinds.contains(&kind) {
+                        let event = Event::read_from_buffer(bytes)?;
+                        if filter.event_matches(&event) && screen(&event) {
+                            output.insert(event);
+                            // We can't stop at a limit because our data is unsorted
+                        }
+                    }
+                }
+            }
+        } else if !filter.authors.is_empty() {
+            // author scrape
+            tracing::warn!("AUTHOR SCRAPE OF STORAGE");
+            let iter = self.db_events()?.iter(&txn)?;
+            for result in iter {
+                let (_key, bytes) = result?;
+                if let Some(author) = Event::get_pubkey_from_speedy_bytes(bytes) {
+                    let pkh: PublicKeyHex = author.into();
+                    if filter.authors.contains(&pkh) {
+                        let event = Event::read_from_buffer(bytes)?;
+                        if filter.event_matches(&event) && screen(&event) {
+                            output.insert(event);
+                        }
+                    }
+                }
+            }
+        } else {
+            // full scrape
+            tracing::warn!("FULL SCRAPE OF STORAGE");
+            let iter = self.db_events()?.iter(&txn)?;
+            for result in iter {
+                let (_key, bytes) = result?;
                 let event = Event::read_from_buffer(bytes)?;
-                if f(&event) {
-                    events.push(event);
+                if filter.event_matches(&event) && screen(&event) {
+                    output.insert(event);
                 }
             }
         }
 
-        if sort {
-            events.sort_by(|a, b| b.created_at.cmp(&a.created_at).then(b.id.cmp(&a.id)));
-        }
-
-        Ok(events)
-    }
-
-    /// Find events of interest. This is just like find_events() but it just gives the Ids,
-    /// unsorted.
-    ///
-    /// You must specify some event kinds.
-    /// If pubkeys is empty, they won't matter.
-    /// If since is None, it won't matter.
-    ///
-    /// The function f is run after the matching-so-far events have been deserialized
-    /// to finish filtering, and optionally they are sorted in reverse chronological
-    /// order.
-    pub fn find_event_ids(
-        &self,
-        kinds: &[EventKind],
-        pubkeys: &[PublicKey],
-        since: Option<Unixtime>,
-    ) -> Result<HashSet<Id>, Error> {
-        if kinds.is_empty() {
-            return Err(ErrorKind::General(
-                "find_events() requires some event kinds to be specified.".to_string(),
-            )
-            .into());
-        }
-
-        // Get the Ids
-        let ids = match (pubkeys.is_empty(), since) {
-            (true, None) => self.find_ek_pk_events(kinds, pubkeys)?,
-            (true, Some(when)) => self.find_ek_c_events(kinds, when)?,
-            (false, None) => self.find_ek_pk_events(kinds, pubkeys)?,
-            (false, Some(when)) => {
-                let group1 = self.find_ek_pk_events(kinds, pubkeys)?;
-                let group2 = self.find_ek_c_events(kinds, when)?;
-                group1.intersection(&group2).copied().collect()
-            }
-        };
-
-        Ok(ids)
+        Ok(output
+            .iter()
+            .rev()
+            .take(limit)
+            .cloned() // FIXME when BTreeSet gets a drain() function
+            .collect())
     }
 
     /// Search all events for the text, case insensitive. Both content and tags
@@ -1556,41 +1723,27 @@ impl Storage {
         Ok(events)
     }
 
-    // We don't call this externally. Whenever we write an event, we do this.
-    fn write_event_ek_pk_index<'a>(
+    fn switch_to_rumor<'a>(
         &'a self,
         event: &Event,
+        txn: &mut RwTxn<'a>,
+    ) -> Result<Option<Event>, Error> {
+        self.switch_to_rumor3(event, txn)
+    }
+
+    // We don't call this externally. Whenever we write an event, we do this
+    fn write_event_akci_index<'a>(
+        &'a self,
+        pubkey: PublicKey,
+        kind: EventKind,
+        created_at: Unixtime,
+        id: Id,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let mut event = event;
+            let key = AkciKey::from_parts(pubkey, kind, created_at, id);
 
-            // If giftwrap, index the inner rumor instead
-            let mut rumor_event: Event;
-            if event.kind == EventKind::GiftWrap {
-                match GLOBALS.signer.unwrap_giftwrap(event) {
-                    Ok(rumor) => {
-                        rumor_event = rumor.into_event_with_bad_signature();
-                        rumor_event.id = event.id; // lie, so it indexes it under the giftwrap
-                        event = &rumor_event;
-                    }
-                    Err(e) => {
-                        if matches!(e.kind, ErrorKind::NoPrivateKey) {
-                            // Store as unindexed for later indexing
-                            let bytes = vec![];
-                            self.db_unindexed_giftwraps()?
-                                .put(txn, event.id.as_slice(), &bytes)?;
-                        }
-                    }
-                }
-            }
-
-            let ek: u32 = event.kind.into();
-            let mut key: Vec<u8> = ek.to_be_bytes().as_slice().to_owned(); // event kind
-            key.extend(event.pubkey.as_bytes()); // pubkey
-            let bytes = event.id.as_slice();
-
-            self.db_event_ek_pk_index()?.put(txn, &key, bytes)?;
+            self.db_event_akci_index()?.put(txn, key.as_slice(), &())?;
             Ok(())
         };
 
@@ -1606,41 +1759,23 @@ impl Storage {
         Ok(())
     }
 
-    // We don't call this externally. Whenever we write an event, we do this.
-    fn write_event_ek_c_index<'a>(
+    // We don't call this externally. Whenever we write an event, we do this
+    fn write_event_kci_index<'a>(
         &'a self,
-        event: &Event,
+        kind: EventKind,
+        created_at: Unixtime,
+        id: Id,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
+        // Only index if it is of an indexable kind
+        if !INDEXED_KINDS.contains(&kind) {
+            return Ok(());
+        }
+
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let mut event = event;
+            let key = KciKey::from_parts(kind, created_at, id);
 
-            // If giftwrap, index the inner rumor instead
-            let mut rumor_event: Event;
-            if event.kind == EventKind::GiftWrap {
-                match GLOBALS.signer.unwrap_giftwrap(event) {
-                    Ok(rumor) => {
-                        rumor_event = rumor.into_event_with_bad_signature();
-                        rumor_event.id = event.id; // lie, so it indexes it under the giftwrap
-                        event = &rumor_event;
-                    }
-                    Err(e) => {
-                        if matches!(e.kind, ErrorKind::NoPrivateKey) {
-                            // Store as unindexed for later indexing
-                            let bytes = vec![];
-                            self.db_unindexed_giftwraps()?
-                                .put(txn, event.id.as_slice(), &bytes)?;
-                        }
-                    }
-                }
-            }
-
-            let ek: u32 = event.kind.into();
-            let mut key: Vec<u8> = ek.to_be_bytes().as_slice().to_owned(); // event kind
-            key.extend((i64::MAX - event.created_at.0).to_be_bytes().as_slice()); // reverse created_at
-            let bytes = event.id.as_slice();
-
-            self.db_event_ek_c_index()?.put(txn, &key, bytes)?;
+            self.db_event_kci_index()?.put(txn, key.as_slice(), &())?;
             Ok(())
         };
 
@@ -1656,12 +1791,13 @@ impl Storage {
         Ok(())
     }
 
+    // Switch to rumor before calling this.
     fn write_event_tag_index<'a>(
         &'a self,
         event: &Event,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.write_event_tag_index1(event, rw_txn)
+        self.write_event3_tag_index1(event, rw_txn)
     }
 
     /// Find events having a given tag, and passing the filter.
@@ -1729,38 +1865,97 @@ impl Storage {
             None => return Ok(None),
         };
 
-        if let Some((parent_id, _opturl)) = event.replies_to() {
-            self.get_highest_local_parent_event_id(parent_id)
-        } else {
-            Ok(Some(event.id))
+        match event.replies_to() {
+            Some(EventReference::Id { id: parent_id, .. }) => {
+                self.get_highest_local_parent_event_id(parent_id)
+            }
+            Some(EventReference::Addr(ea)) => {
+                match self.get_replaceable_event(ea.kind, ea.author, &ea.d)? {
+                    Some(event) => self.get_highest_local_parent_event_id(event.id),
+                    None => Ok(Some(event.id)),
+                }
+            }
+            None => Ok(Some(event.id)),
         }
     }
 
     /// Write a relationship between two events
+    ///
+    /// The second Id relates to the first Id,
+    /// e.g. related replies to id, or related deletes id
     #[inline]
-    pub(crate) fn write_relationship<'a>(
+    pub(crate) fn write_relationship_by_id<'a>(
         &'a self,
         id: Id,
         related: Id,
-        relationship: Relationship,
+        relationship_by_id: RelationshipById,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.write_relationship1(id, related, relationship, rw_txn)
+        self.write_relationship_by_id1(id, related, relationship_by_id, rw_txn)
     }
 
     /// Find relationships belonging to the given event
+    ///
+    /// The found Ids relates to the passed in Id,
+    /// e.g. result id replies to id, or result id deletes id
     #[inline]
-    pub fn find_relationships(&self, id: Id) -> Result<Vec<(Id, Relationship)>, Error> {
-        self.find_relationships1(id)
+    pub fn find_relationships_by_id(&self, id: Id) -> Result<Vec<(Id, RelationshipById)>, Error> {
+        self.find_relationships_by_id1(id)
+    }
+
+    /// Write a relationship between an event and an EventAddr (replaceable)
+    #[inline]
+    pub(crate) fn write_relationship_by_addr<'a>(
+        &'a self,
+        addr: EventAddr,
+        related: Id,
+        relationship_by_addr: RelationshipByAddr,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        self.write_relationship_by_addr1(addr, related, relationship_by_addr, rw_txn)
+    }
+
+    /// Find relationships belonging to the given event to replaceable events
+    #[inline]
+    pub fn find_relationships_by_addr(
+        &self,
+        addr: &EventAddr,
+    ) -> Result<Vec<(Id, RelationshipByAddr)>, Error> {
+        self.find_relationships_by_addr1(addr)
     }
 
     /// Get replies to the given event
-    pub fn get_replies(&self, id: Id) -> Result<Vec<Id>, Error> {
+    pub fn get_replies(&self, event: &Event) -> Result<Vec<Id>, Error> {
+        let mut output = self.get_non_replaceable_replies(event.id)?;
+        output.extend(self.get_replaceable_replies(&EventAddr {
+            d: event.parameter().unwrap_or("".to_string()),
+            relays: vec![],
+            kind: event.kind,
+            author: event.pubkey,
+        })?);
+        Ok(output)
+    }
+
+    pub fn get_non_replaceable_replies(&self, id: Id) -> Result<Vec<Id>, Error> {
         Ok(self
-            .find_relationships(id)?
+            .find_relationships_by_id(id)?
             .iter()
             .filter_map(|(id, rel)| {
-                if *rel == Relationship::Reply {
+                if *rel == RelationshipById::Reply {
+                    Some(*id)
+                } else {
+                    None
+                }
+            })
+            .collect())
+    }
+
+    pub fn get_replaceable_replies(&self, addr: &EventAddr) -> Result<Vec<Id>, Error> {
+        Ok(self
+            .find_relationships_by_addr(addr)?
+            .iter()
+            .filter_map(|(id, rel)| {
+                if *rel == RelationshipByAddr::Reply {
                     Some(*id)
                 } else {
                     None
@@ -1774,17 +1969,26 @@ impl Storage {
         // Whether or not the Gossip user already reacted to this event
         let mut self_already_reacted = false;
 
+        // Get the event (once self-reactions get deleted we can remove this)
+        let maybe_target_event = self.read_event(id)?;
+
         // Collect up to one reaction per pubkey
         let mut phase1: HashMap<PublicKey, char> = HashMap::new();
-        for (_, rel) in self.find_relationships(id)? {
-            if let Relationship::Reaction(pubkey, reaction) = rel {
+        for (_, rel) in self.find_relationships_by_id(id)? {
+            if let RelationshipById::Reaction { by, reaction } = rel {
+                if let Some(target_event) = &maybe_target_event {
+                    if target_event.pubkey == by {
+                        // Do not let people like their own post
+                        continue;
+                    }
+                }
                 let symbol: char = if let Some(ch) = reaction.chars().next() {
                     ch
                 } else {
                     '+'
                 };
-                phase1.insert(pubkey, symbol);
-                if Some(pubkey) == GLOBALS.signer.public_key() {
+                phase1.insert(by, symbol);
+                if Some(by) == GLOBALS.identity.public_key() {
                     self_already_reacted = true;
                 }
             }
@@ -1807,96 +2011,57 @@ impl Storage {
     /// Get the zap total of a given event
     pub fn get_zap_total(&self, id: Id) -> Result<MilliSatoshi, Error> {
         let mut total = MilliSatoshi(0);
-        for (_, rel) in self.find_relationships(id)? {
-            if let Relationship::ZapReceipt(_pk, millisats) = rel {
-                total = total + millisats;
+        for (_, rel) in self.find_relationships_by_id(id)? {
+            if let RelationshipById::ZapReceipt { by: _, amount } = rel {
+                total = total + amount;
             }
         }
         Ok(total)
     }
 
     /// Get whether an event was deleted, and if so the optional reason
-    pub fn get_deletion(&self, id: Id) -> Result<Option<String>, Error> {
-        for (_, rel) in self.find_relationships(id)? {
-            if let Relationship::Deletion(deletion) = rel {
-                return Ok(Some(deletion));
+    pub fn get_deletions(&self, maybe_deleted_event: &Event) -> Result<Vec<String>, Error> {
+        let mut reasons: Vec<String> = Vec::new();
+
+        for (deleting_id, rel) in self.find_relationships_by_id(maybe_deleted_event.id)? {
+            if let RelationshipById::Deletion { by, reason } = rel {
+                if maybe_deleted_event.delete_author_allowed(by) {
+                    // We must have the deletion event to check it
+                    if let Some(deleting_event) = self.read_event(deleting_id)? {
+                        // Delete must come after event in question
+                        if deleting_event.created_at > maybe_deleted_event.created_at {
+                            reasons.push(reason);
+                        }
+                    }
+                }
             }
         }
-        Ok(None)
-    }
 
-    /// Process relationships of an event.
-    /// This returns IDs that should be UI invalidated (must be redrawn)
-    pub fn process_relationships_of_event<'a>(
-        &'a self,
-        event: &Event,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<Vec<Id>, Error> {
-        let mut invalidate: Vec<Id> = Vec::new();
-
-        let mut f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            // replies to
-            if let Some((id, _)) = event.replies_to() {
-                self.write_relationship(id, event.id, Relationship::Reply, Some(txn))?;
-            }
-
-            // reacts to
-            if let Some((id, reaction, _maybe_url)) = event.reacts_to() {
-                self.write_relationship(
-                    id,
-                    event.id,
-                    Relationship::Reaction(event.pubkey, reaction),
-                    Some(txn),
-                )?;
-
-                invalidate.push(id);
-            }
-
-            // deletes
-            if let Some((ids, reason)) = event.deletes() {
-                invalidate.extend(&ids);
-
-                for id in ids {
-                    // since it is a delete, we don't actually desire the event.
-
-                    self.write_relationship(
-                        id,
-                        event.id,
-                        Relationship::Deletion(reason.clone()),
-                        Some(txn),
-                    )?;
+        // Deletes via 'a tags (entire paramterized groups)
+        if let Some(parameter) = maybe_deleted_event.parameter() {
+            let addr = EventAddr {
+                d: parameter,
+                relays: vec![],
+                kind: maybe_deleted_event.kind,
+                author: maybe_deleted_event.pubkey,
+            };
+            for (deleting_id, rel) in self.find_relationships_by_addr(&addr)? {
+                // Must be a deletion relationship
+                if let RelationshipByAddr::Deletion { by, reason } = rel {
+                    if maybe_deleted_event.delete_author_allowed(by) {
+                        // We must have the deletion event to check it
+                        if let Some(deleting_event) = self.read_event(deleting_id)? {
+                            // Delete must come after event in question
+                            if deleting_event.created_at > maybe_deleted_event.created_at {
+                                reasons.push(reason);
+                            }
+                        }
+                    }
                 }
             }
+        }
 
-            // zaps
-            match event.zaps() {
-                Ok(Some(zapdata)) => {
-                    self.write_relationship(
-                        zapdata.id,
-                        event.id,
-                        Relationship::ZapReceipt(event.pubkey, zapdata.amount),
-                        Some(txn),
-                    )?;
-
-                    invalidate.push(zapdata.id);
-                }
-                Err(e) => tracing::error!("Invalid zap receipt: {}", e),
-                _ => {}
-            }
-
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(invalidate)
+        Ok(reasons)
     }
 
     /// Write a person record
@@ -1913,6 +2078,23 @@ impl Storage {
     #[inline]
     pub fn read_person(&self, pubkey: &PublicKey) -> Result<Option<Person>, Error> {
         self.read_person2(pubkey)
+    }
+
+    /// Read a person record, create if missing
+    #[inline]
+    pub fn read_or_create_person<'a>(
+        &'a self,
+        pubkey: &PublicKey,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<Person, Error> {
+        match self.read_person(pubkey)? {
+            Some(p) => Ok(p),
+            None => {
+                let person = Person::new(pubkey.to_owned());
+                self.write_person(&person, rw_txn)?;
+                Ok(person)
+            }
+        }
     }
 
     /// Write a new person record only if missing
@@ -1984,34 +2166,33 @@ impl Storage {
 
     /// Get the best relays for a person, given a direction.
     ///
-    /// This returns the relays for a person, along with a score, in order of score
+    /// This returns the relays for a person, along with a score, in order of score.
+    /// usage must not be RelayUsage::Both
     pub fn get_best_relays(
         &self,
         pubkey: PublicKey,
-        dir: Direction,
+        usage: RelayUsage,
     ) -> Result<Vec<(RelayUrl, u64)>, Error> {
         let person_relays = self.get_person_relays(pubkey)?;
 
         // Note: the following read_rank and write_rank do not consider our own
         // rank or the success rate.
-        let mut ranked_relays = match dir {
-            Direction::Write => PersonRelay::write_rank(person_relays),
-            Direction::Read => PersonRelay::read_rank(person_relays),
+        let mut ranked_relays = match usage {
+            RelayUsage::Outbox => PersonRelay::write_rank(person_relays),
+            RelayUsage::Inbox => PersonRelay::read_rank(person_relays),
+            RelayUsage::Both => {
+                return Err(
+                    ErrorKind::General("RelayUsage::Both is not allowed here".to_string()).into(),
+                )
+            }
         };
 
         // Modulate these scores with our local rankings
         for ranked_relay in ranked_relays.iter_mut() {
-            let relay = match self.read_relay(&ranked_relay.0)? {
-                None => {
-                    self.write_relay_if_missing(&ranked_relay.0, None)?;
-                    Relay::new(ranked_relay.0.clone())
-                }
-                Some(relay) => relay,
-            };
-
+            let relay = self.read_or_create_relay(&ranked_relay.0, None)?;
             ranked_relay.1 = (ranked_relay.1 as f32
                 * (relay.rank as f32 / 3.0)
-                * (relay.success_rate() * 2.0)) as u64;
+                * (0.75 + 0.25 * relay.success_rate())) as u64;
         }
 
         // Resort
@@ -2023,8 +2204,8 @@ impl Storage {
         if ranked_relays.len() < (num_relays_per_person + 1) {
             let how_many_more = (num_relays_per_person + 1) - ranked_relays.len();
             let score = 2;
-            match dir {
-                Direction::Write => {
+            match usage {
+                RelayUsage::Outbox => {
                     // substitute our read relays
                     let additional: Vec<(RelayUrl, u64)> = self
                         .filter_relays(|r| {
@@ -2039,7 +2220,7 @@ impl Storage {
 
                     ranked_relays.extend(additional);
                 }
-                Direction::Read => {
+                RelayUsage::Inbox => {
                     // substitute our write relays???
                     let additional: Vec<(RelayUrl, u64)> = self
                         .filter_relays(|r| {
@@ -2054,6 +2235,12 @@ impl Storage {
 
                     ranked_relays.extend(additional);
                 }
+                RelayUsage::Both => {
+                    return Err(ErrorKind::General(
+                        "RelayUsage::Both is not allowed here".to_string(),
+                    )
+                    .into());
+                }
             }
         }
 
@@ -2062,32 +2249,34 @@ impl Storage {
 
     /// Get all the DM channels with associated data
     pub fn dm_channels(&self) -> Result<Vec<DmChannelData>, Error> {
-        let my_pubkey = match GLOBALS.signer.public_key() {
+        let my_pubkey = match GLOBALS.identity.public_key() {
             Some(pk) => pk,
             None => return Ok(Vec::new()),
         };
 
-        let events = self.find_events(
-            &[EventKind::EncryptedDirectMessage, EventKind::GiftWrap],
-            &[],
-            Some(Unixtime(0)),
-            |event| {
-                if event.kind == EventKind::EncryptedDirectMessage {
-                    event.pubkey == my_pubkey || event.is_tagged(&my_pubkey)
-                    // Make sure if it has tags, only author and my_pubkey
-                    // TBD
-                } else {
-                    event.kind == EventKind::GiftWrap
-                }
-            },
-            false,
-        )?;
+        let mut filter = Filter::new();
+        filter.kinds = vec![EventKind::EncryptedDirectMessage, EventKind::GiftWrap];
+
+        let events = self.find_events_by_filter(&filter, |event| {
+            if event.kind == EventKind::EncryptedDirectMessage {
+                event.pubkey == my_pubkey || event.is_tagged(&my_pubkey)
+                // Make sure if it has tags, only author and my_pubkey
+                // TBD
+            } else {
+                event.kind == EventKind::GiftWrap
+            }
+        })?;
 
         // Map from channel to latest-message-time and unread-count
         let mut map: HashMap<DmChannel, DmChannelData> = HashMap::new();
 
         for event in &events {
-            let unread = 1 - self.is_event_viewed(event.id)? as usize;
+            let unread: usize = if event.pubkey == my_pubkey {
+                // Do not count self-authored events as unread, irrespective of whether they are viewed
+                0
+            } else {
+                1 - self.is_event_viewed(event.id)? as usize
+            };
             if event.kind == EventKind::EncryptedDirectMessage {
                 let time = event.created_at;
                 let dmchannel = match DmChannel::from_event(event, Some(my_pubkey)) {
@@ -2097,7 +2286,8 @@ impl Storage {
                 if let Some(dmcdata) = map.get_mut(&dmchannel) {
                     if time > dmcdata.latest_message_created_at {
                         dmcdata.latest_message_created_at = time;
-                        dmcdata.latest_message_content = GLOBALS.signer.decrypt_message(event)?;
+                        dmcdata.latest_message_content =
+                            GLOBALS.identity.decrypt_event_contents(event).ok();
                     }
                     dmcdata.message_count += 1;
                     dmcdata.unread_message_count += unread;
@@ -2107,14 +2297,17 @@ impl Storage {
                         DmChannelData {
                             dm_channel: dmchannel,
                             latest_message_created_at: time,
-                            latest_message_content: GLOBALS.signer.decrypt_message(event)?,
+                            latest_message_content: GLOBALS
+                                .identity
+                                .decrypt_event_contents(event)
+                                .ok(),
                             message_count: 1,
                             unread_message_count: unread,
                         },
                     );
                 }
             } else if event.kind == EventKind::GiftWrap {
-                if let Ok(rumor) = GLOBALS.signer.unwrap_giftwrap(event) {
+                if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(event) {
                     let rumor_event = rumor.into_event_with_bad_signature();
                     let time = rumor_event.created_at;
                     let dmchannel = match DmChannel::from_event(&rumor_event, Some(my_pubkey)) {
@@ -2124,7 +2317,7 @@ impl Storage {
                     if let Some(dmcdata) = map.get_mut(&dmchannel) {
                         if time > dmcdata.latest_message_created_at {
                             dmcdata.latest_message_created_at = time;
-                            dmcdata.latest_message_content = rumor_event.content.clone();
+                            dmcdata.latest_message_content = Some(rumor_event.content.clone());
                         }
                         dmcdata.message_count += 1;
                         dmcdata.unread_message_count += unread;
@@ -2134,7 +2327,7 @@ impl Storage {
                             DmChannelData {
                                 dm_channel: dmchannel,
                                 latest_message_created_at: time,
-                                latest_message_content: rumor_event.content.clone(),
+                                latest_message_content: Some(rumor_event.content.clone()),
                                 message_count: 1,
                                 unread_message_count: unread,
                             },
@@ -2155,28 +2348,22 @@ impl Storage {
 
     /// Get DM events (by id) in a channel
     pub fn dm_events(&self, channel: &DmChannel) -> Result<Vec<Id>, Error> {
-        let my_pubkey = match GLOBALS.signer.public_key() {
+        let my_pubkey = match GLOBALS.identity.public_key() {
             Some(pk) => pk,
             None => return Ok(Vec::new()),
         };
 
-        let mut output: Vec<Event> = self.find_events(
-            &[EventKind::EncryptedDirectMessage, EventKind::GiftWrap],
-            &[],
-            Some(Unixtime(0)),
-            |event| {
-                if let Some(event_dm_channel) = DmChannel::from_event(event, Some(my_pubkey)) {
-                    if event_dm_channel == *channel {
-                        return true;
-                    }
-                }
-                false
-            },
-            false,
-        )?;
+        let mut filter = Filter::new();
+        filter.kinds = vec![EventKind::EncryptedDirectMessage, EventKind::GiftWrap];
 
-        // sort
-        output.sort_by(|a, b| b.created_at.cmp(&a.created_at).then(b.id.cmp(&a.id)));
+        let output: Vec<Event> = self.find_events_by_filter(&filter, |event| {
+            if let Some(event_dm_channel) = DmChannel::from_event(event, Some(my_pubkey)) {
+                if event_dm_channel == *channel {
+                    return true;
+                }
+            }
+            false
+        })?;
 
         Ok(output.iter().map(|e| e.id).collect())
     }
@@ -2189,8 +2376,6 @@ impl Storage {
     ) -> Result<(), Error> {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
             // Erase all indices first
-            self.db_event_ek_pk_index()?.clear(txn)?;
-            self.db_event_ek_c_index()?.clear(txn)?;
             self.db_event_tag_index()?.clear(txn)?;
             self.db_hashtags()?.clear(txn)?;
 
@@ -2198,9 +2383,29 @@ impl Storage {
             for result in self.db_events()?.iter(&loop_txn)? {
                 let (_key, val) = result?;
                 let event = Event::read_from_buffer(val)?;
-                self.write_event_ek_pk_index(&event, Some(txn))?;
-                self.write_event_ek_c_index(&event, Some(txn))?;
-                self.write_event_tag_index(&event, Some(txn))?;
+
+                // If giftwrap, index the inner rumor instead
+                let mut eventptr: &Event = &event;
+                let rumor: Event;
+                if let Some(r) = self.switch_to_rumor(&event, txn)? {
+                    rumor = r;
+                    eventptr = &rumor;
+                }
+
+                self.write_event_akci_index(
+                    eventptr.pubkey,
+                    eventptr.kind,
+                    eventptr.created_at,
+                    eventptr.id,
+                    Some(txn),
+                )?;
+                self.write_event_kci_index(
+                    eventptr.kind,
+                    eventptr.created_at,
+                    eventptr.id,
+                    Some(txn),
+                )?;
+                self.write_event_tag_index(eventptr, Some(txn))?;
                 for hashtag in event.hashtags() {
                     if hashtag.is_empty() {
                         continue;
@@ -2257,23 +2462,47 @@ impl Storage {
     }
 
     /// Read person lists
-    pub fn read_person_lists(&self, pubkey: &PublicKey) -> Result<Vec<PersonList>, Error> {
-        self.read_person_lists1(pubkey)
+    pub fn read_person_lists(
+        &self,
+        pubkey: &PublicKey,
+    ) -> Result<HashMap<PersonList, bool>, Error> {
+        self.read_person_lists2(pubkey)
     }
 
     /// Write person lists
     pub fn write_person_lists<'a>(
         &'a self,
         pubkey: &PublicKey,
-        lists: Vec<PersonList>,
+        lists: HashMap<PersonList, bool>,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.write_person_lists1(pubkey, lists, rw_txn)
+        self.write_person_lists2(pubkey, lists, rw_txn)
     }
 
     /// Get people in a person list
-    pub fn get_people_in_list(&self, list: PersonList) -> Result<Vec<PublicKey>, Error> {
-        self.get_people_in_list1(list)
+    pub fn get_people_in_list(&self, list: PersonList) -> Result<Vec<(PublicKey, bool)>, Error> {
+        let people = self.get_people_in_list2(list)?;
+
+        // Update metadata.len if it is wrong
+        if let Some(mut metadata) = self.get_person_list_metadata(list)? {
+            if metadata.len != people.len() {
+                metadata.len = people.len();
+                let mut txn = self.env.write_txn()?;
+                self.set_person_list_metadata(list, &metadata, Some(&mut txn))?;
+                txn.commit()?;
+            }
+        }
+
+        Ok(people)
+    }
+
+    /// Hash a person list
+    pub fn hash_person_list(&self, list: PersonList) -> Result<u64, Error> {
+        self.hash_person_list2(list)
+    }
+
+    pub fn get_people_in_all_followed_lists(&self) -> Result<Vec<PublicKey>, Error> {
+        self.get_people_in_all_followed_lists2()
     }
 
     /// Empty a person list
@@ -2283,13 +2512,69 @@ impl Storage {
         list: PersonList,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.clear_person_list1(list, rw_txn)
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            self.clear_person_list2(list, Some(txn))?;
+            let now = Unixtime::now().unwrap();
+            if let Some(mut metadata) = self.get_person_list_metadata(list)? {
+                metadata.last_edit_time = now;
+                metadata.len = 0;
+                self.set_person_list_metadata(list, &metadata, Some(txn))?;
+            }
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => {
+                f(txn)?;
+            }
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
+    }
+
+    /// Mark everybody in a list as private
+    pub fn set_all_people_in_list_to_private<'a>(
+        &'a self,
+        list: PersonList,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            let people = self.get_people_in_list(list)?;
+            for (pk, _) in &people {
+                self.add_person_to_list(pk, list, false, Some(txn))?
+            }
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => {
+                f(txn)?;
+            }
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
     }
 
     /// Is a person in a list?
     pub fn is_person_in_list(&self, pubkey: &PublicKey, list: PersonList) -> Result<bool, Error> {
-        let lists = self.read_person_lists(pubkey)?;
-        Ok(lists.contains(&list))
+        let map = self.read_person_lists(pubkey)?;
+        Ok(map.contains_key(&list))
+    }
+
+    /// Is the person in any list we subscribe to?
+    pub fn is_person_subscribed_to(&self, pubkey: &PublicKey) -> Result<bool, Error> {
+        let map = self.read_person_lists(pubkey)?;
+        Ok(map.iter().any(|l| l.0.subscribe()))
     }
 
     /// Add a person to a list
@@ -2297,13 +2582,38 @@ impl Storage {
         &'a self,
         pubkey: &PublicKey,
         list: PersonList,
+        public: bool,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let mut lists = self.read_person_lists(pubkey)?;
-        if !lists.iter().any(|s| *s == list) {
-            lists.push(list.to_owned());
-        }
-        self.write_person_lists(pubkey, lists, rw_txn)
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            let mut map = self.read_person_lists(pubkey)?;
+            let had = map.contains_key(&list);
+            map.insert(list, public);
+            self.write_person_lists(pubkey, map, Some(txn))?;
+            let now = Unixtime::now().unwrap();
+            if let Some(mut metadata) = self.get_person_list_metadata(list)? {
+                if !had {
+                    metadata.len += 1;
+                }
+                metadata.last_edit_time = now;
+                self.set_person_list_metadata(list, &metadata, Some(txn))?;
+            }
+
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => {
+                f(txn)?;
+            }
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
     }
 
     /// Remove a person from a list
@@ -2313,8 +2623,90 @@ impl Storage {
         list: PersonList,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let mut lists = self.read_person_lists(pubkey)?;
-        let lists: Vec<PersonList> = lists.drain(..).filter(|s| *s != list).collect();
-        self.write_person_lists(pubkey, lists, rw_txn)
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            let mut map = self.read_person_lists(pubkey)?;
+            let had = map.contains_key(&list);
+            map.remove(&list);
+            self.write_person_lists(pubkey, map, Some(txn))?;
+            let now = Unixtime::now().unwrap();
+            if let Some(mut metadata) = self.get_person_list_metadata(list)? {
+                if had && metadata.len > 0 {
+                    metadata.len -= 1;
+                }
+                metadata.last_edit_time = now;
+                self.set_person_list_metadata(list, &metadata, Some(txn))?;
+            }
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => {
+                f(txn)?;
+            }
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
+    }
+
+    /// Rebuild relationships
+    pub fn rebuild_relationships<'a>(
+        &'a self,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        tracing::info!("Rebuilding relationships...");
+
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            // Iterate through all events
+            let loop_txn = self.env.read_txn()?;
+            for result in self.db_events()?.iter(&loop_txn)? {
+                let (_key, val) = result?;
+                let event = Event::read_from_buffer(val)?;
+                crate::process::process_relationships_of_event(&event, Some(txn))?;
+            }
+            self.set_flag_rebuild_relationships_needed(false, Some(txn))?;
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => {
+                f(txn)?;
+            }
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
+    }
+
+    pub fn write_nip46server<'a>(
+        &'a self,
+        server: &Nip46Server,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        self.write_nip46server2(server, rw_txn)
+    }
+
+    pub fn read_nip46server(&self, pubkey: PublicKey) -> Result<Option<Nip46Server>, Error> {
+        self.read_nip46server2(pubkey)
+    }
+
+    pub fn read_all_nip46servers(&self) -> Result<Vec<Nip46Server>, Error> {
+        self.read_all_nip46servers2()
+    }
+
+    pub fn delete_nip46server<'a>(
+        &'a self,
+        pubkey: PublicKey,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        self.delete_nip46server2(pubkey, rw_txn)
     }
 }

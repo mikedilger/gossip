@@ -2,6 +2,8 @@ use nostr_types::{PublicKey, RelayUrl, Unixtime};
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
 
+// THIS IS HISTORICAL FOR MIGRATIONS AND THE STRUCTURES SHOULD NOT BE EDITED
+
 /// A person-relay association
 #[derive(Debug, Readable, Writable, Serialize, Deserialize)]
 pub struct PersonRelay1 {
@@ -73,14 +75,14 @@ impl PersonRelay1 {
                 score += 20;
             }
 
-            // kind3 is our memory of where we are following someone
-            if let Some(when) = dbpr.last_suggested_kind3 {
-                score += scorefn(when, 60 * 60 * 24 * 30, 7);
-            }
-
             // nip05 is an unsigned dns-based author claim of using this relay
             if let Some(when) = dbpr.last_suggested_nip05 {
-                score += scorefn(when, 60 * 60 * 24 * 15, 4);
+                score += scorefn(when, 60 * 60 * 24 * 15, 10);
+            }
+
+            // kind3 is our memory of where we are following someone
+            if let Some(when) = dbpr.last_suggested_kind3 {
+                score += scorefn(when, 60 * 60 * 24 * 30, 10);
             }
 
             // last_fetched is gossip verified happened-to-work-before
@@ -126,14 +128,14 @@ impl PersonRelay1 {
                 score += 20;
             }
 
-            // kind3 is our memory of where we are following someone
-            if let Some(when) = dbpr.last_suggested_kind3 {
-                score += scorefn(when, 60 * 60 * 24 * 30, 7);
-            }
-
             // nip05 is an unsigned dns-based author claim of using this relay
             if let Some(when) = dbpr.last_suggested_nip05 {
-                score += scorefn(when, 60 * 60 * 24 * 15, 4);
+                score += scorefn(when, 60 * 60 * 24 * 15, 10);
+            }
+
+            // kind3 is our memory of where we are following someone
+            if let Some(when) = dbpr.last_suggested_kind3 {
+                score += scorefn(when, 60 * 60 * 24 * 30, 10);
             }
 
             // last_fetched is gossip verified happened-to-work-before

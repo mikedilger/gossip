@@ -1,11 +1,5 @@
-use nostr_types::{MilliSatoshi, PublicKey};
-use speedy::{Readable, Writable};
+/// Relationship type by Id, aliased to the latest version
+pub type RelationshipById = crate::storage::types::RelationshipById1;
 
-/// A relationship between events
-#[derive(Clone, Debug, PartialEq, Eq, Readable, Writable)]
-pub enum Relationship {
-    Reply,
-    Reaction(PublicKey, String),
-    Deletion(String),
-    ZapReceipt(PublicKey, MilliSatoshi),
-}
+/// Relationship type by EventAddr, aliased to the latest version
+pub type RelationshipByAddr = crate::storage::types::RelationshipByAddr1;

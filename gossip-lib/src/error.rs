@@ -1,38 +1,62 @@
 use crate::comms::{ToMinionMessage, ToOverlordMessage};
+use crate::people::PersonList;
+use nostr_types::RelayUrl;
 
 /// Error kinds that can occur in gossip-lib
 #[derive(Debug)]
 pub enum ErrorKind {
+    BadNostrConnectString,
     BroadcastSend(String),
     BroadcastReceive(tokio::sync::broadcast::error::RecvError),
+    CannotUpdateRelayUrl,
     Delegation(String),
     Empty(String),
     EventNotFound,
+    FromUtf8(std::string::FromUtf8Error),
     General(String),
     GroupDmsNotYetSupported,
     HttpError(http::Error),
     JoinError(tokio::task::JoinError),
+    KeySizeWrong,
     Lmdb(heed::Error),
     MaxRelaysReached,
     MpscSend(tokio::sync::mpsc::error::SendError<ToOverlordMessage>),
     Nip05KeyNotFound,
+    Nip46CommandMissingId,
+    Nip46CommandNotJsonObject,
+    Nip46Denied,
+    Nip46NeedApproval,
+    Nip46ParsingError(String, String),
+    Nip46RelayNeeded,
     Nostr(nostr_types::Error),
+    NoPublicKey,
     NoPrivateKey,
+    NoPrivateKeyForAuth(RelayUrl),
     NoRelay,
+    NotAPersonListEvent,
+    NoSlotsRemaining,
     Image(image::error::ImageError),
     ImageFailure,
     Io(std::io::Error),
     Internal(String),
+    InvalidFilter,
     InvalidUriParts(http::uri::InvalidUriParts),
     InvalidDnsId,
     InvalidUri(http::uri::InvalidUri),
     InvalidUrl(String),
+    ListAllocationFailed,
+    ListAlreadyExists(PersonList),
+    ListEventMissingDtag,
+    ListIsNotEmpty,
+    ListIsWellKnown,
+    ListNotFound,
+    NostrConnectNotSetup,
+    Offline,
     ParseInt(std::num::ParseIntError),
     Regex(regex::Error),
     RelayPickerError(gossip_relay_picker::Error),
     RelayRejectedUs,
     ReqwestHttpError(reqwest::Error),
-    Sql(rusqlite::Error),
     SerdeJson(serde_json::Error),
     SliceError(std::array::TryFromSliceError),
     Speedy(speedy::Error),
@@ -68,15 +92,21 @@ impl std::fmt::Display for Error {
             write!(f, "{line}:")?;
         }
         match &self.kind {
+            BadNostrConnectString => write!(f, "Bad nostrconnect string"),
             BroadcastSend(s) => write!(f, "Error broadcasting: {s}"),
             BroadcastReceive(e) => write!(f, "Error receiving broadcast: {e}"),
+            CannotUpdateRelayUrl => {
+                write!(f, "Cannot update relay url (create a new relay instead)")
+            }
             Delegation(s) => write!(f, "NIP-26 Delegation Error: {s}"),
             Empty(s) => write!(f, "{s} is empty"),
             EventNotFound => write!(f, "Event not found"),
+            FromUtf8(e) => write!(f, "UTF-8 error: {e}"),
             GroupDmsNotYetSupported => write!(f, "Group DMs are not yet supported"),
             General(s) => write!(f, "{s}"),
             HttpError(e) => write!(f, "HTTP error: {e}"),
             JoinError(e) => write!(f, "Task join error: {e}"),
+            KeySizeWrong => write!(f, "Key size is wrong"),
             Lmdb(e) => write!(f, "LMDB: {e}"),
             MaxRelaysReached => write!(
                 f,
@@ -84,23 +114,43 @@ impl std::fmt::Display for Error {
             ),
             MpscSend(e) => write!(f, "Error sending mpsc: {e}"),
             Nip05KeyNotFound => write!(f, "NIP-05 public key not found"),
+            Nip46CommandMissingId => write!(f, "NIP-46 command missing ID"),
+            Nip46CommandNotJsonObject => write!(f, "NIP-46 command not a json object"),
+            Nip46Denied => write!(f, "NIP-46 command denied"),
+            Nip46NeedApproval => write!(f, "NIP-46 approval needed"),
+            Nip46ParsingError(_id, e) => write!(f, "NIP-46 parse error: {e}"),
+            Nip46RelayNeeded => write!(f, "NIP-46 relay needed to respond."),
             Nostr(e) => write!(f, "Nostr: {e}"),
+            NoPublicKey => write!(f, "No public key identity available."),
             NoPrivateKey => write!(f, "No private key available."),
+            NoPrivateKeyForAuth(u) => {
+                write!(f, "No private key available, cannot AUTH to relay: {}", u)
+            }
             NoRelay => write!(f, "Could not determine a relay to use."),
+            NotAPersonListEvent => write!(f, "Not a person list event"),
+            NoSlotsRemaining => write!(f, "No custom list slots remaining."),
             Image(e) => write!(f, "Image: {e}"),
             ImageFailure => write!(f, "Image Failure"),
             Io(e) => write!(f, "I/O Error: {e}"),
             Internal(s) => write!(f, "INTERNAL: {s}"),
+            InvalidFilter => write!(f, "Invalid filter"),
             InvalidUriParts(e) => write!(f, "Invalid URI parts: {e}"),
             InvalidDnsId => write!(f, "Invalid DNS ID (nip-05), should be user@domain"),
             InvalidUri(e) => write!(f, "Invalid URI: {e}"),
             InvalidUrl(s) => write!(f, "Invalid URL: {s}"),
+            ListAllocationFailed => write!(f, "List allocation failed (no more slots)"),
+            ListAlreadyExists(_) => write!(f, "List already exists"),
+            ListEventMissingDtag => write!(f, "List event missing d-tag"),
+            ListIsNotEmpty => write!(f, "List is not empty"),
+            ListIsWellKnown => write!(f, "List is well known and cannot be deallocated"),
+            ListNotFound => write!(f, "List was not found"),
+            NostrConnectNotSetup => write!(f, "NostrConnect not setup, cannot connect"),
+            Offline => write!(f, "Offline"),
             ParseInt(e) => write!(f, "Bad integer: {e}"),
             Regex(e) => write!(f, "Regex: {e}"),
             RelayPickerError(e) => write!(f, "Relay Picker error: {e}"),
             RelayRejectedUs => write!(f, "Relay rejected us."),
             ReqwestHttpError(e) => write!(f, "HTTP (reqwest) error: {e}"),
-            Sql(e) => write!(f, "SQL: {e}"),
             SerdeJson(e) => write!(f, "SerdeJson Error: {e}"),
             SliceError(e) => write!(f, "Slice: {e}"),
             Speedy(e) => write!(f, "Speedy: {e}"),
@@ -241,12 +291,6 @@ impl From<gossip_relay_picker::Error> for ErrorKind {
     }
 }
 
-impl From<rusqlite::Error> for ErrorKind {
-    fn from(e: rusqlite::Error) -> ErrorKind {
-        ErrorKind::Sql(e)
-    }
-}
-
 impl From<reqwest::Error> for ErrorKind {
     fn from(e: reqwest::Error) -> ErrorKind {
         ErrorKind::ReqwestHttpError(e)
@@ -298,5 +342,11 @@ impl From<tungstenite::Error> for ErrorKind {
 impl From<url::ParseError> for ErrorKind {
     fn from(e: url::ParseError) -> ErrorKind {
         ErrorKind::UrlParse(e)
+    }
+}
+
+impl From<std::string::FromUtf8Error> for ErrorKind {
+    fn from(e: std::string::FromUtf8Error) -> ErrorKind {
+        ErrorKind::FromUtf8(e)
     }
 }

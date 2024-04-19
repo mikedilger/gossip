@@ -18,9 +18,9 @@
 //!
 //! To use gossip-lib, depend on it in your Cargo.toml
 //!
-//! ````
+//! ```rust.ignore
 //! gossip-lib = { git = "https://github.com/mikedilger/gossip" }
-//! ````
+//! ```
 //!
 //! You may specify optional features including:
 //!
@@ -75,6 +75,9 @@ pub use delegation::Delegation;
 mod dm_channel;
 pub use dm_channel::{DmChannel, DmChannelData};
 
+// direct quick-temporary communication with relays, without overlord/minion involvement
+pub mod direct;
+
 mod error;
 pub use error::{Error, ErrorKind};
 
@@ -87,10 +90,16 @@ pub use fetcher::Fetcher;
 mod filter;
 
 mod globals;
-pub use globals::{Globals, ZapState, GLOBALS};
+pub use globals::{Globals, GLOBALS};
+
+mod gossip_identity;
+pub use gossip_identity::GossipIdentity;
 
 mod media;
 pub use media::Media;
+
+mod misc;
+pub use misc::{Freshness, ZapState};
 
 /// Rendering various names of users
 pub mod names;
@@ -98,11 +107,19 @@ pub mod names;
 /// nip05 handling
 pub mod nip05;
 
+#[allow(dead_code)]
+pub mod nip46;
+pub use nip46::{Nip46Server, Nip46UnconnectedServer};
+
 mod overlord;
 pub use overlord::Overlord;
 
+mod pending;
+pub use pending::Pending;
+pub use pending::PendingItem;
+
 mod people;
-pub use people::{People, Person, PersonList};
+pub use people::{hash_person_list_event, People, Person, PersonList, PersonListMetadata};
 
 mod person_relay;
 pub use person_relay::PersonRelay;
@@ -120,11 +137,8 @@ pub use relay::Relay;
 mod relay_picker_hooks;
 pub use relay_picker_hooks::Hooks;
 
-mod settings;
-pub use settings::Settings;
-
-mod signer;
-pub use signer::Signer;
+mod seeker;
+pub use seeker::Seeker;
 
 mod status;
 pub use status::StatusQueue;
@@ -141,3 +155,136 @@ extern crate lazy_static;
 /// The USER_AGENT string for gossip that it (may) use when fetching HTTP resources and
 /// when connecting to relays
 pub static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
+
+use std::ops::DerefMut;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum RunState {
+    Initializing = 0,
+    Offline = 1,
+    Online = 2,
+    ShuttingDown = 255,
+}
+
+impl RunState {
+    #[inline]
+    pub fn going_online(&self) -> bool {
+        matches!(*self, RunState::Initializing | RunState::Online)
+    }
+
+    #[inline]
+    pub fn going_offline(&self) -> bool {
+        !self.going_online()
+    }
+}
+
+impl std::convert::TryFrom<u8> for RunState {
+    type Error = ();
+    fn try_from(i: u8) -> Result<Self, Self::Error> {
+        match i {
+            x if x == RunState::Initializing as u8 => Ok(RunState::Initializing),
+            x if x == RunState::Offline as u8 => Ok(RunState::Offline),
+            x if x == RunState::Online as u8 => Ok(RunState::Online),
+            x if x == RunState::ShuttingDown as u8 => Ok(RunState::ShuttingDown),
+            _ => Err(()),
+        }
+    }
+}
+
+/// Initialize gossip-lib
+pub fn init() -> Result<(), Error> {
+    // Initialize storage
+    GLOBALS.storage.init()?;
+
+    // Load signer from settings
+    GLOBALS.identity.load()?;
+
+    // Load delegation tag
+    GLOBALS.delegation.load()?;
+
+    // If we have a key but have not unlocked it
+    if GLOBALS.identity.has_private_key() && !GLOBALS.identity.is_unlocked() {
+        // If we need to rebuild relationships
+        if GLOBALS.storage.get_flag_rebuild_relationships_needed() {
+            GLOBALS
+                .wait_for_login
+                .store(true, std::sync::atomic::Ordering::Relaxed);
+            GLOBALS
+                .wait_for_data_migration
+                .store(true, std::sync::atomic::Ordering::Relaxed);
+        } else if GLOBALS.storage.read_setting_login_at_startup() {
+            GLOBALS
+                .wait_for_login
+                .store(true, std::sync::atomic::Ordering::Relaxed);
+        }
+    }
+
+    Ok(())
+}
+
+/// Run gossip-lib as an async
+pub async fn run() {
+    // Runstate watcher
+    tokio::task::spawn(async {
+        let mut read_runstate = GLOBALS.read_runstate.clone();
+        read_runstate.mark_unchanged();
+
+        let mut last_runstate = *read_runstate.borrow();
+        loop {
+            // Wait for a change
+            let _ = read_runstate.changed().await;
+
+            // Verify it is actually a change, not set to the thing it already was set to
+            if *read_runstate.borrow() != last_runstate {
+                last_runstate = *read_runstate.borrow();
+
+                tracing::info!("RunState changed to {:?}", last_runstate);
+
+                // If we just went online, start all the tasks that come along with that
+                // state transition
+                if last_runstate == RunState::Online {
+                    tracing::info!("Starting up online systems...");
+
+                    // Start the fetcher
+                    crate::fetcher::Fetcher::start();
+
+                    // Start the seeker
+                    crate::seeker::Seeker::start();
+
+                    // Start periodic tasks in people manager (after signer)
+                    crate::people::People::start();
+
+                    // Start periodic tasks in pending
+                    crate::pending::start();
+
+                    // Start long-lived subscriptions
+                    // (this also does a relay_picker init)
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(crate::comms::ToOverlordMessage::StartLongLivedSubscriptions);
+                }
+            }
+        }
+    });
+
+    // Steal `tmp_overlord_receiver` from the GLOBALS to give to a new Overlord
+    let overlord_receiver = {
+        let mut mutex_option = GLOBALS.tmp_overlord_receiver.lock().await;
+        mutex_option.deref_mut().take()
+    }
+    .unwrap();
+
+    // Run the overlord
+    let mut overlord = Overlord::new(overlord_receiver);
+    overlord.run().await;
+
+    // Sync storage
+    if let Err(e) = GLOBALS.storage.sync() {
+        tracing::error!("{}", e);
+    } else {
+        tracing::info!("LMDB synced.");
+    }
+
+    tracing::error!("If gossip fails to exit at this point, you can safely kill the process.");
+}

@@ -1,24 +1,23 @@
-use crate::ui::wizard::{WizardPage, DEFAULT_RELAYS};
+use super::wizard_state::WizardPath;
+use super::{continue_control, modify_relay, WizardPage};
+use crate::ui::widgets::list_entry::OUTER_MARGIN_RIGHT;
+use crate::ui::wizard::DEFAULT_RELAYS;
 use crate::ui::{GossipUi, Page};
 use eframe::egui;
 use egui::{Button, Color32, Context, RichText, Ui};
+use egui_winit::egui::vec2;
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::Relay;
 use gossip_lib::GLOBALS;
+use gossip_lib::{PersonList, Relay};
 use nostr_types::RelayUrl;
 use std::collections::BTreeMap;
 
-pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-    ui.add_space(20.0);
-    ui.label("Please choose which relays you will use.");
+const MIN_OUTBOX: usize = 3;
+const MIN_INBOX: usize = 2;
+const MIN_DISCOVERY: usize = 4;
 
-    let read_relay = |url: &RelayUrl| {
-        GLOBALS
-            .storage
-            .read_relay(url)
-            .unwrap()
-            .unwrap_or(Relay::new(url.to_owned()))
-    };
+pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
+    let read_relay = |url: &RelayUrl| GLOBALS.storage.read_or_create_relay(url, None).unwrap();
 
     // Convert our default relay strings into Relays
     // fetching from storage so we don't overwrite any critical values when saving them later.
@@ -33,8 +32,8 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     // Get their relays
     let relays: Vec<Relay> = GLOBALS
         .storage
-        .filter_relays(|relay| relay.usage_bits != 0)
-        .unwrap_or(Vec::new());
+        .filter_relays(|relay| relay.has_any_usage_bit())
+        .unwrap_or_default();
 
     // Add their relays to the relay_options
     for relay in &relays {
@@ -53,23 +52,21 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         .cloned()
         .collect();
 
-    let mut discovery_relays: Vec<Relay> = relays
+    let discovery_relays: Vec<Relay> = relays
         .iter()
         .filter(|relay| relay.has_usage_bits(Relay::DISCOVER))
         .cloned()
         .collect();
 
-    if !discovery_relays
-        .iter()
-        .any(|r| r.url.as_str() == "wss://purplepag.es/")
+    ui.add_space(20.0);
+    if outbox_relays.len() >= MIN_OUTBOX
+        && inbox_relays.len() >= MIN_INBOX
+        && discovery_relays.len() >= MIN_DISCOVERY
     {
-        let mut purple_pages = read_relay(&RelayUrl::try_from_str("wss://purplepag.es/").unwrap());
-        purple_pages.set_usage_bits(Relay::DISCOVER);
-        let _ = GLOBALS.storage.write_relay(&purple_pages, None);
-        discovery_relays.push(purple_pages);
+        ui.label("Your relay list looks good but you can refine it below.");
+    } else {
+        ui.label("Please choose which relays you want to use:");
     }
-
-    let mut need_more = false;
 
     ui.add_space(20.0);
     ui.horizontal(|ui| {
@@ -77,20 +74,22 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             ui.horizontal(|ui| {
                 ui.heading("OUTBOX")
                     .on_hover_text("Relays where you post notes to");
-                if outbox_relays.len() >= 3 {
+                if outbox_relays.len() >= MIN_OUTBOX {
                     ui.label(RichText::new(" - OK").color(Color32::GREEN));
                 } else {
-                    ui.label(RichText::new(" - Need More").color(Color32::RED));
-                    need_more = true;
+                    ui.label(
+                        RichText::new(" - We suggest 3")
+                            .color(app.theme.warning_marker_text_color()),
+                    );
                 }
             });
             ui.add_space(10.0);
             for relay in outbox_relays.iter() {
                 ui.horizontal(|ui| {
                     if ui.button("🗑").clicked() {
-                        let mut r = relay.clone();
-                        r.clear_usage_bits(Relay::OUTBOX | Relay::WRITE);
-                        let _ = GLOBALS.storage.write_relay(&r, None);
+                        modify_relay(&relay.url, |relay| {
+                            relay.clear_usage_bits(Relay::OUTBOX | Relay::WRITE);
+                        });
                     }
                     ui.label(relay.url.as_str());
                 });
@@ -104,20 +103,22 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                 ui.heading("INBOX").on_hover_text(
                     "Relays where people can send you events tagging you, including DMs",
                 );
-                if inbox_relays.len() >= 2 {
+                if inbox_relays.len() >= MIN_INBOX {
                     ui.label(RichText::new(" - OK").color(Color32::GREEN));
                 } else {
-                    ui.label(RichText::new(" - Need More").color(Color32::RED));
-                    need_more = true;
+                    ui.label(
+                        RichText::new(" - We suggest 2")
+                            .color(app.theme.warning_marker_text_color()),
+                    );
                 }
             });
             ui.add_space(10.0);
             for relay in inbox_relays.iter() {
                 ui.horizontal(|ui| {
                     if ui.button("🗑").clicked() {
-                        let mut r = relay.clone();
-                        r.clear_usage_bits(Relay::INBOX | Relay::READ);
-                        let _ = GLOBALS.storage.write_relay(&r, None);
+                        modify_relay(&relay.url, |relay| {
+                            relay.clear_usage_bits(Relay::INBOX | Relay::READ);
+                        });
                     }
                     ui.label(relay.url.as_str());
                 });
@@ -130,18 +131,22 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             ui.horizontal(|ui| {
                 ui.heading("DISCOVERY")
                     .on_hover_text("Relays where you find out what relays other people are using");
-                if !discovery_relays.is_empty() {
+                if discovery_relays.len() >= MIN_DISCOVERY {
                     ui.label(RichText::new(" - OK").color(Color32::GREEN));
                 } else {
-                    ui.label(RichText::new(" - Need More").color(Color32::RED));
-                    need_more = true;
+                    ui.label(
+                        RichText::new(" - We suggest 4")
+                            .color(app.theme.warning_marker_text_color()),
+                    );
                 }
             });
             ui.add_space(10.0);
             for relay in discovery_relays.iter() {
                 ui.horizontal(|ui| {
                     if ui.button("🗑").clicked() {
-                        unimplemented!();
+                        modify_relay(&relay.url, |relay| {
+                            relay.clear_usage_bits(Relay::DISCOVER);
+                        });
                     }
                     ui.label(relay.url.as_str());
                 });
@@ -156,10 +161,11 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.add_space(15.0);
     ui.horizontal_wrapped(|ui| {
         ui.label("Enter Relay URL");
-        if ui
-            .add(text_edit_line!(app, app.wizard_state.relay_url))
-            .changed
-        {
+        let response = text_edit_line!(app, app.wizard_state.relay_url)
+            .with_paste()
+            .show(ui)
+            .response;
+        if response.changed() {
             app.wizard_state.error = None;
         }
         ui.label("or");
@@ -189,9 +195,9 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                     if !relay_options.contains_key(&rurl) {
                         relay_options.insert(rurl.clone(), read_relay(&rurl));
                     }
-                    let r = relay_options.get_mut(&rurl).unwrap();
-                    r.set_usage_bits(Relay::OUTBOX | Relay::WRITE);
-                    let _ = GLOBALS.storage.write_relay(r, None);
+                    modify_relay(&rurl, |relay| {
+                        relay.set_usage_bits(Relay::OUTBOX | Relay::WRITE);
+                    });
                 } else {
                     app.wizard_state.error = Some("ERROR: Invalid Relay URL".to_owned());
                 }
@@ -202,9 +208,9 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                     if !relay_options.contains_key(&rurl) {
                         relay_options.insert(rurl.clone(), read_relay(&rurl));
                     }
-                    let r = relay_options.get_mut(&rurl).unwrap();
-                    r.set_usage_bits(Relay::INBOX | Relay::READ);
-                    let _ = GLOBALS.storage.write_relay(r, None);
+                    modify_relay(&rurl, |relay| {
+                        relay.set_usage_bits(Relay::INBOX | Relay::READ);
+                    });
                 } else {
                     app.wizard_state.error = Some("ERROR: Invalid Relay URL".to_owned());
                 }
@@ -215,9 +221,9 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                     if !relay_options.contains_key(&rurl) {
                         relay_options.insert(rurl.clone(), read_relay(&rurl));
                     }
-                    let r = relay_options.get_mut(&rurl).unwrap();
-                    r.set_usage_bits(Relay::DISCOVER | Relay::ADVERTISE);
-                    let _ = GLOBALS.storage.write_relay(r, None);
+                    modify_relay(&rurl, |relay| {
+                        relay.set_usage_bits(Relay::DISCOVER);
+                    });
                 } else {
                     app.wizard_state.error = Some("ERROR: Invalid Relay URL".to_owned());
                 }
@@ -225,35 +231,44 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         });
     }
 
-    if !need_more {
-        if app.wizard_state.has_private_key {
-            ui.add_space(20.0);
-            let mut label = RichText::new("  >  Publish and Continue");
-            if app.wizard_state.new_user {
-                label = label.color(app.theme.accent_color());
-            }
-            if ui.button(label).clicked() {
+    ui.add_space(20.0);
+
+    if app.wizard_state.has_private_key {
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
+            ui.add_space(OUTER_MARGIN_RIGHT);
+            ui.checkbox(
+                &mut app.wizard_state.relays_should_publish,
+                "Publish this Relay list",
+            );
+        });
+        ui.add_space(10.0);
+    }
+    if app.wizard_state.path == WizardPath::CreateNewAccount {
+        continue_control(ui, app, true, |app| {
+            if app.wizard_state.relays_should_publish {
                 let _ = GLOBALS
                     .to_overlord
                     .send(ToOverlordMessage::AdvertiseRelayList);
-                app.page = Page::Wizard(WizardPage::SetupMetadata);
             }
-
-            ui.add_space(20.0);
-            let mut label = RichText::new("  >  Continue without publishing");
-            if !app.wizard_state.new_user {
-                label = label.color(app.theme.accent_color());
+            app.set_page(ctx, Page::Wizard(WizardPage::SetupMetadata));
+        });
+    } else {
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
+            ui.add_space(OUTER_MARGIN_RIGHT);
+            app.theme.accent_button_1_style(ui.style_mut());
+            if ui
+                .add(egui::Button::new("Finish").min_size(vec2(80.0, 0.0)))
+                .clicked()
+            {
+                // import existing lists and start the app
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::UpdatePersonList {
+                        person_list: PersonList::Followed,
+                        merge: false,
+                    });
+                super::complete_wizard(app, ctx);
             }
-            if ui.button(label).clicked() {
-                app.page = Page::Wizard(WizardPage::SetupMetadata);
-            };
-        } else {
-            ui.add_space(20.0);
-            let mut label = RichText::new("  >  Continue");
-            label = label.color(app.theme.accent_color());
-            if ui.button(label).clicked() {
-                app.page = Page::Wizard(WizardPage::SetupMetadata);
-            };
-        }
+        });
     }
 }

@@ -1,8 +1,9 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use gossip_relay_picker::Direction;
-use nostr_types::{Id, RelayInformationDocument, RelayUrl, Unixtime};
+use nostr_types::{Id, RelayInformationDocument, RelayUrl, RelayUsage, Unixtime};
 use serde::{Deserialize, Serialize};
+
+// THIS IS HISTORICAL FOR MIGRATIONS AND THE STRUCTURES SHOULD NOT BE EDITED
 
 /// A relay record
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -31,7 +32,9 @@ pub struct Relay1 {
     pub hidden: bool,
 
     /// What usage this relay provides to the user
-    pub usage_bits: u64,
+    /// (hidden because 'advertise' may be set which would interfere with simple
+    /// .cmp and zero tests)
+    usage_bits: u64,
 
     /// The NIP-11 for this relay
     pub nip11: Option<RelayInformationDocument>,
@@ -44,10 +47,11 @@ pub struct Relay1 {
 impl Relay1 {
     pub const READ: u64 = 1 << 0; // 1
     pub const WRITE: u64 = 1 << 1; // 2
-    pub const ADVERTISE: u64 = 1 << 2; // 4
+    const ADVERTISE: u64 = 1 << 2; // 4 // RETIRED
     pub const INBOX: u64 = 1 << 3; // 8            this is 'read' of kind 10002
     pub const OUTBOX: u64 = 1 << 4; // 16          this is 'write' of kind 10002
     pub const DISCOVER: u64 = 1 << 5; // 32
+    pub const SPAMSAFE: u64 = 1 << 6; // 64
 
     pub fn new(url: RelayUrl) -> Relay1 {
         Relay1 {
@@ -62,6 +66,33 @@ impl Relay1 {
             nip11: None,
             last_attempt_nip11: None,
         }
+    }
+
+    #[inline]
+    pub fn get_usage_bits(&self) -> u64 {
+        // Automatically clear any residual ADVERTISE bit
+        // ( so that simple cmp() and =0 still work... but you should use
+        //   the new has_any_usage_bit() instead to be safe )
+        self.usage_bits & !Relay1::ADVERTISE
+    }
+
+    #[inline]
+    pub fn get_usage_bits_for_sorting(&self) -> u64 {
+        let mut output: u64 = 0;
+        if self.has_usage_bits(Self::READ) {
+            output |= 1 << 6;
+        }
+        if self.has_usage_bits(Self::WRITE) {
+            output |= 1 << 5;
+        }
+        if self.has_usage_bits(Self::INBOX) {
+            output |= 1 << 4;
+        }
+        if self.has_usage_bits(Self::OUTBOX) {
+            output |= 1 << 3;
+        }
+        // DISCOVER and SPAMSAFE shouldn't affect sort
+        output
     }
 
     #[inline]
@@ -89,6 +120,12 @@ impl Relay1 {
     }
 
     #[inline]
+    pub fn has_any_usage_bit(&self) -> bool {
+        let all = Self::READ | Self::WRITE | Self::INBOX | Self::OUTBOX | Self::DISCOVER;
+        self.usage_bits & all != 0
+    }
+
+    #[inline]
     pub fn attempts(&self) -> u64 {
         self.success_count + self.failure_count
     }
@@ -102,6 +139,10 @@ impl Relay1 {
         self.success_count as f32 / attempts as f32
     }
 
+    pub fn is_good_for_advertise(&self) -> bool {
+        self.rank > 0 && self.success_rate() > 0.35 && self.success_count > 10
+    }
+
     /// This generates a "recommended_relay_url" for an 'e' tag.
     pub async fn recommended_relay_for_reply(reply_to: Id) -> Result<Option<RelayUrl>, Error> {
         let seen_on_relays: Vec<(RelayUrl, Unixtime)> =
@@ -110,7 +151,7 @@ impl Relay1 {
         let maybepubkey = GLOBALS.storage.read_setting_public_key();
         if let Some(pubkey) = maybepubkey {
             let my_inbox_relays: Vec<(RelayUrl, u64)> =
-                GLOBALS.storage.get_best_relays(pubkey, Direction::Read)?;
+                GLOBALS.storage.get_best_relays(pubkey, RelayUsage::Inbox)?;
 
             // Find the first-best intersection
             for mir in &my_inbox_relays {

@@ -43,15 +43,6 @@ impl Storage {
         }
     }
 
-    pub(crate) fn read_person_lists1(&self, pubkey: &PublicKey) -> Result<Vec<PersonList>, Error> {
-        let key: Vec<u8> = pubkey.to_bytes();
-        let txn = self.env.read_txn()?;
-        Ok(match self.db_person_lists1()?.get(&txn, &key)? {
-            Some(bytes) => bytes.iter().map(|u| (*u).into()).collect(),
-            None => vec![],
-        })
-    }
-
     pub(crate) fn write_person_lists1<'a>(
         &'a self,
         pubkey: &PublicKey,
@@ -63,64 +54,6 @@ impl Storage {
 
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
             self.db_person_lists1()?.put(txn, &key, &bytes)?;
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
-    }
-
-    pub(crate) fn get_people_in_list1(&self, list: PersonList) -> Result<Vec<PublicKey>, Error> {
-        let txn = self.env.read_txn()?;
-        let mut pubkeys: Vec<PublicKey> = Vec::new();
-        for result in self.db_person_lists1()?.iter(&txn)? {
-            let (key, val) = result?;
-            let pubkey = PublicKey::from_bytes(key, true)?;
-            let person_lists = val.iter().map(|u| (*u).into()).collect::<Vec<PersonList>>();
-            if person_lists.iter().any(|s| *s == list) {
-                pubkeys.push(pubkey);
-            }
-        }
-        Ok(pubkeys)
-    }
-
-    pub(crate) fn clear_person_list1<'a>(
-        &'a self,
-        list: PersonList,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error> {
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let mut fixed: Vec<(PublicKey, Vec<u8>)> = Vec::new();
-
-            // Collect records that require changing
-            for result in self.db_person_lists1()?.iter(txn)? {
-                let (key, val) = result?;
-                let pubkey = PublicKey::from_bytes(key, true)?;
-                let mut person_lists = val.iter().map(|u| (*u).into()).collect::<Vec<PersonList>>();
-                if person_lists.contains(&list) {
-                    person_lists = person_lists.drain(..).filter(|l| *l != list).collect();
-                    let bytes = person_lists
-                        .iter()
-                        .map(|l| (*l).into())
-                        .collect::<Vec<u8>>();
-                    fixed.push((pubkey, bytes));
-                }
-            }
-
-            // Change them
-            for (pubkey, bytes) in fixed.drain(..) {
-                let key: Vec<u8> = pubkey.to_bytes();
-                self.db_person_lists1()?.put(txn, &key, &bytes)?;
-            }
-
             Ok(())
         };
 

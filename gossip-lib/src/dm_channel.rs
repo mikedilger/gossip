@@ -26,8 +26,8 @@ impl DmChannel {
 
     pub fn name(&self) -> String {
         if self.0.is_empty() {
-            return match GLOBALS.signer.public_key() {
-                Some(pk) => crate::names::tag_name_from_pubkey_lookup(&pk),
+            return match GLOBALS.identity.public_key() {
+                Some(pk) => crate::names::best_name_from_pubkey_lookup(&pk),
                 None => "[NOBODY]".to_string(),
             };
         }
@@ -41,7 +41,7 @@ impl DmChannel {
                 output.push_str(", ");
             }
 
-            let name = crate::names::tag_name_from_pubkey_lookup(pubkey);
+            let name = crate::names::best_name_from_pubkey_lookup(pubkey);
             output.push_str(&name);
         }
         output
@@ -58,18 +58,14 @@ impl DmChannel {
     pub fn from_event(event: &Event, my_pubkey: Option<PublicKey>) -> Option<DmChannel> {
         let my_pubkey = match my_pubkey {
             Some(pk) => pk,
-            None => match GLOBALS.signer.public_key() {
+            None => match GLOBALS.identity.public_key() {
                 Some(pk) => pk,
                 None => return None,
             },
         };
 
         if event.kind == EventKind::EncryptedDirectMessage {
-            let mut people: Vec<PublicKey> = event
-                .people()
-                .iter()
-                .filter_map(|(pk, _, _)| PublicKey::try_from(pk).ok())
-                .collect();
+            let mut people: Vec<PublicKey> = event.people().iter().map(|(pk, _, _)| *pk).collect();
             people.push(event.pubkey);
             people.retain(|p| *p != my_pubkey);
             if people.len() > 1 {
@@ -78,13 +74,10 @@ impl DmChannel {
                 Some(Self::new(&people))
             }
         } else if event.kind == EventKind::GiftWrap {
-            if let Ok(rumor) = GLOBALS.signer.unwrap_giftwrap(event) {
+            if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(event) {
                 let rumor_event = rumor.into_event_with_bad_signature();
-                let mut people: Vec<PublicKey> = rumor_event
-                    .people()
-                    .iter()
-                    .filter_map(|(pk, _, _)| PublicKey::try_from(pk).ok())
-                    .collect();
+                let mut people: Vec<PublicKey> =
+                    rumor_event.people().iter().map(|(pk, _, _)| *pk).collect();
                 people.push(rumor_event.pubkey); // include author too
                 people.retain(|p| *p != my_pubkey);
                 Some(Self::new(&people))
@@ -93,11 +86,7 @@ impl DmChannel {
             }
         } else if event.kind == EventKind::DmChat {
             // unwrapped rumor
-            let mut people: Vec<PublicKey> = event
-                .people()
-                .iter()
-                .filter_map(|(pk, _, _)| PublicKey::try_from(pk).ok())
-                .collect();
+            let mut people: Vec<PublicKey> = event.people().iter().map(|(pk, _, _)| *pk).collect();
             people.push(event.pubkey); // include author too
             people.retain(|p| *p != my_pubkey);
             Some(Self::new(&people))
@@ -113,7 +102,7 @@ impl DmChannel {
 pub struct DmChannelData {
     pub dm_channel: DmChannel,
     pub latest_message_created_at: Unixtime,
-    pub latest_message_content: String,
+    pub latest_message_content: Option<String>,
     pub message_count: usize,
     pub unread_message_count: usize,
 }

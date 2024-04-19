@@ -44,7 +44,7 @@ impl Storage {
     }
 
     pub(crate) fn index_unindexed_giftwraps1(&self) -> Result<(), Error> {
-        if !GLOBALS.signer.is_ready() {
+        if !GLOBALS.identity.is_unlocked() {
             return Err(ErrorKind::NoPrivateKey.into());
         }
 
@@ -61,8 +61,14 @@ impl Storage {
         let mut txn = self.env.write_txn()?;
         for id in ids {
             if let Some(event) = self.read_event(id)? {
-                self.write_event_ek_pk_index(&event, Some(&mut txn))?;
-                self.write_event_ek_c_index(&event, Some(&mut txn))?;
+                self.write_event_akci_index(
+                    event.pubkey,
+                    event.kind,
+                    event.created_at,
+                    event.id,
+                    Some(&mut txn),
+                )?;
+                self.write_event_kci_index(event.kind, event.created_at, event.id, Some(&mut txn))?;
                 self.write_event_tag_index(&event, Some(&mut txn))?;
             }
             self.db_unindexed_giftwraps1()?

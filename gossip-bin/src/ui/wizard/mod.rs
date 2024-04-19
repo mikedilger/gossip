@@ -2,9 +2,10 @@ use crate::ui::{GossipUi, Page};
 use eframe::egui;
 use egui::widgets::{Button, Slider};
 use egui::{Align, Context, Layout};
-use gossip_lib::FeedKind;
-use gossip_lib::Relay;
-use gossip_lib::GLOBALS;
+use egui_winit::egui::{vec2, Ui};
+use gossip_lib::comms::ToOverlordMessage;
+use gossip_lib::{FeedKind, PersonList, Relay, RunState, GLOBALS};
+use nostr_types::RelayUrl;
 
 mod follow_people;
 mod import_keys;
@@ -19,27 +20,86 @@ mod welcome_nostr;
 mod wizard_state;
 pub use wizard_state::WizardState;
 
+use super::widgets::list_entry::OUTER_MARGIN_RIGHT;
+const CONTINUE_BTN_TEXT: &str = "Continue \u{25b6}";
+const BACK_BTN_TEXT: &str = "\u{25c0} Go Back";
+
+/*
+Last updated: 2024-03-07
+
+Top relays by score (scoring system is incomplete, 2 further tests are applied)
+
+wss://nostr.einundzwanzig.space/        VERIFIED FUNCTIONAL FOR NEW USERS
+wss://relay.primal.net/                 VERIFIED FUNCTIONAL FOR NEW USERS
+wss://nostrue.com/                      VERIFIED FUNCTIONAL FOR NEW USERS
+wss://nostr.mutinywallet.com/           Claims to accept event, but I cannot fetch it back by id.
+wss://welcome.nostr.wine/               SPECIAL PURPOSE (read only, new nostr users)
+wss://soloco.nl/                        pubkey has to be whitelisted
+wss://relay.noswhere.com/               blocked: read-only relay
+wss://relay.current.fyi/                EVENT doesn't give OK.  Cannot fetch it back.
+wss://relay.nostrplebs.com/             blocked: you do not have a Nostr Plebs NIP-05.
+wss://nostr.pjv.me/                     SPECIAL USAGE, personal relay
+wss://relay.0xchat.com/                 REQ never returns.
+wss://140.f7z.io/                       ONLY TAKES 140 CHARS
+wss://relay.exit.pub/                   VERIFIED FUNCTIONAL FOR NEW USERS
+wss://pyramid.fiatjaf.com/              LIMITED MEMBERSHIP
+wss://xmr.usenostr.org/                 MONERO paid
+wss://nostr.portemonero.com/            MONERO
+wss://relay.damus.io/                   VERIFIED FUNCTIONAL FOR NEW USERS
+wss://relay.snort.social/               "no active subscription"
+wss://relay.bitcoinpark.com/            community based
+wss://yabu.me/                          for japanese users
+wss://relay.nostr.band/                 VERIFIED FUNCTIONAL FOR NEW USERS
+wss://nostr.lu.ke/                      VERIFIED FUNCTIONAL FOR NEW USERS
+wss://relayable.org/                    VERIFIED FUNCTIONAL FOR NEW USERS (but slow)
+wss://offchain.pub/                     VERIFIED FUNCTIONAL FOR NEW USERS
+wss://purplepag.es/                     SPECIAL USAGE
+wss://relay.nostr.bg/                   VERIFIED FUNCTIONAL FOR NEW USERS
+wss://creatr.nostr.wine/                content creator community
+wss://nostr.cercatrova.me/              down
+wss://la.relayable.org/                 Says OK 'true', but event was not found.
+wss://nostr.bitcoiner.social/           VERIFIED FUNCTIONAL FOR NEW USERS
+wss://n.ok0.org/                        VERIFIED FUNCTIONAL FOR NEW USERS
+wss://nostr.oxtr.dev/                   VERIFIED FUNCTIONAL FOR NEW USERS
+wss://purplerelay.com/                  VERIFIED FUNCTIONAL FOR NEW USERS
+wss://nostr-01.yakihonne.com/           mainly for longform content creators
+wss://nostr-02.yakihonne.com/           mainly for longform content creators
+wss://relay.mutinywallet.com/           VERIFIED FUNCTIONAL FOR NEW USERS
+wss://nostr.sathoarder.com/             VERIFIED FUNCTIONAL FOR NEW USERS
+wss://nostr.coinfund.app/               says OK 'true', but event is not there
+wss://relay.nostr.jabber.ch/            VERIFIED FUNCTIONAL FOR NEW USERS
+wss://relay.nostrss.re/                 NIP11 fails
+wss://ca.relayable.org/                 NIP11 fails
+wss://relay.benthecarman.com/           says "private relay"
+wss://nostrrelay.com/                   "No space left on device"
+wss://relay.stoner.com/                 blocked: pubkey is not allowed to publish to this relay
+wss://strfry.chatbett.de/               NIP11 fails
+wss://bostr.lecturify.net/              VERIFIED FUNCTIONAL FOR NEW USERS
+wss://nostr.data.haus/                  VERIFIED FUNCTIONAL FOR NEW USERS
+wss://relay.nostr.net/                  VERIFIED FUNCTIONAL FOR NEW USERS
+ */
+
 static DEFAULT_RELAYS: [&str; 20] = [
     "wss://nostr.einundzwanzig.space/",
-    "wss://nostr.mutinywallet.com/",
-    "wss://relay.nostrplebs.com/",
-    "wss://christpill.nostr1.com/",
-    "wss://nostr-pub.wellorder.net/",
-    "wss://relay.damus.io/",
-    "wss://bevo.nostr1.com/",
-    "wss://relay.snort.social/",
-    "wss://public.relaying.io/",
-    "wss://nostrue.com/",
-    "wss://relay.noswhere.com/",
     "wss://relay.primal.net/",
-    "wss://relay.nostr.jabber.ch/",
+    "wss://nostrue.com/",
+    "wss://relay.exit.pub/",
+    "wss://relay.damus.io/",
     "wss://relay.nostr.band/",
-    "wss://relay.wellorder.net/",
-    "wss://nostr.coinfundit.com/",
-    "wss://relay.nostrich.de/",
-    "wss://verbiricha.nostr1.com/",
-    "wss://nostr21.com/",
+    "wss://nostr.lu.ke/",
+    "wss://relayable.org/",
+    "wss://offchain.pub/",
+    "wss://relay.nostr.bg/",
     "wss://nostr.bitcoiner.social/",
+    "wss://n.ok0.org/",
+    "wss://nostr.oxtr.dev/",
+    "wss://purplerelay.com/",
+    "wss://relay.mutinywallet.com/",
+    "wss://nostr.sathoarder.com/",
+    "wss://relay.nostr.jabber.ch/",
+    "wss://bostr.lecturify.net/",
+    "wss://nostr.data.haus/",
+    "wss://relay.nostr.net/",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -166,24 +226,34 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     egui::CentralPanel::default()
         .frame({
             let frame = egui::Frame::central_panel(&app.theme.get_style());
-            frame.inner_margin(egui::Margin {
-                left: 20.0,
-                right: 10.0,
-                top: 10.0,
-                bottom: 0.0,
+            frame.inner_margin({
+                #[cfg(not(target_os = "macos"))]
+                let margin = egui::Margin {
+                    left: 20.0,
+                    right: 20.0,
+                    top: 20.0,
+                    bottom: 0.0,
+                };
+                #[cfg(target_os = "macos")]
+                let margin = egui::Margin {
+                    left: 20.0,
+                    right: 20.0,
+                    top: 35.0,
+                    bottom: 0.0,
+                };
+                margin
             })
         })
         .show(ctx, |ui| {
-            ui.add_space(24.0);
-            ui.heading(wp.as_str());
-            ui.add_space(12.0);
-            /*
-            if let Some(err) = app.wizard_state.error {
-            ui.label(RichText::new(err).color(app.theme.warning_marker_text_color()));
-            ui.add_space(12.0);
+            match wp {
+                WizardPage::FollowPeople => {},
+                _ => {
+                    ui.heading(wp.as_str());
+                    ui.add_space(12.0);
+                },
             }
-            */
-            ui.separator();
+
+            // ui.separator();
 
             match wp {
                 WizardPage::WelcomeGossip => welcome_gossip::update(app, ctx, frame, ui),
@@ -195,14 +265,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 WizardPage::SetupRelays => setup_relays::update(app, ctx, frame, ui),
                 WizardPage::SetupMetadata => setup_metadata::update(app, ctx, frame, ui),
                 WizardPage::FollowPeople => follow_people::update(app, ctx, frame, ui),
-            }
-
-            ui.add_space(20.0);
-            if wp != WizardPage::FollowPeople {
-                if ui.button("  X  Exit this Wizard").clicked() {
-                    let _ = GLOBALS.storage.write_wizard_complete(true, None);
-                    app.page = Page::Feed(FeedKind::Followed(false));
-                }
             }
 
             ui.add_space(10.0);
@@ -220,9 +282,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                             .on_hover_text("Switch to light mode")
                             .clicked()
                         {
+                            write_setting!(dark_mode, false);
                             app.theme.dark_mode = false;
                             crate::ui::theme::apply_theme(&app.theme, ctx);
-                            let _ = app.settings.save();
                         }
                     } else {
                         if ui
@@ -230,9 +292,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                             .on_hover_text("Switch to dark mode")
                             .clicked()
                         {
+                            write_setting!(dark_mode, true);
                             app.theme.dark_mode = true;
                             crate::ui::theme::apply_theme(&app.theme, ctx);
-                            let _ = app.settings.save();
                         }
                     }
                     ui.label("mode");
@@ -248,8 +310,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                         ctx.set_pixels_per_point(ppt);
 
                         // Store in settings
-                        app.settings.override_dpi = Some(app.override_dpi_value);
-                        let _ = app.settings.save();
+                        write_setting!(override_dpi, Some(app.override_dpi_value));
                     }
                 });
 
@@ -265,4 +326,88 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 }
             });
         });
+}
+
+fn complete_wizard(app: &mut GossipUi, ctx: &Context) {
+    let _ = GLOBALS.storage.set_flag_wizard_complete(true, None);
+    app.set_page(ctx, Page::Feed(FeedKind::List(PersonList::Followed, false)));
+
+    // Go offline and then back online to reset things
+    if !GLOBALS.storage.read_setting_offline() {
+        let _ = GLOBALS.write_runstate.send(RunState::Offline);
+
+        // Pause to make sure all the state transitions complete
+        std::thread::sleep(std::time::Duration::from_millis(100));
+
+        // Now go online (unless in offline mode, or we are shutting down)
+        if *GLOBALS.read_runstate.borrow() != RunState::ShuttingDown {
+            let _ = GLOBALS.write_runstate.send(RunState::Online);
+        }
+    }
+}
+
+fn modify_relay<M>(relay_url: &RelayUrl, mut modify: M)
+where
+    M: FnMut(&mut Relay),
+{
+    // Load relay record
+    let mut relay = GLOBALS
+        .storage
+        .read_or_create_relay(relay_url, None)
+        .unwrap();
+    let old = relay.clone();
+
+    // Run modification
+    modify(&mut relay);
+
+    // Save relay via the Overlord, so minions can be updated
+    let _ = GLOBALS
+        .to_overlord
+        .send(ToOverlordMessage::UpdateRelay(old, relay));
+}
+
+fn continue_button() -> impl egui::Widget {
+    egui::Button::new(CONTINUE_BTN_TEXT).min_size(vec2(80.0, 0.0))
+}
+
+fn back_button() -> impl egui::Widget {
+    egui::Button::new(BACK_BTN_TEXT).min_size(vec2(80.0, 0.0))
+}
+
+fn continue_control(
+    ui: &mut Ui,
+    app: &mut GossipUi,
+    can_continue: bool,
+    on_continue: impl FnOnce(&mut GossipUi),
+) {
+    ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
+        ui.add_space(OUTER_MARGIN_RIGHT);
+        app.theme.accent_button_1_style(ui.style_mut());
+        if ui.add_enabled(can_continue, continue_button()).clicked() {
+            on_continue(app);
+        }
+    });
+}
+
+fn wizard_controls(
+    ui: &mut Ui,
+    app: &mut GossipUi,
+    can_continue: bool,
+    on_back: impl FnOnce(&mut GossipUi),
+    on_continue: impl FnOnce(&mut GossipUi),
+) {
+    ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
+        ui.add_space(OUTER_MARGIN_RIGHT);
+        ui.scope(|ui| {
+            app.theme.accent_button_1_style(ui.style_mut());
+            if ui.add_enabled(can_continue, continue_button()).clicked() {
+                on_continue(app);
+            }
+        });
+        ui.add_space(10.0);
+        ui.style_mut().spacing.button_padding.x *= 3.0;
+        if ui.add(back_button()).clicked() {
+            on_back(app);
+        }
+    });
 }

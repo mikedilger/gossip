@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 
 use super::{widgets, GossipUi, Page};
-use eframe::{egui, epaint::PathShape};
+use eframe::egui;
 use egui::{Context, Ui};
 use egui_winit::egui::{vec2, Id, Rect, RichText};
 use gossip_lib::{comms::ToOverlordMessage, Relay, GLOBALS};
@@ -11,6 +11,8 @@ mod active;
 mod coverage;
 mod known;
 mod mine;
+
+pub const RELAY_URL_PREPOPULATE: &str = "wss://";
 
 pub(super) struct RelayUi {
     /// text of search field
@@ -35,9 +37,6 @@ pub(super) struct RelayUi {
     /// Add Relay dialog
     add_dialog_step: AddRelayDialogStep,
     new_relay_url: String,
-
-    /// Configure List Menu
-    configure_list_menu_active: bool,
 }
 
 impl RelayUi {
@@ -53,15 +52,26 @@ impl RelayUi {
             edit_done: None,
             edit_needs_scroll: false,
             add_dialog_step: AddRelayDialogStep::Inactive,
-            new_relay_url: "".to_string(),
-            configure_list_menu_active: false,
+            new_relay_url: RELAY_URL_PREPOPULATE.to_string(),
         }
+    }
+
+    pub(super) fn enter_page(&mut self, edit_relay: Option<&RelayUrl>) {
+        // preserve search and filter but reset edits and dialogues
+        self.edit = edit_relay.cloned();
+        self.edit_relays = Vec::new();
+        self.edit_done = None;
+        self.edit_needs_scroll = edit_relay.is_some();
+        self.add_dialog_step = AddRelayDialogStep::Inactive;
+        self.new_relay_url = RELAY_URL_PREPOPULATE.to_string();
+        self.filter = RelayFilter::All;
     }
 }
 
 #[derive(PartialEq, Default)]
 pub(super) enum RelaySorting {
     #[default]
+    Default,
     Rank,
     Name,
     WriteRelays,
@@ -74,6 +84,7 @@ pub(super) enum RelaySorting {
 impl RelaySorting {
     pub fn get_name(&self) -> &str {
         match self {
+            RelaySorting::Default => "Default",
             RelaySorting::Rank => "Rank",
             RelaySorting::Name => "Name",
             RelaySorting::WriteRelays => "Write Relays",
@@ -89,20 +100,32 @@ impl RelaySorting {
 pub(super) enum RelayFilter {
     #[default]
     All,
+    Configured,
     Write,
     Read,
     Advertise,
     Private,
+    Hidden,
+    AlwaysAllowConnect,
+    NeverAllowConnect,
+    AlwaysAllowAuthenticate,
+    NeverAllowAuthenticate,
 }
 
 impl RelayFilter {
     pub fn get_name(&self) -> &str {
         match self {
             RelayFilter::All => "All",
+            RelayFilter::Configured => "Configured",
             RelayFilter::Write => "Write",
             RelayFilter::Read => "Read",
             RelayFilter::Advertise => "Advertise",
             RelayFilter::Private => "Private",
+            RelayFilter::Hidden => "Hidden",
+            RelayFilter::AlwaysAllowConnect => "Always allow connect",
+            RelayFilter::NeverAllowConnect => "Never allow connect",
+            RelayFilter::AlwaysAllowAuthenticate => "Always allow auth",
+            RelayFilter::NeverAllowAuthenticate => "Never allow auth",
         }
     }
 }
@@ -123,7 +146,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
         Page::RelaysActivityMonitor => active::update(app, ctx, frame, ui),
         Page::RelaysCoverage => coverage::update(app, ctx, frame, ui),
         Page::RelaysMine => mine::update(app, ctx, frame, ui),
-        Page::RelaysKnownNetwork => known::update(app, ctx, frame, ui),
+        Page::RelaysKnownNetwork(_) => known::update(app, ctx, frame, ui),
         _ => {}
     }
 }
@@ -162,7 +185,7 @@ pub(super) fn relay_scroll_list(
 
                 // retrieve an updated copy of this relay when editing
                 let db_relay = if has_edit_target {
-                    if let Ok(Some(entry)) = GLOBALS.storage.read_relay(&db_url) {
+                    if let Ok(Some(entry)) = GLOBALS.storage.read_relay(&db_url, None) {
                         entry.clone() // update
                     } else {
                         db_relay // can't update
@@ -207,6 +230,10 @@ pub(super) fn relay_scroll_list(
                 widget.set_connected(is_connected);
                 widget.set_timeout(timeout_until);
                 widget.set_reasons(reasons);
+                widget.auth_require_permission(app.unsaved_settings.relay_auth_requires_approval);
+                widget.conn_require_permission(
+                    app.unsaved_settings.relay_connection_requires_approval,
+                );
                 if let Some(ref assignment) = GLOBALS.relay_picker.get_relay_assignment(&db_url) {
                     widget.set_user_count(assignment.pubkeys.len());
                 }
@@ -257,7 +284,7 @@ pub(super) fn start_entry_dialog(app: &mut GossipUi) {
 }
 
 pub(super) fn stop_entry_dialog(app: &mut GossipUi) {
-    app.relays.new_relay_url = "".to_string();
+    app.relays.new_relay_url = RELAY_URL_PREPOPULATE.to_string();
     app.relays.add_dialog_step = AddRelayDialogStep::Inactive;
 }
 
@@ -273,7 +300,7 @@ pub(super) fn entry_dialog(ctx: &Context, app: &mut GossipUi) {
             ui.painter().rect_filled(
                 ctx.screen_rect(),
                 egui::Rounding::same(0.0),
-                egui::Color32::from_rgba_unmultiplied(0x9f, 0x9f, 0x9f, 102),
+                egui::Color32::from_rgba_unmultiplied(0, 0, 0, 80),
             );
         });
 
@@ -315,7 +342,7 @@ pub(super) fn entry_dialog(ctx: &Context, app: &mut GossipUi) {
 
                 match app.relays.add_dialog_step {
                     AddRelayDialogStep::Inactive => {}
-                    AddRelayDialogStep::Step1UrlEntry => entry_dialog_step1(ui, app),
+                    AddRelayDialogStep::Step1UrlEntry => entry_dialog_step1(ui, ctx, app),
                     AddRelayDialogStep::Step2AwaitOverlord => entry_dialog_step2(ui, app),
                 }
             });
@@ -323,7 +350,7 @@ pub(super) fn entry_dialog(ctx: &Context, app: &mut GossipUi) {
     });
 }
 
-fn entry_dialog_step1(ui: &mut Ui, app: &mut GossipUi) {
+fn entry_dialog_step1(ui: &mut Ui, ctx: &Context, app: &mut GossipUi) {
     ui.add_space(10.0);
     ui.add(egui::Label::new("Enter relay URL:"));
     ui.add_space(10.0);
@@ -332,14 +359,13 @@ fn entry_dialog_step1(ui: &mut Ui, app: &mut GossipUi) {
     let is_url_valid = RelayUrl::try_from_str(&app.relays.new_relay_url).is_ok();
 
     let edit_response = ui.horizontal(|ui| {
-        ui.style_mut().visuals.widgets.inactive.bg_stroke.width = 1.0;
-        ui.style_mut().visuals.widgets.hovered.bg_stroke.width = 1.0;
+        ui.visuals_mut().widgets.inactive.bg_stroke.width = 1.0;
+        ui.visuals_mut().widgets.hovered.bg_stroke.width = 1.0;
 
         // change frame color to error when url is invalid
         if !is_url_valid {
-            ui.style_mut().visuals.widgets.inactive.bg_stroke.color =
-                ui.style().visuals.error_fg_color;
-            ui.style_mut().visuals.selection.stroke.color = ui.style().visuals.error_fg_color;
+            ui.visuals_mut().widgets.inactive.bg_stroke.color = ui.visuals().error_fg_color;
+            ui.visuals_mut().selection.stroke.color = ui.visuals().error_fg_color;
         }
 
         ui.add(
@@ -348,6 +374,8 @@ fn entry_dialog_step1(ui: &mut Ui, app: &mut GossipUi) {
                 .hint_text("wss://myrelay.com"),
         )
     });
+
+    edit_response.inner.request_focus();
 
     ui.add_space(10.0);
     ui.allocate_ui_with_layout(
@@ -378,18 +406,11 @@ fn entry_dialog_step1(ui: &mut Ui, app: &mut GossipUi) {
                         ));
 
                         // send user to known relays page (where the new entry should show up)
-                        app.set_page(Page::RelaysKnownNetwork);
-                        // search for the new relay so it shows at the top
-                        app.relays.search = url.to_string();
-                        // set the new relay to edit mode
-                        app.relays.edit = Some(url);
-                        app.relays.edit_needs_scroll = true;
-                        // reset the filters so it will show
-                        app.relays.filter = RelayFilter::All;
+                        app.set_page(ctx, Page::RelaysKnownNetwork(Some(url)));
 
                         // go to next step
                         app.relays.add_dialog_step = AddRelayDialogStep::Step2AwaitOverlord;
-                        app.relays.new_relay_url = "".to_owned();
+                        app.relays.new_relay_url = RELAY_URL_PREPOPULATE.to_owned();
                     } else {
                         GLOBALS
                             .status_queue
@@ -412,7 +433,7 @@ fn entry_dialog_step2(ui: &mut Ui, app: &mut GossipUi) {
         ui.add_space(10.0);
 
         // if the overlord has added the relay, we are done for now
-        if GLOBALS.storage.read_relay(&url).is_ok() {
+        if GLOBALS.storage.read_relay(&url, None).is_ok() {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
                 ui.visuals_mut().widgets.inactive.weak_bg_fill = app.theme.accent_color();
                 ui.visuals_mut().widgets.hovered.weak_bg_fill = {
@@ -445,83 +466,30 @@ fn entry_dialog_step2(ui: &mut Ui, app: &mut GossipUi) {
 /// Draw button with configure popup
 ///
 pub(super) fn configure_list_btn(app: &mut GossipUi, ui: &mut Ui) {
-    let (response, painter) = ui.allocate_painter(vec2(20.0, 20.0), egui::Sense::click());
-    let response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
-    let response = if !app.relays.configure_list_menu_active {
-        response.on_hover_text("Configure List View")
-    } else {
-        response
-    };
-    let btn_rect = response.rect;
-    let color = if response.hovered() {
-        app.theme.accent_color()
-    } else {
-        ui.visuals().text_color()
-    };
-    let mut mesh = egui::Mesh::with_texture((&app.options_symbol).into());
-    mesh.add_rect_with_uv(
-        btn_rect.shrink(2.0),
-        Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
-        color,
-    );
-    painter.add(egui::Shape::mesh(mesh));
+    ui.add_enabled_ui(true, |ui| {
+        let min_size = vec2(180.0, 20.0);
 
-    if response.clicked() {
-        app.relays.configure_list_menu_active ^= true;
-    }
-
-    let button_center_bottom = response.rect.center_bottom();
-    let seen_on_popup_position = button_center_bottom + vec2(-180.0, widgets::DROPDOWN_DISTANCE);
-
-    let id: Id = "configure-list-menu".into();
-    let mut frame = egui::Frame::popup(ui.style());
-    let area = egui::Area::new(id)
-        .movable(false)
-        .interactable(true)
-        .order(egui::Order::Foreground)
-        .fixed_pos(seen_on_popup_position)
-        .constrain(true);
-    if app.relays.configure_list_menu_active {
-        let menuresp = area.show(ui.ctx(), |ui| {
-            frame.fill = app.theme.accent_color();
-            frame.stroke = egui::Stroke::NONE;
-            // frame.shadow = egui::epaint::Shadow::NONE;
-            frame.rounding = egui::Rounding::same(5.0);
-            frame.inner_margin = egui::Margin::symmetric(20.0, 16.0);
-            frame.show(ui, |ui| {
-                let path = PathShape::convex_polygon(
-                    [
-                        button_center_bottom,
-                        button_center_bottom
-                            + vec2(widgets::DROPDOWN_DISTANCE, widgets::DROPDOWN_DISTANCE),
-                        button_center_bottom
-                            + vec2(-widgets::DROPDOWN_DISTANCE, widgets::DROPDOWN_DISTANCE),
-                    ]
-                    .to_vec(),
-                    app.theme.accent_color(),
-                    egui::Stroke::NONE,
-                );
-                ui.painter().add(path);
+        widgets::MoreMenu::bubble(ui, app)
+            .with_min_size(min_size)
+            .with_hover_text("Configure List View".to_owned())
+            .show(ui, |ui, is_open| {
                 let size = ui.spacing().interact_size.y * egui::vec2(1.6, 0.8);
 
-                // since we are displaying over an accent color background, load that style
-                *ui.style_mut() = app.theme.get_on_accent_style();
-
                 ui.horizontal(|ui| {
-                    crate::ui::components::switch_with_size(ui, &mut app.relays.show_details, size);
+                    if widgets::switch_with_size(ui, &mut app.relays.show_details, size).changed() {
+                        *is_open = false;
+                    }
                     ui.label("Show details");
                 });
                 ui.add_space(8.0);
                 ui.horizontal(|ui| {
-                    crate::ui::components::switch_with_size(ui, &mut app.relays.show_hidden, size);
+                    if widgets::switch_with_size(ui, &mut app.relays.show_hidden, size).changed() {
+                        *is_open = false;
+                    }
                     ui.label("Show hidden relays");
                 });
             });
-        });
-        if menuresp.response.clicked_elsewhere() && !response.clicked() {
-            app.relays.configure_list_menu_active = false;
-        }
-    }
+    });
 }
 
 ///
@@ -533,6 +501,11 @@ pub(super) fn relay_sort_combo(app: &mut GossipUi, ui: &mut Ui) {
         .width(130.0)
         .selected_text("Sort by ".to_string() + app.relays.sort.get_name())
         .show_ui(ui, |ui| {
+            ui.selectable_value(
+                &mut app.relays.sort,
+                RelaySorting::Default,
+                RelaySorting::Default.get_name(),
+            );
             ui.selectable_value(
                 &mut app.relays.sort,
                 RelaySorting::Rank,
@@ -586,6 +559,11 @@ pub(super) fn relay_filter_combo(app: &mut GossipUi, ui: &mut Ui) {
             );
             ui.selectable_value(
                 &mut app.relays.filter,
+                RelayFilter::Configured,
+                RelayFilter::Configured.get_name(),
+            );
+            ui.selectable_value(
+                &mut app.relays.filter,
                 RelayFilter::Write,
                 RelayFilter::Write.get_name(),
             );
@@ -604,6 +582,31 @@ pub(super) fn relay_filter_combo(app: &mut GossipUi, ui: &mut Ui) {
                 RelayFilter::Private,
                 RelayFilter::Private.get_name(),
             );
+            ui.selectable_value(
+                &mut app.relays.filter,
+                RelayFilter::Hidden,
+                RelayFilter::Hidden.get_name(),
+            );
+            ui.selectable_value(
+                &mut app.relays.filter,
+                RelayFilter::AlwaysAllowConnect,
+                RelayFilter::AlwaysAllowConnect.get_name(),
+            );
+            ui.selectable_value(
+                &mut app.relays.filter,
+                RelayFilter::NeverAllowConnect,
+                RelayFilter::NeverAllowConnect.get_name(),
+            );
+            ui.selectable_value(
+                &mut app.relays.filter,
+                RelayFilter::AlwaysAllowAuthenticate,
+                RelayFilter::AlwaysAllowAuthenticate.get_name(),
+            );
+            ui.selectable_value(
+                &mut app.relays.filter,
+                RelayFilter::NeverAllowAuthenticate,
+                RelayFilter::NeverAllowAuthenticate.get_name(),
+            );
         });
 }
 
@@ -611,30 +614,29 @@ pub(super) fn relay_filter_combo(app: &mut GossipUi, ui: &mut Ui) {
 /// Filter a relay entry
 /// - return: true if selected
 ///
+#[rustfmt::skip]
 pub(super) fn sort_relay(rui: &RelayUi, a: &Relay, b: &Relay) -> Ordering {
     match rui.sort {
-        RelaySorting::Rank => b
-            .rank
-            .cmp(&a.rank)
-            .then(b.usage_bits.cmp(&a.usage_bits))
+        RelaySorting::Default => b.get_usage_bits_for_sorting().cmp(&a.get_usage_bits_for_sorting())
+            .then(b.is_good_for_advertise().cmp(&a.is_good_for_advertise()))
+            .then(b.rank.cmp(&a.rank))
             .then(a.url.cmp(&b.url)),
-        RelaySorting::Name => a.url.host().cmp(&b.url.host()),
-        RelaySorting::WriteRelays => b
-            .has_usage_bits(Relay::WRITE)
-            .cmp(&a.has_usage_bits(Relay::WRITE))
+        RelaySorting::Rank => b.rank.cmp(&a.rank)
+            .then(b.get_usage_bits_for_sorting().cmp(&a.get_usage_bits_for_sorting()))
+            .then(b.is_good_for_advertise().cmp(&a.is_good_for_advertise()))
             .then(a.url.cmp(&b.url)),
-        RelaySorting::AdvertiseRelays => b
-            .has_usage_bits(Relay::ADVERTISE)
-            .cmp(&a.has_usage_bits(Relay::ADVERTISE))
+        RelaySorting::Name => a.url.cmp(&b.url),
+        RelaySorting::WriteRelays => b.has_usage_bits(Relay::WRITE)
+                              .cmp(&a.has_usage_bits(Relay::WRITE))
             .then(a.url.cmp(&b.url)),
-        RelaySorting::HighestFollowing => a.url.cmp(&b.url), // FIXME need following numbers here
-        RelaySorting::HighestSuccessRate => b
-            .success_rate()
-            .total_cmp(&a.success_rate())
+        RelaySorting::AdvertiseRelays => b.is_good_for_advertise().cmp(&a.is_good_for_advertise())
             .then(a.url.cmp(&b.url)),
-        RelaySorting::LowestSuccessRate => a
-            .success_rate()
-            .total_cmp(&b.success_rate())
+        RelaySorting::HighestFollowing => GLOBALS.relay_picker.get_relay_following_count(&b.url)
+            .cmp(&GLOBALS.relay_picker.get_relay_following_count(&a.url))
+            .then(a.url.cmp(&b.url)),
+        RelaySorting::HighestSuccessRate => b.success_rate().total_cmp(&a.success_rate())
+            .then(a.url.cmp(&b.url)),
+        RelaySorting::LowestSuccessRate => a.success_rate().total_cmp(&b.success_rate())
             .then(a.url.cmp(&b.url)),
     }
 }
@@ -655,10 +657,20 @@ pub(super) fn filter_relay(rui: &RelayUi, ri: &Relay) -> bool {
 
     let filter = match rui.filter {
         RelayFilter::All => true,
+        RelayFilter::Configured => ri.has_any_usage_bit(),
         RelayFilter::Write => ri.has_usage_bits(Relay::WRITE),
         RelayFilter::Read => ri.has_usage_bits(Relay::READ),
-        RelayFilter::Advertise => ri.has_usage_bits(Relay::ADVERTISE),
-        RelayFilter::Private => !ri.has_usage_bits(Relay::INBOX | Relay::OUTBOX),
+        RelayFilter::Advertise => ri.is_good_for_advertise(),
+        RelayFilter::Private => {
+            ri.has_any_usage_bit()
+                && !ri.has_usage_bits(Relay::INBOX)
+                && !ri.has_usage_bits(Relay::OUTBOX)
+        }
+        RelayFilter::Hidden => ri.hidden,
+        RelayFilter::AlwaysAllowConnect => ri.allow_connect == Some(true),
+        RelayFilter::NeverAllowConnect => ri.allow_connect == Some(false),
+        RelayFilter::AlwaysAllowAuthenticate => ri.allow_auth == Some(true),
+        RelayFilter::NeverAllowAuthenticate => ri.allow_auth == Some(false),
     };
 
     search && filter

@@ -1,52 +1,30 @@
 use crate::comms::ToOverlordMessage;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
+use crate::misc::Freshness;
 use dashmap::{DashMap, DashSet};
-use gossip_relay_picker::Direction;
 use image::RgbaImage;
 use nostr_types::{
-    Event, EventKind, Metadata, PreEvent, PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime, Url,
+    ContentEncryptionAlgorithm, Event, EventKind, Metadata, PreEvent, PublicKey, RelayUrl,
+    RelayUsage, Tag, UncheckedUrl, Unixtime, Url,
 };
 use serde::{Deserialize, Serialize};
-use std::sync::atomic::{AtomicI64, AtomicUsize, Ordering};
+use std::collections::BTreeMap;
+use std::hash::{Hash, Hasher};
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio::task;
+use tokio::time::Instant;
 
 /// Person type, aliased to the latest version
 pub type Person = crate::storage::types::Person2;
 
-/// Lists people can be added to
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
-#[repr(u8)]
-pub enum PersonList {
-    Muted = 0,
-    Followed = 1,
-    Priority = 2,
-    Custom(u8),
-}
+/// PersonList type, aliased to the latest version
+pub type PersonList = crate::storage::types::PersonList1;
 
-impl From<u8> for PersonList {
-    fn from(u: u8) -> Self {
-        match u {
-            0 => PersonList::Muted,
-            1 => PersonList::Followed,
-            2 => PersonList::Priority,
-            u => PersonList::Custom(u),
-        }
-    }
-}
-
-impl From<PersonList> for u8 {
-    fn from(e: PersonList) -> u8 {
-        match e {
-            PersonList::Muted => 0,
-            PersonList::Followed => 1,
-            PersonList::Priority => 2,
-            PersonList::Custom(u) => u,
-        }
-    }
-}
+/// PersonListMetadata type, aliased to the latest version
+pub type PersonListMetadata = crate::storage::types::PersonListMetadata3;
 
 /// Handles people and remembers what needs to be done for each, such as fetching
 /// metadata or avatars.
@@ -69,25 +47,15 @@ pub struct People {
     // the person's NIP-05 when that metadata come in. We remember this here.
     recheck_nip05: DashSet<PublicKey>,
 
-    // People that need metadata, which the UI has asked for. These people
-    // might simply not be loaded from the database yet.
-    need_metadata: DashSet<PublicKey>,
+    // People of interest that the UI is showing, whose metadata should
+    // be updated if it is stale.
+    people_of_interest: DashSet<PublicKey>,
 
-    // People who we already tried to get their metadata. We only try once
-    // per gossip run (this set only grows)
-    tried_metadata: DashSet<PublicKey>,
-
-    // Date of the last self-owned contact list we have an event for
-    pub last_contact_list_asof: AtomicI64,
-
-    // Size of the last self-owned contact list we have an event for
-    pub last_contact_list_size: AtomicUsize,
-
-    // Date of the last self-owned mute list we have an event for
-    pub last_mute_list_asof: AtomicI64,
-
-    // Size of the last self-owned mute list we have an event for
-    pub last_mute_list_size: AtomicUsize,
+    // Metadata fetches in progress. Once these get too old we can remove them
+    // and consider them to have failed.
+    // This only relates to the Metadata event, not subsequent avatar or nip05
+    // loads.
+    fetching_metadata: DashMap<PublicKey, Unixtime>,
 }
 
 impl Default for People {
@@ -112,87 +80,61 @@ impl People {
             need_metadata: DashSet::new(),
             recheck_nip05: DashSet::new(),
             tried_metadata: DashSet::new(),
+            recheck_nip05: DashSet::new(),
+            people_of_interest: DashSet::new(),
+            fetching_metadata: DashMap::new(),
         }
     }
 
     // Start the periodic task management
     pub(crate) fn start() {
-        if let Some(pk) = GLOBALS.signer.public_key() {
-            // Load our contact list from the database in order to populate
-            // last_contact_list_asof and last_contact_list_size
-            if let Ok(Some(event)) = GLOBALS
-                .storage
-                .get_replaceable_event(pk, EventKind::ContactList)
-            {
-                if event.created_at.0
-                    > GLOBALS
-                        .people
-                        .last_contact_list_asof
-                        .load(Ordering::Relaxed)
-                {
-                    GLOBALS
-                        .people
-                        .last_contact_list_asof
-                        .store(event.created_at.0, Ordering::Relaxed);
-                    let size = event
-                        .tags
-                        .iter()
-                        .filter(|t| matches!(t, Tag::Pubkey { .. }))
-                        .count();
-                    GLOBALS
-                        .people
-                        .last_contact_list_size
-                        .store(size, Ordering::Relaxed);
-                }
-            }
-
-            // Load our mute list from the database in order to populate
-            // last_mute_list_asof and last_mute_list_size
-            if let Ok(Some(event)) = GLOBALS
-                .storage
-                .get_replaceable_event(pk, EventKind::MuteList)
-            {
-                if event.created_at.0 > GLOBALS.people.last_mute_list_asof.load(Ordering::Relaxed) {
-                    GLOBALS
-                        .people
-                        .last_mute_list_asof
-                        .store(event.created_at.0, Ordering::Relaxed);
-                    let size = event
-                        .tags
-                        .iter()
-                        .filter(|t| matches!(t, Tag::Pubkey { .. }))
-                        .count();
-                    GLOBALS
-                        .people
-                        .last_mute_list_size
-                        .store(size, Ordering::Relaxed);
-                }
-            }
-        }
+        tracing::info!("People manager startup");
 
         task::spawn(async {
-            loop {
-                let fetch_metadata_looptime_ms =
-                    GLOBALS.storage.read_setting_fetcher_metadata_looptime_ms();
+            let mut read_runstate = GLOBALS.read_runstate.clone();
+            read_runstate.mark_unchanged();
+            if read_runstate.borrow().going_offline() {
+                return;
+            }
 
-                // Every 3 seconds...
-                tokio::time::sleep(Duration::from_millis(fetch_metadata_looptime_ms)).await;
+            // Every (usually 3) seconds...
+            let fetch_metadata_looptime_ms =
+                GLOBALS.storage.read_setting_fetcher_metadata_looptime_ms();
+            let sleep = tokio::time::sleep(Duration::from_millis(fetch_metadata_looptime_ms));
+            tokio::pin!(sleep);
+
+            loop {
+                tokio::select! {
+                    _ = &mut sleep => {
+                        let fetch_metadata_looptime_ms =
+                            GLOBALS.storage.read_setting_fetcher_metadata_looptime_ms();
+                        sleep.as_mut().reset(Instant::now() + Duration::from_millis(fetch_metadata_looptime_ms));
+                    },
+                    _ = read_runstate.wait_for(|runstate| runstate.going_offline()) => break,
+                }
 
                 // We fetch needed metadata
                 GLOBALS.people.maybe_fetch_metadata().await;
-
-                // And we check for shutdown condition
-                if GLOBALS.shutting_down.load(Ordering::Relaxed) {
-                    break;
-                }
             }
+
+            tracing::info!("People task manager shutdown");
         });
     }
 
-    /// Get all the pubkeys that the user follows
-    pub fn get_followed_pubkeys(&self) -> Vec<PublicKey> {
-        match GLOBALS.storage.get_people_in_list(PersonList::Followed) {
-            Ok(list) => list,
+    /// Get all the pubkeys that the user subscribes to in any list
+    /// (We also force the current user into this list)
+    pub fn get_subscribed_pubkeys(&self) -> Vec<PublicKey> {
+        // We subscribe to all people in all lists.
+        // This is no longer synonomous with the ContactList list
+        match GLOBALS.storage.get_people_in_all_followed_lists() {
+            Ok(mut people) => {
+                if let Some(pk) = GLOBALS.identity.public_key() {
+                    if !people.contains(&pk) {
+                        people.push(pk);
+                    }
+                }
+                people
+            }
             Err(e) => {
                 tracing::error!("{}", e);
                 vec![]
@@ -200,41 +142,51 @@ impl People {
         }
     }
 
-    /// Get all the pubkeys that the user mutes
-    pub fn get_muted_pubkeys(&self) -> Vec<PublicKey> {
-        match GLOBALS.storage.get_people_in_list(PersonList::Muted) {
-            Ok(list) => list,
-            Err(e) => {
-                tracing::error!("{}", e);
-                vec![]
-            }
-        }
-    }
-
-    /// Is the given pubkey followed?
-    pub fn is_followed(&self, pubkey: &PublicKey) -> bool {
-        self.get_followed_pubkeys().contains(pubkey)
+    /// Is the person in the list? (returns false on error)
+    #[inline]
+    pub fn is_person_in_list(&self, pubkey: &PublicKey, list: PersonList) -> bool {
+        GLOBALS
+            .storage
+            .is_person_in_list(pubkey, list)
+            .unwrap_or(false)
     }
 
     /// Get all the pubkeys that need relay lists (from the given set)
-    pub fn get_followed_pubkeys_needing_relay_lists(
-        &self,
-        among_these: &[PublicKey],
-    ) -> Vec<PublicKey> {
+    pub fn get_subscribed_pubkeys_needing_relay_lists(&self) -> Vec<PublicKey> {
         let stale = Unixtime::now().unwrap().0
-            - 60 * 60
-                * GLOBALS
-                    .storage
-                    .read_setting_relay_list_becomes_stale_hours() as i64;
+            - 60 * GLOBALS
+                .storage
+                .read_setting_relay_list_becomes_stale_minutes() as i64;
 
-        if let Ok(vec) = GLOBALS.storage.filter_people(|p| {
-            p.is_in_list(PersonList::Followed)
-                && p.relay_list_last_received < stale
-                && among_these.contains(&p.pubkey)
-        }) {
+        if let Ok(vec) = GLOBALS
+            .storage
+            .filter_people(|p| p.is_subscribed_to() && p.relay_list_last_sought < stale)
+        {
             vec.iter().map(|p| p.pubkey).collect()
         } else {
             vec![]
+        }
+    }
+
+    /// Get if a person needs a relay list
+    pub fn person_needs_relay_list(pubkey: PublicKey) -> Freshness {
+        let staletime = Unixtime::now().unwrap().0
+            - 60 * GLOBALS
+                .storage
+                .read_setting_relay_list_becomes_stale_minutes() as i64;
+
+        match GLOBALS.storage.read_person(&pubkey) {
+            Err(_) => Freshness::NeverSought,
+            Ok(None) => Freshness::NeverSought,
+            Ok(Some(p)) => {
+                if p.relay_list_last_sought == 0 {
+                    Freshness::NeverSought
+                } else if p.relay_list_last_sought < staletime {
+                    Freshness::Stale
+                } else {
+                    Freshness::Fresh
+                }
+            }
         }
     }
 
@@ -254,74 +206,98 @@ impl People {
         Ok(())
     }
 
-    /// If this person doesn't have metadata, and we are automatically fetching
-    /// metadata, then add this person to the list of people that need metadata.
+    /// Mark this person as a person who the UI wants fresh metadata for.
+    /// maybe_fetch_metadata() will do the processing later on.
     pub fn person_of_interest(&self, pubkey: PublicKey) {
-        // Don't get metadata if disabled
+        // Don't set if metadata if disabled
         if !GLOBALS.storage.read_setting_automatically_fetch_metadata() {
             return;
         }
 
-        // Don't try over and over. We try just once per gossip run.
-        if self.tried_metadata.contains(&pubkey) {
-            return;
-        }
+        self.people_of_interest.insert(pubkey);
+    }
 
-        match GLOBALS.storage.read_person(&pubkey) {
-            Ok(Some(person)) => {
-                // We need metadata if it is missing or old
-                let need = {
-                    // Metadata refresh interval
-                    let now = Unixtime::now().unwrap();
-                    let stale = Duration::from_secs(
-                        60 * 60 * GLOBALS.storage.read_setting_metadata_becomes_stale_hours(),
-                    );
-                    person.metadata_created_at.is_none()
-                        || person.metadata_last_received < (now - stale).0
-                };
-                if !need {
-                    return;
-                }
-
-                // Record that we need it.
-                // the periodic task will take care of it.
-                if !self.need_metadata.contains(&pubkey) {
-                    self.need_metadata.insert(pubkey);
-                }
-            }
-            _ => {
-                // Trigger a future create and load
-                self.create_if_missing(pubkey);
-
-                // Don't load metadata now, we may have it on disk and get
-                // it from the future load.
-            }
+    /// The overlord calls this to indicate that it is fetching metadata
+    /// for this person from relays
+    pub fn metadata_fetch_initiated(&self, pubkeys: &[PublicKey]) {
+        let now = Unixtime::now().unwrap();
+        for pubkey in pubkeys {
+            self.fetching_metadata.insert(*pubkey, now);
         }
     }
 
     /// This is run periodically. It checks the database first, only then does it
     /// ask the overlord to update the metadata from the relays.
     async fn maybe_fetch_metadata(&self) {
-        let mut verified_need: Vec<PublicKey> = Vec::new();
-
-        // Take from self.need_metadata;
-        let mut need_metadata: Vec<PublicKey> = self
-            .need_metadata
+        // Take everybody out of self.people_of_interest, into a local var
+        let mut people_of_interest: Vec<PublicKey> = self
+            .people_of_interest
             .iter()
             .map(|refmulti| refmulti.key().to_owned())
             .collect();
-        self.need_metadata.clear();
+        self.people_of_interest.clear();
 
-        if !need_metadata.is_empty() {
-            tracing::debug!("Periodic metadata fetch for {} people", need_metadata.len());
+        if !people_of_interest.is_empty() {
+            tracing::trace!(
+                "Periodic metadata check against {} people",
+                people_of_interest.len()
+            );
         }
 
-        for pubkey in need_metadata.drain(..) {
-            tracing::debug!("Seeking metadata for {}", pubkey.as_hex_string());
-            verified_need.push(pubkey);
-            self.tried_metadata.insert(pubkey);
+        let now = Unixtime::now().unwrap();
+        let stale = Duration::from_secs(
+            60 * GLOBALS
+                .storage
+                .read_setting_metadata_becomes_stale_minutes(),
+        );
+
+        let mut verified_need: Vec<PublicKey> = Vec::new();
+
+        for pubkey in people_of_interest.drain(..) {
+            // If we already tried fetching_metadata (within the stale period)
+            // skip them
+            // NOTE: if we tried and it never came in, odds are low that trying
+            // again will make any difference. Either the person doesn't have
+            // metadata or we don't have their proper relays. So a shorter timeout
+            // in this circumstance isn't such a great idea.
+            let opt_fetching_asof: Option<Unixtime> =
+                self.fetching_metadata.get(&pubkey).map(|r| *r.value());
+            if let Some(fetching_asof) = opt_fetching_asof {
+                if fetching_asof.0 >= (now - stale).0 {
+                    continue;
+                } else {
+                    // remove stale entry
+                    self.fetching_metadata.remove(&pubkey);
+                }
+            }
+
+            match GLOBALS.storage.read_person(&pubkey) {
+                Ok(Some(person)) => {
+                    // We need metadata if it is missing or old
+                    let need = {
+                        // Metadata refresh interval
+                        person.metadata_created_at.is_none()
+                            || person.metadata_last_received < (now - stale).0
+                    };
+                    if !need {
+                        continue;
+                    }
+
+                    tracing::debug!("Seeking metadata for {}", pubkey.as_hex_string());
+                    verified_need.push(pubkey);
+                }
+                _ => {
+                    // Trigger a future create and load
+                    self.create_if_missing(pubkey);
+                    // Don't load metadata now, we may have it on disk and get
+                    // it from the future load.
+                }
+            }
         }
 
+        // This fires off the minions to fetch metadata events
+        // When they come in, process.rs handles it by calling
+        // GLOBALS.people.update_metadata() [down below]
         let _ = GLOBALS
             .to_overlord
             .send(ToOverlordMessage::UpdateMetadataInBulk(verified_need));
@@ -337,6 +313,9 @@ impl People {
         metadata: Metadata,
         asof: Unixtime,
     ) -> Result<(), Error> {
+        // Remove from fetching metadata (fetch is complete)
+        self.fetching_metadata.remove(pubkey);
+
         // Sync in from database first
         self.create_all_if_missing(&[*pubkey])?;
 
@@ -351,9 +330,6 @@ impl People {
         // Update metadata_last_received, even if we don't update the metadata
         person.metadata_last_received = now.0;
         GLOBALS.storage.write_person(&person, None)?;
-
-        // Remove from the list of people that need metadata
-        self.need_metadata.remove(pubkey);
 
         // Determine whether it is fresh
         let fresh = match person.metadata_created_at {
@@ -555,16 +531,15 @@ impl People {
                 let mut result_name = String::from("");
 
                 // search for users by name
-                if let Some(name) = &person.tag_name() {
-                    let matchable = name.to_lowercase();
-                    if matchable.starts_with(&search) {
-                        score = 300;
-                        result_name = name.to_string();
-                    }
-                    if matchable.contains(&search) {
-                        score = 200;
-                        result_name = name.to_string();
-                    }
+                let name = person.best_name();
+                let matchable = name.to_lowercase();
+                if matchable.starts_with(&search) {
+                    score = 300;
+                    result_name = name.to_string();
+                }
+                if matchable.contains(&search) {
+                    score = 200;
+                    result_name = name.to_string();
                 }
 
                 // search for users by nip05 id
@@ -623,21 +598,33 @@ impl People {
             if let Some(person) = GLOBALS.storage.read_person(pubkey)? {
                 petname = person.petname.clone();
             }
-
-            // Get their best relay
-            let relays = GLOBALS.storage.get_best_relays(*pubkey, Direction::Write)?;
-            let maybeurl = relays.get(0);
-            p_tags.push(Tag::Pubkey {
-                pubkey: (*pubkey).into(),
-                recommended_relay_url: maybeurl.map(|(u, _)| u.to_unchecked_url()),
-                petname,
-                trailing: Vec::new(),
-            });
+        }
+    }
+          
+    pub(crate) async fn generate_person_list_event(
+        &self,
+        person_list: PersonList,
+    ) -> Result<Event, Error> {
+        if !GLOBALS.identity.is_unlocked() {
+            return Err((ErrorKind::NoPrivateKey, file!(), line!()).into());
         }
 
-        let public_key = match GLOBALS.signer.public_key() {
-            Some(pk) => pk,
-            None => return Err((ErrorKind::NoPrivateKey, file!(), line!()).into()), // not even a public key
+        // Get the personlist metadata (dtag, etc)
+        let metadata = match GLOBALS.storage.get_person_list_metadata(person_list)? {
+            Some(m) => m,
+            None => return Err(ErrorKind::ListNotFound.into()),
+        };
+
+        let my_pubkey = GLOBALS.identity.public_key().unwrap();
+
+        // Read the person list
+        let people = GLOBALS.storage.get_people_in_list(person_list)?;
+
+        // Determine the event kind
+        let kind = match person_list {
+            PersonList::Followed => EventKind::ContactList,
+            PersonList::Muted => EventKind::MuteList,
+            PersonList::Custom(_) => EventKind::FollowSets,
         };
 
         // Get the content from our latest ContactList.
@@ -648,210 +635,251 @@ impl People {
         {
             Some(c) => c.content,
             None => "".to_owned(),
+            _ => None,
         };
 
-        let pre_event = PreEvent {
-            pubkey: public_key,
-            created_at: Unixtime::now().unwrap(),
-            kind: EventKind::ContactList,
-            tags: p_tags,
-            content,
+         // Load most recent existing event, if any
+        let existing_event: Option<Event> = match kind {
+            EventKind::ContactList | EventKind::MuteList => {
+                // We fetch for ContactList to preserve the contents
+                // We fetch for MuteList to preserve 't', 'e', and "word" tags
+                GLOBALS.storage.get_replaceable_event(kind, my_pubkey, "")?
+            }
+            EventKind::FollowSets => {
+                // We fetch for FollowSets to preserve various tags we don't use
+                GLOBALS
+                    .storage
+                    .get_replaceable_event(kind, my_pubkey, &metadata.dtag)?
+            }
+      
+        // Get all tags off of the existing event
+        // (we use local data to determine public/private, we don't need to remember
+        //  where they were in the existing event)
+        let old_tags = {
+            if let Some(ref event) = existing_event {
+                if !event.content.is_empty() && kind != EventKind::ContactList {
+                    let decrypted_content = GLOBALS.identity.decrypt(&my_pubkey, &event.content)?;
+                    let mut tags: Vec<Tag> = serde_json::from_str(&decrypted_content)?;
+                    tags.extend(event.tags.clone());
+                    tags
+                } else {
+                    event.tags.clone()
+                }
+            } else {
+                vec![]
+            }
         };
+  
+        let mut public_tags: Vec<Tag> = Vec::new();
+        let mut private_tags: Vec<Tag> = Vec::new();
 
-        tracing::debug!("----> PreEvent {:?}", pre_event);
+        // If FollowSets
+        if matches!(person_list, PersonList::Custom(_)) {
+            // Add d-tag
+            public_tags.push(Tag::new_identifier(metadata.dtag.clone()));
 
-        GLOBALS.signer.sign_preevent(pre_event, None, None)
-    }
+            // Add title if using FollowSets
+            let title = Tag::new_title(metadata.title.clone());
 
-    pub(crate) async fn generate_mute_list_event(&self) -> Result<Event, Error> {
-        let mut p_tags: Vec<Tag> = Vec::new();
+            if metadata.private {
+                private_tags.push(title);
+            } else {
+                public_tags.push(title);
+            }
 
-        let muted_pubkeys = self.get_muted_pubkeys();
-
-        for muted_pubkey in &muted_pubkeys {
-            p_tags.push(Tag::Pubkey {
-                pubkey: (*muted_pubkey).into(),
-                recommended_relay_url: None,
-                petname: None,
-                trailing: vec![],
-            });
+            // Preserve existing tags that we don't operate on yet
+            for t in &old_tags {
+                if t.tagname() == "image" || t.tagname() == "description" {
+                    if metadata.private {
+                        private_tags.push(t.clone());
+                    } else {
+                        public_tags.push(t.clone());
+                    }
+                }
+            }
         }
 
-        let public_key = match GLOBALS.signer.public_key() {
-            Some(pk) => pk,
-            None => return Err((ErrorKind::NoPrivateKey, file!(), line!()).into()), // not even a public key
-        };
+        // If MuteList
+        if person_list == PersonList::Muted {
+            // Preserve existing tags that we don't operate on yet
+            for t in &old_tags {
+                match t.tagname() {
+                    "t" | "e" => {
+                        if metadata.private {
+                            private_tags.push(t.clone());
+                        } else {
+                            public_tags.push(t.clone());
+                        }
+                    }
+                    "word" => {
+                        if metadata.private {
+                            private_tags.push(t.clone());
+                        } else {
+                            public_tags.push(t.clone());
+                        }
+                    }
+                    _ => (),
+                }
+            }
+        }
+ 
+          
+         // Add the people
+        for (pubkey, mut public) in people.iter() {
+            // If entire list is private, then all entries are forced to private
+            if metadata.private {
+                public = false;
+            }
 
-        // Get the content from our latest MuteList.
-        // We don't use the data, but we shouldn't clobber it (it is for private mutes
-        // that we have not implemented yet)
-        let content = match GLOBALS
-            .storage
-            .get_replaceable_event(public_key, EventKind::MuteList)?
-        {
-            Some(c) => c.content,
-            None => "".to_owned(),
-        };
+            // Only include petnames in the ContactList (which is only public people)
+            let petname = if kind == EventKind::ContactList {
+                if let Some(person) = GLOBALS.storage.read_person(pubkey)? {
+                    person.petname.clone()
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            // Only include recommended relay urls in public entries, and not in the mute list
+            let recommended_relay_url = {
+                if kind != EventKind::MuteList && public {
+                    let relays = GLOBALS
+                        .storage
+                        .get_best_relays(*pubkey, RelayUsage::Outbox)?;
+                    relays.first().map(|(u, _)| u.to_unchecked_url())
+                } else {
+                    None
+                }
+            };
+
+            let tag = Tag::new_pubkey(*pubkey, recommended_relay_url, petname);
+            if public {
+                public_tags.push(tag);
+            } else {
+                private_tags.push(tag);
+            }
+        }
+
+        let content = {
+            if kind == EventKind::ContactList {
+                // Preserve the contents of any existing kind-3 event for use by
+                // other clients
+                match existing_event {
+                    Some(c) => c.content,
+                    None => "".to_owned(),
+                }
+            } else {
+                let private_tags_string = serde_json::to_string(&private_tags)?;
+                GLOBALS.identity.encrypt(
+                    &my_pubkey,
+                    &private_tags_string,
+                    ContentEncryptionAlgorithm::Nip04,
+                )?
+            }
 
         let pre_event = PreEvent {
-            pubkey: public_key,
+            pubkey: my_pubkey,
             created_at: Unixtime::now().unwrap(),
-            kind: EventKind::MuteList,
-            tags: p_tags,
+            kind,
+            tags: public_tags,
             content,
         };
 
-        GLOBALS.signer.sign_preevent(pre_event, None, None)
+        GLOBALS.identity.sign_event(pre_event)
     }
 
     /// Follow (or unfollow) the public key
-    pub fn follow(&self, pubkey: &PublicKey, follow: bool) -> Result<(), Error> {
-        let mut txn = GLOBALS.storage.get_write_txn()?;
-
+    pub fn follow(
+        &self,
+        pubkey: &PublicKey,
+        follow: bool,
+        list: PersonList,
+        public: bool,
+    ) -> Result<(), Error> {
         if follow {
             GLOBALS
                 .storage
-                .add_person_to_list(pubkey, PersonList::Followed, Some(&mut txn))?;
+                .add_person_to_list(pubkey, list, public, None)?;
+
+            // Add to the relay picker. If they are already there, it will be ok.
+            GLOBALS.relay_picker.add_someone(*pubkey)?;
+
+            // Maybe seek relay list (if needed)
+            let seek_relay_list = match Self::person_needs_relay_list(*pubkey) {
+                Freshness::NeverSought => true,
+                Freshness::Stale => true,
+                Freshness::Fresh => false,
+            };
+            if seek_relay_list {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::SubscribeDiscover(vec![*pubkey], None));
+            };
         } else {
-            GLOBALS.storage.remove_person_from_list(
-                pubkey,
-                PersonList::Followed,
-                Some(&mut txn),
-            )?;
+            GLOBALS
+                .storage
+                .remove_person_from_list(pubkey, list, None)?;
+
+            // Don't remove from relay picker here. They might still be on other
+            // lists. Garbage collection will eventually clean it up.
         }
+
         GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
 
-        GLOBALS
-            .storage
-            .write_last_contact_list_edit(Unixtime::now().unwrap().0, Some(&mut txn))?;
-
-        txn.commit()?;
+        let _ = GLOBALS
+            .to_overlord
+            .send(ToOverlordMessage::RefreshScoresAndPickRelays);
 
         Ok(())
     }
 
-    /// Follow all these public keys.
-    /// This does not publish any events.
-    pub(crate) fn follow_all(&self, pubkeys: &[PublicKey], merge: bool) -> Result<(), Error> {
-        let mut txn = GLOBALS.storage.get_write_txn()?;
-
-        if !merge {
-            GLOBALS
-                .storage
-                .clear_person_list(PersonList::Followed, Some(&mut txn))?;
-        }
-
-        for pubkey in pubkeys {
-            GLOBALS
-                .storage
-                .add_person_to_list(pubkey, PersonList::Followed, Some(&mut txn))?;
-            GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
-        }
-
-        GLOBALS
-            .storage
-            .write_last_contact_list_edit(Unixtime::now().unwrap().0, Some(&mut txn))?;
-
-        txn.commit()?;
-
-        // Add the people to the relay_picker for picking
-        for pubkey in pubkeys.iter() {
-            GLOBALS.relay_picker.add_someone(pubkey.to_owned())?;
-        }
-
-        Ok(())
-    }
-
-    /// Empty the following list.
-    /// This does not publish any events.
-    pub(crate) fn follow_none(&self) -> Result<(), Error> {
-        let mut txn = GLOBALS.storage.get_write_txn()?;
-
-        GLOBALS
-            .storage
-            .clear_person_list(PersonList::Followed, Some(&mut txn))?;
-        GLOBALS
-            .storage
-            .write_last_contact_list_edit(Unixtime::now().unwrap().0, Some(&mut txn))?;
-
-        txn.commit()?;
-
+    /// Clear a person list
+    pub(crate) fn clear_person_list(&self, list: PersonList) -> Result<(), Error> {
+        GLOBALS.storage.clear_person_list(list, None)?;
         GLOBALS.ui_invalidate_all.store(false, Ordering::Relaxed);
-
-        Ok(())
-    }
-
-    /// Empty the mute list
-    /// This does not publish any events
-    pub(crate) fn clear_mute_list(&self) -> Result<(), Error> {
-        let mut txn = GLOBALS.storage.get_write_txn()?;
-
-        GLOBALS
-            .storage
-            .clear_person_list(PersonList::Muted, Some(&mut txn))?;
-        GLOBALS
-            .storage
-            .write_last_mute_list_edit(Unixtime::now().unwrap().0, Some(&mut txn))?;
-
-        txn.commit()?;
-
-        GLOBALS.ui_invalidate_all.store(false, Ordering::Relaxed);
-
         Ok(())
     }
 
     /// Mute (or unmute) a public key
-    pub fn mute(&self, pubkey: &PublicKey, mute: bool) -> Result<(), Error> {
+    pub fn mute(&self, pubkey: &PublicKey, mute: bool, public: bool) -> Result<(), Error> {
         let mut txn = GLOBALS.storage.get_write_txn()?;
 
         if mute {
-            if let Some(pk) = GLOBALS.signer.public_key() {
+            if let Some(pk) = GLOBALS.identity.public_key() {
                 if pk == *pubkey {
                     return Err(ErrorKind::General("You cannot mute yourself".to_owned()).into());
                 }
             }
 
-            GLOBALS
-                .storage
-                .add_person_to_list(pubkey, PersonList::Muted, Some(&mut txn))?;
+            GLOBALS.storage.add_person_to_list(
+                pubkey,
+                PersonList::Muted,
+                public,
+                Some(&mut txn),
+            )?;
         } else {
             GLOBALS
                 .storage
                 .remove_person_from_list(pubkey, PersonList::Muted, Some(&mut txn))?;
         }
 
-        GLOBALS
+        if let Some(mut metadata) = GLOBALS
             .storage
-            .write_last_mute_list_edit(Unixtime::now().unwrap().0, Some(&mut txn))?;
+            .get_person_list_metadata(PersonList::Muted)?
+        {
+            metadata.last_edit_time = Unixtime::now().unwrap();
+            GLOBALS.storage.set_person_list_metadata(
+                PersonList::Muted,
+                &metadata,
+                Some(&mut txn),
+            )?;
+        }
 
         txn.commit()?;
 
         GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
-
-        Ok(())
-    }
-
-    pub(crate) fn mute_all(&self, pubkeys: &[PublicKey], merge: bool) -> Result<(), Error> {
-        let mut txn = GLOBALS.storage.get_write_txn()?;
-
-        if !merge {
-            GLOBALS
-                .storage
-                .clear_person_list(PersonList::Muted, Some(&mut txn))?;
-        }
-
-        for pubkey in pubkeys {
-            GLOBALS
-                .storage
-                .add_person_to_list(pubkey, PersonList::Muted, Some(&mut txn))?;
-            GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
-        }
-
-        GLOBALS
-            .storage
-            .write_last_mute_list_edit(Unixtime::now().unwrap().0, Some(&mut txn))?;
-
-        txn.commit()?;
 
         Ok(())
     }
@@ -862,8 +890,6 @@ impl People {
         pubkey: PublicKey,
         created_at: i64,
     ) -> Result<bool, Error> {
-        let now = Unixtime::now().unwrap().0;
-
         let mut retval = false;
 
         let mut person = match GLOBALS.storage.read_person(&pubkey)? {
@@ -871,7 +897,6 @@ impl People {
             None => Person::new(pubkey),
         };
 
-        person.relay_list_last_received = now;
         if let Some(old_at) = person.relay_list_created_at {
             if created_at < old_at {
                 retval = false;
@@ -929,7 +954,9 @@ impl People {
         *self.active_person.write().await = Some(pubkey);
 
         // Load their relays
-        let best_relays = GLOBALS.storage.get_best_relays(pubkey, Direction::Write)?;
+        let best_relays = GLOBALS
+            .storage
+            .get_best_relays(pubkey, RelayUsage::Outbox)?;
         *self.active_persons_write_relays.write().await = best_relays;
 
         Ok(())
@@ -937,6 +964,10 @@ impl People {
 
     pub fn get_active_person(&self) -> Option<PublicKey> {
         *self.active_person.blocking_read()
+    }
+
+    pub async fn get_active_person_async(&self) -> Option<PublicKey> {
+        *self.active_person.read().await
     }
 
     pub fn get_active_person_write_relays(&self) -> Vec<(RelayUrl, u64)> {
@@ -971,4 +1002,120 @@ impl People {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Nip05Patch {
     nip05: Option<String>,
+}
+
+// Determine PersonList and fetches Metadata, allocating if needed.
+// This does NOT update that metadata from the event.
+// The bool indicates if the list was freshly allocated
+pub(crate) fn fetch_current_personlist_matching_event(
+    event: &Event,
+) -> Result<(PersonList, PersonListMetadata, bool), Error> {
+    let (list, metadata, new) = match event.kind {
+        EventKind::ContactList => {
+            let list = PersonList::Followed;
+            match GLOBALS.storage.get_person_list_metadata(list)? {
+                Some(md) => (list, md, false),
+                None => (list, Default::default(), true),
+            }
+        }
+        EventKind::MuteList => {
+            let list = PersonList::Muted;
+            match GLOBALS.storage.get_person_list_metadata(list)? {
+                Some(md) => (list, md, false),
+                None => (list, Default::default(), true),
+            }
+        }
+        EventKind::FollowSets => {
+            let dtag = match event.parameter() {
+                Some(dtag) => dtag,
+                None => return Err(ErrorKind::ListEventMissingDtag.into()),
+            };
+            if let Some((found_list, metadata)) = GLOBALS.storage.find_person_list_by_dtag(&dtag)? {
+                (found_list, metadata, false)
+            } else {
+                // Allocate new
+                let metadata = PersonListMetadata {
+                    dtag,
+                    event_created_at: event.created_at,
+                    ..Default::default()
+                };
+
+                // This is slim metadata.. The caller will fix it.
+                let list = GLOBALS.storage.allocate_person_list(&metadata, None)?;
+
+                (list, metadata, true)
+            }
+        }
+        _ => {
+            // This function does not apply to other event kinds
+            return Err(ErrorKind::NotAPersonListEvent.into());
+        }
+    };
+
+    Ok((list, metadata, new))
+}
+
+// as opposed to GLOBALS.storage.hash_person_list(list)
+pub fn hash_person_list_event(list: PersonList) -> Result<u64, Error> {
+    // we cannot do anything without an identity setup first
+    let my_pubkey = match GLOBALS.storage.read_setting_public_key() {
+        Some(pk) => pk,
+        None => return Err(ErrorKind::NoPublicKey.into()),
+    };
+
+    // Get the metadata of the list, which affects force-private logic
+    let metadata = match GLOBALS.storage.get_person_list_metadata(list)? {
+        Some(m) => m,
+        None => return Err(ErrorKind::ListNotFound.into()), // list event not found
+    };
+
+    // Load the latest PersonList event from the database
+    let maybe_event =
+        GLOBALS
+            .storage
+            .get_replaceable_event(list.event_kind(), my_pubkey, &metadata.dtag)?;
+
+    if let Some(event) = maybe_event {
+        // Collect the data in an ordered map
+        let mut map: BTreeMap<PublicKey, bool> = BTreeMap::new();
+
+        // Collect public entries
+        for tag in &event.tags {
+            if let Ok((pubkey, _, _)) = tag.parse_pubkey() {
+                let public = !metadata.private;
+                map.insert(pubkey, public);
+            }
+        }
+
+        // Collect private entries
+        if event.kind != EventKind::ContactList && !event.content.is_empty() {
+            if GLOBALS.identity.is_unlocked() {
+                let decrypted_content = GLOBALS.identity.decrypt(&my_pubkey, &event.content)?;
+                let tags: Vec<Tag> = serde_json::from_str(&decrypted_content)?;
+                for tag in &tags {
+                    if let Ok((pubkey, _, _)) = tag.parse_pubkey() {
+                        map.insert(pubkey, false);
+                    }
+                }
+            } else {
+                return Err(ErrorKind::NoPrivateKey.into());
+            }
+        }
+
+        // Hash
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        for (person, private) in map.iter() {
+            if list == PersonList::Followed && *private {
+                // Follow list events cannot handle private entries.
+                // To make hashes comparable, we skip private entries
+                continue;
+            }
+            person.hash(&mut hasher);
+            private.hash(&mut hasher);
+        }
+
+        Ok(hasher.finish())
+    } else {
+        Ok(0)
+    }
 }

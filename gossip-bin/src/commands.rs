@@ -1,12 +1,13 @@
 use bech32::FromBase32;
-use gossip_lib::PersonList;
 use gossip_lib::PersonRelay;
 use gossip_lib::GLOBALS;
 use gossip_lib::{Error, ErrorKind};
+use gossip_lib::{PersonList, PersonListMetadata};
 use nostr_types::{
-    Event, EventAddr, EventKind, Id, NostrBech32, NostrUrl, PrivateKey, PublicKey, RelayUrl,
-    UncheckedUrl, Unixtime,
+    EncryptedPrivateKey, Event, EventAddr, EventKind, Filter, Id, NostrBech32, NostrUrl, PreEvent,
+    PrivateKey, PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime,
 };
+use std::collections::HashSet;
 use std::env;
 use tokio::runtime::Runtime;
 use zeroize::Zeroize;
@@ -28,16 +29,26 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 23] = [
+const COMMANDS: [Command; 34] = [
     Command {
         cmd: "oneshot",
-        usage_params: "depends",
+        usage_params: "{depends}",
         desc: "temporary oneshot action",
     },
     Command {
         cmd: "add_person_relay",
         usage_params: "<hexOrBech32String> <relayurl>",
         desc: "add the relay as a read and write relay for the person",
+    },
+    Command {
+        cmd: "add_person_list",
+        usage_params: "<listname>",
+        desc: "add a new person list with the given name",
+    },
+    Command {
+        cmd: "backdate_eose",
+        usage_params: "",
+        desc: "backdate last_general_eose_at by 24 hours for every relay",
     },
     Command {
         cmd: "bech32_decode",
@@ -51,8 +62,23 @@ const COMMANDS: [Command; 23] = [
     },
     Command {
         cmd: "decrypt",
-        usage_params: "<pubkeyhex> <ciphertext> <padded?>",
-        desc: "decrypt the ciphertext from the pubkeyhex. padded=0 to not expect padding.",
+        usage_params: "<pubkeyhex> <ciphertext>",
+        desc: "decrypt the ciphertext from the pubkeyhex.",
+    },
+    Command {
+        cmd: "delete_spam_by_content",
+        usage_params: "<kind> <unixtime_since> <substring>",
+        desc: "delete all feed-displayable events with content matching the substring (including giftwraps)",
+    },
+    Command {
+        cmd: "delete_relay",
+        usage_params: "<relayurl>",
+        desc: "delete a relay record from storage.",
+    },
+    Command {
+        cmd: "dpi",
+        usage_params: "<dpi>",
+        desc: "override the DPI setting",
     },
     Command {
         cmd: "events_of_kind",
@@ -65,14 +91,24 @@ const COMMANDS: [Command; 23] = [
         desc: "print IDs of all events from <pubkeyhex> of kind=<kind>",
     },
     Command {
+        cmd: "export_encrypted_key",
+        usage_params: "",
+        desc: "Export the encrypted private key",
+    },
+    Command {
         cmd: "giftwrap_ids",
         usage_params: "",
         desc: "List the IDs of all giftwrap events you are tagged on",
     },
     Command {
         cmd: "help",
-        usage_params: "",
+        usage_params: "<command>",
         desc: "show this list",
+    },
+    Command {
+        cmd: "import_encrypted_private_key",
+        usage_params: "<ncryptsec>",
+        desc: "import encrypted private key",
     },
     Command {
         cmd: "import_event",
@@ -81,6 +117,11 @@ const COMMANDS: [Command; 23] = [
     },
     Command {
         cmd: "login",
+        usage_params: "",
+        desc: "login on the command line before starting the gossip GUI",
+    },
+    Command {
+        cmd: "offline",
         usage_params: "",
         desc: "login on the command line before starting the gossip GUI",
     },
@@ -98,6 +139,11 @@ const COMMANDS: [Command; 23] = [
         cmd: "print_muted",
         usage_params: "",
         desc: "print every pubkey that is muted",
+    },
+    Command {
+        cmd: "print_person_lists",
+        usage_params: "",
+        desc: "print every pubkey in every person list",
     },
     Command {
         cmd: "print_person",
@@ -120,9 +166,19 @@ const COMMANDS: [Command; 23] = [
         desc: "print all the relay records",
     },
     Command {
+        cmd: "print_seen_on",
+        usage_params: "<idhex>",
+        desc: "print the relays the event was seen on",
+    },
+    Command {
         cmd: "rebuild_indices",
         usage_params: "",
         desc: "Rebuild all event-related indices",
+    },
+    Command {
+        cmd: "rename_person_list",
+        usage_params: "<number> <newname>",
+        desc: "Rename a person list",
     },
     Command {
         cmd: "reprocess_recent",
@@ -165,26 +221,40 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
     match command.cmd {
         "oneshot" => oneshot(command, args)?,
         "add_person_relay" => add_person_relay(command, args)?,
+        "add_person_list" => add_person_list(command, args)?,
+        "backdate_eose" => backdate_eose()?,
         "bech32_decode" => bech32_decode(command, args)?,
         "bech32_encode_event_addr" => bech32_encode_event_addr(command, args)?,
         "decrypt" => decrypt(command, args)?,
+        "delete_spam_by_content" => delete_spam_by_content(command, args, runtime)?,
+        "delete_relay" => delete_relay(command, args)?,
+        "dpi" => override_dpi(command, args)?,
         "events_of_kind" => events_of_kind(command, args)?,
         "events_of_pubkey_and_kind" => events_of_pubkey_and_kind(command, args)?,
+        "export_encrypted_key" => export_encrypted_key()?,
         "giftwrap_ids" => giftwrap_ids(command)?,
-        "help" => help(command)?,
+        "help" => help(command, args)?,
+        "import_encrypted_private_key" => import_encrypted_private_key(command, args)?,
         "import_event" => import_event(command, args, runtime)?,
         "login" => {
-            login(command)?;
+            login()?;
+            return Ok(false);
+        }
+        "offline" => {
+            offline()?;
             return Ok(false);
         }
         "print_event" => print_event(command, args)?,
         "print_followed" => print_followed(command)?,
         "print_muted" => print_muted(command)?,
+        "print_person_lists" => print_person_lists(command)?,
         "print_person" => print_person(command, args)?,
         "print_person_relays" => print_person_relays(command, args)?,
         "print_relay" => print_relay(command, args)?,
         "print_relays" => print_relays(command)?,
-        "rebuild_indices" => rebuild_indices(command)?,
+        "print_seen_on" => print_seen_on(command, args)?,
+        "rebuild_indices" => rebuild_indices()?,
+        "rename_person_list" => rename_person_list(command, args)?,
         "reprocess_recent" => reprocess_recent(command, runtime)?,
         "ungiftwrap" => ungiftwrap(command, args)?,
         "verify" => verify(command, args)?,
@@ -195,10 +265,20 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
     Ok(true)
 }
 
-pub fn help(_cmd: Command) -> Result<(), Error> {
-    for c in COMMANDS.iter() {
-        println!("gossip {} {}", c.cmd, c.usage_params);
-        println!("    {}", c.desc);
+pub fn help(_cmd: Command, mut args: env::Args) -> Result<(), Error> {
+    if let Some(sub) = args.next() {
+        for c in COMMANDS.iter() {
+            if sub == c.cmd {
+                println!("gossip {} {}", c.cmd, c.usage_params);
+                println!("    {}", c.desc);
+                return Ok(());
+            }
+        }
+        println!("No such command {}", sub);
+    } else {
+        for c in COMMANDS.iter() {
+            println!("  {} {}", c.cmd, c.usage_params);
+        }
     }
     Ok(())
 }
@@ -231,6 +311,40 @@ pub fn add_person_relay(cmd: Command, mut args: env::Args) -> Result<(), Error> 
     pr.manually_paired_read = true;
     pr.manually_paired_write = true;
     GLOBALS.storage.write_person_relay(&pr, None)?;
+
+    Ok(())
+}
+
+pub fn add_person_list(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+    let listname = match args.next() {
+        Some(s) => s,
+        None => return cmd.usage("Missing listname parameter".to_string()),
+    };
+
+    let metadata = PersonListMetadata {
+        dtag: listname.clone(),
+        title: listname.clone(),
+        ..Default::default()
+    };
+
+    let _list = GLOBALS.storage.allocate_person_list(&metadata, None)?;
+    Ok(())
+}
+
+pub fn backdate_eose() -> Result<(), Error> {
+    let now = Unixtime::now().unwrap();
+    let ago = (now.0 - 60 * 60 * 24) as u64;
+
+    GLOBALS.storage.modify_all_relays(
+        |relay| {
+            if let Some(eose) = relay.last_general_eose_at {
+                if eose > ago {
+                    relay.last_general_eose_at = Some(ago);
+                }
+            }
+        },
+        None,
+    )?;
 
     Ok(())
 }
@@ -360,17 +474,195 @@ pub fn decrypt(cmd: Command, mut args: env::Args) -> Result<(), Error> {
         None => return cmd.usage("Missing ciphertext parameter".to_string()),
     };
 
-    let padded = match args.next() {
-        Some(padded) => padded == "1",
-        None => return cmd.usage("Missing padded parameter".to_string()),
-    };
+    login()?;
 
-    login(cmd)?;
-
-    let plaintext_bytes = GLOBALS.signer.nip44_decrypt(&pubkey, &ciphertext, padded)?;
-    let plaintext = String::from_utf8_lossy(&plaintext_bytes);
+    let plaintext = GLOBALS.identity.decrypt(&pubkey, &ciphertext)?;
     println!("{}", plaintext);
 
+    Ok(())
+}
+
+pub fn delete_spam_by_content(
+    cmd: Command,
+    mut args: env::Args,
+    runtime: &Runtime,
+) -> Result<(), Error> {
+    let mut kind: EventKind = match args.next() {
+        Some(integer) => integer.parse::<u32>()?.into(),
+        None => return cmd.usage("Missing kind parameter".to_string()),
+    };
+
+    let since = match args.next() {
+        Some(s) => Unixtime(s.parse::<i64>()?),
+        None => return cmd.usage("Missing <since_unixtime> paramter".to_string()),
+    };
+
+    let substring = match args.next() {
+        Some(c) => c,
+        None => return cmd.usage("Missing <substring> paramter".to_string()),
+    };
+
+    // If DM Chat, use GiftWrap
+    if kind == EventKind::DmChat {
+        kind = EventKind::GiftWrap;
+    }
+
+    // Login if we need to look into GiftWraps
+    if kind == EventKind::GiftWrap {
+        login()?;
+    }
+
+    // Get all event ids of the kind/since
+    let mut filter = Filter::new();
+    filter.add_event_kind(kind);
+    filter.since = Some(since);
+    let events = GLOBALS.storage.find_events_by_filter(&filter, |_| true)?;
+
+    println!("Searching through {} events...", events.len());
+
+    // Find events among those with matching spammy content
+    let mut target_ids: Vec<Id> = Vec::new();
+    for event in events {
+        let mut matches = false;
+        if kind == EventKind::GiftWrap {
+            if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(&event) {
+                if rumor.content.contains(&substring) {
+                    matches = true;
+                }
+            }
+        } else if event.content.contains(&substring) {
+            matches = true;
+        }
+
+        if matches {
+            target_ids.push(event.id);
+        }
+    }
+
+    // If no events we are done
+    if target_ids.is_empty() {
+        println!("No matches found");
+        return Ok(());
+    }
+
+    println!("Deleting {} events...", target_ids.len());
+
+    // Delete locally
+    let mut txn = GLOBALS.storage.get_write_txn()?;
+    for id in &target_ids {
+        // Delete locally
+        GLOBALS.storage.delete_event(*id, Some(&mut txn))?;
+
+        // NOTE: we cannot add a delete relationship; we can't delete
+        // other people's events.
+
+        // FIXME: add a database of marked-deleted events
+    }
+    txn.commit()?;
+
+    // Unless they were giftwraps, we are done
+    // (We cannot delete spam on relays that we didn't author unless it is a giftwrap)
+    if kind != EventKind::GiftWrap {
+        println!("Ok");
+        return Ok(());
+    }
+
+    // Get the relays these giftwraps were seen on
+    let mut relays: HashSet<RelayUrl> = HashSet::new();
+    for id in &target_ids {
+        // Get seen on relays
+        if let Ok(seen_on) = GLOBALS.storage.get_event_seen_on_relay(*id) {
+            for (relay, _when) in seen_on {
+                relays.insert(relay);
+            }
+        }
+    }
+
+    // Build up a single deletion event
+    let mut tags: Vec<Tag> = Vec::new();
+    for id in target_ids {
+        tags.push(Tag::new_event(id, None, None));
+    }
+    let event = {
+        let public_key = GLOBALS.identity.public_key().unwrap();
+        let pre_event = PreEvent {
+            pubkey: public_key,
+            created_at: Unixtime::now().unwrap(),
+            kind: EventKind::EventDeletion,
+            tags,
+            content: "spam".to_owned(),
+        };
+        // Should we add a pow? Maybe the relay needs it.
+        GLOBALS.identity.sign_event(pre_event)?
+    };
+    println!("{}", serde_json::to_string(&event).unwrap());
+
+    let job = tokio::task::spawn(async move {
+        // Process this event locally
+        if let Err(e) =
+            gossip_lib::process::process_new_event(&event, None, None, false, false).await
+        {
+            println!("ERROR: {}", e);
+        } else {
+            // Post the event to all the relays
+            for relay in relays {
+                if let Err(e) = gossip_lib::direct::post(relay.as_str(), event.clone()) {
+                    println!("ERROR: {}", e);
+                }
+            }
+        }
+    });
+
+    runtime.block_on(job)?;
+
+    println!("Ok.");
+    Ok(())
+}
+
+pub fn delete_relay(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+    let rurl = match args.next() {
+        Some(urlstr) => RelayUrl::try_from_str(&urlstr)?,
+        None => return cmd.usage("Missing relay url parameter".to_string()),
+    };
+
+    GLOBALS.storage.delete_relay(&rurl, None)?;
+
+    Ok(())
+}
+
+pub fn override_dpi(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+    let dpi = match args.next() {
+        Some(dpistr) => dpistr.parse::<u32>()?,
+        None => return cmd.usage("Missing DPI value".to_string()),
+    };
+
+    GLOBALS
+        .storage
+        .write_setting_override_dpi(&Some(dpi), None)?;
+
+    println!("DPI override setting set to {}", dpi);
+
+    Ok(())
+}
+
+pub fn import_encrypted_private_key(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+    let input = match args.next() {
+        Some(input) => input,
+        None => return cmd.usage("Missing ncryptsec parameter".to_string()),
+    };
+
+    let epk = EncryptedPrivateKey(input);
+
+    // Verify first
+    let mut password = rpassword::prompt_password("Password: ").unwrap();
+    let _private_key = epk.decrypt(&password)?;
+    password.zeroize();
+
+    GLOBALS
+        .storage
+        .write_encrypted_private_key(Some(&epk), None)?;
+
+    println!("Saved.");
     Ok(())
 }
 
@@ -383,7 +675,7 @@ pub fn import_event(cmd: Command, mut args: env::Args, runtime: &Runtime) -> Res
         None => return cmd.usage("Missing event parameter".to_string()),
     };
 
-    login(cmd.clone())?;
+    login()?;
 
     let job = tokio::task::spawn(async move {
         if let Err(e) =
@@ -418,7 +710,7 @@ pub fn print_event(cmd: Command, mut args: env::Args) -> Result<(), Error> {
 pub fn print_relay(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     if let Some(url) = args.next() {
         let rurl = RelayUrl::try_from_str(&url)?;
-        if let Some(relay) = GLOBALS.storage.read_relay(&rurl)? {
+        if let Some(relay) = GLOBALS.storage.read_relay(&rurl, None)? {
             println!("{}", serde_json::to_string_pretty(&relay)?);
         } else {
             println!("Relay not found.");
@@ -437,18 +729,73 @@ pub fn print_relays(_cmd: Command) -> Result<(), Error> {
     Ok(())
 }
 
+pub fn print_seen_on(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+    let idstr = match args.next() {
+        Some(id) => id,
+        None => return cmd.usage("Missing idhex parameter".to_string()),
+    };
+    let id = Id::try_from_hex_string(&idstr)?;
+    for (url, when) in GLOBALS.storage.get_event_seen_on_relay(id)? {
+        println!("{} at {}", url, when);
+    }
+    Ok(())
+}
+
 pub fn print_followed(_cmd: Command) -> Result<(), Error> {
-    let pubkeys = GLOBALS.storage.get_people_in_list(PersonList::Followed)?;
-    for pk in &pubkeys {
-        println!("{}", pk.as_hex_string());
+    let members = GLOBALS.storage.get_people_in_list(PersonList::Followed)?;
+    for (pk, public) in &members {
+        if let Some(person) = GLOBALS.storage.read_person(pk)? {
+            println!(
+                "{} {} {}",
+                if *public { "pub" } else { "prv" },
+                pk.as_hex_string(),
+                person.best_name()
+            );
+        } else {
+            println!(
+                "{} {}",
+                if *public { "pub" } else { "prv" },
+                pk.as_hex_string()
+            );
+        }
     }
     Ok(())
 }
 
 pub fn print_muted(_cmd: Command) -> Result<(), Error> {
-    let pubkeys = GLOBALS.storage.get_people_in_list(PersonList::Muted)?;
-    for pk in &pubkeys {
-        println!("{}", pk.as_hex_string());
+    let members = GLOBALS.storage.get_people_in_list(PersonList::Muted)?;
+    for (pk, public) in &members {
+        println!(
+            "{} {}",
+            if *public { "pub" } else { "prv" },
+            pk.as_hex_string()
+        );
+    }
+    Ok(())
+}
+
+pub fn print_person_lists(_cmd: Command) -> Result<(), Error> {
+    let all = GLOBALS.storage.get_all_person_list_metadata()?;
+    for (list, metadata) in all.iter() {
+        println!("LIST {}: {}", u8::from(*list), metadata.title);
+        let members = GLOBALS.storage.get_people_in_list(*list)?;
+        for (pk, public) in &members {
+            if let Some(person) = GLOBALS.storage.read_person(pk)? {
+                println!(
+                    "{} {} {}",
+                    if *public { "pub" } else { "prv" },
+                    pk.as_hex_string(),
+                    person.best_name()
+                );
+            } else {
+                println!(
+                    "{} {}",
+                    if *public { "pub" } else { "prv" },
+                    pk.as_hex_string()
+                );
+            }
+        }
+        println!();
     }
     Ok(())
 }
@@ -486,10 +833,11 @@ pub fn events_of_kind(cmd: Command, mut args: env::Args) -> Result<(), Error> {
         None => return cmd.usage("Missing kind parameter".to_string()),
     };
 
-    let ids = GLOBALS.storage.find_event_ids(&[kind], &[], None)?;
-
-    for id in ids {
-        println!("{}", id.as_hex_string());
+    let mut filter = Filter::new();
+    filter.add_event_kind(kind);
+    let events = GLOBALS.storage.find_events_by_filter(&filter, |_| true)?;
+    for event in events {
+        println!("{}", event.id.as_hex_string());
     }
 
     Ok(())
@@ -506,11 +854,25 @@ pub fn events_of_pubkey_and_kind(cmd: Command, mut args: env::Args) -> Result<()
         None => return cmd.usage("Missing kind parameter".to_string()),
     };
 
-    let ids = GLOBALS.storage.find_event_ids(&[kind], &[pubkey], None)?;
+    let mut filter = Filter::new();
+    filter.add_event_kind(kind);
+    filter.add_author(&pubkey.into());
+    let events = GLOBALS.storage.find_events_by_filter(&filter, |_| true)?;
 
-    for id in ids {
-        println!("{}", id.as_hex_string());
+    for event in events {
+        println!("{}", event.id.as_hex_string());
     }
+
+    Ok(())
+}
+
+pub fn export_encrypted_key() -> Result<(), Error> {
+    let epk = match GLOBALS.storage.read_encrypted_private_key()? {
+        Some(epk) => epk,
+        None => return Err(ErrorKind::NoPrivateKey.into()),
+    };
+
+    println!("{}", epk);
 
     Ok(())
 }
@@ -534,9 +896,9 @@ pub fn ungiftwrap(cmd: Command, mut args: env::Args) -> Result<(), Error> {
         None => return Err(ErrorKind::EventNotFound.into()),
     };
 
-    login(cmd.clone())?;
+    login()?;
 
-    let rumor = GLOBALS.signer.unwrap_giftwrap(&event)?;
+    let rumor = GLOBALS.identity.unwrap_giftwrap(&event)?;
 
     println!("{}", serde_json::to_string(&rumor)?);
 
@@ -544,30 +906,29 @@ pub fn ungiftwrap(cmd: Command, mut args: env::Args) -> Result<(), Error> {
 }
 
 pub fn giftwrap_ids(_cmd: Command) -> Result<(), Error> {
-    let ids = GLOBALS
-        .storage
-        .find_event_ids(&[EventKind::GiftWrap], &[], None)?;
+    let mut filter = Filter::new();
+    filter.add_event_kind(EventKind::GiftWrap);
 
-    for id in ids {
-        println!("{}", id.as_hex_string());
+    let events = GLOBALS.storage.find_events_by_filter(&filter, |_| true)?;
+
+    for event in events {
+        println!("{}", event.id.as_hex_string());
     }
 
     Ok(())
 }
 
-pub fn reprocess_recent(cmd: Command, runtime: &Runtime) -> Result<(), Error> {
-    login(cmd.clone())?;
+pub fn reprocess_recent(_cmd: Command, runtime: &Runtime) -> Result<(), Error> {
+    login()?;
 
     let job = tokio::task::spawn(async move {
-        let all_kinds: Vec<EventKind> = EventKind::iter().collect();
-
         let mut ago = Unixtime::now().unwrap();
         ago.0 -= 86400;
 
-        let events = match GLOBALS
-            .storage
-            .find_events(&all_kinds, &[], Some(ago), |_| true, false)
-        {
+        let mut filter = Filter::new();
+        filter.kinds = EventKind::iter().collect(); // all kinds
+        filter.since = Some(ago);
+        let events = match GLOBALS.storage.find_events_by_filter(&filter, |_| true) {
             Ok(e) => e,
             Err(e) => {
                 println!("ERROR: {}", e);
@@ -626,21 +987,58 @@ pub fn verify_json(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn rebuild_indices(cmd: Command) -> Result<(), Error> {
-    login(cmd.clone())?;
-
+pub fn rebuild_indices() -> Result<(), Error> {
+    println!("Login required in order to reindex DMs and GiftWraps");
+    login()?;
     GLOBALS.storage.rebuild_event_indices(None)?;
+
     Ok(())
 }
 
-pub fn login(_cmd: Command) -> Result<(), Error> {
-    let mut password = rpassword::prompt_password("Password: ").unwrap();
-    let epk = match GLOBALS.storage.read_encrypted_private_key()? {
-        Some(epk) => epk,
-        None => return Err(ErrorKind::NoPrivateKey.into()),
+pub fn rename_person_list(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+    let number: u8 = match args.next() {
+        Some(number) => number.parse::<u8>()?,
+        None => return cmd.usage("Missing number parameter".to_string()),
     };
-    GLOBALS.signer.set_encrypted_private_key(epk);
-    GLOBALS.signer.unlock_encrypted_private_key(&password)?;
-    password.zeroize();
+
+    let newname = match args.next() {
+        Some(name) => name,
+        None => return cmd.usage("Missing newname parameter".to_string()),
+    };
+
+    let list = match PersonList::from_number(number) {
+        Some(list) => list,
+        None => {
+            println!("No list with number={}", number);
+            return Ok(());
+        }
+    };
+
+    GLOBALS.storage.rename_person_list(list, newname, None)?;
+
+    Ok(())
+}
+
+pub fn login() -> Result<(), Error> {
+    if !GLOBALS.identity.is_unlocked() {
+        let mut password = rpassword::prompt_password("Password: ").unwrap();
+        if !GLOBALS.identity.has_private_key() {
+            let epk = match GLOBALS.storage.read_encrypted_private_key()? {
+                Some(epk) => epk,
+                None => return Err(ErrorKind::NoPrivateKey.into()),
+            };
+            GLOBALS.identity.set_encrypted_private_key(epk, &password)?;
+        } else {
+            GLOBALS.identity.unlock(&password)?;
+        }
+        password.zeroize();
+    } else {
+        println!("No private key, skipping login");
+    }
+    Ok(())
+}
+
+pub fn offline() -> Result<(), Error> {
+    GLOBALS.storage.write_setting_offline(&true, None)?;
     Ok(())
 }

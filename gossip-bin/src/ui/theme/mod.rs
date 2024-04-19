@@ -5,7 +5,6 @@ use eframe::egui::{
     TextFormat, TextStyle, Ui,
 };
 use eframe::epaint::{ecolor, FontFamily, FontId, Shadow};
-use gossip_lib::Settings;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -34,14 +33,14 @@ pub struct Theme {
 }
 
 impl Theme {
-    pub fn from_settings(settings: &Settings) -> Theme {
+    pub fn from_settings() -> Theme {
         Theme {
-            variant: match &*settings.theme_variant {
+            variant: match &*read_setting!(theme_variant) {
                 "Default" => ThemeVariant::Default,
                 _ => ThemeVariant::Default,
             },
-            dark_mode: settings.dark_mode,
-            follow_os_dark_mode: settings.follow_os_dark_mode,
+            dark_mode: read_setting!(dark_mode),
+            follow_os_dark_mode: read_setting!(follow_os_dark_mode),
         }
     }
 }
@@ -68,10 +67,149 @@ macro_rules! theme_dispatch {
             }
         }
 
+        #[allow(dead_code)]
         impl Theme {
-            #[allow(dead_code)]
             pub fn name(&self) -> &'static str {
                 self.variant.name()
+            }
+
+            // Palette
+            pub fn neutral_50(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::neutral_50(), )+
+                }
+            }
+
+            pub fn neutral_100(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::neutral_100(), )+
+                }
+            }
+
+            pub fn neutral_200(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::neutral_200(), )+
+                }
+            }
+
+            pub fn neutral_300(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::neutral_300(), )+
+                }
+            }
+
+            pub fn neutral_400(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::neutral_400(), )+
+                }
+            }
+
+            pub fn neutral_500(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::neutral_500(), )+
+                }
+            }
+
+            pub fn neutral_600(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::neutral_600(), )+
+                }
+            }
+
+            pub fn neutral_700(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::neutral_700(), )+
+                }
+            }
+
+            pub fn neutral_800(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::neutral_800(), )+
+                }
+            }
+
+            pub fn neutral_900(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::neutral_900(), )+
+                }
+            }
+
+            pub fn neutral_950(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::neutral_950(), )+
+                }
+            }
+
+            pub fn accent_dark(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::accent_dark(), )+
+                }
+            }
+
+            pub fn accent_dark_b20(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::accent_dark_b20(), )+
+                }
+            }
+
+            pub fn accent_dark_w20(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::accent_dark_w20(), )+
+                }
+            }
+
+            pub fn accent_light(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::accent_light(), )+
+                }
+            }
+
+            pub fn accent_light_b20(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::accent_light_b20(), )+
+                }
+            }
+
+            pub fn accent_light_w20(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::accent_light_w20(), )+
+                }
+            }
+
+            pub fn red_100(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::red_100(), )+
+                }
+            }
+
+            pub fn red_500(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::red_500(), )+
+                }
+            }
+
+            pub fn lime_500(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::lime_500(), )+
+                }
+            }
+
+            pub fn amber_100(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::amber_100(), )+
+                }
+            }
+
+            pub fn amber_400(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::amber_400(), )+
+                }
+            }
+
+            pub fn amber_500(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::amber_500(), )+
+                }
             }
 
             pub fn accent_color(&self) -> Color32 {
@@ -88,6 +226,19 @@ macro_rules! theme_dispatch {
             }
 
             #[allow(dead_code)]
+            pub fn danger_color(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::danger_color(self.dark_mode), )+
+                }
+            }
+
+            pub fn main_content_bgcolor(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::main_content_bgcolor(self.dark_mode), )+
+                }
+            }
+
+            #[allow(dead_code)]
             pub fn highlighted_note_bgcolor(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::highlighted_note_bgcolor(self.dark_mode), )+
@@ -100,9 +251,31 @@ macro_rules! theme_dispatch {
                 }
             }
 
-            pub fn get_on_accent_style(&self) -> Style {
+            pub fn on_accent_style(&self, style: &mut Style) {
                 match self.variant {
-                    $( $variant => $class::get_on_accent_style(self.dark_mode), )+
+                    $( $variant => $class::on_accent_style(style, self.dark_mode), )+
+                }
+            }
+
+            /// accent-colored button style 1 (filled)
+            pub fn accent_button_1_style(&self, style: &mut Style) {
+                match self.variant {
+                    $( $variant => $class::accent_button_1_style(style, self.dark_mode), )+
+                }
+            }
+
+            /// accent-colored button style 2 (white w. accent outline)
+            pub fn accent_button_2_style(&self, style: &mut Style) {
+                match self.variant {
+                    $( $variant => $class::accent_button_2_style(style, self.dark_mode), )+
+                }
+            }
+
+            /// 'danger' colored hover for accent-colored button styles
+            #[allow(dead_code)]
+            pub fn accent_button_danger_hover(&self, style: &mut Style) {
+                match self.variant {
+                    $( $variant => $class::accent_button_danger_hover(style, self.dark_mode), )+
                 }
             }
 
@@ -178,6 +351,13 @@ macro_rules! theme_dispatch {
             pub fn input_text_color(&self) -> Color32 {
                 match self.variant {
                     $( $variant => $class::input_text_color(self.dark_mode), )+
+                }
+            }
+
+            #[allow(dead_code)]
+            pub fn input_bg_color(&self) -> Color32 {
+                match self.variant {
+                    $( $variant => $class::input_bg_color(self.dark_mode), )+
                 }
             }
 
@@ -340,19 +520,57 @@ pub trait ThemeDef: Send + Sync {
     // User facing name
     fn name() -> &'static str;
 
+    // Palette
+    fn neutral_50() -> Color32;
+    fn neutral_100() -> Color32;
+    fn neutral_200() -> Color32;
+    fn neutral_300() -> Color32;
+    fn neutral_400() -> Color32;
+    fn neutral_500() -> Color32;
+    fn neutral_600() -> Color32;
+    fn neutral_700() -> Color32;
+    fn neutral_800() -> Color32;
+    fn neutral_900() -> Color32;
+    fn neutral_950() -> Color32;
+    fn accent_dark() -> Color32;
+    fn accent_dark_b20() -> Color32; // overlay 20% black
+    fn accent_dark_w20() -> Color32; // overlay 20% white
+    fn accent_light() -> Color32;
+    fn accent_light_b20() -> Color32; // overlay 20% black
+    fn accent_light_w20() -> Color32; // overlay 20% white
+    fn red_100() -> Color32;
+    fn red_500() -> Color32;
+    fn lime_500() -> Color32;
+    fn amber_100() -> Color32;
+    fn amber_400() -> Color32;
+    fn amber_500() -> Color32;
+
     // Used for strokes, lines, and text in various places
     fn accent_color(dark_mode: bool) -> Color32;
 
+    fn accent_complementary_color(dark_mode: bool) -> Color32;
+
+    fn danger_color(dark_mode: bool) -> Color32;
+
+    fn main_content_bgcolor(dark_mode: bool) -> Color32;
+
     // Used as background for highlighting unread events
     fn highlighted_note_bgcolor(dark_mode: bool) -> Color32;
-
-    fn accent_complementary_color(dark_mode: bool) -> Color32;
 
     // These styles are used by egui by default for widgets if you don't override them
     // in place.
     fn get_style(dark_mode: bool) -> Style;
     /// the style to use when displaying on-top of an accent-colored background
-    fn get_on_accent_style(dark_mode: bool) -> Style;
+    fn on_accent_style(style: &mut Style, dark_mode: bool);
+
+    /// accent-colored button style 1 (filled)
+    fn accent_button_1_style(style: &mut Style, dark_mode: bool);
+
+    /// accent-colored button style 2 (white w. accent outline)
+    fn accent_button_2_style(style: &mut Style, dark_mode: bool);
+
+    /// 'danger' colored hover for accent-colored button styles
+    fn accent_button_danger_hover(style: &mut Style, dark_mode: bool);
 
     fn font_definitions() -> FontDefinitions;
     fn text_styles() -> BTreeMap<TextStyle, FontId>;
@@ -371,6 +589,7 @@ pub trait ThemeDef: Send + Sync {
     // labels made clickable, and TextEdit text. We try to always override TextEdit
     // text with this color instead.
     fn input_text_color(dark_mode: bool) -> eframe::egui::Color32;
+    fn input_bg_color(dark_mode: bool) -> eframe::egui::Color32;
 
     // feed styling
     fn feed_scroll_rounding(feed: &FeedProperties) -> Rounding;
@@ -403,7 +622,8 @@ pub trait ThemeDef: Send + Sync {
 
     fn darken_color(color: Color32, factor: f32) -> Color32 {
         let mut hsva: ecolor::HsvaGamma = color.into();
-        hsva.v = (hsva.v * factor).max(0.0).min(1.0);
+        let original_value = hsva.v;
+        hsva.v = original_value * (1.0 - factor); // Linear interpolation
         hsva.into()
     }
 }
@@ -433,9 +653,17 @@ pub(super) fn font_definitions() -> FontDefinitions {
     font_data.insert(
         "Inconsolata".to_owned(),
         FontData::from_static(include_bytes!("../../../../fonts/Inconsolata-Regular.ttf")).tweak(
+            #[cfg(not(target_os = "macos"))]
             FontTweak {
                 scale: 1.22,            // This font is smaller than DejaVuSans
                 y_offset_factor: -0.18, // and too low
+                y_offset: 0.0,
+                baseline_offset_factor: 0.0,
+            },
+            #[cfg(target_os = "macos")]
+            FontTweak {
+                scale: 1.22,            // This font is smaller than DejaVuSans
+                y_offset_factor: -0.05, // and too low
                 y_offset: 0.0,
                 baseline_offset_factor: 0.0,
             },

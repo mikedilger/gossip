@@ -2,7 +2,10 @@ use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOv
 use crate::dm_channel::DmChannel;
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use nostr_types::{Event, EventKind, Id, PublicKey, PublicKeyHex, RelayUrl, Unixtime};
+use crate::people::PersonList;
+use nostr_types::{
+    Event, EventKind, EventReference, Filter, Id, PublicKey, PublicKeyHex, Unixtime,
+};
 use parking_lot::RwLock;
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -12,10 +15,10 @@ use tokio::task;
 /// Kinds of feeds, with configuration parameteers
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum FeedKind {
-    Followed(bool), // with replies
-    Inbox(bool),    // indirect
+    List(PersonList, bool), // with replies
+    Inbox(bool),            // indirect
     Thread {
-        id: Id,
+        id: Id, // FIXME, should be an EventReference
         referenced_by: Id,
         author: Option<PublicKey>,
     },
@@ -27,14 +30,29 @@ impl std::fmt::Display for FeedKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             FeedKind::DmChat(channel) => write!(f, "{}", channel.name()),
-            FeedKind::Followed(_) => write!(f, "Following"),
+            FeedKind::List(pl, _) => match GLOBALS.storage.get_person_list_metadata(*pl) {
+                Ok(Some(md)) => write!(f, "{}", md.title),
+                _ => write!(f, "UNKNOWN"),
+            },
             FeedKind::Inbox(_) => write!(f, "Inbox"),
             FeedKind::Thread {
-                id: _,
+                id,
                 referenced_by: _,
                 author: _,
-            } => write!(f, "Thread"),
-            FeedKind::Person(_) => write!(f, "Person"),
+            } => write!(f, "Thread {}", crate::names::hex_id_short(&(*id).into())),
+            FeedKind::Person(pk) => write!(f, "{}", crate::names::best_name_from_pubkey_lookup(pk)),
+        }
+    }
+}
+
+impl FeedKind {
+    pub fn can_load_more(&self) -> bool {
+        match self {
+            Self::List(_, _) => true,
+            Self::Inbox(_) => true,
+            Self::Thread { .. } => false, // always full
+            Self::Person(_) => true,
+            Self::DmChat(_) => false, // always full
         }
     }
 }
@@ -51,6 +69,11 @@ pub struct Feed {
     inbox_feed: RwLock<Vec<Id>>,
     person_feed: RwLock<Vec<Id>>,
     dm_chat_feed: RwLock<Vec<Id>>,
+
+    // When feeds start
+    general_feed_start: RwLock<Unixtime>,
+    person_feed_start: RwLock<Unixtime>,
+    inbox_feed_start: RwLock<Unixtime>,
 
     // We only recompute the feed at specified intervals (or when they switch)
     interval_ms: RwLock<u32>,
@@ -69,15 +92,54 @@ impl Feed {
     pub(crate) fn new() -> Feed {
         Feed {
             recompute_lock: AtomicBool::new(false),
-            current_feed_kind: RwLock::new(FeedKind::Followed(false)),
+            current_feed_kind: RwLock::new(FeedKind::List(PersonList::Followed, false)),
             followed_feed: RwLock::new(Vec::new()),
             inbox_feed: RwLock::new(Vec::new()),
             person_feed: RwLock::new(Vec::new()),
             dm_chat_feed: RwLock::new(Vec::new()),
+            general_feed_start: RwLock::new(Unixtime::now().unwrap()),
+            person_feed_start: RwLock::new(Unixtime::now().unwrap()),
+            inbox_feed_start: RwLock::new(Unixtime::now().unwrap()),
             interval_ms: RwLock::new(10000), // Every 10 seconds, until we load from settings
             last_computed: RwLock::new(None),
             thread_parent: RwLock::new(None),
         }
+    }
+
+    /// Done during startup
+    pub(crate) fn set_feed_starts(
+        &self,
+        general_feed_start: Unixtime,
+        person_feed_start: Unixtime,
+        inbox_feed_start: Unixtime,
+    ) {
+        *self.general_feed_start.write() = general_feed_start;
+        *self.person_feed_start.write() = person_feed_start;
+        *self.inbox_feed_start.write() = inbox_feed_start;
+    }
+
+    /// This only looks further back in stored events, it doesn't deal with minion subscriptions.
+    pub(crate) fn load_more_general_feed(&self) -> Unixtime {
+        let mut start = *self.general_feed_start.read();
+        start = start - Duration::from_secs(GLOBALS.storage.read_setting_feed_chunk());
+        *self.general_feed_start.write() = start;
+        start
+    }
+
+    /// This only looks further back in stored events, it doesn't deal with minion subscriptions.
+    pub(crate) fn load_more_person_feed(&self) -> Unixtime {
+        let mut start = *self.person_feed_start.read();
+        start = start - Duration::from_secs(GLOBALS.storage.read_setting_person_feed_chunk());
+        *self.person_feed_start.write() = start;
+        start
+    }
+
+    /// This only looks further back in stored events, it doesn't deal with minion subscriptions.
+    pub(crate) fn load_more_inbox_feed(&self) -> Unixtime {
+        let mut start = *self.inbox_feed_start.read();
+        start = start - Duration::from_secs(GLOBALS.storage.read_setting_replies_chunk());
+        *self.inbox_feed_start.write() = start;
+        start
     }
 
     fn unlisten(&self) {
@@ -90,7 +152,7 @@ impl Feed {
                 target: "all".to_string(),
                 payload: ToMinionPayload {
                     job_id: 0,
-                    detail: ToMinionPayloadDetail::UnsubscribeThreadFeed,
+                    detail: ToMinionPayloadDetail::UnsubscribeReplies,
                 },
             });
         }
@@ -108,12 +170,12 @@ impl Feed {
         }
     }
 
-    /// Change the feed to the main `followed` feed
-    pub fn set_feed_to_followed(&self, with_replies: bool) {
+    /// Change the feed to the main feed
+    pub fn set_feed_to_main(&self, list: PersonList, with_replies: bool) {
         // We are always subscribed to the general feed. Don't resubscribe here
         // because it won't have changed, but the relays will shower you with
         // all those events again.
-        *self.current_feed_kind.write() = FeedKind::Followed(with_replies);
+        *self.current_feed_kind.write() = FeedKind::List(list, with_replies);
         *self.thread_parent.write() = None;
 
         // Recompute as they switch
@@ -134,13 +196,7 @@ impl Feed {
     }
 
     /// Change the feed to a thread
-    pub fn set_feed_to_thread(
-        &self,
-        id: Id,
-        referenced_by: Id,
-        relays: Vec<RelayUrl>,
-        author: Option<PublicKey>,
-    ) {
+    pub fn set_feed_to_thread(&self, id: Id, referenced_by: Id, author: Option<PublicKey>) {
         *self.current_feed_kind.write() = FeedKind::Thread {
             id,
             referenced_by,
@@ -160,7 +216,6 @@ impl Feed {
         let _ = GLOBALS.to_overlord.send(ToOverlordMessage::SetThreadFeed {
             id,
             referenced_by,
-            relays,
             author,
         });
     }
@@ -176,13 +231,9 @@ impl Feed {
         self.unlisten();
 
         // Listen for Person events
-        let _ = GLOBALS.to_minions.send(ToMinionMessage {
-            target: "all".to_string(),
-            payload: ToMinionPayload {
-                job_id: 0,
-                detail: ToMinionPayloadDetail::SubscribePersonFeed(pubkey),
-            },
-        });
+        let _ = GLOBALS
+            .to_overlord
+            .send(ToOverlordMessage::SetPersonFeed(pubkey));
     }
 
     /// Change the feed to a DmChat channel
@@ -301,45 +352,49 @@ impl Feed {
 
         let current_feed_kind = self.current_feed_kind.read().to_owned();
         match current_feed_kind {
-            FeedKind::Followed(with_replies) => {
-                let mut followed_pubkeys: Vec<PublicKey> = GLOBALS.people.get_followed_pubkeys();
+            FeedKind::List(list, with_replies) => {
+                let pubkeys: Vec<PublicKeyHex> = GLOBALS
+                    .storage
+                    .get_people_in_list(list)?
+                    .drain(..)
+                    .map(|(pk, _)| pk.into())
+                    .collect();
 
-                if let Some(pubkey) = GLOBALS.signer.public_key() {
-                    followed_pubkeys.push(pubkey); // add the user
-                }
-
-                let since = now - Duration::from_secs(GLOBALS.storage.read_setting_feed_chunk());
+                let since: Unixtime = *self.general_feed_start.read();
 
                 // FIXME we don't include delegated events. We should look for all events
                 // delegated to people we follow and include those in the feed too.
 
-                let followed_events: Vec<Id> = GLOBALS
-                    .storage
-                    .find_events(
-                        &kinds_without_dms,
-                        &followed_pubkeys, // pubkeys
-                        Some(since),
-                        |e| {
-                            e.created_at <= now // no future events
-                                && e.kind != EventKind::EncryptedDirectMessage // no DMs
-                                && e.kind != EventKind::DmChat // no DMs
-                                && !dismissed.contains(&e.id) // not dismissed
-                                && if !with_replies {
-                                    !matches!(e.replies_to(), Some((_id, _))) // is not a reply
-                                } else {
-                                    true
-                                }
-                        },
-                        true,
-                    )?
-                    .iter()
-                    .map(|e| e.id)
-                    .collect();
+                let events: Vec<Id> = if pubkeys.is_empty() {
+                    Default::default()
+                } else {
+                    let mut filter = Filter::new();
+                    filter.authors = pubkeys;
+                    filter.kinds = kinds_without_dms;
+                    filter.since = Some(since);
 
-                *self.followed_feed.write() = followed_events;
+                    GLOBALS
+                        .storage
+                        .find_events_by_filter(&filter, |e| {
+                            e.created_at <= now // no future events
+                                    && e.kind != EventKind::EncryptedDirectMessage // no DMs
+                                    && e.kind != EventKind::DmChat // no DMs
+                                    && !dismissed.contains(&e.id) // not dismissed
+                                    && if !with_replies {
+                                        e.replies_to().is_none() // is not a reply
+                                    } else {
+                                        true
+                                    }
+                        })?
+                        .iter()
+                        .map(|e| e.id)
+                        .collect()
+                };
+
+                *self.followed_feed.write() = events;
             }
             FeedKind::Inbox(indirect) => {
-                if let Some(my_pubkey) = GLOBALS.signer.public_key() {
+                if let Some(my_pubkey) = GLOBALS.identity.public_key() {
                     // Unfortunately it is expensive to find all events referencing
                     // any of my events, and we don't have such an index.
                     //
@@ -347,14 +402,15 @@ impl Feed {
                     // 'p' tag the authors of people up the chain (see last paragraph
                     // of NIP-10)
 
-                    let my_event_ids: HashSet<Id> = GLOBALS.storage.find_event_ids(
-                        &kinds_with_dms,
-                        &[my_pubkey], // pubkeys
-                        None,         // since
-                    )?;
+                    let since = *self.inbox_feed_start.read();
 
-                    let since =
-                        now - Duration::from_secs(GLOBALS.storage.read_setting_replies_chunk());
+                    let mut filter = Filter::new();
+                    filter.kinds = kinds_with_dms.clone();
+                    filter.add_author(&my_pubkey.into());
+                    filter.since = Some(since);
+                    let my_events: Vec<Event> =
+                        GLOBALS.storage.find_events_by_filter(&filter, |_| true)?;
+                    let my_event_ids: HashSet<Id> = my_events.iter().map(|e| e.id).collect();
 
                     let my_pubkeyhex: PublicKeyHex = my_pubkey.into();
 
@@ -380,15 +436,23 @@ impl Feed {
                                 }
 
                                 // Include if it directly replies to one of my events
-                                if let Some((id, _)) = e.replies_to() {
-                                    if my_event_ids.contains(&id) {
-                                        return true;
+                                match e.replies_to() {
+                                    Some(EventReference::Id { id, .. }) => {
+                                        if my_event_ids.contains(&id) {
+                                            return true;
+                                        }
                                     }
+                                    Some(EventReference::Addr(ea)) => {
+                                        if ea.author == my_pubkey {
+                                            return true;
+                                        }
+                                    }
+                                    None => (),
                                 }
 
                                 if indirect {
                                     // Include if it tags me
-                                    e.people().iter().any(|(p, _, _)| *p == my_pubkey.into())
+                                    e.people().iter().any(|(p, _, _)| *p == my_pubkey)
                                 } else {
                                     // Include if it directly references me in the content
                                     e.people_referenced_in_content()
@@ -417,12 +481,11 @@ impl Feed {
                 }
             }
             FeedKind::Person(person_pubkey) => {
-                let since =
-                    now - Duration::from_secs(GLOBALS.storage.read_setting_person_feed_chunk());
+                let start: Unixtime = *self.person_feed_start.read();
 
                 let pphex: PublicKeyHex = person_pubkey.into();
 
-                let filter = |e: &Event| {
+                let screen = |e: &Event| {
                     if dismissed.contains(&e.id) {
                         return false;
                     }
@@ -432,20 +495,19 @@ impl Feed {
                     true
                 };
 
+                let mut filter: Filter = Filter::new();
+                filter.authors = vec![person_pubkey.into()];
+                filter.kinds = kinds_without_dms.clone();
+                filter.since = Some(start);
+
                 let mut events: Vec<Event> = GLOBALS
                     .storage
-                    .find_events(
-                        &kinds_without_dms,
-                        &[person_pubkey],
-                        Some(since),
-                        filter,
-                        false,
-                    )?
+                    .find_events_by_filter(&filter, screen)?
                     .iter()
                     .chain(
                         GLOBALS
                             .storage
-                            .find_tagged_events("delegation", Some(pphex.as_str()), filter, false)?
+                            .find_tagged_events("delegation", Some(pphex.as_str()), screen, false)?
                             .iter(),
                     )
                     .map(|e| e.to_owned())
@@ -478,13 +540,83 @@ pub fn enabled_event_kinds() -> Vec<EventKind> {
 
     EventKind::iter()
         .filter(|k| {
-            ((*k != EventKind::Reaction) || reactions)
-                && ((*k != EventKind::Repost) || reposts)
-                && ((*k != EventKind::LongFormContent) || show_long_form)
-                && ((*k != EventKind::EncryptedDirectMessage) || direct_messages)
-                && ((*k != EventKind::DmChat) || direct_messages)
-                && ((*k != EventKind::GiftWrap) || direct_messages)
-                && ((*k != EventKind::Zap) || enable_zap_receipts)
+            *k == EventKind::Metadata
+                || *k == EventKind::TextNote
+            //|| *k == EventKind::RecommendRelay
+                || *k == EventKind::ContactList
+                || ((*k == EventKind::EncryptedDirectMessage) && direct_messages)
+                || *k == EventKind::EventDeletion
+                || ((*k == EventKind::Repost) && reposts)
+                || ((*k == EventKind::Reaction) && reactions)
+            //|| *k == EventKind::BadgeAward
+            //|| *k == EventKind::Seal // -- never subscribed to
+                || ((*k == EventKind::DmChat) && direct_messages)
+                || ((*k == EventKind::GenericRepost) && reposts)
+            //|| *k == EventKind::ChannelCreation
+            //|| *k == EventKind::ChannelMetadata
+            //|| *k == EventKind::ChannelMessage
+            //|| *k == EventKind::ChannelHideMessage
+            //|| *k == EventKind::ChannelMuteUser
+            //|| *k == EventKind::PublicChatReserved45
+            //|| *k == EventKind::PublicChatReserved46
+            //|| *k == EventKind::PublicChatReserved47
+            //|| *k == EventKind::PublicChatReserved48
+            //|| *k == EventKind::PublicChatReserved49
+            // || *k == EventKind::Timestamp
+                || ((*k == EventKind::GiftWrap) && direct_messages)
+            // || *k == EventKind::FileMetadata
+            // || *k == EventKind::LiveChatMessage
+            // || *k == EventKind::ProblemTracker
+            // || *k == EventKind::Reporting
+            // || *k == EventKind::Label
+            // || *k == EventKind::CommunityPost
+            // || *k == EventKind::CommunityPostApproval
+            // || *k == EventKind::JobFeedback
+            // || *k == EventKind::ZapGoal
+                || *k == EventKind::ZapRequest
+                || ((*k == EventKind::Zap) && enable_zap_receipts)
+            // || *k == EventKind::Highlights
+                || *k == EventKind::MuteList
+            // || *k == EventKind::PinList
+                || *k == EventKind::RelayList
+            // || *k == EventKind::BookmarkList
+            // || *k == EventKind::CommunityList
+            // || *k == EventKind::PublicChatsList
+            // || *k == EventKind::BlockedRelaysList
+            // || *k == EventKind::SearchRelaysList
+            // || *k == EventKind::InterestsList
+            // || *k == EventKind::UserEmojiList
+            // || *k == EventKind::WalletInfo
+            // || *k == EventKind::Auth -- never subscribed to
+            // || *k == EventKind::WalletRequest
+            // || *k == EventKind::WalletResponse
+            // || *k == EventKind::NostrConnect
+            // || *k == EventKind::HttpAuth
+                || *k == EventKind::FollowSets
+            // || *k == EventKind::GenericSets
+            // || *k == EventKind::RelaySets
+            // || *k == EventKind::BookmarkSets
+            // || *k == EventKind::CurationSets
+            // || *k == EventKind::ProfileBadges
+            // || *k == EventKind::BadgeDefinition
+            // || *k == EventKind::InterestSets
+            // || *k == EventKind::CreateUpdateStall
+            // || *k == EventKind::CreateUpdateProduct
+                || ((*k == EventKind::LongFormContent) && show_long_form)
+            // || *k == EventKind::DraftLongFormContent
+            // || *k == EventKind::EmojiSets
+            // || *k == EventKind::AppSpecificData
+            // || *k == EventKind::LiveEvent
+            // || *k == EventKind::UserStatus
+            // || *k == EventKind::ClassifiedListing
+            // || *k == EventKind::DraftClassifiedListing
+            // || *k == EventKind::DateBasedCalendarEvent
+            // || *k == EventKind::TimeBasedCalendarEvent
+            // || *k == EventKind::Calendar
+            // || *k == EventKind::CalendarEventRsvp
+            // || *k == EventKind::HandlerRecommendation
+            // || *k == EventKind::HandlerInformation
+            // || *k == EventKind::CommunityDefinition
         })
         .collect()
 }
@@ -493,8 +625,11 @@ pub fn feed_related_event_kinds(dms: bool) -> Vec<EventKind> {
     enabled_event_kinds()
         .drain(..)
         .filter(|k| {
-            (k.is_feed_related() || *k == EventKind::GiftWrap)
-                && (dms || (*k != EventKind::EncryptedDirectMessage && *k != EventKind::DmChat))
+            k.is_feed_related()
+                && (dms
+                    || (*k != EventKind::EncryptedDirectMessage
+                        && *k != EventKind::DmChat
+                        && *k != EventKind::GiftWrap))
         })
         .collect()
 }
@@ -503,8 +638,11 @@ pub fn feed_displayable_event_kinds(dms: bool) -> Vec<EventKind> {
     enabled_event_kinds()
         .drain(..)
         .filter(|k| {
-            (k.is_feed_displayable() || *k == EventKind::GiftWrap)
-                && (dms || (*k != EventKind::EncryptedDirectMessage && *k != EventKind::DmChat))
+            k.is_feed_displayable()
+                && (dms
+                    || (*k != EventKind::EncryptedDirectMessage
+                        && *k != EventKind::DmChat
+                        && *k != EventKind::GiftWrap))
         })
         .collect()
 }

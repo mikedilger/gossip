@@ -1,56 +1,62 @@
 mod content;
 
-pub use super::Notes;
 use std::cell::RefCell;
 use std::rc::Rc;
 
 use super::notedata::{NoteData, RepostType};
 
 use super::FeedNoteParams;
-use crate::ui::widgets::CopyButton;
+use crate::ui::widgets::{self, AvatarSize, CopyButton};
 use crate::ui::{GossipUi, Page};
-use crate::AVATAR_SIZE_F32;
+use crate::{AVATAR_SIZE_F32, AVATAR_SIZE_REPOST_F32};
+use eframe::egui::{self, Margin};
+use egui::{
+    Align, Context, Frame, Label, Layout, RichText, Sense, Separator, Stroke, TextStyle, Ui,
+};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::DmChannel;
 use gossip_lib::FeedKind;
-use gossip_lib::{ZapState, GLOBALS};
-pub const AVATAR_SIZE_REPOST_F32: f32 = 27.0; // points, not pixels
-use eframe::egui::{self, Margin};
-use egui::{
-    Align, Context, Frame, Image, Label, Layout, RichText, Sense, Separator, Stroke, TextStyle, Ui,
-    Vec2,
+use gossip_lib::{Globals, ZapState, GLOBALS};
+use nostr_types::{
+    Event, EventAddr, EventDelegation, EventKind, EventPointer, EventReference, IdHex, NostrUrl,
+    UncheckedUrl,
 };
-use nostr_types::{Event, EventDelegation, EventKind, EventPointer, IdHex, NostrUrl, UncheckedUrl};
 
+#[derive(Default)]
 pub struct NoteRenderData {
     /// Height of the post
     /// This is only used in feed_post_inner_indent() and is often just set to 0.0, but should
     /// be taken from app.height if we can get that data.
     pub height: f32,
+
     /// Has this post been seen yet?
     pub is_new: bool,
+
     /// This message is the focus of the view (formerly called is_focused)
     pub is_main_event: bool,
+
     /// This message is a repost of another message
     pub has_repost: bool,
+
     /// Is this post being mentioned within a comment
     pub is_comment_mention: bool,
+
     /// This message is part of a thread
     pub is_thread: bool,
+
     /// Is this the first post in the display?
     pub is_first: bool,
+
     /// Is this the last post in the display
     pub is_last: bool,
+
     /// Position in the thread, focused message = 0
     pub thread_position: i32,
-    /// User can post
-    pub can_post: bool,
 }
 
 pub(super) fn render_note(
     app: &mut GossipUi,
     ctx: &Context,
-    _frame: &mut eframe::Frame,
     ui: &mut Ui,
     feed_note_params: FeedNoteParams,
 ) {
@@ -63,15 +69,17 @@ pub(super) fn render_note(
         is_last,
     } = feed_note_params;
 
+    let mut replies = Vec::new();
+
     if let Some(note_ref) = app.notes.try_update_and_get(&id) {
         // FIXME respect app.settings.show_long_form on reposts
         // FIXME drop the cached notes on recompute
 
         if let Ok(note_data) = note_ref.try_borrow() {
-            let skip = (note_data.muted()
+            let skip = ((note_data.muted() && read_setting!(hide_mutes_entirely))
                 && !matches!(app.page, Page::Feed(FeedKind::DmChat(_)))
                 && !matches!(app.page, Page::Feed(FeedKind::Person(_))))
-                || (note_data.deletion.is_some() && !app.settings.show_deleted_events);
+                || (!note_data.deletions.is_empty() && !read_setting!(show_deleted_events));
 
             if skip {
                 return;
@@ -82,7 +90,7 @@ pub(super) fn render_note(
                 _ => false,
             };
 
-            let is_new = app.settings.highlight_unread_events && !viewed;
+            let is_new = read_setting!(highlight_unread_events) && !viewed;
 
             let is_main_event: bool = {
                 let feed_kind = GLOBALS.feed.get_feed_kind();
@@ -107,7 +115,6 @@ pub(super) fn render_note(
                 is_last,
                 is_main_event,
                 thread_position: indent as i32,
-                can_post: GLOBALS.signer.is_ready(),
             };
 
             let top = ui.next_widget_position();
@@ -130,7 +137,6 @@ pub(super) fn render_note(
 
                             render_note_inner(
                                 app,
-                                ctx,
                                 ui,
                                 note_ref.clone(),
                                 &render_data,
@@ -144,6 +150,18 @@ pub(super) fn render_note(
             // Store actual rendered height for future reference
             let bottom = ui.next_widget_position();
             app.height.insert(id, bottom.y - top.y);
+
+            // scroll to this note if it's the main note of a thread and the user hasn't scrolled yet
+            if is_main_event && app.feeds.thread_needs_scroll {
+                // keep auto-scrolling until user scrolls
+                if app.current_scroll_offset != 0.0 {
+                    app.feeds.thread_needs_scroll = false;
+                }
+                // only request scrolling if the note is not completely visible
+                if !ui.clip_rect().contains_rect(inner_response.response.rect) {
+                    inner_response.response.scroll_to_me(Some(Align::Center));
+                }
+            }
 
             // Mark post as viewed if hovered AND we are not scrolling
             if !viewed && inner_response.response.hovered() && app.current_scroll_offset == 0.0 {
@@ -161,11 +179,18 @@ pub(super) fn render_note(
             }
 
             thin_separator(ui, app.theme.feed_post_separator_stroke(&render_data));
+
+            // Load replies variable for next section, while we have note_data borrowed
+            if threaded && !as_reply_to && !app.collapsed.contains(&id) {
+                replies = GLOBALS
+                    .storage
+                    .get_replies(&note_data.event)
+                    .unwrap_or_default();
+            }
         }
 
         // even if muted, continue rendering thread children
         if threaded && !as_reply_to && !app.collapsed.contains(&id) {
-            let replies = GLOBALS.storage.get_replies(id).unwrap_or(vec![]);
             let iter = replies.iter();
             let first = replies.first();
             let last = replies.last();
@@ -173,7 +198,6 @@ pub(super) fn render_note(
                 super::render_note_maybe_fake(
                     app,
                     ctx,
-                    _frame,
                     ui,
                     FeedNoteParams {
                         id: *reply_id,
@@ -190,9 +214,8 @@ pub(super) fn render_note(
 }
 
 // FIXME, create some way to limit the arguments here.
-fn render_note_inner(
+pub fn render_note_inner(
     app: &mut GossipUi,
-    ctx: &Context,
     ui: &mut Ui,
     note_ref: Rc<RefCell<NoteData>>,
     render_data: &NoteRenderData,
@@ -203,7 +226,10 @@ fn render_note_inner(
         let collapsed = app.collapsed.contains(&note.event.id);
 
         // Load avatar texture
-        let avatar = if let Some(avatar) = app.try_get_avatar(ctx, &note.author.pubkey) {
+        let avatar = if note.muted() {
+            // no avatars for muted people
+            app.placeholder_avatar.clone()
+        } else if let Some(avatar) = app.try_get_avatar(ui.ctx(), &note.author.pubkey) {
             avatar
         } else {
             app.placeholder_avatar.clone()
@@ -212,13 +238,13 @@ fn render_note_inner(
         // Determine avatar size
         let avatar_size = if parent_repost.is_none() {
             match note.repost {
-                None | Some(RepostType::CommentMention) => AVATAR_SIZE_F32,
-                Some(_) => AVATAR_SIZE_REPOST_F32,
+                None | Some(RepostType::CommentMention) => AvatarSize::Feed,
+                Some(_) => AvatarSize::Mini,
             }
         } else {
             match parent_repost {
-                None | Some(RepostType::CommentMention) => AVATAR_SIZE_REPOST_F32,
-                Some(_) => AVATAR_SIZE_F32,
+                None | Some(RepostType::CommentMention) => AvatarSize::Mini,
+                Some(_) => AvatarSize::Feed,
             }
         };
 
@@ -253,7 +279,7 @@ fn render_note_inner(
         };
 
         let content_pull_top =
-            inner_margin.top + ui.style().spacing.item_spacing.y * 4.0 - avatar_size;
+            inner_margin.top + ui.style().spacing.item_spacing.y * 4.0 - avatar_size.y();
 
         let content_margin_left = AVATAR_SIZE_F32 + inner_margin.left;
         let footer_margin_left = content_margin_left;
@@ -265,19 +291,8 @@ fn render_note_inner(
                 ui.add_space(avatar_margin_left);
 
                 // render avatar
-                if ui
-                    .add(
-                        Image::new(&avatar)
-                            .max_size(Vec2 {
-                                x: avatar_size,
-                                y: avatar_size,
-                            })
-                            .maintain_aspect_ratio(true)
-                            .sense(Sense::click()),
-                    )
-                    .clicked()
-                {
-                    app.set_page(Page::Person(note.author.pubkey));
+                if widgets::paint_avatar(ui, &note.author, &avatar, avatar_size).clicked() {
+                    app.set_page(ui.ctx(), Page::Person(note.author.pubkey));
                 };
 
                 ui.add_space(avatar_margin_left);
@@ -287,20 +302,48 @@ fn render_note_inner(
                 GossipUi::render_person_name_line(app, ui, &note.author, false);
 
                 ui.horizontal_wrapped(|ui| {
-                    if let Some((irt, _)) = note.event.replies_to() {
-                        ui.add_space(8.0);
-
-                        ui.style_mut().override_text_style = Some(TextStyle::Small);
-                        let idhex: IdHex = irt.into();
-                        let nam = format!("▲ #{}", gossip_lib::names::hex_id_short(&idhex));
-                        if ui.link(&nam).clicked() {
-                            app.set_page(Page::Feed(FeedKind::Thread {
-                                id: irt,
-                                referenced_by: note.event.id,
-                                author: Some(note.event.pubkey),
-                            }));
-                        };
-                        ui.reset_style();
+                    match note.event.replies_to() {
+                        Some(EventReference::Id { id: irt, .. }) => {
+                            ui.add_space(8.0);
+                            ui.style_mut().override_text_style = Some(TextStyle::Small);
+                            let idhex: IdHex = irt.into();
+                            let nam = format!("▲ #{}", gossip_lib::names::hex_id_short(&idhex));
+                            if ui.link(&nam).clicked() {
+                                app.set_page(
+                                    ui.ctx(),
+                                    Page::Feed(FeedKind::Thread {
+                                        id: irt,
+                                        referenced_by: note.event.id,
+                                        author: Some(note.event.pubkey),
+                                    }),
+                                );
+                            };
+                            ui.reset_style();
+                        }
+                        Some(EventReference::Addr(ea)) => {
+                            // Link to this parent only if we can get that event
+                            if let Ok(Some(e)) = GLOBALS
+                                .storage
+                                .get_replaceable_event(ea.kind, ea.author, &ea.d)
+                            {
+                                ui.add_space(8.0);
+                                ui.style_mut().override_text_style = Some(TextStyle::Small);
+                                let idhex: IdHex = e.id.into();
+                                let nam = format!("▲ #{}", gossip_lib::names::hex_id_short(&idhex));
+                                if ui.link(&nam).clicked() {
+                                    app.set_page(
+                                        ui.ctx(),
+                                        Page::Feed(FeedKind::Thread {
+                                            id: e.id,
+                                            referenced_by: note.event.id,
+                                            author: Some(note.event.pubkey),
+                                        }),
+                                    );
+                                };
+                                ui.reset_style();
+                            }
+                        }
+                        None => (),
                     }
 
                     ui.add_space(8.0);
@@ -335,7 +378,7 @@ fn render_note_inner(
                         _ => {}
                     }
 
-                    if note.deletion.is_some() {
+                    if !note.deletions.is_empty() {
                         let color = app.theme.warning_marker_text_color();
                         ui.label(
                             RichText::new("DELETED")
@@ -344,7 +387,7 @@ fn render_note_inner(
                         );
                     }
 
-                    if note.event.kind == EventKind::Repost {
+                    if note.repost.is_some() {
                         let color = app.theme.notice_marker_text_color();
                         ui.label(
                             RichText::new("REPOSTED")
@@ -376,61 +419,80 @@ fn render_note_inner(
                 });
 
                 ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
-                    ui.menu_button(RichText::new("=").size(13.0), |ui| {
+                    widgets::MoreMenu::simple(ui, app).show(ui, |ui, keep_open| {
+                        let relays: Vec<UncheckedUrl> = note
+                            .seen_on
+                            .iter()
+                            .map(|(url, _)| url.to_unchecked_url())
+                            .take(3)
+                            .collect();
+
                         if !render_data.is_main_event {
                             if note.event.kind.is_direct_message_related() {
                                 if ui.button("View DM Channel").clicked() {
                                     if let Some(channel) = DmChannel::from_event(&note.event, None)
                                     {
-                                        app.set_page(Page::Feed(FeedKind::DmChat(channel)));
+                                        app.set_page(
+                                            ui.ctx(),
+                                            Page::Feed(FeedKind::DmChat(channel)),
+                                        );
                                     } else {
                                         GLOBALS.status_queue.write().write(
                                             "Could not determine DM channel for that note."
                                                 .to_string(),
                                         );
                                     }
+                                    *keep_open = false;
                                 }
                             } else {
                                 if ui.button("View Thread").clicked() {
-                                    app.set_page(Page::Feed(FeedKind::Thread {
-                                        id: note.event.id,
-                                        referenced_by: note.event.id,
-                                        author: Some(note.event.pubkey),
-                                    }));
+                                    app.set_page(
+                                        ui.ctx(),
+                                        Page::Feed(FeedKind::Thread {
+                                            id: note.event.id,
+                                            referenced_by: note.event.id,
+                                            author: Some(note.event.pubkey),
+                                        }),
+                                    );
+                                    *keep_open = false;
                                 }
                             }
                         }
-                        if ui.button("Copy nevent").clicked() {
-                            let event_pointer = EventPointer {
-                                id: note.event.id,
-                                relays: match GLOBALS.storage.get_event_seen_on_relay(note.event.id)
-                                {
-                                    Ok(vec) => {
-                                        vec.iter().map(|(url, _)| url.to_unchecked_url()).collect()
-                                    }
-                                    Err(_) => vec![],
-                                },
-                                author: None,
-                                kind: None,
+
+                        if note.event.kind.is_replaceable() {
+                            let param = match note.event.parameter() {
+                                Some(p) => p,
+                                None => "".to_owned(),
                             };
-                            let nostr_url: NostrUrl = event_pointer.into();
-                            ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
+                            if ui.button("Copy naddr").clicked() {
+                                let event_addr = EventAddr {
+                                    d: param,
+                                    relays: relays.clone(),
+                                    kind: note.event.kind,
+                                    author: note.event.pubkey,
+                                };
+                                let nostr_url: NostrUrl = event_addr.into();
+                                ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
+                                *keep_open = false;
+                            }
+                        } else {
+                            if ui.button("Copy nevent").clicked() {
+                                let event_pointer = EventPointer {
+                                    id: note.event.id,
+                                    relays: relays.clone(),
+                                    author: None,
+                                    kind: None,
+                                };
+                                let nostr_url: NostrUrl = event_pointer.into();
+                                ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
+                                *keep_open = false;
+                            }
                         }
                         if !note.event.kind.is_direct_message_related() {
                             if ui.button("Copy web link").clicked() {
                                 let event_pointer = EventPointer {
                                     id: note.event.id,
-                                    relays: match GLOBALS
-                                        .storage
-                                        .get_event_seen_on_relay(note.event.id)
-                                    {
-                                        Ok(vec) => vec
-                                            .iter()
-                                            .map(|(url, _)| url.to_unchecked_url())
-                                            .take(3) // Limit to 3 relay hints
-                                            .collect(),
-                                        Err(_) => vec![],
-                                    },
+                                    relays: relays.clone(),
                                     author: None,
                                     kind: None,
                                 };
@@ -440,34 +502,63 @@ fn render_note_inner(
                                         event_pointer.as_bech32_string()
                                     )
                                 });
+                                *keep_open = false;
                             }
                         }
                         if ui.button("Copy note1 Id").clicked() {
                             let nostr_url: NostrUrl = note.event.id.into();
                             ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
+                            *keep_open = false;
                         }
                         if ui.button("Copy hex Id").clicked() {
                             ui.output_mut(|o| o.copied_text = note.event.id.as_hex_string());
+                            *keep_open = false;
                         }
                         if ui.button("Copy Raw data").clicked() {
                             ui.output_mut(|o| {
                                 o.copied_text = serde_json::to_string_pretty(&note.event).unwrap()
                             });
+                            *keep_open = false;
                         }
                         if ui.button("Dismiss").clicked() {
                             GLOBALS.dismissed.blocking_write().push(note.event.id);
+                            GLOBALS.feed.sync_recompute();
+                            *keep_open = false;
                         }
-                        if Some(note.event.pubkey) == app.settings.public_key
-                            && note.deletion.is_none()
-                        {
-                            if ui.button("Delete").clicked() {
-                                let _ = GLOBALS
-                                    .to_overlord
-                                    .send(ToOverlordMessage::DeletePost(note.event.id));
+                        if let Some(our_pubkey) = GLOBALS.identity.public_key() {
+                            if note.event.pubkey == our_pubkey {
+                                if note.deletions.is_empty() {
+                                    if ui.button("Delete").clicked() {
+                                        let _ = GLOBALS
+                                            .to_overlord
+                                            .send(ToOverlordMessage::DeletePost(note.event.id));
+                                        *keep_open = false;
+                                    }
+                                }
+
+                                // Chance to post our note again to relays it missed
+                                if let Ok(broadcast_relays) = Globals::relays_for_event(&note.event)
+                                {
+                                    if !broadcast_relays.is_empty() {
+                                        if ui
+                                            .button(&format!(
+                                                "Post again ({})",
+                                                broadcast_relays.len()
+                                            ))
+                                            .clicked()
+                                        {
+                                            let _ = GLOBALS.to_overlord.send(
+                                                ToOverlordMessage::PostAgain(note.event.clone()),
+                                            );
+                                            *keep_open = false;
+                                        }
+                                    }
+                                }
                             }
                         }
                         if ui.button("Rerender").clicked() {
                             app.notes.cache_invalidate_note(&note.event.id);
+                            *keep_open = false;
                         }
                     });
                     ui.add_space(4.0);
@@ -507,18 +598,21 @@ fn render_note_inner(
                         {
                             if note.event.kind.is_direct_message_related() {
                                 if let Some(channel) = DmChannel::from_event(&note.event, None) {
-                                    app.set_page(Page::Feed(FeedKind::DmChat(channel)));
+                                    app.set_page(ui.ctx(), Page::Feed(FeedKind::DmChat(channel)));
                                 } else {
                                     GLOBALS.status_queue.write().write(
                                         "Could not determine DM channel for that note.".to_string(),
                                     );
                                 }
                             } else {
-                                app.set_page(Page::Feed(FeedKind::Thread {
-                                    id: note.event.id,
-                                    referenced_by: note.event.id,
-                                    author: Some(note.event.pubkey),
-                                }));
+                                app.set_page(
+                                    ui.ctx(),
+                                    Page::Feed(FeedKind::Thread {
+                                        id: note.event.id,
+                                        referenced_by: note.event.id,
+                                        author: Some(note.event.pubkey),
+                                    }),
+                                );
                             }
                         }
                     }
@@ -540,13 +634,11 @@ fn render_note_inner(
                             // FIXME IN EGUI: constrain is moving the box left for all of these boxes
                             // even if they have different IDs and don't need it.
                             .constrain(true)
-                            .show(ctx, |ui| {
+                            .show(ui.ctx(), |ui| {
                                 ui.set_min_width(200.0);
                                 egui::Frame::popup(&app.theme.get_style()).show(ui, |ui| {
-                                    if let Ok(seen_on) =
-                                        GLOBALS.storage.get_event_seen_on_relay(note.event.id)
-                                    {
-                                        for (url, _) in seen_on.iter() {
+                                    if !note.seen_on.is_empty() {
+                                        for (url, _) in note.seen_on.iter() {
                                             ui.label(url.as_str());
                                         }
                                     } else {
@@ -582,15 +674,14 @@ fn render_note_inner(
                 render_content(
                     app,
                     ui,
-                    ctx,
                     note_ref.clone(),
-                    note.deletion.is_some(),
+                    !note.deletions.is_empty(),
                     content_margin_left,
                     content_pull_top,
                 );
 
                 // deleted?
-                if let Some(delete_reason) = &note.deletion {
+                for delete_reason in &note.deletions {
                     Frame::none()
                         .inner_margin(Margin {
                             left: footer_margin_left,
@@ -621,7 +712,7 @@ fn render_note_inner(
                                 ui.add(Label::new(
                                     RichText::new(format!("proxied from {}: ", proxy)).color(color),
                                 ));
-                                crate::ui::widgets::break_anywhere_hyperlink_to(ui, id, id);
+                                crate::ui::widgets::break_anywhere_hyperlink_to(ui, &id, &id);
                             });
                         });
                 }
@@ -644,7 +735,8 @@ fn render_note_inner(
                         .show(ui, |ui| {
                             ui.horizontal_wrapped(|ui| {
                                 if ui
-                                    .add(CopyButton {})
+                                    .add(CopyButton::new())
+                                    .on_hover_cursor(egui::CursorIcon::Default)
                                     .on_hover_text("Copy Contents")
                                     .clicked()
                                 {
@@ -656,7 +748,7 @@ fn render_note_inner(
                                     } else if note.event.kind == EventKind::EncryptedDirectMessage {
                                         ui.output_mut(|o| {
                                             if let Ok(m) =
-                                                GLOBALS.signer.decrypt_message(&note.event)
+                                                GLOBALS.identity.decrypt_event_contents(&note.event)
                                             {
                                                 o.copied_text = m
                                             } else {
@@ -672,18 +764,18 @@ fn render_note_inner(
 
                                 ui.add_space(24.0);
 
-                                if render_data.can_post {
+                                if GLOBALS.identity.is_unlocked() {
                                     if note.event.kind != EventKind::EncryptedDirectMessage
                                         && note.event.kind != EventKind::DmChat
                                     {
                                         // Button to Repost
-                                        if ui
-                                            .add(
-                                                Label::new(RichText::new("↻").size(18.0))
-                                                    .sense(Sense::click()),
-                                            )
-                                            .on_hover_text("Repost")
-                                            .clicked()
+                                        if widgets::clickable_label(
+                                            ui,
+                                            true,
+                                            RichText::new("↻").size(18.0),
+                                        )
+                                        .on_hover_text("Repost")
+                                        .clicked()
                                         {
                                             app.show_post_area = true;
                                             app.draft_data.repost = Some(note.event.id);
@@ -693,41 +785,53 @@ fn render_note_inner(
                                         ui.add_space(24.0);
 
                                         // Button to quote note
-                                        if ui
-                                            .add(
-                                                Label::new(RichText::new("“…”").size(18.0))
-                                                    .sense(Sense::click()),
-                                            )
-                                            .on_hover_text("Quote")
-                                            .clicked()
+                                        if widgets::clickable_label(
+                                            ui,
+                                            true,
+                                            RichText::new("“…”").size(18.0),
+                                        )
+                                        .on_hover_text("Quote")
+                                        .clicked()
                                         {
+                                            let relays: Vec<UncheckedUrl> = note
+                                                .seen_on
+                                                .iter()
+                                                .map(|(url, _)| url.to_unchecked_url())
+                                                .take(3)
+                                                .collect();
+
                                             if !app.draft_data.draft.ends_with(' ')
                                                 && !app.draft_data.draft.is_empty()
                                             {
                                                 app.draft_data.draft.push(' ');
                                             }
-                                            let event_pointer = EventPointer {
-                                                id: note.event.id,
-                                                relays: match GLOBALS
-                                                    .storage
-                                                    .get_event_seen_on_relay(note.event.id)
-                                                {
-                                                    Err(_) => vec![],
-                                                    Ok(vec) => vec
-                                                        .iter()
-                                                        .map(|(url, _)| url.to_unchecked_url())
-                                                        .collect(),
-                                                },
-                                                author: None,
-                                                kind: None,
-                                            };
-                                            let nostr_url: NostrUrl = event_pointer.into();
+                                            let nostr_url: NostrUrl =
+                                                if note.event.kind.is_replaceable() {
+                                                    let param = match note.event.parameter() {
+                                                        Some(p) => p,
+                                                        None => "".to_owned(),
+                                                    };
+                                                    let event_addr = EventAddr {
+                                                        d: param,
+                                                        relays: relays.clone(),
+                                                        kind: note.event.kind,
+                                                        author: note.event.pubkey,
+                                                    };
+                                                    event_addr.into()
+                                                } else {
+                                                    let event_pointer = EventPointer {
+                                                        id: note.event.id,
+                                                        relays: relays.clone(),
+                                                        author: None,
+                                                        kind: None,
+                                                    };
+                                                    event_pointer.into()
+                                                };
                                             app.draft_data
                                                 .draft
                                                 .push_str(&format!("{}", nostr_url));
                                             app.draft_data.repost = None;
                                             app.draft_data.replying_to = None;
-
                                             app.show_post_area = true;
                                             app.draft_needs_focus = true;
                                         }
@@ -743,13 +847,13 @@ fn render_note_inner(
                                         "💬"
                                     };
 
-                                    if ui
-                                        .add(
-                                            Label::new(RichText::new(reply_icon).size(18.0))
-                                                .sense(Sense::click()),
-                                        )
-                                        .on_hover_text("Reply")
-                                        .clicked()
+                                    if widgets::clickable_label(
+                                        ui,
+                                        true,
+                                        RichText::new(reply_icon).size(18.0),
+                                    )
+                                    .on_hover_text("Reply")
+                                    .clicked()
                                     {
                                         app.draft_needs_focus = true;
                                         app.show_post_area = true;
@@ -758,9 +862,10 @@ fn render_note_inner(
                                             if let Some(channel) =
                                                 DmChannel::from_event(&note.event, None)
                                             {
-                                                app.set_page(Page::Feed(FeedKind::DmChat(
-                                                    channel.clone(),
-                                                )));
+                                                app.set_page(
+                                                    ui.ctx(),
+                                                    Page::Feed(FeedKind::DmChat(channel.clone())),
+                                                );
                                                 app.draft_needs_focus = true;
                                             }
                                             // FIXME: else error
@@ -778,16 +883,17 @@ fn render_note_inner(
                                 }
 
                                 // Button to render raw
-                                if ui
-                                    .add(
-                                        Label::new(RichText::new("🥩").size(13.0))
-                                            .sense(Sense::click()),
-                                    )
-                                    .on_hover_text("Raw")
-                                    .clicked()
+                                if widgets::clickable_label(
+                                    ui,
+                                    true,
+                                    RichText::new("🥩").size(13.0),
+                                )
+                                .on_hover_text("Raw")
+                                .clicked()
                                 {
                                     if app.render_raw != Some(note.event.id) {
                                         app.render_raw = Some(note.event.id);
+                                        app.render_qr = None;
                                     } else {
                                         app.render_raw = None;
                                     }
@@ -796,16 +902,13 @@ fn render_note_inner(
                                 ui.add_space(24.0);
 
                                 // Button to render QR code
-                                if ui
-                                    .add(
-                                        Label::new(RichText::new("⚃").size(16.0))
-                                            .sense(Sense::click()),
-                                    )
+                                if widgets::clickable_label(ui, true, RichText::new("⚃").size(16.0))
                                     .on_hover_text("QR Code")
                                     .clicked()
                                 {
                                     if app.render_qr != Some(note.event.id) {
                                         app.render_qr = Some(note.event.id);
+                                        app.render_raw = None;
                                         app.qr_codes.remove("feedqr");
                                     } else {
                                         app.render_qr = None;
@@ -813,7 +916,7 @@ fn render_note_inner(
                                     }
                                 }
 
-                                if app.settings.enable_zap_receipts {
+                                if read_setting!(enable_zap_receipts) && !note.muted() {
                                     ui.add_space(24.0);
 
                                     // To zap, the user must have a lnurl, and the event must have been
@@ -825,72 +928,63 @@ fn render_note_inner(
                                         }
                                     }
 
-                                    let mut has_seen_on_relays = false;
-                                    if let Ok(seen_on) =
-                                        GLOBALS.storage.get_event_seen_on_relay(note.event.id)
-                                    {
-                                        if !seen_on.is_empty() {
-                                            has_seen_on_relays = true;
-                                        }
-                                    }
-
                                     if let Some(lnurl) = zap_lnurl {
-                                        if has_seen_on_relays {
-                                            if ui
-                                                .add(
-                                                    Label::new(RichText::new("⚡").size(18.0))
-                                                        .sense(Sense::click()),
-                                                )
-                                                .on_hover_text("ZAP")
-                                                .clicked()
-                                            {
-                                                if GLOBALS.signer.is_ready() {
-                                                    let _ = GLOBALS.to_overlord.send(
-                                                        ToOverlordMessage::ZapStart(
-                                                            note.event.id,
-                                                            note.event.pubkey,
-                                                            UncheckedUrl(lnurl),
-                                                        ),
-                                                    );
-                                                } else {
-                                                    GLOBALS.status_queue.write().write(
-                                                        "Your key is not setup.".to_string(),
-                                                    );
-                                                }
+                                        if widgets::clickable_label(
+                                            ui,
+                                            true,
+                                            RichText::new("⚡").size(18.0),
+                                        )
+                                        .on_hover_text("ZAP")
+                                        .clicked()
+                                        {
+                                            if GLOBALS.identity.is_unlocked() {
+                                                let _ = GLOBALS.to_overlord.send(
+                                                    ToOverlordMessage::ZapStart(
+                                                        note.event.id,
+                                                        note.event.pubkey,
+                                                        UncheckedUrl(lnurl),
+                                                    ),
+                                                );
+                                            } else {
+                                                GLOBALS
+                                                    .status_queue
+                                                    .write()
+                                                    .write("Your key is not setup.".to_string());
                                             }
-                                        } else {
-                                            ui.add(Label::new(
-                                                RichText::new("⚡").weak().size(18.0),
-                                            ))
-                                            .on_hover_text("Note is not zappable (no relays)");
                                         }
                                     } else {
-                                        ui.add(Label::new(RichText::new("⚡").weak().size(18.0)))
-                                            .on_hover_text("Note is not zappable (no lnurl)");
+                                        widgets::clickable_label(
+                                            ui,
+                                            false,
+                                            RichText::new("⚡").size(18.0),
+                                        )
+                                        .on_disabled_hover_text("Note is not zappable (no lnurl)");
                                     }
 
                                     // Show the zap total
-                                    ui.add(Label::new(format!("{}", note.zaptotal.0 / 1000)));
+                                    ui.add(Label::new(format!("{}", note.zaptotal.0 / 1000)))
+                                        .on_hover_cursor(egui::CursorIcon::Default);
                                 }
 
                                 ui.add_space(24.0);
 
                                 // Buttons to react and reaction counts
-                                if app.settings.reactions {
+                                if read_setting!(reactions) && !note.muted() {
                                     let default_reaction_icon = match note.self_already_reacted {
                                         true => "♥",
                                         false => "♡",
                                     };
-                                    if ui
-                                        .add(
-                                            Label::new(
-                                                RichText::new(default_reaction_icon).size(20.0),
-                                            )
-                                            .sense(Sense::click()),
-                                        )
-                                        .clicked()
+                                    if widgets::clickable_label(
+                                        ui,
+                                        true,
+                                        RichText::new(default_reaction_icon).size(20.0),
+                                    )
+                                    .on_disabled_hover_text(
+                                        "Can't react to note (no known relays for note)",
+                                    )
+                                    .clicked()
                                     {
-                                        if !render_data.can_post {
+                                        if !GLOBALS.identity.is_unlocked() {
                                             GLOBALS
                                                 .status_queue
                                                 .write()
@@ -905,15 +999,17 @@ fn render_note_inner(
                                     }
                                     for (ch, count) in note.reactions.iter() {
                                         if *ch == '+' {
-                                            ui.label(format!("{}", count));
+                                            ui.label(format!("{}", count))
+                                                .on_hover_cursor(egui::CursorIcon::Default);
                                         }
                                     }
                                     ui.add_space(12.0);
                                     for (ch, count) in note.reactions.iter() {
                                         if *ch != '+' {
                                             ui.label(
-                                                RichText::new(format!("{} {}", ch, count)).strong(),
-                                            );
+                                                RichText::new(format!("{} {}", ch, count)).weak(),
+                                            )
+                                            .on_hover_cursor(egui::CursorIcon::Default);
                                         }
                                     }
                                 }
@@ -923,10 +1019,10 @@ fn render_note_inner(
                             if let Some(zapnoteid) = app.note_being_zapped {
                                 if zapnoteid == note.event.id {
                                     ui.horizontal_wrapped(|ui| {
-                                        app.render_zap_area(ui, ctx);
+                                        app.render_zap_area(ui);
                                     });
                                     if ui
-                                        .add(CopyButton {})
+                                        .add(CopyButton::new())
                                         .on_hover_text("Copy Invoice")
                                         .clicked()
                                     {
@@ -955,19 +1051,23 @@ fn thin_separator(ui: &mut Ui, stroke: Stroke) {
 }
 
 fn render_subject(ui: &mut Ui, event: &Event) {
-    if let Some(subject) = event.subject() {
-        ui.style_mut().spacing.item_spacing.x = 0.0;
-        ui.style_mut().spacing.item_spacing.y = 10.0;
-        ui.label(RichText::new(subject).text_style(TextStyle::Name("subject".into())));
-        ui.end_row();
-        ui.reset_style();
-    }
+    let subject = if let Some(subject) = event.subject() {
+        subject
+    } else if let Some(title) = event.title() {
+        title
+    } else {
+        return;
+    };
+    ui.style_mut().spacing.item_spacing.x = 0.0;
+    ui.style_mut().spacing.item_spacing.y = 10.0;
+    ui.label(RichText::new(subject).text_style(TextStyle::Name("subject".into())));
+    ui.end_row();
+    ui.reset_style();
 }
 
 fn render_content(
     app: &mut GossipUi,
     ui: &mut Ui,
-    ctx: &Context,
     note_ref: Rc<RefCell<NoteData>>,
     as_deleted: bool,
     content_margin_left: f32,
@@ -995,21 +1095,30 @@ fn render_content(
                 ui.horizontal_wrapped(|ui| {
                     if app.render_raw == Some(event.id) {
                         ui.label(serde_json::to_string_pretty(&event).unwrap());
+                    } else if note.muted() {
+                        let color = app.theme.notice_marker_text_color();
+                        ui.label(
+                            RichText::new("MUTED")
+                                .color(color)
+                                .text_style(TextStyle::Small),
+                        );
                     } else if app.render_qr == Some(event.id) {
-                        app.render_qr(ui, ctx, "feedqr", event.content.trim());
-                    // FIXME should this be the unmodified content (event.content)?
+                        if note.event.kind == EventKind::EncryptedDirectMessage {
+                            if let Ok(m) = GLOBALS.identity.decrypt_event_contents(&note.event) {
+                                app.render_qr(ui, "feedqr", m.trim());
+                            }
+                        } else {
+                            app.render_qr(ui, "feedqr", event.content.trim());
+                        }
                     } else if event.content_warning().is_some()
                         && !app.approved.contains(&event.id)
-                        && !app.settings.approve_content_warning
+                        && read_setting!(approve_content_warning)
                     {
-                        ui.label(
-                            RichText::new(format!(
-                                "Content-Warning: {}",
-                                event.content_warning().unwrap()
-                            ))
-                            .monospace()
-                            .italics(),
-                        );
+                        let text = match event.content_warning().unwrap() {
+                            Some(cw) => format!("Content-Warning: {}", cw),
+                            None => "Content-Warning".to_string(),
+                        };
+                        ui.label(RichText::new(text).monospace().italics());
                         if ui.button("Show Post").clicked() {
                             app.approved.insert(event.id);
                             app.height.remove(&event.id); // will need to be recalculated.
@@ -1022,12 +1131,65 @@ fn render_content(
                             render_repost(
                                 app,
                                 ui,
-                                ctx,
                                 &note.repost,
                                 inner_ref,
                                 content_margin_left,
                                 bottom_of_avatar,
                             );
+                        }
+                    } else if note.repost == Some(RepostType::GenericRepost) {
+                        if note.embedded_event.is_some() {
+                            let inner_note_data =
+                                NoteData::new(note.embedded_event.clone().unwrap());
+                            let inner_ref = Rc::new(RefCell::new(inner_note_data));
+                            render_repost(
+                                app,
+                                ui,
+                                &note.repost,
+                                inner_ref,
+                                content_margin_left,
+                                bottom_of_avatar,
+                            );
+                        } else {
+                            match event.mentions().first() {
+                                Some(EventReference::Id { id, .. }) => {
+                                    if let Some(note_data) = app.notes.try_update_and_get(id) {
+                                        // TODO block additional repost recursion
+                                        render_repost(
+                                            app,
+                                            ui,
+                                            &note.repost,
+                                            note_data,
+                                            content_margin_left,
+                                            bottom_of_avatar,
+                                        );
+                                    } else {
+                                        let color = app.theme.notice_marker_text_color();
+                                        ui.label(
+                                            RichText::new("GENERIC REPOST EVENT NOT FOUND.")
+                                                .color(color)
+                                                .text_style(TextStyle::Small),
+                                        );
+                                    }
+                                }
+                                Some(EventReference::Addr(_ea)) => {
+                                    //FIXME:  GET THE ID here?
+                                    let color = app.theme.notice_marker_text_color();
+                                    ui.label(
+                                        RichText::new("GENERIC REPOST EVENT NOT YET SUPPORTED")
+                                            .color(color)
+                                            .text_style(TextStyle::Small),
+                                    );
+                                }
+                                _ => {
+                                    let color = app.theme.notice_marker_text_color();
+                                    ui.label(
+                                        RichText::new("BROKEN GENERIC REPOST EVENT")
+                                            .color(color)
+                                            .text_style(TextStyle::Small),
+                                    );
+                                }
+                            }
                         }
                     } else {
                         // Possible subject line
@@ -1036,7 +1198,6 @@ fn render_content(
                         content::render_content(
                             app,
                             ui,
-                            ctx,
                             note_ref.clone(),
                             as_deleted,
                             content_margin_left,
@@ -1051,7 +1212,6 @@ fn render_content(
 fn render_repost(
     app: &mut GossipUi,
     ui: &mut Ui,
-    ctx: &Context,
     parent_repost: &Option<RepostType>,
     repost_ref: Rc<RefCell<NoteData>>,
     content_margin_left: f32,
@@ -1069,7 +1229,6 @@ fn render_repost(
             is_first: false,
             is_last: false,
             thread_position: 0,
-            can_post: GLOBALS.signer.is_ready(),
         };
 
         let row_height = ui.cursor().height();
@@ -1111,7 +1270,6 @@ fn render_repost(
                         // FIXME: don't recurse forever
                         render_note_inner(
                             app,
-                            ctx,
                             ui,
                             repost_ref.clone(),
                             &render_data,
@@ -1123,7 +1281,7 @@ fn render_repost(
 
                         // Record if the rendered repost was visible
                         {
-                            let screen_rect = ctx.input(|i| i.screen_rect); // Rect
+                            let screen_rect = ui.ctx().input(|i| i.screen_rect); // Rect
                             let offscreen = bottom.y < 0.0 || top.y > screen_rect.max.y;
                             if !offscreen {
                                 // Record that this note was visibly rendered

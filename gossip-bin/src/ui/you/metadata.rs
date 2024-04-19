@@ -13,20 +13,20 @@ lazy_static! {
     pub static ref EMPTY_METADATA: Metadata = Metadata::new();
 }
 
-pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
+pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.add_space(10.0);
     ui.horizontal_wrapped(|ui| {
         // ui.add_space(2.0);
         ui.heading("My profile");
     });
     ui.add_space(10.0);
-    let public_key = match GLOBALS.signer.public_key() {
+    let public_key = match GLOBALS.identity.public_key() {
         Some(pk) => pk,
         None => {
             ui.horizontal(|ui| {
                 ui.label("You need to");
                 if ui.link("setup an identity").clicked() {
-                    app.set_page(Page::YourKeys);
+                    app.set_page(ctx, Page::YourKeys);
                 }
                 ui.label("to have metadata.");
             });
@@ -120,24 +120,24 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                         .to_overlord
                         .send(ToOverlordMessage::PushMetadata(app.metadata.clone()));
                 }
-            } else if !GLOBALS.signer.is_ready() {
+            } else if !GLOBALS.identity.is_unlocked() {
                 ui.horizontal(|ui| {
                     ui.label("You need to");
                     if ui.link("unlock your private key").clicked() {
-                        app.set_page(Page::YourKeys);
+                        app.set_page(ctx, Page::YourKeys);
                     }
                     ui.label("to edit/save metadata.");
                 });
             } else if GLOBALS
                 .storage
                 .filter_relays(|r| r.has_usage_bits(Relay::WRITE))
-                .unwrap_or(vec![])
+                .unwrap_or_default()
                 .is_empty()
             {
                 ui.horizontal(|ui| {
                     ui.label("You need to");
                     if ui.link("configure write relays").clicked() {
-                        app.set_page(Page::RelaysKnownNetwork);
+                        app.set_page(ctx, Page::RelaysKnownNetwork(None));
                     }
                     ui.label("to edit/save metadata.");
                 });

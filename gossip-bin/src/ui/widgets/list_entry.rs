@@ -1,10 +1,13 @@
-use eframe::egui::{FontSelection, Ui, WidgetText};
+use std::sync::Arc;
+
+use eframe::egui::{FontSelection, InnerResponse, Ui, WidgetText};
 use eframe::epaint;
-use egui_winit::egui::widget_text::WidgetTextGalley;
 use egui_winit::egui::{
-    pos2, vec2, Align, Color32, CursorIcon, FontId, Id, Pos2, Rect, Response, Rounding, Sense,
-    Stroke,
+    self, pos2, vec2, Align, Color32, CursorIcon, FontId, Frame, Galley, Id, Pos2, Rect, Response,
+    Rounding, Sense, Stroke,
 };
+
+use crate::ui::GossipUi;
 
 /// Spacing of frame: left
 pub(crate) const OUTER_MARGIN_LEFT: f32 = 0.0;
@@ -39,7 +42,7 @@ pub(crate) fn paint_frame(ui: &mut Ui, rect: &Rect, fill: Option<Color32>) {
         rect.min + vec2(OUTER_MARGIN_LEFT, OUTER_MARGIN_TOP),
         rect.max - vec2(OUTER_MARGIN_RIGHT, OUTER_MARGIN_BOTTOM),
     );
-    let fill = fill.unwrap_or(ui.style().visuals.extreme_bg_color);
+    let fill = fill.unwrap_or(ui.visuals().extreme_bg_color);
     ui.painter().add(epaint::RectShape {
         rect: frame_rect,
         rounding: Rounding::same(5.0),
@@ -48,6 +51,55 @@ pub(crate) fn paint_frame(ui: &mut Ui, rect: &Rect, fill: Option<Color32>) {
         fill_texture_id: Default::default(),
         uv: Rect::ZERO,
     });
+}
+
+pub(crate) fn make_frame(ui: &Ui, fill: Option<Color32>) -> Frame {
+    Frame::none()
+        .inner_margin(egui::Margin {
+            left: TEXT_LEFT - OUTER_MARGIN_LEFT,
+            right: TEXT_RIGHT - OUTER_MARGIN_RIGHT,
+            top: TEXT_TOP - OUTER_MARGIN_TOP,
+            bottom: TEXT_TOP - OUTER_MARGIN_BOTTOM,
+        })
+        .outer_margin(egui::Margin {
+            left: OUTER_MARGIN_LEFT,
+            right: OUTER_MARGIN_RIGHT,
+            top: OUTER_MARGIN_TOP,
+            bottom: OUTER_MARGIN_BOTTOM,
+        })
+        .fill(fill.unwrap_or(ui.visuals().extreme_bg_color))
+        .rounding(egui::Rounding::same(5.0))
+}
+
+pub(crate) fn clickable_frame<R>(
+    ui: &mut Ui,
+    app: &mut GossipUi,
+    fill: Option<Color32>,
+    mut content: impl FnMut(&mut Ui, &mut GossipUi) -> R,
+) -> InnerResponse<R> {
+    // FIXME FIXME FIXME
+    // this is a very rough hack to work around Response::interact()
+    // being broken in egui 0.26.x it essentially renders the content twice
+    // first time just to determine the size, so that the interact rect can
+    // be allocated before the content
+    let frame_rect = {
+        let frame = make_frame(ui, fill);
+        let mut prepared = frame.begin(ui);
+        content(&mut prepared.content_ui, app);
+
+        (prepared.frame.inner_margin + prepared.frame.outer_margin)
+            .expand_rect(prepared.content_ui.min_rect())
+    };
+
+    let response = ui.interact(frame_rect, ui.auto_id_with("fframe"), Sense::click());
+
+    // now really render the frame
+    let frame = make_frame(ui, fill);
+    let mut prepared = frame.begin(ui);
+    let inner = content(&mut prepared.content_ui, app);
+    prepared.end(ui);
+
+    InnerResponse { inner, response }
 }
 
 // ---- helper functions ----
@@ -61,14 +113,32 @@ pub(crate) fn paint_hline(ui: &mut Ui, rect: &Rect, y_pos: f32) {
     );
 }
 
-pub(crate) fn text_to_galley(ui: &mut Ui, text: WidgetText, align: Align) -> WidgetTextGalley {
-    let mut text_job = text.into_text_job(
+pub(crate) fn text_to_galley(ui: &mut Ui, text: WidgetText, align: Align) -> Arc<Galley> {
+    let mut job = text.into_layout_job(
         ui.style(),
         FontSelection::Default,
         ui.layout().vertical_align(),
     );
-    text_job.job.halign = align;
-    ui.fonts(|f| text_job.into_galley(f))
+    job.halign = align;
+    ui.fonts(|f| f.layout_job(job))
+}
+
+pub(crate) fn text_to_galley_max_width(
+    ui: &mut Ui,
+    text: WidgetText,
+    align: Align,
+    max_width: f32,
+) -> Arc<Galley> {
+    let mut job = text.into_layout_job(
+        ui.style(),
+        FontSelection::Default,
+        ui.layout().vertical_align(),
+    );
+    job.halign = align;
+    job.wrap.break_anywhere = true;
+    job.wrap.max_rows = 1;
+    job.wrap.max_width = max_width;
+    ui.fonts(|f| f.layout_job(job))
 }
 
 pub(crate) fn allocate_text_at(
@@ -77,11 +147,11 @@ pub(crate) fn allocate_text_at(
     text: WidgetText,
     align: Align,
     id: Id,
-) -> (WidgetTextGalley, Response) {
+) -> (Arc<Galley>, Response) {
     let galley = text_to_galley(ui, text, align);
-    let grect = galley.galley.rect;
+    let grect = galley.rect;
     let rect = if align == Align::Min {
-        Rect::from_min_size(pos, galley.galley.rect.size())
+        Rect::from_min_size(pos, galley.rect.size())
     } else if align == Align::Center {
         Rect::from_min_max(
             pos2(pos.x - grect.width() / 2.0, pos.y),
@@ -100,19 +170,21 @@ pub(crate) fn allocate_text_at(
 pub(crate) fn draw_text_galley_at(
     ui: &mut Ui,
     pos: Pos2,
-    galley: WidgetTextGalley,
+    galley: Arc<Galley>,
     color: Option<Color32>,
     underline: Option<Stroke>,
 ) -> Rect {
-    let size = galley.galley.rect.size();
-    let halign = galley.galley.job.halign;
+    let size = galley.rect.size();
+    let halign = galley.job.halign;
     let color = color.or(Some(ui.visuals().text_color()));
     ui.painter().add(epaint::TextShape {
         pos,
-        galley: galley.galley,
+        galley,
         override_text_color: color,
         underline: Stroke::NONE,
         angle: 0.0,
+        fallback_color: ui.visuals().text_color(),
+        opacity_factor: 1.0,
     });
     let rect = if halign == Align::LEFT {
         Rect::from_min_size(pos, size)
@@ -187,13 +259,4 @@ pub(crate) fn draw_link_at(
     };
     draw_text_galley_at(ui, pos, galley, Some(color), Some(stroke));
     response
-}
-
-/// UTF-8 safe truncate (String::truncate() can panic)
-#[inline]
-pub(crate) fn safe_truncate(s: &str, max_chars: usize) -> &str {
-    match s.char_indices().nth(max_chars) {
-        None => s,
-        Some((idx, _)) => &s[..idx],
-    }
 }

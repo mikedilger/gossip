@@ -10,27 +10,36 @@ Nostr stands for "Notes and Other Stuff Transmitted by Relays."
 
 ### Installing
 
-- **Arch Linux**: [`gossip`](https://aur.archlinux.org/packages/gossip) or [`gossip-git`](https://aur.archlinux.org/packages/gossip-git) or [`gossip-bin`](https://aur.archlinux.org/packages/gossip-bin) on the AUR
+See instructions for [Build from Source](#building-from-source).
+
+#### With Release Builds
+
 - **Debian**: See the [releases](https://github.com/mikedilger/gossip/releases) area for a file named something like `gossip-VERSION-ARCH.deb`
 - **Any Linux**: See the [releases](https://github.com/mikedilger/gossip/releases) area for a file named something like `gossip.VERSION.AppImage`
 - **Microsoft Windows**: See the [releases](https://github.com/mikedilger/gossip/releases) area for a file named something like `gossip.VERSION.msi`
 - **MacOS**: See the [releases](https://github.com/mikedilger/gossip/releases) area for a file named something like `gossip-VERSION-Darwin-arm64.dmg` or `gossip-VERSION-Darwin-x86_64.dmg`
 
-or choose to [Build from Source](#building-from-source)
+#### With Package Managers
+
+[![Packaging status](https://repology.org/badge/vertical-allrepos/gossip-nostr.svg)](https://repology.org/project/gossip-nostr/versions)
+
+With `pacman` on **Arch Linux**: [`gossip`](https://aur.archlinux.org/packages/gossip) or [`gossip-git`](https://aur.archlinux.org/packages/gossip-git) or [`gossip-bin`](https://aur.archlinux.org/packages/gossip-bin) on the AUR
+
+With [homebrew](https://brew.sh/) on **MacOS** or **Linux**: `brew install gossip` from [`homebrew-core`](https://github.com/Homebrew/homebrew-core), or for more options `brew install nostorg/nostr/gossip` from [`homebrew-nostr`](https://github.com/nostorg/homebrew-nostr)
+
+With [scoop](https://scoop.sh/) on **Microsoft Windows**: `scoop install extras/gossip` from [scoop extras bucket](https://github.com/ScoopInstaller/Extras).
 
 ### Points of Difference
 
 The following features make gossip different than most other nostr clients so far:
 
-- **Desktop Portable**: Gossip is designed to run on desktop computers, and is portable to Windows, MacOS and Linux.
-- **Gossip Model**: The Gossip Model was named after this client, because gossip never used a simple list of relays. From day one it tried to find posts of people that you follow wherever they are most likely to be, based on those people's relay lists as well as half a dozen other heuristics. Today multiple clients use a similar model, focused around ([NIP-65](https://github.com/nostr-protocol/nips/blob/master/65.md)). Gossip connects to all relays necessary to cover everybody you follow, while also trying to listen to the minimum number of relays necessary to do that (considering that there is overlap, and that people generally post to multiple relays). It also dynamically adjusts to relays being down or disconnecting. For further details: https://mikedilger.com/gossip-model/ 
-- **Secure Key Handling**: Gossip handles private keys as securely as reasonable (short of hardware tokens), keeping them encrypted under a passphrase on disk, requiring that passphrase on startup, and zeroing memory. This shouldn't really be a point of difference but few other clients bother.
-- **Avoids Browser-Tech**: Gossip avoids web technologies (other than HTTP GET and WebSockets which are necessary for nostr). Web technologies like HTML parsing and rendering, CSS, JavaScript and the very many web standards, are complex and represent a security hazard due to such a large attack surface. This isn't just a pedantic or theoretical concern; people have already had their private key stolen from other nostr clients. We use simple OpenGL-style rendering instead. It's not as pretty but it gets the job done.
+- **Desktop**: Gossip is designed to run on desktop computers, and runs on Windows, MacOS and Linux.
+- **Gossip Model**: The Gossip Model was named after this client, because gossip never used a simple list of relays. From day one it tried to find posts of people that you follow wherever they are most likely to be, based on those people's relay lists as well as half a dozen other heuristics. Today multiple clients use a similar model, focused around ([NIP-65](https://github.com/nostr-protocol/nips/blob/master/65.md)). Gossip connects to all relays necessary to cover everybody you follow, while also trying to listen to the minimum number of relays necessary to do that (considering that there is overlap, and that people generally post to multiple relays). It also dynamically adjusts to relays being down or disconnecting.
+- **Secure Key Handling**: Gossip handles private keys as securely as reasonable (short of hardware tokens), keeping them encrypted under a passphrase on disk, requiring that passphrase on startup, and zeroing memory before freeing it. This shouldn't really be a point of difference but few other clients bother.
+- **Avoids Browser-Tech**: Gossip avoids web technologies (other than HTTP GET and WebSockets which are necessary for nostr). The web stack is huge, complex, and probably full of undiscovered vulnerabilities, presenting as a huge attack surface. This includes Javascript, the very many and ever-expanding set of web technologies built into browsers and accessible via javascript, and even HTML parsing, rendering, and CSS. This isn't just a pedantic or theoretical concern; people have already had their private key stolen from other nostr clients. We use simple OpenGL-style rendering instead. It's not as pretty but it gets the job done.
 - **Performant**: Gossip aims towards being highly performant, using the LMDB database, the rust language, and coding architectures with performance always in mind. Unless you have quite old hardware, the network speed will probably be your bottleneck.
-- **High user control**: Gossip has (at the time of writing) 57 different settings. When the right value is uncertain, I pick a reasonable default and give the user the mechanism to change it.
-- **Privacy Options**: in case someone wishes to remain secret they should use Gossip over Tor - I recommend using QubesOS do to this. But you could use Whonix or even Tails. Don't just do it on your normal OS which won't do Tor completely. Gossip provides options to support privacy usage such as not loading avatars, not necessarily sharing who you follow, etc. We will be adding more privacy features.
-
-## Media
+- **High user control**: Gossip has (at the time of writing) 64 different settings. When the right value is uncertain, I pick a reasonable default and give the user the mechanism to change it.
+- **Privacy Options**: in case someone wishes to remain secret they should use Gossip over Tor - I recommend using QubesOS do to this. But you could use Whonix or even Tails. Don't just do it on your normal OS, because on a plain OS sometimes data leaks around Tor (things like DNS lookups). Gossip supports using native TLS certificates so you can configure trust for .onion sites. Gossip provides options to support privacy usage such as not loading avatars, not loading images, not necessarily sharing who you follow, etc.
 
 ### Screenshots
 
@@ -39,53 +48,83 @@ The following features make gossip different than most other nostr clients so fa
 
 ### nostr features supported
 
-- [x] NIP-01 - Basic protocol flow description
-- [x] NIP-02 - Contact List and Petnames
-- [ ] NIP-03 - OpenTimestamps Attestations for Events [NOT PLANNED]
-- [ ] NIP-04 - Encrypted Direct Message [Read Only is implemented]
-- [x] NIP-05 - Mapping Nostr keys to DNS-based internet identifiers
-- [ ] NIP-06 - Basic key derivation from mnemonic seed phrase
-- [ ] NIP-07 - window.nostr capability for web browsers [NOT APPLICABLE]
-- [x] NIP-08 - Handling Mentions
-- [x] NIP-09 - Event Deletion
-- [x] NIP-10 - Conventions for clients' use of e and p tags in text events
-- [x] NIP-11 - Relay Information Document
-- [x] NIP-13 - Proof of Work
-- [x] NIP-14 - Subject tag in text events
-- [x] NIP-18 - Reposts
-- [x] NIP-19 - bech32-encoded entities
-- [x] NIP-21 - nostr: URL scheme
-- [x] NIP-22 - Event created_at Limits
-- [ ] NIP-23 - Long-form Content [Optional viewing, but not creating]
-- [ ] NIP-24 - Extra metadata fields and tags
-- [x] NIP-25 - Reactions
-- [x] NIP-26 - Delegated Event Signing
-- [x] NIP-27 - Text Note References
-- [ ] NIP-28 - Public Chat
-- [ ] NIP-30 - Custom Emoji
-- [x] NIP-31 - Dealing with Unknown Events
-- [ ] NIP-32 - Labeling
-- [x] NIP-36 - Sensitive Content
-- [ ] NIP-39 - External Identities in Profiles
-- [ ] NIP-40 - Expiration Timestamp
-- [x] NIP-42 - Authentication of clients to relays
-- [ ] NIP-45 - Counting results
-- [ ] NIP-46 - Nostr Connect
-- [x] NIP-48 - Proxy Tags
-- [ ] NIP-50 - Keywords filter
-- [ ] NIP-51 - Lists
-- [ ] NIP-52 - Calendar Events
-- [ ] NIP-53 - Live Activities
-- [ ] NIP-56 - Reporting
-- [x] NIP-57 - Lightning Zaps
-- [ ] NIP-58 - Badges
-- [x] NIP-65 - Relay List Metadata
-- [ ] NIP-72 - Moderated Communities
-- [ ] NIP-78 - Application-specific data
-- [ ] NIP-89 - Recommended Application Handlers
-- [ ] NIP-94 - File Metadata
-- [ ] NIP-98 - HTTP Auth
-- [ ] NIP-99 - Classified Listings
+✅ = Fully Supported
+🟩 = Partly Supported
+⬜ = Not Supported (but might be in the future)
+⬛ = Not Applicable
+
+- ✅ NIP-01 - Basic protocol flow description
+- ✅ NIP-02 - Contact List and Petnames
+- ⬜ NIP-03 - OpenTimestamps Attestations for Events
+- 🟩 NIP-04 - Encrypted Direct Message (Read Only is implemented)
+- ✅ NIP-05 - Mapping Nostr keys to DNS-based internet identifiers
+- ⬜ NIP-06 - Basic key derivation from mnemonic seed phrase
+- ⬛ NIP-07 - window.nostr capability for web browsers (NOT APPLICABLE)
+- ✅ NIP-08 - Handling Mentions
+- ✅ NIP-09 - Event Deletion
+- ✅ NIP-10 - Conventions for clients' use of e and p tags in text events
+- ✅ NIP-11 - Relay Information Document
+- ✅ NIP-13 - Proof of Work
+- ✅ NIP-14 - Subject tag in text events
+- ⬜ NIP-15 - Nostr Marketplace (for resilient marketplaces)
+- ✅ NIP-18 - Reposts
+- ✅ NIP-19 - bech32-encoded entities
+- ✅ NIP-21 - nostr: URL scheme
+- 🟩 NIP-23 - Long-form Content (Optional viewing, but not creating)
+- 🟩 NIP-24 - Extra metadata fields and tags (Shown in profile, not treated specially)
+- ✅ NIP-25 - Reactions
+- ✅ NIP-26 - Delegated Event Signing
+- ✅ NIP-27 - Text Note References
+- ⬜ NIP-28 - Public Chat
+- ⬜ NIP-30 - Custom Emoji
+- ✅ NIP-31 - Dealing with Unknown Events
+- ⬜ NIP-32 - Labeling
+- ✅ NIP-36 - Sensitive Content
+- ⬜ NIP-38 - User Statuses
+- ⬜ NIP-39 - External Identities in Profiles
+- ⬜ NIP-40 - Expiration Timestamp
+- ✅ NIP-42 - Authentication of clients to relays
+- ✅ NIP-44 - Versioned Encryption
+- ⬜ NIP-45 - Counting results
+- 🟩 NIP-46 - Nostr Connect (works as signer, not as client, auto-approving at present)
+- ⬜ NIP-47 - Wallet Connect
+- ✅ NIP-48 - Proxy Tags
+- ✅ NIP-49 - Private Key Encryption
+- ⬜ NIP-50 - Search Capability
+- 🟩 NIP-51 - Lists
+- ⬜ NIP-52 - Calendar Events
+- ⬜ NIP-53 - Live Activities
+- ⬜ NIP-56 - Reporting
+- 🟩 NIP-57 - Lightning Zaps
+- ⬜ NIP-58 - Badges
+- 🟩 NIP-59 - Gift Wrap (receiving and displaying, not creating/sending)
+- ✅ NIP-65 - Relay List Metadata
+- ⬜ NIP-72 - Moderated Communities
+- ⬜ NIP-75 - Zap Goals
+- ⬜ NIP-78 - Application-specific data
+- ⬜ NIP-84 - Highlights
+- ⬜ NIP-89 - Recommended Application Handlers
+- ⬜ NIP-90 - Data Vending Machines
+- ⬜ NIP-94 - File Metadata
+- ⬜ NIP-96 - HTTP File Storage Integration
+- ⬜ NIP-98 - HTTP Auth
+- ⬜ NIP-99 - Classified Listings
+
+## Content Moderation and Curation
+
+Gossip provides multiple methods for you to moderate and curate the content that you see. Some of these mechanisms leverage the work of other people such as community moderators, friends, and relay operators. Others put you in charge, but as such you will be seeing the content in order to moderate it so they don't completely insulate you from the content. Here are the mechanisms available in gossip for content moderation and feed curation.
+
+1. **No global feed and no algorithm** - Gossip has no global feed. So right from the start you are not subjected to everything that is out there. Feeds are comprised entirely of posts from people that you choose to follow. Replies to posts, on the other hand, can come from anywhere. Therefore there is still a need for moderation.
+1. **Lists** - You can define lists of people and view only what those people have posted.
+1. **Muting** - You can mute individual people. You can share this mute list with other clients that you use.
+1. **Thread Dismissal** - You can dismiss a post and all the replies to it (however, this is temporary until client restart).
+1. **Content Warnings** - Gossip shows content warnings of posts that have them, and you must approve to see the content. You can also place content warnings on any content that you post.
+1. **Spam Filtering Script** - Gossip provides a hook to filter posts via a script that you can program to do whatever you want.
+1. **SpamSafe Relay Designation** - When the SpamSafe setting is enabled, notes from unknown persons are only fetched from relays that you have marked as SpamSafe.
+
+Showing relay-global feeds on relays marked SpamSafe is a possibility for the future.
+
+In the future I intend for gossip to support one of the multiple competing standards for labelling and reporting of content (the options currently are NIP-32, NIP-56, and NIP-72), but none of these are defined well enough to be useful yet IMHO. I look forward to a time when you can subscribe to a set of moderators that you trust.
 
 ## Building from Source
 
@@ -109,9 +148,9 @@ Most dependencies are probably already installed in your base operating system. 
 - build essentials like gcc and make (debian: "build-essential")
 - cmake (debian: "cmake")
 - pkg-config (debian: "pkg-config")
-- openssl (debian: "libssl-dev")
+- openssl (debian: "libssl-dev") (this is only needed if not compiling with feature "rustls-tls")
 - fontconfig (debian: "libfontconfig1-dev")
-- ffmpeg support (debian: libavutil-dev libavformat-dev libavfilter-dev libavdevice-dev libxext-dev libclang-dev)
+- ffmpeg support (debian: libavutil-dev libavformat-dev libavfilter-dev libavdevice-dev libxext-dev libclang-dev)  (this is only needed if compiling with feature "video-ffmpeg")
 
 #### macOS
 
@@ -140,13 +179,13 @@ The output will be a binary executable in `target/release/gossip`
 
 This binary should be portable to similar systems with similar hardware and operating system.
 
-If you want a binary optimized for your exact processor with the newest CPU features enabled, and all gossip features enabled:
+If you want a binary optimized for your exact processor with the newest CPU features enabled, and all gossip features enabled, do something more like this (for exact features to use, see the next section):
 
 ````bash
 RUSTFLAGS="-C target-cpu=native --cfg tokio_unstable" cargo build --features=lang-cjk,video-ffmpeg --release
 ````
 
-Everything gossip needs (fonts, icons) is baked into this executable. It doesn't need to find assets. So you can move it and run it from anywhere.
+Everything gossip needs (fonts, icons) is baked into this executable. It doesn't need to find assets. So you can move the "gossip" binary and run it from anywhere.
 
 To make the binary smaller,
 
@@ -165,20 +204,21 @@ strip ./target/release/gossip
 ./target/release/gossip
 ````
 
-## Compile Options
+## Compile Features
 
 ### TLS
 
-Gossip uses rustls by default. This is an SSL library in rust, which gets compiled into the binary, meaning we won't have issues trying to find your system SSL library or system CA certificates. It also means:
+Gossip has three options for TLS support:
 
+1. Use rust-code and compiled in root certificates from webpki  (feature 'rustls-tls')
+2. Use rust-code, but use your system's root certificates (feature 'rustls-tls-native', this is the default)
+3. Use your system's code and your system's root certificates (feature 'native-tls')
+
+Rust's TLS code is thought to be more secure than your systems TLS code (e.g. OpenSSL). But it is very finnicky. In particular:
+
+- It will not accept self-signed CA certificates. If you have these on your system, it won't run at all.
 - Gossip will fail to negotiate SSL with servers that don't have any strong ciphersuites. This is a feature, but not one that everybody wants.
 - Gossip may not compile on hardware that the `ring` crypto library does not yet support.
-
-If you wish to switch to your native TLS provider, use the following compile options:
-
-````
-  --no-default-features --features=native-tls
-````
 
 ### Language Support
 
@@ -208,7 +248,11 @@ Compile with
 
 ### Performance issues
 
-If you are having performance issues, please see [PERFORMANCE.md](docs/PERFORMANCE.md).
+If you are having performance issues, please see [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
+
+### Upgrading from very old versions
+
+If you are using a version before 0.8.x, you must upgrade to a 0.8.x version and run gossip at least once in order to upgrade from SQLite3 to LMDB. This is because we have now removed the old SQLite3 code. Alternatively, just delete your old gossip directory in your [config dir](https://docs.rs/dirs/latest/dirs/fn.config_dir.html) and start fresh.
 
 ## Technology Involved
 
@@ -218,11 +262,12 @@ If you are having performance issues, please see [PERFORMANCE.md](docs/PERFORMAN
 - Tungstenite websocket library
 - Tokio async task runtime
 - Serde serialization/deserialization
+- Speedy serialization/deserialization
 - Many others
 
 ## License
 
-MIT license ([LICENSE-MIT](LICENSE-MIT) or <http://opensource.org/licenses/MIT>)
+MIT license ([LICENSE MIT](LICENSE.txt) or <http://opensource.org/licenses/MIT>)
 
 ### Contribution
 
@@ -230,9 +275,9 @@ All contributions welcome, please check the [development guidelines](docs/DEVELO
 
 Please join [Gossip Telegram Channel](https://t.me/gossipclient).
 
-Anyone interested in replacing the GUI with something much better, or keeping it as egui but making it much better, would be greatly appreciated.
+Anyone interested in replacing the GUI with something much better, or keeping it as egui but making it much better, would be greatly appreciated. The project was split into two crates (lib and bin) to make it easier to build a different UI onto the backend.
 
-Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, shall be licensed as above, without any additional terms or conditions.
+Any contribution intentionally submitted for inclusion in the work by you, shall be licensed as above, without any additional terms or conditions.
 
 ## On Nostr
 
@@ -250,6 +295,6 @@ npub1acg6thl5psv62405rljzkj8spesceyfz2c32udakc2ak0dmvfeyse9p35c
 
 You can also my NIP-05 address of `mike@mikedilger.com` which will also hook you up with the relays I post to.
 
-I'd prefer if you trusted `mike@mikedilger.com` higher than my public key at this point in time since key management is still pretty bad. That is the inverse of the normal recommendation, but my private key has not been treated very carefully as I never intended it to be my long-term keypair (it just became that over time).  Also, I fully intend to rollover my keys once gossip supports the key-rollover NIP, whatever that is (or will be).
+I'd prefer if you trusted `mike@mikedilger.com` higher than my public key at this point in time since key management is still pretty bad. That is the inverse of the normal recommendation, but my private key has not been treated very carefully as I never intended it to be my long-term key pair (it just became that over time).  Also, I fully intend to rollover my keys once gossip supports the key-rollover NIP, whatever that is (or will be).
 
 You can tip me at my Bitcoin Lighting address: <decentbun13@walletofsatoshi.com> == lnurl1dp68gurn8ghj7ampd3kx2ar0veekzar0wd5xjtnrdakj7tnhv4kxctttdehhwm30d3h82unvwqhkgetrv4h8gcn4dccnxv563ep

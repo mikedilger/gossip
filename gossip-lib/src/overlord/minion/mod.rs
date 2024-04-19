@@ -1,3 +1,4 @@
+mod filter_fns;
 mod handle_websocket;
 mod subscription;
 mod subscription_map;
@@ -7,7 +8,7 @@ use crate::dm_channel::DmChannel;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::relay::Relay;
-use crate::USER_AGENT;
+use crate::{RunState, USER_AGENT};
 use base64::Engine;
 use encoding_rs::{Encoding, UTF_8};
 use futures_util::sink::SinkExt;
@@ -16,8 +17,8 @@ use http::uri::{Parts, Scheme};
 use http::Uri;
 use mime::Mime;
 use nostr_types::{
-    ClientMessage, EventAddr, EventKind, Filter, Id, IdHex, IdHexPrefix, PublicKey, PublicKeyHex,
-    PublicKeyHexPrefix, RelayInformationDocument, RelayUrl, Unixtime,
+    ClientMessage, EventAddr, EventKind, Filter, Id, IdHex, PreEvent, PublicKey, PublicKeyHex,
+    RelayInformationDocument, RelayUrl, Tag, Unixtime,
 };
 use reqwest::Response;
 use std::borrow::Cow;
@@ -26,15 +27,42 @@ use std::sync::atomic::Ordering;
 use std::time::Duration;
 use subscription_map::SubscriptionMap;
 use tokio::net::TcpStream;
-use tokio::select;
 use tokio::sync::broadcast::Receiver;
 use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::watch::Receiver as WatchReceiver;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tungstenite::protocol::{Message as WsMessage, WebSocketConfig};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AuthState {
+    None,
+    Waiting(Id), // we sent AUTH, have not got response back yet
+    Authenticated,
+    Failed,
+}
 
 pub struct EventSeekState {
     pub job_ids: Vec<u64>,
     pub asked: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MinionExitReason {
+    GotDisconnected,
+    GotShutdownMessage,
+    GotWSClose,
+    LostOverlord,
+    SubscriptionsHaveCompleted,
+    Unknown,
+}
+
+impl MinionExitReason {
+    pub fn benign(&self) -> bool {
+        matches!(
+            *self,
+            MinionExitReason::GotShutdownMessage | MinionExitReason::SubscriptionsHaveCompleted
+        )
+    }
 }
 
 pub struct Minion {
@@ -46,24 +74,33 @@ pub struct Minion {
     stream: Option<WebSocketStream<MaybeTlsStream<TcpStream>>>,
     subscription_map: SubscriptionMap,
     next_events_subscription_id: u32,
-    keepgoing: bool,
     postings: HashSet<Id>,
     sought_events: HashMap<Id, EventSeekState>,
     last_message_sent: String,
+    auth_challenge: String,
+    subscriptions_waiting_for_auth: HashMap<String, Unixtime>,
+    subscriptions_waiting_for_metadata: Vec<(u64, Vec<PublicKey>)>,
+    subscriptions_rate_limited: Vec<String>,
+    general_feed_keys: Vec<PublicKey>,
+    general_feed_start: Option<Unixtime>,
+    person_feed_start: Option<Unixtime>,
+    inbox_feed_start: Option<Unixtime>,
+    read_runstate: WatchReceiver<RunState>,
+    exiting: Option<MinionExitReason>,
+    auth_state: AuthState,
+    failed_subs: HashSet<String>,
 }
 
 impl Minion {
     pub async fn new(url: RelayUrl) -> Result<Minion, Error> {
         let to_overlord = GLOBALS.to_overlord.clone();
         let from_overlord = GLOBALS.to_minions.subscribe();
-        let dbrelay = match GLOBALS.storage.read_relay(&url)? {
-            Some(dbrelay) => dbrelay,
-            None => {
-                let dbrelay = Relay::new(url.clone());
-                GLOBALS.storage.write_relay(&dbrelay, None)?;
-                dbrelay
-            }
-        };
+        let dbrelay = GLOBALS.storage.read_or_create_relay(&url, None)?;
+
+        let mut read_runstate = GLOBALS.read_runstate.clone();
+        if *read_runstate.borrow_and_update() != RunState::Online {
+            return Err(ErrorKind::Offline.into());
+        }
 
         Ok(Minion {
             url,
@@ -74,21 +111,47 @@ impl Minion {
             stream: None,
             subscription_map: SubscriptionMap::new(),
             next_events_subscription_id: 0,
-            keepgoing: true,
             postings: HashSet::new(),
             sought_events: HashMap::new(),
             last_message_sent: String::new(),
+            auth_challenge: "".to_string(),
+            subscriptions_waiting_for_auth: HashMap::new(),
+            subscriptions_waiting_for_metadata: Vec::new(),
+            subscriptions_rate_limited: Vec::new(),
+            general_feed_keys: Vec::new(),
+            general_feed_start: None,
+            person_feed_start: None,
+            inbox_feed_start: None,
+            read_runstate,
+            exiting: None,
+            auth_state: AuthState::None,
+            failed_subs: HashSet::new(),
         })
     }
 }
 
 impl Minion {
-    pub(crate) async fn handle(&mut self, mut messages: Vec<ToMinionPayload>) -> Result<(), Error> {
+    pub(crate) async fn handle(
+        &mut self,
+        mut messages: Vec<ToMinionPayload>,
+    ) -> Result<MinionExitReason, Error> {
         // minion will log when it connects
         tracing::trace!("{}: Minion handling started", &self.url);
 
-        let fetcher_timeout =
-            std::time::Duration::new(GLOBALS.storage.read_setting_fetcher_timeout_sec(), 0);
+        // Possibly use a short timeout
+        let mut short_timeout = false;
+        for m in &messages {
+            // When advertising relay lists, use a short timeout
+            if matches!(m.detail, ToMinionPayloadDetail::AdvertiseRelayList(_)) {
+                short_timeout = true;
+            }
+        }
+
+        let fetcher_timeout = if short_timeout {
+            std::time::Duration::new(5, 0)
+        } else {
+            std::time::Duration::new(GLOBALS.storage.read_setting_fetcher_timeout_sec(), 0)
+        };
 
         // Connect to the relay
         let websocket_stream = {
@@ -116,7 +179,17 @@ impl Minion {
                 .get(format!("{}", uri))
                 .header("Accept", "application/nostr+json")
                 .send();
-            let response = request_nip11_future.await?;
+
+            let response;
+            tokio::select! {
+                _ = self.read_runstate.wait_for(|runstate| !runstate.going_online()) => {
+                    return Ok(MinionExitReason::GotShutdownMessage);
+                },
+                response_result = request_nip11_future => {
+                    response = response_result?;
+                }
+            }
+
             self.dbrelay.last_attempt_nip11 = Some(Unixtime::now().unwrap().0 as u64);
             let status = response.status();
             match Self::text_with_charset(response, "utf-8").await {
@@ -197,7 +270,6 @@ impl Minion {
                 .body(())?;
 
             let config: WebSocketConfig = WebSocketConfig {
-                max_send_queue: None,
                 // Tungstenite default is 64 MiB.
                 // Cameri nostream relay limits to 0.5 a megabyte
                 // Based on my current database of 7356 events, the longest was 11,121 bytes.
@@ -211,14 +283,30 @@ impl Minion {
                 accept_unmasked_frames: GLOBALS
                     .storage
                     .read_setting_websocket_accept_unmasked_frames(),
+                ..Default::default()
             };
 
-            let connect_timeout = GLOBALS.storage.read_setting_websocket_connect_timeout_sec();
-            let (websocket_stream, response) = tokio::time::timeout(
-                std::time::Duration::new(connect_timeout, 0),
+            let connect_timeout_secs = if short_timeout {
+                5
+            } else {
+                GLOBALS.storage.read_setting_websocket_connect_timeout_sec()
+            };
+
+            let connect_future = tokio::time::timeout(
+                std::time::Duration::new(connect_timeout_secs, 0),
                 tokio_tungstenite::connect_async_with_config(req, Some(config), false),
-            )
-            .await??;
+            );
+
+            let websocket_stream;
+            let response;
+            tokio::select! {
+                _ = self.read_runstate.wait_for(|runstate| !runstate.going_online()) => {
+                    return Ok(MinionExitReason::GotShutdownMessage);
+                },
+                connect_result = connect_future => {
+                    (websocket_stream, response) = connect_result??;
+                },
+            }
 
             // Check the status code of the response
             if response.status().as_u16() == 4000 {
@@ -240,18 +328,28 @@ impl Minion {
             self.handle_overlord_message(message).await?;
         }
 
-        // Tell the overlord we are ready to receive commands
-        self.tell_overlord_we_are_ready().await?;
+        // Ping timer
+        let mut ping_timer = tokio::time::interval(std::time::Duration::new(
+            GLOBALS.storage.read_setting_websocket_ping_frequency_sec(),
+            0,
+        ));
+        ping_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        ping_timer.tick().await; // use up the first immediate tick.
+
+        // Periodic Task timer (1.5 sec)
+        let mut task_timer = tokio::time::interval(std::time::Duration::new(1, 500_000_000));
+        task_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        task_timer.tick().await; // use up the first immediate tick.
 
         'relayloop: loop {
-            match self.loop_handler().await {
+            match self.loop_handler(&mut ping_timer, &mut task_timer).await {
                 Ok(_) => {
-                    if !self.keepgoing {
+                    if self.exiting.is_some() {
                         break 'relayloop;
                     }
                 }
                 Err(e) => {
-                    tracing::error!("{}", e);
+                    tracing::warn!("{}", e);
 
                     if let ErrorKind::Websocket(_) = e.kind {
                         return Err(e);
@@ -265,45 +363,56 @@ impl Minion {
         // Close the connection
         let ws_stream = self.stream.as_mut().unwrap();
         if !ws_stream.is_terminated() {
-            if let Err(e) = ws_stream.send(WsMessage::Close(None)).await {
-                tracing::error!("websocket close error: {}", e);
-                return Err(e.into());
+            if self.exiting != Some(MinionExitReason::GotWSClose) {
+                if let Err(e) = ws_stream.send(WsMessage::Close(None)).await {
+                    tracing::warn!("websocket close error: {}", e);
+                    return Err(e.into());
+                }
             }
         }
 
-        Ok(())
+        match self.exiting {
+            Some(reason) => {
+                tracing::debug!("Minion for {} shutting down: {:?}", self.url, reason);
+                Ok(reason)
+            }
+            None => {
+                tracing::debug!("Minion for {} shutting down", self.url);
+                Ok(MinionExitReason::Unknown)
+            }
+        }
     }
 
-    async fn loop_handler(&mut self) -> Result<(), Error> {
+    async fn loop_handler(
+        &mut self,
+        ping_timer: &mut tokio::time::Interval,
+        task_timer: &mut tokio::time::Interval,
+    ) -> Result<(), Error> {
         let ws_stream = self.stream.as_mut().unwrap();
 
-        // Ping timer
-        let mut ping_timer = tokio::time::interval(std::time::Duration::new(
-            GLOBALS.storage.read_setting_websocket_ping_frequency_sec(),
-            0,
-        ));
-        ping_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-        ping_timer.tick().await; // use up the first immediate tick.
-
-        // Periodic Task timer (2 sec)
-        let mut task_timer = tokio::time::interval(std::time::Duration::new(2, 0));
-        task_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-        task_timer.tick().await; // use up the first immediate tick.
-
-        select! {
+        tokio::select! {
             biased;
+            _ = self.read_runstate.changed() => {
+                // NOTE: I couldn't get .wait_for() to work because it made all this code not Send anymore.
+                if self.read_runstate.borrow_and_update().going_offline() {
+                    self.exiting = Some(MinionExitReason::GotShutdownMessage);
+                }
+            },
             _ = ping_timer.tick() => {
                 ws_stream.send(WsMessage::Ping(vec![0x1])).await?;
             },
             _ = task_timer.tick()  => {
                 // Update subscription for sought events
                 self.get_events().await?;
+
+                // Try to subscribe to subscriptions waiting for something
+                self.try_subscribe_waiting().await?;
             },
             to_minion_message = self.from_overlord.recv() => {
                 let to_minion_message = match to_minion_message {
                     Ok(m) => m,
                     Err(tokio::sync::broadcast::error::RecvError::Closed) => {
-                        self.keepgoing = false;
+                        self.exiting = Some(MinionExitReason::LostOverlord);
                         return Ok(());
                     },
                     Err(e) => return Err(e.into())
@@ -319,7 +428,7 @@ impl Minion {
                         if ws_stream.is_terminated() {
                             // possibly connection reset
                             tracing::info!("{}: connected terminated", &self.url);
-                            self.keepgoing = false;
+                            self.exiting = Some(MinionExitReason::GotDisconnected);
                         }
                         return Ok(());
                     }
@@ -339,7 +448,9 @@ impl Minion {
                     WsMessage::Binary(_) => tracing::warn!("{}, Unexpected binary message", &self.url),
                     WsMessage::Ping(_) => { }, // tungstenite automatically pongs.
                     WsMessage::Pong(_) => { }, // Verify it is 0x1? Nah. It's just for keep-alive.
-                    WsMessage::Close(_) => self.keepgoing = false,
+                    WsMessage::Close(_) => {
+                        self.exiting = Some(MinionExitReason::GotWSClose);
+                    }
                     WsMessage::Frame(_) => tracing::warn!("{}: Unexpected frame message", &self.url),
                 }
             },
@@ -347,7 +458,7 @@ impl Minion {
 
         // Don't continue if we have no more subscriptions
         if self.subscription_map.is_empty() {
-            self.keepgoing = false;
+            self.exiting = Some(MinionExitReason::SubscriptionsHaveCompleted);
         }
 
         Ok(())
@@ -358,6 +469,43 @@ impl Minion {
         message: ToMinionPayload,
     ) -> Result<(), Error> {
         match message.detail {
+            ToMinionPayloadDetail::AdvertiseRelayList(event) => {
+                let id = event.id;
+                self.postings.insert(id);
+                let msg = ClientMessage::Event(event);
+                let wire = serde_json::to_string(&msg)?;
+                let ws_stream = self.stream.as_mut().unwrap();
+                self.last_message_sent = wire.clone();
+                ws_stream.send(WsMessage::Text(wire)).await?;
+                tracing::info!("Advertised relay list to {}", &self.url);
+                self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
+                    self.url.clone(),
+                    message.job_id,
+                ))?;
+            }
+            ToMinionPayloadDetail::AuthApproved => {
+                self.dbrelay.allow_auth = Some(true); // save in our memory copy of the relay
+                self.authenticate().await?;
+                if let Some(pubkey) = GLOBALS.identity.public_key() {
+                    GLOBALS.pending.remove(
+                        &crate::pending::PendingItem::RelayAuthenticationRequest {
+                            account: pubkey,
+                            relay: self.url.clone(),
+                        },
+                    );
+                }
+            }
+            ToMinionPayloadDetail::AuthDeclined => {
+                self.dbrelay.allow_auth = Some(false); // save in our memory copy of the relay
+                if let Some(pubkey) = GLOBALS.identity.public_key() {
+                    GLOBALS.pending.remove(
+                        &crate::pending::PendingItem::RelayAuthenticationRequest {
+                            account: pubkey,
+                            relay: self.url.clone(),
+                        },
+                    );
+                }
+            }
             ToMinionPayloadDetail::FetchEvent(id) => {
                 self.sought_events
                     .entry(id)
@@ -373,15 +521,17 @@ impl Minion {
                 // anyways we would have to create a parallel thing.
                 self.get_event_addr(message.job_id, ea).await?;
             }
-            ToMinionPayloadDetail::PostEvent(event) => {
-                let id = event.id;
-                self.postings.insert(id);
-                let msg = ClientMessage::Event(event);
-                let wire = serde_json::to_string(&msg)?;
-                let ws_stream = self.stream.as_mut().unwrap();
-                self.last_message_sent = wire.clone();
-                ws_stream.send(WsMessage::Text(wire)).await?;
-                tracing::info!("Posted event to {}", &self.url);
+            ToMinionPayloadDetail::PostEvents(mut events) => {
+                for event in events.drain(..) {
+                    let id = event.id;
+                    self.postings.insert(id);
+                    let msg = ClientMessage::Event(Box::new(event));
+                    let wire = serde_json::to_string(&msg)?;
+                    let ws_stream = self.stream.as_mut().unwrap();
+                    self.last_message_sent = wire.clone();
+                    ws_stream.send(WsMessage::Text(wire)).await?;
+                    tracing::info!("Posted event to {}", &self.url);
+                }
                 self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
                     self.url.clone(),
                     message.job_id,
@@ -389,19 +539,25 @@ impl Minion {
             }
             ToMinionPayloadDetail::Shutdown => {
                 tracing::debug!("{}: Websocket listener shutting down", &self.url);
-                self.keepgoing = false;
+                self.exiting = Some(MinionExitReason::GotShutdownMessage);
             }
             ToMinionPayloadDetail::SubscribeAugments(ids) => {
                 self.subscribe_augments(message.job_id, ids).await?;
             }
             ToMinionPayloadDetail::SubscribeGeneralFeed(pubkeys) => {
-                self.subscribe_general_feed(message.job_id, pubkeys).await?;
+                if self.general_feed_keys.is_empty() {
+                    self.general_feed_keys = pubkeys;
+                    self.subscribe_general_feed_initial(message.job_id).await?;
+                } else {
+                    self.subscribe_general_feed_additional(message.job_id, pubkeys)
+                        .await?;
+                }
             }
-            ToMinionPayloadDetail::SubscribeMentions => {
-                self.subscribe_mentions(message.job_id).await?;
+            ToMinionPayloadDetail::SubscribeInbox => {
+                self.subscribe_inbox(message.job_id).await?;
             }
-            ToMinionPayloadDetail::SubscribeOutbox => {
-                self.subscribe_outbox(message.job_id).await?;
+            ToMinionPayloadDetail::SubscribeConfig => {
+                self.subscribe_config(message.job_id).await?;
             }
             ToMinionPayloadDetail::SubscribeDiscover(pubkeys) => {
                 self.subscribe_discover(message.job_id, pubkeys).await?;
@@ -413,12 +569,26 @@ impl Minion {
             ToMinionPayloadDetail::SubscribePersonFeed(pubkey) => {
                 self.subscribe_person_feed(message.job_id, pubkey).await?;
             }
-            ToMinionPayloadDetail::SubscribeThreadFeed(main, parents) => {
-                self.subscribe_thread_feed(message.job_id, main, parents)
-                    .await?;
+            ToMinionPayloadDetail::SubscribeReplies(main) => {
+                self.subscribe_replies(message.job_id, main).await?;
             }
             ToMinionPayloadDetail::SubscribeDmChannel(dmchannel) => {
                 self.subscribe_dm_channel(message.job_id, dmchannel).await?;
+            }
+            ToMinionPayloadDetail::SubscribeNip46 => {
+                self.subscribe_nip46(message.job_id).await?;
+            }
+            ToMinionPayloadDetail::TempSubscribeGeneralFeedChunk(start) => {
+                self.temp_subscribe_general_feed_chunk(message.job_id, start)
+                    .await?;
+            }
+            ToMinionPayloadDetail::TempSubscribePersonFeedChunk { pubkey, start } => {
+                self.temp_subscribe_person_feed_chunk(message.job_id, pubkey, start)
+                    .await?;
+            }
+            ToMinionPayloadDetail::TempSubscribeInboxFeedChunk(start) => {
+                self.temp_subscribe_inbox_feed_chunk(message.job_id, start)
+                    .await?;
             }
             ToMinionPayloadDetail::TempSubscribeMetadata(pubkeys) => {
                 self.temp_subscribe_metadata(message.job_id, pubkeys)
@@ -427,31 +597,18 @@ impl Minion {
             ToMinionPayloadDetail::UnsubscribePersonFeed => {
                 self.unsubscribe("person_feed").await?;
             }
-            ToMinionPayloadDetail::UnsubscribeThreadFeed => {
-                self.unsubscribe("thread_feed").await?;
+            ToMinionPayloadDetail::UnsubscribeReplies => {
+                self.unsubscribe("replies").await?;
             }
         }
 
         Ok(())
     }
 
-    async fn tell_overlord_we_are_ready(&self) -> Result<(), Error> {
-        self.to_overlord.send(ToOverlordMessage::MinionIsReady)?;
-        Ok(())
-    }
-
     async fn subscribe_augments(&mut self, job_id: u64, ids: Vec<IdHex>) -> Result<(), Error> {
-        let mut event_kinds = crate::feed::feed_related_event_kinds(false);
-        event_kinds.retain(|f| f.augments_feed_related());
+        let filters = filter_fns::augments(&ids);
 
-        let filter = Filter {
-            e: ids,
-            kinds: event_kinds,
-            ..Default::default()
-        };
-
-        self.subscribe(vec![filter], "temp_augments", job_id)
-            .await?;
+        self.subscribe(filters, "temp_augments", job_id).await?;
 
         if let Some(sub) = self.subscription_map.get_mut("temp_augments") {
             if let Some(nip11) = &self.nip11 {
@@ -469,76 +626,30 @@ impl Minion {
     }
 
     // Subscribe to the user's followers on the relays they write to
-    async fn subscribe_general_feed(
-        &mut self,
-        job_id: u64,
-        followed_pubkeys: Vec<PublicKey>,
-    ) -> Result<(), Error> {
-        let mut filters: Vec<Filter> = Vec::new();
-
+    async fn subscribe_general_feed_initial(&mut self, job_id: u64) -> Result<(), Error> {
         tracing::debug!(
             "Following {} people at {}",
-            followed_pubkeys.len(),
+            self.general_feed_keys.len(),
             &self.url
         );
 
         // Compute how far to look back
-        let feed_since = {
-            if self.subscription_map.has("general_feed") {
-                // don't lookback if we are just adding more people
+        let since = {
+            if self.general_feed_start.is_some() {
+                // We already have a general subscription.
+                // Therefore, don't lookback at all. We are just adding more people
+                //    and we don't want to reload everybody's events again.
+                // FIXME: we should do a separate temp subscription for the more people added
+                // to get their events over the past chunk.
                 Unixtime::now().unwrap()
             } else {
-                self.compute_since(GLOBALS.storage.read_setting_feed_chunk())
+                let since = self.compute_since(GLOBALS.storage.read_setting_feed_chunk());
+                self.general_feed_start = Some(since);
+                since
             }
         };
 
-        // Allow all feed related event kinds (including DMs)
-        let event_kinds = crate::feed::feed_related_event_kinds(true);
-
-        if !followed_pubkeys.is_empty() {
-            let pkp: Vec<PublicKeyHexPrefix> = followed_pubkeys
-                .iter()
-                .map(|pk| Into::<PublicKeyHex>::into(*pk).prefix(16)) // quarter-size
-                .collect();
-
-            // feed related by people followed
-            filters.push(Filter {
-                authors: pkp,
-                kinds: event_kinds.clone(),
-                since: Some(feed_since),
-                ..Default::default()
-            });
-
-            // Try to find where people post.
-            // Subscribe to kind-10002 `RelayList`s to see where people post.
-            // Subscribe to ContactLists so we can look at the contents and
-            //   divine relays people write to (if using a client that does that).
-            // BUT ONLY for people where this kind of data hasn't been received
-            // in the last 8 hours (so we don't do it every client restart).
-            let keys_needing_relay_lists: Vec<PublicKeyHexPrefix> = GLOBALS
-                .people
-                .get_followed_pubkeys_needing_relay_lists(&followed_pubkeys)
-                .drain(..)
-                .map(|pk| Into::<PublicKeyHex>::into(pk).prefix(16)) // quarter-size
-                .collect();
-
-            if !keys_needing_relay_lists.is_empty() {
-                tracing::debug!(
-                    "Looking to update relay lists from {} people on {}",
-                    keys_needing_relay_lists.len(),
-                    &self.url
-                );
-
-                filters.push(Filter {
-                    authors: keys_needing_relay_lists,
-                    kinds: vec![EventKind::RelayList, EventKind::ContactList],
-                    // No since. These are replaceable events, we should only get 1 per person.
-                    ..Default::default()
-                });
-            }
-        }
-
-        // NO REPLIES OR ANCESTORS
+        let filters = filter_fns::general_feed(&self.general_feed_keys, since, None);
 
         if filters.is_empty() {
             self.unsubscribe("general_feed").await?;
@@ -565,51 +676,57 @@ impl Minion {
         Ok(())
     }
 
+    /// Subscribe to general feed with change of pubkeys
+    async fn subscribe_general_feed_additional(
+        &mut self,
+        job_id: u64,
+        pubkeys: Vec<PublicKey>,
+    ) -> Result<(), Error> {
+        // Figure out who the new people are (if any)
+        let mut new_keys = pubkeys.clone();
+        new_keys.retain(|key| !self.general_feed_keys.contains(key));
+        if !new_keys.is_empty() {
+            let since = match self.general_feed_start {
+                Some(start) => start,
+                None => self.compute_since(GLOBALS.storage.read_setting_feed_chunk()),
+            };
+
+            let filters = filter_fns::general_feed(&new_keys, since, None);
+
+            if !filters.is_empty() {
+                self.subscribe(filters, "temp_general_feed_update", job_id)
+                    .await?;
+            }
+        }
+
+        self.general_feed_keys = pubkeys;
+
+        Ok(())
+    }
+
     // Subscribe to anybody mentioning the user on the relays the user reads from
     // (and any other relay for the time being until nip65 is in widespread use)
-    async fn subscribe_mentions(&mut self, job_id: u64) -> Result<(), Error> {
-        let mut filters: Vec<Filter> = Vec::new();
+    async fn subscribe_inbox(&mut self, job_id: u64) -> Result<(), Error> {
+        // If we have already subscribed to inbox, do not resubscribe
+        if self.subscription_map.has("inbox_feed") {
+            return Ok(());
+        }
 
         // Compute how far to look back
         let replies_since = self.compute_since(GLOBALS.storage.read_setting_replies_chunk());
+        self.inbox_feed_start = Some(replies_since);
 
-        // GiftWrap lookback needs to be one week further back
-        // FIXME: this depends on how far other clients backdate.
-        let giftwrap_since = Unixtime(replies_since.0 - 60 * 60 * 24 * 7);
+        let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
 
-        // Allow all feed related event kinds (including DMs)
-        let mut event_kinds = crate::feed::feed_related_event_kinds(true);
-        event_kinds.retain(|f| *f != EventKind::GiftWrap); // gift wrap has special filter
-
-        if let Some(pubkey) = GLOBALS.signer.public_key() {
-            // Any mentions of me
-            // (but not in peoples contact lists, for example)
-
-            let pkh: PublicKeyHex = pubkey.into();
-
-            filters.push(Filter {
-                p: vec![pkh.clone()],
-                kinds: event_kinds,
-                since: Some(replies_since),
-                ..Default::default()
-            });
-
-            // Giftwrap specially looks back further
-            filters.push(Filter {
-                p: vec![pkh],
-                kinds: vec![EventKind::GiftWrap],
-                since: Some(giftwrap_since),
-                ..Default::default()
-            });
-        }
+        let filters = filter_fns::inbox_feed(replies_since, None, spamsafe);
 
         if filters.is_empty() {
             return Ok(());
         }
 
-        self.subscribe(filters, "mentions_feed", job_id).await?;
+        self.subscribe(filters, "inbox_feed", job_id).await?;
 
-        if let Some(sub) = self.subscription_map.get_mut("mentions_feed") {
+        if let Some(sub) = self.subscription_map.get_mut("inbox_feed") {
             if let Some(nip11) = &self.nip11 {
                 if !nip11.supports_nip(15) {
                     // Does not support EOSE.  Set subscription to EOSE now.
@@ -624,47 +741,16 @@ impl Minion {
         Ok(())
     }
 
-    // Subscribe to the user's output (config, DMs, etc) which is on their own write relays
-    async fn subscribe_outbox(&mut self, job_id: u64) -> Result<(), Error> {
-        if let Some(pubkey) = GLOBALS.signer.public_key() {
-            let pkh: PublicKeyHex = pubkey.into();
+    // Subscribe to the user's config (config, DMs, etc) which is on their own write relays
+    async fn subscribe_config(&mut self, job_id: u64) -> Result<(), Error> {
+        let since = self.compute_since(GLOBALS.storage.read_setting_person_feed_chunk());
 
-            let since = self.compute_since(GLOBALS.storage.read_setting_person_feed_chunk());
-            let giftwrap_since = Unixtime(since.0 - 60 * 60 * 24 * 7);
+        let filters = filter_fns::config(since);
 
-            // Read back in things that we wrote out to our write relays
-            // that we need
-            let filters: Vec<Filter> = vec![
-                // Actual config stuff
-                Filter {
-                    authors: vec![pkh.clone().into()],
-                    kinds: vec![
-                        EventKind::Metadata,
-                        //EventKind::RecommendRelay,
-                        EventKind::ContactList,
-                        EventKind::MuteList,
-                        EventKind::RelayList,
-                    ],
-                    // these are all replaceable, no since required
-                    ..Default::default()
-                },
-                // GiftWraps to me, recent only
-                Filter {
-                    authors: vec![pkh.clone().into()],
-                    kinds: vec![EventKind::GiftWrap],
-                    since: Some(giftwrap_since),
-                    ..Default::default()
-                },
-                // Posts I wrote recently
-                Filter {
-                    authors: vec![pkh.into()],
-                    kinds: crate::feed::feed_related_event_kinds(false), // not DMs
-                    since: Some(since),
-                    ..Default::default()
-                },
-            ];
-
-            self.subscribe(filters, "temp_config_feed", job_id).await?;
+        if filters.is_empty() {
+            return Ok(());
+        } else {
+            self.subscribe(filters, "config_feed", job_id).await?;
         }
 
         Ok(())
@@ -677,17 +763,7 @@ impl Minion {
         pubkeys: Vec<PublicKey>,
     ) -> Result<(), Error> {
         if !pubkeys.is_empty() {
-            let pkp: Vec<PublicKeyHexPrefix> = pubkeys
-                .iter()
-                .map(|pk| Into::<PublicKeyHex>::into(*pk).prefix(16))
-                .collect(); // quarter-size prefix
-
-            let filters: Vec<Filter> = vec![Filter {
-                authors: pkp,
-                kinds: vec![EventKind::RelayList],
-                // these are all replaceable, no since required
-                ..Default::default()
-            }];
+            let filters = filter_fns::discover(&pubkeys);
 
             self.subscribe(filters, "temp_discover_feed", job_id)
                 .await?;
@@ -724,21 +800,13 @@ impl Minion {
     async fn subscribe_person_feed(&mut self, job_id: u64, pubkey: PublicKey) -> Result<(), Error> {
         // NOTE we do not unsubscribe to the general feed
 
-        // Allow all feed related event kinds (excluding DMs)
-        let event_kinds = crate::feed::feed_displayable_event_kinds(false);
+        let since = self.compute_since(GLOBALS.storage.read_setting_person_feed_chunk());
+        self.person_feed_start = Some(since);
 
-        let filters: Vec<Filter> = vec![Filter {
-            authors: vec![Into::<PublicKeyHex>::into(pubkey).prefix(16)],
-            kinds: event_kinds,
-            // No since, just a limit on quantity of posts
-            limit: Some(25),
-            ..Default::default()
-        }];
-
-        // NO REPLIES OR ANCESTORS
+        let filters = filter_fns::person_feed(pubkey, since, None);
 
         if filters.is_empty() {
-            self.unsubscribe("person_feed").await?;
+            self.unsubscribe_person_feed().await?;
             self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
                 self.url.clone(),
                 job_id,
@@ -750,49 +818,82 @@ impl Minion {
         Ok(())
     }
 
-    async fn subscribe_thread_feed(
+    async fn temp_subscribe_person_feed_chunk(
         &mut self,
         job_id: u64,
-        main: IdHex,
-        vec_ids: Vec<IdHex>,
+        pubkey: PublicKey,
+        since: Unixtime,
     ) -> Result<(), Error> {
-        // NOTE we do not unsubscribe to the general feed
+        let until = match self.person_feed_start {
+            Some(old_since_new_until) => old_since_new_until,
+            None => Unixtime::now().unwrap(),
+        };
+        self.person_feed_start = Some(since);
 
-        let mut filters: Vec<Filter> = Vec::new();
+        let filters = filter_fns::person_feed(pubkey, since, Some(until));
 
-        if !vec_ids.is_empty() {
-            let idhp: Vec<IdHexPrefix> = vec_ids
-                .iter()
-                .map(
-                    |id| id.prefix(16), // quarter-size
-                )
-                .collect();
-
-            // Get ancestors we know of so far
-            filters.push(Filter {
-                ids: idhp,
-                ..Default::default()
-            });
-
-            // Get reactions to ancestors, but not replies
-            let kinds = crate::feed::feed_augment_event_kinds();
-            filters.push(Filter {
-                e: vec_ids,
-                kinds,
-                ..Default::default()
-            });
+        if filters.is_empty() {
+            self.unsubscribe_person_feed().await?;
+            self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
+                self.url.clone(),
+                job_id,
+            ))?;
+        } else {
+            let sub_name = format!("temp_person_feed_chunk_{}", job_id);
+            self.subscribe(filters, &sub_name, job_id).await?;
         }
 
-        // Allow all feed related event kinds (excluding DMs)
-        let event_kinds = crate::feed::feed_related_event_kinds(false);
+        Ok(())
+    }
 
-        filters.push(Filter {
-            e: vec![main],
-            kinds: event_kinds,
-            ..Default::default()
-        });
+    async fn temp_subscribe_inbox_feed_chunk(
+        &mut self,
+        job_id: u64,
+        since: Unixtime,
+    ) -> Result<(), Error> {
+        let until = match self.inbox_feed_start {
+            Some(old_since_new_until) => old_since_new_until,
+            None => Unixtime::now().unwrap(),
+        };
+        self.inbox_feed_start = Some(since);
 
-        self.subscribe(filters, "thread_feed", job_id).await?;
+        let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
+
+        let filters = filter_fns::inbox_feed(since, Some(until), spamsafe);
+
+        if filters.is_empty() {
+            self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
+                self.url.clone(),
+                job_id,
+            ))?;
+            return Ok(());
+        }
+
+        let sub_name = format!("temp_inbox_feed_chunk_{}", job_id);
+        self.subscribe(filters, &sub_name, job_id).await?;
+
+        Ok(())
+    }
+
+    async fn unsubscribe_person_feed(&mut self) -> Result<(), Error> {
+        // Unsubscribe person_feed and all person feed chunks
+        let handles = self
+            .subscription_map
+            .get_all_handles_matching("person_feed");
+        for handle in handles {
+            self.unsubscribe(&handle).await?;
+        }
+        self.person_feed_start = None;
+        Ok(())
+    }
+
+    async fn subscribe_replies(&mut self, job_id: u64, main: IdHex) -> Result<(), Error> {
+        // NOTE we do not unsubscribe to the general feed
+
+        // Replies
+        let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
+        let filters = filter_fns::replies(main, spamsafe);
+        self.subscribe(filters, "replies", job_id).await?;
 
         Ok(())
     }
@@ -802,30 +903,21 @@ impl Minion {
         job_id: u64,
         dmchannel: DmChannel,
     ) -> Result<(), Error> {
-        let pubkey = match GLOBALS.signer.public_key() {
-            Some(pk) => pk,
-            None => return Ok(()),
-        };
-        let pkh: PublicKeyHex = pubkey.into();
+        let filters = filter_fns::dm_channel(dmchannel);
 
-        // note: giftwraps can't be subscribed by channel. they are subscribed more
-        // globally, and have to be limited to recent ones.
+        if !filters.is_empty() {
+            self.subscribe(filters, "dm_channel", job_id).await?;
+        }
 
-        let mut authors: Vec<PublicKeyHexPrefix> = dmchannel
-            .keys()
-            .iter()
-            .map(Into::<PublicKeyHex>::into)
-            .map(|k| k.prefix(32))
-            .collect();
-        authors.push(pkh.prefix(32)); // add the user themselves
+        Ok(())
+    }
 
-        let filters: Vec<Filter> = vec![Filter {
-            authors,
-            kinds: vec![EventKind::EncryptedDirectMessage],
-            ..Default::default()
-        }];
+    async fn subscribe_nip46(&mut self, job_id: u64) -> Result<(), Error> {
+        let filters = filter_fns::nip46();
 
-        self.subscribe(filters, "dm_channel", job_id).await?;
+        if !filters.is_empty() {
+            self.subscribe(filters, "nip46", job_id).await?;
+        }
 
         Ok(())
     }
@@ -851,33 +943,77 @@ impl Minion {
 
         // create the filter
         let mut filter = Filter::new();
-        filter.ids = ids.drain(..).map(|idhex| idhex.into()).collect();
+        filter.ids = ids;
 
         tracing::trace!("{}: Event Filter: {} events", &self.url, filter.ids.len());
 
         // create a handle for ourselves
+        // This is always a fresh subscription because they handle keeps changing
         let handle = format!("temp_events_{}", self.next_events_subscription_id);
         self.next_events_subscription_id += 1;
 
-        // save the subscription
-        let id = self.subscription_map.add(&handle, job_id, vec![filter]);
-        tracing::debug!(
-            "NEW SUBSCRIPTION on {} handle={}, id={}",
-            &self.url,
-            handle,
-            &id
-        );
+        self.subscribe(vec![filter], &handle, job_id).await?;
 
-        // get the request message
-        let req_message = self.subscription_map.get(&handle).unwrap().req_message();
+        Ok(())
+    }
 
-        // Subscribe on the relay
-        let websocket_stream = self.stream.as_mut().unwrap();
-        let wire = serde_json::to_string(&req_message)?;
-        self.last_message_sent = wire.clone();
-        websocket_stream.send(WsMessage::Text(wire.clone())).await?;
+    async fn try_subscribe_waiting(&mut self) -> Result<(), Error> {
+        // Subscribe to metadata
+        if !self.subscription_map.has("temp_subscribe_metadata")
+            && !self.subscriptions_waiting_for_metadata.is_empty()
+        {
+            let mut subscriptions_waiting_for_metadata =
+                std::mem::take(&mut self.subscriptions_waiting_for_metadata);
+            let mut combined_job_id: Option<u64> = None;
+            let mut combined_pubkeys: Vec<PublicKey> = Vec::new();
+            for (job_id, pubkeys) in subscriptions_waiting_for_metadata.drain(..) {
+                if combined_job_id.is_none() {
+                    combined_job_id = Some(job_id)
+                } else {
+                    // Tell the overlord this job id is over (it got combined into
+                    // another job_id)
+                    self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
+                        self.url.clone(),
+                        job_id,
+                    ))?;
+                }
+                combined_pubkeys.extend(pubkeys);
+            }
 
-        tracing::trace!("{}: Sent {}", &self.url, &wire);
+            self.temp_subscribe_metadata(combined_job_id.unwrap(), combined_pubkeys)
+                .await?;
+        }
+
+        // If we are authenticated
+        if self.auth_state != AuthState::Authenticated {
+            // Apply subscriptions that were waiting for auth
+            let mut handles = std::mem::take(&mut self.subscriptions_waiting_for_auth);
+            let now = Unixtime::now().unwrap();
+            for (handle, when) in handles.drain() {
+                // Do not try if we just inserted it within the last second
+                if when - now < Duration::from_secs(1) {
+                    // re-insert
+                    self.subscriptions_waiting_for_auth.insert(handle, when);
+                    continue;
+                }
+
+                tracing::info!("Sending corked subscription {} to {}", handle, &self.url);
+                self.send_subscription(&handle).await?;
+            }
+        }
+
+        // Retry rate-limited subscriptions
+        if !self.subscriptions_rate_limited.is_empty() {
+            let mut handles = std::mem::take(&mut self.subscriptions_rate_limited);
+            for handle in handles.drain(..) {
+                tracing::info!(
+                    "Sending previously rate-limited subscription {} to {}",
+                    handle,
+                    &self.url
+                );
+                self.send_subscription(&handle).await?;
+            }
+        }
 
         Ok(())
     }
@@ -890,36 +1026,70 @@ impl Minion {
         // build the filter
         let mut filter = Filter::new();
         let pkh: PublicKeyHex = ea.author.into();
-        filter.authors = vec![pkh.prefix(32)]; // half-size
+        filter.authors = vec![pkh];
         filter.kinds = vec![ea.kind];
-        filter.d = vec![ea.d];
+        filter.set_tag_values('d', vec![ea.d]);
 
         self.subscribe(vec![filter], &handle, job_id).await
+    }
+
+    // Load more, one more chunk back
+    async fn temp_subscribe_general_feed_chunk(
+        &mut self,
+        job_id: u64,
+        start: Unixtime,
+    ) -> Result<(), Error> {
+        let end = {
+            if let Some(end) = self.general_feed_start {
+                end
+            } else {
+                // This shouldn't happen, but if it does
+                Unixtime::now().unwrap()
+            }
+        };
+        self.general_feed_start = Some(start);
+
+        let filters = filter_fns::general_feed(&self.general_feed_keys, start, Some(end));
+
+        if !filters.is_empty() {
+            tracing::debug!(
+                "Following {} people at {}, from {} to {}",
+                self.general_feed_keys.len(),
+                &self.url,
+                start,
+                end
+            );
+
+            // We include the job_id so that if the user presses "load more" yet again,
+            // the new chunk subscription doesn't clobber this subscription which might
+            // not have run to completion yet.
+            let sub_name = format!("temp_general_feed_chunk_{}", job_id);
+
+            self.subscribe(filters, &sub_name, job_id).await?;
+        }
+
+        Ok(())
     }
 
     async fn temp_subscribe_metadata(
         &mut self,
         job_id: u64,
-        mut pubkeys: Vec<PublicKey>,
+        pubkeys: Vec<PublicKey>,
     ) -> Result<(), Error> {
-        let pkhp: Vec<PublicKeyHexPrefix> = pubkeys
-            .drain(..)
-            .map(
-                |pk| Into::<PublicKeyHex>::into(pk).prefix(16), // quarter-size
-            )
-            .collect();
+        if self.subscription_map.has("temp_subscribe_metadata") {
+            // Save for later
+            self.subscriptions_waiting_for_metadata
+                .push((job_id, pubkeys));
+            return Ok(());
+        }
 
         tracing::trace!("Temporarily subscribing to metadata on {}", &self.url);
 
         let handle = "temp_subscribe_metadata".to_string();
-        let filter = Filter {
-            authors: pkhp,
-            kinds: vec![EventKind::Metadata],
-            // FIXME: we could probably get a since-last-fetched-their-metadata here.
-            //        but relays should just return the lastest of these.
-            ..Default::default()
-        };
-        self.subscribe(vec![filter], &handle, job_id).await
+
+        let filters = filter_fns::metadata(&pubkeys);
+
+        self.subscribe(filters, &handle, job_id).await
     }
 
     async fn subscribe(
@@ -929,7 +1099,16 @@ impl Minion {
         job_id: u64,
     ) -> Result<(), Error> {
         if filters.is_empty() {
-            tracing::error!("EMPTY FILTERS handle={} jobid={}", handle, job_id);
+            tracing::warn!("EMPTY FILTERS handle={} jobid={}", handle, job_id);
+            return Ok(());
+        }
+
+        if self.failed_subs.contains(handle) {
+            tracing::debug!(
+                "{}: Avoiding resubscribing to a previously failed subscription: {}",
+                &self.url,
+                handle
+            );
             return Ok(());
         }
 
@@ -970,7 +1149,22 @@ impl Minion {
             );
         }
 
-        let req_message = self.subscription_map.get(handle).unwrap().req_message();
+        if matches!(self.auth_state, AuthState::Waiting(_)) {
+            // Save this, subscribe after AUTH completes
+            self.subscriptions_waiting_for_auth
+                .insert(handle.to_owned(), Unixtime::now().unwrap());
+            return Ok(());
+        }
+
+        self.send_subscription(handle).await?;
+        Ok(())
+    }
+
+    async fn send_subscription(&mut self, handle: &str) -> Result<(), Error> {
+        let req_message = match self.subscription_map.get(handle) {
+            Some(sub) => sub.req_message(),
+            None => return Ok(()), // Not much we can do. It is not there.
+        };
         let wire = serde_json::to_string(&req_message)?;
         let websocket_stream = self.stream.as_mut().unwrap();
         tracing::trace!("{}: Sending {}", &self.url, &wire);
@@ -1008,6 +1202,46 @@ impl Minion {
             self.url.clone(),
             subscription.get_job_id(),
         ))?;
+        Ok(())
+    }
+
+    async fn authenticate(&mut self) -> Result<(), Error> {
+        match self.auth_state {
+            AuthState::Authenticated => return Ok(()),
+            AuthState::Waiting(_) => return Ok(()),
+            _ => (),
+        }
+
+        if !GLOBALS.identity.is_unlocked() {
+            return Err(ErrorKind::NoPrivateKeyForAuth(self.url.clone()).into());
+        }
+        let pubkey = match GLOBALS.identity.public_key() {
+            Some(pk) => pk,
+            None => {
+                return Err(ErrorKind::NoPrivateKeyForAuth(self.url.clone()).into());
+            }
+        };
+        let pre_event = PreEvent {
+            pubkey,
+            created_at: Unixtime::now().unwrap(),
+            kind: EventKind::Auth,
+            tags: vec![
+                Tag::new(&["relay", self.url.as_str()]),
+                Tag::new(&["challenge", &self.auth_challenge]),
+            ],
+            content: "".to_string(),
+        };
+        let event = GLOBALS.identity.sign_event(pre_event)?;
+        let id = event.id;
+        let msg = ClientMessage::Auth(Box::new(event));
+        let wire = serde_json::to_string(&msg)?;
+        self.last_message_sent = wire.clone();
+        let ws_stream = self.stream.as_mut().unwrap();
+        ws_stream.send(WsMessage::Text(wire)).await?;
+        tracing::info!("Authenticated to {}", &self.url);
+
+        self.auth_state = AuthState::Waiting(id);
+
         Ok(())
     }
 

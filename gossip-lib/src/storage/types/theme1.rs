@@ -4,7 +4,7 @@ use heed::RwTxn;
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
 
-// THIS IS HISTORICAL FOR MIGRATIONS AND SHOULD NOT BE EDITED
+// THIS IS HISTORICAL FOR MIGRATIONS AND THE STRUCTURES SHOULD NOT BE EDITED
 
 // note: if we store anything inside the variants, we can't use macro_rules.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize, Readable, Writable)]
@@ -22,14 +22,6 @@ pub struct Theme1 {
 }
 
 impl ThemeVariant1 {
-    pub fn all() -> &'static [ThemeVariant1] {
-        &[
-            ThemeVariant1::Classic,
-            ThemeVariant1::Default,
-            ThemeVariant1::Roundy,
-        ]
-    }
-
     pub fn name(&self) -> &'static str {
         match *self {
             ThemeVariant1::Classic => "Classic",

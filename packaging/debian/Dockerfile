@@ -1,4 +1,4 @@
-FROM rust:1.70-bullseye as builder
+FROM rust:1.77-bullseye as builder
 
 RUN apt-get update \
     && apt-get install --no-install-recommends -y \
@@ -19,7 +19,7 @@ RUN cargo install cargo-deb
 COPY ./ gossip/
 WORKDIR gossip
 RUN mkdir -p /gossip/artifacts
-RUN cargo deb
+RUN cargo deb -p gossip
 RUN ls /gossip/target/debian/
 
 FROM scratch as custom-exporter

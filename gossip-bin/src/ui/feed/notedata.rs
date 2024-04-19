@@ -1,13 +1,14 @@
 use gossip_lib::GLOBALS;
 use gossip_lib::{Person, PersonList};
+use std::collections::HashMap;
 
 use nostr_types::{
     ContentSegment, Event, EventDelegation, EventKind, Id, MilliSatoshi, NostrBech32, PublicKey,
-    ShatteredContent, Tag,
+    RelayUrl, ShatteredContent, Unixtime,
 };
 
 #[derive(PartialEq)]
-pub(super) enum RepostType {
+pub(crate) enum RepostType {
     /// Damus style, kind 6 repost where the reposted note's JSON
     /// is included in the content
     Kind6Embedded,
@@ -17,58 +18,88 @@ pub(super) enum RepostType {
     MentionOnly,
     /// Post has a comment and at least one mention tag
     CommentMention,
+    /// Kind 16 generic repost, has 'k' and 'e' tag, and the reposted note's JSON
+    /// is optionally included in the content
+    GenericRepost,
 }
 
-pub(super) struct NoteData {
+pub(crate) struct NoteData {
     /// Original Event object, as received from nostr
-    pub(super) event: Event,
+    pub event: Event,
+
     /// Delegation status of this event
-    pub(super) delegation: EventDelegation,
+    pub delegation: EventDelegation,
+
     /// Author of this note (considers delegation)
-    pub(super) author: Person,
+    pub author: Person,
+
     /// Lists the author is on
-    pub(super) lists: Vec<PersonList>,
-    /// Deletion reason if any
-    pub(super) deletion: Option<String>,
+    pub lists: HashMap<PersonList, bool>,
+
+    /// Deletion reasons if any
+    pub deletions: Vec<String>,
+
     /// Do we consider this note as being a repost of another?
-    pub(super) repost: Option<RepostType>,
+    pub repost: Option<RepostType>,
+
     /// Optional embedded event of kind:6 repost
-    pub(super) embedded_event: Option<Event>,
+    pub embedded_event: Option<Event>,
+
     /// A list of mentioned events and their index: (index, event)
-    pub(super) mentions: Vec<(usize, Id)>,
+    pub mentions: Vec<(usize, Id)>,
+
     /// Known reactions to this post
-    pub(super) reactions: Vec<(char, usize)>,
+    pub reactions: Vec<(char, usize)>,
+
     /// The total amount of MilliSatoshi zapped to this note
-    pub(super) zaptotal: MilliSatoshi,
+    pub zaptotal: MilliSatoshi,
+
+    /// Relays this event was seen on and when, if any
+    pub seen_on: Vec<(RelayUrl, Unixtime)>,
+
     /// Has the current user reacted to this post?
-    pub(super) self_already_reacted: bool,
+    pub self_already_reacted: bool,
+
     /// The content shattered into renderable elements
-    pub(super) shattered_content: ShatteredContent,
+    pub shattered_content: ShatteredContent,
+
     /// error content (gossip-created notations)
-    pub(super) error_content: Option<String>,
+    pub error_content: Option<String>,
+
+    /// direct message
+    pub direct_message: bool,
+
     /// Securely delivered via GiftWrap
-    pub(super) secure: bool,
+    pub secure: bool,
 }
 
 impl NoteData {
-    pub(super) fn new(mut event: Event) -> NoteData {
+    pub fn new(mut event: Event) -> NoteData {
         // We do not filter event kinds here anymore. The feed already does that.
         // There is no sense in duplicating that work.
 
         let mut secure: bool = false;
+        let mut direct_message: bool = false;
         if matches!(event.kind, EventKind::GiftWrap) {
+            direct_message = true;
             secure = true;
-            if let Ok(rumor) = GLOBALS.signer.unwrap_giftwrap(&event) {
-                // Use the rumor for subsequent processing
+            // Use the rumor for subsequent processing, but swap for the Giftwrap's id
+            // since that is the effective event (database-accessible, deletable, etc)
+            if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(&event) {
                 let id = event.id;
                 event = rumor.into_event_with_bad_signature();
                 event.id = id; // lie, keep the giftwrap id
             }
         }
 
+        if event.kind == EventKind::EncryptedDirectMessage {
+            direct_message = true;
+        }
+
         let delegation = event.delegation();
 
-        let deletion = GLOBALS.storage.get_deletion(event.id).unwrap_or(None);
+        // This function checks that the deletion author is allowed
+        let deletions = GLOBALS.storage.get_deletions(&event).unwrap_or_default();
 
         let (reactions, self_already_reacted) = GLOBALS
             .storage
@@ -85,18 +116,25 @@ impl NoteData {
         let mentions = {
             let mut mentions = Vec::<(usize, Id)>::new();
             for (i, tag) in event.tags.iter().enumerate() {
-                if let Tag::Event { id, .. } = tag {
-                    mentions.push((i, *id));
+                if let Ok((id, _, _)) = tag.parse_event() {
+                    mentions.push((i, id));
                 }
             }
             mentions
         };
 
         let embedded_event = {
-            if event.kind == EventKind::Repost {
+            if event.kind == EventKind::Repost || event.kind == EventKind::GenericRepost {
                 if !event.content.trim().is_empty() {
-                    if let Ok(event) = serde_json::from_str::<Event>(&event.content) {
-                        Some(event)
+                    if let Ok(embedded_event) = serde_json::from_str::<Event>(&event.content) {
+                        if event.kind == EventKind::Repost
+                            || (event.kind == EventKind::GenericRepost
+                                && embedded_event.kind.is_feed_displayable())
+                        {
+                            Some(embedded_event)
+                        } else {
+                            None
+                        }
                     } else {
                         None
                     }
@@ -112,21 +150,31 @@ impl NoteData {
         let (display_content, error_content) = match event.kind {
             EventKind::TextNote => (event.content.trim().to_string(), None),
             EventKind::Repost => ("".to_owned(), None),
-            EventKind::EncryptedDirectMessage => match GLOBALS.signer.decrypt_message(&event) {
-                Ok(m) => (m, None),
-                Err(_) => ("".to_owned(), Some("DECRYPTION FAILED".to_owned())),
-            },
+            EventKind::GenericRepost => ("".to_owned(), None),
+            EventKind::EncryptedDirectMessage => {
+                match GLOBALS.identity.decrypt_event_contents(&event) {
+                    Ok(m) => (m, None),
+                    Err(_) => ("".to_owned(), Some("DECRYPTION FAILED".to_owned())),
+                }
+            }
             EventKind::LongFormContent => (event.content.clone(), None),
             EventKind::DmChat => (event.content.clone(), None),
             EventKind::GiftWrap => ("".to_owned(), Some("DECRYPTION FAILED".to_owned())),
-            _ => {
-                let mut dc = "UNSUPPORTED EVENT KIND".to_owned();
+            EventKind::ChannelMessage => (event.content.clone(), None),
+            EventKind::LiveChatMessage => (event.content.clone(), None),
+            EventKind::CommunityPost => (event.content.clone(), None),
+            EventKind::DraftLongFormContent => (event.content.clone(), None),
+            k => {
+                let kind_number: u32 = k.into();
+                let mut dc = format!("UNSUPPORTED EVENT KIND {}", kind_number);
                 // support the 'alt' tag of NIP-31:
                 for tag in &event.tags {
-                    if let Tag::Other { tag, data } = tag {
-                        if tag == "alt" && !data.is_empty() {
-                            dc = format!("UNSUPPORTED EVENT KIND, ALT: {}", data[0]);
-                        }
+                    if tag.tagname() == "alt" && tag.value() != "" {
+                        dc = format!(
+                            "UNSUPPORTED EVENT KIND {}, ALT: {}",
+                            kind_number,
+                            tag.value()
+                        );
                     }
                 }
                 ("".to_owned(), Some(dc))
@@ -159,13 +207,16 @@ impl NoteData {
 
             if event.kind == EventKind::Repost && embedded_event.is_some() {
                 Some(RepostType::Kind6Embedded)
+            } else if event.kind == EventKind::GenericRepost {
+                Some(RepostType::GenericRepost)
             } else if has_tag_reference || has_nostr_event_reference || content_trim.is_empty() {
                 if content_trim.is_empty() {
                     // handle NIP-18 conform kind:6 with 'e' tag but no content
-                    shattered_content
-                        .segments
-                        .push(ContentSegment::TagReference(0));
-
+                    if let Some((tag, _)) = mentions.first() {
+                        shattered_content
+                            .segments
+                            .push(ContentSegment::TagReference(*tag));
+                    }
                     if event.kind == EventKind::Repost {
                         Some(RepostType::Kind6Mention)
                     } else {
@@ -193,28 +244,35 @@ impl NoteData {
 
         let lists = match GLOBALS.storage.read_person_lists(&author_pubkey) {
             Ok(lists) => lists,
-            _ => vec![],
+            _ => HashMap::new(),
         };
+
+        let seen_on = GLOBALS
+            .storage
+            .get_event_seen_on_relay(event.id)
+            .unwrap_or_default();
 
         NoteData {
             event,
             delegation,
             author,
             lists,
-            deletion,
+            deletions,
             repost,
             embedded_event,
             mentions,
             reactions,
             zaptotal,
+            seen_on,
             self_already_reacted,
             shattered_content,
             error_content,
+            direct_message,
             secure,
         }
     }
 
-    pub(super) fn update_reactions(&mut self) {
+    pub(super) fn update(&mut self) {
         let (mut reactions, self_already_reacted) = GLOBALS
             .storage
             .get_reactions(self.event.id)
@@ -224,14 +282,22 @@ impl NoteData {
         self.reactions.append(&mut reactions);
 
         self.self_already_reacted = self_already_reacted;
+
+        let mut seen_on = GLOBALS
+            .storage
+            .get_event_seen_on_relay(self.event.id)
+            .unwrap_or_default();
+
+        self.seen_on.clear();
+        self.seen_on.append(&mut seen_on);
     }
 
     #[allow(dead_code)]
     pub(super) fn followed(&self) -> bool {
-        self.lists.contains(&PersonList::Followed)
+        self.lists.contains_key(&PersonList::Followed)
     }
 
     pub(super) fn muted(&self) -> bool {
-        self.lists.contains(&PersonList::Muted)
+        self.lists.contains_key(&PersonList::Muted)
     }
 }

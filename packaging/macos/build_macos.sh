@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-# Support older MacOS version (12.0 is Monteery, released Oct 2021)
-export MACOSX_DEPLOYMENT_TARGET=12.0
+# Support older MacOS version (11.0 is Big Sur, released June 2020)
+export MACOSX_DEPLOYMENT_TARGET=11.0
 
 # NOTE: you generally need to install these first:
 #    cmake, pkg-config, sdl2, ffmpeg
@@ -13,7 +13,7 @@ export LDFLAGS="-L${HOMEBREW_PREFIX}/lib -Wl,-rpath,${HOMEBREW_PREFIX}/lib${LDFL
 
 cargo build --release --features=lang-cjk
 
-VERSION=$(cat ../../Cargo.toml | grep ^version | awk -F= '{print $2}' | awk -F\" '{print $2}')
+VERSION=$(cat ../../gossip-bin/Cargo.toml | grep ^version | awk -F= '{print $2}' | awk -F\" '{print $2}')
 set +e
 echo $VERSION | grep -s unstable
 if [ $? -eq 0 ] ; then

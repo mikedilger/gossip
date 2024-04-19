@@ -45,7 +45,7 @@ impl<'a> CoverageEntry<'a> {
             egui::Sense::click(),
         );
 
-        widgets::list_entry::paint_frame(ui, &rect, None);
+        widgets::list_entry::paint_frame(ui, &rect, Some(app.theme.main_content_bgcolor()));
 
         // ---- title ----
         let pos = rect.min + vec2(TEXT_LEFT, TEXT_TOP);
@@ -70,7 +70,7 @@ impl<'a> CoverageEntry<'a> {
                 id,
                 egui::Sense::click(),
             );
-            widgets::CopyButton::paint(ui, pos);
+            widgets::CopyButton::new().paint(ui, pos);
             if response
                 .on_hover_text("Copy to clipboard")
                 .on_hover_cursor(egui::CursorIcon::PointingHand)
@@ -102,7 +102,7 @@ impl<'a> CoverageEntry<'a> {
         let relays_string = self
             .relays
             .iter()
-            .map(|rurl| rurl.host())
+            .map(|rurl| rurl.as_str().to_owned())
             .collect::<Vec<String>>()
             .join(", ");
         draw_text_at(ui, pos, relays_string.into(), Align::LEFT, None, None);
@@ -120,54 +120,43 @@ fn find_relays_for_pubkey(pk: &PublicKey) -> Vec<RelayUrl> {
         .collect()
 }
 
-pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-    ui.add_space(10.0);
-    ui.horizontal_wrapped(|ui| {
-        ui.with_layout(egui::Layout::left_to_right(Align::Center), |ui| {
-            ui.heading(format!(
-                "Low Coverage Report (less than {} relays)",
-                app.settings.num_relays_per_person
-            ));
-            ui.add_space(10.0);
-        });
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            ui.add_space(20.0);
+pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
+    widgets::page_header(
+        ui,
+        format!(
+            "Low Coverage Report (less than {} relays)",
+            read_setting!(num_relays_per_person)
+        ),
+        |ui| {
             ui.spacing_mut().button_padding *= 2.0;
             if ui
                 .button("Pick Relays Again")
                 .on_hover_cursor(egui::CursorIcon::PointingHand)
                 .clicked()
             {
-                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PickRelays);
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::RefreshScoresAndPickRelays);
             }
             ui.add_space(10.0);
             {
-                let visuals = ui.visuals_mut();
-                visuals.widgets.inactive.weak_bg_fill = app.theme.accent_color();
-                visuals.widgets.inactive.fg_stroke.width = 1.0;
-                visuals.widgets.inactive.fg_stroke.color =
-                    app.theme.get_style().visuals.extreme_bg_color;
-                visuals.widgets.hovered.weak_bg_fill = app.theme.navigation_text_color();
-                visuals.widgets.hovered.fg_stroke.color = app.theme.accent_color();
-                visuals.widgets.inactive.fg_stroke.color =
-                    app.theme.get_style().visuals.extreme_bg_color;
+                widgets::set_important_button_visuals(ui, app);
 
                 if ui
                     .button(Page::RelaysActivityMonitor.name())
                     .on_hover_cursor(egui::CursorIcon::PointingHand)
                     .clicked()
                 {
-                    app.set_page(Page::RelaysActivityMonitor);
+                    app.set_page(ctx, Page::RelaysActivityMonitor);
                 }
             }
-        });
-    });
-    ui.add_space(10.0);
+        },
+    );
     ui.horizontal_wrapped(|ui| {
         ui.label("You can change how many relays per person to query here:");
         if ui.link("Network Settings").clicked() {
             app.settings_tab = SettingsTab::Network;
-            app.set_page(Page::Settings);
+            app.set_page(ctx, Page::Settings);
         }
     });
     if GLOBALS.relay_picker.pubkey_counts_iter().count() > 0 {
@@ -175,7 +164,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             format!("The Relay-Picker has tried to connect to at least {} relays \
                 for each person that you follow, however the pubkeys listed below are not fully covered. \
                 You can manually ask the Relay-Picker to pick again, however most of the time it has already \
-                tried its best.", app.settings.num_relays_per_person));
+                tried its best.", read_setting!(num_relays_per_person)));
 
         ui.add_space(10.0);
         let id_source = ui.auto_id_with("relay-coverage-scroll");
@@ -183,7 +172,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             for elem in GLOBALS.relay_picker.pubkey_counts_iter() {
                 let pk = elem.key();
                 let count = elem.value();
-                let name = gossip_lib::names::tag_name_from_pubkey_lookup(pk);
+                let name = gossip_lib::names::best_name_from_pubkey_lookup(pk);
                 let relays = find_relays_for_pubkey(pk);
                 let hover_text = format!("Go to profile of {}", name);
 
@@ -194,7 +183,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                     .on_hover_cursor(egui::CursorIcon::PointingHand)
                     .clicked()
                 {
-                    app.set_page(Page::Person(*pk));
+                    app.set_page(ctx, Page::Person(*pk));
                 }
             }
 

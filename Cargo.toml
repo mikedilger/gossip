@@ -13,6 +13,26 @@ overflow-checks = false
 
 [patch.crates-io]
 # override egui crate for egui_video dependency
-egui = { git =  "https://github.com/mikedilger/egui", rev = "50393e4f34ac6246b8c2424e42fbe5b95e4b4452" }
+egui = { git =  "https://github.com/bu5hm4nn/egui", rev = "63dde4c9b311da0cae0cb9f9465bf7273227be6c" }
 # Use the master branch of SDL2 to include a fix related to clang (and XCode after 14.2)
-sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", rev = "27cd1fd67c811e06b9d997a77bb6089a1b65070d" }
+sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", rev = "f2f1e29a416bcc22f2faf411866db2c8d9536308" }
+
+# When compiling gossip crates themselves (in 'dev' mode), optimize a little bit
+# (for fast compiles of our changes)
+[profile.dev]
+opt-level = 1
+debug = true
+debug-assertions = true
+overflow-checks = true
+incremental = true
+codegen-units = 256
+
+# But when compiling dependencies, even in dev mode, optimize fully
+# (these rarely recompile during development, so we still get fast compiles)
+[profile.dev.package."*"]
+opt-level = 3
+debug = false
+debug-assertions = false
+overflow-checks = false
+incremental = false
+codegen-units = 16

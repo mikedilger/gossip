@@ -10,35 +10,26 @@ use gossip_lib::Relay;
 use gossip_lib::GLOBALS;
 use nostr_types::RelayUrl;
 
-pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
+pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     let is_editing = app.relays.edit.is_some();
-    ui.add_space(10.0);
-    ui.horizontal_wrapped(|ui| {
-        ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
-            ui.add_space(2.0);
-            ui.heading(Page::RelaysActivityMonitor.name());
-            ui.set_enabled(!is_editing);
-        });
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
-            ui.add_space(20.0);
-            super::configure_list_btn(app, ui);
-            ui.add_space(20.0);
-            super::relay_filter_combo(app, ui);
-            ui.add_space(20.0);
-            super::relay_sort_combo(app, ui);
-            ui.add_space(20.0);
-            widgets::search_filter_field(ui, &mut app.relays.search, 200.0);
-            ui.add_space(200.0); // search_field somehow doesn't "take up" space
-            if ui
-                .button(RichText::new(Page::RelaysCoverage.name()))
-                .on_hover_cursor(egui::CursorIcon::PointingHand)
-                .clicked()
-            {
-                app.set_page(crate::ui::Page::RelaysCoverage);
-            }
-        });
+    widgets::page_header(ui, Page::RelaysActivityMonitor.name(), |ui| {
+        ui.set_enabled(!is_editing);
+        super::configure_list_btn(app, ui);
+        btn_h_space!(ui);
+        super::relay_filter_combo(app, ui);
+        btn_h_space!(ui);
+        super::relay_sort_combo(app, ui);
+        btn_h_space!(ui);
+        widgets::search_field(ui, &mut app.relays.search, 200.0);
+        ui.add_space(200.0); // search_field somehow doesn't "take up" space
+        if ui
+            .button(RichText::new(Page::RelaysCoverage.name()))
+            .on_hover_cursor(egui::CursorIcon::PointingHand)
+            .clicked()
+        {
+            app.set_page(ctx, crate::ui::Page::RelaysCoverage);
+        }
     });
-    ui.add_space(10.0);
 
     let relays = if !is_editing {
         // clear edit cache if present
@@ -79,7 +70,7 @@ fn get_relays(app: &mut GossipUi) -> Vec<Relay> {
             (connected_relays.contains(&relay.url) || timeout_relays.contains(&relay.url))
                 && super::filter_relay(&app.relays, relay)
         })
-        .unwrap_or(Vec::new());
+        .unwrap_or_default();
 
     relays.sort_by(|a, b| super::sort_relay(&app.relays, a, b));
     relays

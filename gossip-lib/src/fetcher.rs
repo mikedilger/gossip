@@ -14,6 +14,7 @@ use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 use std::sync::RwLock;
 use std::time::{Duration, SystemTime};
+use tokio::time::Instant;
 
 #[derive(Copy, Clone, Debug)]
 enum FetchState {
@@ -47,7 +48,7 @@ impl Fetcher {
         }
     }
 
-    pub(crate) fn start() -> Result<(), Error> {
+    pub(crate) fn init() -> Result<(), Error> {
         // Setup the cache directory
         *GLOBALS.fetcher.cache_dir.write().unwrap() = Profile::current()?.cache_dir;
 
@@ -56,8 +57,10 @@ impl Fetcher {
             GLOBALS.storage.read_setting_fetcher_connect_timeout_sec(),
             0,
         );
+
         let timeout =
             std::time::Duration::new(GLOBALS.storage.read_setting_fetcher_timeout_sec(), 0);
+
         *GLOBALS.fetcher.client.write().unwrap() = Some(
             Client::builder()
                 .gzip(true)
@@ -68,24 +71,48 @@ impl Fetcher {
                 .build()?,
         );
 
+        Ok(())
+    }
+
+    pub(crate) fn start() {
+        tracing::info!("Fetcher startup");
+
+        // Initialize if not already
+        if GLOBALS.fetcher.client.read().unwrap().is_none() {
+            if let Err(e) = Self::init() {
+                tracing::error!("Fetcher failed to initialize: {e}");
+                return;
+            }
+        }
+
         // Setup periodic queue management
-        let fetcher_looptime_ms = GLOBALS.storage.read_setting_fetcher_looptime_ms();
         tokio::task::spawn(async move {
+            let mut read_runstate = GLOBALS.read_runstate.clone();
+            read_runstate.mark_unchanged();
+            if read_runstate.borrow().going_offline() {
+                return;
+            }
+
+            let fetcher_looptime_ms = GLOBALS.storage.read_setting_fetcher_looptime_ms();
+            let sleep = tokio::time::sleep(Duration::from_millis(fetcher_looptime_ms));
+            tokio::pin!(sleep);
+
             loop {
-                tokio::time::sleep(Duration::from_millis(fetcher_looptime_ms)).await;
+                tokio::select! {
+                    _ = &mut sleep => {
+
+                        let fetcher_looptime_ms = GLOBALS.storage.read_setting_fetcher_looptime_ms();
+                        sleep.as_mut().reset(Instant::now() + Duration::from_millis(fetcher_looptime_ms));
+                    },
+                    _ = read_runstate.wait_for(|runstate| runstate.going_offline()) => break,
+                }
 
                 // Process the queue
                 GLOBALS.fetcher.process_queue().await;
-
-                // Possibly shut down
-                if GLOBALS.shutting_down.load(Ordering::Relaxed) {
-                    tracing::info!("Fetcher shutting down.");
-                    break;
-                }
             }
-        });
 
-        Ok(())
+            tracing::info!("Fetcher shutdown");
+        });
     }
 
     /// Count of HTTP requests queued for future fetching
@@ -112,6 +139,12 @@ impl Fetcher {
 
     pub(crate) async fn process_queue(&self) {
         if GLOBALS.storage.read_setting_offline() {
+            return;
+        }
+
+        let mut read_runstate = GLOBALS.read_runstate.clone();
+        read_runstate.mark_unchanged();
+        if read_runstate.borrow().going_offline() {
             return;
         }
 
@@ -153,7 +186,11 @@ impl Fetcher {
         }
 
         // Run them all together
-        while (futures.next().await).is_some() {}
+        while (futures.next().await).is_some() {
+            if read_runstate.borrow().going_offline() {
+                break;
+            }
+        }
     }
 
     /// This is where other parts of the library attempt to get the bytes of a file.
@@ -336,7 +373,7 @@ impl Fetcher {
                     }
                 }
                 FailOutcome::NotModified => {
-                    tracing::info!("FETCH {url}: Succeeded: {message}");
+                    tracing::debug!("FETCH {url}: Succeeded: {message}");
                     let _ =
                         filetime::set_file_mtime(cache_file.as_path(), filetime::FileTime::now());
                     self.urls.write().unwrap().remove(&url);
@@ -359,7 +396,17 @@ impl Fetcher {
             self.decrement_host_load(&host);
         };
 
-        let maybe_response = req.send().await;
+        let mut read_runstate = GLOBALS.read_runstate.clone();
+        read_runstate.mark_unchanged();
+        if read_runstate.borrow().going_offline() {
+            return;
+        }
+
+        let maybe_response: Result<reqwest::Response, reqwest::Error>;
+        tokio::select! {
+            r = req.send() => maybe_response = r,
+            _ = read_runstate.wait_for(|runstate| runstate.going_offline()) => return,
+        }
 
         let low_exclusion = GLOBALS
             .storage

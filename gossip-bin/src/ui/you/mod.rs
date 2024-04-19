@@ -10,6 +10,7 @@ use zeroize::Zeroize;
 
 mod delegation;
 mod metadata;
+mod nostr_connect;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     if app.page == Page::YourKeys {
@@ -23,14 +24,14 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         app.vert_scroll_area()
             .id_source("your_keys")
             .show(ui, |ui| {
-                if GLOBALS.signer.is_ready() {
+                if GLOBALS.identity.is_unlocked() {
                     ui.heading("Ready to sign events");
 
                     ui.add_space(10.0);
                     ui.separator();
                     ui.add_space(10.0);
 
-                    show_pub_key_detail(app, ctx, ui);
+                    show_pub_key_detail(app, ui);
 
                     ui.add_space(10.0);
                     ui.separator();
@@ -55,7 +56,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     ui.add_space(10.0);
 
                     offer_delete(app, ui);
-                } else if GLOBALS.signer.is_loaded() {
+                } else if GLOBALS.identity.has_private_key() {
                     Frame::none()
                         .stroke(Stroke {
                             width: 2.0,
@@ -76,15 +77,15 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     ui.separator();
                     ui.add_space(10.0);
 
-                    show_pub_key_detail(app, ctx, ui);
+                    show_pub_key_detail(app, ui);
 
                     ui.add_space(10.0);
                     ui.separator();
                     ui.add_space(10.0);
 
                     offer_delete(app, ui);
-                } else if GLOBALS.signer.public_key().is_some() {
-                    show_pub_key_detail(app, ctx, ui);
+                } else if GLOBALS.identity.public_key().is_some() {
+                    show_pub_key_detail(app, ui);
 
                     ui.add_space(10.0);
                     ui.separator();
@@ -117,19 +118,21 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         metadata::update(app, ctx, _frame, ui);
     } else if app.page == Page::YourDelegation {
         delegation::update(app, ctx, _frame, ui);
+    } else if app.page == Page::YourNostrConnect {
+        nostr_connect::update(app, ctx, _frame, ui);
     }
 }
 
-fn show_pub_key_detail(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
+fn show_pub_key_detail(app: &mut GossipUi, ui: &mut Ui) {
     // Render public key if available
-    if let Some(public_key) = GLOBALS.signer.public_key() {
+    if let Some(public_key) = GLOBALS.identity.public_key() {
         ui.heading("Public Key");
         ui.add_space(10.0);
 
         let pkhex: PublicKeyHex = public_key.into();
         ui.horizontal_wrapped(|ui| {
             ui.label(&format!("Public Key (Hex): {}", pkhex.as_str()));
-            if ui.add(CopyButton {}).clicked() {
+            if ui.add(CopyButton::new()).clicked() {
                 ui.output_mut(|o| o.copied_text = pkhex.into_string());
             }
         });
@@ -137,12 +140,12 @@ fn show_pub_key_detail(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
         let bech32 = public_key.as_bech32_string();
         ui.horizontal_wrapped(|ui| {
             ui.label(&format!("Public Key (bech32): {}", bech32));
-            if ui.add(CopyButton {}).clicked() {
+            if ui.add(CopyButton::new()).clicked() {
                 ui.output_mut(|o| o.copied_text = bech32.clone());
             }
         });
         ui.add_space(10.0);
-        app.render_qr(ui, ctx, "you_npub_qr", &bech32);
+        app.render_qr(ui, "you_npub_qr", &bech32);
 
         ui.add_space(10.0);
         ui.separator();
@@ -155,12 +158,12 @@ fn show_pub_key_detail(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
             let nprofile = profile.as_bech32_string();
             ui.horizontal_wrapped(|ui| {
                 ui.label(&format!("Your Profile: {}", &nprofile));
-                if ui.add(CopyButton {}).clicked() {
+                if ui.add(CopyButton::new()).clicked() {
                     ui.output_mut(|o| o.copied_text = nprofile.clone());
                 }
             });
             ui.add_space(10.0);
-            app.render_qr(ui, ctx, "you_nprofile_qr", &nprofile);
+            app.render_qr(ui, "you_nprofile_qr", &nprofile);
         }
     }
 }
@@ -174,17 +177,13 @@ pub(super) fn offer_unlock_priv_key(app: &mut GossipUi, ui: &mut Ui) {
             app.unlock_needs_focus = false;
         }
         if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-            let _ = GLOBALS
-                .to_overlord
-                .send(ToOverlordMessage::UnlockKey(app.password.clone()));
+            let _ = gossip_lib::Overlord::unlock_key(app.password.clone());
             app.password.zeroize();
             app.password = "".to_owned();
             app.draft_needs_focus = true;
         }
         if ui.button("Unlock Private Key").clicked() {
-            let _ = GLOBALS
-                .to_overlord
-                .send(ToOverlordMessage::UnlockKey(app.password.clone()));
+            let _ = gossip_lib::Overlord::unlock_key(app.password.clone());
             app.password.zeroize();
             app.password = "".to_owned();
             app.draft_needs_focus = true;
@@ -193,13 +192,13 @@ pub(super) fn offer_unlock_priv_key(app: &mut GossipUi, ui: &mut Ui) {
 }
 
 fn show_priv_key_detail(_app: &mut GossipUi, ui: &mut Ui) {
-    let key_security = GLOBALS.signer.key_security().unwrap();
+    let key_security = GLOBALS.identity.key_security().unwrap();
 
-    if let Some(epk) = GLOBALS.signer.encrypted_private_key() {
+    if let Some(epk) = GLOBALS.identity.encrypted_private_key() {
         ui.heading("Encrypted Private Key");
         ui.horizontal_wrapped(|ui| {
             ui.label(&epk.0);
-            if ui.add(CopyButton {}).clicked() {
+            if ui.add(CopyButton::new()).clicked() {
                 ui.output_mut(|o| o.copied_text = epk.to_string());
             }
         });
@@ -265,7 +264,7 @@ fn offer_change_password(app: &mut GossipUi, ui: &mut Ui) {
 }
 
 fn offer_export_priv_key(app: &mut GossipUi, ui: &mut Ui) {
-    let key_security = GLOBALS.signer.key_security().unwrap();
+    let key_security = GLOBALS.identity.key_security().unwrap();
 
     ui.heading("Raw Export");
     if key_security == KeySecurity::Medium {
@@ -279,8 +278,8 @@ fn offer_export_priv_key(app: &mut GossipUi, ui: &mut Ui) {
     });
 
     if ui.button("Export Private Key as bech32").clicked() {
-        match GLOBALS.signer.export_private_key_bech32(&app.password) {
-            Ok(mut bech32) => {
+        match GLOBALS.identity.export_private_key_bech32(&app.password) {
+            Ok((mut bech32, _)) => {
                 println!("Exported private key (bech32): {}", bech32);
                 bech32.zeroize();
                 GLOBALS.status_queue.write().write(
@@ -293,8 +292,8 @@ fn offer_export_priv_key(app: &mut GossipUi, ui: &mut Ui) {
         app.password = "".to_owned();
     }
     if ui.button("Export Private Key as hex").clicked() {
-        match GLOBALS.signer.export_private_key_hex(&app.password) {
-            Ok(mut hex) => {
+        match GLOBALS.identity.export_private_key_hex(&app.password) {
+            Ok((mut hex, _)) => {
                 println!("Exported private key (hex): {}", hex);
                 hex.zeroize();
                 GLOBALS.status_queue.write().write(
@@ -377,14 +376,14 @@ fn offer_import_priv_key(app: &mut GossipUi, ui: &mut Ui) {
 }
 
 fn offer_delete_or_import_pub_key(app: &mut GossipUi, ui: &mut Ui) {
-    if let Some(pk) = GLOBALS.signer.public_key() {
+    if let Some(pk) = GLOBALS.identity.public_key() {
         ui.heading("Public Key");
         ui.add_space(10.0);
 
         let pkhex: PublicKeyHex = pk.into();
         ui.horizontal(|ui| {
             ui.label(&format!("Public Key (Hex): {}", pkhex.as_str()));
-            if ui.add(CopyButton {}).clicked() {
+            if ui.add(CopyButton::new()).clicked() {
                 ui.output_mut(|o| o.copied_text = pkhex.into_string());
             }
         });
@@ -392,7 +391,7 @@ fn offer_delete_or_import_pub_key(app: &mut GossipUi, ui: &mut Ui) {
         let bech32 = pk.as_bech32_string();
         ui.horizontal(|ui| {
             ui.label(&format!("Public Key (bech32): {}", bech32));
-            if ui.add(CopyButton {}).clicked() {
+            if ui.add(CopyButton::new()).clicked() {
                 ui.output_mut(|o| o.copied_text = bech32);
             }
         });
@@ -423,7 +422,7 @@ fn offer_delete_or_import_pub_key(app: &mut GossipUi, ui: &mut Ui) {
     }
 }
 
-fn offer_delete(app: &mut GossipUi, ui: &mut Ui) {
+pub(super) fn offer_delete(app: &mut GossipUi, ui: &mut Ui) {
     ui.heading("DELETE This Identity");
 
     ui.horizontal_wrapped(|ui| {

@@ -1,15 +1,21 @@
 use crate::error::Error;
-use crate::relationship::Relationship;
+use crate::storage::types::Relationship1;
 use crate::storage::{RawDatabase, Storage};
 use heed::types::UnalignedSlice;
 use heed::RwTxn;
 use nostr_types::Id;
-use speedy::{Readable, Writable};
+use speedy::Writable;
 use std::sync::Mutex;
 
-// Id:Id -> Relationship
+// Id:Id -> Relationship1
 //   key: id.as_slice(), id.as_slice() | Id(val[32..64].try_into()?)
-//   val:  relationship.write_to_vec() | Relationship::read_from_buffer(val)
+//   val:  relationship.write_to_vec() | Relationship1::read_from_buffer(val)
+
+// NOTE: this means the SECOND Id relates to the FIRST Id, e.g.
+//     id2 replies to id1
+//     id2 reacts to id1
+//     id2 deletes id1
+//     id2 is a zap receipt on id1
 
 static RELATIONSHIPS1_DB_CREATE_LOCK: Mutex<()> = Mutex::new(());
 static mut RELATIONSHIPS1_DB: Option<RawDatabase> = None;
@@ -49,7 +55,7 @@ impl Storage {
         &'a self,
         id: Id,
         related: Id,
-        relationship: Relationship,
+        relationship: Relationship1,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         let mut key = id.as_ref().as_slice().to_owned();
@@ -71,19 +77,5 @@ impl Storage {
         };
 
         Ok(())
-    }
-
-    pub(crate) fn find_relationships1(&self, id: Id) -> Result<Vec<(Id, Relationship)>, Error> {
-        let start_key = id.as_slice();
-        let txn = self.env.read_txn()?;
-        let iter = self.db_relationships1()?.prefix_iter(&txn, start_key)?;
-        let mut output: Vec<(Id, Relationship)> = Vec::new();
-        for result in iter {
-            let (key, val) = result?;
-            let id2 = Id(key[32..64].try_into().unwrap());
-            let relationship = Relationship::read_from_buffer(val)?;
-            output.push((id2, relationship));
-        }
-        Ok(output)
     }
 }

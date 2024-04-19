@@ -1,5 +1,4 @@
 use super::{GossipUi, NoteData, Page, RepostType};
-use eframe::egui::Context;
 use eframe::{
     egui::{self, Image, Response},
     epaint::Vec2,
@@ -8,7 +7,7 @@ use egui::{Button, Color32, Pos2, RichText, Stroke, Ui};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::FeedKind;
 use gossip_lib::GLOBALS;
-use nostr_types::{ContentSegment, EventAddr, Id, IdHex, NostrBech32, PublicKey, Span, Tag, Url};
+use nostr_types::{ContentSegment, EventAddr, Id, IdHex, NostrBech32, PublicKey, Span, Url};
 use std::{
     cell::{Ref, RefCell},
     rc::Rc,
@@ -19,7 +18,6 @@ const MAX_POST_HEIGHT: f32 = 200.0;
 pub(super) fn render_content(
     app: &mut GossipUi,
     ui: &mut Ui,
-    ctx: &Context,
     note_ref: Rc<RefCell<NoteData>>,
     as_deleted: bool,
     content_margin_left: f32,
@@ -63,7 +61,7 @@ pub(super) fn render_content(
                         }
                         NostrBech32::EventPointer(ep) => {
                             let mut render_link = true;
-                            if app.settings.show_mentions {
+                            if read_setting!(show_mentions) {
                                 match note.repost {
                                     Some(RepostType::MentionOnly)
                                     | Some(RepostType::CommentMention)
@@ -75,7 +73,6 @@ pub(super) fn render_content(
                                             super::render_repost(
                                                 app,
                                                 ui,
-                                                ctx,
                                                 &note.repost,
                                                 note_data,
                                                 content_margin_left,
@@ -93,7 +90,7 @@ pub(super) fn render_content(
                         }
                         NostrBech32::Id(id) => {
                             let mut render_link = true;
-                            if app.settings.show_mentions {
+                            if read_setting!(show_mentions) {
                                 match note.repost {
                                     Some(RepostType::MentionOnly)
                                     | Some(RepostType::CommentMention)
@@ -103,7 +100,6 @@ pub(super) fn render_content(
                                             super::render_repost(
                                                 app,
                                                 ui,
-                                                ctx,
                                                 &note.repost,
                                                 note_data,
                                                 content_margin_left,
@@ -132,54 +128,44 @@ pub(super) fn render_content(
                 }
                 ContentSegment::TagReference(num) => {
                     if let Some(tag) = note.event.tags.get(*num) {
-                        match tag {
-                            Tag::Pubkey { pubkey, .. } => {
-                                if let Ok(pubkey) =
-                                    PublicKey::try_from_hex_string(pubkey.as_str(), false)
-                                {
-                                    render_profile_link(app, ui, &pubkey);
-                                }
-                            }
-                            Tag::Event { id, .. } => {
-                                let mut render_link = true;
-                                if app.settings.show_mentions {
-                                    match note.repost {
-                                        Some(RepostType::MentionOnly)
-                                        | Some(RepostType::CommentMention)
-                                        | Some(RepostType::Kind6Mention) => {
-                                            for (i, cached_id) in note.mentions.iter() {
-                                                if *i == *num {
-                                                    if let Some(note_data) =
-                                                        app.notes.try_update_and_get(cached_id)
-                                                    {
-                                                        // TODO block additional repost recursion
-                                                        super::render_repost(
-                                                            app,
-                                                            ui,
-                                                            ctx,
-                                                            &note.repost,
-                                                            note_data,
-                                                            content_margin_left,
-                                                            bottom_of_avatar,
-                                                        );
-                                                        render_link = false;
-                                                    }
+                        if let Ok((pubkey, _, _)) = tag.parse_pubkey() {
+                            render_profile_link(app, ui, &pubkey);
+                        } else if let Ok((id, _, _)) = tag.parse_event() {
+                            let mut render_link = true;
+                            if read_setting!(show_mentions) {
+                                match note.repost {
+                                    Some(RepostType::MentionOnly)
+                                    | Some(RepostType::CommentMention)
+                                    | Some(RepostType::Kind6Mention) => {
+                                        for (i, cached_id) in note.mentions.iter() {
+                                            if *i == *num {
+                                                if let Some(note_data) =
+                                                    app.notes.try_update_and_get(cached_id)
+                                                {
+                                                    // TODO block additional repost recursion
+                                                    super::render_repost(
+                                                        app,
+                                                        ui,
+                                                        &note.repost,
+                                                        note_data,
+                                                        content_margin_left,
+                                                        bottom_of_avatar,
+                                                    );
+                                                    render_link = false;
                                                 }
                                             }
                                         }
-                                        _ => (),
                                     }
-                                }
-                                if render_link {
-                                    render_event_link(app, ui, note.event.id, *id);
+                                    _ => (),
                                 }
                             }
-                            Tag::Hashtag { hashtag, .. } => {
-                                render_hashtag(ui, hashtag);
+                            if render_link {
+                                render_event_link(app, ui, note.event.id, id);
                             }
-                            _ => {
-                                render_unknown_reference(ui, *num);
-                            }
+                        } else if let Ok(hashtag) = tag.parse_hashtag() {
+                            render_hashtag(ui, &hashtag);
+                        } else {
+                            render_unknown_reference(ui, *num);
                         }
                     }
                 }
@@ -212,11 +198,16 @@ pub(super) fn render_hyperlink(
     linkspan: &Span,
 ) {
     let link = note.shattered_content.slice(linkspan).unwrap();
+
+    // In DMs, fetching an image allows someone to associate your pubkey with your IP address
+    // by controlling the image URL, and since only you see the URL it must have been you
+    let privacy_issue = note.direct_message;
+
     if let (Ok(url), Some(nurl)) = (url::Url::try_from(link), app.try_check_url(link)) {
         if is_image_url(&url) {
-            show_image_toggle(app, ui, nurl);
+            show_image_toggle(app, ui, nurl, privacy_issue);
         } else if is_video_url(&url) {
-            show_video_toggle(app, ui, nurl);
+            show_video_toggle(app, ui, nurl, privacy_issue);
         } else {
             crate::ui::widgets::break_anywhere_hyperlink_to(ui, link, link);
         }
@@ -272,10 +263,9 @@ pub(super) fn render_plain(
 }
 
 pub(super) fn render_profile_link(app: &mut GossipUi, ui: &mut Ui, pubkey: &PublicKey) {
-    let nam = gossip_lib::names::tag_name_from_pubkey_lookup(pubkey);
-    let nam = format!("@{}", nam);
+    let nam = gossip_lib::names::best_name_from_pubkey_lookup(pubkey);
     if ui.link(&nam).clicked() {
-        app.set_page(Page::Person(pubkey.to_owned()));
+        app.set_page(ui.ctx(), Page::Person(pubkey.to_owned()));
     };
 }
 
@@ -288,11 +278,14 @@ pub(super) fn render_event_link(
     let idhex: IdHex = link_to_id.into();
     let nam = format!("#{}", gossip_lib::names::hex_id_short(&idhex));
     if ui.link(&nam).clicked() {
-        app.set_page(Page::Feed(FeedKind::Thread {
-            id: link_to_id,
-            referenced_by: referenced_by_id,
-            author: None,
-        }));
+        app.set_page(
+            ui.ctx(),
+            Page::Feed(FeedKind::Thread {
+                id: link_to_id,
+                referenced_by: referenced_by_id,
+                author: None,
+            }),
+        );
     };
 }
 
@@ -302,17 +295,22 @@ pub(super) fn render_parameterized_event_link(
     referenced_by_id: Id,
     event_addr: &EventAddr,
 ) {
-    let nam = format!("nostr:{}", event_addr.as_bech32_string());
+    let nam = format!("[{:?}: {}]", event_addr.kind, event_addr.d);
+    //let nam = format!("nostr:{}", event_addr.as_bech32_string());
     if ui.link(&nam).clicked() {
-        if let Ok(Some(prevent)) = GLOBALS
-            .storage
-            .get_parameterized_replaceable_event(event_addr)
+        if let Ok(Some(prevent)) =
+            GLOBALS
+                .storage
+                .get_replaceable_event(event_addr.kind, event_addr.author, &event_addr.d)
         {
-            app.set_page(Page::Feed(FeedKind::Thread {
-                id: prevent.id,
-                referenced_by: referenced_by_id,
-                author: Some(prevent.pubkey),
-            }));
+            app.set_page(
+                ui.ctx(),
+                Page::Feed(FeedKind::Thread {
+                    id: prevent.id,
+                    referenced_by: referenced_by_id,
+                    author: Some(prevent.pubkey),
+                }),
+            );
         } else {
             // Disclose failure
             GLOBALS
@@ -363,14 +361,16 @@ fn is_video_url(url: &url::Url) -> bool {
         || lower.ends_with(".webm")
 }
 
-fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
+fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url, privacy_issue: bool) {
     let row_height = ui.cursor().height();
     let url_string = url.to_string();
     let mut show_link = true;
 
     // FIXME show/hide lists should persist app restarts
-    let show_image = (app.settings.show_media && !app.media_hide_list.contains(&url))
-        || (!app.settings.show_media && app.media_show_list.contains(&url));
+    let show_image = (read_setting!(show_media)
+        && !app.media_hide_list.contains(&url)
+        && (!privacy_issue || app.media_show_list.contains(&url)))
+        || (!read_setting!(show_media) && app.media_show_list.contains(&url));
 
     if show_image {
         if let Some(response) = try_render_image(app, ui, url.clone()) {
@@ -388,15 +388,18 @@ fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
     }
 
     if show_link {
-        let response = ui.link("[ Image ]").on_hover_text(url_string.clone()); // show url on hover
-                                                                               // show media toggle
+        // show media toggle
+        let response = if privacy_issue {
+            ui.link("[ PRIVACY RISK Image ]").on_hover_text(format!("The sender might be trying to associate your nostr pubkey with your IP address. URL={}", url_string))
+        } else {
+            // show url on hover
+            ui.link("[ Image ]").on_hover_text(url_string.clone())
+        };
+
         if response.clicked() {
-            if app.settings.show_media {
-                app.media_hide_list.remove(&url);
-            } else {
-                app.media_show_list.insert(url.clone());
-            }
-            if !app.settings.load_media {
+            app.media_hide_list.remove(&url);
+            app.media_show_list.insert(url.clone());
+            if !read_setting!(load_media) {
                 GLOBALS.status_queue.write().write("Fetch Media setting is disabled. Right-click link to open in browser or copy URL".to_owned());
             }
         }
@@ -472,14 +475,16 @@ fn try_render_image(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Respons
     response_return
 }
 
-fn show_video_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
+fn show_video_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url, privacy_issue: bool) {
     let row_height = ui.cursor().height();
     let url_string = url.to_string();
     let mut show_link = true;
 
     // FIXME show/hide lists should persist app restarts
-    let show_video = (app.settings.show_media && !app.media_hide_list.contains(&url))
-        || (!app.settings.show_media && app.media_show_list.contains(&url));
+    let show_video = (read_setting!(show_media)
+        && !app.media_hide_list.contains(&url)
+        && (!privacy_issue || app.media_show_list.contains(&url)))
+        || (!read_setting!(show_media) && app.media_show_list.contains(&url));
 
     if show_video {
         if let Some(response) = try_render_video(app, ui, url.clone()) {
@@ -497,15 +502,21 @@ fn show_video_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url) {
     }
 
     if show_link {
-        let response = ui.link("[ Video ]").on_hover_text(url_string.clone()); // show url on hover
-                                                                               // show media toggle
+        // show media toggle
+        let response = if privacy_issue {
+            ui.link("[ PRIVACY RISK Video ]").on_hover_text(format!(
+                "The sender might be trying to associate your pubkey with your IP address. URL={}",
+                url_string
+            ))
+        } else {
+            // show url on hover
+            ui.link("[ Video ]").on_hover_text(url_string.clone())
+        };
+
         if response.clicked() {
-            if app.settings.show_media {
-                app.media_hide_list.remove(&url);
-            } else {
-                app.media_show_list.insert(url.clone());
-            }
-            if !app.settings.load_media {
+            app.media_hide_list.remove(&url);
+            app.media_show_list.insert(url.clone());
+            if !read_setting!(load_media) {
                 GLOBALS.status_queue.write().write("Fetch Media setting is disabled. Right-click link to open in browser or copy URL".to_owned());
             }
         }
@@ -562,6 +573,11 @@ fn try_render_video(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Respons
                 player.stop();
             }
             let response = player.ui(ui, [size.x, size.y]);
+
+            // stop the player when it scrolls out of view
+            if !ui.is_rect_visible(response.rect) {
+                player.stop();
+            }
 
             add_media_menu(app, ui, url, &response);
 
@@ -643,7 +659,7 @@ fn add_media_menu(app: &mut GossipUi, ui: &mut Ui, url: Url, response: &Response
                     .on_hover_text("Hide (return to a link)")
                     .clicked()
                 {
-                    if app.settings.show_media {
+                    if read_setting!(show_media) {
                         app.media_hide_list.insert(url.clone());
                     } else {
                         app.media_show_list.remove(&url);

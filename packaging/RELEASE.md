@@ -1,14 +1,8 @@
 # RELEASE
 
-0. DON'T update dependencies. DON'T 'cargo update'.  Do that kind of stuff right after
-   releasing. Because that stuff presents risk.
+0. DON'T update dependencies ('cargo update'). Do that kind of stuff right after releasing. Because that stuff presents risk.
 
-1. Update the documentation including:
-
-   README.md
-   help page in the UI
-
-2. Stabilize the code. Make all these happy:
+1. Stabilize the code. Make all these happy:
 
    ````bash
       cargo clippy
@@ -16,42 +10,56 @@
       cargo test
    ````
 
-3. Edit Cargo.toml and change the version (remove the -unstable).
-   Compile so you get a new Cargo.lock
+1. Test it on Windows and MacOS. Then repeat at step 1 if fixes are needed.
 
-   Commit these 2 new Cargo files as a commit named after the version.
+1. Update the documentation including:
 
-4. Tag this as vVERSION, and push the tag
+    - README.md
+    - LICENSE.txt may need a copyright range update
+    - Help page in the UI
 
-4b. Tag again with -unstable,
-    build to get Cargo.lock,
-    commit both as next commit,
-    push,
-    checkout the release commit again for the rest.
+1. Update packaging files:
 
-5. Build the debian:
+    - packaging/debian/Dockerfile may need a new rust version
+    - packaging/windows/gossip.VERSION.wxs needs creating and a UUID update
+
+1. Edit Cargo.toml and change the version (remove the -unstable).
+    Compile so you get a new Cargo.lock
+
+    - Commit these 2 new Cargo files as a commit named after the version.
+
+1. Tag this as vVERSION, and push the tag
+
+1. Tag again with -unstable
+
+    - build to get Cargo.lock,
+    - commit both as next commit,
+    - push,
+    - checkout the release commit again for the rest.
+
+1. Build the debian:
 
    ````bash
       cd debian
       ./deb.sh
    ````
 
-6. Build the appimage:
+1. Build the appimage:
 
    ````bash
       cd appimage
-      cargo appimage --features="lang-cjk,video-ffmpeg"
+      ./build-appimage.sh
    ````
 
-7. Build the windows:
+1. Build the flatpak:
 
-   ````bash
-      cd windows
-   ````
+    - Folllow the [Flatpak README](flatpak/README.md)
 
-   and follow the [Windows README](windows/README.md)
+1. Build the windows:
 
-8. Build the macos:
+    - Follow the [Windows README](windows/README.md)
+
+1. Build the macos:
 
    ````bash
       cd macos
@@ -59,13 +67,19 @@
       ./build_macos_intel.sh
    ````
 
-9. Bundle the files, create SHA256 hashes
+1. Bundle the files, create SHA256 hashes
 
-10. Upload release to github
+  files in files/
 
-11. Update the AUR packages
+  create changelog.txt like this:
 
-12. Announce release on nostr under gossip account
+    git log --oneline v0.8.2..v0.9.0 > changelog.txt
+
+1. Upload release to github
+
+1. Update the AUR packages
+
+1. Announce release on nostr under gossip account
 
 -----------------
 

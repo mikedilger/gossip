@@ -1,1 +1,0 @@
-ALTER TABLE person ADD COLUMN followed_last_updated INTEGER NOT NULL DEFAULT 0;

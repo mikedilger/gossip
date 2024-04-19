@@ -5,19 +5,20 @@ use egui::{Color32, Context, RichText, Ui};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::Relay;
 use gossip_lib::GLOBALS;
-use gossip_relay_picker::Direction;
-use nostr_types::RelayUrl;
+use nostr_types::{RelayUrl, RelayUsage};
 
-pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
+use super::continue_control;
+
+pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     // New users dont have existing config
     if app.wizard_state.new_user {
-        app.page = Page::Wizard(WizardPage::SetupRelays);
+        app.set_page(ctx, Page::Wizard(WizardPage::SetupRelays));
         return;
     }
 
     let pubkey = match app.wizard_state.pubkey {
         None => {
-            app.page = Page::Wizard(WizardPage::WelcomeGossip);
+            app.set_page(ctx, Page::Wizard(WizardPage::WelcomeGossip));
             return;
         }
         Some(pk) => pk,
@@ -53,8 +54,8 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         }
     });
 
-    if app.wizard_state.need_relay_list() && !app.wizard_state.relay_list_sought {
-        app.wizard_state.relay_list_sought = true;
+    if app.wizard_state.need_relay_list() && app.wizard_state.relay_list_sought {
+        app.wizard_state.relay_list_sought = false;
 
         let discovery_relays: Vec<RelayUrl> = app
             .wizard_state
@@ -78,30 +79,50 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.add_space(10.0);
 
     if app.wizard_state.need_relay_list() || app.wizard_state.need_user_data() {
-        ui.label("Please enter a relay where your existing configuration can be loaded from:");
+        let mut found = false;
 
         // If we have write relays, show those
-        if let Ok(pairs) = GLOBALS.storage.get_best_relays(pubkey, Direction::Write) {
-            for (url, _score) in pairs {
-                ui.add_space(10.0);
-                ui.horizontal(|ui| {
-                    ui.label("Load from:");
-                    if ui.button(url.as_str()).clicked() {
-                        let _ = GLOBALS
-                            .to_overlord
-                            .send(ToOverlordMessage::SubscribeConfig(url.to_owned()));
+        if let Ok(pairs) = GLOBALS.storage.get_best_relays(pubkey, RelayUsage::Outbox) {
+            if !pairs.is_empty() {
+                app.vert_scroll_area()
+                .max_width(f32::INFINITY)
+                .max_height(ctx.screen_rect().height() - 340.0)
+                .show(ui, |ui| {
+                    found = true;
+                    ui.label("Good news: we found your profile!");
+                    ui.label("Please choose one relay to load your profile (kind: 03) from, or specify a manual relay below:");
+                    for (url, _score) in pairs {
+                        ui.add_space(10.0);
+                        ui.horizontal(|ui| {
+                            ui.label(url.as_str());
+                            app.theme.accent_button_1_style(ui.style_mut());
+                            if ui.button("Load").clicked() {
+                                let _ =
+                                    GLOBALS
+                                        .to_overlord
+                                        .send(ToOverlordMessage::SubscribeConfig(Some(vec![
+                                            url.to_owned()
+                                        ])));
+                            }
+                        });
                     }
                 });
             }
         }
 
+        if !found {
+            ui.label("We could not yet find your profile...");
+            ui.label("You can manually enter a relay where your existing profile (kind: 03) can be loaded from:");
+        }
+
         ui.add_space(20.0);
         ui.horizontal_wrapped(|ui| {
             ui.label("Enter Relay URL");
-            if ui
-                .add(text_edit_line!(app, app.wizard_state.relay_url))
-                .changed()
-            {
+            let response = text_edit_line!(app, app.wizard_state.relay_url)
+                .with_paste()
+                .show(ui)
+                .response;
+            if response.changed() {
                 app.wizard_state.error = None;
             }
         });
@@ -116,26 +137,26 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
         if ready {
             ui.add_space(20.0);
-            if ui.button("  >  Fetch From This Relay").clicked() {
-                if let Ok(rurl) = RelayUrl::try_from_str(&app.wizard_state.relay_url) {
-                    let _ = GLOBALS
-                        .to_overlord
-                        .send(ToOverlordMessage::SubscribeConfig(rurl.to_owned()));
-                    app.wizard_state.relay_url = String::new();
-                } else {
-                    app.wizard_state.error = Some("ERROR: Invalid Relay URL".to_owned());
+            ui.scope(|ui| {
+                app.theme.accent_button_2_style(ui.style_mut());
+                if ui.button("Fetch From This Relay").clicked() {
+                    if let Ok(rurl) = RelayUrl::try_from_str(&app.wizard_state.relay_url) {
+                        let _ = GLOBALS
+                            .to_overlord
+                            .send(ToOverlordMessage::SubscribeConfig(Some(vec![
+                                rurl.to_owned()
+                            ])));
+                        app.wizard_state.relay_url = String::new();
+                    } else {
+                        app.wizard_state.error = Some("ERROR: Invalid Relay URL".to_owned());
+                    }
                 }
-            }
+            });
         }
     }
 
     ui.add_space(20.0);
-    let label = if app.wizard_state.need_relay_list() || app.wizard_state.need_user_data() {
-        "  >  Skip this step"
-    } else {
-        "  >  Next"
-    };
-    if ui.button(label).clicked() {
-        app.page = Page::Wizard(WizardPage::SetupRelays);
-    }
+    continue_control(ui, app, true, |app| {
+        app.set_page(ctx, Page::Wizard(WizardPage::SetupRelays));
+    });
 }

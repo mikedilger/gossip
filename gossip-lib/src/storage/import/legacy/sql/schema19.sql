@@ -1,5 +1,0 @@
-ALTER TABLE relay ADD COLUMN rank_new INTEGER NOT NULL DEFAULT 3;
-UPDATE relay SET rank_new = rank;
-ALTER TABLE relay DROP COLUMN rank;
-ALTER TABLE relay RENAME COLUMN rank_new TO rank;
-

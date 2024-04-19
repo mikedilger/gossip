@@ -1,8 +1,8 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use async_trait::async_trait;
-use gossip_relay_picker::{Direction, RelayPickerHooks};
-use nostr_types::{PublicKey, RelayUrl};
+use gossip_relay_picker::RelayPickerHooks;
+use nostr_types::{PublicKey, RelayUrl, RelayUsage};
 
 /// Hooks for the relay picker
 #[derive(Default)]
@@ -20,13 +20,13 @@ impl RelayPickerHooks for Hooks {
         }
     }
 
-    /// Returns all relays that this public key uses in the given Direction
+    /// Returns all relays that this public key uses in the given RelayUsage
     async fn get_relays_for_pubkey(
         &self,
         pubkey: PublicKey,
-        direction: Direction,
+        usage: RelayUsage,
     ) -> Result<Vec<(RelayUrl, u64)>, Error> {
-        GLOBALS.storage.get_best_relays(pubkey, direction)
+        GLOBALS.storage.get_best_relays(pubkey, usage)
     }
 
     /// Is the relay currently connected?
@@ -46,13 +46,15 @@ impl RelayPickerHooks for Hooks {
     }
 
     /// Returns the public keys of all the people followed
+    // this API name has become difficult..
     fn get_followed_pubkeys(&self) -> Vec<PublicKey> {
-        GLOBALS.people.get_followed_pubkeys()
+        // ..We actually want all the people subscribed, which is a bigger list
+        GLOBALS.people.get_subscribed_pubkeys()
     }
 
     /// Adjusts the score for a given relay, perhaps based on relay-specific metrics
     fn adjust_score(&self, url: RelayUrl, score: u64) -> u64 {
-        match GLOBALS.storage.read_relay(&url) {
+        match GLOBALS.storage.read_relay(&url, None) {
             Err(_) => 0,
             Ok(Some(relay)) => {
                 let success_rate = relay.success_rate();
