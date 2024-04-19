@@ -17,9 +17,14 @@ pub struct Nip46UnconnectedServer {
 
 impl Nip46UnconnectedServer {
     pub fn new(name: String, relays: Vec<RelayUrl>) -> Nip46UnconnectedServer {
-        let connect_secret = textnonce::TextNonce::sized_urlsafe(32)
+        let mut connect_secret = textnonce::TextNonce::sized_urlsafe(32)
             .unwrap()
             .into_string();
+
+        // Map - and _ back into other characters.  We don't care if the result is
+        // uniformly random or not.
+        connect_secret = connect_secret.replace("-", "0");
+        connect_secret = connect_secret.replace("_", "1");
 
         Nip46UnconnectedServer {
             connect_secret,
