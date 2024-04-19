@@ -23,8 +23,8 @@ impl Nip46UnconnectedServer {
 
         // Map - and _ back into other characters.  We don't care if the result is
         // uniformly random or not.
-        connect_secret = connect_secret.replace("-", "0");
-        connect_secret = connect_secret.replace("_", "1");
+        connect_secret = connect_secret.replace('-', "0");
+        connect_secret = connect_secret.replace('_', "1");
 
         Nip46UnconnectedServer {
             connect_secret,
