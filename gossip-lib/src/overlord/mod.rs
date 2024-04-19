@@ -1748,10 +1748,6 @@ impl Overlord {
 
         // Handle the request
         if let Some(mut server) = GLOBALS.storage.read_nip46server(pubkey)? {
-            // Temporarily set the approval (we don't save this)
-            // NOTE: for now we set the server approval setting in memory but don't save it back.
-            //       So the approval only applies to this one time. FIXME: we should use the options
-            //       to approve always (saved) and Until a set time.
             match parsed_command.method.as_str() {
                 "sign_event" => server.sign_approval = approval,
                 "nip04_encrypt" | "nip44_encrypt" => server.encrypt_approval = approval,
@@ -1763,6 +1759,10 @@ impl Overlord {
                 _ => {}
             }
 
+            // Save back
+            GLOBALS.storage.write_nip46server(&server, None)?;
+
+            // Handle it
             server.handle(&parsed_command)?;
         }
 
