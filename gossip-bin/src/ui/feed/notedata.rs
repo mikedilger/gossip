@@ -123,33 +123,43 @@ impl NoteData {
             mentions
         };
 
-        let embedded_event = {
+        let (embedded_event, embedded_event_error) = {
             if event.kind == EventKind::Repost || event.kind == EventKind::GenericRepost {
                 if !event.content.trim().is_empty() {
-                    if let Ok(embedded_event) = serde_json::from_str::<Event>(&event.content) {
-                        if event.kind == EventKind::Repost
-                            || (event.kind == EventKind::GenericRepost
-                                && embedded_event.kind.is_feed_displayable())
-                        {
-                            Some(embedded_event)
+                    let result = serde_json::from_str::<Event>(&event.content);
+                    if let Ok(embedded_event) = result {
+                        if embedded_event.kind.is_feed_displayable() {
+                            (Some(embedded_event), None)
                         } else {
-                            None
+                            (None, {
+                                let kind_number: u32 = embedded_event.kind.into();
+                                Some(format!(
+                                    "ERROR EMBEDDED EVENT UNSUPPORTED KIND : {}",
+                                    kind_number
+                                ))
+                            })
                         }
                     } else {
-                        None
+                        (
+                            None,
+                            Some(format!(
+                                "ERROR PARSING EMBEDDED EVENT: '{}'",
+                                result.err().unwrap().to_string()
+                            )),
+                        )
                     }
                 } else {
-                    None
+                    (None, None)
                 }
             } else {
-                None
+                (None, None)
             }
         };
 
         // Compute the content to our needs
         let (display_content, error_content) = match event.kind {
             EventKind::TextNote => (event.content.trim().to_string(), None),
-            EventKind::Repost => ("".to_owned(), None),
+            EventKind::Repost => ("".to_owned(), embedded_event_error),
             EventKind::GenericRepost => ("".to_owned(), None),
             EventKind::EncryptedDirectMessage => {
                 match GLOBALS.identity.decrypt_event_contents(&event) {
