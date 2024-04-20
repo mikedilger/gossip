@@ -4,6 +4,7 @@
 // TEMPORARILY
 #![allow(clippy::uninlined_format_args)]
 
+mod about;
 mod commands;
 mod date_ago;
 mod ui;

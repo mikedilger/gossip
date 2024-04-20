@@ -47,6 +47,7 @@ mod widgets;
 mod wizard;
 mod you;
 
+use crate::about::About;
 pub use crate::ui::theme::{Theme, ThemeVariant};
 use crate::unsaved_settings::UnsavedSettings;
 #[cfg(feature = "video-ffmpeg")]
@@ -63,8 +64,7 @@ use egui_winit::egui::Response;
 use egui_winit::egui::ViewportBuilder;
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{
-    About, DmChannel, DmChannelData, Error, FeedKind, Person, PersonList, RunState, ZapState,
-    GLOBALS,
+    DmChannel, DmChannelData, Error, FeedKind, Person, PersonList, RunState, ZapState, GLOBALS,
 };
 use nostr_types::ContentSegment;
 use nostr_types::RelayUrl;

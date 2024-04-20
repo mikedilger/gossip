@@ -1,4 +1,4 @@
-use crate::profile::Profile;
+use gossip_lib::Profile;
 
 /// Information about the gossip client
 #[derive(Debug)]
