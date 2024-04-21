@@ -144,7 +144,7 @@ impl NoteData {
                             None,
                             Some(format!(
                                 "ERROR PARSING EMBEDDED EVENT: '{}'",
-                                result.err().unwrap().to_string()
+                                result.err().unwrap()
                             )),
                         )
                     }
