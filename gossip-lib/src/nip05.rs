@@ -1,5 +1,6 @@
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
+use crate::misc::Private;
 use crate::people::{Person, PersonList};
 use crate::person_relay::PersonRelay;
 use nostr_types::{Metadata, Nip05, PublicKey, RelayUrl, Unixtime};
@@ -94,7 +95,7 @@ pub async fn validate_nip05(person: Person) -> Result<(), Error> {
 pub async fn get_and_follow_nip05(
     nip05: String,
     list: PersonList,
-    public: bool,
+    private: Private,
 ) -> Result<(), Error> {
     // Split their DNS ID
     let (user, domain) = parse_nip05(&nip05)?;
@@ -122,7 +123,7 @@ pub async fn get_and_follow_nip05(
     update_relays(&nip05, nip05file, &pubkey).await?;
 
     // Follow
-    GLOBALS.people.follow(&pubkey, true, list, public)?;
+    GLOBALS.people.follow(&pubkey, true, list, private)?;
 
     tracing::info!("Followed {}", &nip05);
 

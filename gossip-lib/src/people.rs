@@ -1,7 +1,7 @@
 use crate::comms::ToOverlordMessage;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
-use crate::misc::Freshness;
+use crate::misc::{Freshness, Private};
 use dashmap::{DashMap, DashSet};
 use image::RgbaImage;
 use nostr_types::{
@@ -760,12 +760,12 @@ impl People {
         pubkey: &PublicKey,
         follow: bool,
         list: PersonList,
-        public: bool,
+        private: Private,
     ) -> Result<(), Error> {
         if follow {
             GLOBALS
                 .storage
-                .add_person_to_list(pubkey, list, public, None)?;
+                .add_person_to_list(pubkey, list, !(*private), None)?;
 
             // Add to the relay picker. If they are already there, it will be ok.
             GLOBALS.relay_picker.add_someone(*pubkey)?;
@@ -807,7 +807,7 @@ impl People {
     }
 
     /// Mute (or unmute) a public key
-    pub fn mute(&self, pubkey: &PublicKey, mute: bool, public: bool) -> Result<(), Error> {
+    pub fn mute(&self, pubkey: &PublicKey, mute: bool, private: Private) -> Result<(), Error> {
         let mut txn = GLOBALS.storage.get_write_txn()?;
 
         if mute {
@@ -820,7 +820,7 @@ impl People {
             GLOBALS.storage.add_person_to_list(
                 pubkey,
                 PersonList::Muted,
-                public,
+                !(*private),
                 Some(&mut txn),
             )?;
         } else {

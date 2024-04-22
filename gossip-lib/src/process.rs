@@ -2,7 +2,7 @@ use crate::comms::ToOverlordMessage;
 use crate::error::Error;
 use crate::filter::EventFilterAction;
 use crate::globals::GLOBALS;
-use crate::misc::Freshness;
+use crate::misc::{Freshness, Private};
 use crate::people::{People, PersonList, PersonListMetadata};
 use crate::person_relay::PersonRelay;
 use crate::relationship::{RelationshipByAddr, RelationshipById};
@@ -98,8 +98,7 @@ pub async fn process_new_event(
                 return Ok(());
             }
             Some(EventFilterAction::MuteAuthor) => {
-                let public = true;
-                GLOBALS.people.mute(&event.pubkey, true, public)?;
+                GLOBALS.people.mute(&event.pubkey, true, Private(false))?;
                 return Ok(());
             }
         }

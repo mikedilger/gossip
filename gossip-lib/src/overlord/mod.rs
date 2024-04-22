@@ -1421,7 +1421,7 @@ impl Overlord {
         list: PersonList,
         private: Private,
     ) -> Result<(), Error> {
-        GLOBALS.people.follow(&pubkey, true, list, !(*private))?;
+        GLOBALS.people.follow(&pubkey, true, list, private)?;
         tracing::debug!("Followed {}", &pubkey.as_hex_string());
         Ok(())
     }
@@ -1433,7 +1433,7 @@ impl Overlord {
         private: Private,
     ) -> Result<(), Error> {
         std::mem::drop(tokio::spawn(async move {
-            if let Err(e) = crate::nip05::get_and_follow_nip05(nip05, list, !(*private)).await {
+            if let Err(e) = crate::nip05::get_and_follow_nip05(nip05, list, private).await {
                 tracing::error!("{}", e);
             }
         }));
@@ -1469,7 +1469,7 @@ impl Overlord {
         // Follow
         GLOBALS
             .people
-            .follow(&nprofile.pubkey, true, list, !(*private))?;
+            .follow(&nprofile.pubkey, true, list, private)?;
 
         GLOBALS
             .status_queue
