@@ -41,9 +41,9 @@ impl ListUi {
             cache_last_list: None,
             cache_next_refresh: Instant::now(),
             cache_people: Vec::new(),
-            cache_remote_hash: 0,
+            cache_remote_hash: 1,
             cache_remote_tag: String::new(),
-            cache_local_hash: 0,
+            cache_local_hash: 2,
             cache_local_tag: String::new(),
 
             // add contact
@@ -920,7 +920,7 @@ fn refresh_list_data(app: &mut GossipUi, list: PersonList) {
         }
     }
 
-    app.people_list.cache_remote_hash = gossip_lib::hash_person_list_event(list).unwrap_or(0);
+    app.people_list.cache_remote_hash = gossip_lib::hash_person_list_event(list).unwrap_or(1);
 
     app.people_list.cache_remote_tag = if metadata.event_created_at.0 == 0 {
         "REMOTE: not found on Active Relays".to_owned()
@@ -959,7 +959,7 @@ fn refresh_list_data(app: &mut GossipUi, list: PersonList) {
         app.people_list.cache_people.len() - publen
     };
 
-    app.people_list.cache_local_hash = GLOBALS.storage.hash_person_list(list).unwrap_or(0);
+    app.people_list.cache_local_hash = GLOBALS.storage.hash_person_list(list).unwrap_or(2);
 
     if list == PersonList::Followed {
         app.people_list.cache_local_tag = format!("LOCAL: date={} (public={})", ledit, publen);
