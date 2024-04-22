@@ -6,7 +6,7 @@ use crate::ui::{widgets, GossipUi, Page};
 use eframe::egui;
 use egui::{Context, RichText, Ui};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::{PersonList, GLOBALS};
+use gossip_lib::{PersonList, Private, GLOBALS};
 use nostr_types::{Profile, PublicKey, RelayUsage};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
@@ -187,7 +187,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowPubkey(
                         pubkey,
                         PersonList::Followed,
-                        true,
+                        Private(false),
                     ));
                 } else if let Ok(pubkey) =
                     PublicKey::try_from_hex_string(app.add_contact.trim(), true)
@@ -195,7 +195,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowPubkey(
                         pubkey,
                         PersonList::Followed,
-                        true,
+                        Private(false),
                     ));
                 } else if let Ok(profile) =
                     Profile::try_from_bech32_string(app.add_contact.trim(), true)
@@ -203,13 +203,13 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowNprofile(
                         profile,
                         PersonList::Followed,
-                        true,
+                        Private(false),
                     ));
                 } else if gossip_lib::nip05::parse_nip05(app.add_contact.trim()).is_ok() {
                     let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowNip05(
                         app.add_contact.trim().to_owned(),
                         PersonList::Followed,
-                        true,
+                        Private(false),
                     ));
                 } else {
                     app.wizard_state.error = Some("ERROR: Invalid pubkey".to_owned());

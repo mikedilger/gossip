@@ -488,7 +488,7 @@ fn render_add_contact_popup(
                             let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowPubkey(
                                 pubkey,
                                 list,
-                                !(*metadata.private),
+                                metadata.private,
                             ));
                             can_close = true;
                             mark_refresh(app);
@@ -498,7 +498,7 @@ fn render_add_contact_popup(
                             let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowPubkey(
                                 pubkey,
                                 list,
-                                !(*metadata.private),
+                                metadata.private,
                             ));
                             can_close = true;
                             mark_refresh(app);
@@ -508,7 +508,7 @@ fn render_add_contact_popup(
                             let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowNprofile(
                                 profile.clone(),
                                 list,
-                                !(*metadata.private),
+                                metadata.private,
                             ));
                             can_close = true;
                             mark_refresh(app);
@@ -516,7 +516,7 @@ fn render_add_contact_popup(
                             let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowNip05(
                                 app.add_contact.trim().to_owned(),
                                 list,
-                                !(*metadata.private),
+                                metadata.private,
                             ));
                             can_close = true;
                             mark_refresh(app);

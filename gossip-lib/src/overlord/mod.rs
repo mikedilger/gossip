@@ -8,7 +8,7 @@ use crate::dm_channel::DmChannel;
 use crate::error::{Error, ErrorKind};
 use crate::feed::FeedKind;
 use crate::globals::{Globals, GLOBALS};
-use crate::misc::ZapState;
+use crate::misc::{Private, ZapState};
 use crate::nip46::{Approval, ParsedCommand};
 use crate::pending::PendingItem;
 use crate::people::{Person, PersonList};
@@ -637,14 +637,14 @@ impl Overlord {
             ToOverlordMessage::FetchEventAddr(ea) => {
                 self.fetch_event_addr(ea).await?;
             }
-            ToOverlordMessage::FollowPubkey(pubkey, list, public) => {
-                self.follow_pubkey(pubkey, list, public).await?;
+            ToOverlordMessage::FollowPubkey(pubkey, list, private) => {
+                self.follow_pubkey(pubkey, list, private).await?;
             }
-            ToOverlordMessage::FollowNip05(nip05, list, public) => {
-                Self::follow_nip05(nip05, list, public).await?;
+            ToOverlordMessage::FollowNip05(nip05, list, private) => {
+                Self::follow_nip05(nip05, list, private).await?;
             }
-            ToOverlordMessage::FollowNprofile(nprofile, list, public) => {
-                self.follow_nprofile(nprofile, list, public).await?;
+            ToOverlordMessage::FollowNprofile(nprofile, list, private) => {
+                self.follow_nprofile(nprofile, list, private).await?;
             }
             ToOverlordMessage::GeneratePrivateKey(password) => {
                 Self::generate_private_key(password).await?;
@@ -1419,17 +1419,21 @@ impl Overlord {
         &mut self,
         pubkey: PublicKey,
         list: PersonList,
-        public: bool,
+        private: Private,
     ) -> Result<(), Error> {
-        GLOBALS.people.follow(&pubkey, true, list, public)?;
+        GLOBALS.people.follow(&pubkey, true, list, !(*private))?;
         tracing::debug!("Followed {}", &pubkey.as_hex_string());
         Ok(())
     }
 
     /// Follow a person by a nip-05 address
-    pub async fn follow_nip05(nip05: String, list: PersonList, public: bool) -> Result<(), Error> {
+    pub async fn follow_nip05(
+        nip05: String,
+        list: PersonList,
+        private: Private,
+    ) -> Result<(), Error> {
         std::mem::drop(tokio::spawn(async move {
-            if let Err(e) = crate::nip05::get_and_follow_nip05(nip05, list, public).await {
+            if let Err(e) = crate::nip05::get_and_follow_nip05(nip05, list, !(*private)).await {
                 tracing::error!("{}", e);
             }
         }));
@@ -1441,7 +1445,7 @@ impl Overlord {
         &mut self,
         nprofile: Profile,
         list: PersonList,
-        public: bool,
+        private: Private,
     ) -> Result<(), Error> {
         // Set their relays
         for relay in nprofile.relays.iter() {
@@ -1465,7 +1469,7 @@ impl Overlord {
         // Follow
         GLOBALS
             .people
-            .follow(&nprofile.pubkey, true, list, public)?;
+            .follow(&nprofile.pubkey, true, list, !(*private))?;
 
         GLOBALS
             .status_queue
