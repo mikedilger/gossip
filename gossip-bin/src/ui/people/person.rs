@@ -10,7 +10,7 @@ use egui_winit::egui::InnerResponse;
 use egui_winit::egui::Response;
 use egui_winit::egui::Widget;
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::{DmChannel, FeedKind, Freshness, People, Person, PersonList, GLOBALS};
+use gossip_lib::{DmChannel, FeedKind, Freshness, People, Person, PersonList, Private, GLOBALS};
 use nostr_types::{PublicKey, RelayUrl};
 use serde_json::Value;
 
@@ -214,7 +214,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                     let _ = GLOBALS.storage.add_person_to_list(
                                         &pubkey,
                                         list,
-                                        !(*metadata.private),
+                                        metadata.private,
                                         None,
                                     );
                                 }
@@ -226,18 +226,25 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                             if inlist && list != PersonList::Followed {
                                 ui.add_space(20.0);
 
-                                let mut private = !membership.unwrap_or(&false);
+                                let mut is_private: bool = match membership {
+                                    Some(p) => **p,
+                                    None => false,
+                                };
+
                                 let switch_response =
-                                    ui.add(widgets::Switch::onoff(&app.theme, &mut private));
+                                    ui.add(widgets::Switch::onoff(&app.theme, &mut is_private));
                                 if switch_response.clicked() {
-                                    let _ = GLOBALS
-                                        .storage
-                                        .add_person_to_list(&pubkey, list, !private, None);
+                                    let _ = GLOBALS.storage.add_person_to_list(
+                                        &pubkey,
+                                        list,
+                                        Private(is_private),
+                                        None,
+                                    );
                                     // variable 'private' gets negated when switch is operated
                                 }
-                                ui.add_enabled(private, egui::Label::new("Private"));
+                                ui.add_enabled(is_private, egui::Label::new("Private"));
 
-                                let color = if private {
+                                let color = if is_private {
                                     ui.visuals().text_color()
                                 } else {
                                     ui.visuals().weak_text_color()
@@ -522,7 +529,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                     let _ = GLOBALS.storage.add_person_to_list(
                                         &pubkey,
                                         gossip_lib::PersonList::Followed,
-                                        true,
+                                        Private(false),
                                         None,
                                     );
                                 }

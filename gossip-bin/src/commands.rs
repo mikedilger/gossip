@@ -1,8 +1,5 @@
 use bech32::FromBase32;
-use gossip_lib::PersonRelay;
-use gossip_lib::GLOBALS;
-use gossip_lib::{Error, ErrorKind};
-use gossip_lib::{PersonList, PersonListMetadata};
+use gossip_lib::{Error, ErrorKind, PersonList, PersonListMetadata, PersonRelay, GLOBALS};
 use nostr_types::{
     EncryptedPrivateKey, Event, EventAddr, EventKind, Filter, Id, NostrBech32, NostrUrl, PreEvent,
     PrivateKey, PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime,
@@ -743,18 +740,18 @@ pub fn print_seen_on(cmd: Command, mut args: env::Args) -> Result<(), Error> {
 
 pub fn print_followed(_cmd: Command) -> Result<(), Error> {
     let members = GLOBALS.storage.get_people_in_list(PersonList::Followed)?;
-    for (pk, public) in &members {
+    for (pk, private) in &members {
         if let Some(person) = GLOBALS.storage.read_person(pk)? {
             println!(
                 "{} {} {}",
-                if *public { "pub" } else { "prv" },
+                if **private { "prv" } else { "pub" },
                 pk.as_hex_string(),
                 person.best_name()
             );
         } else {
             println!(
                 "{} {}",
-                if *public { "pub" } else { "prv" },
+                if **private { "prv" } else { "pub" },
                 pk.as_hex_string()
             );
         }
@@ -764,10 +761,10 @@ pub fn print_followed(_cmd: Command) -> Result<(), Error> {
 
 pub fn print_muted(_cmd: Command) -> Result<(), Error> {
     let members = GLOBALS.storage.get_people_in_list(PersonList::Muted)?;
-    for (pk, public) in &members {
+    for (pk, private) in &members {
         println!(
             "{} {}",
-            if *public { "pub" } else { "prv" },
+            if **private { "prv" } else { "pub" },
             pk.as_hex_string()
         );
     }
@@ -779,18 +776,18 @@ pub fn print_person_lists(_cmd: Command) -> Result<(), Error> {
     for (list, metadata) in all.iter() {
         println!("LIST {}: {}", u8::from(*list), metadata.title);
         let members = GLOBALS.storage.get_people_in_list(*list)?;
-        for (pk, public) in &members {
+        for (pk, private) in &members {
             if let Some(person) = GLOBALS.storage.read_person(pk)? {
                 println!(
                     "{} {} {}",
-                    if *public { "pub" } else { "prv" },
+                    if **private { "prv" } else { "pub" },
                     pk.as_hex_string(),
                     person.best_name()
                 );
             } else {
                 println!(
                     "{} {}",
-                    if *public { "pub" } else { "prv" },
+                    if **private { "prv" } else { "pub" },
                     pk.as_hex_string()
                 );
             }

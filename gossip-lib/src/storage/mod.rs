@@ -52,6 +52,7 @@ mod versioned;
 use crate::dm_channel::{DmChannel, DmChannelData};
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
+use crate::misc::Private;
 use crate::nip46::{Nip46Server, Nip46UnconnectedServer};
 use crate::people::{Person, PersonList, PersonListMetadata};
 use crate::person_relay::PersonRelay;
@@ -2465,7 +2466,7 @@ impl Storage {
     pub fn read_person_lists(
         &self,
         pubkey: &PublicKey,
-    ) -> Result<HashMap<PersonList, bool>, Error> {
+    ) -> Result<HashMap<PersonList, Private>, Error> {
         self.read_person_lists2(pubkey)
     }
 
@@ -2473,14 +2474,14 @@ impl Storage {
     pub fn write_person_lists<'a>(
         &'a self,
         pubkey: &PublicKey,
-        lists: HashMap<PersonList, bool>,
+        lists: HashMap<PersonList, Private>,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         self.write_person_lists2(pubkey, lists, rw_txn)
     }
 
     /// Get people in a person list
-    pub fn get_people_in_list(&self, list: PersonList) -> Result<Vec<(PublicKey, bool)>, Error> {
+    pub fn get_people_in_list(&self, list: PersonList) -> Result<Vec<(PublicKey, Private)>, Error> {
         let people = self.get_people_in_list2(list)?;
 
         // Update metadata.len if it is wrong
@@ -2546,7 +2547,7 @@ impl Storage {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
             let people = self.get_people_in_list(list)?;
             for (pk, _) in &people {
-                self.add_person_to_list(pk, list, false, Some(txn))?
+                self.add_person_to_list(pk, list, Private(true), Some(txn))?
             }
             Ok(())
         };
@@ -2582,13 +2583,13 @@ impl Storage {
         &'a self,
         pubkey: &PublicKey,
         list: PersonList,
-        public: bool,
+        private: Private,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
             let mut map = self.read_person_lists(pubkey)?;
             let had = map.contains_key(&list);
-            map.insert(list, public);
+            map.insert(list, private);
             self.write_person_lists(pubkey, map, Some(txn))?;
             let now = Unixtime::now().unwrap();
             if let Some(mut metadata) = self.get_person_list_metadata(list)? {

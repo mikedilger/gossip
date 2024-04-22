@@ -3155,16 +3155,16 @@ impl Overlord {
 
         let mut txn = GLOBALS.storage.get_write_txn()?;
 
-        let mut entries: Vec<(PublicKey, bool)> = Vec::new();
+        let mut entries: Vec<(PublicKey, Private)> = Vec::new();
 
         // Public entries
         for tag in &event.tags {
             if let Ok((pubkey, rurl, petname)) = tag.parse_pubkey() {
                 // If our list is marked private, move these public entries to private ones
-                let public = !(*metadata.private);
+                let private = metadata.private;
 
                 // Save the pubkey
-                entries.push((pubkey.to_owned(), public));
+                entries.push((pubkey.to_owned(), private));
 
                 // Deal with recommended_relay_urls and petnames
                 if list == PersonList::Followed {
@@ -3189,7 +3189,7 @@ impl Overlord {
                 for tag in &tags {
                     if let Ok((pubkey, _, _)) = tag.parse_pubkey() {
                         // Save the pubkey
-                        entries.push((pubkey.to_owned(), false));
+                        entries.push((pubkey.to_owned(), Private(true)));
                     }
                     if let Ok(title) = tag.parse_title() {
                         metadata.title = title.to_owned();
@@ -3207,10 +3207,10 @@ impl Overlord {
             GLOBALS.storage.clear_person_list(list, Some(&mut txn))?;
         }
 
-        for (pubkey, public) in &entries {
+        for (pubkey, private) in &entries {
             GLOBALS
                 .storage
-                .add_person_to_list(pubkey, list, *public, Some(&mut txn))?;
+                .add_person_to_list(pubkey, list, *private, Some(&mut txn))?;
             GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
         }
 

@@ -1,5 +1,5 @@
 use gossip_lib::GLOBALS;
-use gossip_lib::{Person, PersonList};
+use gossip_lib::{Person, PersonList, Private};
 use std::collections::HashMap;
 
 use nostr_types::{
@@ -34,7 +34,7 @@ pub(crate) struct NoteData {
     pub author: Person,
 
     /// Lists the author is on
-    pub lists: HashMap<PersonList, bool>,
+    pub lists: HashMap<PersonList, Private>,
 
     /// Deletion reasons if any
     pub deletions: Vec<String>,

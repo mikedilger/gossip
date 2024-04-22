@@ -19,7 +19,7 @@ pub(in crate::ui) struct ListUi {
     // cache
     cache_last_list: Option<PersonList>,
     cache_next_refresh: Instant,
-    cache_people: Vec<(Person, bool)>,
+    cache_people: Vec<(Person, Private)>,
     cache_remote_hash: u64,
     cache_remote_tag: String,
     cache_local_hash: u64,
@@ -207,9 +207,8 @@ pub(super) fn update(
 
     app.vert_scroll_area().show(ui, |ui| {
         // not nice but needed because of 'app' borrow in closure
-        let people = app.people_list.cache_people.clone();
-        for (person, public) in people.iter() {
-            let mut private = !public;
+        let mut people = app.people_list.cache_people.clone();
+        for (person, private) in people.iter_mut() {
             let row_response = widgets::list_entry::clickable_frame(
                 ui,
                 app,
@@ -308,13 +307,13 @@ pub(super) fn update(
                                         // private / public switch
                                         ui.add(Label::new("Private").selectable(false));
                                         if ui
-                                            .add(widgets::Switch::onoff(&app.theme, &mut private))
+                                            .add(widgets::Switch::onoff(&app.theme, &mut private.0))
                                             .clicked()
                                         {
                                             let _ = GLOBALS.storage.add_person_to_list(
                                                 &person.pubkey,
                                                 list,
-                                                !private,
+                                                *private,
                                                 None,
                                             );
                                             mark_refresh(app);
@@ -889,15 +888,15 @@ fn refresh_list_data(app: &mut GossipUi, list: PersonList) {
     app.people_list.cache_people = {
         let members = GLOBALS.storage.get_people_in_list(list).unwrap_or_default();
 
-        let mut people: Vec<(Person, bool)> = Vec::new();
+        let mut people: Vec<(Person, Private)> = Vec::new();
 
-        for (pk, public) in &members {
+        for (pk, private) in &members {
             if let Ok(Some(person)) = GLOBALS.storage.read_person(pk) {
-                people.push((person, *public));
+                people.push((person, *private));
             } else {
                 let person = Person::new(*pk);
                 let _ = GLOBALS.storage.write_person(&person, None);
-                people.push((person, *public));
+                people.push((person, *private));
             }
 
             // They are a person of interest (to as to fetch metadata if out of date)
@@ -949,17 +948,16 @@ fn refresh_list_data(app: &mut GossipUi, list: PersonList) {
         }
     }
 
-    let publen = app
+    let mut prvlen = app
         .people_list
         .cache_people
         .iter()
-        .filter(|(_, public)| *public)
+        .filter(|(_, private)| **private)
         .count();
-    let privlen = if list == PersonList::Followed {
-        0
-    } else {
-        app.people_list.cache_people.len() - publen
-    };
+    if list == PersonList::Followed {
+        prvlen = 0;
+    }
+    let publen = app.people_list.cache_people.len() - prvlen;
 
     app.people_list.cache_local_hash = GLOBALS.storage.hash_person_list(list).unwrap_or(2);
 
@@ -968,7 +966,7 @@ fn refresh_list_data(app: &mut GossipUi, list: PersonList) {
     } else {
         app.people_list.cache_local_tag = format!(
             "LOCAL: date={} (public={}, private={})",
-            ledit, publen, privlen
+            ledit, publen, prvlen
         );
     }
 

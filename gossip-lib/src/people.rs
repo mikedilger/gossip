@@ -688,10 +688,10 @@ impl People {
         }
 
         // Add the people
-        for (pubkey, mut public) in people.iter() {
+        for (pubkey, mut private) in people.iter() {
             // If entire list is private, then all entries are forced to private
             if *metadata.private {
-                public = false;
+                private = Private(true);
             }
 
             // Only include petnames in the ContactList (which is only public people)
@@ -707,7 +707,7 @@ impl People {
 
             // Only include recommended relay urls in public entries, and not in the mute list
             let recommended_relay_url = {
-                if kind != EventKind::MuteList && public {
+                if kind != EventKind::MuteList && !private.0 {
                     let relays = GLOBALS
                         .storage
                         .get_best_relays(*pubkey, RelayUsage::Outbox)?;
@@ -718,10 +718,10 @@ impl People {
             };
 
             let tag = Tag::new_pubkey(*pubkey, recommended_relay_url, petname);
-            if public {
-                public_tags.push(tag);
-            } else {
+            if *private {
                 private_tags.push(tag);
+            } else {
+                public_tags.push(tag);
             }
         }
 
@@ -765,7 +765,7 @@ impl People {
         if follow {
             GLOBALS
                 .storage
-                .add_person_to_list(pubkey, list, !(*private), None)?;
+                .add_person_to_list(pubkey, list, private, None)?;
 
             // Add to the relay picker. If they are already there, it will be ok.
             GLOBALS.relay_picker.add_someone(*pubkey)?;
@@ -820,7 +820,7 @@ impl People {
             GLOBALS.storage.add_person_to_list(
                 pubkey,
                 PersonList::Muted,
-                !(*private),
+                private,
                 Some(&mut txn),
             )?;
         } else {
@@ -1017,13 +1017,12 @@ pub fn hash_person_list_event(list: PersonList) -> Result<u64, Error> {
 
     if let Some(event) = maybe_event {
         // Collect the data in an ordered map
-        let mut map: BTreeMap<PublicKey, bool> = BTreeMap::new();
+        let mut map: BTreeMap<PublicKey, Private> = BTreeMap::new();
 
         // Collect public entries
         for tag in &event.tags {
             if let Ok((pubkey, _, _)) = tag.parse_pubkey() {
-                let public = !(*metadata.private);
-                map.insert(pubkey, public);
+                map.insert(pubkey, metadata.private);
             }
         }
 
@@ -1034,7 +1033,7 @@ pub fn hash_person_list_event(list: PersonList) -> Result<u64, Error> {
                 let tags: Vec<Tag> = serde_json::from_str(&decrypted_content)?;
                 for tag in &tags {
                     if let Ok((pubkey, _, _)) = tag.parse_pubkey() {
-                        map.insert(pubkey, false);
+                        map.insert(pubkey, Private(true));
                     }
                 }
             } else {
@@ -1045,11 +1044,11 @@ pub fn hash_person_list_event(list: PersonList) -> Result<u64, Error> {
         // Hash
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         for (person, private) in map.iter() {
-            if list == PersonList::Followed && *private {
-                // Follow list events cannot handle private entries.
-                // To make hashes comparable, we skip private entries
-                continue;
-            }
+            let private = if list == PersonList::Followed {
+                Private(false)
+            } else {
+                *private
+            };
             person.hash(&mut hasher);
             private.hash(&mut hasher);
         }
