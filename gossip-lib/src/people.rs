@@ -1044,12 +1044,12 @@ pub fn hash_person_list_event(list: PersonList) -> Result<u64, Error> {
 
         // Hash
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        for (person, private) in map.iter() {
-            if list == PersonList::Followed && *private {
-                // Follow list events cannot handle private entries.
-                // To make hashes comparable, we skip private entries
-                continue;
-            }
+        for (person, public) in map.iter() {
+            let private = if list == PersonList::Followed {
+                false
+            } else {
+                !*public
+            };
             person.hash(&mut hasher);
             private.hash(&mut hasher);
         }

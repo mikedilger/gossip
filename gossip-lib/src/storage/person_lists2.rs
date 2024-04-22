@@ -9,7 +9,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::hash::{Hash, Hasher};
 use std::sync::Mutex;
 
-// Pubkey -> HashMap<PersonList1, bool> // bool is if private or not
+// Pubkey -> HashMap<PersonList1, bool> // true means PUBLIC (pre migraiton 31)
 //   key: pubkey.as_bytes()
 
 static PERSON_LISTS2_DB_CREATE_LOCK: Mutex<()> = Mutex::new(());
@@ -165,12 +165,12 @@ impl Storage {
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         let mut vec = self.get_people_in_list2(list)?;
         let map: BTreeMap<PublicKey, bool> = vec.drain(..).collect();
-        for (person, private) in map.iter() {
-            if list == PersonList1::Followed && *private {
-                // Follow list events cannot handle private entries.
-                // To make hashes comparable, we skip private entries
-                continue;
-            }
+        for (person, public) in map.iter() {
+            let private = if list == PersonList1::Followed {
+                false
+            } else {
+                !*public
+            };
             person.hash(&mut hasher);
             private.hash(&mut hasher);
         }
