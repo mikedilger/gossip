@@ -645,7 +645,7 @@ impl People {
             // Add title if using FollowSets
             let title = Tag::new_title(metadata.title.clone());
 
-            if metadata.private {
+            if *metadata.private {
                 private_tags.push(title);
             } else {
                 public_tags.push(title);
@@ -654,7 +654,7 @@ impl People {
             // Preserve existing tags that we don't operate on yet
             for t in &old_tags {
                 if t.tagname() == "image" || t.tagname() == "description" {
-                    if metadata.private {
+                    if *metadata.private {
                         private_tags.push(t.clone());
                     } else {
                         public_tags.push(t.clone());
@@ -669,14 +669,14 @@ impl People {
             for t in &old_tags {
                 match t.tagname() {
                     "t" | "e" => {
-                        if metadata.private {
+                        if *metadata.private {
                             private_tags.push(t.clone());
                         } else {
                             public_tags.push(t.clone());
                         }
                     }
                     "word" => {
-                        if metadata.private {
+                        if *metadata.private {
                             private_tags.push(t.clone());
                         } else {
                             public_tags.push(t.clone());
@@ -690,7 +690,7 @@ impl People {
         // Add the people
         for (pubkey, mut public) in people.iter() {
             // If entire list is private, then all entries are forced to private
-            if metadata.private {
+            if *metadata.private {
                 public = false;
             }
 
@@ -1022,7 +1022,7 @@ pub fn hash_person_list_event(list: PersonList) -> Result<u64, Error> {
         // Collect public entries
         for tag in &event.tags {
             if let Ok((pubkey, _, _)) = tag.parse_pubkey() {
-                let public = !metadata.private;
+                let public = !(*metadata.private);
                 map.insert(pubkey, public);
             }
         }

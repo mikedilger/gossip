@@ -1,4 +1,5 @@
 use crate::error::Error;
+use crate::misc::Private;
 use crate::storage::types::PersonListMetadata3;
 use crate::storage::Storage;
 use heed::RwTxn;
@@ -37,7 +38,7 @@ impl Storage {
                 event_private_len: metadata2.event_private_len,
                 favorite: metadata2.favorite,
                 order: metadata2.order,
-                private: metadata2.private,
+                private: Private(metadata2.private),
                 len: people.len(),
             };
             self.set_person_list_metadata3(list, &metadata3, Some(txn))?;

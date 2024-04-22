@@ -1,5 +1,6 @@
 use super::types::{PersonList1, PersonListMetadata3};
 use crate::error::{Error, ErrorKind};
+use crate::misc::Private;
 use crate::storage::{RawDatabase, Storage};
 use heed::types::UnalignedSlice;
 use heed::RwTxn;
@@ -55,11 +56,11 @@ impl Storage {
 
                 // Force followed list to be public
                 if list == PersonList1::Followed {
-                    plm.private = false;
+                    plm.private = Private(false);
                 }
 
                 Some(plm)
-            },
+            }
         })
     }
 
@@ -81,7 +82,7 @@ impl Storage {
             let mut md = metadata.to_owned();
             md.dtag = "followed".to_owned();
             md.title = "Followed".to_owned();
-            md.private = false;
+            md.private = Private(false);
             md.write_to_vec()?
         } else {
             metadata.write_to_vec()?
@@ -116,7 +117,7 @@ impl Storage {
 
             // Force followed list to be public
             if list == PersonList1::Followed {
-                metadata.private = false;
+                metadata.private = Private(false);
             }
 
             output.push((list, metadata));
@@ -136,7 +137,7 @@ impl Storage {
 
             // Force followed list to be public
             if list == PersonList1::Followed {
-                metadata.private = false;
+                metadata.private = Private(false);
             }
 
             if metadata.dtag == dtag {

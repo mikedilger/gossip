@@ -214,7 +214,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                     let _ = GLOBALS.storage.add_person_to_list(
                                         &pubkey,
                                         list,
-                                        !metadata.private,
+                                        !(*metadata.private),
                                         None,
                                     );
                                 }

@@ -3157,7 +3157,7 @@ impl Overlord {
         for tag in &event.tags {
             if let Ok((pubkey, rurl, petname)) = tag.parse_pubkey() {
                 // If our list is marked private, move these public entries to private ones
-                let public = !metadata.private;
+                let public = !(*metadata.private);
 
                 // Save the pubkey
                 entries.push((pubkey.to_owned(), public));

@@ -10,7 +10,9 @@ use egui_winit::egui::text::LayoutJob;
 use egui_winit::egui::text_edit::TextEditOutput;
 use egui_winit::egui::vec2;
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::{FeedKind, Freshness, People, Person, PersonList, PersonListMetadata, GLOBALS};
+use gossip_lib::{
+    FeedKind, Freshness, People, Person, PersonList, PersonListMetadata, Private, GLOBALS,
+};
 use nostr_types::{Profile, PublicKey, Unixtime};
 
 pub(in crate::ui) struct ListUi {
@@ -371,7 +373,7 @@ pub(in crate::ui) fn layout_list_title(
                 egui::Align::LEFT,
             );
     }
-    if metadata.private {
+    if *metadata.private {
         RichText::new(" 😎")
             .heading()
             .size(14.5)
@@ -486,7 +488,7 @@ fn render_add_contact_popup(
                             let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowPubkey(
                                 pubkey,
                                 list,
-                                !metadata.private,
+                                !(*metadata.private),
                             ));
                             can_close = true;
                             mark_refresh(app);
@@ -496,7 +498,7 @@ fn render_add_contact_popup(
                             let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowPubkey(
                                 pubkey,
                                 list,
-                                !metadata.private,
+                                !(*metadata.private),
                             ));
                             can_close = true;
                             mark_refresh(app);
@@ -506,7 +508,7 @@ fn render_add_contact_popup(
                             let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowNprofile(
                                 profile.clone(),
                                 list,
-                                !metadata.private,
+                                !(*metadata.private),
                             ));
                             can_close = true;
                             mark_refresh(app);
@@ -514,7 +516,7 @@ fn render_add_contact_popup(
                             let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowNip05(
                                 app.add_contact.trim().to_owned(),
                                 list,
-                                !metadata.private,
+                                !(*metadata.private),
                             ));
                             can_close = true;
                             mark_refresh(app);
@@ -777,9 +779,9 @@ pub(super) fn render_more_list_actions(
                     }
                 }
                 if on_list {
-                    if metadata.private {
+                    if *metadata.private {
                         if ui.button("Make Public").clicked() {
-                            metadata.private = false;
+                            metadata.private = Private(false);
                             let _ = GLOBALS
                                 .storage
                                 .set_person_list_metadata(list, metadata, None);
@@ -787,7 +789,7 @@ pub(super) fn render_more_list_actions(
                         }
                     } else {
                         if ui.button("Make Private").clicked() {
-                            metadata.private = true;
+                            metadata.private = Private(true);
                             let _ = GLOBALS
                                 .storage
                                 .set_person_list_metadata(list, metadata, None);
