@@ -139,7 +139,7 @@ pub(super) fn update(
         ui.add_space(5.0);
 
         if app.people_list.cache_local_hash == app.people_list.cache_remote_hash {
-            ui.label("Lists is synchronized");
+            ui.label("List is synchronized");
         } else {
             // remote <-> local buttons
             ui.horizontal(|ui|{
