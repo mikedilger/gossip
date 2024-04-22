@@ -96,7 +96,7 @@ mod media;
 pub use media::Media;
 
 mod misc;
-pub use misc::{Freshness, ZapState};
+pub use misc::{Freshness, Private, ZapState};
 
 /// Rendering various names of users
 pub mod names;
