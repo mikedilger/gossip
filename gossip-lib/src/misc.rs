@@ -1,6 +1,7 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use nostr_types::{Event, EventReference, Id, PayRequestData, PublicKey, UncheckedUrl};
+use std::ops::Deref;
 
 /// The state that a Zap is in (it moves through 5 states before it is complete)
 #[derive(Debug, Clone)]
@@ -58,4 +59,30 @@ pub(crate) fn get_thread_highest_ancestors(
     }
 
     Ok((highest_local, highest_remote))
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Private(pub bool);
+
+impl Deref for Private {
+    type Target = bool;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+// We define the readable/writable impls to be exactly as if this was just a bool.
+// This way we don't have to upgrade the database from when it actually was just a bool.
+
+impl<'a, C: speedy::Context> speedy::Readable<'a, C> for Private {
+    fn read_from<R: speedy::Reader<'a, C>>(reader: &mut R) -> Result<Self, C::Error> {
+        Ok(Private(bool::read_from(reader)?))
+    }
+}
+
+impl<C: speedy::Context> speedy::Writable<C> for Private {
+    fn write_to<T: ?Sized + speedy::Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
+        self.0.write_to(writer)
+    }
 }

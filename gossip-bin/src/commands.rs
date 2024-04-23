@@ -1,8 +1,5 @@
 use bech32::FromBase32;
-use gossip_lib::PersonRelay;
-use gossip_lib::GLOBALS;
-use gossip_lib::{Error, ErrorKind};
-use gossip_lib::{PersonList, PersonListMetadata};
+use gossip_lib::{Error, ErrorKind, PersonList, PersonListMetadata, PersonRelay, GLOBALS};
 use nostr_types::{
     EncryptedPrivateKey, Event, EventAddr, EventKind, Filter, Id, NostrBech32, NostrUrl, PreEvent,
     PrivateKey, PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime,
@@ -29,7 +26,7 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 33] = [
+const COMMANDS: [Command; 34] = [
     Command {
         cmd: "oneshot",
         usage_params: "{depends}",
@@ -166,6 +163,11 @@ const COMMANDS: [Command; 33] = [
         desc: "print all the relay records",
     },
     Command {
+        cmd: "print_seen_on",
+        usage_params: "<idhex>",
+        desc: "print the relays the event was seen on",
+    },
+    Command {
         cmd: "rebuild_indices",
         usage_params: "",
         desc: "Rebuild all event-related indices",
@@ -247,6 +249,7 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
         "print_person_relays" => print_person_relays(command, args)?,
         "print_relay" => print_relay(command, args)?,
         "print_relays" => print_relays(command)?,
+        "print_seen_on" => print_seen_on(command, args)?,
         "rebuild_indices" => rebuild_indices()?,
         "rename_person_list" => rename_person_list(command, args)?,
         "reprocess_recent" => reprocess_recent(command, runtime)?,
@@ -470,7 +473,7 @@ pub fn decrypt(cmd: Command, mut args: env::Args) -> Result<(), Error> {
 
     login()?;
 
-    let plaintext = GLOBALS.identity.decrypt_nip44(&pubkey, &ciphertext)?;
+    let plaintext = GLOBALS.identity.decrypt(&pubkey, &ciphertext)?;
     println!("{}", plaintext);
 
     Ok(())
@@ -704,7 +707,7 @@ pub fn print_event(cmd: Command, mut args: env::Args) -> Result<(), Error> {
 pub fn print_relay(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     if let Some(url) = args.next() {
         let rurl = RelayUrl::try_from_str(&url)?;
-        if let Some(relay) = GLOBALS.storage.read_relay(&rurl)? {
+        if let Some(relay) = GLOBALS.storage.read_relay(&rurl, None)? {
             println!("{}", serde_json::to_string_pretty(&relay)?);
         } else {
             println!("Relay not found.");
@@ -723,20 +726,32 @@ pub fn print_relays(_cmd: Command) -> Result<(), Error> {
     Ok(())
 }
 
+pub fn print_seen_on(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+    let idstr = match args.next() {
+        Some(id) => id,
+        None => return cmd.usage("Missing idhex parameter".to_string()),
+    };
+    let id = Id::try_from_hex_string(&idstr)?;
+    for (url, when) in GLOBALS.storage.get_event_seen_on_relay(id)? {
+        println!("{} at {}", url, when);
+    }
+    Ok(())
+}
+
 pub fn print_followed(_cmd: Command) -> Result<(), Error> {
     let members = GLOBALS.storage.get_people_in_list(PersonList::Followed)?;
-    for (pk, public) in &members {
+    for (pk, private) in &members {
         if let Some(person) = GLOBALS.storage.read_person(pk)? {
             println!(
                 "{} {} {}",
-                if *public { "pub" } else { "prv" },
+                if **private { "prv" } else { "pub" },
                 pk.as_hex_string(),
                 person.best_name()
             );
         } else {
             println!(
                 "{} {}",
-                if *public { "pub" } else { "prv" },
+                if **private { "prv" } else { "pub" },
                 pk.as_hex_string()
             );
         }
@@ -746,10 +761,10 @@ pub fn print_followed(_cmd: Command) -> Result<(), Error> {
 
 pub fn print_muted(_cmd: Command) -> Result<(), Error> {
     let members = GLOBALS.storage.get_people_in_list(PersonList::Muted)?;
-    for (pk, public) in &members {
+    for (pk, private) in &members {
         println!(
             "{} {}",
-            if *public { "pub" } else { "prv" },
+            if **private { "prv" } else { "pub" },
             pk.as_hex_string()
         );
     }
@@ -761,18 +776,18 @@ pub fn print_person_lists(_cmd: Command) -> Result<(), Error> {
     for (list, metadata) in all.iter() {
         println!("LIST {}: {}", u8::from(*list), metadata.title);
         let members = GLOBALS.storage.get_people_in_list(*list)?;
-        for (pk, public) in &members {
+        for (pk, private) in &members {
             if let Some(person) = GLOBALS.storage.read_person(pk)? {
                 println!(
                     "{} {} {}",
-                    if *public { "pub" } else { "prv" },
+                    if **private { "prv" } else { "pub" },
                     pk.as_hex_string(),
                     person.best_name()
                 );
             } else {
                 println!(
                     "{} {}",
-                    if *public { "pub" } else { "prv" },
+                    if **private { "prv" } else { "pub" },
                     pk.as_hex_string()
                 );
             }

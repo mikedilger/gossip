@@ -63,9 +63,6 @@
 //! with the storage engine. In some cases, the `Overlord` has more complex code for doing this,
 //! but in many cases, you can interact with `GLOBALS.storage` directly.
 
-mod about;
-pub use about::About;
-
 /// Defines messages sent to the overlord
 pub mod comms;
 
@@ -99,7 +96,7 @@ mod media;
 pub use media::Media;
 
 mod misc;
-pub use misc::{Freshness, ZapState};
+pub use misc::{Freshness, Private, ZapState};
 
 /// Rendering various names of users
 pub mod names;
@@ -128,6 +125,7 @@ pub use person_relay::PersonRelay;
 pub mod process;
 
 mod profile;
+pub use profile::Profile;
 
 mod relationship;
 

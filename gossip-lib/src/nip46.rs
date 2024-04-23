@@ -17,9 +17,14 @@ pub struct Nip46UnconnectedServer {
 
 impl Nip46UnconnectedServer {
     pub fn new(name: String, relays: Vec<RelayUrl>) -> Nip46UnconnectedServer {
-        let connect_secret = textnonce::TextNonce::sized_urlsafe(32)
+        let mut connect_secret = textnonce::TextNonce::sized_urlsafe(32)
             .unwrap()
             .into_string();
+
+        // Map - and _ back into other characters.  We don't care if the result is
+        // uniformly random or not.
+        connect_secret = connect_secret.replace('-', "0");
+        connect_secret = connect_secret.replace('_', "1");
 
         Nip46UnconnectedServer {
             connect_secret,
@@ -259,9 +264,7 @@ impl Nip46Server {
             return Err("nip04_decrypt: requires two parameters".into());
         }
         let other_pubkey = PublicKey::try_from_hex_string(&params[0], true)?;
-        let plaintext_bytes = GLOBALS.identity.decrypt_nip04(&other_pubkey, &params[1])?;
-        let utf8 = String::from_utf8(plaintext_bytes)?;
-        Ok(utf8)
+        GLOBALS.identity.decrypt(&other_pubkey, &params[1])
     }
 
     fn nip44_get_key(&self, params: &[String]) -> Result<String, Error> {
@@ -292,7 +295,7 @@ impl Nip46Server {
             return Err("nip44_decrypt: requires two parameters".into());
         }
         let other_pubkey = PublicKey::try_from_hex_string(&params[0], true)?;
-        let plaintext = GLOBALS.identity.decrypt_nip44(&other_pubkey, &params[1])?;
+        let plaintext = GLOBALS.identity.decrypt(&other_pubkey, &params[1])?;
         Ok(plaintext)
     }
 
@@ -328,9 +331,9 @@ pub struct ParsedCommand {
 }
 
 fn parse_command(peer_pubkey: PublicKey, contents: &str) -> Result<ParsedCommand, Error> {
-    let bytes = GLOBALS.identity.decrypt_nip04(&peer_pubkey, contents)?;
+    let bytes = GLOBALS.identity.decrypt(&peer_pubkey, contents)?;
 
-    let json: serde_json::Value = serde_json::from_slice(&bytes)?;
+    let json: serde_json::Value = serde_json::from_str(&bytes)?;
 
     let map = match json.as_object() {
         Some(map) => map,

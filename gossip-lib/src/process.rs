@@ -2,7 +2,7 @@ use crate::comms::ToOverlordMessage;
 use crate::error::Error;
 use crate::filter::EventFilterAction;
 use crate::globals::GLOBALS;
-use crate::misc::Freshness;
+use crate::misc::{Freshness, Private};
 use crate::people::{People, PersonList, PersonListMetadata};
 use crate::person_relay::PersonRelay;
 use crate::relationship::{RelationshipByAddr, RelationshipById};
@@ -98,8 +98,7 @@ pub async fn process_new_event(
                 return Ok(());
             }
             Some(EventFilterAction::MuteAuthor) => {
-                let public = true;
-                GLOBALS.people.mute(&event.pubkey, true, public)?;
+                GLOBALS.people.mute(&event.pubkey, true, Private(false))?;
                 return Ok(());
             }
         }
@@ -848,8 +847,8 @@ fn update_or_allocate_person_list_from_event(
             metadata.event_private_len = None;
         } else if GLOBALS.identity.is_unlocked() {
             let mut private_len: Option<usize> = None;
-            if let Ok(bytes) = GLOBALS.identity.decrypt_nip04(&pubkey, &event.content) {
-                if let Ok(vectags) = serde_json::from_slice::<Vec<Tag>>(&bytes) {
+            if let Ok(bytes) = GLOBALS.identity.decrypt(&pubkey, &event.content) {
+                if let Ok(vectags) = serde_json::from_str::<Vec<Tag>>(&bytes) {
                     private_len = Some(vectags.iter().filter(|t| t.tagname() == "p").count());
                 }
             }

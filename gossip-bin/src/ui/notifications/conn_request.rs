@@ -36,7 +36,7 @@ impl ConnRequest {
 }
 
 /// width needed for action section
-const TRUNC: f32 = 280.0;
+const TRUNC: f32 = 320.0;
 
 fn reasons_color(theme: &Theme) -> Color32 {
     if theme.dark_mode {

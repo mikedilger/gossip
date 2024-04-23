@@ -1,4 +1,5 @@
 use crate::error::Error;
+use crate::misc::Private;
 use crate::storage::types::PersonList1;
 use crate::storage::Storage;
 use heed::RwTxn;
@@ -35,8 +36,8 @@ impl Storage {
                 .iter()
                 .map(|u| PersonList1::from_u8(*u))
                 .collect::<Vec<PersonList1>>();
-            let new_person_lists: HashMap<PersonList1, bool> =
-                person_lists.drain(..).map(|l| (l, true)).collect();
+            let new_person_lists: HashMap<PersonList1, Private> =
+                person_lists.drain(..).map(|l| (l, Private(true))).collect();
 
             self.write_person_lists2(&pubkey, new_person_lists, Some(txn))?;
         }

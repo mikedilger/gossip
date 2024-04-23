@@ -79,7 +79,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                                         .sense(Sense::click()),
                                     );
                                 }
-                                if metadata.private {
+                                if *metadata.private {
                                     response |= ui.add(
                                         Label::new(
                                             RichText::new("😎")

@@ -48,6 +48,7 @@ mod widgets;
 mod wizard;
 mod you;
 
+use crate::about::About;
 pub use crate::ui::theme::{Theme, ThemeVariant};
 use crate::unsaved_settings::UnsavedSettings;
 #[cfg(feature = "video-ffmpeg")]
@@ -64,7 +65,7 @@ use egui_winit::egui::Response;
 use egui_winit::egui::ViewportBuilder;
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{
-    About, DmChannel, DmChannelData, Error, FeedKind, Person, PersonList, RunState, ZapState,
+    DmChannel, DmChannelData, Error, FeedKind, Person, PersonList, Private, RunState, ZapState,
     GLOBALS,
 };
 use nostr_types::ContentSegment;
@@ -1588,21 +1589,26 @@ impl GossipUi {
                     }
                 }
                 if !followed && ui.button("Follow").clicked() {
-                    let _ = GLOBALS
-                        .people
-                        .follow(&person.pubkey, true, PersonList::Followed, true);
+                    let _ = GLOBALS.people.follow(
+                        &person.pubkey,
+                        true,
+                        PersonList::Followed,
+                        Private(false),
+                    );
                 } else if followed && ui.button("Unfollow").clicked() {
-                    let _ =
-                        GLOBALS
-                            .people
-                            .follow(&person.pubkey, false, PersonList::Followed, true);
+                    let _ = GLOBALS.people.follow(
+                        &person.pubkey,
+                        false,
+                        PersonList::Followed,
+                        Private(false),
+                    );
                 }
 
                 // Do not show 'Mute' if this is yourself
                 if muted || !is_self {
                     let mute_label = if muted { "Unmute" } else { "Mute" };
                     if ui.button(mute_label).clicked() {
-                        let _ = GLOBALS.people.mute(&person.pubkey, !muted, true);
+                        let _ = GLOBALS.people.mute(&person.pubkey, !muted, Private(false));
                         app.notes.cache_invalidate_person(&person.pubkey);
                     }
                 }

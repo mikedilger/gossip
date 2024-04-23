@@ -52,6 +52,7 @@ mod versioned;
 use crate::dm_channel::{DmChannel, DmChannelData};
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
+use crate::misc::Private;
 use crate::nip46::{Nip46Server, Nip46UnconnectedServer};
 use crate::people::{Person, PersonList, PersonListMetadata};
 use crate::person_relay::PersonRelay;
@@ -59,7 +60,7 @@ use crate::profile::Profile;
 use crate::relationship::{RelationshipByAddr, RelationshipById};
 use crate::relay::Relay;
 use heed::types::{UnalignedSlice, Unit};
-use heed::{Database, Env, EnvFlags, EnvOpenOptions, RwTxn};
+use heed::{Database, Env, EnvFlags, EnvOpenOptions, RoTxn, RwTxn};
 use nostr_types::{
     EncryptedPrivateKey, Event, EventAddr, EventKind, EventReference, Filter, Id, MilliSatoshi,
     PublicKey, PublicKeyHex, RelayList, RelayUrl, RelayUsage, Unixtime,
@@ -1075,10 +1076,24 @@ impl Storage {
         url: &RelayUrl,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        if self.read_relay(url)?.is_none() {
-            let dbrelay = Relay::new(url.to_owned());
-            self.write_relay(&dbrelay, rw_txn)?;
-        }
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            let rtxn = &**txn;
+            if self.read_relay(url, Some(rtxn))?.is_none() {
+                let dbrelay = Relay::new(url.to_owned());
+                self.write_relay(&dbrelay, Some(txn))?;
+            }
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
         Ok(())
     }
 
@@ -1111,8 +1126,12 @@ impl Storage {
 
     /// Read a relay record
     #[inline]
-    pub fn read_relay(&self, url: &RelayUrl) -> Result<Option<Relay>, Error> {
-        self.read_relay2(url)
+    pub fn read_relay<'a>(
+        &'a self,
+        url: &RelayUrl,
+        txn: Option<&RoTxn<'a>>,
+    ) -> Result<Option<Relay>, Error> {
+        self.read_relay2(url, txn)
     }
 
     /// Read or create relay
@@ -1121,12 +1140,25 @@ impl Storage {
         url: &RelayUrl,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<Relay, Error> {
-        match self.read_relay(url)? {
-            Some(relay) => Ok(relay),
+        let f = |txn: &mut RwTxn<'a>| -> Result<Relay, Error> {
+            let rtxn = &**txn;
+            match self.read_relay(url, Some(rtxn))? {
+                Some(relay) => Ok(relay),
+                None => {
+                    let relay = Relay::new(url.to_owned());
+                    self.write_relay(&relay, Some(txn))?;
+                    Ok(relay)
+                }
+            }
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn),
             None => {
-                let relay = Relay::new(url.to_owned());
-                self.write_relay(&relay, rw_txn)?;
-                Ok(relay)
+                let mut txn = self.env.write_txn()?;
+                let result = f(&mut txn);
+                txn.commit()?;
+                result
             }
         }
     }
@@ -1207,6 +1239,10 @@ impl Storage {
         let relay_list = RelayList::from_event(event);
 
         if ours {
+            // If INBOX or OUTBOX is set, we also must turn on READ and WRITE
+            // or they won't actually get used.  However, we don't turn OFF
+            // these bits automatically.
+
             // Clear all current read/write bits (within the transaction)
             // note: inbox is kind10002 'read', outbox is kind10002 'write'
             self.modify_all_relays(
@@ -1216,37 +1252,18 @@ impl Storage {
 
             // Set or create read relays
             for (relay_url, usage) in relay_list.0.iter() {
-                if let Some(mut dbrelay) = self.read_relay(relay_url)? {
-                    // Set bits
-                    let update_bits = match usage {
-                        RelayUsage::Inbox => Relay::INBOX,
-                        RelayUsage::Outbox => Relay::OUTBOX,
-                        RelayUsage::Both => Relay::INBOX | Relay::OUTBOX,
-                    };
-                    dbrelay.set_usage_bits(update_bits);
+                let bits = match usage {
+                    RelayUsage::Inbox => Relay::INBOX | Relay::READ,
+                    RelayUsage::Outbox => Relay::OUTBOX | Relay::WRITE,
+                    RelayUsage::Both => Relay::INBOX | Relay::OUTBOX | Relay::READ | Relay::WRITE,
+                };
 
-                    // Clear bits
-                    match usage {
-                        RelayUsage::Inbox => dbrelay.clear_usage_bits(Relay::OUTBOX),
-                        RelayUsage::Outbox => dbrelay.clear_usage_bits(Relay::INBOX),
-                        _ => {}
-                    };
-
-                    // Write back
+                if let Some(mut dbrelay) = self.read_relay(relay_url, Some(&txn))? {
+                    dbrelay.set_usage_bits(bits);
                     self.write_relay(&dbrelay, Some(&mut txn))?;
                 } else {
-                    // Create and set bits
                     let mut dbrelay = Relay::new(relay_url.to_owned());
-                    let create_bits = match usage {
-                        RelayUsage::Inbox => Relay::INBOX | Relay::READ,
-                        RelayUsage::Outbox => Relay::OUTBOX | Relay::WRITE,
-                        RelayUsage::Both => {
-                            Relay::INBOX | Relay::READ | Relay::OUTBOX | Relay::WRITE
-                        }
-                    };
-                    dbrelay.set_usage_bits(create_bits);
-
-                    // Write back
+                    dbrelay.set_usage_bits(bits);
                     self.write_relay(&dbrelay, Some(&mut txn))?;
                 }
             }
@@ -2449,7 +2466,7 @@ impl Storage {
     pub fn read_person_lists(
         &self,
         pubkey: &PublicKey,
-    ) -> Result<HashMap<PersonList, bool>, Error> {
+    ) -> Result<HashMap<PersonList, Private>, Error> {
         self.read_person_lists2(pubkey)
     }
 
@@ -2457,14 +2474,14 @@ impl Storage {
     pub fn write_person_lists<'a>(
         &'a self,
         pubkey: &PublicKey,
-        lists: HashMap<PersonList, bool>,
+        lists: HashMap<PersonList, Private>,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         self.write_person_lists2(pubkey, lists, rw_txn)
     }
 
     /// Get people in a person list
-    pub fn get_people_in_list(&self, list: PersonList) -> Result<Vec<(PublicKey, bool)>, Error> {
+    pub fn get_people_in_list(&self, list: PersonList) -> Result<Vec<(PublicKey, Private)>, Error> {
         let people = self.get_people_in_list2(list)?;
 
         // Update metadata.len if it is wrong
@@ -2530,7 +2547,7 @@ impl Storage {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
             let people = self.get_people_in_list(list)?;
             for (pk, _) in &people {
-                self.add_person_to_list(pk, list, false, Some(txn))?
+                self.add_person_to_list(pk, list, Private(true), Some(txn))?
             }
             Ok(())
         };
@@ -2566,13 +2583,13 @@ impl Storage {
         &'a self,
         pubkey: &PublicKey,
         list: PersonList,
-        public: bool,
+        private: Private,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
             let mut map = self.read_person_lists(pubkey)?;
             let had = map.contains_key(&list);
-            map.insert(list, public);
+            map.insert(list, private);
             self.write_person_lists(pubkey, map, Some(txn))?;
             let now = Unixtime::now().unwrap();
             if let Some(mut metadata) = self.get_person_list_metadata(list)? {

@@ -1,3 +1,4 @@
+use crate::misc::Private;
 use nostr_types::Unixtime;
 use speedy::{Readable, Writable};
 
@@ -11,7 +12,7 @@ pub struct PersonListMetadata3 {
     pub event_private_len: Option<usize>,
     pub favorite: bool,
     pub order: usize,
-    pub private: bool,
+    pub private: Private,
     pub len: usize,
 }
 
@@ -26,7 +27,7 @@ impl Default for PersonListMetadata3 {
             event_private_len: None,
             favorite: false,
             order: 0,
-            private: false,
+            private: Private(false),
             len: 0,
         }
     }

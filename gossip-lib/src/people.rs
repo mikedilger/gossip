@@ -1,7 +1,7 @@
 use crate::comms::ToOverlordMessage;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
-use crate::misc::Freshness;
+use crate::misc::{Freshness, Private};
 use dashmap::{DashMap, DashSet};
 use image::RgbaImage;
 use nostr_types::{
@@ -386,7 +386,7 @@ impl People {
                 self.update_nip05_last_checked(person.pubkey).await?;
                 task::spawn(async move {
                     if let Err(e) = crate::nip05::validate_nip05(person).await {
-                        tracing::error!("{}", e);
+                        tracing::warn!("{}", e);
                     }
                 });
             }
@@ -622,9 +622,8 @@ impl People {
         let old_tags = {
             if let Some(ref event) = existing_event {
                 if !event.content.is_empty() && kind != EventKind::ContactList {
-                    let decrypted_content =
-                        GLOBALS.identity.decrypt_nip04(&my_pubkey, &event.content)?;
-                    let mut tags: Vec<Tag> = serde_json::from_slice(&decrypted_content)?;
+                    let decrypted_content = GLOBALS.identity.decrypt(&my_pubkey, &event.content)?;
+                    let mut tags: Vec<Tag> = serde_json::from_str(&decrypted_content)?;
                     tags.extend(event.tags.clone());
                     tags
                 } else {
@@ -646,7 +645,7 @@ impl People {
             // Add title if using FollowSets
             let title = Tag::new_title(metadata.title.clone());
 
-            if metadata.private {
+            if *metadata.private {
                 private_tags.push(title);
             } else {
                 public_tags.push(title);
@@ -655,7 +654,7 @@ impl People {
             // Preserve existing tags that we don't operate on yet
             for t in &old_tags {
                 if t.tagname() == "image" || t.tagname() == "description" {
-                    if metadata.private {
+                    if *metadata.private {
                         private_tags.push(t.clone());
                     } else {
                         public_tags.push(t.clone());
@@ -670,14 +669,14 @@ impl People {
             for t in &old_tags {
                 match t.tagname() {
                     "t" | "e" => {
-                        if metadata.private {
+                        if *metadata.private {
                             private_tags.push(t.clone());
                         } else {
                             public_tags.push(t.clone());
                         }
                     }
                     "word" => {
-                        if metadata.private {
+                        if *metadata.private {
                             private_tags.push(t.clone());
                         } else {
                             public_tags.push(t.clone());
@@ -689,10 +688,10 @@ impl People {
         }
 
         // Add the people
-        for (pubkey, mut public) in people.iter() {
+        for (pubkey, mut private) in people.iter() {
             // If entire list is private, then all entries are forced to private
-            if metadata.private {
-                public = false;
+            if *metadata.private {
+                private = Private(true);
             }
 
             // Only include petnames in the ContactList (which is only public people)
@@ -708,7 +707,7 @@ impl People {
 
             // Only include recommended relay urls in public entries, and not in the mute list
             let recommended_relay_url = {
-                if kind != EventKind::MuteList && public {
+                if kind != EventKind::MuteList && !private.0 {
                     let relays = GLOBALS
                         .storage
                         .get_best_relays(*pubkey, RelayUsage::Outbox)?;
@@ -719,10 +718,10 @@ impl People {
             };
 
             let tag = Tag::new_pubkey(*pubkey, recommended_relay_url, petname);
-            if public {
-                public_tags.push(tag);
-            } else {
+            if *private {
                 private_tags.push(tag);
+            } else {
+                public_tags.push(tag);
             }
         }
 
@@ -761,12 +760,12 @@ impl People {
         pubkey: &PublicKey,
         follow: bool,
         list: PersonList,
-        public: bool,
+        private: Private,
     ) -> Result<(), Error> {
         if follow {
             GLOBALS
                 .storage
-                .add_person_to_list(pubkey, list, public, None)?;
+                .add_person_to_list(pubkey, list, private, None)?;
 
             // Add to the relay picker. If they are already there, it will be ok.
             GLOBALS.relay_picker.add_someone(*pubkey)?;
@@ -808,7 +807,7 @@ impl People {
     }
 
     /// Mute (or unmute) a public key
-    pub fn mute(&self, pubkey: &PublicKey, mute: bool, public: bool) -> Result<(), Error> {
+    pub fn mute(&self, pubkey: &PublicKey, mute: bool, private: Private) -> Result<(), Error> {
         let mut txn = GLOBALS.storage.get_write_txn()?;
 
         if mute {
@@ -821,7 +820,7 @@ impl People {
             GLOBALS.storage.add_person_to_list(
                 pubkey,
                 PersonList::Muted,
-                public,
+                private,
                 Some(&mut txn),
             )?;
         } else {
@@ -1018,25 +1017,23 @@ pub fn hash_person_list_event(list: PersonList) -> Result<u64, Error> {
 
     if let Some(event) = maybe_event {
         // Collect the data in an ordered map
-        let mut map: BTreeMap<PublicKey, bool> = BTreeMap::new();
+        let mut map: BTreeMap<PublicKey, Private> = BTreeMap::new();
 
         // Collect public entries
         for tag in &event.tags {
             if let Ok((pubkey, _, _)) = tag.parse_pubkey() {
-                let public = !metadata.private;
-                map.insert(pubkey, public);
+                map.insert(pubkey, metadata.private);
             }
         }
 
         // Collect private entries
-        if !event.content.is_empty() {
+        if event.kind != EventKind::ContactList && !event.content.is_empty() {
             if GLOBALS.identity.is_unlocked() {
-                let decrypted_content =
-                    GLOBALS.identity.decrypt_nip04(&my_pubkey, &event.content)?;
-                let tags: Vec<Tag> = serde_json::from_slice(&decrypted_content)?;
+                let decrypted_content = GLOBALS.identity.decrypt(&my_pubkey, &event.content)?;
+                let tags: Vec<Tag> = serde_json::from_str(&decrypted_content)?;
                 for tag in &tags {
                     if let Ok((pubkey, _, _)) = tag.parse_pubkey() {
-                        map.insert(pubkey, false);
+                        map.insert(pubkey, Private(true));
                     }
                 }
             } else {
@@ -1047,11 +1044,11 @@ pub fn hash_person_list_event(list: PersonList) -> Result<u64, Error> {
         // Hash
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         for (person, private) in map.iter() {
-            if list == PersonList::Followed && *private {
-                // Follow list events cannot handle private entries.
-                // To make hashes comparable, we skip private entries
-                continue;
-            }
+            let private = if list == PersonList::Followed {
+                Private(false)
+            } else {
+                *private
+            };
             person.hash(&mut hasher);
             private.hash(&mut hasher);
         }

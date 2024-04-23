@@ -1,4 +1,5 @@
 use crate::dm_channel::DmChannel;
+use crate::misc::Private;
 use crate::nip46::{Approval, ParsedCommand};
 use crate::people::PersonList;
 use crate::relay::Relay;
@@ -75,13 +76,13 @@ pub enum ToOverlordMessage {
     FetchEventAddr(EventAddr),
 
     /// Calls [follow_pubkey](crate::Overlord::follow_pubkey)
-    FollowPubkey(PublicKey, PersonList, bool),
+    FollowPubkey(PublicKey, PersonList, Private),
 
     /// Calls [follow_nip05](crate::Overlord::follow_nip05)
-    FollowNip05(String, PersonList, bool),
+    FollowNip05(String, PersonList, Private),
 
     /// Calls [follow_nprofile](crate::Overlord::follow_nprofile)
-    FollowNprofile(Profile, PersonList, bool),
+    FollowNprofile(Profile, PersonList, Private),
 
     /// Calls [generate_private_key](crate::Overlord::generate_private_key)
     GeneratePrivateKey(String),

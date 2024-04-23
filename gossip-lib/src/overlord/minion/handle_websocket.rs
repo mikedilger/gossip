@@ -273,7 +273,7 @@ impl Minion {
 
                                         // cork and retry once auth completes
                                         self.subscriptions_waiting_for_auth
-                                            .push((handle, Unixtime::now().unwrap()));
+                                            .insert(handle, Unixtime::now().unwrap());
 
                                         // return now, don't remove sub from map
                                         return Ok(());
@@ -281,7 +281,7 @@ impl Minion {
                                     AuthState::Waiting(_) => {
                                         // cork and retry once auth completes
                                         self.subscriptions_waiting_for_auth
-                                            .push((handle, Unixtime::now().unwrap()));
+                                            .insert(handle, Unixtime::now().unwrap());
 
                                         // return now, don't remove sub from map
                                         return Ok(());

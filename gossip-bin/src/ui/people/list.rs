@@ -10,14 +10,16 @@ use egui_winit::egui::text::LayoutJob;
 use egui_winit::egui::text_edit::TextEditOutput;
 use egui_winit::egui::vec2;
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::{FeedKind, Freshness, People, Person, PersonList, PersonListMetadata, GLOBALS};
+use gossip_lib::{
+    FeedKind, Freshness, People, Person, PersonList, PersonListMetadata, Private, GLOBALS,
+};
 use nostr_types::{Profile, PublicKey, Unixtime};
 
 pub(in crate::ui) struct ListUi {
     // cache
     cache_last_list: Option<PersonList>,
     cache_next_refresh: Instant,
-    cache_people: Vec<(Person, bool)>,
+    cache_people: Vec<(Person, Private)>,
     cache_remote_hash: u64,
     cache_remote_tag: String,
     cache_local_hash: u64,
@@ -41,9 +43,9 @@ impl ListUi {
             cache_last_list: None,
             cache_next_refresh: Instant::now(),
             cache_people: Vec::new(),
-            cache_remote_hash: 0,
+            cache_remote_hash: 1,
             cache_remote_tag: String::new(),
-            cache_local_hash: 0,
+            cache_local_hash: 2,
             cache_local_tag: String::new(),
 
             // add contact
@@ -139,7 +141,7 @@ pub(super) fn update(
         ui.add_space(5.0);
 
         if app.people_list.cache_local_hash == app.people_list.cache_remote_hash {
-            ui.label("Lists is synchronized");
+            ui.label("List is synchronized");
         } else {
             // remote <-> local buttons
             ui.horizontal(|ui|{
@@ -205,9 +207,8 @@ pub(super) fn update(
 
     app.vert_scroll_area().show(ui, |ui| {
         // not nice but needed because of 'app' borrow in closure
-        let people = app.people_list.cache_people.clone();
-        for (person, public) in people.iter() {
-            let mut private = !public;
+        let mut people = app.people_list.cache_people.clone();
+        for (person, private) in people.iter_mut() {
             let row_response = widgets::list_entry::clickable_frame(
                 ui,
                 app,
@@ -306,13 +307,13 @@ pub(super) fn update(
                                         // private / public switch
                                         ui.add(Label::new("Private").selectable(false));
                                         if ui
-                                            .add(widgets::Switch::small(&app.theme, &mut private))
+                                            .add(widgets::Switch::small(&app.theme, &mut private.0))
                                             .clicked()
                                         {
                                             let _ = GLOBALS.storage.add_person_to_list(
                                                 &person.pubkey,
                                                 list,
-                                                !private,
+                                                *private,
                                                 None,
                                             );
                                             mark_refresh(app);
@@ -371,7 +372,7 @@ pub(in crate::ui) fn layout_list_title(
                 egui::Align::LEFT,
             );
     }
-    if metadata.private {
+    if *metadata.private {
         RichText::new(" 😎")
             .heading()
             .size(14.5)
@@ -491,7 +492,7 @@ fn render_add_contact_popup(
                             let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowPubkey(
                                 pubkey,
                                 list,
-                                !metadata.private,
+                                metadata.private,
                             ));
                             can_close = true;
                             mark_refresh(app);
@@ -501,7 +502,7 @@ fn render_add_contact_popup(
                             let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowPubkey(
                                 pubkey,
                                 list,
-                                !metadata.private,
+                                metadata.private,
                             ));
                             can_close = true;
                             mark_refresh(app);
@@ -511,7 +512,7 @@ fn render_add_contact_popup(
                             let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowNprofile(
                                 profile.clone(),
                                 list,
-                                !metadata.private,
+                                metadata.private,
                             ));
                             can_close = true;
                             mark_refresh(app);
@@ -519,7 +520,7 @@ fn render_add_contact_popup(
                             let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FollowNip05(
                                 app.add_contact.trim().to_owned(),
                                 list,
-                                !metadata.private,
+                                metadata.private,
                             ));
                             can_close = true;
                             mark_refresh(app);
@@ -782,9 +783,9 @@ pub(super) fn render_more_list_actions(
                     }
                 }
                 if on_list {
-                    if metadata.private {
+                    if *metadata.private {
                         if ui.button("Make Public").clicked() {
-                            metadata.private = false;
+                            metadata.private = Private(false);
                             let _ = GLOBALS
                                 .storage
                                 .set_person_list_metadata(list, metadata, None);
@@ -792,7 +793,7 @@ pub(super) fn render_more_list_actions(
                         }
                     } else {
                         if ui.button("Make Private").clicked() {
-                            metadata.private = true;
+                            metadata.private = Private(true);
                             let _ = GLOBALS
                                 .storage
                                 .set_person_list_metadata(list, metadata, None);
@@ -892,15 +893,15 @@ fn refresh_list_data(app: &mut GossipUi, list: PersonList) {
     app.people_list.cache_people = {
         let members = GLOBALS.storage.get_people_in_list(list).unwrap_or_default();
 
-        let mut people: Vec<(Person, bool)> = Vec::new();
+        let mut people: Vec<(Person, Private)> = Vec::new();
 
-        for (pk, public) in &members {
+        for (pk, private) in &members {
             if let Ok(Some(person)) = GLOBALS.storage.read_person(pk) {
-                people.push((person, *public));
+                people.push((person, *private));
             } else {
                 let person = Person::new(*pk);
                 let _ = GLOBALS.storage.write_person(&person, None);
-                people.push((person, *public));
+                people.push((person, *private));
             }
 
             // They are a person of interest (to as to fetch metadata if out of date)
@@ -925,7 +926,7 @@ fn refresh_list_data(app: &mut GossipUi, list: PersonList) {
         }
     }
 
-    app.people_list.cache_remote_hash = gossip_lib::hash_person_list_event(list).unwrap_or(0);
+    app.people_list.cache_remote_hash = gossip_lib::hash_person_list_event(list).unwrap_or(1);
 
     app.people_list.cache_remote_tag = if metadata.event_created_at.0 == 0 {
         "REMOTE: not found on Active Relays".to_owned()
@@ -952,20 +953,27 @@ fn refresh_list_data(app: &mut GossipUi, list: PersonList) {
         }
     }
 
-    let publen = app
+    let mut prvlen = app
         .people_list
         .cache_people
         .iter()
-        .filter(|(_, public)| *public)
+        .filter(|(_, private)| **private)
         .count();
-    let privlen = app.people_list.cache_people.len() - publen;
+    if list == PersonList::Followed {
+        prvlen = 0;
+    }
+    let publen = app.people_list.cache_people.len() - prvlen;
 
-    app.people_list.cache_local_hash = GLOBALS.storage.hash_person_list(list).unwrap_or(0);
+    app.people_list.cache_local_hash = GLOBALS.storage.hash_person_list(list).unwrap_or(2);
 
-    app.people_list.cache_local_tag = format!(
-        "LOCAL: date={} (public={}, private={})",
-        ledit, publen, privlen
-    );
+    if list == PersonList::Followed {
+        app.people_list.cache_local_tag = format!("LOCAL: date={} (public={})", ledit, publen);
+    } else {
+        app.people_list.cache_local_tag = format!(
+            "LOCAL: date={} (public={}, private={})",
+            ledit, publen, prvlen
+        );
+    }
 
     app.people_list.cache_next_refresh = Instant::now() + Duration::new(1, 0);
     app.people_list.cache_last_list = Some(list);

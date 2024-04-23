@@ -1,5 +1,6 @@
 use super::types::PersonList1;
 use crate::error::Error;
+use crate::misc::Private;
 use crate::storage::{RawDatabase, Storage};
 use heed::types::UnalignedSlice;
 use heed::RwTxn;
@@ -9,7 +10,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::hash::{Hash, Hasher};
 use std::sync::Mutex;
 
-// Pubkey -> HashMap<PersonList1, bool> // bool is if private or not
+// Pubkey -> HashMap<PersonList1, Private> // Private reads and writes as a bool
 //   key: pubkey.as_bytes()
 
 static PERSON_LISTS2_DB_CREATE_LOCK: Mutex<()> = Mutex::new(());
@@ -49,19 +50,19 @@ impl Storage {
     pub(crate) fn read_person_lists2(
         &self,
         pubkey: &PublicKey,
-    ) -> Result<HashMap<PersonList1, bool>, Error> {
+    ) -> Result<HashMap<PersonList1, Private>, Error> {
         let key: Vec<u8> = pubkey.to_bytes();
         let txn = self.env.read_txn()?;
         Ok(match self.db_person_lists2()?.get(&txn, &key)? {
             None => HashMap::new(),
-            Some(bytes) => HashMap::<PersonList1, bool>::read_from_buffer(bytes)?,
+            Some(bytes) => HashMap::<PersonList1, Private>::read_from_buffer(bytes)?,
         })
     }
 
     pub(crate) fn write_person_lists2<'a>(
         &'a self,
         pubkey: &PublicKey,
-        map: HashMap<PersonList1, bool>,
+        map: HashMap<PersonList1, Private>,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         let key: Vec<u8> = pubkey.to_bytes();
@@ -90,7 +91,7 @@ impl Storage {
         for result in self.db_person_lists2()?.iter(&txn)? {
             let (key, val) = result?;
             let pubkey = PublicKey::from_bytes(key, true)?;
-            let map = HashMap::<PersonList1, bool>::read_from_buffer(val)?;
+            let map = HashMap::<PersonList1, Private>::read_from_buffer(val)?;
             if map.keys().any(|list| list.subscribe()) {
                 pubkeys.push(pubkey);
             }
@@ -101,15 +102,15 @@ impl Storage {
     pub(crate) fn get_people_in_list2(
         &self,
         list: PersonList1,
-    ) -> Result<Vec<(PublicKey, bool)>, Error> {
+    ) -> Result<Vec<(PublicKey, Private)>, Error> {
         let txn = self.env.read_txn()?;
-        let mut output: Vec<(PublicKey, bool)> = Vec::new();
+        let mut output: Vec<(PublicKey, Private)> = Vec::new();
         for result in self.db_person_lists2()?.iter(&txn)? {
             let (key, val) = result?;
             let pubkey = PublicKey::from_bytes(key, true)?;
-            let map = HashMap::<PersonList1, bool>::read_from_buffer(val)?;
-            if let Some(actual_public) = map.get(&list) {
-                output.push((pubkey, *actual_public));
+            let map = HashMap::<PersonList1, Private>::read_from_buffer(val)?;
+            if let Some(actual_private) = map.get(&list) {
+                output.push((pubkey, *actual_private));
             }
         }
         Ok(output)
@@ -121,14 +122,14 @@ impl Storage {
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let mut fixed: Vec<(PublicKey, HashMap<PersonList1, bool>)> = Vec::new();
+            let mut fixed: Vec<(PublicKey, HashMap<PersonList1, Private>)> = Vec::new();
 
             // Collect records that require changing
             // (lmdb doesn't like changing them in place while iterating)
             for result in self.db_person_lists2()?.iter(txn)? {
                 let (key, val) = result?;
                 let pubkey = PublicKey::from_bytes(key, true)?;
-                let mut map = HashMap::<PersonList1, bool>::read_from_buffer(val)?;
+                let mut map = HashMap::<PersonList1, Private>::read_from_buffer(val)?;
                 if map.contains_key(&list) {
                     map.remove(&list);
                     fixed.push((pubkey, map));
@@ -164,16 +165,20 @@ impl Storage {
     pub(crate) fn hash_person_list2(&self, list: PersonList1) -> Result<u64, Error> {
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         let mut vec = self.get_people_in_list2(list)?;
-        let map: BTreeMap<PublicKey, bool> = vec.drain(..).collect();
-        for (person, private) in map.iter() {
-            if list == PersonList1::Followed && *private {
-                // Follow list events cannot handle private entries.
-                // To make hashes comparable, we skip private entries
-                continue;
+        let map: BTreeMap<PublicKey, Private> = vec.drain(..).collect();
+        if map.is_empty() {
+            Ok(0)
+        } else {
+            for (person, private) in map.iter() {
+                let private = if list == PersonList1::Followed {
+                    Private(false)
+                } else {
+                    *private
+                };
+                person.hash(&mut hasher);
+                private.hash(&mut hasher);
             }
-            person.hash(&mut hasher);
-            private.hash(&mut hasher);
+            Ok(hasher.finish())
         }
-        Ok(hasher.finish())
     }
 }

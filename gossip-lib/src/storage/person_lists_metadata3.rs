@@ -1,5 +1,6 @@
 use super::types::{PersonList1, PersonListMetadata3};
 use crate::error::{Error, ErrorKind};
+use crate::misc::Private;
 use crate::storage::{RawDatabase, Storage};
 use heed::types::UnalignedSlice;
 use heed::RwTxn;
@@ -50,7 +51,16 @@ impl Storage {
         let txn = self.env.read_txn()?;
         Ok(match self.db_person_lists_metadata3()?.get(&txn, &key)? {
             None => None,
-            Some(bytes) => Some(PersonListMetadata3::read_from_buffer(bytes)?),
+            Some(bytes) => {
+                let mut plm = PersonListMetadata3::read_from_buffer(bytes)?;
+
+                // Force followed list to be public
+                if list == PersonList1::Followed {
+                    plm.private = Private(false);
+                }
+
+                Some(plm)
+            }
         })
     }
 
@@ -72,6 +82,7 @@ impl Storage {
             let mut md = metadata.to_owned();
             md.dtag = "followed".to_owned();
             md.title = "Followed".to_owned();
+            md.private = Private(false);
             md.write_to_vec()?
         } else {
             metadata.write_to_vec()?
@@ -102,7 +113,13 @@ impl Storage {
         for result in self.db_person_lists_metadata3()?.iter(&txn)? {
             let (key, val) = result?;
             let list = PersonList1::read_from_buffer(key)?;
-            let metadata = PersonListMetadata3::read_from_buffer(val)?;
+            let mut metadata = PersonListMetadata3::read_from_buffer(val)?;
+
+            // Force followed list to be public
+            if list == PersonList1::Followed {
+                metadata.private = Private(false);
+            }
+
             output.push((list, metadata));
         }
         Ok(output)
@@ -116,7 +133,13 @@ impl Storage {
         for result in self.db_person_lists_metadata3()?.iter(&txn)? {
             let (key, val) = result?;
             let list = PersonList1::read_from_buffer(key)?;
-            let metadata = PersonListMetadata3::read_from_buffer(val)?;
+            let mut metadata = PersonListMetadata3::read_from_buffer(val)?;
+
+            // Force followed list to be public
+            if list == PersonList1::Followed {
+                metadata.private = Private(false);
+            }
+
             if metadata.dtag == dtag {
                 return Ok(Some((list, metadata)));
             }

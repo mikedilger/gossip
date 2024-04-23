@@ -8,7 +8,7 @@ use crate::dm_channel::DmChannel;
 use crate::error::{Error, ErrorKind};
 use crate::feed::FeedKind;
 use crate::globals::{Globals, GLOBALS};
-use crate::misc::ZapState;
+use crate::misc::{Private, ZapState};
 use crate::nip46::{Approval, ParsedCommand};
 use crate::pending::PendingItem;
 use crate::people::{Person, PersonList};
@@ -567,7 +567,7 @@ impl Overlord {
     }
 
     fn bump_failure_count(url: &RelayUrl) {
-        if let Ok(Some(mut relay)) = GLOBALS.storage.read_relay(url) {
+        if let Ok(Some(mut relay)) = GLOBALS.storage.read_relay(url, None) {
             relay.failure_count += 1;
             let _ = GLOBALS.storage.write_relay(&relay, None);
         }
@@ -637,14 +637,14 @@ impl Overlord {
             ToOverlordMessage::FetchEventAddr(ea) => {
                 self.fetch_event_addr(ea).await?;
             }
-            ToOverlordMessage::FollowPubkey(pubkey, list, public) => {
-                self.follow_pubkey(pubkey, list, public).await?;
+            ToOverlordMessage::FollowPubkey(pubkey, list, private) => {
+                self.follow_pubkey(pubkey, list, private).await?;
             }
-            ToOverlordMessage::FollowNip05(nip05, list, public) => {
-                Self::follow_nip05(nip05, list, public).await?;
+            ToOverlordMessage::FollowNip05(nip05, list, private) => {
+                Self::follow_nip05(nip05, list, private).await?;
             }
-            ToOverlordMessage::FollowNprofile(nprofile, list, public) => {
-                self.follow_nprofile(nprofile, list, public).await?;
+            ToOverlordMessage::FollowNprofile(nprofile, list, private) => {
+                self.follow_nprofile(nprofile, list, private).await?;
             }
             ToOverlordMessage::GeneratePrivateKey(password) => {
                 Self::generate_private_key(password).await?;
@@ -908,7 +908,10 @@ impl Overlord {
         event: Box<Event>,
         relays: Vec<RelayUrl>,
     ) -> Result<(), Error> {
-        tracing::info!("Advertising relay list to up to 10 more relays...");
+        tracing::info!(
+            "Advertising relay list, {} more relays to go...",
+            relays.len()
+        );
 
         for relay_url in relays.iter().take(10) {
             let job_id = rand::random::<u64>();
@@ -1416,17 +1419,21 @@ impl Overlord {
         &mut self,
         pubkey: PublicKey,
         list: PersonList,
-        public: bool,
+        private: Private,
     ) -> Result<(), Error> {
-        GLOBALS.people.follow(&pubkey, true, list, public)?;
+        GLOBALS.people.follow(&pubkey, true, list, private)?;
         tracing::debug!("Followed {}", &pubkey.as_hex_string());
         Ok(())
     }
 
     /// Follow a person by a nip-05 address
-    pub async fn follow_nip05(nip05: String, list: PersonList, public: bool) -> Result<(), Error> {
+    pub async fn follow_nip05(
+        nip05: String,
+        list: PersonList,
+        private: Private,
+    ) -> Result<(), Error> {
         std::mem::drop(tokio::spawn(async move {
-            if let Err(e) = crate::nip05::get_and_follow_nip05(nip05, list, public).await {
+            if let Err(e) = crate::nip05::get_and_follow_nip05(nip05, list, private).await {
                 tracing::error!("{}", e);
             }
         }));
@@ -1438,7 +1445,7 @@ impl Overlord {
         &mut self,
         nprofile: Profile,
         list: PersonList,
-        public: bool,
+        private: Private,
     ) -> Result<(), Error> {
         // Set their relays
         for relay in nprofile.relays.iter() {
@@ -1462,7 +1469,7 @@ impl Overlord {
         // Follow
         GLOBALS
             .people
-            .follow(&nprofile.pubkey, true, list, public)?;
+            .follow(&nprofile.pubkey, true, list, private)?;
 
         GLOBALS
             .status_queue
@@ -1482,7 +1489,7 @@ impl Overlord {
     /// Hide or Show a relay. This adjusts the `hidden` a flag on the `Relay` record
     /// (You could easily do this yourself by talking to GLOBALS.storage directly too)
     pub fn hide_or_show_relay(relay_url: RelayUrl, hidden: bool) -> Result<(), Error> {
-        if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url)? {
+        if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url, None)? {
             relay.hidden = hidden;
             GLOBALS.storage.write_relay(&relay, None)?;
         }
@@ -1745,10 +1752,6 @@ impl Overlord {
 
         // Handle the request
         if let Some(mut server) = GLOBALS.storage.read_nip46server(pubkey)? {
-            // Temporarily set the approval (we don't save this)
-            // NOTE: for now we set the server approval setting in memory but don't save it back.
-            //       So the approval only applies to this one time. FIXME: we should use the options
-            //       to approve always (saved) and Until a set time.
             match parsed_command.method.as_str() {
                 "sign_event" => server.sign_approval = approval,
                 "nip04_encrypt" | "nip44_encrypt" => server.encrypt_approval = approval,
@@ -1760,6 +1763,10 @@ impl Overlord {
                 _ => {}
             }
 
+            // Save back
+            GLOBALS.storage.write_nip46server(&server, None)?;
+
+            // Handle it
             server.handle(&parsed_command)?;
         }
 
@@ -2271,7 +2278,7 @@ impl Overlord {
     /// This represent a user's judgement, and is factored into how suitable a relay is for various
     /// purposes.
     pub fn rank_relay(relay_url: RelayUrl, rank: u8) -> Result<(), Error> {
-        if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url)? {
+        if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url, None)? {
             relay.rank = rank as u64;
             GLOBALS.storage.write_relay(&relay, None)?;
         }
@@ -3148,16 +3155,16 @@ impl Overlord {
 
         let mut txn = GLOBALS.storage.get_write_txn()?;
 
-        let mut entries: Vec<(PublicKey, bool)> = Vec::new();
+        let mut entries: Vec<(PublicKey, Private)> = Vec::new();
 
         // Public entries
         for tag in &event.tags {
             if let Ok((pubkey, rurl, petname)) = tag.parse_pubkey() {
                 // If our list is marked private, move these public entries to private ones
-                let public = !metadata.private;
+                let private = metadata.private;
 
                 // Save the pubkey
-                entries.push((pubkey.to_owned(), public));
+                entries.push((pubkey.to_owned(), private));
 
                 // Deal with recommended_relay_urls and petnames
                 if list == PersonList::Followed {
@@ -3175,15 +3182,14 @@ impl Overlord {
         if list != PersonList::Followed && !event.content.is_empty() {
             if GLOBALS.identity.is_unlocked() {
                 // Private entries
-                let decrypted_content =
-                    GLOBALS.identity.decrypt_nip04(&my_pubkey, &event.content)?;
+                let decrypted_content = GLOBALS.identity.decrypt(&my_pubkey, &event.content)?;
 
-                let tags: Vec<Tag> = serde_json::from_slice(&decrypted_content)?;
+                let tags: Vec<Tag> = serde_json::from_str(&decrypted_content)?;
 
                 for tag in &tags {
                     if let Ok((pubkey, _, _)) = tag.parse_pubkey() {
                         // Save the pubkey
-                        entries.push((pubkey.to_owned(), false));
+                        entries.push((pubkey.to_owned(), Private(true)));
                     }
                     if let Ok(title) = tag.parse_title() {
                         metadata.title = title.to_owned();
@@ -3201,10 +3207,10 @@ impl Overlord {
             GLOBALS.storage.clear_person_list(list, Some(&mut txn))?;
         }
 
-        for (pubkey, public) in &entries {
+        for (pubkey, private) in &entries {
             GLOBALS
                 .storage
-                .add_person_to_list(pubkey, list, *public, Some(&mut txn))?;
+                .add_person_to_list(pubkey, list, *private, Some(&mut txn))?;
             GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
         }
 

@@ -5,12 +5,6 @@ members = [
 ]
 resolver = "2"
 
-# Force scrypt to build with release-like speed even in dev mode
-[profile.dev.package.scrypt]
-opt-level = 3
-debug-assertions = false
-overflow-checks = false
-
 [patch.crates-io]
 # override egui crate for egui_video dependency
 egui = { git =  "https://github.com/bu5hm4nn/egui", rev = "63dde4c9b311da0cae0cb9f9465bf7273227be6c" }
@@ -27,12 +21,35 @@ overflow-checks = true
 incremental = true
 codegen-units = 256
 
-# But when compiling dependencies, even in dev mode, optimize fully
+# But when compiling dependencies, even in dev mode, optimize more
 # (these rarely recompile during development, so we still get fast compiles)
 [profile.dev.package."*"]
+opt-level = 2
+debug = "limited"
+debug-assertions = true
+overflow-checks = true
+incremental = true
+codegen-units = 256
+
+# A full-stack debug profile
+[profile.devel]
+inherits = "dev"
+opt-level = 0
+debug = true
+debug-assertions = true
+overflow-checks = true
+incremental = true
+codegen-units = 256
+
+# Scrypt needs optimization or it takes too long
+[profile.dev.package.scrypt]
 opt-level = 3
-debug = false
 debug-assertions = false
 overflow-checks = false
-incremental = false
-codegen-units = 16
+
+# Scrypt needs optimization or it takes too long
+[profile.devel.package.scrypt]
+opt-level = 3
+debug-assertions = false
+overflow-checks = false
+
