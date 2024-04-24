@@ -16,7 +16,9 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         btn_h_space!(ui);
         super::relay_sort_combo(app, ui);
         btn_h_space!(ui);
-        widgets::search_field(ui, &mut app.relays.search, 200.0);
+        widgets::TextEdit::search(&app.theme, &app.assets, &mut app.relays.search)
+            .desired_width(200.0)
+            .show(ui);
     });
 
     // TBD time how long this takes. We don't want expensive code in the UI

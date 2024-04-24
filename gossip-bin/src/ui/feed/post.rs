@@ -503,7 +503,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                     .place_above(!read_setting!(posting_area_at_top))
                     .show(ui, |ui, is_open| {
                         ui.vertical_centered_justified(|ui| {
-                            app.theme.accent_button_1_style(ui.style_mut());
+                            app.theme.primary_button_style(ui.style_mut());
                             if app.draft_data.include_subject {
                                 if ui.button("Remove Subject").clicked() {
                                     app.draft_data.include_subject = false;
@@ -557,7 +557,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                 ui.add_space(12.0);
 
                 ui.horizontal(|ui| {
-                    app.theme.accent_button_1_style(ui.style_mut());
+                    app.theme.primary_button_style(ui.style_mut());
                     if ui.button(send_label).clicked()
                         && (!app.draft_data.draft.is_empty() || app.draft_data.repost.is_some())
                     {
@@ -587,7 +587,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
 
             ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                 ui.add_space(12.0);
-                app.theme.accent_button_1_style(ui.style_mut());
+                app.theme.primary_button_style(ui.style_mut());
                 if ui.button(send_label).clicked()
                     && (!app.draft_data.draft.is_empty() || app.draft_data.repost.is_some())
                 {

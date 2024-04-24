@@ -55,7 +55,6 @@ pub trait Notification<'a> {
 }
 
 type NotificationHandle = Rc<RefCell<dyn for<'handle> Notification<'handle>>>;
-const SWITCH_SIZE: Vec2 = Vec2 { x: 40.0, y: 20.0 };
 
 pub struct NotificationData {
     active: Vec<NotificationHandle>,
@@ -483,7 +482,7 @@ fn decline_style(theme: &Theme, style: &mut Style) {
 }
 
 fn approve_style(theme: &Theme, style: &mut Style) {
-    theme.accent_button_1_style(style);
+    theme.primary_button_style(style);
     style.spacing.button_padding = vec2(8.0, 3.0);
 }
 

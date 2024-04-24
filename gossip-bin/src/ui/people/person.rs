@@ -203,7 +203,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                             let mut inlist = membership.is_some();
 
                             if ui
-                                .add(widgets::Switch::onoff(&app.theme, &mut inlist))
+                                .add(widgets::Switch::small(&app.theme, &mut inlist))
                                 .clicked()
                             {
                                 if !inlist {
@@ -232,7 +232,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                 };
 
                                 let switch_response =
-                                    ui.add(widgets::Switch::onoff(&app.theme, &mut is_private));
+                                    ui.add(widgets::Switch::small(&app.theme, &mut is_private));
                                 if switch_response.clicked() {
                                     let _ = GLOBALS.storage.add_person_to_list(
                                         &pubkey,
@@ -453,7 +453,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                         ui.add_space(40.0);
 
                         ui.vertical_centered_justified(|ui| {
-                            app.theme.accent_button_1_style(ui.style_mut());
+                            app.theme.primary_button_style(ui.style_mut());
 
                             if ui
                                 .add(

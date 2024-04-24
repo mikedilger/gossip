@@ -255,7 +255,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     } else {
         ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
             ui.add_space(OUTER_MARGIN_RIGHT);
-            app.theme.accent_button_1_style(ui.style_mut());
+            app.theme.primary_button_style(ui.style_mut());
             if ui
                 .add(egui::Button::new("Finish").min_size(vec2(80.0, 0.0)))
                 .clicked()

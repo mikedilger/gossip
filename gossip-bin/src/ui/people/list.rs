@@ -110,7 +110,7 @@ pub(super) fn update(
             let len = metadata.len;
             render_more_list_actions(ui, app, list, &mut metadata, len, true);
 
-            app.theme.accent_button_1_style(ui.style_mut());
+            app.theme.primary_button_style(ui.style_mut());
 
             btn_h_space!(ui);
 
@@ -307,7 +307,7 @@ pub(super) fn update(
                                         // private / public switch
                                         ui.add(Label::new("Private").selectable(false));
                                         if ui
-                                            .add(widgets::Switch::onoff(&app.theme, &mut private.0))
+                                            .add(widgets::Switch::small(&app.theme, &mut private.0))
                                             .clicked()
                                         {
                                             let _ = GLOBALS.storage.add_person_to_list(
@@ -425,8 +425,13 @@ fn render_add_contact_popup(
         ui.label("Search for known contacts to add");
         ui.add_space(8.0);
 
-        let mut output =
-            widgets::search_field(ui, &mut app.people_list.add_contact_search, f32::INFINITY);
+        let mut output = widgets::TextEdit::search(
+            &app.theme,
+            &app.assets,
+            &mut app.people_list.add_contact_search,
+        )
+        .desired_width(f32::INFINITY)
+        .show(ui);
 
         let mut selected = app.people_list.add_contact_search_selected;
         widgets::show_contact_search(
@@ -466,7 +471,7 @@ fn render_add_contact_popup(
                     let mut want_close = false;
                     let mut can_close = false;
 
-                    app.theme.accent_button_1_style(ui.style_mut());
+                    app.theme.primary_button_style(ui.style_mut());
                     if ui.button("Add and close").clicked() {
                         try_add |= true;
                         want_close = true;
@@ -474,7 +479,7 @@ fn render_add_contact_popup(
 
                     btn_h_space!(ui);
 
-                    app.theme.accent_button_2_style(ui.style_mut());
+                    app.theme.secondary_button_style(ui.style_mut());
                     if ui.button("Add and continue").clicked() {
                         try_add |= true;
                     }
@@ -571,7 +576,7 @@ pub(super) fn render_delete_list_dialog(ui: &mut Ui, app: &mut GossipUi, list: P
                         app.deleting_list = None;
                     }
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
-                        app.theme.accent_button_1_style(ui.style_mut());
+                        app.theme.primary_button_style(ui.style_mut());
                         app.theme.accent_button_danger_hover(ui.style_mut());
                         if ui.button("Delete").clicked() {
                             let _ = GLOBALS
@@ -612,7 +617,7 @@ pub(super) fn render_create_list_dialog(ui: &mut Ui, app: &mut GossipUi) {
                 }
                 ui.add_space(10.0);
                 ui.horizontal(|ui| {
-                    ui.add(widgets::Switch::onoff(
+                    ui.add(widgets::Switch::small(
                         &app.theme,
                         &mut app.new_list_favorite,
                     ));
@@ -621,7 +626,7 @@ pub(super) fn render_create_list_dialog(ui: &mut Ui, app: &mut GossipUi) {
                 ui.add_space(10.0);
                 ui.horizontal(|ui| {
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
-                        app.theme.accent_button_1_style(ui.style_mut());
+                        app.theme.primary_button_style(ui.style_mut());
                         if ui.button("Create").clicked() {
                             app.new_list_name = app.new_list_name.trim().into();
                             if !app.new_list_name.is_empty() {
@@ -694,7 +699,7 @@ pub(super) fn render_rename_list_dialog(ui: &mut Ui, app: &mut GossipUi, list: P
                 ui.add_space(10.0);
                 ui.horizontal(|ui| {
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
-                        app.theme.accent_button_1_style(ui.style_mut());
+                        app.theme.primary_button_style(ui.style_mut());
                         if ui.button("Rename").clicked() {
                             app.new_list_name = app.new_list_name.trim().into();
                             if !app.new_list_name.is_empty() {
@@ -742,7 +747,7 @@ pub(super) fn render_more_list_actions(
     }
 
     if on_list {
-        app.theme.accent_button_1_style(ui.style_mut());
+        app.theme.primary_button_style(ui.style_mut());
     }
     let menu = widgets::MoreMenu::simple(ui, app)
         .with_min_size(vec2(100.0, 0.0))
@@ -751,7 +756,7 @@ pub(super) fn render_more_list_actions(
     menu.show(ui, |ui, is_open| {
         ui.with_layout(egui::Layout::top_down_justified(egui::Align::LEFT), |ui| {
             if on_list {
-                app.theme.accent_button_1_style(ui.style_mut());
+                app.theme.primary_button_style(ui.style_mut());
                 ui.spacing_mut().item_spacing.y = 15.0;
             }
             if matches!(list, PersonList::Custom(_)) {
@@ -855,12 +860,12 @@ fn render_clear_list_confirm_popup(ui: &mut Ui, app: &mut GossipUi, list: Person
             ui.add_space(10.0);
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                 ui.horizontal(|ui| {
-                    app.theme.accent_button_2_style(ui.style_mut());
+                    app.theme.secondary_button_style(ui.style_mut());
                     if ui.button("Cancel").clicked() {
                         app.people_list.clear_list_needs_confirm = false;
                     }
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
-                        app.theme.accent_button_1_style(ui.style_mut());
+                        app.theme.primary_button_style(ui.style_mut());
                         if ui.button("YES, CLEAR ALL").clicked() {
                             let _ = GLOBALS
                                 .to_overlord

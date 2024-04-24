@@ -180,7 +180,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     ui.horizontal(|ui| {
         ui.label("Follow Someone:");
         ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
-            app.theme.accent_button_2_style(ui.style_mut());
+            app.theme.secondary_button_style(ui.style_mut());
             if ui.button("follow").clicked() {
                 if let Ok(pubkey) = PublicKey::try_from_bech32_string(app.add_contact.trim(), true)
                 {
@@ -260,7 +260,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     }
 
     ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
-        app.theme.accent_button_1_style(ui.style_mut());
+        app.theme.primary_button_style(ui.style_mut());
         if ui.button("Finish").clicked() {
             if app.wizard_state.follow_list_should_publish {
                 let _ = GLOBALS

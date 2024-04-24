@@ -95,7 +95,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                         ui.add_space(10.0);
                         ui.horizontal(|ui| {
                             ui.label(url.as_str());
-                            app.theme.accent_button_1_style(ui.style_mut());
+                            app.theme.primary_button_style(ui.style_mut());
                             if ui.button("Load").clicked() {
                                 let _ =
                                     GLOBALS
@@ -138,7 +138,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         if ready {
             ui.add_space(20.0);
             ui.scope(|ui| {
-                app.theme.accent_button_2_style(ui.style_mut());
+                app.theme.secondary_button_style(ui.style_mut());
                 if ui.button("Fetch From This Relay").clicked() {
                     if let Ok(rurl) = RelayUrl::try_from_str(&app.wizard_state.relay_url) {
                         let _ = GLOBALS
