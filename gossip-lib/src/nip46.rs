@@ -306,7 +306,7 @@ impl Nip46Server {
 
 #[derive(Debug, Deserialize)]
 pub struct Nip46PreEvent {
-    #[serde(default)]
+    #[serde(default, deserialize_with = "de_pubkey_none_on_error")]
     pub pubkey: Option<PublicKey>,
 
     #[serde(default = "default_now")]
@@ -317,6 +317,17 @@ pub struct Nip46PreEvent {
     pub tags: Vec<Tag>,
 
     pub content: String,
+}
+
+fn de_pubkey_none_on_error<'de, D>(deserializer: D) -> Result<Option<PublicKey>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    if let Ok(answer) = Option::<PublicKey>::deserialize(deserializer) {
+        Ok(answer)
+    } else {
+        Ok(None)
+    }
 }
 
 fn default_now() -> Option<Unixtime> {
