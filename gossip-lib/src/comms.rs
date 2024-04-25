@@ -120,6 +120,7 @@ pub enum ToOverlordMessage {
         content: String,
         tags: Vec<Tag>,
         in_reply_to: Option<Id>,
+        annotation: bool,
         dm_channel: Option<DmChannel>,
     },
 

@@ -702,9 +702,11 @@ impl Overlord {
                 content,
                 tags,
                 in_reply_to,
+                annotation,
                 dm_channel,
             } => {
-                self.post(content, tags, in_reply_to, dm_channel).await?;
+                self.post(content, tags, in_reply_to, annotation, dm_channel)
+                    .await?;
             }
             ToOverlordMessage::PostAgain(event) => {
                 self.post_again(event).await?;
@@ -1828,6 +1830,7 @@ impl Overlord {
         content: String,
         mut tags: Vec<Tag>,
         reply_to: Option<Id>,
+        annotation: bool,
         dm_channel: Option<DmChannel>,
     ) -> Result<(), Error> {
         let public_key = match GLOBALS.identity.public_key() {
@@ -1857,14 +1860,19 @@ impl Overlord {
                     ContentEncryptionAlgorithm::Nip04,
                 )?;
 
+                let mut tags = vec![Tag::new_pubkey(
+                    recipient, None, // FIXME
+                    None,
+                )];
+                if annotation {
+                    tags.push(Tag::new(&["annotation"]))
+                }
+
                 PreEvent {
                     pubkey: public_key,
                     created_at: Unixtime::now().unwrap(),
                     kind: EventKind::EncryptedDirectMessage,
-                    tags: vec![Tag::new_pubkey(
-                        recipient, None, // FIXME
-                        None,
-                    )],
+                    tags,
                     content: enc_content,
                 }
             }
@@ -2012,6 +2020,10 @@ impl Overlord {
                             add_subject_to_tags_if_missing(&mut tags, subject);
                         }
                     }
+                }
+
+                if annotation {
+                    tags.push(Tag::new(&["annotation"]))
                 }
 
                 PreEvent {
