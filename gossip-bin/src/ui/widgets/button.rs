@@ -271,6 +271,7 @@ impl Button<'_> {
     ) {
         if ui.is_rect_visible(rect) {
             let no_stroke = Stroke::NONE;
+            let neutral_50_stroke = Stroke::new(1.0, theme.neutral_50());
             let neutral_300_stroke = Stroke::new(1.0, theme.neutral_300());
             let neutral_400_stroke = Stroke::new(1.0, theme.neutral_400());
             let neutral_500_stroke = Stroke::new(1.0, theme.neutral_500());
@@ -360,26 +361,37 @@ impl Button<'_> {
                         theme.neutral_500(),
                         no_stroke,
                     ),
-                    WidgetState::Focused => match button_type {
-                        ButtonType::Primary => (
-                            theme.accent_dark_b20(),
-                            no_stroke,
-                            theme.neutral_50(),
-                            neutral_300_stroke,
-                        ),
-                        ButtonType::Secondary => (
-                            theme.neutral_50(),
-                            no_stroke,
-                            theme.accent_dark(),
-                            neutral_400_stroke,
-                        ),
-                        ButtonType::Bordered => (
-                            theme.neutral_950(),
-                            neutral_300_stroke,
-                            theme.neutral_200(),
-                            neutral_500_stroke,
-                        ),
-                    },
+                    WidgetState::Focused => {
+                        if with_danger_hover {
+                            (
+                                danger_color,
+                                danger_stroke,
+                                theme.neutral_50(),
+                                neutral_50_stroke,
+                            )
+                        } else {
+                            match button_type {
+                                ButtonType::Primary => (
+                                    theme.accent_dark_b20(),
+                                    no_stroke,
+                                    theme.neutral_50(),
+                                    neutral_300_stroke,
+                                ),
+                                ButtonType::Secondary => (
+                                    theme.neutral_50(),
+                                    no_stroke,
+                                    theme.accent_dark(),
+                                    neutral_400_stroke,
+                                ),
+                                ButtonType::Bordered => (
+                                    theme.neutral_950(),
+                                    neutral_300_stroke,
+                                    theme.neutral_200(),
+                                    neutral_500_stroke,
+                                ),
+                            }
+                        }
+                    }
                 }
             } else {
                 match state {
@@ -461,30 +473,41 @@ impl Button<'_> {
                         theme.neutral_400(),
                         no_stroke,
                     ),
-                    WidgetState::Focused => match button_type {
-                        ButtonType::Primary => (
-                            theme.accent_light_b20(),
-                            no_stroke,
-                            theme.neutral_50(),
-                            neutral_300_stroke,
-                        ),
-                        ButtonType::Secondary => (
-                            theme.neutral_900(),
-                            no_stroke,
-                            theme.neutral_100(),
-                            neutral_400_stroke,
-                        ),
-                        ButtonType::Bordered => (
-                            theme.neutral_50(),
-                            neutral_600_stroke,
-                            theme.neutral_800(),
-                            neutral_400_stroke,
-                        ),
-                    },
+                    WidgetState::Focused => {
+                        if with_danger_hover {
+                            (
+                                danger_color,
+                                danger_stroke,
+                                theme.neutral_50(),
+                                neutral_50_stroke,
+                            )
+                        } else {
+                            match button_type {
+                                ButtonType::Primary => (
+                                    theme.accent_light_b20(),
+                                    no_stroke,
+                                    theme.neutral_50(),
+                                    neutral_300_stroke,
+                                ),
+                                ButtonType::Secondary => (
+                                    theme.neutral_900(),
+                                    no_stroke,
+                                    theme.neutral_100(),
+                                    neutral_400_stroke,
+                                ),
+                                ButtonType::Bordered => (
+                                    theme.neutral_50(),
+                                    neutral_600_stroke,
+                                    theme.neutral_800(),
+                                    neutral_400_stroke,
+                                ),
+                            }
+                        }
+                    }
                 }
             };
 
-            let expand = Vec2::splat(ui.visuals().widgets.inactive.expansion);
+            let expand = Vec2::splat(ui.visuals().widgets.inactive.expansion); // to match egui widgets
             let shrink = Vec2::splat(frame_stroke.width / 2.0);
             ui.painter().rect(
                 rect.expand2(expand).shrink2(shrink),

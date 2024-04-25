@@ -39,7 +39,27 @@ pub(in crate::ui) fn update(
     _frame: &mut eframe::Frame,
     ui: &mut Ui,
 ) {
-    widgets::page_header(ui, "Theme Test", |_ui| {});
+    widgets::page_header(ui, "Theme Test", |ui| {
+        if app.unsaved_settings.dark_mode {
+            if widgets::Button::bordered(&app.theme, "🌙 Dark")
+                .show(ui)
+                .on_hover_text("Switch to light mode")
+                .clicked()
+            {
+                app.unsaved_settings.dark_mode = false;
+                let _ = app.unsaved_settings.save();
+            }
+        } else {
+            if widgets::Button::bordered(&app.theme, "☀ Light")
+                .show(ui)
+                .on_hover_text("Switch to dark mode")
+                .clicked()
+            {
+                app.unsaved_settings.dark_mode = true;
+                let _ = app.unsaved_settings.save();
+            }
+        }
+    });
 
     app.vert_scroll_area()
         .id_source(ui.auto_id_with("theme_test"))
@@ -260,6 +280,22 @@ fn button_test(app: &mut GossipUi, ui: &mut Ui) {
                 .with_danger_hover()
                 .draw_hovered(ui);
         });
+        ui.add_space(20.0);
+        ui.horizontal(|ui| {
+            ui.add_sized(CSIZE, egui::Label::new("Danger Focused"));
+            ui.add_space(20.0);
+            widgets::Button::primary(theme, TEXT)
+                .with_danger_hover()
+                .draw_focused(ui);
+            ui.add_space(20.0);
+            widgets::Button::secondary(theme, TEXT)
+                .with_danger_hover()
+                .draw_focused(ui);
+            ui.add_space(20.0);
+            widgets::Button::bordered(theme, TEXT)
+                .with_danger_hover()
+                .draw_focused(ui);
+        });
         ui.add_space(30.0);
         ui.horizontal(|ui| {
             ui.vertical(|ui| {
@@ -282,6 +318,33 @@ fn button_test(app: &mut GossipUi, ui: &mut Ui) {
             ui.add_space(20.0);
             ui.vertical(|ui| {
                 let response = widgets::Button::bordered(theme, TEXT).ui(ui);
+                if ui.link("focus").clicked() {
+                    response.request_focus();
+                }
+            });
+        });
+        ui.add_space(30.0);
+        ui.horizontal(|ui| {
+            ui.vertical(|ui| {
+                ui.add_sized(CSIZE, egui::Label::new("small ->"));
+            });
+            ui.add_space(20.0);
+            ui.vertical(|ui| {
+                let response = widgets::Button::primary(theme, TEXT).small(true).ui(ui);
+                if ui.link("focus").clicked() {
+                    response.request_focus();
+                }
+            });
+            ui.add_space(20.0);
+            ui.vertical(|ui| {
+                let response = widgets::Button::secondary(theme, TEXT).small(true).ui(ui);
+                if ui.link("focus").clicked() {
+                    response.request_focus();
+                }
+            });
+            ui.add_space(20.0);
+            ui.vertical(|ui| {
+                let response = widgets::Button::bordered(theme, TEXT).small(true).ui(ui);
                 if ui.link("focus").clicked() {
                     response.request_focus();
                 }
