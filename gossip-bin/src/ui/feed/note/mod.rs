@@ -575,7 +575,7 @@ pub fn render_note_inner(
                             let color = app.theme.warning_marker_text_color();
                             if widgets::Button::secondary(
                                 &app.theme,
-                                RichText::new("▼").color(color),
+                                RichText::new("▼").size(13.0).color(color),
                             )
                             .small(true)
                             .show(ui)
@@ -585,7 +585,7 @@ pub fn render_note_inner(
                                 app.collapsed.retain(|&id| id != note.event.id);
                             }
                         } else {
-                            if widgets::Button::secondary(&app.theme, RichText::new("△"))
+                            if widgets::Button::secondary(&app.theme, RichText::new("△").size(13.0))
                                 .small(true)
                                 .show(ui)
                                 .on_hover_text("Collapse thread")
@@ -598,7 +598,7 @@ pub fn render_note_inner(
                     }
 
                     if !render_data.is_main_event {
-                        if widgets::Button::secondary(&app.theme, RichText::new("◉"))
+                        if widgets::Button::secondary(&app.theme, RichText::new("◉").size(13.0))
                             .small(true)
                             .show(ui)
                             .on_hover_text("View Thread")
