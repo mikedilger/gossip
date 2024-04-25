@@ -1250,7 +1250,13 @@ impl Overlord {
 
     /// Delete a post
     pub async fn delete_post(&mut self, id: Id) -> Result<(), Error> {
-        let tags: Vec<Tag> = vec![Tag::new_event(id, None, None)];
+        let mut tags: Vec<Tag> = vec![
+            Tag::new_event(id, None, None),
+        ];
+
+        if let Some(target_event) = GLOBALS.storage.read_event(id)? {
+            tags.push(Tag::new_kind(target_event.kind));
+        }
 
         let event = {
             let public_key = match GLOBALS.identity.public_key() {
