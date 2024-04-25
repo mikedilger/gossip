@@ -418,149 +418,151 @@ pub fn render_note_inner(
                     }
                 });
 
+                let mut next_page = None;
                 ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
-                    widgets::MoreMenu::simple(ui, app).show(ui, |ui, keep_open| {
-                        let relays: Vec<UncheckedUrl> = note
-                            .seen_on
-                            .iter()
-                            .map(|(url, _)| url.to_unchecked_url())
-                            .take(3)
-                            .collect();
+                    widgets::MoreMenu::simple(&app.theme, &app.assets, ui.next_auto_id())
+                        .small_button()
+                        .show(ui, |ui, keep_open| {
+                            let relays: Vec<UncheckedUrl> = note
+                                .seen_on
+                                .iter()
+                                .map(|(url, _)| url.to_unchecked_url())
+                                .take(3)
+                                .collect();
 
-                        if !render_data.is_main_event {
-                            if note.event.kind.is_direct_message_related() {
-                                if ui.button("View DM Channel").clicked() {
-                                    if let Some(channel) = DmChannel::from_event(&note.event, None)
-                                    {
-                                        app.set_page(
-                                            ui.ctx(),
-                                            Page::Feed(FeedKind::DmChat(channel)),
-                                        );
-                                    } else {
-                                        GLOBALS.status_queue.write().write(
-                                            "Could not determine DM channel for that note."
-                                                .to_string(),
-                                        );
+                            if !render_data.is_main_event {
+                                if note.event.kind.is_direct_message_related() {
+                                    if ui.button("View DM Channel").clicked() {
+                                        if let Some(channel) =
+                                            DmChannel::from_event(&note.event, None)
+                                        {
+                                            next_page = Some(Page::Feed(FeedKind::DmChat(channel)));
+                                        } else {
+                                            GLOBALS.status_queue.write().write(
+                                                "Could not determine DM channel for that note."
+                                                    .to_string(),
+                                            );
+                                        }
+                                        *keep_open = false;
                                     }
-                                    *keep_open = false;
-                                }
-                            } else {
-                                if ui.button("View Thread").clicked() {
-                                    app.set_page(
-                                        ui.ctx(),
-                                        Page::Feed(FeedKind::Thread {
+                                } else {
+                                    if ui.button("View Thread").clicked() {
+                                        next_page = Some(Page::Feed(FeedKind::Thread {
                                             id: note.event.id,
                                             referenced_by: note.event.id,
                                             author: Some(note.event.pubkey),
-                                        }),
-                                    );
-                                    *keep_open = false;
-                                }
-                            }
-                        }
-
-                        if note.event.kind.is_replaceable() {
-                            let param = match note.event.parameter() {
-                                Some(p) => p,
-                                None => "".to_owned(),
-                            };
-                            if ui.button("Copy naddr").clicked() {
-                                let event_addr = EventAddr {
-                                    d: param,
-                                    relays: relays.clone(),
-                                    kind: note.event.kind,
-                                    author: note.event.pubkey,
-                                };
-                                let nostr_url: NostrUrl = event_addr.into();
-                                ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
-                                *keep_open = false;
-                            }
-                        } else {
-                            if ui.button("Copy nevent").clicked() {
-                                let event_pointer = EventPointer {
-                                    id: note.event.id,
-                                    relays: relays.clone(),
-                                    author: None,
-                                    kind: None,
-                                };
-                                let nostr_url: NostrUrl = event_pointer.into();
-                                ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
-                                *keep_open = false;
-                            }
-                        }
-                        if !note.event.kind.is_direct_message_related() {
-                            if ui.button("Copy web link").clicked() {
-                                let event_pointer = EventPointer {
-                                    id: note.event.id,
-                                    relays: relays.clone(),
-                                    author: None,
-                                    kind: None,
-                                };
-                                ui.output_mut(|o| {
-                                    o.copied_text = format!(
-                                        "https://njump.me/{}",
-                                        event_pointer.as_bech32_string()
-                                    )
-                                });
-                                *keep_open = false;
-                            }
-                        }
-                        if ui.button("Copy note1 Id").clicked() {
-                            let nostr_url: NostrUrl = note.event.id.into();
-                            ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
-                            *keep_open = false;
-                        }
-                        if ui.button("Copy hex Id").clicked() {
-                            ui.output_mut(|o| o.copied_text = note.event.id.as_hex_string());
-                            *keep_open = false;
-                        }
-                        if ui.button("Copy Raw data").clicked() {
-                            ui.output_mut(|o| {
-                                o.copied_text = serde_json::to_string_pretty(&note.event).unwrap()
-                            });
-                            *keep_open = false;
-                        }
-                        if ui.button("Dismiss").clicked() {
-                            GLOBALS.dismissed.blocking_write().push(note.event.id);
-                            GLOBALS.feed.sync_recompute();
-                            *keep_open = false;
-                        }
-                        if let Some(our_pubkey) = GLOBALS.identity.public_key() {
-                            if note.event.pubkey == our_pubkey {
-                                if note.deletions.is_empty() {
-                                    if ui.button("Delete").clicked() {
-                                        let _ = GLOBALS
-                                            .to_overlord
-                                            .send(ToOverlordMessage::DeletePost(note.event.id));
+                                        }));
                                         *keep_open = false;
                                     }
                                 }
+                            }
 
-                                // Chance to post our note again to relays it missed
-                                if let Ok(broadcast_relays) = Globals::relays_for_event(&note.event)
-                                {
-                                    if !broadcast_relays.is_empty() {
-                                        if ui
-                                            .button(&format!(
-                                                "Post again ({})",
-                                                broadcast_relays.len()
-                                            ))
-                                            .clicked()
-                                        {
-                                            let _ = GLOBALS.to_overlord.send(
-                                                ToOverlordMessage::PostAgain(note.event.clone()),
-                                            );
+                            if note.event.kind.is_replaceable() {
+                                let param = match note.event.parameter() {
+                                    Some(p) => p,
+                                    None => "".to_owned(),
+                                };
+                                if ui.button("Copy naddr").clicked() {
+                                    let event_addr = EventAddr {
+                                        d: param,
+                                        relays: relays.clone(),
+                                        kind: note.event.kind,
+                                        author: note.event.pubkey,
+                                    };
+                                    let nostr_url: NostrUrl = event_addr.into();
+                                    ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
+                                    *keep_open = false;
+                                }
+                            } else {
+                                if ui.button("Copy nevent").clicked() {
+                                    let event_pointer = EventPointer {
+                                        id: note.event.id,
+                                        relays: relays.clone(),
+                                        author: None,
+                                        kind: None,
+                                    };
+                                    let nostr_url: NostrUrl = event_pointer.into();
+                                    ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
+                                    *keep_open = false;
+                                }
+                            }
+                            if !note.event.kind.is_direct_message_related() {
+                                if ui.button("Copy web link").clicked() {
+                                    let event_pointer = EventPointer {
+                                        id: note.event.id,
+                                        relays: relays.clone(),
+                                        author: None,
+                                        kind: None,
+                                    };
+                                    ui.output_mut(|o| {
+                                        o.copied_text = format!(
+                                            "https://njump.me/{}",
+                                            event_pointer.as_bech32_string()
+                                        )
+                                    });
+                                    *keep_open = false;
+                                }
+                            }
+                            if ui.button("Copy note1 Id").clicked() {
+                                let nostr_url: NostrUrl = note.event.id.into();
+                                ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
+                                *keep_open = false;
+                            }
+                            if ui.button("Copy hex Id").clicked() {
+                                ui.output_mut(|o| o.copied_text = note.event.id.as_hex_string());
+                                *keep_open = false;
+                            }
+                            if ui.button("Copy Raw data").clicked() {
+                                ui.output_mut(|o| {
+                                    o.copied_text =
+                                        serde_json::to_string_pretty(&note.event).unwrap()
+                                });
+                                *keep_open = false;
+                            }
+                            if ui.button("Dismiss").clicked() {
+                                GLOBALS.dismissed.blocking_write().push(note.event.id);
+                                GLOBALS.feed.sync_recompute();
+                                *keep_open = false;
+                            }
+                            if let Some(our_pubkey) = GLOBALS.identity.public_key() {
+                                if note.event.pubkey == our_pubkey {
+                                    if note.deletions.is_empty() {
+                                        if ui.button("Delete").clicked() {
+                                            let _ = GLOBALS
+                                                .to_overlord
+                                                .send(ToOverlordMessage::DeletePost(note.event.id));
                                             *keep_open = false;
+                                        }
+                                    }
+
+                                    // Chance to post our note again to relays it missed
+                                    if let Ok(broadcast_relays) =
+                                        Globals::relays_for_event(&note.event)
+                                    {
+                                        if !broadcast_relays.is_empty() {
+                                            if ui
+                                                .button(&format!(
+                                                    "Post again ({})",
+                                                    broadcast_relays.len()
+                                                ))
+                                                .clicked()
+                                            {
+                                                let _ = GLOBALS.to_overlord.send(
+                                                    ToOverlordMessage::PostAgain(
+                                                        note.event.clone(),
+                                                    ),
+                                                );
+                                                *keep_open = false;
+                                            }
                                         }
                                     }
                                 }
                             }
-                        }
-                        if ui.button("Rerender").clicked() {
-                            app.notes.cache_invalidate_note(&note.event.id);
-                            *keep_open = false;
-                        }
-                    });
+                            if ui.button("Rerender").clicked() {
+                                app.notes.cache_invalidate_note(&note.event.id);
+                                *keep_open = false;
+                            }
+                        });
                     ui.add_space(4.0);
 
                     let is_thread_view: bool = {
@@ -571,16 +573,21 @@ pub fn render_note_inner(
                     if is_thread_view && note.event.replies_to().is_some() {
                         if collapsed {
                             let color = app.theme.warning_marker_text_color();
-                            if ui
-                                .button(RichText::new("▼").size(13.0).color(color))
-                                .on_hover_text("Expand thread")
-                                .clicked()
+                            if widgets::Button::secondary(
+                                &app.theme,
+                                RichText::new("▼").color(color),
+                            )
+                            .small(true)
+                            .show(ui)
+                            .on_hover_text("Expand thread")
+                            .clicked()
                             {
                                 app.collapsed.retain(|&id| id != note.event.id);
                             }
                         } else {
-                            if ui
-                                .button(RichText::new("△").size(13.0))
+                            if widgets::Button::secondary(&app.theme, RichText::new("△"))
+                                .small(true)
+                                .show(ui)
                                 .on_hover_text("Collapse thread")
                                 .clicked()
                             {
@@ -591,28 +598,26 @@ pub fn render_note_inner(
                     }
 
                     if !render_data.is_main_event {
-                        if ui
-                            .button(RichText::new("◉").size(13.0))
+                        if widgets::Button::secondary(&app.theme, RichText::new("◉"))
+                            .small(true)
+                            .show(ui)
                             .on_hover_text("View Thread")
                             .clicked()
                         {
                             if note.event.kind.is_direct_message_related() {
                                 if let Some(channel) = DmChannel::from_event(&note.event, None) {
-                                    app.set_page(ui.ctx(), Page::Feed(FeedKind::DmChat(channel)));
+                                    next_page = Some(Page::Feed(FeedKind::DmChat(channel)));
                                 } else {
                                     GLOBALS.status_queue.write().write(
                                         "Could not determine DM channel for that note.".to_string(),
                                     );
                                 }
                             } else {
-                                app.set_page(
-                                    ui.ctx(),
-                                    Page::Feed(FeedKind::Thread {
-                                        id: note.event.id,
-                                        referenced_by: note.event.id,
-                                        author: Some(note.event.pubkey),
-                                    }),
-                                );
+                                next_page = Some(Page::Feed(FeedKind::Thread {
+                                    id: note.event.id,
+                                    referenced_by: note.event.id,
+                                    author: Some(note.event.pubkey),
+                                }));
                             }
                         }
                     }
@@ -665,6 +670,10 @@ pub fn render_note_inner(
                         }
                     });
                 });
+
+                if let Some(next_page) = next_page {
+                    app.set_page(ui.ctx(), next_page);
+                }
             });
 
             ui.add_space(2.0);

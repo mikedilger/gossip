@@ -23,7 +23,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         widgets::TextEdit::search(&app.theme, &app.assets, &mut app.relays.search)
             .desired_width(200.0)
             .show(ui);
-        ui.add_space(200.0); // search_field somehow doesn't "take up" space
         if ui
             .button(RichText::new(Page::RelaysCoverage.name()))
             .on_hover_cursor(egui::CursorIcon::PointingHand)

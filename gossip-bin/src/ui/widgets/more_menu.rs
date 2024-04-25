@@ -3,7 +3,7 @@ use egui_winit::egui::{
     self, vec2, AboveOrBelow, Align2, Color32, Id, Rect, TextureHandle, Ui, Vec2,
 };
 
-use crate::ui::GossipUi;
+use crate::ui::{assets::Assets, Theme};
 
 static POPUP_MARGIN: Vec2 = Vec2 { x: 20.0, y: 16.0 };
 
@@ -13,21 +13,23 @@ enum MoreMenuStyle {
     Bubble,
 }
 
-pub(in crate::ui) struct MoreMenu {
+pub(in crate::ui) struct MoreMenu<'a> {
     id: Id,
     min_size: Vec2,
     max_size: Vec2,
     above_or_below: Option<AboveOrBelow>,
     hover_text: Option<String>,
+    small_button: bool,
     accent_color: Color32,
     options_symbol: TextureHandle,
     style: MoreMenuStyle,
+    theme: &'a Theme,
 }
 
-impl MoreMenu {
-    pub fn simple(ui: &mut Ui, app: &GossipUi) -> Self {
+impl<'a> MoreMenu<'a> {
+    pub fn simple(theme: &'a Theme, assets: &'a Assets, id: Id) -> Self {
         Self {
-            id: ui.next_auto_id(),
+            id,
             min_size: Vec2 { x: 0.0, y: 0.0 },
             max_size: Vec2 {
                 x: f32::INFINITY,
@@ -35,15 +37,17 @@ impl MoreMenu {
             },
             above_or_below: None,
             hover_text: None,
-            accent_color: app.theme.accent_color(),
-            options_symbol: app.assets.options_symbol.clone(),
+            small_button: false,
+            accent_color: theme.accent_color(),
+            options_symbol: assets.options_symbol.clone(),
             style: MoreMenuStyle::Simple,
+            theme,
         }
     }
 
-    pub fn bubble(ui: &mut Ui, app: &GossipUi) -> Self {
+    pub fn bubble(theme: &'a Theme, assets: &'a Assets, id: Id) -> Self {
         Self {
-            id: ui.next_auto_id(),
+            id,
             min_size: Vec2 { x: 0.0, y: 0.0 },
             max_size: Vec2 {
                 x: f32::INFINITY,
@@ -51,10 +55,18 @@ impl MoreMenu {
             },
             above_or_below: None,
             hover_text: None,
-            accent_color: app.theme.accent_color(),
-            options_symbol: app.assets.options_symbol.clone(),
+            small_button: false,
+            accent_color: theme.accent_color(),
+            options_symbol: assets.options_symbol.clone(),
             style: MoreMenuStyle::Bubble,
+            theme,
         }
+    }
+
+    #[allow(unused)]
+    pub fn small_button(mut self) -> Self {
+        self.small_button = true;
+        self
     }
 
     #[allow(unused)]
@@ -97,7 +109,9 @@ impl MoreMenu {
         let response = match self.style {
             MoreMenuStyle::Simple => {
                 let text = egui::RichText::new("=").size(13.0);
-                ui.add(egui::Button::new(text))
+                super::Button::primary(self.theme, text)
+                    .small(self.small_button)
+                    .show(ui)
             }
             MoreMenuStyle::Bubble => {
                 let (response, painter) =

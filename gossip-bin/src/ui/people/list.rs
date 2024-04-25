@@ -293,7 +293,12 @@ pub(super) fn update(
                                 egui::Layout::right_to_left(egui::Align::Min)
                                     .with_cross_align(egui::Align::Center),
                                 |ui| {
-                                    widgets::MoreMenu::simple(ui, app).show(ui, |ui, is_open| {
+                                    widgets::MoreMenu::simple(
+                                        &app.theme,
+                                        &app.assets,
+                                        ui.next_auto_id(),
+                                    )
+                                    .show(ui, |ui, is_open| {
                                         // actions
                                         if ui.button("Remove").clicked() {
                                             let _ = GLOBALS.storage.remove_person_from_list(
@@ -763,7 +768,7 @@ pub(super) fn render_more_list_actions(
         return;
     }
 
-    let menu = widgets::MoreMenu::simple(ui, app)
+    let menu = widgets::MoreMenu::simple(&app.theme, &app.assets, ui.next_auto_id())
         .with_min_size(vec2(100.0, 0.0))
         .with_max_size(vec2(160.0, f32::INFINITY));
 
