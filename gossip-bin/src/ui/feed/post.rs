@@ -229,33 +229,66 @@ fn dm_posting_area(
     ui.add_space(8.0);
 
     ui.horizontal(|ui| {
-        if ui.button("Clear").clicked() {
-            app.reset_draft();
-        }
+        widgets::MoreMenu::bubble(&app.theme, &app.assets, ui.next_auto_id())
+            .with_max_size(vec2(190.0, 40.0))
+            .with_min_size(vec2(190.0, 40.0))
+            .place_above(!read_setting!(posting_area_at_top))
+            .show(ui, |ui, is_open| {
+                ui.vertical_centered_justified(|ui| {
+                    if app.dm_draft_data.include_subject {
+                        if widgets::Button::primary(&app.theme, "Remove Subject")
+                            .show(ui)
+                            .clicked()
+                        {
+                            app.dm_draft_data.include_subject = false;
+                            app.dm_draft_data.subject = "".to_owned();
+                            *is_open = false;
+                        }
+                    } else if widgets::Button::primary(&app.theme, "Add Subject")
+                        .show(ui)
+                        .clicked()
+                    {
+                        app.dm_draft_data.include_subject = true;
+                        *is_open = false;
+                    }
+
+                    ui.add_space(10.0);
+
+                    if app.dm_draft_data.include_content_warning {
+                        if widgets::Button::primary(&app.theme, "Remove Content Warning")
+                            .show(ui)
+                            .clicked()
+                        {
+                            app.dm_draft_data.include_content_warning = false;
+                            app.dm_draft_data.content_warning = "".to_owned();
+                            *is_open = false;
+                        }
+                    } else if widgets::Button::primary(&app.theme, "Add Content Warning")
+                        .show(ui)
+                        .clicked()
+                    {
+                        app.dm_draft_data.include_content_warning = true;
+                        *is_open = false;
+                    }
+                });
+            });
+
+        ui.horizontal(|ui| {
+            ui.visuals_mut().hyperlink_color = ui.visuals().text_color();
+            if ui.link("Cancel").clicked() {
+                app.reset_draft();
+            }
+        });
 
         ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
             ui.add_space(12.0);
 
-            if ui.button("Send").clicked() && !app.dm_draft_data.draft.is_empty() {
+            if widgets::Button::primary(&app.theme, "Send")
+                .show(ui)
+                .clicked()
+                && !app.dm_draft_data.draft.is_empty()
+            {
                 send_now = true;
-            }
-
-            if app.dm_draft_data.include_subject {
-                if ui.button("Remove Subject").clicked() {
-                    app.dm_draft_data.include_subject = false;
-                    app.dm_draft_data.subject = "".to_owned();
-                }
-            } else if ui.button("Add Subject").clicked() {
-                app.dm_draft_data.include_subject = true;
-            }
-
-            if app.dm_draft_data.include_content_warning {
-                if ui.button("Remove Content Warning").clicked() {
-                    app.dm_draft_data.include_content_warning = false;
-                    app.dm_draft_data.content_warning = "".to_owned();
-                }
-            } else if ui.button("Add Content Warning").clicked() {
-                app.dm_draft_data.include_content_warning = true;
             }
 
             // Emoji picker
@@ -510,6 +543,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                                 {
                                     app.draft_data.include_subject = false;
                                     app.draft_data.subject = "".to_owned();
+                                    *is_open = false;
                                 }
                             } else if app.draft_data.replying_to.is_none()
                                 && widgets::Button::primary(&app.theme, "Add Subject")
