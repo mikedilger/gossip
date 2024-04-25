@@ -107,7 +107,7 @@ impl Nip46Server {
         } = cmd;
 
         let result: Result<String, Error> = match method.as_str() {
-            "connect" => Err("You are already connected".into()),
+            "connect" => Ok("ack".into()),
             "get_public_key" => self.get_public_key(),
             "sign_event" => {
                 if self.sign_approval.is_approved() {
