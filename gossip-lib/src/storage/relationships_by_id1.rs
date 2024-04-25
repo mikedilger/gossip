@@ -1,10 +1,6 @@
 use crate::error::Error;
-use crate::storage::types::RelationshipById1;
 use crate::storage::{RawDatabase, Storage};
 use heed::types::UnalignedSlice;
-use heed::RwTxn;
-use nostr_types::Id;
-use speedy::{Readable, Writable};
 use std::sync::Mutex;
 
 // Id:Id -> RelationshipById1
@@ -49,52 +45,5 @@ impl Storage {
                 Ok(db)
             }
         }
-    }
-
-    pub(crate) fn write_relationship_by_id1<'a>(
-        &'a self,
-        id: Id,
-        related: Id,
-        relationship_by_id: RelationshipById1,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error> {
-        let mut key = id.as_ref().as_slice().to_owned();
-        key.extend(related.as_ref());
-        let value = relationship_by_id.write_to_vec()?;
-
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.db_relationships_by_id1()?.put(txn, &key, &value)?;
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
-    }
-
-    pub(crate) fn find_relationships_by_id1(
-        &self,
-        id: Id,
-    ) -> Result<Vec<(Id, RelationshipById1)>, Error> {
-        let start_key = id.as_slice();
-        let txn = self.env.read_txn()?;
-        let iter = self
-            .db_relationships_by_id1()?
-            .prefix_iter(&txn, start_key)?;
-        let mut output: Vec<(Id, RelationshipById1)> = Vec::new();
-        for result in iter {
-            let (key, val) = result?;
-            let id2 = Id(key[32..64].try_into().unwrap());
-            let relationship_by_id = RelationshipById1::read_from_buffer(val)?;
-            output.push((id2, relationship_by_id));
-        }
-        Ok(output)
     }
 }

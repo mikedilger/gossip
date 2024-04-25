@@ -1,5 +1,5 @@
 /// Relationship type by Id, aliased to the latest version
-pub type RelationshipById = crate::storage::types::RelationshipById1;
+pub type RelationshipById = crate::storage::types::RelationshipById2;
 
 /// Relationship type by EventAddr, aliased to the latest version
-pub type RelationshipByAddr = crate::storage::types::RelationshipByAddr1;
+pub type RelationshipByAddr = crate::storage::types::RelationshipByAddr2;

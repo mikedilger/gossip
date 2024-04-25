@@ -42,7 +42,9 @@ mod person_lists_metadata3;
 mod person_relays1;
 mod relationships1;
 mod relationships_by_addr1;
+mod relationships_by_addr2;
 mod relationships_by_id1;
+mod relationships_by_id2;
 mod relays1;
 mod relays2;
 mod reprel1;
@@ -323,12 +325,12 @@ impl Storage {
 
     #[inline]
     pub(crate) fn db_relationships_by_addr(&self) -> Result<RawDatabase, Error> {
-        self.db_relationships_by_addr1()
+        self.db_relationships_by_addr2()
     }
 
     #[inline]
     pub(crate) fn db_relationships_by_id(&self) -> Result<RawDatabase, Error> {
-        self.db_relationships_by_id1()
+        self.db_relationships_by_id2()
     }
 
     #[inline]
@@ -1892,7 +1894,7 @@ impl Storage {
         relationship_by_id: RelationshipById,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.write_relationship_by_id1(id, related, relationship_by_id, rw_txn)
+        self.write_relationship_by_id2(id, related, relationship_by_id, rw_txn)
     }
 
     /// Find relationships belonging to the given event
@@ -1901,7 +1903,7 @@ impl Storage {
     /// e.g. result id replies to id, or result id deletes id
     #[inline]
     pub fn find_relationships_by_id(&self, id: Id) -> Result<Vec<(Id, RelationshipById)>, Error> {
-        self.find_relationships_by_id1(id)
+        self.find_relationships_by_id2(id)
     }
 
     /// Write a relationship between an event and an EventAddr (replaceable)
@@ -1913,7 +1915,7 @@ impl Storage {
         relationship_by_addr: RelationshipByAddr,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.write_relationship_by_addr1(addr, related, relationship_by_addr, rw_txn)
+        self.write_relationship_by_addr2(addr, related, relationship_by_addr, rw_txn)
     }
 
     /// Find relationships belonging to the given event to replaceable events
@@ -1922,7 +1924,7 @@ impl Storage {
         &self,
         addr: &EventAddr,
     ) -> Result<Vec<(Id, RelationshipByAddr)>, Error> {
-        self.find_relationships_by_addr1(addr)
+        self.find_relationships_by_addr2(addr)
     }
 
     /// Get replies to the given event
@@ -1942,7 +1944,7 @@ impl Storage {
             .find_relationships_by_id(id)?
             .iter()
             .filter_map(|(id, rel)| {
-                if *rel == RelationshipById::Reply {
+                if *rel == RelationshipById::RepliesTo {
                     Some(*id)
                 } else {
                     None
@@ -1956,7 +1958,7 @@ impl Storage {
             .find_relationships_by_addr(addr)?
             .iter()
             .filter_map(|(id, rel)| {
-                if *rel == RelationshipByAddr::Reply {
+                if *rel == RelationshipByAddr::RepliesTo {
                     Some(*id)
                 } else {
                     None
@@ -1976,7 +1978,7 @@ impl Storage {
         // Collect up to one reaction per pubkey
         let mut phase1: HashMap<PublicKey, char> = HashMap::new();
         for (_, rel) in self.find_relationships_by_id(id)? {
-            if let RelationshipById::Reaction { by, reaction } = rel {
+            if let RelationshipById::ReactsTo { by, reaction } = rel {
                 if let Some(target_event) = &maybe_target_event {
                     if target_event.pubkey == by {
                         // Do not let people like their own post
@@ -2013,7 +2015,7 @@ impl Storage {
     pub fn get_zap_total(&self, id: Id) -> Result<MilliSatoshi, Error> {
         let mut total = MilliSatoshi(0);
         for (_, rel) in self.find_relationships_by_id(id)? {
-            if let RelationshipById::ZapReceipt { by: _, amount } = rel {
+            if let RelationshipById::Zaps { by: _, amount } = rel {
                 total = total + amount;
             }
         }
@@ -2025,7 +2027,7 @@ impl Storage {
         let mut reasons: Vec<String> = Vec::new();
 
         for (deleting_id, rel) in self.find_relationships_by_id(maybe_deleted_event.id)? {
-            if let RelationshipById::Deletion { by, reason } = rel {
+            if let RelationshipById::Deletes { by, reason } = rel {
                 if maybe_deleted_event.delete_author_allowed(by) {
                     // We must have the deletion event to check it
                     if let Some(deleting_event) = self.read_event(deleting_id)? {
@@ -2048,7 +2050,7 @@ impl Storage {
             };
             for (deleting_id, rel) in self.find_relationships_by_addr(&addr)? {
                 // Must be a deletion relationship
-                if let RelationshipByAddr::Deletion { by, reason } = rel {
+                if let RelationshipByAddr::Deletes { by, reason } = rel {
                     if maybe_deleted_event.delete_author_allowed(by) {
                         // We must have the deletion event to check it
                         if let Some(deleting_event) = self.read_event(deleting_id)? {

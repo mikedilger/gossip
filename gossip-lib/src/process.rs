@@ -42,7 +42,7 @@ pub async fn process_new_event(
         let mut maxtime = now;
         maxtime.0 += GLOBALS.storage.read_setting_future_allowance_secs() as i64;
         if let Err(e) = event.verify(Some(maxtime)) {
-            tracing::error!("{}: VERIFY ERROR: {}", e, serde_json::to_string(&event)?);
+            tracing::warn!("{}: VERIFY ERROR: {}", e, serde_json::to_string(&event)?);
             return Ok(());
         }
     }
@@ -121,7 +121,7 @@ pub async fn process_new_event(
 
     // Ignore if the event is already deleted (by id)
     for (_id, relbyid) in GLOBALS.storage.find_relationships_by_id(event.id)? {
-        if let RelationshipById::Deletion { by, reason: _ } = relbyid {
+        if let RelationshipById::Deletes { by, reason: _ } = relbyid {
             if event.delete_author_allowed(by) {
                 tracing::trace!(
                     "{}: Deleted Event: {} {:?} @{}",
@@ -144,7 +144,7 @@ pub async fn process_new_event(
             author: event.pubkey,
         };
         for (_id, relbyaddr) in GLOBALS.storage.find_relationships_by_addr(&ea)? {
-            if let RelationshipByAddr::Deletion { by, reason: _ } = relbyaddr {
+            if let RelationshipByAddr::Deletes { by, reason: _ } = relbyaddr {
                 if by == event.pubkey {
                     tracing::trace!(
                         "{}: Deleted Event: {} {:?} @{}",
@@ -483,25 +483,39 @@ pub(crate) fn process_relationships_of_event<'a>(
     let mut invalidate: Vec<Id> = Vec::new();
 
     let mut f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-        // replies to
-        match event.replies_to() {
-            Some(EventReference::Id { id, .. }) => {
+        // Reposts
+        if event.kind == EventKind::Repost {
+            if let Ok(inner_event) = serde_json::from_str::<Event>(&event.content) {
                 GLOBALS.storage.write_relationship_by_id(
-                    id,
+                    inner_event.id,
                     event.id,
-                    RelationshipById::Reply,
+                    RelationshipById::Reposts,
+                    Some(txn),
+                )?;
+            } else {
+                for eref in event.mentions().iter() {
+                    if let EventReference::Id { id, .. } = eref {
+                        GLOBALS.storage.write_relationship_by_id(
+                            *id,
+                            event.id,
+                            RelationshipById::Reposts,
+                            Some(txn),
+                        )?;
+                    }
+                }
+            }
+        }
+
+        // Quotes
+        for eref in event.quotes().iter() {
+            if let EventReference::Id { id, .. } = eref {
+                GLOBALS.storage.write_relationship_by_id(
+                    *id,
+                    event.id,
+                    RelationshipById::Quotes,
                     Some(txn),
                 )?;
             }
-            Some(EventReference::Addr(ea)) => {
-                GLOBALS.storage.write_relationship_by_addr(
-                    ea,
-                    event.id,
-                    RelationshipByAddr::Reply,
-                    Some(txn),
-                )?;
-            }
-            None => (),
         }
 
         // timestamps
@@ -511,7 +525,7 @@ pub(crate) fn process_relationships_of_event<'a>(
                     GLOBALS.storage.write_relationship_by_id(
                         id,
                         event.id,
-                        RelationshipById::Timestamp,
+                        RelationshipById::Timestamps,
                         Some(txn),
                     )?;
                 }
@@ -543,7 +557,7 @@ pub(crate) fn process_relationships_of_event<'a>(
                         GLOBALS.storage.write_relationship_by_id(
                             *id,
                             event.id,
-                            RelationshipById::Deletion {
+                            RelationshipById::Deletes {
                                 by: event.pubkey,
                                 reason: reason.clone(),
                             },
@@ -574,7 +588,7 @@ pub(crate) fn process_relationships_of_event<'a>(
                         GLOBALS.storage.write_relationship_by_addr(
                             ea.clone(),
                             event.id,
-                            RelationshipByAddr::Deletion {
+                            RelationshipByAddr::Deletes {
                                 by: event.pubkey,
                                 reason: reason.clone(),
                             },
@@ -591,7 +605,7 @@ pub(crate) fn process_relationships_of_event<'a>(
             GLOBALS.storage.write_relationship_by_id(
                 reacted_to_id, // event reacted to
                 event.id,      // the reaction event id
-                RelationshipById::Reaction {
+                RelationshipById::ReactsTo {
                     by: event.pubkey,
                     reaction,
                 },
@@ -627,6 +641,16 @@ pub(crate) fn process_relationships_of_event<'a>(
                         },
                         Some(txn),
                     )?;
+                } else if let Ok((ea, _marker)) = tag.parse_address() {
+                    GLOBALS.storage.write_relationship_by_addr(
+                        ea,
+                        event.id,
+                        RelationshipByAddr::Labels {
+                            label: label.to_owned(),
+                            namespace: namespace.to_owned(),
+                        },
+                        Some(txn),
+                    )?;
                 }
             }
         }
@@ -638,7 +662,7 @@ pub(crate) fn process_relationships_of_event<'a>(
                     GLOBALS.storage.write_relationship_by_id(
                         id,
                         event.id,
-                        RelationshipById::ListMutesThread,
+                        RelationshipById::Mutes,
                         Some(txn),
                     )?;
                 }
@@ -652,7 +676,7 @@ pub(crate) fn process_relationships_of_event<'a>(
                     GLOBALS.storage.write_relationship_by_id(
                         id,
                         event.id,
-                        RelationshipById::ListPins,
+                        RelationshipById::Pins,
                         Some(txn),
                     )?;
                 }
@@ -666,7 +690,7 @@ pub(crate) fn process_relationships_of_event<'a>(
                     GLOBALS.storage.write_relationship_by_id(
                         id,
                         event.id,
-                        RelationshipById::ListBookmarks,
+                        RelationshipById::Bookmarks,
                         Some(txn),
                     )?;
                 }
@@ -675,7 +699,7 @@ pub(crate) fn process_relationships_of_event<'a>(
                     GLOBALS.storage.write_relationship_by_addr(
                         ea,
                         event.id,
-                        RelationshipByAddr::ListBookmarks,
+                        RelationshipByAddr::Bookmarks,
                         Some(txn),
                     )?;
                 }
@@ -689,7 +713,7 @@ pub(crate) fn process_relationships_of_event<'a>(
                     GLOBALS.storage.write_relationship_by_id(
                         id,
                         event.id,
-                        RelationshipById::ListBookmarks,
+                        RelationshipById::Bookmarks,
                         Some(txn),
                     )?;
                 }
@@ -698,7 +722,7 @@ pub(crate) fn process_relationships_of_event<'a>(
                     GLOBALS.storage.write_relationship_by_addr(
                         ea,
                         event.id,
-                        RelationshipByAddr::ListBookmarks,
+                        RelationshipByAddr::Bookmarks,
                         Some(txn),
                     )?;
                 }
@@ -712,7 +736,7 @@ pub(crate) fn process_relationships_of_event<'a>(
                     GLOBALS.storage.write_relationship_by_id(
                         id,
                         event.id,
-                        RelationshipById::Curation,
+                        RelationshipById::Curates,
                         Some(txn),
                     )?;
                 }
@@ -720,7 +744,7 @@ pub(crate) fn process_relationships_of_event<'a>(
                     GLOBALS.storage.write_relationship_by_addr(
                         ea,
                         event.id,
-                        RelationshipByAddr::Curation,
+                        RelationshipByAddr::Curates,
                         Some(txn),
                     )?;
                 }
@@ -733,7 +757,7 @@ pub(crate) fn process_relationships_of_event<'a>(
                     GLOBALS.storage.write_relationship_by_addr(
                         ea,
                         event.id,
-                        RelationshipByAddr::LiveChatMessage,
+                        RelationshipByAddr::ChatsWithin,
                         Some(txn),
                     )?;
                 }
@@ -746,7 +770,7 @@ pub(crate) fn process_relationships_of_event<'a>(
                     GLOBALS.storage.write_relationship_by_addr(
                         ea,
                         event.id,
-                        RelationshipByAddr::BadgeAward,
+                        RelationshipByAddr::AwardsBadge,
                         Some(txn),
                     )?;
                 }
@@ -759,7 +783,7 @@ pub(crate) fn process_relationships_of_event<'a>(
                     GLOBALS.storage.write_relationship_by_addr(
                         ea,
                         event.id,
-                        RelationshipByAddr::HandlerRecommendation,
+                        RelationshipByAddr::RecommendsHandler,
                         Some(txn),
                     )?;
                 }
@@ -786,7 +810,7 @@ pub(crate) fn process_relationships_of_event<'a>(
                 GLOBALS.storage.write_relationship_by_id(
                     zapdata.id,
                     event.id,
-                    RelationshipById::ZapReceipt {
+                    RelationshipById::Zaps {
                         by: event.pubkey,
                         amount: zapdata.amount,
                     },
@@ -795,7 +819,7 @@ pub(crate) fn process_relationships_of_event<'a>(
 
                 invalidate.push(zapdata.id);
             }
-            Err(e) => tracing::error!("Invalid zap receipt: {}", e),
+            Err(e) => tracing::warn!("Invalid zap receipt: {}", e),
             _ => {}
         }
 
@@ -806,7 +830,7 @@ pub(crate) fn process_relationships_of_event<'a>(
                     GLOBALS.storage.write_relationship_by_id(
                         id,
                         event.id,
-                        RelationshipById::JobResult,
+                        RelationshipById::SuppliesJobResult,
                         Some(txn),
                     )?;
                 }

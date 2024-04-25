@@ -25,8 +25,14 @@ pub use relationship1::Relationship1;
 mod relationship_by_addr1;
 pub use relationship_by_addr1::RelationshipByAddr1;
 
+mod relationship_by_addr2;
+pub use relationship_by_addr2::RelationshipByAddr2;
+
 mod relationship_by_id1;
 pub use relationship_by_id1::RelationshipById1;
+
+mod relationship_by_id2;
+pub use relationship_by_id2::RelationshipById2;
 
 mod relay1;
 pub use relay1::Relay1;
