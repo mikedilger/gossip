@@ -260,8 +260,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     }
 
     ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
-        app.theme.primary_button_style(ui.style_mut());
-        if ui.button("Finish").clicked() {
+        if widgets::Button::primary(&app.theme, "Finish")
+            .show(ui)
+            .clicked()
+        {
             if app.wizard_state.follow_list_should_publish {
                 let _ = GLOBALS
                     .to_overlord

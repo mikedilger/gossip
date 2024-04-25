@@ -2180,8 +2180,7 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
                             ui.input(|i| i.key_pressed(egui::Key::Enter));
 
                         ui.scope(|ui| {
-                            app.theme.primary_button_style(ui.style_mut());
-                            submitted |= ui.button("     Continue     ").clicked();
+                            submitted |= widgets::Button::primary(&app.theme, "     Continue     ").show(ui).clicked();
                         });
 
                         if submitted {

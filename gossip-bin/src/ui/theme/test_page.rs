@@ -244,6 +244,22 @@ fn button_test(app: &mut GossipUi, ui: &mut Ui) {
             ui.add_space(20.0);
             widgets::Button::bordered(theme, TEXT).draw_focused(ui);
         });
+        ui.add_space(20.0);
+        ui.horizontal(|ui| {
+            ui.add_sized(CSIZE, egui::Label::new("Danger Hovered"));
+            ui.add_space(20.0);
+            widgets::Button::primary(theme, TEXT)
+                .with_danger_hover()
+                .draw_hovered(ui);
+            ui.add_space(20.0);
+            widgets::Button::secondary(theme, TEXT)
+                .with_danger_hover()
+                .draw_hovered(ui);
+            ui.add_space(20.0);
+            widgets::Button::bordered(theme, TEXT)
+                .with_danger_hover()
+                .draw_hovered(ui);
+        });
         ui.add_space(30.0);
         ui.horizontal(|ui| {
             ui.vertical(|ui| {

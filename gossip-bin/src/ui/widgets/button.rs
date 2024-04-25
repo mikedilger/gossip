@@ -5,6 +5,8 @@ use egui_winit::egui::{
     Widget, WidgetInfo, WidgetText, WidgetType,
 };
 
+use crate::ui::theme::{DefaultTheme, ThemeDef};
+
 use super::{super::Theme, WidgetState};
 
 #[derive(Clone, Copy)]
@@ -27,6 +29,7 @@ pub struct Button<'a> {
     variant: ButtonVariant,
     theme: &'a Theme,
     text: Option<WidgetText>,
+    with_danger_hover: bool,
 }
 
 impl<'a> Button<'a> {
@@ -36,6 +39,7 @@ impl<'a> Button<'a> {
             variant: ButtonVariant::Normal,
             theme,
             text: Some(text.into()),
+            with_danger_hover: false,
         }
     }
 
@@ -45,6 +49,7 @@ impl<'a> Button<'a> {
             variant: ButtonVariant::Normal,
             theme,
             text: Some(text.into()),
+            with_danger_hover: false,
         }
     }
 
@@ -54,7 +59,14 @@ impl<'a> Button<'a> {
             variant: ButtonVariant::Normal,
             theme,
             text: Some(text.into()),
+            with_danger_hover: false,
         }
+    }
+
+    /// Show danger color hover effect
+    pub fn with_danger_hover(mut self) -> Self {
+        self.with_danger_hover = true;
+        self
     }
 
     // /// Make this a small button, suitable for embedding into text.
@@ -84,6 +96,7 @@ impl<'a> Button<'a> {
             self.button_type,
             padding,
             self.theme,
+            self.with_danger_hover,
         );
         response
     }
@@ -99,6 +112,7 @@ impl<'a> Button<'a> {
             self.button_type,
             padding,
             self.theme,
+            self.with_danger_hover,
         );
         response
     }
@@ -114,6 +128,7 @@ impl<'a> Button<'a> {
             self.button_type,
             padding,
             self.theme,
+            self.with_danger_hover,
         );
         response
     }
@@ -129,6 +144,7 @@ impl<'a> Button<'a> {
             self.button_type,
             padding,
             self.theme,
+            self.with_danger_hover,
         );
         response
     }
@@ -144,6 +160,7 @@ impl<'a> Button<'a> {
             self.button_type,
             padding,
             self.theme,
+            self.with_danger_hover,
         );
         response
     }
@@ -162,7 +179,16 @@ impl<'a> Button<'a> {
         } else {
             WidgetState::Default
         };
-        Self::draw(ui, text, rect, state, self.button_type, padding, self.theme);
+        Self::draw(
+            ui,
+            text,
+            rect,
+            state,
+            self.button_type,
+            padding,
+            self.theme,
+            self.with_danger_hover,
+        );
         response
     }
 }
@@ -243,6 +269,7 @@ impl Button<'_> {
         button_type: ButtonType,
         button_padding: Vec2,
         theme: &Theme,
+        with_danger_hover: bool,
     ) {
         if ui.is_rect_visible(rect) {
             let no_stroke = Stroke::NONE;
@@ -250,6 +277,11 @@ impl Button<'_> {
             let neutral_400_stroke = Stroke::new(1.0, theme.neutral_400());
             let neutral_500_stroke = Stroke::new(1.0, theme.neutral_500());
             let neutral_600_stroke = Stroke::new(1.0, theme.neutral_600());
+            let danger_color = theme.danger_color();
+            let danger_stroke = Stroke::new(
+                1.0,
+                <DefaultTheme as ThemeDef>::darken_color(danger_color, 0.2),
+            );
             let (frame_fill, frame_stroke, text_color, under_stroke) = if ui.visuals().dark_mode {
                 match state {
                     WidgetState::Default => match button_type {
@@ -272,46 +304,58 @@ impl Button<'_> {
                             no_stroke,
                         ),
                     },
-                    WidgetState::Hovered => match button_type {
-                        ButtonType::Primary => (
-                            theme.accent_dark_b20(),
-                            no_stroke,
-                            theme.neutral_50(),
-                            no_stroke,
-                        ),
-                        ButtonType::Secondary => (
-                            theme.neutral_50(),
-                            no_stroke,
-                            theme.accent_dark(),
-                            no_stroke,
-                        ),
-                        ButtonType::Bordered => (
-                            theme.neutral_950(),
-                            neutral_300_stroke,
-                            theme.neutral_200(),
-                            no_stroke,
-                        ),
-                    },
-                    WidgetState::Active => match button_type {
-                        ButtonType::Primary => (
-                            theme.accent_dark(),
-                            no_stroke,
-                            theme.neutral_50(),
-                            no_stroke,
-                        ),
-                        ButtonType::Secondary => (
-                            theme.neutral_200(),
-                            no_stroke,
-                            theme.neutral_700(),
-                            no_stroke,
-                        ),
-                        ButtonType::Bordered => (
-                            theme.neutral_950(),
-                            neutral_400_stroke,
-                            theme.neutral_300(),
-                            no_stroke,
-                        ),
-                    },
+                    WidgetState::Hovered => {
+                        if with_danger_hover {
+                            (danger_color, danger_stroke, theme.neutral_50(), no_stroke)
+                        } else {
+                            match button_type {
+                                ButtonType::Primary => (
+                                    theme.accent_dark_b20(),
+                                    no_stroke,
+                                    theme.neutral_50(),
+                                    no_stroke,
+                                ),
+                                ButtonType::Secondary => (
+                                    theme.neutral_50(),
+                                    no_stroke,
+                                    theme.accent_dark(),
+                                    no_stroke,
+                                ),
+                                ButtonType::Bordered => (
+                                    theme.neutral_950(),
+                                    neutral_300_stroke,
+                                    theme.neutral_200(),
+                                    no_stroke,
+                                ),
+                            }
+                        }
+                    }
+                    WidgetState::Active => {
+                        if with_danger_hover {
+                            (danger_color, danger_stroke, theme.neutral_50(), no_stroke)
+                        } else {
+                            match button_type {
+                                ButtonType::Primary => (
+                                    theme.accent_dark(),
+                                    no_stroke,
+                                    theme.neutral_50(),
+                                    no_stroke,
+                                ),
+                                ButtonType::Secondary => (
+                                    theme.neutral_200(),
+                                    no_stroke,
+                                    theme.neutral_700(),
+                                    no_stroke,
+                                ),
+                                ButtonType::Bordered => (
+                                    theme.neutral_950(),
+                                    neutral_400_stroke,
+                                    theme.neutral_300(),
+                                    no_stroke,
+                                ),
+                            }
+                        }
+                    }
                     WidgetState::Disabled => (
                         theme.neutral_700(),
                         no_stroke,
@@ -361,46 +405,58 @@ impl Button<'_> {
                             no_stroke,
                         ),
                     },
-                    WidgetState::Hovered => match button_type {
-                        ButtonType::Primary => (
-                            theme.accent_light_b20(),
-                            no_stroke,
-                            theme.neutral_50(),
-                            no_stroke,
-                        ),
-                        ButtonType::Secondary => (
-                            theme.neutral_900(),
-                            no_stroke,
-                            theme.neutral_100(),
-                            no_stroke,
-                        ),
-                        ButtonType::Bordered => (
-                            theme.neutral_50(),
-                            neutral_600_stroke,
-                            theme.neutral_800(),
-                            no_stroke,
-                        ),
-                    },
-                    WidgetState::Active => match button_type {
-                        ButtonType::Primary => (
-                            theme.accent_light(),
-                            no_stroke,
-                            theme.neutral_50(),
-                            no_stroke,
-                        ),
-                        ButtonType::Secondary => (
-                            theme.neutral_700(),
-                            no_stroke,
-                            theme.neutral_100(),
-                            no_stroke,
-                        ),
-                        ButtonType::Bordered => (
-                            theme.neutral_100(),
-                            neutral_600_stroke,
-                            theme.accent_light(),
-                            no_stroke,
-                        ),
-                    },
+                    WidgetState::Hovered => {
+                        if with_danger_hover {
+                            (danger_color, danger_stroke, theme.neutral_50(), no_stroke)
+                        } else {
+                            match button_type {
+                                ButtonType::Primary => (
+                                    theme.accent_light_b20(),
+                                    no_stroke,
+                                    theme.neutral_50(),
+                                    no_stroke,
+                                ),
+                                ButtonType::Secondary => (
+                                    theme.neutral_900(),
+                                    no_stroke,
+                                    theme.neutral_100(),
+                                    no_stroke,
+                                ),
+                                ButtonType::Bordered => (
+                                    theme.neutral_50(),
+                                    neutral_600_stroke,
+                                    theme.neutral_800(),
+                                    no_stroke,
+                                ),
+                            }
+                        }
+                    }
+                    WidgetState::Active => {
+                        if with_danger_hover {
+                            (danger_color, danger_stroke, theme.neutral_50(), no_stroke)
+                        } else {
+                            match button_type {
+                                ButtonType::Primary => (
+                                    theme.accent_light(),
+                                    no_stroke,
+                                    theme.neutral_50(),
+                                    no_stroke,
+                                ),
+                                ButtonType::Secondary => (
+                                    theme.neutral_700(),
+                                    no_stroke,
+                                    theme.neutral_100(),
+                                    no_stroke,
+                                ),
+                                ButtonType::Bordered => (
+                                    theme.neutral_100(),
+                                    neutral_600_stroke,
+                                    theme.accent_light(),
+                                    no_stroke,
+                                ),
+                            }
+                        }
+                    }
                     WidgetState::Disabled => (
                         theme.neutral_300(),
                         no_stroke,
