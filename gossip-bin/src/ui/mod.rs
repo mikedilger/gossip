@@ -2204,13 +2204,19 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
                             ui.label("In case you cannot login, here is your escape hatch:");
                             if app.delete_confirm {
                                 ui.label("Please confirm that you really mean to do this: ");
-                                if ui.button("Delete Identity (Yes I'm Sure)").clicked() {
+                                if widgets::Button::primary(&app.theme, "Delete Identity (Yes I'm Sure)")
+                                    .with_danger_hover()
+                                    .show(ui)
+                                    .clicked() {
                                     let _ = GLOBALS.to_overlord.send(ToOverlordMessage::DeletePriv);
                                     app.delete_confirm = false;
                                     cancel_login();
                                 }
                             } else {
-                                if ui.button("Delete Identity (Cannot be undone!)").clicked() {
+                                if widgets::Button::primary(&app.theme, "Delete Identity (Cannot be undone!)")
+                                    .with_danger_hover()
+                                    .show(ui)
+                                    .clicked() {
                                     app.delete_confirm = true;
                                 }
                             }

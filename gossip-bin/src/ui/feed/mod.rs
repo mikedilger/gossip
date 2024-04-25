@@ -98,7 +98,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.add_space(16.0);
 
-                        if ui.button("Edit List").clicked() {
+                        if widgets::Button::bordered(&app.theme, "Edit List")
+                            .small(true)
+                            .show(ui)
+                            .clicked()
+                        {
                             app.set_page(ctx, Page::PeopleList(list));
                         }
 
