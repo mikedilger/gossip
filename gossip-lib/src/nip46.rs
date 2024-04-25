@@ -213,18 +213,11 @@ impl Nip46Server {
         };
 
         let Nip46PreEvent {
-            pubkey,
             created_at,
             kind,
             tags,
             content,
         } = serde_json::from_str(&params[0])?;
-
-        if let Some(pk) = pubkey {
-            if pk != public_key {
-                return Err("sign_event: pubkey mismatch".into());
-            }
-        }
 
         let pre_event: PreEvent = PreEvent {
             pubkey: public_key,
@@ -306,9 +299,6 @@ impl Nip46Server {
 
 #[derive(Debug, Deserialize)]
 pub struct Nip46PreEvent {
-    #[serde(default, deserialize_with = "de_pubkey_none_on_error")]
-    pub pubkey: Option<PublicKey>,
-
     #[serde(default = "default_now")]
     pub created_at: Option<Unixtime>,
 
@@ -317,17 +307,6 @@ pub struct Nip46PreEvent {
     pub tags: Vec<Tag>,
 
     pub content: String,
-}
-
-fn de_pubkey_none_on_error<'de, D>(deserializer: D) -> Result<Option<PublicKey>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    if let Ok(answer) = Option::<PublicKey>::deserialize(deserializer) {
-        Ok(answer)
-    } else {
-        Ok(None)
-    }
 }
 
 fn default_now() -> Option<Unixtime> {
