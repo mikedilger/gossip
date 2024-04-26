@@ -1,6 +1,7 @@
 use eframe::{
     egui::{
-        Rect, Response, Rounding, Sense, Stroke, TextStyle, WidgetInfo, WidgetText, WidgetType,
+        Margin, Rect, Response, Rounding, Sense, Stroke, TextStyle, WidgetInfo, WidgetText,
+        WidgetType,
     },
     epaint::PathShape,
 };
@@ -361,11 +362,14 @@ impl MoreMenu {
                     style.visuals.widgets.inactive.weak_bg_fill = egui::Color32::TRANSPARENT;
                     style.visuals.widgets.inactive.bg_stroke = egui::Stroke::NONE;
                 } else {
+                    let style = ui.style_mut();
+                    style.spacing.item_spacing.y = 0.0;
+                    frame.inner_margin = Margin::symmetric(0.0, 15.0);
+                    frame.outer_margin = Margin::same(0.0);
                     frame.fill = bg_color;
                     frame.stroke = egui::Stroke::NONE;
                     // frame.shadow = egui::epaint::Shadow::NONE;
-                    frame.rounding = egui::Rounding::same(5.0);
-                    frame.inner_margin = egui::Margin::symmetric(POPUP_MARGIN.x, POPUP_MARGIN.y);
+                    frame.rounding = egui::Rounding::same(8.0);
                 }
                 frame.show(ui, |ui| {
                     ui.set_min_size(self.min_size);
@@ -376,12 +380,14 @@ impl MoreMenu {
                         ui.painter().add(polygon);
                     }
 
-                    // now show menu content
-                    for entry in content {
-                        if entry.show(app, ui).clicked() && active {
-                            active = false;
+                    ui.vertical_centered_justified(|ui| {
+                        // now show menu content
+                        for entry in content {
+                            if entry.show(app, ui).clicked() && active {
+                                active = false;
+                            }
                         }
-                    }
+                    })
                 });
             });
             if menuresp.response.clicked_elsewhere() && !response.clicked() {

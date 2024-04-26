@@ -776,9 +776,9 @@ pub(super) fn render_more_list_actions(
         .small(true)
         .show(ui);
 
-    let menu = widgets::MoreMenu::simple(ui.next_auto_id())
+    let menu = widgets::MoreMenu::bubble(ui.next_auto_id())
         .with_min_size(vec2(100.0, 0.0))
-        .with_max_size(vec2(160.0, f32::INFINITY));
+        .with_max_size(vec2(140.0, f32::INFINITY));
 
     let mut entries: Vec<MoreMenuEntry> = Vec::new();
     entries.push(MoreMenuEntry::new(
