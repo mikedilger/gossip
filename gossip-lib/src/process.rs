@@ -511,7 +511,6 @@ pub(crate) fn process_relationships_of_event<'a>(
                         RelationshipByAddr::Annotates,
                         Some(txn),
                     )?;
-                    invalidate.push(id);
                 } else {
                     GLOBALS.storage.write_relationship_by_addr(
                         ea,
