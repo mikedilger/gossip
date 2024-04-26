@@ -20,7 +20,7 @@ appimage = [ "gossip-lib/appimage" ]
 
 [dependencies]
 bech32 = "0.9"
-eframe = { git = "https://github.com/bu5hm4nn/egui", rev = "63dde4c9b311da0cae0cb9f9465bf7273227be6c", features = [ "persistence", "wayland" ] }
+eframe = { git = "https://github.com/bu5hm4nn/egui", rev = "63dde4c9b311da0cae0cb9f9465bf7273227be6c", features = [ "persistence", "wayland", "wgpu" ] }
 egui-winit = { git = "https://github.com/bu5hm4nn/egui", rev = "63dde4c9b311da0cae0cb9f9465bf7273227be6c", features = [ "default" ] }
 egui_extras = { git = "https://github.com/bu5hm4nn/egui", rev = "63dde4c9b311da0cae0cb9f9465bf7273227be6c", features = [ "syntect" ] }
 #egui = { git = "https://github.com/bu5hm4nn/egui", rev = "63dde4c9b311da0cae0cb9f9465bf7273227be6c", features = [ "deadlock_detection" ] }
