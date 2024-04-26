@@ -2255,7 +2255,7 @@ dependencies = [
 [[package]]
 name = "gossip-relay-picker"
 version = "0.2.0-unstable"
-source = "git+https://github.com/mikedilger/gossip-relay-picker?rev=12dfab5e2caf93188f50263014ca832167099e89#12dfab5e2caf93188f50263014ca832167099e89"
+source = "git+https://github.com/mikedilger/gossip-relay-picker?rev=c5b0f1061aefd9edab246a2b808d950ce9554382#c5b0f1061aefd9edab246a2b808d950ce9554382"
 dependencies = [
  "async-trait",
  "dashmap",
@@ -2874,24 +2874,22 @@ dependencies = [
 
 [[package]]
 name = "lightning"
-version = "0.0.122"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d9b36ae12b379905bfc429ce5d4e8ca4a55c8dd3de73074309bd0bcc053bcac"
+version = "0.0.123-beta"
+source = "git+https://github.com/mikedilger/rust-lightning?rev=7a62cb4106d449bc4d1724920b73918d501bb3a9#7a62cb4106d449bc4d1724920b73918d501bb3a9"
 dependencies = [
  "bitcoin",
  "hex-conservative 0.1.1",
+ "musig2",
 ]
 
 [[package]]
 name = "lightning-invoice"
-version = "0.30.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "106fdb897e69df697480f45bf0a564b425af488fb0f7407e770a770c39b19a21"
+version = "0.31.0-beta"
+source = "git+https://github.com/mikedilger/rust-lightning?rev=7a62cb4106d449bc4d1724920b73918d501bb3a9#7a62cb4106d449bc4d1724920b73918d501bb3a9"
 dependencies = [
  "bech32 0.9.1",
  "bitcoin",
  "lightning",
- "num-traits",
  "secp256k1 0.27.0",
 ]
 
@@ -3111,6 +3109,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "musig2"
+version = "0.1.0"
+source = "git+https://github.com/arik-so/rust-musig2?rev=cff11e3#cff11e3b1af1691f721a120dc6acb921afa31f89"
+dependencies = [
+ "bitcoin",
+]
+
+[[package]]
 name = "mutate_once"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3241,7 +3247,7 @@ dependencies = [
 [[package]]
 name = "nostr-types"
 version = "0.8.0-unstable"
-source = "git+https://github.com/mikedilger/nostr-types?rev=a929cf73474dfe788beb52f2d93acb11b0c91504#a929cf73474dfe788beb52f2d93acb11b0c91504"
+source = "git+https://github.com/mikedilger/nostr-types?rev=ea42e2f34bf2a017ccea0e9ec6c3e59fb2e3ceba#ea42e2f34bf2a017ccea0e9ec6c3e59fb2e3ceba"
 dependencies = [
  "aes",
  "base64 0.22.0",
