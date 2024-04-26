@@ -695,6 +695,26 @@ pub fn render_note_inner(
                     content_pull_top,
                 );
 
+                // annotations
+                for (created_at, content) in note.annotations.iter() {
+                    ui.label(
+                        RichText::new(crate::date_ago::date_ago(*created_at))
+                            .italics()
+                            .weak(),
+                    )
+                    .on_hover_ui(|ui| {
+                        if let Ok(stamp) = time::OffsetDateTime::from_unix_timestamp(created_at.0) {
+                            if let Ok(formatted) =
+                                stamp.format(&time::format_description::well_known::Rfc2822)
+                            {
+                                ui.label(formatted);
+                            }
+                        }
+                    });
+
+                    ui.label(format!("EDIT: {}", content));
+                }
+
                 // deleted?
                 for delete_reason in &note.deletions {
                     Frame::none()

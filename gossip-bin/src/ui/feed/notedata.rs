@@ -39,6 +39,9 @@ pub(crate) struct NoteData {
     /// Deletion reasons if any
     pub deletions: Vec<String>,
 
+    /// Annotations by the author
+    pub annotations: Vec<(Unixtime, String)>,
+
     /// Do we consider this note as being a repost of another?
     pub repost: Option<RepostType>,
 
@@ -100,6 +103,9 @@ impl NoteData {
 
         // This function checks that the deletion author is allowed
         let deletions = GLOBALS.storage.get_deletions(&event).unwrap_or_default();
+
+        // This function checks the authors match
+        let annotations = GLOBALS.storage.get_annotations(&event).unwrap_or_default();
 
         let (reactions, self_already_reacted) = GLOBALS
             .storage
@@ -268,6 +274,7 @@ impl NoteData {
             author,
             lists,
             deletions,
+            annotations,
             repost,
             embedded_event,
             mentions,
