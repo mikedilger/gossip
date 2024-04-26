@@ -805,22 +805,18 @@ pub(crate) fn process_relationships_of_event<'a>(
         }
 
         // zaps
-        match event.zaps() {
-            Ok(Some(zapdata)) => {
-                GLOBALS.storage.write_relationship_by_id(
-                    zapdata.id,
-                    event.id,
-                    RelationshipById::Zaps {
-                        by: event.pubkey,
-                        amount: zapdata.amount,
-                    },
-                    Some(txn),
-                )?;
+        if let Ok(Some(zapdata)) = event.zaps() {
+            GLOBALS.storage.write_relationship_by_id(
+                zapdata.id,
+                event.id,
+                RelationshipById::Zaps {
+                    by: event.pubkey,
+                    amount: zapdata.amount,
+                },
+                Some(txn),
+            )?;
 
-                invalidate.push(zapdata.id);
-            }
-            Err(e) => tracing::warn!("Invalid zap receipt: {}", e),
-            _ => {}
+            invalidate.push(zapdata.id);
         }
 
         // JobResult
