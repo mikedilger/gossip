@@ -6,7 +6,7 @@ use eframe::{
 };
 use egui_winit::egui::{self, vec2, AboveOrBelow, Align2, Id, Ui, Vec2};
 
-use crate::ui::{GossipUi, Theme};
+use crate::ui::GossipUi;
 
 static POPUP_MARGIN: Vec2 = Vec2 { x: 20.0, y: 16.0 };
 
@@ -16,23 +16,32 @@ enum MoreMenuStyle {
     Bubble,
 }
 
-pub(in crate::ui) struct MoreMenuEntry {
+pub(in crate::ui) struct MoreMenuEntry<'a> {
     text: WidgetText,
-    action: Box<dyn FnOnce(&mut Ui, &mut GossipUi)>,
+    action: Box<dyn FnOnce(&mut Ui, &mut GossipUi) + 'a>,
+    enabled: bool,
 }
 
-impl MoreMenuEntry {
+impl<'a> MoreMenuEntry<'a> {
     pub fn new(
         text: impl Into<WidgetText>,
-        action: Box<dyn FnOnce(&mut Ui, &mut GossipUi)>,
+        action: Box<dyn FnOnce(&mut Ui, &mut GossipUi) + 'a>,
     ) -> Self {
         Self {
             text: text.into(),
             action,
+            enabled: true,
         }
     }
 
+    pub fn enabled(mut self, enabled: bool) -> Self {
+        self.enabled = enabled;
+        self
+    }
+
     fn show(self, app: &mut GossipUi, ui: &mut Ui) -> Response {
+        ui.set_enabled(self.enabled);
+
         let theme = &app.theme;
 
         // layout

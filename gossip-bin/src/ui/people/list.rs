@@ -1,5 +1,3 @@
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -16,7 +14,6 @@ use gossip_lib::{
     FeedKind, Freshness, People, Person, PersonList, PersonListMetadata, Private, GLOBALS,
 };
 use nostr_types::{Profile, PublicKey, Unixtime};
-use serde::de::IntoDeserializer;
 
 pub(in crate::ui) struct ListUi {
     // cache
@@ -82,7 +79,7 @@ pub(super) fn update(
         refresh_list_data(app, list);
     }
 
-    let mut metadata = GLOBALS
+    let metadata = GLOBALS
         .storage
         .get_person_list_metadata(list)
         .unwrap_or_default()
@@ -111,7 +108,7 @@ pub(super) fn update(
     widgets::page_header_layout(ui, title_job, |ui| {
         ui.add_enabled_ui(enabled, |ui| {
             let len = metadata.len;
-            render_more_list_actions(ui, app, list, &mut metadata, len, true);
+            render_more_list_actions(ui, app, list, &metadata, len, true);
 
             btn_h_space!(ui);
 
@@ -765,7 +762,7 @@ pub(super) fn render_more_list_actions(
     ui: &mut Ui,
     app: &mut GossipUi,
     list: PersonList,
-    metadata: &mut PersonListMetadata,
+    metadata: &PersonListMetadata,
     count: usize,
     on_list: bool,
 ) {
@@ -786,31 +783,85 @@ pub(super) fn render_more_list_actions(
     let mut entries: Vec<MoreMenuEntry> = Vec::new();
     entries.push(MoreMenuEntry::new(
         "Rename",
-        Box::new(|ui, app| {
+        Box::new(|_, app| {
             app.deleting_list = None;
             app.renaming_list = Some(list);
         }),
     ));
 
-    menu.show_entries(ui, app, response, entries);
+    if metadata.favorite {
+        entries.push(MoreMenuEntry::new(
+            "Unset as Favorite",
+            Box::new(|_, _| {
+                let mut metadata = metadata.clone();
+                metadata.favorite = false;
+                let _ = GLOBALS
+                    .storage
+                    .set_person_list_metadata(list, &metadata, None);
+            }),
+        ));
+    } else {
+        entries.push(MoreMenuEntry::new(
+            "Set as Favorite",
+            Box::new(|_, _| {
+                let mut metadata = metadata.clone();
+                metadata.favorite = true;
+                let _ = GLOBALS
+                    .storage
+                    .set_person_list_metadata(list, &metadata, None);
+            }),
+        ));
+    }
 
-    // entries.push(MoreMenuEntry::new(
-    //     "Unset as Favorite",
-    //     RefCell::new(|ui, app| {
-    //         metadata.favorite = false;
-    //         let _ = GLOBALS
-    //             .storage
-    //             .set_person_list_metadata(list, metadata, None);
-    //     }),
-    // ));
+    if on_list {
+        if metadata.private == Private(true) {
+            entries.push(MoreMenuEntry::new(
+                "Make Public",
+                Box::new(|_, _| {
+                    let mut metadata = metadata.clone();
+                    metadata.private = Private(false);
+                    let _ = GLOBALS
+                        .storage
+                        .set_person_list_metadata(list, &metadata, None);
+                }),
+            ));
+        } else {
+            entries.push(MoreMenuEntry::new(
+                "Make Private",
+                Box::new(|_, _| {
+                    let mut metadata = metadata.clone();
+                    metadata.private = Private(true);
+                    let _ = GLOBALS
+                        .storage
+                        .set_person_list_metadata(list, &metadata, None);
+                    let _ = GLOBALS
+                        .storage
+                        .set_all_people_in_list_to_private(list, None);
+                }),
+            ));
+        }
+        entries.push(
+            MoreMenuEntry::new(
+                "Clear All",
+                Box::new(|_, app| {
+                    app.people_list.clear_list_needs_confirm = true;
+                }),
+            )
+            .enabled(count > 0),
+        );
+
+        entries.push(MoreMenuEntry::new(
+            "Delete",
+            Box::new(|_, app| {
+                app.renaming_list = None;
+                app.deleting_list = Some(list);
+            }),
+        ));
+    }
+
+    menu.show_entries(ui, app, response, entries);
     //             } else {
-    //                 if ui.button("Set as Favorite").clicked() {
-    //                     metadata.favorite = true;
-    //                     let _ = GLOBALS
-    //                         .storage
-    //                         .set_person_list_metadata(list, metadata, None);
-    //                     *is_open = false;
-    //                 }
+    //
     //             }
     //             if on_list {
     //                 if *metadata.private {
