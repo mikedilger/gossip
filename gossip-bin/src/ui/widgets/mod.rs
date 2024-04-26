@@ -14,7 +14,7 @@ pub(crate) mod list_entry;
 pub use copy_button::{CopyButton, COPY_SYMBOL_SIZE};
 
 mod nav_item;
-use eframe::egui::{FontId, Galley};
+use eframe::egui::{vec2, FontId, Galley, Rect};
 use egui_winit::egui::text::LayoutJob;
 use egui_winit::egui::{
     self, Align, FontSelection, Response, RichText, Rounding, Sense, Ui, WidgetText,
@@ -42,6 +42,7 @@ pub use switch::Switch;
 mod textedit;
 pub use textedit::TextEdit;
 
+use super::assets::Assets;
 use super::{GossipUi, Theme};
 
 pub const DROPDOWN_DISTANCE: f32 = 10.0;
@@ -160,6 +161,24 @@ pub fn break_anywhere_hyperlink_to(ui: &mut Ui, text: impl Into<WidgetText>, url
     );
     job.wrap.break_anywhere = true;
     ui.hyperlink_to(job, url);
+}
+
+pub fn options_menu_button(ui: &mut Ui, theme: &Theme, assets: &Assets) -> Response {
+    let (response, painter) = ui.allocate_painter(vec2(20.0, 20.0), egui::Sense::click());
+    let btn_rect = response.rect;
+    let color = if response.hovered() {
+        theme.accent_color()
+    } else {
+        ui.visuals().text_color()
+    };
+    let mut mesh = egui::Mesh::with_texture((&assets.options_symbol).into());
+    mesh.add_rect_with_uv(
+        btn_rect.shrink(2.0),
+        Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+        color,
+    );
+    painter.add(egui::Shape::mesh(mesh));
+    response
 }
 
 pub(super) fn set_important_button_visuals(ui: &mut Ui, app: &GossipUi) {

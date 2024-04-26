@@ -293,22 +293,25 @@ pub(super) fn update(
                                 egui::Layout::right_to_left(egui::Align::Min)
                                     .with_cross_align(egui::Align::Center),
                                 |ui| {
-                                    widgets::MoreMenu::simple(
-                                        &app.theme,
-                                        &app.assets,
-                                        ui.next_auto_id(),
-                                    )
-                                    .show(ui, |ui, is_open| {
-                                        // actions
-                                        if ui.button("Remove").clicked() {
-                                            let _ = GLOBALS.storage.remove_person_from_list(
-                                                &person.pubkey,
-                                                list,
-                                                None,
-                                            );
-                                            *is_open = false;
-                                        }
-                                    });
+                                    let text = egui::RichText::new("=").size(13.0);
+                                    let response = widgets::Button::primary(&app.theme, text)
+                                        .small(true)
+                                        .show(ui);
+                                    widgets::MoreMenu::simple(ui.next_auto_id()).show(
+                                        ui,
+                                        response,
+                                        |ui, is_open| {
+                                            // actions
+                                            if ui.button("Remove").clicked() {
+                                                let _ = GLOBALS.storage.remove_person_from_list(
+                                                    &person.pubkey,
+                                                    list,
+                                                    None,
+                                                );
+                                                *is_open = false;
+                                            }
+                                        },
+                                    );
 
                                     ui.add_space(20.0);
 
@@ -768,11 +771,16 @@ pub(super) fn render_more_list_actions(
         return;
     }
 
-    let menu = widgets::MoreMenu::simple(&app.theme, &app.assets, ui.next_auto_id())
+    let text = egui::RichText::new("=").size(13.0);
+    let response = widgets::Button::primary(&app.theme, text)
+        .small(true)
+        .show(ui);
+
+    let menu = widgets::MoreMenu::simple(ui.next_auto_id())
         .with_min_size(vec2(100.0, 0.0))
         .with_max_size(vec2(160.0, f32::INFINITY));
 
-    menu.show(ui, |ui, is_open| {
+    menu.show(ui, response, |ui, is_open| {
         ui.with_layout(egui::Layout::top_down_justified(egui::Align::LEFT), |ui| {
             if on_list {
                 app.theme.primary_button_style(ui.style_mut());

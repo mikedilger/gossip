@@ -471,10 +471,11 @@ pub(super) fn configure_list_btn(app: &mut GossipUi, ui: &mut Ui) {
     ui.add_enabled_ui(true, |ui| {
         let min_size = vec2(180.0, 20.0);
 
-        widgets::MoreMenu::bubble(&app.theme, &app.assets, ui.next_auto_id())
+        let response = widgets::options_menu_button(ui, &app.theme, &app.assets);
+        widgets::MoreMenu::bubble(ui.next_auto_id())
             .with_min_size(min_size)
             .with_hover_text("Configure List View".to_owned())
-            .show(ui, |ui, is_open| {
+            .show(ui, response, |ui, is_open| {
                 ui.horizontal(|ui| {
                     if widgets::Switch::small(&app.theme, &mut app.relays.show_details)
                         .show(ui)

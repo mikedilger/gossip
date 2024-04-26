@@ -136,13 +136,13 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                                     egui::Layout::right_to_left(egui::Align::Min)
                                         .with_cross_align(egui::Align::Center),
                                     |ui| {
-                                        widgets::MoreMenu::simple(
-                                            &app.theme,
-                                            &app.assets,
-                                            ui.next_auto_id(),
-                                        )
-                                        .show(
+                                        let text = egui::RichText::new("=").size(13.0);
+                                        let response = widgets::Button::primary(&app.theme, text)
+                                            .small(true)
+                                            .show(ui);
+                                        widgets::MoreMenu::simple(ui.next_auto_id()).show(
                                             ui,
+                                            response,
                                             |ui, is_open| {
                                                 // actions
                                                 if ui.button("Remove").clicked() {

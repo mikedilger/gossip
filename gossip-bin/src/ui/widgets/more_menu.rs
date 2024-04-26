@@ -1,9 +1,5 @@
-use eframe::epaint::PathShape;
-use egui_winit::egui::{
-    self, vec2, AboveOrBelow, Align2, Color32, Id, Rect, TextureHandle, Ui, Vec2,
-};
-
-use crate::ui::{assets::Assets, Theme};
+use eframe::{egui::Response, epaint::PathShape};
+use egui_winit::egui::{self, vec2, AboveOrBelow, Align2, Id, Ui, Vec2};
 
 static POPUP_MARGIN: Vec2 = Vec2 { x: 20.0, y: 16.0 };
 
@@ -13,21 +9,17 @@ enum MoreMenuStyle {
     Bubble,
 }
 
-pub(in crate::ui) struct MoreMenu<'a> {
+pub(in crate::ui) struct MoreMenu {
     id: Id,
     min_size: Vec2,
     max_size: Vec2,
     above_or_below: Option<AboveOrBelow>,
     hover_text: Option<String>,
-    small_button: bool,
-    accent_color: Color32,
-    options_symbol: TextureHandle,
     style: MoreMenuStyle,
-    theme: &'a Theme,
 }
 
-impl<'a> MoreMenu<'a> {
-    pub fn simple(theme: &'a Theme, assets: &'a Assets, id: Id) -> Self {
+impl MoreMenu {
+    pub fn simple(id: Id) -> Self {
         Self {
             id,
             min_size: Vec2 { x: 0.0, y: 0.0 },
@@ -37,15 +29,11 @@ impl<'a> MoreMenu<'a> {
             },
             above_or_below: None,
             hover_text: None,
-            small_button: false,
-            accent_color: theme.accent_color(),
-            options_symbol: assets.options_symbol.clone(),
             style: MoreMenuStyle::Simple,
-            theme,
         }
     }
 
-    pub fn bubble(theme: &'a Theme, assets: &'a Assets, id: Id) -> Self {
+    pub fn bubble(id: Id) -> Self {
         Self {
             id,
             min_size: Vec2 { x: 0.0, y: 0.0 },
@@ -55,18 +43,8 @@ impl<'a> MoreMenu<'a> {
             },
             above_or_below: None,
             hover_text: None,
-            small_button: false,
-            accent_color: theme.accent_color(),
-            options_symbol: assets.options_symbol.clone(),
             style: MoreMenuStyle::Bubble,
-            theme,
         }
-    }
-
-    #[allow(unused)]
-    pub fn small_button(mut self) -> Self {
-        self.small_button = true;
-        self
     }
 
     #[allow(unused)]
@@ -103,37 +81,36 @@ impl<'a> MoreMenu<'a> {
         self
     }
 
-    pub fn show(&self, ui: &mut Ui, content: impl FnOnce(&mut Ui, &mut bool)) {
+    pub fn show(&self, ui: &mut Ui, response: Response, content: impl FnOnce(&mut Ui, &mut bool)) {
         let mut active = self.load_state(ui);
 
-        let response = match self.style {
-            MoreMenuStyle::Simple => {
-                let text = egui::RichText::new("=").size(13.0);
-                super::Button::primary(self.theme, text)
-                    .small(self.small_button)
-                    .show(ui)
-            }
-            MoreMenuStyle::Bubble => {
-                let (response, painter) =
-                    ui.allocate_painter(vec2(20.0, 20.0), egui::Sense::click());
-                let btn_rect = response.rect;
-                let color = if response.hovered() {
-                    self.accent_color
-                } else {
-                    ui.visuals().text_color()
-                };
-                let mut mesh = egui::Mesh::with_texture((&self.options_symbol).into());
-                mesh.add_rect_with_uv(
-                    btn_rect.shrink(2.0),
-                    Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
-                    color,
-                );
-                painter.add(egui::Shape::mesh(mesh));
-                response
-            }
-        };
+        // let response = match self.style {
+        //     MoreMenuStyle::Simple => {
+        //         let text = egui::RichText::new("=").size(13.0);
+        //         super::Button::primary(self.theme, text)
+        //             .small(self.small_button)
+        //             .show(ui)
+        //     }
+        //     MoreMenuStyle::Bubble => {
+        //         let (response, painter) =
+        //             ui.allocate_painter(vec2(20.0, 20.0), egui::Sense::click());
+        //         let btn_rect = response.rect;
+        //         let color = if response.hovered() {
+        //             self.accent_color
+        //         } else {
+        //             ui.visuals().text_color()
+        //         };
+        //         let mut mesh = egui::Mesh::with_texture((&self.options_symbol).into());
+        //         mesh.add_rect_with_uv(
+        //             btn_rect.shrink(2.0),
+        //             Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+        //             color,
+        //         );
+        //         painter.add(egui::Shape::mesh(mesh));
+        //         response
+        //     }
+        // };
 
-        let response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
         let response = if let Some(text) = &self.hover_text {
             if !active {
                 response.on_hover_text(text)

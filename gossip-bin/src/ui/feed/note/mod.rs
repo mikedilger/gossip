@@ -420,9 +420,14 @@ pub fn render_note_inner(
 
                 let mut next_page = None;
                 ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
-                    widgets::MoreMenu::simple(&app.theme, &app.assets, ui.next_auto_id())
-                        .small_button()
-                        .show(ui, |ui, keep_open| {
+                    let text = egui::RichText::new("=").size(13.0);
+                    let response = widgets::Button::primary(&app.theme, text)
+                        .small(true)
+                        .show(ui);
+                    widgets::MoreMenu::simple(ui.next_auto_id()).show(
+                        ui,
+                        response,
+                        |ui, keep_open| {
                             let relays: Vec<UncheckedUrl> = note
                                 .seen_on
                                 .iter()
@@ -562,7 +567,8 @@ pub fn render_note_inner(
                                 app.notes.cache_invalidate_note(&note.event.id);
                                 *keep_open = false;
                             }
-                        });
+                        },
+                    );
                     ui.add_space(4.0);
 
                     let is_thread_view: bool = {

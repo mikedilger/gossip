@@ -229,11 +229,12 @@ fn dm_posting_area(
     ui.add_space(8.0);
 
     ui.horizontal(|ui| {
-        widgets::MoreMenu::bubble(&app.theme, &app.assets, ui.next_auto_id())
+        let response = widgets::options_menu_button(ui, &app.theme, &app.assets);
+        widgets::MoreMenu::bubble(ui.next_auto_id())
             .with_max_size(vec2(190.0, 40.0))
             .with_min_size(vec2(190.0, 40.0))
             .place_above(!read_setting!(posting_area_at_top))
-            .show(ui, |ui, is_open| {
+            .show(ui, response, |ui, is_open| {
                 ui.vertical_centered_justified(|ui| {
                     if app.dm_draft_data.include_subject {
                         if widgets::Button::primary(&app.theme, "Remove Subject")
@@ -530,11 +531,12 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
         if app.draft_data.raw.is_empty() {
             // show advanced action menu
             if app.draft_data.repost.is_none() {
-                widgets::MoreMenu::bubble(&app.theme, &app.assets, ui.next_auto_id())
+                let response = widgets::options_menu_button(ui, &app.theme, &app.assets);
+                widgets::MoreMenu::bubble(ui.next_auto_id())
                     .with_max_size(vec2(180.0, 80.0))
                     .with_min_size(vec2(180.0, 80.0))
                     .place_above(!read_setting!(posting_area_at_top))
-                    .show(ui, |ui, is_open| {
+                    .show(ui, response, |ui, is_open| {
                         ui.vertical_centered_justified(|ui| {
                             if app.draft_data.include_subject {
                                 if widgets::Button::primary(&app.theme, "Remove Subject")
