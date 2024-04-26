@@ -41,8 +41,8 @@ appimage = []
 [dependencies]
 async-recursion = "1.0"
 async-trait = "0.1"
-base64 = "0.21"
-bech32 = "0.9"
+base64 = "0.22"
+bech32 = "0.11"
 dashmap = "5.4"
 dirs = "5.0"
 encoding_rs = "0.8"
@@ -50,20 +50,20 @@ fallible-iterator = "0.2"
 filetime = "0.2"
 futures = "0.3"
 futures-util = "0.3"
-gossip-relay-picker = { git = "https://github.com/mikedilger/gossip-relay-picker", rev = "a8b670eec21bd57132258f8726ab5f7cbf40b8a3" }
+gossip-relay-picker = { git = "https://github.com/mikedilger/gossip-relay-picker", rev = "12dfab5e2caf93188f50263014ca832167099e89" }
 heed = { git = "https://github.com/meilisearch/heed", rev = "64fd6fec293c0dee94855b8267557ce03e7ce5d8" }
 hex = "0.4"
 http = "1.0"
 image = { version = "0.24.6", features = [ "png", "jpeg" ] }
 kamadak-exif = "0.5"
 lazy_static = "1.4"
-linkify = "0.9"
+linkify = "0.10"
 mime = "0.3"
-nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "fab98f8b90777519dfd45dedc02f407c5a065244", features = [ "speedy" ] }
+nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "a929cf73474dfe788beb52f2d93acb11b0c91504", features = [ "speedy" ] }
 parking_lot = "0.12"
 paste = "1.0"
 rand = "0.8"
-regex = "1.8"
+regex = "1.10"
 reqwest = { version = "0.11", default-features=false, features = ["brotli", "deflate", "gzip", "json"] }
 resvg = "0.35.0"
 rhai = { version = "1.15", features = [ "std", "sync" ]}
@@ -71,16 +71,16 @@ sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", rev = "f2f1e29a416bcc22
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha2 = "0.10"
-speedy = { git = "https://github.com/mikedilger/speedy", rev = "b8b713a7006958616dd3ef3ba63217740b4b09c2" }
+speedy = "0.8.7"
 textnonce = "1"
 tiny-skia = "0.10.0"
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 tokio-tungstenite = { version = "0.21", default-features = false, features = [ "connect", "handshake" ] }
 tungstenite = { version = "0.21", default-features = false }
-url = "2.4"
+url = "2.5"
 usvg = "0.35.0"
-zeroize = "1.6"
+zeroize = "1.7"
 
 [target.'cfg(windows)'.dependencies]
 normpath = "1.1"
