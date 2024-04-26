@@ -168,17 +168,7 @@ impl<'a> Button<'a> {
     pub fn show(self, ui: &mut Ui) -> Response {
         let (text, desired_size, padding) = Self::layout(ui, self.text, self.variant);
         let (rect, response) = Self::allocate(ui, &text, desired_size);
-        let state = if response.is_pointer_button_down_on() {
-            WidgetState::Active
-        } else if response.has_focus() {
-            WidgetState::Focused
-        } else if response.hovered() || response.highlighted() {
-            WidgetState::Hovered
-        } else if !ui.is_enabled() {
-            WidgetState::Disabled
-        } else {
-            WidgetState::Default
-        };
+        let state = super::interact_widget_state(ui, &response);
         Self::draw(
             ui,
             text,
