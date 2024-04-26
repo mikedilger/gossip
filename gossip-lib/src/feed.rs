@@ -377,14 +377,15 @@ impl Feed {
                         .storage
                         .find_events_by_filter(&filter, |e| {
                             e.created_at <= now // no future events
-                                    && e.kind != EventKind::EncryptedDirectMessage // no DMs
-                                    && e.kind != EventKind::DmChat // no DMs
-                                    && !dismissed.contains(&e.id) // not dismissed
-                                    && if !with_replies {
-                                        e.replies_to().is_none() // is not a reply
-                                    } else {
-                                        true
-                                    }
+                                && e.kind != EventKind::EncryptedDirectMessage // no DMs
+                                && e.kind != EventKind::DmChat // no DMs
+                                && !dismissed.contains(&e.id) // not dismissed
+                                && !e.is_annotation()
+                                && if !with_replies {
+                                    e.replies_to().is_none() // is not a reply
+                                } else {
+                                    true
+                                }
                         })?
                         .iter()
                         .map(|e| e.id)
@@ -427,6 +428,9 @@ impl Feed {
                                     return false;
                                 }
                                 if dismissed.contains(&e.id) {
+                                    return false;
+                                }
+                                if e.is_annotation() {
                                     return false;
                                 }
                                 if e.kind == EventKind::GiftWrap
@@ -487,6 +491,9 @@ impl Feed {
 
                 let screen = |e: &Event| {
                     if dismissed.contains(&e.id) {
+                        return false;
+                    }
+                    if e.is_annotation() {
                         return false;
                     }
                     if !kinds_without_dms.contains(&e.kind) {
