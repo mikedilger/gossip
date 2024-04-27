@@ -124,6 +124,11 @@ pub fn run() -> Result<(), Error> {
         centered: true,
         vsync: true,
         follow_system_theme: read_setting!(follow_os_dark_mode),
+        renderer: if read_setting!(wgpu_renderer) {
+            eframe::Renderer::Wgpu
+        } else {
+            eframe::Renderer::Glow
+        },
         ..Default::default()
     };
 

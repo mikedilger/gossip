@@ -46,12 +46,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     });
 
     ui.add_space(20.0);
-    ui.horizontal(|ui| {
+    ui.horizontal_wrapped(|ui| {
         ui.label("Override DPI: ").on_hover_text("On some systems, DPI is not reported properly. In other cases, people like to zoom in or out. This lets you.");
         ui.checkbox(&mut app.override_dpi, "Override to ");
         ui.add(Slider::new(&mut app.override_dpi_value, 72..=250).text("DPI"));
-    });
-    ui.horizontal(|ui| {
+
         ui.add_space(10.0); // indent
 
         if ui.button("Reset native").clicked() {
@@ -73,6 +72,12 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             None
         };
     });
+
+    ui.add_space(20.0);
+    ui.checkbox(
+        &mut app.unsaved_settings.wgpu_renderer,
+        "Enable WGPU renderer (better if your system supports it) APP RESTART REQUIRED",
+    );
 
     ui.add_space(20.0);
     ui.horizontal(|ui| {
