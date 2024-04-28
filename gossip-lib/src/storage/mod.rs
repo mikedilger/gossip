@@ -691,6 +691,11 @@ impl Storage {
         b"rebuild_relationships_needed",
         false
     );
+    def_flag!(
+        rebuild_indexes_needed,
+        b"rebuild_indexes_needed",
+        false
+    );
 
     // Settings ----------------------------------------------------------
 
@@ -2388,8 +2393,7 @@ impl Storage {
         Ok(sortable.iter().map(|(_, e)| e.id).collect())
     }
 
-    /// Rebuild all the event indices. This is generally internal, but might be used
-    /// to fix a broken database.
+    /// Rebuild all the event indices.
     pub fn rebuild_event_indices<'a>(
         &'a self,
         rw_txn: Option<&mut RwTxn<'a>>,
@@ -2440,6 +2444,7 @@ impl Storage {
                     self.add_hashtag(&hashtag, event.id, Some(txn))?;
                 }
             }
+            self.set_flag_rebuild_indexes_needed(false, Some(txn))?;
             Ok(())
         };
 
