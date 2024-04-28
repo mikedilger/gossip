@@ -2375,7 +2375,7 @@ impl Storage {
         let mut filter = Filter::new();
         filter.kinds = vec![EventKind::EncryptedDirectMessage, EventKind::GiftWrap];
 
-        let output: Vec<Event> = self.find_events_by_filter(&filter, |event| {
+        let mut output: Vec<Event> = self.find_events_by_filter(&filter, |event| {
             if let Some(event_dm_channel) = DmChannel::from_event(event, Some(my_pubkey)) {
                 if event_dm_channel == *channel {
                     return true;
@@ -2384,7 +2384,25 @@ impl Storage {
             false
         })?;
 
-        Ok(output.iter().map(|e| e.id).collect())
+        // Sort by rumor's time, not giftwrap's time
+        let mut sortable: Vec<(Unixtime, Event)> = output
+            .drain(..)
+            .map(|e| {
+                if e.kind == EventKind::GiftWrap {
+                    if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(&e) {
+                        (rumor.created_at, e)
+                    } else {
+                        (e.created_at, e)
+                    }
+                } else {
+                    (e.created_at, e)
+                }
+            })
+            .collect();
+
+        sortable.sort();
+
+        Ok(sortable.iter().map(|(_, e)| e.id).collect())
     }
 
     /// Rebuild all the event indices. This is generally internal, but might be used
