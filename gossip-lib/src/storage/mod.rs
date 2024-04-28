@@ -2690,8 +2690,6 @@ impl Storage {
         &'a self,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        tracing::info!("Rebuilding relationships...");
-
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
             // Iterate through all events
             let loop_txn = self.env.read_txn()?;
