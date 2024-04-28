@@ -1794,7 +1794,7 @@ impl Storage {
         Ok(())
     }
 
-    // Switch to rumor before calling this.
+    // This should be called with the outer giftwrap
     fn write_event_tag_index<'a>(
         &'a self,
         event: &Event,
@@ -2396,6 +2396,8 @@ impl Storage {
     ) -> Result<(), Error> {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
             // Erase all indices first
+            self.db_event_akci_index()?.clear(txn)?;
+            self.db_event_kci_index()?.clear(txn)?;
             self.db_event_tag_index()?.clear(txn)?;
             self.db_hashtags()?.clear(txn)?;
 
@@ -2404,28 +2406,33 @@ impl Storage {
                 let (_key, val) = result?;
                 let event = Event::read_from_buffer(val)?;
 
-                // If giftwrap, index the inner rumor instead
-                let mut eventptr: &Event = &event;
+                // If giftwrap:
+                //   Use the id and kind of the giftwrap,
+                //   Use the pubkey and created_at of the rumor
+                let mut innerevent: &Event = &event;
                 let rumor: Event;
                 if let Some(r) = self.switch_to_rumor(&event, txn)? {
                     rumor = r;
-                    eventptr = &rumor;
+                    innerevent = &rumor;
                 }
 
                 self.write_event_akci_index(
-                    eventptr.pubkey,
-                    eventptr.kind,
-                    eventptr.created_at,
-                    eventptr.id,
+                    innerevent.pubkey,
+                    event.kind,
+                    innerevent.created_at,
+                    event.id,
                     Some(txn),
                 )?;
                 self.write_event_kci_index(
-                    eventptr.kind,
-                    eventptr.created_at,
-                    eventptr.id,
+                    event.kind,
+                    innerevent.created_at,
+                    event.id,
                     Some(txn),
                 )?;
-                self.write_event_tag_index(eventptr, Some(txn))?;
+                self.write_event_tag_index(
+                    &event, // this handles giftwrap internally
+                    Some(txn)
+                )?;
                 for hashtag in event.hashtags() {
                     if hashtag.is_empty() {
                         continue;
