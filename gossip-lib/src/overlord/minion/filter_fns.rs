@@ -107,7 +107,8 @@ pub fn inbox_feed(spamsafe: bool, range: FeedRange) -> Vec<Filter> {
         let filter = {
             let mut filter = Filter {
                 kinds: vec![EventKind::GiftWrap],
-                since,
+                // giftwraps may be dated 1 week in the past:
+                since: since.map(|u| Unixtime(*u - (3600 * 24 * 7))),
                 until,
                 limit,
                 ..Default::default()
