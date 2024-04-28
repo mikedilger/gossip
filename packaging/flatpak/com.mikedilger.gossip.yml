@@ -14,7 +14,6 @@ finish-args:
   - --socket=wayland
   - --socket=fallback-x11
   - --share=network
-  - --filesystem=home/.local/share/gossip:rw
 
 modules:
   - name: gossip
