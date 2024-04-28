@@ -2361,11 +2361,10 @@ impl Storage {
 
         let mut output: Vec<Event> = self.find_events_by_filter(&filter, |event| {
             if let Some(event_dm_channel) = DmChannel::from_event(event, Some(my_pubkey)) {
-                if event_dm_channel == *channel {
-                    return true;
-                }
+                event_dm_channel == *channel
+            } else {
+                false
             }
-            false
         })?;
 
         // Sort by rumor's time, not giftwrap's time
