@@ -77,27 +77,11 @@ pub(crate) fn clickable_frame<R>(
     fill: Option<Color32>,
     mut content: impl FnMut(&mut Ui, &mut GossipUi) -> R,
 ) -> InnerResponse<R> {
-    // FIXME FIXME FIXME
-    // this is a very rough hack to work around Response::interact()
-    // being broken in egui 0.26.x it essentially renders the content twice
-    // first time just to determine the size, so that the interact rect can
-    // be allocated before the content
-    let frame_rect = {
-        let frame = make_frame(ui, fill);
-        let mut prepared = frame.begin(ui);
-        content(&mut prepared.content_ui, app);
-
-        (prepared.frame.inner_margin + prepared.frame.outer_margin)
-            .expand_rect(prepared.content_ui.min_rect())
-    };
-
-    let response = ui.interact(frame_rect, ui.auto_id_with("fframe"), Sense::click());
-
     // now really render the frame
     let frame = make_frame(ui, fill);
     let mut prepared = frame.begin(ui);
     let inner = content(&mut prepared.content_ui, app);
-    prepared.end(ui);
+    let response = prepared.end(ui);
 
     InnerResponse { inner, response }
 }
