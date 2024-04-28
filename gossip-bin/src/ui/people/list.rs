@@ -297,23 +297,25 @@ pub(super) fn update(
                                     let response = widgets::Button::primary(&app.theme, text)
                                         .small(true)
                                         .show(ui);
-                                    widgets::MoreMenu::simple(ui.next_auto_id()).show(
-                                        ui,
-                                        response,
-                                        |ui, is_open| {
-                                            // actions
-                                            if ui.button("Remove").clicked() {
-                                                let _ = GLOBALS.storage.remove_person_from_list(
-                                                    &person.pubkey,
-                                                    list,
-                                                    None,
-                                                );
-                                                *is_open = false;
-                                            }
-                                        },
-                                    );
+                                    let menu =
+                                        widgets::MoreMenu::bubble(ui.auto_id_with(person.pubkey))
+                                            .with_min_size(vec2(100.0, 0.0))
+                                            .with_max_size(vec2(100.0, f32::INFINITY));
+                                    let mut entries: Vec<MoreMenuEntry> = Vec::new();
 
-                                    ui.add_space(20.0);
+                                    // actions
+                                    entries.push(MoreMenuEntry::new(
+                                        "Remove",
+                                        Box::new(|_, _| {
+                                            let _ = GLOBALS.storage.remove_person_from_list(
+                                                &person.pubkey,
+                                                list,
+                                                None,
+                                            );
+                                        }),
+                                    ));
+
+                                    menu.show_entries(ui, app, response, entries);
 
                                     if list != PersonList::Followed {
                                         // private / public switch
@@ -341,13 +343,9 @@ pub(super) fn update(
                 },
             );
             if row_response
-                .response
+                .inner
                 .on_hover_cursor(egui::CursorIcon::PointingHand)
                 .clicked()
-                || row_response
-                    .inner
-                    .on_hover_cursor(egui::CursorIcon::PointingHand)
-                    .clicked()
             {
                 app.set_page(ctx, Page::Person(person.pubkey));
             }

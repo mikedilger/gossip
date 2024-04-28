@@ -58,108 +58,106 @@ impl<'a> MoreMenuEntry<'a> {
             .into_galley(ui, None, desired_size.x, TextStyle::Button);
 
         // draw
-        if ui.is_rect_visible(response.rect) {
-            let no_background = egui::Color32::TRANSPARENT;
-            let no_stroke = Stroke::NONE;
-            let neutral_100_stroke = Stroke::new(1.0, theme.neutral_100());
-            let neutral_300_stroke = Stroke::new(1.0, theme.neutral_300());
-            let neutral_800_stroke = Stroke::new(1.0, theme.neutral_800());
-            let neutral_900_stroke = Stroke::new(1.0, theme.neutral_900());
-            let neutral_950_stroke = Stroke::new(1.0, theme.neutral_950());
-            let (bg_fill, text_color, separator_stroke, under_stroke) = if theme.dark_mode {
-                match state {
-                    super::WidgetState::Default => (
-                        no_background,
-                        theme.neutral_300(),
-                        neutral_800_stroke,
-                        no_stroke,
-                    ),
-                    super::WidgetState::Hovered => (
-                        theme.neutral_900(),
-                        theme.neutral_100(),
-                        neutral_950_stroke,
-                        no_stroke,
-                    ),
-                    super::WidgetState::Active => (
-                        no_background,
-                        theme.accent_dark(),
-                        neutral_800_stroke,
-                        no_stroke,
-                    ),
-                    super::WidgetState::Disabled => (
-                        no_background,
-                        theme.neutral_600(),
-                        neutral_800_stroke,
-                        no_stroke,
-                    ),
-                    super::WidgetState::Focused => (
-                        theme.neutral_900(),
-                        theme.neutral_100(),
-                        neutral_950_stroke,
-                        neutral_100_stroke,
-                    ),
-                }
-            } else {
-                match state {
-                    super::WidgetState::Default => (
-                        no_background,
-                        theme.neutral_800(),
-                        neutral_300_stroke,
-                        no_stroke,
-                    ),
-                    super::WidgetState::Hovered => (
-                        theme.neutral_200(),
-                        theme.neutral_900(),
-                        neutral_300_stroke,
-                        no_stroke,
-                    ),
-                    super::WidgetState::Active => (
-                        no_background,
-                        theme.accent_light(),
-                        neutral_300_stroke,
-                        no_stroke,
-                    ),
-                    super::WidgetState::Disabled => (
-                        no_background,
-                        theme.neutral_300(),
-                        neutral_300_stroke,
-                        no_stroke,
-                    ),
-                    super::WidgetState::Focused => (
-                        theme.neutral_200(),
-                        theme.neutral_900(),
-                        neutral_300_stroke,
-                        neutral_900_stroke,
-                    ),
-                }
-            };
+        let no_background = egui::Color32::TRANSPARENT;
+        let no_stroke = Stroke::NONE;
+        let neutral_100_stroke = Stroke::new(1.0, theme.neutral_100());
+        let neutral_300_stroke = Stroke::new(1.0, theme.neutral_300());
+        let neutral_800_stroke = Stroke::new(1.0, theme.neutral_800());
+        let neutral_900_stroke = Stroke::new(1.0, theme.neutral_900());
+        let neutral_950_stroke = Stroke::new(1.0, theme.neutral_950());
+        let (bg_fill, text_color, separator_stroke, under_stroke) = if theme.dark_mode {
+            match state {
+                super::WidgetState::Default => (
+                    no_background,
+                    theme.neutral_300(),
+                    neutral_800_stroke,
+                    no_stroke,
+                ),
+                super::WidgetState::Hovered => (
+                    theme.neutral_900(),
+                    theme.neutral_100(),
+                    neutral_950_stroke,
+                    no_stroke,
+                ),
+                super::WidgetState::Active => (
+                    no_background,
+                    theme.accent_dark(),
+                    neutral_800_stroke,
+                    no_stroke,
+                ),
+                super::WidgetState::Disabled => (
+                    no_background,
+                    theme.neutral_600(),
+                    neutral_800_stroke,
+                    no_stroke,
+                ),
+                super::WidgetState::Focused => (
+                    theme.neutral_900(),
+                    theme.neutral_100(),
+                    neutral_950_stroke,
+                    neutral_100_stroke,
+                ),
+            }
+        } else {
+            match state {
+                super::WidgetState::Default => (
+                    no_background,
+                    theme.neutral_800(),
+                    neutral_300_stroke,
+                    no_stroke,
+                ),
+                super::WidgetState::Hovered => (
+                    theme.neutral_200(),
+                    theme.neutral_900(),
+                    neutral_300_stroke,
+                    no_stroke,
+                ),
+                super::WidgetState::Active => (
+                    no_background,
+                    theme.accent_light(),
+                    neutral_300_stroke,
+                    no_stroke,
+                ),
+                super::WidgetState::Disabled => (
+                    no_background,
+                    theme.neutral_300(),
+                    neutral_300_stroke,
+                    no_stroke,
+                ),
+                super::WidgetState::Focused => (
+                    theme.neutral_200(),
+                    theme.neutral_900(),
+                    neutral_300_stroke,
+                    neutral_900_stroke,
+                ),
+            }
+        };
 
-            // background & separator lines
-            ui.painter().rect_filled(rect, Rounding::same(0.0), bg_fill);
-            ui.painter()
-                .hline(rect.x_range(), rect.top(), separator_stroke);
-            ui.painter()
-                .hline(rect.x_range(), rect.bottom(), separator_stroke);
+        // background & separator lines
+        ui.painter().rect_filled(rect, Rounding::same(0.0), bg_fill);
+        ui.painter()
+            .hline(rect.x_range(), rect.top(), separator_stroke);
+        ui.painter()
+            .hline(rect.x_range(), rect.bottom(), separator_stroke);
 
-            // text
-            let text_pos = {
-                // Make sure button text is centered if within a centered layout
-                ui.layout().align_size_within_rect(galley.size(), rect).min
-            };
-            let painter = ui.painter();
-            painter.galley(text_pos, galley.clone(), text_color);
-            let text_rect = Rect::from_min_size(text_pos, galley.rect.size());
-            let shapes = egui::Shape::dashed_line(
-                &[
-                    text_rect.left_bottom() + vec2(0.0, 0.0),
-                    text_rect.right_bottom() + vec2(0.0, 0.0),
-                ],
-                under_stroke,
-                3.0,
-                3.0,
-            );
-            painter.add(shapes);
-        }
+        // text
+        let text_pos = {
+            // Make sure button text is centered if within a centered layout
+            ui.layout().align_size_within_rect(galley.size(), rect).min
+        };
+        let painter = ui.painter();
+        painter.galley(text_pos, galley.clone(), text_color);
+        let text_rect = Rect::from_min_size(text_pos, galley.rect.size());
+        let shapes = egui::Shape::dashed_line(
+            &[
+                text_rect.left_bottom() + vec2(0.0, 0.0),
+                text_rect.right_bottom() + vec2(0.0, 0.0),
+            ],
+            under_stroke,
+            3.0,
+            3.0,
+        );
+        painter.add(shapes);
 
         // process action
         if response.clicked() {
@@ -250,6 +248,10 @@ impl MoreMenu {
         content: Vec<MoreMenuEntry>,
     ) {
         let mut active = self.load_state(ui);
+
+        if !ui.is_rect_visible(response.rect) {
+            active = false; // close menu when the button goes out of view
+        };
 
         let response = if let Some(text) = &self.hover_text {
             if !active {

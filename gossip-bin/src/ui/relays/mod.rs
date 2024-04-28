@@ -476,25 +476,13 @@ pub(super) fn configure_list_btn(app: &mut GossipUi, ui: &mut Ui) {
             .with_min_size(min_size)
             .with_hover_text("Configure List View".to_owned())
             .show(ui, response, |ui, is_open| {
-                ui.horizontal(|ui| {
-                    if widgets::Switch::small(&app.theme, &mut app.relays.show_details)
-                        .show(ui)
-                        .changed()
-                    {
-                        *is_open = false;
-                    }
-                    ui.label("Show details");
-                });
+                widgets::Switch::small(&app.theme, &mut app.relays.show_details)
+                    .with_label("Show details")
+                    .show(ui);
                 ui.add_space(8.0);
-                ui.horizontal(|ui| {
-                    if widgets::Switch::small(&app.theme, &mut app.relays.show_hidden)
-                        .show(ui)
-                        .changed()
-                    {
-                        *is_open = false;
-                    }
-                    ui.label("Show hidden relays");
-                });
+                widgets::Switch::small(&app.theme, &mut app.relays.show_hidden)
+                    .with_label("Show hidden relays")
+                    .show(ui);
             });
     });
 }
