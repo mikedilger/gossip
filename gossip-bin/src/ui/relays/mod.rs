@@ -475,7 +475,7 @@ pub(super) fn configure_list_btn(app: &mut GossipUi, ui: &mut Ui) {
         widgets::MoreMenu::bubble(ui.next_auto_id())
             .with_min_size(min_size)
             .with_hover_text("Configure List View".to_owned())
-            .show(ui, response, |ui, is_open| {
+            .show(ui, response, |ui, _is_open| {
                 widgets::Switch::small(&app.theme, &mut app.relays.show_details)
                     .with_label("Show details")
                     .show(ui);
