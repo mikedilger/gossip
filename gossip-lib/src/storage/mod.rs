@@ -42,7 +42,9 @@ mod person_lists_metadata3;
 mod person_relays1;
 mod relationships1;
 mod relationships_by_addr1;
+mod relationships_by_addr2;
 mod relationships_by_id1;
+mod relationships_by_id2;
 mod relays1;
 mod relays2;
 mod reprel1;
@@ -323,12 +325,12 @@ impl Storage {
 
     #[inline]
     pub(crate) fn db_relationships_by_addr(&self) -> Result<RawDatabase, Error> {
-        self.db_relationships_by_addr1()
+        self.db_relationships_by_addr2()
     }
 
     #[inline]
     pub(crate) fn db_relationships_by_id(&self) -> Result<RawDatabase, Error> {
-        self.db_relationships_by_id1()
+        self.db_relationships_by_id2()
     }
 
     #[inline]
@@ -687,6 +689,11 @@ impl Storage {
     def_flag!(
         rebuild_relationships_needed,
         b"rebuild_relationships_needed",
+        false
+    );
+    def_flag!(
+        rebuild_indexes_needed,
+        b"rebuild_indexes_needed",
         false
     );
 
@@ -1793,7 +1800,7 @@ impl Storage {
         Ok(())
     }
 
-    // Switch to rumor before calling this.
+    // This should be called with the outer giftwrap
     fn write_event_tag_index<'a>(
         &'a self,
         event: &Event,
@@ -1893,7 +1900,7 @@ impl Storage {
         relationship_by_id: RelationshipById,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.write_relationship_by_id1(id, related, relationship_by_id, rw_txn)
+        self.write_relationship_by_id2(id, related, relationship_by_id, rw_txn)
     }
 
     /// Find relationships belonging to the given event
@@ -1902,7 +1909,7 @@ impl Storage {
     /// e.g. result id replies to id, or result id deletes id
     #[inline]
     pub fn find_relationships_by_id(&self, id: Id) -> Result<Vec<(Id, RelationshipById)>, Error> {
-        self.find_relationships_by_id1(id)
+        self.find_relationships_by_id2(id)
     }
 
     /// Write a relationship between an event and an EventAddr (replaceable)
@@ -1914,7 +1921,7 @@ impl Storage {
         relationship_by_addr: RelationshipByAddr,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.write_relationship_by_addr1(addr, related, relationship_by_addr, rw_txn)
+        self.write_relationship_by_addr2(addr, related, relationship_by_addr, rw_txn)
     }
 
     /// Find relationships belonging to the given event to replaceable events
@@ -1923,7 +1930,7 @@ impl Storage {
         &self,
         addr: &EventAddr,
     ) -> Result<Vec<(Id, RelationshipByAddr)>, Error> {
-        self.find_relationships_by_addr1(addr)
+        self.find_relationships_by_addr2(addr)
     }
 
     /// Get replies to the given event
@@ -1943,7 +1950,7 @@ impl Storage {
             .find_relationships_by_id(id)?
             .iter()
             .filter_map(|(id, rel)| {
-                if *rel == RelationshipById::Reply {
+                if *rel == RelationshipById::RepliesTo {
                     Some(*id)
                 } else {
                     None
@@ -1957,7 +1964,7 @@ impl Storage {
             .find_relationships_by_addr(addr)?
             .iter()
             .filter_map(|(id, rel)| {
-                if *rel == RelationshipByAddr::Reply {
+                if *rel == RelationshipByAddr::RepliesTo {
                     Some(*id)
                 } else {
                     None
@@ -1977,7 +1984,7 @@ impl Storage {
         // Collect up to one reaction per pubkey
         let mut phase1: HashMap<PublicKey, char> = HashMap::new();
         for (_, rel) in self.find_relationships_by_id(id)? {
-            if let RelationshipById::Reaction { by, reaction } = rel {
+            if let RelationshipById::ReactsTo { by, reaction } = rel {
                 if let Some(target_event) = &maybe_target_event {
                     if target_event.pubkey == by {
                         // Do not let people like their own post
@@ -2014,7 +2021,7 @@ impl Storage {
     pub fn get_zap_total(&self, id: Id) -> Result<MilliSatoshi, Error> {
         let mut total = MilliSatoshi(0);
         for (_, rel) in self.find_relationships_by_id(id)? {
-            if let RelationshipById::ZapReceipt { by: _, amount } = rel {
+            if let RelationshipById::Zaps { by: _, amount } = rel {
                 total = total + amount;
             }
         }
@@ -2026,7 +2033,7 @@ impl Storage {
         let mut reasons: Vec<String> = Vec::new();
 
         for (deleting_id, rel) in self.find_relationships_by_id(maybe_deleted_event.id)? {
-            if let RelationshipById::Deletion { by, reason } = rel {
+            if let RelationshipById::Deletes { by, reason } = rel {
                 if maybe_deleted_event.delete_author_allowed(by) {
                     // We must have the deletion event to check it
                     if let Some(deleting_event) = self.read_event(deleting_id)? {
@@ -2049,7 +2056,7 @@ impl Storage {
             };
             for (deleting_id, rel) in self.find_relationships_by_addr(&addr)? {
                 // Must be a deletion relationship
-                if let RelationshipByAddr::Deletion { by, reason } = rel {
+                if let RelationshipByAddr::Deletes { by, reason } = rel {
                     if maybe_deleted_event.delete_author_allowed(by) {
                         // We must have the deletion event to check it
                         if let Some(deleting_event) = self.read_event(deleting_id)? {
@@ -2358,26 +2365,44 @@ impl Storage {
         let mut filter = Filter::new();
         filter.kinds = vec![EventKind::EncryptedDirectMessage, EventKind::GiftWrap];
 
-        let output: Vec<Event> = self.find_events_by_filter(&filter, |event| {
+        let mut output: Vec<Event> = self.find_events_by_filter(&filter, |event| {
             if let Some(event_dm_channel) = DmChannel::from_event(event, Some(my_pubkey)) {
-                if event_dm_channel == *channel {
-                    return true;
-                }
+                event_dm_channel == *channel
+            } else {
+                false
             }
-            false
         })?;
 
-        Ok(output.iter().map(|e| e.id).collect())
+        // Sort by rumor's time, not giftwrap's time
+        let mut sortable: Vec<(Unixtime, Event)> = output
+            .drain(..)
+            .map(|e| {
+                if e.kind == EventKind::GiftWrap {
+                    if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(&e) {
+                        (rumor.created_at, e)
+                    } else {
+                        (e.created_at, e)
+                    }
+                } else {
+                    (e.created_at, e)
+                }
+            })
+            .collect();
+
+        sortable.sort();
+
+        Ok(sortable.iter().map(|(_, e)| e.id).collect())
     }
 
-    /// Rebuild all the event indices. This is generally internal, but might be used
-    /// to fix a broken database.
+    /// Rebuild all the event indices.
     pub fn rebuild_event_indices<'a>(
         &'a self,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
             // Erase all indices first
+            self.db_event_akci_index()?.clear(txn)?;
+            self.db_event_kci_index()?.clear(txn)?;
             self.db_event_tag_index()?.clear(txn)?;
             self.db_hashtags()?.clear(txn)?;
 
@@ -2386,28 +2411,33 @@ impl Storage {
                 let (_key, val) = result?;
                 let event = Event::read_from_buffer(val)?;
 
-                // If giftwrap, index the inner rumor instead
-                let mut eventptr: &Event = &event;
+                // If giftwrap:
+                //   Use the id and kind of the giftwrap,
+                //   Use the pubkey and created_at of the rumor
+                let mut innerevent: &Event = &event;
                 let rumor: Event;
                 if let Some(r) = self.switch_to_rumor(&event, txn)? {
                     rumor = r;
-                    eventptr = &rumor;
+                    innerevent = &rumor;
                 }
 
                 self.write_event_akci_index(
-                    eventptr.pubkey,
-                    eventptr.kind,
-                    eventptr.created_at,
-                    eventptr.id,
+                    innerevent.pubkey,
+                    event.kind,
+                    innerevent.created_at,
+                    event.id,
                     Some(txn),
                 )?;
                 self.write_event_kci_index(
-                    eventptr.kind,
-                    eventptr.created_at,
-                    eventptr.id,
+                    event.kind,
+                    innerevent.created_at,
+                    event.id,
                     Some(txn),
                 )?;
-                self.write_event_tag_index(eventptr, Some(txn))?;
+                self.write_event_tag_index(
+                    &event, // this handles giftwrap internally
+                    Some(txn)
+                )?;
                 for hashtag in event.hashtags() {
                     if hashtag.is_empty() {
                         continue;
@@ -2415,6 +2445,7 @@ impl Storage {
                     self.add_hashtag(&hashtag, event.id, Some(txn))?;
                 }
             }
+            self.set_flag_rebuild_indexes_needed(false, Some(txn))?;
             Ok(())
         };
 
@@ -2660,8 +2691,6 @@ impl Storage {
         &'a self,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        tracing::info!("Rebuilding relationships...");
-
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
             // Iterate through all events
             let loop_txn = self.env.read_txn()?;

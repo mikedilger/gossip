@@ -153,9 +153,20 @@ impl Overlord {
             return Ok(());
         }
 
-        // If we need to rebuild relationships, do so now
-        if GLOBALS.storage.get_flag_rebuild_relationships_needed() {
-            GLOBALS.storage.rebuild_relationships(None)?;
+        {
+            // If we need to rebuild relationships, do so now
+            if GLOBALS.storage.get_flag_rebuild_relationships_needed() {
+                tracing::info!("Rebuilding relationships...");
+                GLOBALS.storage.rebuild_relationships(None)?;
+            }
+
+            // If we need to rebuild indexes, do so now
+            if GLOBALS.storage.get_flag_rebuild_indexes_needed() {
+                tracing::info!("Rebuilding event indices...");
+                GLOBALS.storage.rebuild_event_indices(None)?;
+            }
+
+            // Data migrations complete
             GLOBALS
                 .wait_for_data_migration
                 .store(false, Ordering::Relaxed);

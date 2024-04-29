@@ -1,4 +1,3 @@
-use bech32::FromBase32;
 use gossip_lib::{Error, ErrorKind, PersonList, PersonListMetadata, PersonRelay, GLOBALS};
 use nostr_types::{
     EncryptedPrivateKey, Event, EventAddr, EventKind, Filter, Id, NostrBech32, NostrUrl, PreEvent,
@@ -425,8 +424,7 @@ pub fn bech32_decode(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     } else {
         let data = bech32::decode(&param).unwrap();
         println!("DATA.0 = {}", data.0);
-        let decoded = Vec::<u8>::from_base32(&data.1).unwrap();
-        println!("DATA.1 = {}", String::from_utf8_lossy(&decoded));
+        println!("DATA.1 = {}", String::from_utf8_lossy(&data.1));
     }
 
     Ok(())

@@ -1,7 +1,7 @@
 use crate::error::Error;
 use crate::storage::{RawDatabase, Storage};
 use heed::{types::UnalignedSlice, DatabaseFlags, RwTxn};
-use nostr_types::{EventV2, EventV3, PublicKeyHex};
+use nostr_types::{EventV2, EventV3, PublicKeyHex, TagV3};
 use std::sync::Mutex;
 
 // NOTE: "innerp" is a fake tag. We store events that reference a person internally under it.
@@ -116,19 +116,28 @@ impl Storage {
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let mut event = event;
+            let event = event;
 
-            // If giftwrap, index the inner rumor instead
-            let rumor_event: EventV3;
-            if let Some(rumor) = self.switch_to_rumor3(event, txn)? {
-                rumor_event = rumor;
-                event = &rumor_event;
+            // If giftwrap:
+            //   Use the id and kind of the giftwrap,
+            //   Use the pubkey and created_at of the rumor
+            let mut innerevent: &EventV3 = event;
+            let rumor: EventV3;
+            if let Some(r) = self.switch_to_rumor3(event, txn)? {
+                rumor = r;
+                innerevent = &rumor;
             }
 
             // our user's public key
             let pk: Option<PublicKeyHex> = self.read_setting_public_key().map(|p| p.into());
 
-            for tag in &event.tags {
+            // Index tags from giftwrap and rumor
+            let mut tags: Vec<TagV3> = event.tags.clone();
+            if innerevent != event {
+                tags.extend(innerevent.tags.clone().drain(..));
+            }
+
+            for tag in &tags {
                 let tagname = tag.tagname();
                 let value = tag.value();
                 if value.is_empty() {
