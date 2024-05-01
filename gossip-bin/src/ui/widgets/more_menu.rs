@@ -46,7 +46,7 @@ impl<'a> MoreMenuEntry<'a> {
         let theme = &app.theme;
 
         // layout
-        let desired_size = vec2(ui.available_width(), 25.0);
+        let desired_size = vec2(ui.available_width(), 32.0);
 
         // interact
         let (rect, response) = ui.allocate_at_least(desired_size, Sense::click());
