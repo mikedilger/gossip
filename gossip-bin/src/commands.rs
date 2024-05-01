@@ -25,7 +25,7 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 34] = [
+const COMMANDS: [Command; 35] = [
     Command {
         cmd: "oneshot",
         usage_params: "{depends}",
@@ -196,6 +196,11 @@ const COMMANDS: [Command; 34] = [
         usage_params: "<event_json>",
         desc: "Verify if the passed in event JSON's signature is valid",
     },
+    Command {
+        cmd: "wgpu_renderer",
+        usage_params: "true | false",
+        desc: "Enable/Disable the WGPU rendering backend",
+    }
 ];
 
 pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Error> {
@@ -255,6 +260,7 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
         "ungiftwrap" => ungiftwrap(command, args)?,
         "verify" => verify(command, args)?,
         "verify_json" => verify_json(command, args)?,
+        "wgpu_renderer" => wgpu_renderer(command, args)?,
         other => println!("Unknown command {}", other),
     }
 
@@ -1035,5 +1041,18 @@ pub fn login() -> Result<(), Error> {
 
 pub fn offline() -> Result<(), Error> {
     GLOBALS.storage.write_setting_offline(&true, None)?;
+    Ok(())
+}
+
+pub fn wgpu_renderer(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+    let enable = match args.next() {
+        Some(str) => str.parse::<bool>()?,
+        None => return cmd.usage("Missing true|false value".to_string()),
+    };
+
+    GLOBALS.storage.write_setting_wgpu_renderer(&enable, None)?;
+
+    println!("wgpu_renderer set to '{}'", enable);
+
     Ok(())
 }

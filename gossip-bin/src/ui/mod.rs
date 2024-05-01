@@ -124,6 +124,11 @@ pub fn run() -> Result<(), Error> {
         centered: true,
         vsync: true,
         follow_system_theme: read_setting!(follow_os_dark_mode),
+        renderer: if read_setting!(wgpu_renderer) {
+            eframe::Renderer::Wgpu
+        } else {
+            eframe::Renderer::Glow
+        },
         ..Default::default()
     };
 
@@ -1468,25 +1473,12 @@ impl eframe::App for GossipUi {
         egui::CentralPanel::default()
             .frame({
                 let frame = egui::Frame::central_panel(&self.theme.get_style());
-                frame
-                    .inner_margin(egui::Margin {
-                        left: 20.0,
-                        right: 10.0,
-                        top: 10.0,
-                        bottom: 0.0,
-                    })
-                    .fill({
-                        match self.page {
-                            Page::Person(_) => {
-                                if self.theme.dark_mode {
-                                    ctx.style().visuals.panel_fill
-                                } else {
-                                    self.theme.main_content_bgcolor()
-                                }
-                            }
-                            _ => ctx.style().visuals.panel_fill,
-                        }
-                    })
+                frame.inner_margin(egui::Margin {
+                    left: 20.0,
+                    right: 10.0,
+                    top: 10.0,
+                    bottom: 0.0,
+                })
             })
             .show(ctx, |ui| {
                 self.begin_ui(ui);

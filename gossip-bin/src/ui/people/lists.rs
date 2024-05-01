@@ -47,7 +47,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         .id_source("people_lists_scroll")
         .enable_scrolling(enabled)
         .show(ui, |ui| {
-            for (list, mut metadata) in all_lists {
+            for (list, metadata) in all_lists {
                 let row_response = widgets::list_entry::clickable_frame(
                     ui,
                     app,
@@ -97,12 +97,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                                     |ui| {
                                         let len = metadata.len;
                                         super::list::render_more_list_actions(
-                                            ui,
-                                            app,
-                                            list,
-                                            &mut metadata,
-                                            len,
-                                            false,
+                                            ui, app, list, &metadata, len, false,
                                         );
                                     },
                                 );

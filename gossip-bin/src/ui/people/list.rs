@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use super::{GossipUi, Page};
-use crate::ui::widgets;
+use crate::ui::widgets::{self, MoreMenuEntry};
 use crate::AVATAR_SIZE_F32;
 use eframe::egui::{self, Galley, Label, Sense};
 use egui::{Context, RichText, Ui, Vec2};
@@ -79,7 +79,7 @@ pub(super) fn update(
         refresh_list_data(app, list);
     }
 
-    let mut metadata = GLOBALS
+    let metadata = GLOBALS
         .storage
         .get_person_list_metadata(list)
         .unwrap_or_default()
@@ -108,7 +108,7 @@ pub(super) fn update(
     widgets::page_header_layout(ui, title_job, |ui| {
         ui.add_enabled_ui(enabled, |ui| {
             let len = metadata.len;
-            render_more_list_actions(ui, app, list, &mut metadata, len, true);
+            render_more_list_actions(ui, app, list, &metadata, len, true);
 
             btn_h_space!(ui);
 
@@ -297,23 +297,25 @@ pub(super) fn update(
                                     let response = widgets::Button::primary(&app.theme, text)
                                         .small(true)
                                         .show(ui);
-                                    widgets::MoreMenu::simple(ui.next_auto_id()).show(
-                                        ui,
-                                        response,
-                                        |ui, is_open| {
-                                            // actions
-                                            if ui.button("Remove").clicked() {
-                                                let _ = GLOBALS.storage.remove_person_from_list(
-                                                    &person.pubkey,
-                                                    list,
-                                                    None,
-                                                );
-                                                *is_open = false;
-                                            }
-                                        },
-                                    );
+                                    let menu =
+                                        widgets::MoreMenu::bubble(ui.auto_id_with(person.pubkey))
+                                            .with_min_size(vec2(100.0, 0.0))
+                                            .with_max_size(vec2(100.0, f32::INFINITY));
+                                    let mut entries: Vec<MoreMenuEntry> = Vec::new();
 
-                                    ui.add_space(20.0);
+                                    // actions
+                                    entries.push(MoreMenuEntry::new(
+                                        "Remove",
+                                        Box::new(|_, _| {
+                                            let _ = GLOBALS.storage.remove_person_from_list(
+                                                &person.pubkey,
+                                                list,
+                                                None,
+                                            );
+                                        }),
+                                    ));
+
+                                    menu.show_entries(ui, app, response, entries);
 
                                     if list != PersonList::Followed {
                                         // private / public switch
@@ -341,13 +343,9 @@ pub(super) fn update(
                 },
             );
             if row_response
-                .response
+                .inner
                 .on_hover_cursor(egui::CursorIcon::PointingHand)
                 .clicked()
-                || row_response
-                    .inner
-                    .on_hover_cursor(egui::CursorIcon::PointingHand)
-                    .clicked()
             {
                 app.set_page(ctx, Page::Person(person.pubkey));
             }
@@ -762,7 +760,7 @@ pub(super) fn render_more_list_actions(
     ui: &mut Ui,
     app: &mut GossipUi,
     list: PersonList,
-    metadata: &mut PersonListMetadata,
+    metadata: &PersonListMetadata,
     count: usize,
     on_list: bool,
 ) {
@@ -776,76 +774,197 @@ pub(super) fn render_more_list_actions(
         .small(true)
         .show(ui);
 
-    let menu = widgets::MoreMenu::simple(ui.next_auto_id())
+    let menu = widgets::MoreMenu::bubble(ui.next_auto_id())
         .with_min_size(vec2(100.0, 0.0))
-        .with_max_size(vec2(160.0, f32::INFINITY));
+        .with_max_size(vec2(140.0, f32::INFINITY));
 
-    menu.show(ui, response, |ui, is_open| {
-        ui.with_layout(egui::Layout::top_down_justified(egui::Align::LEFT), |ui| {
-            if on_list {
-                app.theme.primary_button_style(ui.style_mut());
-                ui.spacing_mut().item_spacing.y = 15.0;
-            }
-            if matches!(list, PersonList::Custom(_)) {
-                if ui.button("Rename").clicked() {
-                    app.deleting_list = None;
-                    app.renaming_list = Some(list);
-                    *is_open = false;
-                }
-                if metadata.favorite {
-                    if ui.button("Unset as Favorite").clicked() {
-                        metadata.favorite = false;
-                        let _ = GLOBALS
-                            .storage
-                            .set_person_list_metadata(list, metadata, None);
-                        *is_open = false;
-                    }
-                } else {
-                    if ui.button("Set as Favorite").clicked() {
-                        metadata.favorite = true;
-                        let _ = GLOBALS
-                            .storage
-                            .set_person_list_metadata(list, metadata, None);
-                        *is_open = false;
-                    }
-                }
-                if on_list {
-                    if *metadata.private {
-                        if ui.button("Make Public").clicked() {
-                            metadata.private = Private(false);
-                            let _ = GLOBALS
-                                .storage
-                                .set_person_list_metadata(list, metadata, None);
-                            *is_open = false;
-                        }
-                    } else {
-                        if ui.button("Make Private").clicked() {
-                            metadata.private = Private(true);
-                            let _ = GLOBALS
-                                .storage
-                                .set_person_list_metadata(list, metadata, None);
-                            let _ = GLOBALS
-                                .storage
-                                .set_all_people_in_list_to_private(list, None);
-                            *is_open = false;
-                        }
-                    }
-                    if ui
-                        .add_enabled(count > 0, egui::Button::new("Clear All"))
-                        .clicked()
-                    {
-                        app.people_list.clear_list_needs_confirm = true;
-                        *is_open = false;
-                    }
-                    if ui.button("Delete").clicked() {
-                        app.renaming_list = None;
-                        app.deleting_list = Some(list);
-                        *is_open = false;
-                    }
-                }
-            }
-        });
-    });
+    let mut entries: Vec<MoreMenuEntry> = Vec::new();
+    entries.push(MoreMenuEntry::new(
+        "Rename",
+        Box::new(|_, app| {
+            app.deleting_list = None;
+            app.renaming_list = Some(list);
+        }),
+    ));
+
+    if metadata.favorite {
+        entries.push(MoreMenuEntry::new(
+            "Unset as Favorite",
+            Box::new(|_, _| {
+                let mut metadata = metadata.clone();
+                metadata.favorite = false;
+                let _ = GLOBALS
+                    .storage
+                    .set_person_list_metadata(list, &metadata, None);
+            }),
+        ));
+    } else {
+        entries.push(MoreMenuEntry::new(
+            "Set as Favorite",
+            Box::new(|_, _| {
+                let mut metadata = metadata.clone();
+                metadata.favorite = true;
+                let _ = GLOBALS
+                    .storage
+                    .set_person_list_metadata(list, &metadata, None);
+            }),
+        ));
+    }
+
+    if on_list {
+        if metadata.private == Private(true) {
+            entries.push(MoreMenuEntry::new(
+                "Make Public",
+                Box::new(|_, _| {
+                    let mut metadata = metadata.clone();
+                    metadata.private = Private(false);
+                    let _ = GLOBALS
+                        .storage
+                        .set_person_list_metadata(list, &metadata, None);
+                }),
+            ));
+        } else {
+            entries.push(MoreMenuEntry::new(
+                "Make Private",
+                Box::new(|_, _| {
+                    let mut metadata = metadata.clone();
+                    metadata.private = Private(true);
+                    let _ = GLOBALS
+                        .storage
+                        .set_person_list_metadata(list, &metadata, None);
+                    let _ = GLOBALS
+                        .storage
+                        .set_all_people_in_list_to_private(list, None);
+                }),
+            ));
+        }
+        entries.push(
+            MoreMenuEntry::new(
+                "Clear All",
+                Box::new(|_, app| {
+                    app.people_list.clear_list_needs_confirm = true;
+                }),
+            )
+            .enabled(count > 0),
+        );
+
+        entries.push(MoreMenuEntry::new(
+            "Delete",
+            Box::new(|_, app| {
+                app.renaming_list = None;
+                app.deleting_list = Some(list);
+            }),
+        ));
+    }
+
+    menu.show_entries(ui, app, response, entries);
+    //             } else {
+    //
+    //             }
+    //             if on_list {
+    //                 if *metadata.private {
+    //                     if ui.button("Make Public").clicked() {
+    //                         metadata.private = Private(false);
+    //                         let _ = GLOBALS
+    //                             .storage
+    //                             .set_person_list_metadata(list, metadata, None);
+    //                         *is_open = false;
+    //                     }
+    //                 } else {
+    //                     if ui.button("Make Private").clicked() {
+    //                         metadata.private = Private(true);
+    //                         let _ = GLOBALS
+    //                             .storage
+    //                             .set_person_list_metadata(list, metadata, None);
+    //                         let _ = GLOBALS
+    //                             .storage
+    //                             .set_all_people_in_list_to_private(list, None);
+    //                         *is_open = false;
+    //                     }
+    //                 }
+    //                 if ui
+    //                     .add_enabled(count > 0, egui::Button::new("Clear All"))
+    //                     .clicked()
+    //                 {
+    //                     app.people_list.clear_list_needs_confirm = true;
+    //                     *is_open = false;
+    //                 }
+    //                 if ui.button("Delete").clicked() {
+    //                     app.renaming_list = None;
+    //                     app.deleting_list = Some(list);
+    //                     *is_open = false;
+    //                 }
+    //             }
+    //         }
+    //     });
+    // });
+
+    // menu.show(ui, response, |ui, is_open| {
+    //     ui.with_layout(egui::Layout::top_down_justified(egui::Align::LEFT), |ui| {
+    //         if on_list {
+    //             app.theme.primary_button_style(ui.style_mut());
+    //             ui.spacing_mut().item_spacing.y = 15.0;
+    //         }
+    //         if matches!(list, PersonList::Custom(_)) {
+    //             if ui.button("Rename").clicked() {
+    //                 app.deleting_list = None;
+    //                 app.renaming_list = Some(list);
+    //                 *is_open = false;
+    //             }
+    //             if metadata.favorite {
+    //                 if ui.button("Unset as Favorite").clicked() {
+    //                     metadata.favorite = false;
+    //                     let _ = GLOBALS
+    //                         .storage
+    //                         .set_person_list_metadata(list, metadata, None);
+    //                     *is_open = false;
+    //                 }
+    //             } else {
+    //                 if ui.button("Set as Favorite").clicked() {
+    //                     metadata.favorite = true;
+    //                     let _ = GLOBALS
+    //                         .storage
+    //                         .set_person_list_metadata(list, metadata, None);
+    //                     *is_open = false;
+    //                 }
+    //             }
+    //             if on_list {
+    //                 if *metadata.private {
+    //                     if ui.button("Make Public").clicked() {
+    //                         metadata.private = Private(false);
+    //                         let _ = GLOBALS
+    //                             .storage
+    //                             .set_person_list_metadata(list, metadata, None);
+    //                         *is_open = false;
+    //                     }
+    //                 } else {
+    //                     if ui.button("Make Private").clicked() {
+    //                         metadata.private = Private(true);
+    //                         let _ = GLOBALS
+    //                             .storage
+    //                             .set_person_list_metadata(list, metadata, None);
+    //                         let _ = GLOBALS
+    //                             .storage
+    //                             .set_all_people_in_list_to_private(list, None);
+    //                         *is_open = false;
+    //                     }
+    //                 }
+    //                 if ui
+    //                     .add_enabled(count > 0, egui::Button::new("Clear All"))
+    //                     .clicked()
+    //                 {
+    //                     app.people_list.clear_list_needs_confirm = true;
+    //                     *is_open = false;
+    //                 }
+    //                 if ui.button("Delete").clicked() {
+    //                     app.renaming_list = None;
+    //                     app.deleting_list = Some(list);
+    //                     *is_open = false;
+    //                 }
+    //             }
+    //         }
+    //     });
+    // });
 }
 
 fn recalc_add_contact_search(app: &mut GossipUi, output: &mut TextEditOutput) {

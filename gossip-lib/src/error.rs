@@ -53,6 +53,7 @@ pub enum ErrorKind {
     NostrConnectNotSetup,
     Offline,
     ParseInt(std::num::ParseIntError),
+    ParseBool(std::str::ParseBoolError),
     Regex(regex::Error),
     RelayPickerError(gossip_relay_picker::Error),
     RelayRejectedUs,
@@ -147,6 +148,7 @@ impl std::fmt::Display for Error {
             NostrConnectNotSetup => write!(f, "NostrConnect not setup, cannot connect"),
             Offline => write!(f, "Offline"),
             ParseInt(e) => write!(f, "Bad integer: {e}"),
+            ParseBool(e) => write!(f, "Bad bool: {e}"),
             Regex(e) => write!(f, "Regex: {e}"),
             RelayPickerError(e) => write!(f, "Relay Picker error: {e}"),
             RelayRejectedUs => write!(f, "Relay rejected us."),
@@ -276,6 +278,12 @@ impl From<heed::Error> for ErrorKind {
 impl From<std::num::ParseIntError> for ErrorKind {
     fn from(e: std::num::ParseIntError) -> ErrorKind {
         ErrorKind::ParseInt(e)
+    }
+}
+
+impl From<std::str::ParseBoolError> for ErrorKind {
+    fn from(e: std::str::ParseBoolError) -> Self {
+        ErrorKind::ParseBool(e)
     }
 }
 

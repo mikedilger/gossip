@@ -83,7 +83,6 @@ impl KciKey {
 #[cfg(test)]
 mod test {
     use super::*;
-    use nostr_types::PrivateKey;
 
     #[test]
     fn test_event_kci_key() {

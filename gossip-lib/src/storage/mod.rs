@@ -708,6 +708,7 @@ impl Storage {
     def_setting!(load_avatars, b"load_avatars", bool, true);
     def_setting!(load_media, b"load_media", bool, true);
     def_setting!(check_nip05, b"check_nip05", bool, true);
+    def_setting!(wgpu_renderer, b"wgpu_renderer", bool, false);
     def_setting!(
         automatically_fetch_metadata,
         b"automatically_fetch_metadata",
