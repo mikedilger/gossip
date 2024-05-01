@@ -370,7 +370,7 @@ impl MoreMenu {
                     frame.outer_margin = Margin::same(0.0);
                     frame.fill = bg_color;
                     frame.stroke = egui::Stroke::NONE;
-                    // frame.shadow = egui::epaint::Shadow::NONE;
+                    frame.shadow = ui.style().visuals.popup_shadow;
                     frame.rounding = egui::Rounding::same(8.0);
                 }
                 frame.show(ui, |ui| {
@@ -513,7 +513,7 @@ impl MoreMenu {
                 } else {
                     frame.fill = bg_color;
                     frame.stroke = egui::Stroke::NONE;
-                    // frame.shadow = egui::epaint::Shadow::NONE;
+                    frame.shadow = ui.style().visuals.popup_shadow;
                     frame.rounding = egui::Rounding::same(5.0);
                     frame.inner_margin = egui::Margin::symmetric(POPUP_MARGIN.x, POPUP_MARGIN.y);
                 }

@@ -18,6 +18,29 @@ impl DefaultTheme {
     }
 }
 
+// Trait for creating different types of shadows
+pub trait ShadowBuilder {
+    fn soft_dark() -> Self;
+    fn soft_light() -> Self;
+}
+
+// Implement the trait for Shadow
+impl ShadowBuilder for Shadow {
+    fn soft_dark() -> Self {
+        Self {
+            extrusion: 30.0,
+            color: Color32::from_black_alpha(40),
+        }
+    }
+
+    fn soft_light() -> Self {
+        Self {
+            extrusion: 30.0,
+            color: Color32::from_black_alpha(10),
+        }
+    }
+}
+
 impl ThemeDef for DefaultTheme {
     fn name() -> &'static str {
         "Default"
@@ -262,7 +285,7 @@ impl ThemeDef for DefaultTheme {
                 },
 
                 window_shadow: Shadow::big_dark(),
-                popup_shadow: Shadow::small_dark(),
+                popup_shadow: Shadow::soft_dark(),
 
                 indent_has_left_vline: false,
                 menu_rounding: Rounding::same(2.0),
@@ -350,7 +373,7 @@ impl ThemeDef for DefaultTheme {
                 },
 
                 window_shadow: Shadow::big_light(),
-                popup_shadow: Shadow::small_light(),
+                popup_shadow: Shadow::soft_light(),
 
                 indent_has_left_vline: false,
                 menu_rounding: Rounding::same(2.0),
