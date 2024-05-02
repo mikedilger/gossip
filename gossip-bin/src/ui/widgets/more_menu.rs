@@ -394,13 +394,19 @@ impl MoreMenu {
                     ui.set_min_size(self.min_size);
                     ui.set_max_size(self.max_size);
 
+                    let dot_color = if app.theme.dark_mode {
+                        app.theme.neutral_700()
+                    } else {
+                        app.theme.neutral_200()
+                    };
+
                     match self.style {
                         MoreMenuStyle::Simple => {
                             // draw pin
                             ui.painter().circle_filled(
                                 response.rect.center(),
                                 CORNER_RADIUS / 2.0,
-                                app.theme.neutral_500(),
+                                dot_color,
                             );
                         }
                         MoreMenuStyle::Bubble => {
