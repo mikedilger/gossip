@@ -433,7 +433,7 @@ pub fn render_note_inner(
                         let response = widgets::Button::primary(&app.theme, text)
                             .small(true)
                             .show(ui);
-                        let menu = widgets::MoreMenu::bubble(ui.auto_id_with(&note.event.id))
+                        let menu = widgets::MoreMenu::simple(ui.auto_id_with(&note.event.id))
                             .with_min_size(vec2(100.0, 0.0))
                             .with_max_size(vec2(140.0, f32::INFINITY));
                         let mut entries: Vec<MoreMenuEntry> = Vec::new();

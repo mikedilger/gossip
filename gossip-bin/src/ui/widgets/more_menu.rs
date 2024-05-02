@@ -9,7 +9,14 @@ use egui_winit::egui::{self, vec2, AboveOrBelow, Align2, Id, Ui, Vec2};
 
 use crate::ui::GossipUi;
 
-static POPUP_MARGIN: Vec2 = Vec2 { x: 20.0, y: 16.0 };
+const POPUP_MARGIN: Vec2 = Vec2 { x: 20.0, y: 16.0 };
+const CORNER_RADIUS: f32 = 8.0;
+const INNER_MARGIN: Margin = Margin {
+    left: 0.0,
+    right: 0.0,
+    top: 15.0,
+    bottom: 15.0,
+};
 
 #[derive(PartialEq)]
 enum MoreMenuStyle {
@@ -282,8 +289,12 @@ impl MoreMenu {
                 let pivot = select_pivot(ui, origin_pos, AboveOrBelow::Above);
                 let fixed_pos = match self.style {
                     MoreMenuStyle::Simple => match pivot {
-                        Align2::RIGHT_BOTTOM => origin_pos + vec2(super::DROPDOWN_DISTANCE, -5.0),
-                        Align2::LEFT_BOTTOM => origin_pos + vec2(-super::DROPDOWN_DISTANCE, -5.0),
+                        Align2::RIGHT_BOTTOM => {
+                            response.rect.center() + vec2(CORNER_RADIUS, CORNER_RADIUS)
+                        }
+                        Align2::LEFT_BOTTOM => {
+                            response.rect.center() + vec2(-CORNER_RADIUS, CORNER_RADIUS)
+                        }
                         _ => origin_pos,
                     },
                     MoreMenuStyle::Bubble => match pivot {
@@ -315,8 +326,12 @@ impl MoreMenu {
                 let pivot = select_pivot(ui, origin_pos, AboveOrBelow::Below);
                 let fixed_pos = match self.style {
                     MoreMenuStyle::Simple => match pivot {
-                        Align2::RIGHT_TOP => origin_pos + vec2(super::DROPDOWN_DISTANCE, 5.0),
-                        Align2::LEFT_TOP => origin_pos + vec2(-super::DROPDOWN_DISTANCE, 5.0),
+                        Align2::RIGHT_TOP => {
+                            response.rect.center() + vec2(CORNER_RADIUS, -CORNER_RADIUS)
+                        }
+                        Align2::LEFT_TOP => {
+                            response.rect.center() + vec2(-CORNER_RADIUS, -CORNER_RADIUS)
+                        }
                         _ => origin_pos,
                     },
                     MoreMenuStyle::Bubble => match pivot {
@@ -358,28 +373,51 @@ impl MoreMenu {
                 if self.style == MoreMenuStyle::Simple {
                     // menu style from egui/src/menu.rs:set_menu_style()
                     let style = ui.style_mut();
-                    style.spacing.button_padding = vec2(2.0, 0.0);
-                    style.visuals.widgets.active.bg_stroke = egui::Stroke::NONE;
-                    style.visuals.widgets.hovered.bg_stroke = egui::Stroke::NONE;
-                    style.visuals.widgets.inactive.weak_bg_fill = egui::Color32::TRANSPARENT;
-                    style.visuals.widgets.inactive.bg_stroke = egui::Stroke::NONE;
-                } else {
-                    let style = ui.style_mut();
                     style.spacing.item_spacing.y = 0.0;
-                    frame.inner_margin = Margin::symmetric(0.0, 15.0);
+                    frame.inner_margin = INNER_MARGIN;
                     frame.outer_margin = Margin::same(0.0);
                     frame.fill = bg_color;
                     frame.stroke = egui::Stroke::NONE;
                     frame.shadow = ui.style().visuals.popup_shadow;
-                    frame.rounding = egui::Rounding::same(8.0);
+                    frame.rounding = egui::Rounding::same(CORNER_RADIUS);
+                } else {
+                    let style = ui.style_mut();
+                    style.spacing.item_spacing.y = 0.0;
+                    frame.inner_margin = INNER_MARGIN;
+                    frame.outer_margin = Margin::same(0.0);
+                    frame.fill = bg_color;
+                    frame.stroke = egui::Stroke::NONE;
+                    frame.shadow = ui.style().visuals.popup_shadow;
+                    frame.rounding = egui::Rounding::same(CORNER_RADIUS);
                 }
                 frame.show(ui, |ui| {
                     ui.set_min_size(self.min_size);
                     ui.set_max_size(self.max_size);
 
-                    if self.style == MoreMenuStyle::Bubble {
-                        // draw origin pointer
-                        ui.painter().add(polygon);
+                    match self.style {
+                        MoreMenuStyle::Simple => {
+                            // draw pin
+                            ui.painter().circle_filled(
+                                response.rect.center(),
+                                CORNER_RADIUS / 2.0,
+                                app.theme.neutral_500(),
+                            );
+                        }
+                        MoreMenuStyle::Bubble => {
+                            // draw origin pointer
+                            ui.painter().add(polygon);
+                        }
+                    }
+
+                    if ui
+                        .interact(
+                            response.rect,
+                            ui.auto_id_with("areaclick"),
+                            egui::Sense::click(),
+                        )
+                        .clicked()
+                    {
+                        active = false;
                     }
 
                     ui.vertical_centered_justified(|ui| {
@@ -514,7 +552,7 @@ impl MoreMenu {
                     frame.fill = bg_color;
                     frame.stroke = egui::Stroke::NONE;
                     frame.shadow = ui.style().visuals.popup_shadow;
-                    frame.rounding = egui::Rounding::same(5.0);
+                    frame.rounding = egui::Rounding::same(CORNER_RADIUS);
                     frame.inner_margin = egui::Margin::symmetric(POPUP_MARGIN.x, POPUP_MARGIN.y);
                 }
                 frame.show(ui, |ui| {
