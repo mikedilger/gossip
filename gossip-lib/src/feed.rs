@@ -435,6 +435,11 @@ impl Feed {
                                     return true;
                                 }
 
+                                // exclude if it's my own note
+                                if e.pubkey == my_pubkey {
+                                    return false;
+                                }
+
                                 // Include if it directly replies to one of my events
                                 match e.replies_to() {
                                     Some(EventReference::Id { id, .. }) => {
