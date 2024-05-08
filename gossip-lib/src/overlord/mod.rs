@@ -2672,18 +2672,17 @@ impl Overlord {
         // The UI will traverse and render the replies if they are local.
         // The UI will traverse and render the ancestors if they are local.
 
-        let (highest, higher_still) =
-            crate::misc::get_thread_highest_ancestors(EventReference::Id {
-                id,
-                author,
-                relays: vec![],
-                marker: None,
-            })?;
+        let ancestors = crate::misc::get_event_ancestors(EventReference::Id {
+            id,
+            author,
+            relays: vec![],
+            marker: None,
+        })?;
 
         // Set the thread feed to the highest parent that we have or to the event itself
         // even if we don't have it (it might be coming in soon)
-        if let Some(ref highest_event) = highest {
-            GLOBALS.feed.set_thread_parent(highest_event.id);
+        if let Some(ref event) = ancestors.highest_connected_local {
+            GLOBALS.feed.set_thread_parent(event.id);
         } else {
             GLOBALS.feed.set_thread_parent(id);
         }
@@ -2698,7 +2697,7 @@ impl Overlord {
             // Let's first get additional relays the event might be on
             let mut bonus_relays: Vec<RelayUrl> = Vec::new();
 
-            if let Some(highest_event) = highest {
+            if let Some(highest_event) = ancestors.highest_connected_local {
                 // Include the relays where the event was seen
                 bonus_relays.extend(
                     GLOBALS
@@ -2767,7 +2766,7 @@ impl Overlord {
             bonus_relays.sort();
             bonus_relays.dedup();
 
-            match higher_still {
+            match ancestors.highest_connected_remote {
                 Some(EventReference::Addr(ea)) => GLOBALS.seeker.seek_event_addr(ea),
                 Some(EventReference::Id {
                     id,
