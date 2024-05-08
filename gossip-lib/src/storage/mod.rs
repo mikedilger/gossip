@@ -1353,6 +1353,14 @@ impl Storage {
         self.has_event3(id)
     }
 
+    #[inline]
+    pub fn read_event_reference(&self, eref: &EventReference) -> Result<Option<Event>, Error> {
+        match eref {
+            EventReference::Id { id, .. } => self.read_event(*id),
+            EventReference::Addr(ea) => self.get_replaceable_event(ea.kind, ea.author, &ea.d),
+        }
+    }
+
     /// Delete the event
     pub fn delete_event<'a>(&'a self, id: Id, rw_txn: Option<&mut RwTxn<'a>>) -> Result<(), Error> {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
