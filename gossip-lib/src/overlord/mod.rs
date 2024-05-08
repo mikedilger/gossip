@@ -2778,11 +2778,13 @@ impl Overlord {
                         relays.extend(bonus_relays);
                         relays.sort();
                         relays.dedup();
-                        GLOBALS.seeker.seek_id_and_relays(id, relays);
+                        GLOBALS.seeker.seek_id_and_relays(id, relays, true);
                     } else if let Some(auth) = author {
-                        GLOBALS.seeker.seek_id_and_author(id, auth, bonus_relays)?;
+                        GLOBALS
+                            .seeker
+                            .seek_id_and_author(id, auth, bonus_relays, true)?;
                     } else {
-                        GLOBALS.seeker.seek_id(id, bonus_relays)?;
+                        GLOBALS.seeker.seek_id(id, bonus_relays, true)?;
                     }
                 }
                 None => {}

@@ -48,7 +48,7 @@ pub(crate) fn get_event_ancestors(main: EventReference) -> Result<EventAncestors
 
     loop {
         if let Some(ref remote) = ancestors.highest_connected_remote {
-            if let Some(event) = GLOBALS.storage.read_event_reference(&remote)? {
+            if let Some(event) = GLOBALS.storage.read_event_reference(remote)? {
                 ancestors.highest_connected_local = Some(event.clone());
                 ancestors.highest_connected_remote = None;
                 if let Some(parent) = event.replies_to() {

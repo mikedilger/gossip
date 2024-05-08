@@ -243,7 +243,7 @@ pub async fn process_new_event(
     GLOBALS.ui_notes_to_invalidate.write().extend(&invalid_ids);
 
     // Let seeker know about this event id (in case it was sought)
-    GLOBALS.seeker.found_or_cancel(event.id);
+    GLOBALS.seeker.found(event)?;
 
     // If metadata, update person
     if event.kind == EventKind::Metadata {
@@ -310,7 +310,7 @@ pub async fn process_new_event(
             // Seek additional info for this event by id and author
             GLOBALS
                 .seeker
-                .seek_id_and_author(inner_event.id, inner_event.pubkey, vec![])?;
+                .seek_id_and_author(inner_event.id, inner_event.pubkey, vec![], false)?;
         } else {
             // If the content is a repost, seek the event it reposts
             for eref in event.mentions().iter() {
@@ -319,9 +319,11 @@ pub async fn process_new_event(
                         if relays.is_empty() {
                             // Even if the event tags the author, we have no way to coorelate
                             // the nevent with that tag.
-                            GLOBALS.seeker.seek_id(*id, vec![])?;
+                            GLOBALS.seeker.seek_id(*id, vec![], false)?;
                         } else {
-                            GLOBALS.seeker.seek_id_and_relays(*id, relays.clone());
+                            GLOBALS
+                                .seeker
+                                .seek_id_and_relays(*id, relays.clone(), false);
                         }
                     }
                     EventReference::Addr(ea) => {
