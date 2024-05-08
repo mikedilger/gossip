@@ -691,11 +691,7 @@ impl Storage {
         b"rebuild_relationships_needed",
         false
     );
-    def_flag!(
-        rebuild_indexes_needed,
-        b"rebuild_indexes_needed",
-        false
-    );
+    def_flag!(rebuild_indexes_needed, b"rebuild_indexes_needed", false);
 
     // Settings ----------------------------------------------------------
 
@@ -2428,15 +2424,10 @@ impl Storage {
                     event.id,
                     Some(txn),
                 )?;
-                self.write_event_kci_index(
-                    event.kind,
-                    innerevent.created_at,
-                    event.id,
-                    Some(txn),
-                )?;
+                self.write_event_kci_index(event.kind, innerevent.created_at, event.id, Some(txn))?;
                 self.write_event_tag_index(
                     &event, // this handles giftwrap internally
-                    Some(txn)
+                    Some(txn),
                 )?;
                 for hashtag in event.hashtags() {
                     if hashtag.is_empty() {
