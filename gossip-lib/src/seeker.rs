@@ -11,13 +11,35 @@ use tokio::time::Instant;
 
 #[derive(Debug, Clone)]
 pub enum SeekState {
-    WaitingRelayList(Unixtime, PublicKey),
-    WaitingEvent(Unixtime),
+    WaitingRelayList(PublicKey),
+    WaitingEvent,
+}
+
+#[derive(Debug, Clone)]
+pub struct SeekData {
+    pub start: Unixtime,
+    pub state: SeekState,
+}
+
+impl SeekData {
+    fn new_event() -> SeekData {
+        SeekData {
+            start: Unixtime::now().unwrap(),
+            state: SeekState::WaitingEvent,
+        }
+    }
+
+    fn new_relay_list(pubkey: PublicKey) -> SeekData {
+        SeekData {
+            start: Unixtime::now().unwrap(),
+            state: SeekState::WaitingRelayList(pubkey),
+        }
+    }
 }
 
 #[derive(Debug, Default)]
 pub struct Seeker {
-    events: DashMap<Id, SeekState>,
+    events: DashMap<Id, SeekData>,
 }
 
 impl Seeker {
@@ -72,8 +94,7 @@ impl Seeker {
         Self::seek_event_at_relays(id, relays);
 
         // Remember when we asked
-        let now = Unixtime::now().unwrap();
-        self.events.insert(id, SeekState::WaitingEvent(now));
+        self.events.insert(id, SeekData::new_event());
 
         Ok(())
     }
@@ -102,14 +123,12 @@ impl Seeker {
             author.as_hex_string()
         );
 
-        let when = Unixtime::now().unwrap();
-
         // Check if we have the author's relay list
         match People::person_needs_relay_list(author) {
             Freshness::NeverSought => {
                 Self::seek_relay_list(author);
                 self.events
-                    .insert(id, SeekState::WaitingRelayList(when, author));
+                    .insert(id, SeekData::new_relay_list(author));
             }
             Freshness::Stale => {
                 // Seek the relay list because it is stale, but don't let that hold us up
@@ -118,12 +137,12 @@ impl Seeker {
 
                 let relays = Self::get_relays(author)?;
                 Self::seek_event_at_relays(id, relays);
-                self.events.insert(id, SeekState::WaitingEvent(when));
+                self.events.insert(id, SeekData::new_event());
             }
             Freshness::Fresh => {
                 let relays = Self::get_relays(author)?;
                 Self::seek_event_at_relays(id, relays);
-                self.events.insert(id, SeekState::WaitingEvent(when));
+                self.events.insert(id, SeekData::new_event());
             }
         }
 
@@ -133,13 +152,12 @@ impl Seeker {
     /// Seek an event when you have the `Id` and the relays to seek from
     pub(crate) fn seek_id_and_relays(&self, id: Id, relays: Vec<RelayUrl>) {
         if let Some(existing) = self.events.get(&id) {
-            if matches!(existing.value(), SeekState::WaitingEvent(_)) {
+            if matches!(existing.value().state, SeekState::WaitingEvent) {
                 return; // Already seeking it
             }
         }
-        let when = Unixtime::now().unwrap();
         Self::seek_event_at_relays(id, relays);
-        self.events.insert(id, SeekState::WaitingEvent(when));
+        self.events.insert(id, SeekData::new_event());
     }
 
     /// Seek an event when you have an EventAddr
@@ -153,16 +171,15 @@ impl Seeker {
     pub(crate) fn found_author_relays(&self, pubkey: PublicKey) {
         // Instead of updating the map while we iterate (which could deadlock)
         // we save updates here and apply when the iterator is finished.
-        let mut updates: Vec<(Id, SeekState)> = Vec::new();
+        let mut updates: Vec<(Id, SeekData)> = Vec::new();
 
         for refmutmulti in self.events.iter_mut() {
-            if let SeekState::WaitingRelayList(_when, author) = refmutmulti.value() {
+            if let SeekData { state: SeekState::WaitingRelayList(author), .. } = refmutmulti.value() {
                 if *author == pubkey {
-                    let now = Unixtime::now().unwrap();
                     let id = *refmutmulti.key();
                     if let Ok(relays) = Self::get_relays(*author) {
                         Self::seek_event_at_relays(id, relays);
-                        updates.push((id, SeekState::WaitingEvent(now)));
+                        updates.push((id, SeekData::new_event()));
                     }
                 }
             }
@@ -213,20 +230,21 @@ impl Seeker {
 
         // Instead of updating the map while we iterate (which could deadlock)
         // we save updates here and apply when the iterator is finished.
-        let mut updates: Vec<(Id, Option<SeekState>)> = Vec::new();
+        let mut updates: Vec<(Id, Option<SeekData>)> = Vec::new();
 
         let now = Unixtime::now().unwrap();
 
         for refmulti in self.events.iter() {
             let id = *refmulti.key();
-            match refmulti.value() {
-                SeekState::WaitingRelayList(when, author) => {
+            let data = refmulti.value();
+            match data.state {
+                SeekState::WaitingRelayList(author) => {
                     // Check if we have their relays yet
-                    match People::person_needs_relay_list(*author) {
+                    match People::person_needs_relay_list(author) {
                         Freshness::Fresh | Freshness::Stale => {
-                            if let Ok(relays) = Self::get_relays(*author) {
+                            if let Ok(relays) = Self::get_relays(author) {
                                 Self::seek_event_at_relays(id, relays);
-                                updates.push((id, Some(SeekState::WaitingEvent(now))));
+                                updates.push((id, Some(SeekData::new_event())));
                                 continue;
                             }
                         }
@@ -234,15 +252,15 @@ impl Seeker {
                     }
 
                     // If it has been 15 seconds, give up the wait and seek from our READ relays
-                    if now - *when > Duration::from_secs(15) {
+                    if now - data.start > Duration::from_secs(15) {
                         Self::seek_event_at_our_read_relays(id);
-                        updates.push((id, Some(SeekState::WaitingEvent(now))));
+                        updates.push((id, Some(SeekData::new_event())));
                     }
 
                     // Otherwise keep waiting
                 }
-                SeekState::WaitingEvent(when) => {
-                    if now - *when > Duration::from_secs(15) {
+                SeekState::WaitingEvent => {
+                    if now - data.start > Duration::from_secs(15) {
                         tracing::debug!("Failed to find id={}", id.as_hex_string());
                         updates.push((id, None));
                     }
