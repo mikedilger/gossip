@@ -40,7 +40,7 @@
           args = {
             nativeBuildInputs =
               [ pkgs.wasm-bindgen-cli pkgs.geckodriver pkgs.wasm-pack ]
-              ++ lib.optionals (!pkgs.stdenv.isDarwin) [ pkgs.firefox ];
+              ++ lib.optionals (!pkgs.stdenv.isDarwin) [ ];
           };
         } // lib.optionalAttrs pkgs.stdenv.isDarwin {
           # on Darwin newest stdenv doesn't seem to work
@@ -60,8 +60,11 @@
           flakeboxLib.mkFenixMultiToolchain { toolchains = toolchainsNative; };
 
         commonArgs = {
-          buildInputs = [ ] ++ lib.optionals pkgs.stdenv.isDarwin
-            [ pkgs.darwin.apple_sdk.frameworks.SystemConfiguration ];
+          buildInputs = [ ] ++ lib.optionals pkgs.stdenv.isDarwin [
+            pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
+            pkgs.darwin.apple_sdk.frameworks.OpenGL
+            pkgs.darwin.apple_sdk.frameworks.AppKit
+          ];
           nativeBuildInputs = [ pkgs.pkg-config ];
         };
         outputs = (flakeboxLib.craneMultiBuild { toolchains = toolchainsStd; })
