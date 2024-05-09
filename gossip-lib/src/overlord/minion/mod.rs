@@ -902,6 +902,11 @@ impl Minion {
         job_id: u64,
         dmchannel: DmChannel,
     ) -> Result<(), Error> {
+        // We will need the private key to auth to the relay for this
+        if !GLOBALS.identity.is_unlocked() {
+            return Err(ErrorKind::NoPrivateKey.into());
+        }
+
         let filters = filter_fns::dm_channel(dmchannel);
 
         if !filters.is_empty() {

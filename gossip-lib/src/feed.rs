@@ -627,7 +627,12 @@ pub fn enabled_event_kinds() -> Vec<EventKind> {
         .collect()
 }
 
-pub fn feed_related_event_kinds(dms: bool) -> Vec<EventKind> {
+pub fn feed_related_event_kinds(mut dms: bool) -> Vec<EventKind> {
+    // Do not include DM kinds if identity is not unlocked
+    if !GLOBALS.identity.is_unlocked() {
+        dms = false;
+    }
+
     enabled_event_kinds()
         .drain(..)
         .filter(|k| {
@@ -640,7 +645,11 @@ pub fn feed_related_event_kinds(dms: bool) -> Vec<EventKind> {
         .collect()
 }
 
-pub fn feed_displayable_event_kinds(dms: bool) -> Vec<EventKind> {
+pub fn feed_displayable_event_kinds(mut dms: bool) -> Vec<EventKind> {
+    // Do not include DM kinds if identity is not unlocked
+    if !GLOBALS.identity.is_unlocked() {
+        dms = false;
+    }
     enabled_event_kinds()
         .drain(..)
         .filter(|k| {
