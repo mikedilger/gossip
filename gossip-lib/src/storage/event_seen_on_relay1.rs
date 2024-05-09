@@ -1,9 +1,11 @@
-use crate::error::Error;
-use crate::storage::{RawDatabase, Storage, MAX_LMDB_KEY};
+use std::sync::Mutex;
+
 use heed::types::UnalignedSlice;
 use heed::RwTxn;
 use nostr_types::{Id, RelayUrl, Unixtime};
-use std::sync::Mutex;
+
+use crate::error::Error;
+use crate::storage::{RawDatabase, Storage, MAX_LMDB_KEY};
 
 // Id:Url -> Unixtime
 //   key: key!(id.as_slice(), url.as_str().as_bytes())

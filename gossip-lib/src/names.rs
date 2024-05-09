@@ -1,5 +1,6 @@
-use crate::globals::GLOBALS;
 use nostr_types::{IdHex, PublicKey};
+
+use crate::globals::GLOBALS;
 
 /// A short rendering of a `PublicKey`
 pub fn pubkey_short(pk: &PublicKey) -> String {

@@ -1,6 +1,8 @@
-use crate::globals::GLOBALS;
-use nostr_types::{ClientMessage, Filter, SubscriptionId};
 use std::sync::atomic::Ordering;
+
+use nostr_types::{ClientMessage, Filter, SubscriptionId};
+
+use crate::globals::GLOBALS;
 
 #[derive(Debug)]
 pub struct Subscription {

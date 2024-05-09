@@ -1,10 +1,14 @@
-use crate::error::Error;
-use crate::storage::{RawDatabase, Storage};
-use heed::{types::UnalignedSlice, DatabaseFlags, RwTxn};
-use nostr_types::{EventV2, EventV3, PublicKeyHex, TagV3};
 use std::sync::Mutex;
 
-// NOTE: "innerp" is a fake tag. We store events that reference a person internally under it.
+use heed::types::UnalignedSlice;
+use heed::{DatabaseFlags, RwTxn};
+use nostr_types::{EventV2, EventV3, PublicKeyHex, TagV3};
+
+use crate::error::Error;
+use crate::storage::{RawDatabase, Storage};
+
+// NOTE: "innerp" is a fake tag. We store events that reference a person
+// internally under it.
 pub(super) const INDEXED_TAGS: [&str; 4] = ["a", "d", "p", "delegation"];
 
 // TagKey:QUOTE:TagValue -> Id

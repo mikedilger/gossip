@@ -22,8 +22,8 @@ pub struct PersonRelay1 {
     /// When we get their nip05 and it specifies this relay
     pub last_suggested_nip05: Option<u64>,
 
-    /// Updated when a 'p' tag on any event associates this person and relay via the
-    /// recommended_relay_url field
+    /// Updated when a 'p' tag on any event associates this person and relay via
+    /// the recommended_relay_url field
     pub last_suggested_bytag: Option<u64>,
 
     /// If they set 'read' on their relay list
@@ -32,10 +32,10 @@ pub struct PersonRelay1 {
     /// If they set 'write' on their relay list
     pub write: bool,
 
-    /// If the user manaully specified 'read' for this association
+    /// If the user manually specified 'read' for this association
     pub manually_paired_read: bool,
 
-    /// If the user manaully specified 'write' for this association
+    /// If the user manually specified 'write' for this association
     pub manually_paired_write: bool,
 }
 

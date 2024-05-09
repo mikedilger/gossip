@@ -1,17 +1,15 @@
 //#![allow(dead_code)]
 use eframe::egui::{self, *};
+use gossip_lib::comms::ToOverlordMessage;
+use gossip_lib::{Relay, GLOBALS};
 use nostr_types::{PublicKeyHex, RelayUrl, Unixtime};
 
-use crate::ui::{widgets, GossipUi};
-use gossip_lib::{comms::ToOverlordMessage, Relay, GLOBALS};
-
-use super::{
-    list_entry::{
-        self, allocate_text_at, draw_link_at, draw_text_at, draw_text_galley_at, paint_hline,
-        TEXT_BOTTOM, TEXT_LEFT, TEXT_RIGHT, TEXT_TOP, TITLE_FONT_SIZE,
-    },
-    CopyButton, COPY_SYMBOL_SIZE,
+use super::list_entry::{
+    self, allocate_text_at, draw_link_at, draw_text_at, draw_text_galley_at, paint_hline,
+    TEXT_BOTTOM, TEXT_LEFT, TEXT_RIGHT, TEXT_TOP, TITLE_FONT_SIZE,
 };
+use super::{CopyButton, COPY_SYMBOL_SIZE};
+use crate::ui::{widgets, GossipUi};
 
 /// Height of the list view (width always max. available)
 const LIST_VIEW_HEIGHT: f32 = 60.0;
@@ -171,7 +169,6 @@ impl UsageBits {
 ///
 /// A relay entry has different views, which can be chosen with the
 /// show_<view> functions.
-///
 #[derive(Clone)]
 pub struct RelayEntry {
     relay: Relay,
@@ -478,8 +475,8 @@ impl RelayEntry {
                 RichText::new("Following: ---")
             };
             // let id = self.make_id("following_link");
-            // let response = draw_link_at(ui, id, pos, text.into(), Align::Min, active, true);
-            // if response.clicked() {
+            // let response = draw_link_at(ui, id, pos, text.into(), Align::Min, active,
+            // true); if response.clicked() {
             //     // TODO go to following page for this relay?
             // }
             draw_text_at(
@@ -1149,7 +1146,8 @@ impl RelayEntry {
         (self.relay.url.to_string() + str).into()
     }
 
-    /// Do layout and position the galley in the ui, without painting it or adding widget info.
+    /// Do layout and position the galley in the ui, without painting it or
+    /// adding widget info.
     fn update_list_view(mut self, ui: &mut Ui) -> Response {
         let (rect, mut response) = list_entry::allocate_space(ui, LIST_VIEW_HEIGHT);
 

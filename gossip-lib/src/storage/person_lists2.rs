@@ -1,14 +1,16 @@
-use super::types::PersonList1;
-use crate::error::Error;
-use crate::misc::Private;
-use crate::storage::{RawDatabase, Storage};
+use std::collections::{BTreeMap, HashMap};
+use std::hash::{Hash, Hasher};
+use std::sync::Mutex;
+
 use heed::types::UnalignedSlice;
 use heed::RwTxn;
 use nostr_types::PublicKey;
 use speedy::{Readable, Writable};
-use std::collections::{BTreeMap, HashMap};
-use std::hash::{Hash, Hasher};
-use std::sync::Mutex;
+
+use super::types::PersonList1;
+use crate::error::Error;
+use crate::misc::Private;
+use crate::storage::{RawDatabase, Storage};
 
 // Pubkey -> HashMap<PersonList1, Private> // Private reads and writes as a bool
 //   key: pubkey.as_bytes()

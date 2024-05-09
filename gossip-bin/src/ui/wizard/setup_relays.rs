@@ -1,16 +1,17 @@
+use std::collections::BTreeMap;
+
+use eframe::egui;
+use egui::{Button, Color32, Context, RichText, Ui};
+use egui_winit::egui::vec2;
+use gossip_lib::comms::ToOverlordMessage;
+use gossip_lib::{PersonList, Relay, GLOBALS};
+use nostr_types::RelayUrl;
+
 use super::wizard_state::WizardPath;
 use super::{continue_control, modify_relay, WizardPage};
 use crate::ui::widgets::list_entry::OUTER_MARGIN_RIGHT;
 use crate::ui::wizard::DEFAULT_RELAYS;
 use crate::ui::{GossipUi, Page};
-use eframe::egui;
-use egui::{Button, Color32, Context, RichText, Ui};
-use egui_winit::egui::vec2;
-use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::GLOBALS;
-use gossip_lib::{PersonList, Relay};
-use nostr_types::RelayUrl;
-use std::collections::BTreeMap;
 
 const MIN_OUTBOX: usize = 3;
 const MIN_INBOX: usize = 2;
@@ -20,7 +21,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     let read_relay = |url: &RelayUrl| GLOBALS.storage.read_or_create_relay(url, None).unwrap();
 
     // Convert our default relay strings into Relays
-    // fetching from storage so we don't overwrite any critical values when saving them later.
+    // fetching from storage so we don't overwrite any critical values when saving
+    // them later.
     let mut relay_options: BTreeMap<RelayUrl, Relay> = DEFAULT_RELAYS
         .iter()
         .map(|s| {

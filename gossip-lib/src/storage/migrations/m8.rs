@@ -1,8 +1,9 @@
+use heed::RwTxn;
+use nostr_types::{Id, RelayUrl};
+
 use crate::error::Error;
 use crate::storage::types::PersonRelay1;
 use crate::storage::Storage;
-use heed::RwTxn;
-use nostr_types::{Id, RelayUrl};
 
 impl Storage {
     pub(super) fn m8_trigger(&self) -> Result<(), Error> {

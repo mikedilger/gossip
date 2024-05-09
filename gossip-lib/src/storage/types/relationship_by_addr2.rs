@@ -1,6 +1,7 @@
-use super::RelationshipByAddr1;
 use nostr_types::PublicKey;
 use speedy::{Readable, Writable};
+
+use super::RelationshipByAddr1;
 
 /// A relationship between events by Address and Id
 #[derive(Clone, Debug, PartialEq, Eq, Readable, Writable)]

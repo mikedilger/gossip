@@ -1,6 +1,7 @@
-use crate::globals::GLOBALS;
 use nostr_types::{Event, EventKind, PublicKey, Unixtime};
 use sha2::Digest;
+
+use crate::globals::GLOBALS;
 
 /// This represents a DM (direct message) channel which includes a set
 /// of participants (usually just one, but can be a small group).
@@ -96,8 +97,8 @@ impl DmChannel {
     }
 }
 
-/// Data about a DM channel such as when the latest message occured, how many massages
-/// it has, and how many are unread.
+/// Data about a DM channel such as when the latest message occurred, how many
+/// massages it has, and how many are unread.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DmChannelData {
     pub dm_channel: DmChannel,

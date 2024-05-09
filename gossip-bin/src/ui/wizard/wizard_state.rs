@@ -1,6 +1,9 @@
+use std::cell::RefCell;
+use std::collections::HashSet;
+use std::rc::Rc;
+
 use gossip_lib::{Person, PersonList, Relay, GLOBALS};
 use nostr_types::{Event, EventKind, Filter, PublicKey, PublicKeyHex, RelayUrl};
-use std::{cell::RefCell, collections::HashSet, rc::Rc};
 
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub enum WizardPath {

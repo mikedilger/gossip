@@ -1,7 +1,8 @@
-use crate::error::Error;
-use crate::globals::GLOBALS;
 use nostr_types::{PublicKey, Tag};
 use parking_lot::RwLock;
+
+use crate::error::Error;
+use crate::globals::GLOBALS;
 
 /// A delegation tag to use when posting events on another's behalf
 #[derive(Default)]

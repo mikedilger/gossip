@@ -1,14 +1,13 @@
 use std::collections::HashSet;
 
-use super::GossipUi;
-use crate::ui::widgets;
-use crate::ui::Page;
 use eframe::egui;
 use egui::{Context, Ui};
 use egui_winit::egui::{Id, RichText};
-use gossip_lib::Relay;
-use gossip_lib::GLOBALS;
+use gossip_lib::{Relay, GLOBALS};
 use nostr_types::RelayUrl;
+
+use super::GossipUi;
+use crate::ui::{widgets, Page};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     let is_editing = app.relays.edit.is_some();

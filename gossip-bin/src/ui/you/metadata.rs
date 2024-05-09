@@ -1,13 +1,13 @@
-use super::{GossipUi, Page};
 use eframe::egui;
 use egui::{Align, Color32, Context, Layout, RichText, TextEdit, Ui};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::Relay;
-use gossip_lib::GLOBALS;
+use gossip_lib::{Relay, GLOBALS};
 use lazy_static::lazy_static;
 use nostr_types::Metadata;
 use serde_json::map::Map;
 use serde_json::value::Value;
+
+use super::{GossipUi, Page};
 
 lazy_static! {
     pub static ref EMPTY_METADATA: Metadata = Metadata::new();

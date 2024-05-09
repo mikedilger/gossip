@@ -1,20 +1,21 @@
-use crate::error::{Error, ErrorKind};
-use crate::globals::GLOBALS;
-use crate::profile::Profile;
-use crate::USER_AGENT;
-use futures::stream::{FuturesUnordered, StreamExt};
-use nostr_types::{Unixtime, Url};
-use reqwest::header::ETAG;
-use reqwest::Client;
-use reqwest::StatusCode;
-use sha2::Digest;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 use std::sync::RwLock;
 use std::time::{Duration, SystemTime};
+
+use futures::stream::{FuturesUnordered, StreamExt};
+use nostr_types::{Unixtime, Url};
+use reqwest::header::ETAG;
+use reqwest::{Client, StatusCode};
+use sha2::Digest;
 use tokio::time::Instant;
+
+use crate::error::{Error, ErrorKind};
+use crate::globals::GLOBALS;
+use crate::profile::Profile;
+use crate::USER_AGENT;
 
 #[derive(Copy, Clone, Debug)]
 enum FetchState {
@@ -193,15 +194,18 @@ impl Fetcher {
         }
     }
 
-    /// This is where other parts of the library attempt to get the bytes of a file.
+    /// This is where other parts of the library attempt to get the bytes of a
+    /// file.
     ///
-    /// If it is missing:  You'll get an `Ok(None)` response, but the fetcher will then
-    /// work in the background to try to make it available for a future call.
+    /// If it is missing:  You'll get an `Ok(None)` response, but the fetcher
+    /// will then work in the background to try to make it available for a
+    /// future call.
     ///
-    /// If it is available: You'll get `Ok(Some(bytes))`. This will read from the file system.
-    /// If you call it over and over rapidly (e.g. from the UI), it will read from the filesystem
-    /// over and over again, which is bad. So the UI caller should have it's own means of
-    /// caching the results from this call.
+    /// If it is available: You'll get `Ok(Some(bytes))`. This will read from
+    /// the file system. If you call it over and over rapidly (e.g. from the
+    /// UI), it will read from the filesystem over and over again, which is
+    /// bad. So the UI caller should have it's own means of caching the
+    /// results from this call.
     pub(crate) fn try_get(&self, url: &Url, max_age: Duration) -> Result<Option<Vec<u8>>, Error> {
         // FIXME - this function is called synchronously, but it makes several
         //         file system calls. This might be pushing the limits of what we should

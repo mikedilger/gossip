@@ -1,12 +1,13 @@
-use std::{cell::RefCell, rc::Rc};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 use eframe::egui::{self, Align, Color32, Layout, RichText, Ui};
 use egui_extras::{Size, StripBuilder};
-use gossip_lib::{comms::ToOverlordMessage, PendingItem, PersonList, GLOBALS};
-
-use crate::ui::{Page, Theme};
+use gossip_lib::comms::ToOverlordMessage;
+use gossip_lib::{PendingItem, PersonList, GLOBALS};
 
 use super::{Notification, NotificationFilter};
+use crate::ui::{Page, Theme};
 
 pub struct Pending {
     inner: gossip_lib::PendingItem,

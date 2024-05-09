@@ -1,8 +1,11 @@
+use std::sync::Mutex;
+
+use heed::types::UnalignedSlice;
+use heed::{DatabaseFlags, RwTxn};
+use nostr_types::Id;
+
 use crate::error::{Error, ErrorKind};
 use crate::storage::{RawDatabase, Storage};
-use heed::{types::UnalignedSlice, DatabaseFlags, RwTxn};
-use nostr_types::Id;
-use std::sync::Mutex;
 
 // Hashtag -> Id
 // (dup keys, so multiple Ids per hashtag)

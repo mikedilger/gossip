@@ -1,13 +1,15 @@
-use crate::error::Error;
-use crate::globals::GLOBALS;
+use std::sync::mpsc::Sender;
+
 use nostr_types::{
     ContentEncryptionAlgorithm, DelegationConditions, EncryptedPrivateKey, Event, EventKind,
     EventV1, EventV2, Filter, Id, Identity, KeySecurity, Metadata, PreEvent, PrivateKey, PublicKey,
     Rumor, RumorV1, RumorV2, Signature,
 };
 use parking_lot::RwLock;
-use std::sync::mpsc::Sender;
 use tokio::task;
+
+use crate::error::Error;
+use crate::globals::GLOBALS;
 
 pub struct GossipIdentity {
     pub inner: RwLock<Identity>,
@@ -46,7 +48,8 @@ impl GossipIdentity {
         Ok(())
     }
 
-    // Any function that changes GossipIdentity and changes the key should run this instead
+    // Any function that changes GossipIdentity and changes the key should run this
+    // instead
     fn on_keychange(&self) -> Result<(), Error> {
         self.on_change()?;
         if !matches!(*self.inner.read(), Identity::None) {

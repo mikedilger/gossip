@@ -51,6 +51,20 @@ mod reprel1;
 mod unindexed_giftwraps1;
 mod versioned;
 
+use std::collections::{BTreeSet, HashMap, HashSet};
+use std::ops::Bound;
+
+use heed::types::{UnalignedSlice, Unit};
+use heed::{Database, Env, EnvFlags, EnvOpenOptions, RoTxn, RwTxn};
+use nostr_types::{
+    EncryptedPrivateKey, Event, EventAddr, EventKind, EventReference, Filter, Id, MilliSatoshi,
+    PublicKey, PublicKeyHex, RelayList, RelayUrl, RelayUsage, Unixtime,
+};
+use paste::paste;
+use speedy::{Readable, Writable};
+
+use self::event_kci_index::INDEXED_KINDS;
+use self::event_tag_index1::INDEXED_TAGS;
 use crate::dm_channel::{DmChannel, DmChannelData};
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
@@ -61,19 +75,6 @@ use crate::person_relay::PersonRelay;
 use crate::profile::Profile;
 use crate::relationship::{RelationshipByAddr, RelationshipById};
 use crate::relay::Relay;
-use heed::types::{UnalignedSlice, Unit};
-use heed::{Database, Env, EnvFlags, EnvOpenOptions, RoTxn, RwTxn};
-use nostr_types::{
-    EncryptedPrivateKey, Event, EventAddr, EventKind, EventReference, Filter, Id, MilliSatoshi,
-    PublicKey, PublicKeyHex, RelayList, RelayUrl, RelayUsage, Unixtime,
-};
-use paste::paste;
-use speedy::{Readable, Writable};
-use std::collections::{BTreeSet, HashMap, HashSet};
-use std::ops::Bound;
-
-use self::event_kci_index::INDEXED_KINDS;
-use self::event_tag_index1::INDEXED_TAGS;
 
 // Macro to define read-and-write into "general" database, largely for settings
 // The type must implemented Speedy Readable and Writable
@@ -233,8 +234,8 @@ impl Storage {
         Ok(Storage { env, general })
     }
 
-    /// Run this after GLOBALS lazy static initialisation, so functions within storage can
-    /// access GLOBALS without hanging.
+    /// Run this after GLOBALS lazy static initialisation, so functions within
+    /// storage can access GLOBALS without hanging.
     pub fn init(&self) -> Result<(), Error> {
         // We have to trigger all of the current-version databases into existence
         // because otherwise there will be MVCC visibility problems later having
@@ -268,14 +269,14 @@ impl Storage {
         Ok(())
     }
 
-    /// Get a write transaction. With it, you can do multiple writes before you commit it.
-    /// Bundling multiple writes together is more efficient.
+    /// Get a write transaction. With it, you can do multiple writes before you
+    /// commit it. Bundling multiple writes together is more efficient.
     pub fn get_write_txn(&self) -> Result<RwTxn<'_>, Error> {
         Ok(self.env.write_txn()?)
     }
 
-    /// Sync the data to disk. This happens periodically, but sometimes it's useful to force
-    /// it.
+    /// Sync the data to disk. This happens periodically, but sometimes it's
+    /// useful to force it.
     pub fn sync(&self) -> Result<(), Error> {
         self.env.force_sync()?;
         Ok(())
@@ -463,8 +464,9 @@ impl Storage {
                     if let Some(id) = Event::get_id_from_speedy_bytes(val) {
                         ids.insert(id);
                         // Too bad but we can't delete it now, other threads
-                        // might try to access it still. We have to delete it from
-                        // all the other maps first.
+                        // might try to access it still. We have to delete it
+                        // from all the other maps
+                        // first.
                     }
                 }
             }
@@ -516,7 +518,8 @@ impl Storage {
         }
 
         // Delete from relationships
-        // (unfortunately because of the 2nd Id in the tag, we have to scan the whole thing)
+        // (unfortunately because of the 2nd Id in the tag, we have to scan the whole
+        // thing)
         let mut deletions: Vec<Vec<u8>> = Vec::new();
         for result in self.db_relationships_by_id()?.iter(&txn)? {
             let (key, _val) = result?;
@@ -546,7 +549,8 @@ impl Storage {
         Ok(ids.len())
     }
 
-    // General key-value functions --------------------------------------------------
+    // General key-value functions
+    // --------------------------------------------------
 
     pub(crate) fn write_migration_level<'a>(
         &'a self,
@@ -691,11 +695,7 @@ impl Storage {
         b"rebuild_relationships_needed",
         false
     );
-    def_flag!(
-        rebuild_indexes_needed,
-        b"rebuild_indexes_needed",
-        false
-    );
+    def_flag!(rebuild_indexes_needed, b"rebuild_indexes_needed", false);
 
     // Settings ----------------------------------------------------------
 
@@ -1376,7 +1376,7 @@ impl Storage {
                 }
 
                 // actual deletion done in second pass
-                // (deleting during interation does not work in LMDB)
+                // (deleting during iteration does not work in LMDB)
                 for deletion in deletions.drain(..) {
                     self.db_event_seen_on_relay()?.delete(txn, &deletion)?;
                 }
@@ -1416,8 +1416,8 @@ impl Storage {
         Ok(())
     }
 
-    /// Replace any existing event with the passed in event, if it is of a replaceable kind
-    /// and is newer.
+    /// Replace any existing event with the passed in event, if it is of a
+    /// replaceable kind and is newer.
     pub fn replace_event<'a>(
         &'a self,
         event: &Event,
@@ -1492,7 +1492,7 @@ impl Storage {
     /// Find events by filter.
     ///
     /// This function may inefficiently scrape all of storage for some filters.
-    /// To avoid an inefficent scrape, do one of these
+    /// To avoid an inefficient scrape, do one of these
     ///
     /// 1. Supply some ids
     /// 2. Supply some authors and some kinds, or
@@ -1642,7 +1642,8 @@ impl Storage {
                         let event = Event::read_from_buffer(bytes)?;
                         if filter.event_matches(&event) && screen(&event) {
                             output.insert(event);
-                            // We can't stop at a limit because our data is unsorted
+                            // We can't stop at a limit because our data is
+                            // unsorted
                         }
                     }
                 }
@@ -1810,7 +1811,8 @@ impl Storage {
     }
 
     /// Find events having a given tag, and passing the filter.
-    /// Only some tags are indxed: "a", "d", "delegation", and "p" for the gossip user only
+    /// Only some tags are indxed: "a", "d", "delegation", and "p" for the
+    /// gossip user only
     pub fn find_tagged_events<F>(
         &self,
         tagname: &str,
@@ -1973,7 +1975,8 @@ impl Storage {
             .collect())
     }
 
-    /// Returns the list of reactions and whether or not this account has already reacted to this event
+    /// Returns the list of reactions and whether or not this account has
+    /// already reacted to this event
     pub fn get_reactions(&self, id: Id) -> Result<(Vec<(char, usize)>, bool), Error> {
         // Whether or not the Gossip user already reacted to this event
         let mut self_already_reacted = false;
@@ -2046,7 +2049,7 @@ impl Storage {
             }
         }
 
-        // Deletes via 'a tags (entire paramterized groups)
+        // Deletes via 'a tags (entire parameterized groups)
         if let Some(parameter) = maybe_deleted_event.parameter() {
             let addr = EventAddr {
                 d: parameter,
@@ -2175,8 +2178,8 @@ impl Storage {
 
     /// Get the best relays for a person, given a direction.
     ///
-    /// This returns the relays for a person, along with a score, in order of score.
-    /// usage must not be RelayUsage::Both
+    /// This returns the relays for a person, along with a score, in order of
+    /// score. usage must not be RelayUsage::Both
     pub fn get_best_relays(
         &self,
         pubkey: PublicKey,
@@ -2281,7 +2284,8 @@ impl Storage {
 
         for event in &events {
             let unread: usize = if event.pubkey == my_pubkey {
-                // Do not count self-authored events as unread, irrespective of whether they are viewed
+                // Do not count self-authored events as unread, irrespective of whether they are
+                // viewed
                 0
             } else {
                 1 - self.is_event_viewed(event.id)? as usize
@@ -2428,15 +2432,10 @@ impl Storage {
                     event.id,
                     Some(txn),
                 )?;
-                self.write_event_kci_index(
-                    event.kind,
-                    innerevent.created_at,
-                    event.id,
-                    Some(txn),
-                )?;
+                self.write_event_kci_index(event.kind, innerevent.created_at, event.id, Some(txn))?;
                 self.write_event_tag_index(
                     &event, // this handles giftwrap internally
-                    Some(txn)
+                    Some(txn),
                 )?;
                 for hashtag in event.hashtags() {
                     if hashtag.is_empty() {

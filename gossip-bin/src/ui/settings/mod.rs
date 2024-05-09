@@ -1,7 +1,8 @@
-use crate::ui::{GossipUi, SettingsTab};
-use crate::unsaved_settings::UnsavedSettings;
 use eframe::egui;
 use egui::{Align, Context, Layout, Ui};
+
+use crate::ui::{GossipUi, SettingsTab};
+use crate::unsaved_settings::UnsavedSettings;
 
 mod content;
 mod database;

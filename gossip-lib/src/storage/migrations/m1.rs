@@ -1,9 +1,10 @@
-use crate::error::Error;
-use crate::storage::types::Relationship1;
-use crate::storage::Storage;
 use heed::RwTxn;
 use nostr_types::{EventReference, EventV1};
 use speedy::Readable;
+
+use crate::error::Error;
+use crate::storage::types::Relationship1;
+use crate::storage::Storage;
 
 impl Storage {
     pub(super) fn m1_trigger(&self) -> Result<(), Error> {

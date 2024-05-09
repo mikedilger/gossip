@@ -32,12 +32,10 @@ mod more_menu;
 pub(super) use more_menu::{MoreMenu, MoreMenuEntry};
 
 mod information_popup;
-pub use information_popup::InformationPopup;
-pub use information_popup::ProfilePopup;
+pub use information_popup::{InformationPopup, ProfilePopup};
 
 mod switch;
-pub use switch::switch_custom_at;
-pub use switch::Switch;
+pub use switch::{switch_custom_at, Switch};
 
 mod textedit;
 pub use textedit::TextEdit;

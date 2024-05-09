@@ -1,11 +1,14 @@
+use std::sync::Mutex;
+
+use heed::types::UnalignedSlice;
+
 use crate::error::Error;
 use crate::storage::{RawDatabase, Storage};
-use heed::types::UnalignedSlice;
-use std::sync::Mutex;
 
 // Id:Id -> RelationshipById1
 //   key: id.as_slice(), id.as_slice() | Id(val[32..64].try_into()?)
-//   val:  relationship_by_id.write_to_vec() | RelationshipById1::read_from_buffer(val)
+//   val:  relationship_by_id.write_to_vec() |
+// RelationshipById1::read_from_buffer(val)
 
 // NOTE: this means the SECOND Id relates to the FIRST Id, e.g.
 //     id2 replies to id1

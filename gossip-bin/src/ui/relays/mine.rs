@@ -1,11 +1,11 @@
-use super::GossipUi;
-use crate::ui::{widgets, Page};
 use eframe::egui;
 use egui::{Context, Ui};
 use egui_winit::egui::Id;
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::Relay;
-use gossip_lib::GLOBALS;
+use gossip_lib::{Relay, GLOBALS};
+
+use super::GossipUi;
+use crate::ui::{widgets, Page};
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     let is_editing = app.relays.edit.is_some();

@@ -1,13 +1,14 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::ui::wizard::WizardPage;
-use crate::ui::{widgets, GossipUi, Page};
 use eframe::egui;
 use egui::{Context, RichText, Ui};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{PersonList, Private, GLOBALS};
 use nostr_types::{Profile, PublicKey, RelayUsage};
+
+use crate::ui::wizard::WizardPage;
+use crate::ui::{widgets, GossipUi, Page};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     if app.wizard_state.pubkey.is_none() && !app.wizard_state.follow_only {
@@ -98,7 +99,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                                                     .followed_getting_metadata
                                                     .contains(&pubkey)
                                                 {
-                                                    // Add this key to the list of metadata to be updated
+                                                    // Add this key to the list of metadata to be
+                                                    // updated
                                                     app.wizard_state
                                                         .followed_getting_metadata
                                                         .insert(pubkey.to_owned());
@@ -109,7 +111,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                                                     ),
                                                 );
                                             } else {
-                                                // We don't have outboxes... this will come. Following them triggered this.
+                                                // We don't have outboxes... this will come.
+                                                // Following them triggered this.
                                                 ui.label(
                                                     RichText::new("seeking relay list...").color(
                                                         app.theme.warning_marker_text_color(),
@@ -117,7 +120,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                                                 );
                                             }
                                         } else {
-                                            // We don't have outboxes... this will come. Following them triggered this.
+                                            // We don't have outboxes... this will come. Following
+                                            // them triggered this.
                                             ui.label(
                                                 RichText::new("seeking relay list...")
                                                     .color(app.theme.warning_marker_text_color()),

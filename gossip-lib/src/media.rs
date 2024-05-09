@@ -1,15 +1,16 @@
-use crate::error::{Error, ErrorKind};
-use crate::globals::GLOBALS;
-use dashmap::{DashMap, DashSet};
-use image::imageops;
-use image::imageops::FilterType;
-use image::{DynamicImage, Rgba, RgbaImage};
-use nostr_types::{UncheckedUrl, Url};
 use std::collections::HashSet;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
+
+use dashmap::{DashMap, DashSet};
+use image::imageops::FilterType;
+use image::{imageops, DynamicImage, Rgba, RgbaImage};
+use nostr_types::{UncheckedUrl, Url};
 use tokio::sync::RwLock;
 use usvg::TreeParsing;
+
+use crate::error::{Error, ErrorKind};
+use crate::globals::GLOBALS;
 
 /// System that processes media fetched from the internet
 pub struct Media {
@@ -65,8 +66,8 @@ impl Media {
 
     /// Get an image by Url
     ///
-    /// This returns immediately, usually with None if never called on that Url before.
-    /// Call it again later to try to pick up the result.
+    /// This returns immediately, usually with None if never called on that Url
+    /// before. Call it again later to try to pick up the result.
     ///
     /// FIXME: this API doesn't serve async clients well.
     pub fn get_image(&self, url: &Url) -> Option<RgbaImage> {
@@ -119,8 +120,8 @@ impl Media {
 
     /// Get data by Url
     ///
-    /// This returns immediately, usually with None if never called on that Url before.
-    /// Call it again later to try to pick up the result.
+    /// This returns immediately, usually with None if never called on that Url
+    /// before. Call it again later to try to pick up the result.
     ///
     /// FIXME: this API doesn't serve async clients well.
     pub fn get_data(&self, url: &Url) -> Option<Vec<u8>> {
@@ -164,7 +165,8 @@ impl Media {
     }
 }
 
-// Note: size is required for SVG which has no inherent size, even if we don't resize
+// Note: size is required for SVG which has no inherent size, even if we don't
+// resize
 pub(crate) fn load_image_bytes(
     image_bytes: &[u8],
     square: bool,

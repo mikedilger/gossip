@@ -1,8 +1,9 @@
+use heed::RwTxn;
+use speedy::{Readable, Writable};
+
 use crate::error::{Error, ErrorKind};
 use crate::storage::types::{Settings1, Settings2};
 use crate::storage::Storage;
-use heed::RwTxn;
-use speedy::{Readable, Writable};
 
 impl Storage {
     pub(super) fn m2_trigger(&self) -> Result<(), Error> {

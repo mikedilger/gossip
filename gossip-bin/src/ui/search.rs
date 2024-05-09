@@ -1,10 +1,10 @@
-use super::{widgets, GossipUi, Page};
 use eframe::{egui, Frame};
 use egui::widgets::Button;
 use egui::{Context, Label, RichText, Sense, Ui};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::FeedKind;
-use gossip_lib::GLOBALS;
+use gossip_lib::{FeedKind, GLOBALS};
+
+use super::{widgets, GossipUi, Page};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut Frame, ui: &mut Ui) {
     ui.add_space(10.0);

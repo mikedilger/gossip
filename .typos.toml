@@ -1,0 +1,6 @@
+[files]
+extend-exclude = ["**/*.drawio", "fonts/**"]
+
+[default.extend-words]
+# Don't correct Mac Big Sur
+Sur = "Sur"

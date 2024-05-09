@@ -1,10 +1,12 @@
-use super::types::{PersonList1, PersonListMetadata2};
-use crate::error::Error;
-use crate::storage::{RawDatabase, Storage};
+use std::sync::Mutex;
+
 use heed::types::UnalignedSlice;
 use heed::RwTxn;
 use speedy::{Readable, Writable};
-use std::sync::Mutex;
+
+use super::types::{PersonList1, PersonListMetadata2};
+use crate::error::Error;
+use crate::storage::{RawDatabase, Storage};
 
 // PersonList1 -> PersonListMetadata2 // bool is if private or not
 

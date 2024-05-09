@@ -1,10 +1,12 @@
-use crate::error::Error;
-use crate::people::PersonList;
-use crate::storage::{RawDatabase, Storage};
+use std::sync::Mutex;
+
 use heed::types::UnalignedSlice;
 use heed::RwTxn;
 use nostr_types::PublicKey;
-use std::sync::Mutex;
+
+use crate::error::Error;
+use crate::people::PersonList;
+use crate::storage::{RawDatabase, Storage};
 
 // Pubkey -> Vec<u8>
 //   key: pubkey.as_bytes()

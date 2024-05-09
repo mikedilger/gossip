@@ -10,9 +10,10 @@ mod date_ago;
 mod ui;
 mod unsaved_settings;
 
-use gossip_lib::{Error, RunState, GLOBALS};
 use std::sync::atomic::Ordering;
 use std::{env, thread};
+
+use gossip_lib::{Error, RunState, GLOBALS};
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 
 pub const AVATAR_SIZE: u32 = 48; // points, not pixels

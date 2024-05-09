@@ -1,10 +1,12 @@
-use crate::error::{Error, ErrorKind};
-use crate::storage::types::Relay2;
-use crate::storage::{RawDatabase, Storage};
+use std::sync::Mutex;
+
 use heed::types::UnalignedSlice;
 use heed::{RoTxn, RwTxn};
 use nostr_types::RelayUrl;
-use std::sync::Mutex;
+
+use crate::error::{Error, ErrorKind};
+use crate::storage::types::Relay2;
+use crate::storage::{RawDatabase, Storage};
 
 // Url -> Relay
 //   key: key!(url.0.as_bytes())

@@ -1,6 +1,5 @@
-use super::FeedNoteParams;
-use crate::ui::widgets::{InformationPopup, MoreMenuEntry};
-use crate::ui::{widgets, you, FeedKind, GossipUi, HighlightType, Page, Theme};
+use std::collections::HashMap;
+
 use eframe::egui;
 use eframe::epaint::text::LayoutJob;
 use egui::containers::CollapsingHeader;
@@ -9,12 +8,13 @@ use egui_winit::egui::text::{CCursor, CCursorRange};
 use egui_winit::egui::text_edit::TextEditOutput;
 use egui_winit::egui::{vec2, AboveOrBelow, Id};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::DmChannel;
-use gossip_lib::Relay;
-use gossip_lib::GLOBALS;
+use gossip_lib::{DmChannel, Relay, GLOBALS};
 use memoize::memoize;
 use nostr_types::{ContentSegment, NostrBech32, NostrUrl, ShatteredContent, Tag};
-use std::collections::HashMap;
+
+use super::FeedNoteParams;
+use crate::ui::widgets::{InformationPopup, MoreMenuEntry};
+use crate::ui::{widgets, you, FeedKind, GossipUi, HighlightType, Page, Theme};
 
 #[memoize]
 pub fn textarea_highlighter(theme: Theme, text: String, interests: Vec<String>) -> LayoutJob {
@@ -322,7 +322,8 @@ fn dm_posting_area(
 
     // List tags that will be applied
     // FIXME: list tags from parent event too in case of reply
-    // FIXME: tag handling in overlord::post() needs to move back here so the user can control this
+    // FIXME: tag handling in overlord::post() needs to move back here so the user
+    // can control this
     for (i, bech32) in NostrBech32::find_all_in_string(&app.dm_draft_data.draft)
         .iter()
         .enumerate()
@@ -685,7 +686,8 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
 
     // List tags that will be applied
     // FIXME: list tags from parent event too in case of reply
-    // FIXME: tag handling in overlord::post() needs to move back here so the user can control this
+    // FIXME: tag handling in overlord::post() needs to move back here so the user
+    // can control this
     for (i, bech32) in NostrBech32::find_all_in_string(&app.draft_data.draft)
         .iter()
         .enumerate()

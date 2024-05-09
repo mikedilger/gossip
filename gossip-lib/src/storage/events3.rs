@@ -1,10 +1,12 @@
-use crate::error::Error;
-use crate::storage::{RawDatabase, Storage};
+use std::sync::Mutex;
+
 use heed::types::UnalignedSlice;
 use heed::RwTxn;
 use nostr_types::{EventV3, Id};
 use speedy::{Readable, Writable};
-use std::sync::Mutex;
+
+use crate::error::Error;
+use crate::storage::{RawDatabase, Storage};
 
 // Id -> Event
 //   key: id.as_slice() | Id(val[0..32].try_into()?)
@@ -73,15 +75,10 @@ impl Storage {
                 event.id,
                 Some(txn),
             )?;
-            self.write_event_kci_index(
-                event.kind,
-                innerevent.created_at,
-                event.id,
-                Some(txn)
-            )?;
+            self.write_event_kci_index(event.kind, innerevent.created_at, event.id, Some(txn))?;
             self.write_event3_tag_index1(
                 &event, // use the outer giftwrap event
-                Some(txn)
+                Some(txn),
             )?;
 
             for hashtag in event.hashtags() {

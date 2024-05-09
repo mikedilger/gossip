@@ -1,18 +1,15 @@
-use super::{GossipUi, Page};
-use crate::ui::widgets;
-use crate::ui::widgets::list_entry;
-use crate::ui::widgets::CopyButton;
-use crate::AVATAR_SIZE_F32;
 use eframe::egui::{self, Label};
 use egui::{Context, RichText, TextEdit, Ui, Vec2};
-use egui_winit::egui::vec2;
-use egui_winit::egui::InnerResponse;
-use egui_winit::egui::Response;
-use egui_winit::egui::Widget;
+use egui_winit::egui::{vec2, InnerResponse, Response, Widget};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{DmChannel, FeedKind, Freshness, People, Person, PersonList, Private, GLOBALS};
 use nostr_types::{PublicKey, RelayUrl};
 use serde_json::Value;
+
+use super::{GossipUi, Page};
+use crate::ui::widgets;
+use crate::ui::widgets::{list_entry, CopyButton};
+use crate::AVATAR_SIZE_F32;
 
 const ITEM_V_SPACE: f32 = 2.0;
 const AVATAR_COL_WIDTH: f32 = AVATAR_SIZE_F32 * 3.0;
@@ -240,7 +237,8 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                         Private(is_private),
                                         None,
                                     );
-                                    // variable 'private' gets negated when switch is operated
+                                    // variable 'private' gets negated when
+                                    // switch is operated
                                 }
                                 ui.add_enabled(is_private, egui::Label::new("Private"));
 

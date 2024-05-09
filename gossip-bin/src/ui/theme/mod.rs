@@ -1,12 +1,14 @@
-use super::feed::NoteRenderData;
-use super::HighlightType;
+use std::collections::BTreeMap;
+
 use eframe::egui::{
     Color32, Context, FontData, FontDefinitions, FontTweak, Margin, Rounding, Stroke, Style,
     TextFormat, TextStyle, Ui,
 };
 use eframe::epaint::{ecolor, FontFamily, FontId, Shadow};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+
+use super::feed::NoteRenderData;
+use super::HighlightType;
 
 mod default;
 pub use default::DefaultTheme;
@@ -566,8 +568,8 @@ pub trait ThemeDef: Send + Sync {
     // Used as background for highlighting unread events
     fn highlighted_note_bgcolor(dark_mode: bool) -> Color32;
 
-    // These styles are used by egui by default for widgets if you don't override them
-    // in place.
+    // These styles are used by egui by default for widgets if you don't override
+    // them in place.
     fn get_style(dark_mode: bool) -> Style;
     /// the style to use when displaying on-top of an accent-colored background
     fn on_accent_style(style: &mut Style, dark_mode: bool);

@@ -1,16 +1,17 @@
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+use std::time::Duration;
+
+use nostr_types::{EventKind, Filter, PublicKey, PublicKeyHex, RelayList, RelayUrl, Unixtime};
+use parking_lot::{RwLock as PRwLock, RwLockReadGuard as PRwLockReadGuard};
+use tokio::task;
+use tokio::time::Instant;
+
 use crate::comms::RelayJob;
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::nip46::ParsedCommand;
 use crate::people::PersonList;
-use nostr_types::{EventKind, Filter, PublicKey, PublicKeyHex, RelayList, RelayUrl, Unixtime};
-use parking_lot::RwLock as PRwLock;
-use parking_lot::RwLockReadGuard as PRwLockReadGuard;
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
-use std::time::Duration;
-use tokio::task;
-use tokio::time::Instant;
 
 #[derive(Debug, Clone, Hash, PartialEq)]
 pub enum PendingItem {
@@ -20,7 +21,8 @@ pub enum PendingItem {
         jobs: Vec<RelayJob>,
     },
 
-    /// Relay picker wants to authenticate to this relay with a private key signature
+    /// Relay picker wants to authenticate to this relay with a private key
+    /// signature
     RelayAuthenticationRequest {
         account: PublicKey,
         relay: RelayUrl,
@@ -268,7 +270,8 @@ impl Pending {
                 self.insert(PendingItem::PersonListOutOfSync(*list));
                 continue;
             } else {
-                self.remove(&PendingItem::PersonListOutOfSync(*list)); // remove if present
+                self.remove(&PendingItem::PersonListOutOfSync(*list)); // remove
+                                                                       // if present
             }
 
             // If 90 days old, should be re-synced

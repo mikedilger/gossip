@@ -1,8 +1,9 @@
-use crate::{Error, ErrorKind};
 use base64::Engine;
 use http::Uri;
 use nostr_types::{ClientMessage, Event, Filter, RelayMessage, SubscriptionId};
 use tungstenite::protocol::Message;
+
+use crate::{Error, ErrorKind};
 
 pub fn fetch(url: &str, filters: Vec<Filter>) -> Result<Vec<Event>, Error> {
     tracing::info!("Fetching from {}", url);

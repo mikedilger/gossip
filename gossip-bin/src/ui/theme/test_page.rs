@@ -1,13 +1,11 @@
-use crate::ui::feed::NoteRenderData;
-use crate::ui::widgets;
-use crate::ui::GossipUi;
-use crate::ui::HighlightType;
 use eframe::egui;
 use egui::text::LayoutJob;
 use egui::widget_text::WidgetText;
 use egui::{Color32, Context, Frame, Margin, RichText, Ui};
-use egui_winit::egui::Vec2;
-use egui_winit::egui::Widget;
+use egui_winit::egui::{Vec2, Widget};
+
+use crate::ui::feed::NoteRenderData;
+use crate::ui::{widgets, GossipUi, HighlightType};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Background {

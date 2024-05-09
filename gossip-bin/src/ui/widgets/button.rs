@@ -5,9 +5,9 @@ use egui_winit::egui::{
     Widget, WidgetInfo, WidgetText, WidgetType,
 };
 
+use super::super::Theme;
+use super::WidgetState;
 use crate::ui::theme::{DefaultTheme, ThemeDef};
-
-use super::{super::Theme, WidgetState};
 
 #[derive(Clone, Copy)]
 enum ButtonType {

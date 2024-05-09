@@ -1,7 +1,8 @@
-use crate::globals::GLOBALS;
-use crate::people::PersonList;
 use nostr_types::{Metadata, PublicKey};
 use serde::{Deserialize, Serialize};
+
+use crate::globals::GLOBALS;
+use crate::people::PersonList;
 
 // THIS IS HISTORICAL FOR MIGRATIONS AND THE STRUCTURES SHOULD NOT BE EDITED
 

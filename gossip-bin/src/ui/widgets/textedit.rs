@@ -1,14 +1,12 @@
+use egui_winit::egui::load::SizedTexture;
 use egui_winit::egui::{
-    self, load::SizedTexture, vec2, Color32, Rect, Rounding, Sense, Stroke, TextBuffer,
-    TextureHandle, Widget, WidgetText,
-};
-
-use crate::ui::{
-    assets::{self, Assets},
-    Theme,
+    self, vec2, Color32, Rect, Rounding, Sense, Stroke, TextBuffer, TextureHandle, Widget,
+    WidgetText,
 };
 
 use super::NavItem;
+use crate::ui::assets::{self, Assets};
+use crate::ui::Theme;
 
 pub struct TextEdit<'t> {
     theme: &'t Theme,

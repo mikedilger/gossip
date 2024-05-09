@@ -1,7 +1,11 @@
-use super::notedata::NoteData;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
+
 use gossip_lib::GLOBALS;
 use nostr_types::{Id, PublicKey};
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+
+use super::notedata::NoteData;
 
 /// a 'note' is a processed event
 pub struct Notes {

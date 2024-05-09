@@ -3,12 +3,12 @@
 # Exit on first failure
 set -e
 
-if [ ! -f build-appimage.sh ] ; then
+if [ ! -f build-appimage.sh ]; then
     echo Run from the "gossip/packaging/appimage" directory
     exit 1
 fi
 
-DIR=$(readlink -f $(dirname $0))
+DIR=$(readlink -f "$(dirname "$0")")
 
 cleanup() {
     cd "$DIR"
@@ -17,7 +17,7 @@ trap cleanup EXIT
 
 cd ../..
 
-RUSTFLAGS="-C target-cpu=native --cfg tokio_unstable"
+export RUSTFLAGS="-C target-cpu=native --cfg tokio_unstable"
 cargo build --features=lang-cjk,appimage --release
 
 cd target/
@@ -54,7 +54,7 @@ chmod a+x appimagetool-x86_64.AppImage
 
 # Bundle for portable mode
 mkdir -p gossip-x86_64.AppImage.home/.local/share
-tar cvf - gossip-x86_64.AppImage gossip-x86_64.AppImage.home | gzip -c > gossip-x86_64.AppImage.tar.gz
+tar cvf - gossip-x86_64.AppImage gossip-x86_64.AppImage.home | gzip -c >gossip-x86_64.AppImage.tar.gz
 
 echo "Portable AppImage is at ../../target/appimage/gossip-x86_64.AppImage.tar.gz"
 

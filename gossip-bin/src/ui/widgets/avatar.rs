@@ -1,6 +1,7 @@
-use crate::{AVATAR_SIZE_F32, AVATAR_SIZE_REPOST_F32};
 use egui_winit::egui::{self, vec2, Image, Response, TextureHandle, Ui, Vec2};
 use gossip_lib::{Person, PersonList};
+
+use crate::{AVATAR_SIZE_F32, AVATAR_SIZE_REPOST_F32};
 
 pub(crate) enum AvatarSize {
     Profile,

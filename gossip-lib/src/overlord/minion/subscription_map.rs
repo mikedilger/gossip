@@ -1,6 +1,8 @@
-use super::subscription::Subscription;
-use nostr_types::Filter;
 use std::collections::HashMap;
+
+use nostr_types::Filter;
+
+use super::subscription::Subscription;
 
 // handle is a coder-friendly string like "general_feed"
 // id is a short numeric string like "0", counting up from 0.

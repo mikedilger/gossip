@@ -1,6 +1,7 @@
+use nostr_types::{EventKind, Filter, IdHex, PublicKey, PublicKeyHex, Unixtime};
+
 use crate::dm_channel::DmChannel;
 use crate::globals::GLOBALS;
-use nostr_types::{EventKind, Filter, IdHex, PublicKey, PublicKeyHex, Unixtime};
 
 pub enum FeedRange {
     // Long-term subscription for anything after the given time
@@ -102,8 +103,9 @@ pub fn inbox_feed(spamsafe: bool, range: FeedRange) -> Vec<Filter> {
         // Giftwraps cannot be filtered by author so we have to take them regardless
         // of the spamsafe designation of the relay.
         //
-        // Sure, the TOTAL number of giftwraps being the limit will be MORE than we need,
-        // but since giftwraps get backdated, this is probably a good thing.
+        // Sure, the TOTAL number of giftwraps being the limit will be MORE than we
+        // need, but since giftwraps get backdated, this is probably a good
+        // thing.
         let filter = {
             let mut filter = Filter {
                 kinds: vec![EventKind::GiftWrap],
@@ -294,7 +296,7 @@ pub fn metadata(pubkeys: &[PublicKey]) -> Vec<Filter> {
         authors: pkhp,
         kinds: vec![EventKind::Metadata, EventKind::RelayList],
         // FIXME: we could probably get a since-last-fetched-their-metadata here.
-        //        but relays should just return the lastest of these.
+        //        but relays should just return the latest of these.
         ..Default::default()
     }]
 }

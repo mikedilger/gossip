@@ -1,6 +1,7 @@
-use crate::misc::Private;
 use nostr_types::Unixtime;
 use speedy::{Readable, Writable};
+
+use crate::misc::Private;
 
 #[derive(Debug, Clone, PartialEq, Eq, Readable, Writable)]
 pub struct PersonListMetadata3 {

@@ -1,11 +1,13 @@
-use crate::error::Error;
-use crate::storage::types::PersonRelay1;
-use crate::storage::{RawDatabase, Storage, MAX_LMDB_KEY};
+use std::sync::Mutex;
+
 use heed::types::UnalignedSlice;
 use heed::RwTxn;
 use nostr_types::{PublicKey, RelayUrl};
 use speedy::{Readable, Writable};
-use std::sync::Mutex;
+
+use crate::error::Error;
+use crate::storage::types::PersonRelay1;
+use crate::storage::{RawDatabase, Storage, MAX_LMDB_KEY};
 
 // PublicKey:Url -> PersonRelay
 //   key: key!(pubkey.as_bytes + url.as_str().as_bytes)

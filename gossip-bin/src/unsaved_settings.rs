@@ -26,11 +26,12 @@ macro_rules! save_setting {
     };
 }
 
-/// Settings are stored in GLOBALS.storage individually. Usually we don't need them together
-/// as an object. But the UI uses this to cache changes before committing them.
+/// Settings are stored in GLOBALS.storage individually. Usually we don't need
+/// them together as an object. But the UI uses this to cache changes before
+/// committing them.
 ///
-/// NOTE: It is recommended to NOT use this structure. Instead, just interact with each
-/// setting key individually via `GLOBALS.storage`
+/// NOTE: It is recommended to NOT use this structure. Instead, just interact
+/// with each setting key individually via `GLOBALS.storage`
 #[derive(Clone, Debug, PartialEq)]
 pub struct UnsavedSettings {
     // ID settings

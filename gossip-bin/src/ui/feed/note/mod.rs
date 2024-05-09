@@ -3,30 +3,28 @@ mod content;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use super::notedata::{NoteData, RepostType};
-
-use super::FeedNoteParams;
-use crate::ui::widgets::{self, AvatarSize, CopyButton, MoreMenuEntry};
-use crate::ui::{GossipUi, Page};
-use crate::{AVATAR_SIZE_F32, AVATAR_SIZE_REPOST_F32};
 use eframe::egui::{self, vec2, Margin};
 use egui::{
     Align, Context, Frame, Label, Layout, RichText, Sense, Separator, Stroke, TextStyle, Ui,
 };
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::DmChannel;
-use gossip_lib::FeedKind;
-use gossip_lib::{Globals, ZapState, GLOBALS};
+use gossip_lib::{DmChannel, FeedKind, Globals, ZapState, GLOBALS};
 use nostr_types::{
     Event, EventAddr, EventDelegation, EventKind, EventPointer, EventReference, IdHex, NostrUrl,
     UncheckedUrl,
 };
 
+use super::notedata::{NoteData, RepostType};
+use super::FeedNoteParams;
+use crate::ui::widgets::{self, AvatarSize, CopyButton, MoreMenuEntry};
+use crate::ui::{GossipUi, Page};
+use crate::{AVATAR_SIZE_F32, AVATAR_SIZE_REPOST_F32};
+
 #[derive(Default)]
 pub struct NoteRenderData {
     /// Height of the post
-    /// This is only used in feed_post_inner_indent() and is often just set to 0.0, but should
-    /// be taken from app.height if we can get that data.
+    /// This is only used in feed_post_inner_indent() and is often just set to
+    /// 0.0, but should be taken from app.height if we can get that data.
     pub height: f32,
 
     /// Has this post been seen yet?
@@ -151,7 +149,8 @@ pub(super) fn render_note(
             let bottom = ui.next_widget_position();
             app.height.insert(id, bottom.y - top.y);
 
-            // scroll to this note if it's the main note of a thread and the user hasn't scrolled yet
+            // scroll to this note if it's the main note of a thread and the user hasn't
+            // scrolled yet
             if is_main_event && app.feeds.thread_needs_scroll {
                 // keep auto-scrolling until user scrolls
                 if app.current_scroll_offset != 0.0 {
@@ -307,8 +306,8 @@ pub fn render_note_inner(
                             ui.add_space(8.0);
                             ui.style_mut().override_text_style = Some(TextStyle::Small);
                             let idhex: IdHex = irt.into();
-                            let nam = format!("▲ #{}", gossip_lib::names::hex_id_short(&idhex));
-                            if ui.link(&nam).clicked() {
+                            let name = format!("▲ #{}", gossip_lib::names::hex_id_short(&idhex));
+                            if ui.link(&name).clicked() {
                                 app.set_page(
                                     ui.ctx(),
                                     Page::Feed(FeedKind::Thread {
@@ -329,8 +328,9 @@ pub fn render_note_inner(
                                 ui.add_space(8.0);
                                 ui.style_mut().override_text_style = Some(TextStyle::Small);
                                 let idhex: IdHex = e.id.into();
-                                let nam = format!("▲ #{}", gossip_lib::names::hex_id_short(&idhex));
-                                if ui.link(&nam).clicked() {
+                                let name =
+                                    format!("▲ #{}", gossip_lib::names::hex_id_short(&idhex));
+                                if ui.link(&name).clicked() {
                                     app.set_page(
                                         ui.ctx(),
                                         Page::Feed(FeedKind::Thread {
@@ -397,7 +397,8 @@ pub fn render_note_inner(
                     }
 
                     if let Page::Feed(FeedKind::DmChat(_)) = app.page {
-                        // don't show ENCRYPTED DM or SECURE in the dm channel itself
+                        // don't show ENCRYPTED DM or SECURE in the dm channel
+                        // itself
                     } else {
                         if note.event.kind.is_direct_message_related() {
                             let color = app.theme.notice_marker_text_color();
@@ -670,8 +671,9 @@ pub fn render_note_inner(
                             .interactable(false)
                             // .pivot(Align2::RIGHT_TOP) // Fails to work as advertised
                             .fixed_pos(seen_on_popup_position)
-                            // FIXME IN EGUI: constrain is moving the box left for all of these boxes
-                            // even if they have different IDs and don't need it.
+                            // FIXME IN EGUI: constrain is moving the box left for all of these
+                            // boxes even if they have different IDs and
+                            // don't need it.
                             .constrain(true)
                             .show(ui.ctx(), |ui| {
                                 ui.set_min_width(200.0);
@@ -962,8 +964,8 @@ pub fn render_note_inner(
                                 if read_setting!(enable_zap_receipts) && !note.muted() {
                                     ui.add_space(24.0);
 
-                                    // To zap, the user must have a lnurl, and the event must have been
-                                    // seen on some relays
+                                    // To zap, the user must have a lnurl, and the event must have
+                                    // been seen on some relays
                                     let mut zap_lnurl: Option<String> = None;
                                     if let Some(ref metadata) = note.author.metadata {
                                         if let Some(lnurl) = metadata.lnurl() {
@@ -1164,7 +1166,8 @@ fn render_content(
                         ui.label(RichText::new(text).monospace().italics());
                         if ui.button("Show Post").clicked() {
                             app.approved.insert(event.id);
-                            app.height.remove(&event.id); // will need to be recalculated.
+                            app.height.remove(&event.id); // will need to be
+                                                          // recalculated.
                         }
                     } else if note.repost == Some(RepostType::Kind6Embedded) {
                         if note.embedded_event.is_some() {

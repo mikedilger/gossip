@@ -1,3 +1,12 @@
+use std::sync::atomic::Ordering;
+
+use async_recursion::async_recursion;
+use heed::RwTxn;
+use nostr_types::{
+    Event, EventAddr, EventKind, EventReference, Id, Metadata, NostrBech32, PublicKey, RelayList,
+    RelayUrl, RelayUsage, SimpleRelayList, Tag, Unixtime,
+};
+
 use crate::comms::ToOverlordMessage;
 use crate::error::Error;
 use crate::filter::EventFilterAction;
@@ -6,17 +15,10 @@ use crate::misc::{Freshness, Private};
 use crate::people::{People, PersonList, PersonListMetadata};
 use crate::person_relay::PersonRelay;
 use crate::relationship::{RelationshipByAddr, RelationshipById};
-use async_recursion::async_recursion;
-use heed::RwTxn;
-use nostr_types::{
-    Event, EventAddr, EventKind, EventReference, Id, Metadata, NostrBech32, PublicKey, RelayList,
-    RelayUrl, RelayUsage, SimpleRelayList, Tag, Unixtime,
-};
-use std::sync::atomic::Ordering;
 
-/// This is mainly used internally to gossip-lib, but you can use it to stuff events
-/// into gossip from other sources. This processes a new event, saving the results into
-/// the database and also populating the GLOBALS maps.
+/// This is mainly used internally to gossip-lib, but you can use it to stuff
+/// events into gossip from other sources. This processes a new event, saving
+/// the results into the database and also populating the GLOBALS maps.
 #[async_recursion]
 pub async fn process_new_event(
     event: &Event,
@@ -35,9 +37,10 @@ pub async fn process_new_event(
 
     // Verify the event,
     // Don't verify if it is a duplicate:
-    //    NOTE: relays could send forged events with valid IDs of other events, but if
-    //          they do that in an event that is a duplicate of one we already have, this
-    //          duplicate will only affect seen-on information, it will not be saved.
+    //    NOTE: relays could send forged events with valid IDs of other events, but
+    // if          they do that in an event that is a duplicate of one we
+    // already have, this          duplicate will only affect seen-on
+    // information, it will not be saved.
     if !duplicate && verify {
         let mut maxtime = now;
         maxtime.0 += GLOBALS.storage.read_setting_future_allowance_secs() as i64;
@@ -197,7 +200,8 @@ pub async fn process_new_event(
     }
     // FIXME do same for event addr
 
-    // If it is a GiftWrap, from here on out operate on the Rumor with the giftwrap's id
+    // If it is a GiftWrap, from here on out operate on the Rumor with the
+    // giftwrap's id
     let mut event: &Event = event; // take ownership of this reference
     let mut rumor_event: Event;
     if event.kind == EventKind::GiftWrap {
@@ -394,9 +398,12 @@ pub async fn process_new_event(
                             if let Some(_pr) =
                                 GLOBALS.storage.read_person_relay(prof.pubkey, &rurl)?
                             {
-                                // FIXME: we need a new field in PersonRelay for this case.
-                                // If the event was signed by the profile person, we should trust it.
-                                // If it wasn't, we can instead bump last_suggested_bytag.
+                                // FIXME: we need a new field in PersonRelay for
+                                // this case. If
+                                // the event was signed by the profile person,
+                                // we should trust it.
+                                // If it wasn't, we can instead bump
+                                // last_suggested_bytag.
                             } else {
                                 let mut pr = PersonRelay::new(prof.pubkey, rurl);
                                 pr.read = true;
@@ -417,14 +424,15 @@ pub async fn process_new_event(
                     }
                 }
             }
-            // TBD: If the content contains an nprofile, make sure the pubkey is associated
-            // with those relays
+            // TBD: If the content contains an nprofile, make sure the pubkey is
+            // associated with those relays
         }
     }
 
     // TBD (have to parse runes language for this)
     //if event.kind == EventKind::RelayList {
-    //    process_somebody_elses_relay_list(event.pubkey.clone(), &event.contents).await?;
+    //    process_somebody_elses_relay_list(event.pubkey.clone(),
+    // &event.contents).await?;
     //}
 
     // FIXME: Handle EventKind::RecommendedRelay
@@ -641,7 +649,8 @@ pub(crate) fn process_relationships_of_event<'a>(
 
         // reacts to
         if let Some((reacted_to_id, reaction, _maybe_url)) = event.reacts_to() {
-            // NOTE: reactions may precede the event they react to. So we cannot validate here.
+            // NOTE: reactions may precede the event they react to. So we cannot validate
+            // here.
             GLOBALS.storage.write_relationship_by_id(
                 reacted_to_id, // event reacted to
                 event.id,      // the reaction event id
@@ -888,8 +897,8 @@ pub(crate) fn process_relationships_of_event<'a>(
     Ok(invalidate)
 }
 
-// This updates the event data and maybe the title, but it does NOT update the list
-// (that happens only when the user overwrites/merges)
+// This updates the event data and maybe the title, but it does NOT update the
+// list (that happens only when the user overwrites/merges)
 fn update_or_allocate_person_list_from_event(
     event: &Event,
     pubkey: PublicKey,

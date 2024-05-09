@@ -1,3 +1,15 @@
+use std::collections::HashSet;
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize};
+
+use dashmap::{DashMap, DashSet};
+use gossip_relay_picker::RelayPicker;
+use nostr_types::{Event, Id, Profile, PublicKey, RelayUrl, RelayUsage};
+use parking_lot::RwLock as PRwLock;
+use regex::Regex;
+use rhai::{Engine, AST};
+use tokio::sync::watch::{Receiver as WatchReceiver, Sender as WatchSender};
+use tokio::sync::{broadcast, mpsc, Mutex, Notify, RwLock};
+
 use crate::comms::{RelayJob, ToMinionMessage, ToOverlordMessage};
 use crate::delegation::Delegation;
 use crate::error::Error;
@@ -14,17 +26,6 @@ use crate::seeker::Seeker;
 use crate::status::StatusQueue;
 use crate::storage::Storage;
 use crate::RunState;
-use dashmap::{DashMap, DashSet};
-use gossip_relay_picker::RelayPicker;
-use nostr_types::{Event, Id, Profile, PublicKey, RelayUrl, RelayUsage};
-use parking_lot::RwLock as PRwLock;
-use regex::Regex;
-use rhai::{Engine, AST};
-use std::collections::HashSet;
-use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize};
-use tokio::sync::watch::Receiver as WatchReceiver;
-use tokio::sync::watch::Sender as WatchSender;
-use tokio::sync::{broadcast, mpsc, Mutex, Notify, RwLock};
 
 /// Global data shared between threads. Access via the static ref `GLOBALS`.
 pub struct Globals {
@@ -41,11 +42,12 @@ pub struct Globals {
 
     /// This is a watch channel for watching for changes to the RunState.
     ///
-    /// Synchronous code can `borrow()` and dereference to see the current Runstate.
+    /// Synchronous code can `borrow()` and dereference to see the current
+    /// Runstate.
     ///
-    /// Asynchronous code should `clone()` and `.await` on the clone (please do not
-    /// await on this global source copy, because if two or more bits of code to that,
-    /// only one of them will get awoken).
+    /// Asynchronous code should `clone()` and `.await` on the clone (please do
+    /// not await on this global source copy, because if two or more bits of
+    /// code to that, only one of them will get awoken).
     pub read_runstate: WatchReceiver<RunState>,
 
     /// This is ephemeral. It is filled during lazy_static initialization,
@@ -56,13 +58,13 @@ pub struct Globals {
     /// All nostr people records currently loaded into memory, keyed by pubkey
     pub people: People,
 
-    /// The relays currently connected to. It tracks the jobs that relay is assigned.
-    /// As the minion completes jobs, code modifies this jobset, removing those completed
-    /// jobs.
+    /// The relays currently connected to. It tracks the jobs that relay is
+    /// assigned. As the minion completes jobs, code modifies this jobset,
+    /// removing those completed jobs.
     pub connected_relays: DashMap<RelayUrl, Vec<RelayJob>>,
 
-    /// The relays not connected to, and which we will not connect to again until some
-    /// time passes, but which we still have jobs for
+    /// The relays not connected to, and which we will not connect to again
+    /// until some time passes, but which we still have jobs for
     pub penalty_box_relays: DashMap<RelayUrl, Vec<RelayJob>>,
 
     /// The relay picker, used to pick the next relay
@@ -84,8 +86,9 @@ pub struct Globals {
     pub seeker: Seeker,
 
     /// Failed Avatars
-    /// If in this map, the avatar failed to load or process and is unrecoverable
-    /// (but we will take them out and try again if new metadata flows in)
+    /// If in this map, the avatar failed to load or process and is
+    /// unrecoverable (but we will take them out and try again if new
+    /// metadata flows in)
     pub failed_avatars: RwLock<HashSet<PublicKey>>,
 
     pub pixels_per_point_times_100: AtomicU32,
@@ -93,7 +96,8 @@ pub struct Globals {
     /// UI status messages
     pub status_queue: PRwLock<StatusQueue>,
 
-    /// How many data bytes have been read from the network, not counting overhead
+    /// How many data bytes have been read from the network, not counting
+    /// overhead
     pub bytes_read: AtomicUsize,
 
     /// How many subscriptions are open and not yet at EOSE

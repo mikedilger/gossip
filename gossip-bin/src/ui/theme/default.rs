@@ -1,5 +1,5 @@
-use super::{FeedProperties, NoteRenderData, ThemeDef};
-use crate::ui::HighlightType;
+use std::collections::BTreeMap;
+
 use eframe::egui::style::{Selection, WidgetVisuals, Widgets};
 use eframe::egui::{
     vec2, FontDefinitions, Margin, Pos2, RichText, Shape, Stroke, Style, TextFormat, TextStyle,
@@ -7,7 +7,9 @@ use eframe::egui::{
 };
 use eframe::epaint::{ecolor, Color32, FontFamily, FontId, Rounding, Shadow};
 use egui_winit::egui::style::{HandleShape, NumericColorSpace};
-use std::collections::BTreeMap;
+
+use super::{FeedProperties, NoteRenderData, ThemeDef};
+use crate::ui::HighlightType;
 
 #[derive(Default)]
 pub struct DefaultTheme {}
@@ -154,9 +156,9 @@ impl ThemeDef for DefaultTheme {
     fn get_style(dark_mode: bool) -> Style {
         let mut style = Style::default();
 
-        // /// `item_spacing` is inserted _after_ adding a widget, so to increase the spacing between
-        // /// widgets `A` and `B` you need to change `item_spacing` before adding `A`.
-        // pub item_spacing: Vec2,
+        // /// `item_spacing` is inserted _after_ adding a widget, so to increase the
+        // spacing between /// widgets `A` and `B` you need to change
+        // `item_spacing` before adding `A`. pub item_spacing: Vec2,
 
         // /// Horizontal and vertical margins within a window frame.
         // pub window_margin: Margin,
@@ -170,9 +172,9 @@ impl ThemeDef for DefaultTheme {
         // /// Indent collapsing regions etc by this much.
         // pub indent: f32,
 
-        // /// Minimum size of a [`DragValue`], color picker button, and other small widgets.
-        // /// `interact_size.y` is the default height of button, slider, etc.
-        // /// Anything clickable should be (at least) this size.
+        // /// Minimum size of a [`DragValue`], color picker button, and other small
+        // widgets. /// `interact_size.y` is the default height of button,
+        // slider, etc. /// Anything clickable should be (at least) this size.
         // pub interact_size: Vec2, // TODO(emilk): rename min_interact_size ?
 
         // /// Default width of a [`Slider`].
@@ -184,16 +186,16 @@ impl ThemeDef for DefaultTheme {
         // /// Default width of a [`TextEdit`].
         // pub text_edit_width: f32,
 
-        // /// Checkboxes, radio button and collapsing headers have an icon at the start.
-        // /// This is the width/height of the outer part of this icon (e.g. the BOX of the checkbox).
-        // pub icon_width: f32,
+        // /// Checkboxes, radio button and collapsing headers have an icon at the
+        // start. /// This is the width/height of the outer part of this icon
+        // (e.g. the BOX of the checkbox). pub icon_width: f32,
 
-        // /// Checkboxes, radio button and collapsing headers have an icon at the start.
-        // /// This is the width/height of the inner part of this icon (e.g. the check of the checkbox).
-        // pub icon_width_inner: f32,
+        // /// Checkboxes, radio button and collapsing headers have an icon at the
+        // start. /// This is the width/height of the inner part of this icon
+        // (e.g. the check of the checkbox). pub icon_width_inner: f32,
 
-        // /// Checkboxes, radio button and collapsing headers have an icon at the start.
-        // /// This is the spacing between the icon and the text
+        // /// Checkboxes, radio button and collapsing headers have an icon at the
+        // start. /// This is the spacing between the icon and the text
         // pub icon_spacing: f32,
 
         // /// Width of a tooltip (`on_hover_ui`, `on_hover_text` etc).
@@ -213,8 +215,8 @@ impl ThemeDef for DefaultTheme {
         // /// Margin between contents and scroll bar.
         // pub scroll_bar_inner_margin: f32,
 
-        // /// Margin between scroll bar and the outer container (e.g. right of a vertical scroll bar).
-        // pub scroll_bar_outer_margin: f32,
+        // /// Margin between scroll bar and the outer container (e.g. right of a
+        // vertical scroll bar). pub scroll_bar_outer_margin: f32,
 
         if dark_mode {
             style.visuals = Visuals {
@@ -242,7 +244,7 @@ impl ThemeDef for DefaultTheme {
                     hovered: WidgetVisuals {
                         weak_bg_fill: Color32::from_white_alpha(4),
                         bg_fill: Color32::from_white_alpha(20),
-                        bg_stroke: Stroke::new(0.0, Self::accent_color(dark_mode)), // e.g. hover over window edge or button
+                        bg_stroke: Stroke::new(0.0, Self::accent_color(dark_mode)), /* e.g. hover over window edge or button */
                         fg_stroke: Stroke::new(1.5, Color32::from_white_alpha(240)),
                         rounding: Rounding::same(3.0),
                         expansion: 2.0,
@@ -269,8 +271,9 @@ impl ThemeDef for DefaultTheme {
                 window_fill: Self::neutral_950(), // pulldown menus and tooltips
                 panel_fill: Self::neutral_900(),  // panel backgrounds, even-table-rows
                 faint_bg_color: Color32::from_gray(20), // odd-table-rows
-                extreme_bg_color: Color32::from_gray(45), // text input background; scrollbar background
-                code_bg_color: Color32::from_gray(64),    // ???
+                extreme_bg_color: Color32::from_gray(45), /* text input background; scrollbar
+                                                   * background */
+                code_bg_color: Color32::from_gray(64), // ???
 
                 // Foreground colors
                 window_stroke: Stroke::new(1.0, Color32::from_black_alpha(10)),
@@ -297,7 +300,8 @@ impl ThemeDef for DefaultTheme {
                 resize_corner_size: 12.0,
                 text_cursor: Stroke::new(2.0, Color32::from_rgb(192, 222, 255)),
                 text_cursor_preview: false,
-                clip_rect_margin: 3.0, // should be at least half the size of the widest frame stroke + max WidgetVisuals::expansion
+                clip_rect_margin: 3.0, /* should be at least half the size of the widest frame
+                                        * stroke + max WidgetVisuals::expansion */
                 button_frame: true,
                 collapsing_header_frame: false,
                 interact_cursor: None,
@@ -330,7 +334,7 @@ impl ThemeDef for DefaultTheme {
                     hovered: WidgetVisuals {
                         weak_bg_fill: Color32::from_black_alpha(10),
                         bg_fill: Color32::from_black_alpha(10),
-                        bg_stroke: Stroke::new(0.0, Self::accent_color(dark_mode)), // e.g. hover over window edge or button
+                        bg_stroke: Stroke::new(0.0, Self::accent_color(dark_mode)), /* e.g. hover over window edge or button */
                         fg_stroke: Stroke::new(1.5, Color32::from_black_alpha(240)),
                         rounding: Rounding::same(3.0),
                         expansion: 2.0,
@@ -357,8 +361,9 @@ impl ThemeDef for DefaultTheme {
                 window_fill: Self::neutral_100(), // pulldown menus and tooltips
                 panel_fill: Self::neutral_50(),   // panel backgrounds, even-table-rows
                 faint_bg_color: Color32::from_gray(248), // odd-table-rows
-                extreme_bg_color: Color32::from_gray(246), // text input background; scrollbar background
-                code_bg_color: Color32::from_gray(230),    // ???
+                extreme_bg_color: Color32::from_gray(246), /* text input background; scrollbar
+                                                   * background */
+                code_bg_color: Color32::from_gray(230), // ???
 
                 // Foreground colors
                 window_stroke: Stroke::new(1.0, Color32::from_black_alpha(40)),
@@ -385,7 +390,8 @@ impl ThemeDef for DefaultTheme {
                 resize_corner_size: 12.0,
                 text_cursor: Stroke::new(2.0, Color32::from_rgb(0, 83, 125)),
                 text_cursor_preview: false,
-                clip_rect_margin: 3.0, // should be at least half the size of the widest frame stroke + max WidgetVisuals::expansion
+                clip_rect_margin: 3.0, /* should be at least half the size of the widest frame
+                                        * stroke + max WidgetVisuals::expansion */
                 button_frame: true,
                 collapsing_header_frame: false,
                 interact_cursor: None,

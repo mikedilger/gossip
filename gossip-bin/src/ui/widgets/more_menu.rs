@@ -1,10 +1,7 @@
-use eframe::{
-    egui::{
-        Margin, Rect, Response, Rounding, Sense, Stroke, TextStyle, WidgetInfo, WidgetText,
-        WidgetType,
-    },
-    epaint::PathShape,
+use eframe::egui::{
+    Margin, Rect, Response, Rounding, Sense, Stroke, TextStyle, WidgetInfo, WidgetText, WidgetType,
 };
+use eframe::epaint::PathShape;
 use egui_winit::egui::{self, vec2, AboveOrBelow, Align2, Id, Ui, Vec2};
 
 use crate::ui::GossipUi;

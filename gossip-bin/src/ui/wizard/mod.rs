@@ -1,4 +1,3 @@
-use crate::ui::{GossipUi, Page};
 use eframe::egui;
 use egui::widgets::{Button, Slider};
 use egui::{Align, Context, Layout};
@@ -6,6 +5,8 @@ use egui_winit::egui::{vec2, Ui};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{FeedKind, PersonList, Relay, RunState, GLOBALS};
 use nostr_types::RelayUrl;
+
+use crate::ui::{GossipUi, Page};
 
 mod follow_people;
 mod import_keys;

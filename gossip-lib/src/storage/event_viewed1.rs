@@ -1,9 +1,11 @@
-use crate::error::Error;
-use crate::storage::{RawDatabase, Storage};
+use std::sync::Mutex;
+
 use heed::types::UnalignedSlice;
 use heed::RwTxn;
 use nostr_types::Id;
-use std::sync::Mutex;
+
+use crate::error::Error;
+use crate::storage::{RawDatabase, Storage};
 
 // Id -> ()
 //   key: id.as_slice()

@@ -1,15 +1,14 @@
-use crate::ui::widgets::list_entry::OUTER_MARGIN_RIGHT;
-use crate::ui::wizard::WizardPage;
-use crate::ui::{GossipUi, Page, RichText};
 use eframe::egui;
 use egui::{Context, Ui};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::Person;
-use gossip_lib::GLOBALS;
+use gossip_lib::{Person, GLOBALS};
 use nostr_types::Metadata;
 
 use super::continue_control;
 use super::wizard_state::WizardPath;
+use crate::ui::widgets::list_entry::OUTER_MARGIN_RIGHT;
+use crate::ui::wizard::WizardPage;
+use crate::ui::{GossipUi, Page, RichText};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     let pubkey = match app.wizard_state.pubkey {

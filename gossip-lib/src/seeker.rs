@@ -1,13 +1,15 @@
+use std::time::Duration;
+
+use dashmap::DashMap;
+use nostr_types::{EventAddr, Id, PublicKey, RelayUrl, RelayUsage, Unixtime};
+use tokio::time::Instant;
+
 use crate::comms::ToOverlordMessage;
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::misc::Freshness;
 use crate::people::People;
 use crate::relay::Relay;
-use dashmap::DashMap;
-use nostr_types::{EventAddr, Id, PublicKey, RelayUrl, RelayUsage, Unixtime};
-use std::time::Duration;
-use tokio::time::Instant;
 
 #[derive(Debug, Clone)]
 pub enum SeekState {
@@ -79,7 +81,8 @@ impl Seeker {
     }
 
     /// Seek an event when you have the `Id` and the author `PublicKey`
-    /// Additional relays can be passed in and the event will also be sought there
+    /// Additional relays can be passed in and the event will also be sought
+    /// there
     pub(crate) fn seek_id_and_author(
         &self,
         id: Id,

@@ -1,16 +1,18 @@
+use std::collections::HashSet;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::{Duration, Instant};
+
+use nostr_types::{
+    Event, EventKind, EventReference, Filter, Id, PublicKey, PublicKeyHex, Unixtime,
+};
+use parking_lot::RwLock;
+use tokio::task;
+
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage};
 use crate::dm_channel::DmChannel;
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::people::PersonList;
-use nostr_types::{
-    Event, EventKind, EventReference, Filter, Id, PublicKey, PublicKeyHex, Unixtime,
-};
-use parking_lot::RwLock;
-use std::collections::HashSet;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::{Duration, Instant};
-use tokio::task;
 
 /// Kinds of feeds, with configuration parameteers
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -118,7 +120,8 @@ impl Feed {
         *self.inbox_feed_start.write() = inbox_feed_start;
     }
 
-    /// This only looks further back in stored events, it doesn't deal with minion subscriptions.
+    /// This only looks further back in stored events, it doesn't deal with
+    /// minion subscriptions.
     pub(crate) fn load_more_general_feed(&self) -> Unixtime {
         let mut start = *self.general_feed_start.read();
         start = start - Duration::from_secs(GLOBALS.storage.read_setting_feed_chunk());
@@ -126,7 +129,8 @@ impl Feed {
         start
     }
 
-    /// This only looks further back in stored events, it doesn't deal with minion subscriptions.
+    /// This only looks further back in stored events, it doesn't deal with
+    /// minion subscriptions.
     pub(crate) fn load_more_person_feed(&self) -> Unixtime {
         let mut start = *self.person_feed_start.read();
         start = start - Duration::from_secs(GLOBALS.storage.read_setting_person_feed_chunk());
@@ -134,7 +138,8 @@ impl Feed {
         start
     }
 
-    /// This only looks further back in stored events, it doesn't deal with minion subscriptions.
+    /// This only looks further back in stored events, it doesn't deal with
+    /// minion subscriptions.
     pub(crate) fn load_more_inbox_feed(&self) -> Unixtime {
         let mut start = *self.inbox_feed_start.read();
         start = start - Duration::from_secs(GLOBALS.storage.read_setting_replies_chunk());
@@ -282,7 +287,8 @@ impl Feed {
     }
 
     /// Get the parent of the current thread feed.
-    /// The children should be recursively found via `GLOBALS.storage.get_replies(id)`
+    /// The children should be recursively found via
+    /// `GLOBALS.storage.get_replies(id)`
     pub fn get_thread_parent(&self) -> Option<Id> {
         self.sync_maybe_periodic_recompute();
         *self.thread_parent.read()
@@ -293,8 +299,9 @@ impl Feed {
         *self.thread_parent.write() = Some(id);
     }
 
-    /// This recomputes only if periodic recomputation is enabled, and it has been
-    /// at least one period since the last (for any reason) recomputation.
+    /// This recomputes only if periodic recomputation is enabled, and it has
+    /// been at least one period since the last (for any reason)
+    /// recomputation.
     pub(crate) fn sync_maybe_periodic_recompute(&self) {
         // Only if we recompute periodically
         if !GLOBALS.storage.read_setting_recompute_feed_periodically() {
@@ -316,8 +323,8 @@ impl Feed {
 
     /// Recompute the feed
     ///
-    /// This may happen periodically based on settings. But when a user changes feed, it
-    /// is useful to recompute it right away.
+    /// This may happen periodically based on settings. But when a user changes
+    /// feed, it is useful to recompute it right away.
     pub fn sync_recompute(&self) {
         task::spawn(async move {
             if let Err(e) = GLOBALS.feed.recompute().await {

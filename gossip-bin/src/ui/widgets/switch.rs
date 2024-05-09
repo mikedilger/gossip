@@ -1,13 +1,13 @@
-use std::{ops::Sub, sync::Arc};
+use std::ops::Sub;
+use std::sync::Arc;
 
 use egui_winit::egui::{
     self, vec2, Color32, Galley, Id, Rect, Response, Stroke, TextStyle, Ui, Vec2, Widget,
     WidgetText,
 };
 
-use crate::ui::Theme;
-
 use super::WidgetState;
+use crate::ui::Theme;
 
 pub struct Switch<'a> {
     value: &'a mut bool,
