@@ -1,5 +1,5 @@
 use crate::comms::RelayJob;
-use crate::error::Error;
+use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::nip46::ParsedCommand;
 use crate::people::PersonList;
@@ -314,7 +314,11 @@ pub fn start() {
             match GLOBALS.pending.compute_pending() {
                 Ok(()) => {}
                 Err(e) => {
-                    tracing::error!("{:?}", e);
+                    if matches!(e.kind, ErrorKind::NoPrivateKey) {
+                        // do not log
+                    } else {
+                        tracing::error!("{:?}", e);
+                    }
                     continue;
                 }
             };

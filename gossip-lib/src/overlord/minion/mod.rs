@@ -351,7 +351,11 @@ impl Minion {
                     }
                 }
                 Err(e) => {
-                    tracing::warn!("{}", e);
+                    if matches!(e.kind, ErrorKind::Nostr(nostr_types::Error::NoPrivateKey)) {
+                        // do not log
+                    } else {
+                        tracing::warn!("{}", e);
+                    }
 
                     if let ErrorKind::Websocket(_) = e.kind {
                         return Err(e);
