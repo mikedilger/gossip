@@ -429,15 +429,16 @@ impl Feed {
                                 if dismissed.contains(&e.id) {
                                     return false;
                                 }
-                                if e.kind == EventKind::GiftWrap
-                                    || e.kind == EventKind::EncryptedDirectMessage
-                                {
-                                    return true;
-                                }
 
                                 // exclude if it's my own note
                                 if e.pubkey == my_pubkey {
                                     return false;
+                                }
+
+                                if e.kind == EventKind::GiftWrap
+                                    || e.kind == EventKind::EncryptedDirectMessage
+                                {
+                                    return true;
                                 }
 
                                 // Include if it directly replies to one of my events
