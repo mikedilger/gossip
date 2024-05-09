@@ -1,0 +1,16 @@
+rules:
+  - id: use-of-unwrap
+    pattern: $X.unwrap()
+    message: "Found use of unwrap(). Consider using more robust error handling."
+    languages: [rust]
+    severity: WARNING
+  - id: use-of-expect
+    pattern: $X.expect(...)
+    message: "Found use of expect(). Consider providing clearer error messages or using more robust error handling."
+    languages: [rust]
+    severity: WARNING
+  - id: direct-panic
+    pattern: panic!(...)
+    message: "Direct use of panic!(). Consider if there's a more graceful way to handle this error case."
+    languages: [rust]
+    severity: ERROR
