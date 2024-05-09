@@ -571,6 +571,9 @@ impl Minion {
             ToMinionPayloadDetail::SubscribeReplies(main) => {
                 self.subscribe_replies(message.job_id, main).await?;
             }
+            ToMinionPayloadDetail::SubscribeRootReplies(main) => {
+                self.subscribe_root_replies(message.job_id, main).await?;
+            }
             ToMinionPayloadDetail::SubscribeDmChannel(dmchannel) => {
                 self.subscribe_dm_channel(message.job_id, dmchannel).await?;
             }
@@ -598,6 +601,7 @@ impl Minion {
             }
             ToMinionPayloadDetail::UnsubscribeReplies => {
                 self.unsubscribe("replies").await?;
+                self.unsubscribe("root_replies").await?;
             }
         }
 
@@ -864,6 +868,17 @@ impl Minion {
             self.unsubscribe(&handle).await?;
         }
         self.person_feed_start = None;
+        Ok(())
+    }
+
+    async fn subscribe_root_replies(&mut self, job_id: u64, main: IdHex) -> Result<(), Error> {
+        // NOTE we do not unsubscribe to the general feed
+
+        // Replies
+        let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
+        let filters = filter_fns::replies(main, spamsafe);
+        self.subscribe(filters, "root_replies", job_id).await?;
+
         Ok(())
     }
 

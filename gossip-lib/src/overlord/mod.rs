@@ -2791,17 +2791,37 @@ impl Overlord {
             }
         }
 
+        // Cancel current subscriptions to replies and root_replies
+        let _ = self.to_minions.send(ToMinionMessage {
+            target: "all".to_string(),
+            payload: ToMinionPayload {
+                job_id: 0,
+                detail: ToMinionPayloadDetail::UnsubscribeReplies,
+            },
+        });
+
+        // Subscribe to replies to root
+        if let Some(root_eref) = ancestors.root {
+            if let EventReference::Id { id, relays, .. } = root_eref {
+                for url in relays.iter() {
+                    // Subscribe root replies
+                    let jobs: Vec<RelayJob> = vec![RelayJob {
+                        reason: RelayConnectionReason::ReadThread,
+                        payload: ToMinionPayload {
+                            job_id: rand::random::<u64>(),
+                            detail: ToMinionPayloadDetail::SubscribeRootReplies(id.into()),
+                        },
+                    }];
+
+                    self.engage_minion(url.to_owned(), jobs).await?;
+                }
+            }
+            // FIXME what if root is an EventAddr? minion doesn't have a way to subscribe
+            // to their replies.
+        }
+
         // Search for replies
         {
-            // Cancel current thread subscriptions, if any
-            let _ = self.to_minions.send(ToMinionMessage {
-                target: "all".to_string(),
-                payload: ToMinionPayload {
-                    job_id: 0,
-                    detail: ToMinionPayloadDetail::UnsubscribeReplies,
-                },
-            });
-
             // Let's collect relays where replies might show up
             let mut bonus_relays: Vec<RelayUrl> = Vec::new();
 
