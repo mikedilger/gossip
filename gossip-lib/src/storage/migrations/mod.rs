@@ -34,9 +34,10 @@ mod m7;
 mod m8;
 mod m9;
 
+use heed::RwTxn;
+
 use super::Storage;
 use crate::error::{Error, ErrorKind};
-use heed::RwTxn;
 
 impl Storage {
     const MAX_MIGRATION_LEVEL: u32 = 33;

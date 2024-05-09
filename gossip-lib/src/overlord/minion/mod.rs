@@ -5,12 +5,11 @@ mod handle_websocket;
 mod subscription;
 mod subscription_map;
 
-use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage};
-use crate::dm_channel::DmChannel;
-use crate::error::{Error, ErrorKind};
-use crate::globals::GLOBALS;
-use crate::relay::Relay;
-use crate::{RunState, USER_AGENT};
+use std::borrow::Cow;
+use std::collections::{HashMap, HashSet};
+use std::sync::atomic::Ordering;
+use std::time::Duration;
+
 use base64::Engine;
 use encoding_rs::{Encoding, UTF_8};
 use futures_util::sink::SinkExt;
@@ -23,10 +22,6 @@ use nostr_types::{
     RelayInformationDocument, RelayUrl, Tag, Unixtime,
 };
 use reqwest::Response;
-use std::borrow::Cow;
-use std::collections::{HashMap, HashSet};
-use std::sync::atomic::Ordering;
-use std::time::Duration;
 use subscription_map::SubscriptionMap;
 use tokio::net::TcpStream;
 use tokio::sync::broadcast::Receiver;
@@ -34,6 +29,13 @@ use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::watch::Receiver as WatchReceiver;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tungstenite::protocol::{Message as WsMessage, WebSocketConfig};
+
+use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage};
+use crate::dm_channel::DmChannel;
+use crate::error::{Error, ErrorKind};
+use crate::globals::GLOBALS;
+use crate::relay::Relay;
+use crate::{RunState, USER_AGENT};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AuthState {
@@ -550,7 +552,8 @@ impl Minion {
                 if self.general_feed_keys.is_empty() {
                     self.general_feed_keys = pubkeys;
                     self.subscribe_general_feed_initial(message.job_id).await?;
-                    //self.subscribe_general_feed_additional(message.job_id, pubkeys)
+                    //self.subscribe_general_feed_additional(message.job_id,
+                    // pubkeys)
                 } else {
                     self.subscribe_general_feed_additional(message.job_id, pubkeys)
                         .await?;
@@ -745,7 +748,8 @@ impl Minion {
         Ok(())
     }
 
-    // Subscribe to the user's config (config, DMs, etc) which is on their own write relays
+    // Subscribe to the user's config (config, DMs, etc) which is on their own write
+    // relays
     async fn subscribe_config(&mut self, job_id: u64) -> Result<(), Error> {
         let since = self.compute_since(GLOBALS.storage.read_setting_person_feed_chunk());
 

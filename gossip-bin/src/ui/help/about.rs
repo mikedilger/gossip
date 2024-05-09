@@ -1,6 +1,7 @@
-use super::GossipUi;
 use eframe::egui;
 use egui::{Align, Context, Image, Layout, RichText, TextStyle, Ui};
+
+use super::GossipUi;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.with_layout(Layout::top_down(Align::Center), |ui| {

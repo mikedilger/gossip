@@ -1,12 +1,12 @@
-use crate::error::Error;
-use std::env;
 use std::ffi::OsStr;
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::RwLock;
+use std::{env, fs};
 
 #[cfg(windows)]
 use normpath::PathExt;
+
+use crate::error::Error;
 
 lazy_static! {
     static ref CURRENT: RwLock<Option<Profile>> = RwLock::new(None);
@@ -66,7 +66,8 @@ impl Profile {
             cache_dir
         };
 
-        // optional profile name, if specified the the user data is stored in a subdirectory
+        // optional profile name, if specified the the user data is stored in a
+        // subdirectory
         let profile_dir = match env::var("GOSSIP_PROFILE") {
             Ok(profile) => {
                 if "cache".eq_ignore_ascii_case(profile.as_str()) {
@@ -123,7 +124,8 @@ impl Profile {
 
     pub fn current() -> Result<Profile, Error> {
         {
-            // create a new scope to drop the read lock before we try to create a new profile if it doesn't exist
+            // create a new scope to drop the read lock before we try to create a new
+            // profile if it doesn't exist
             let current = CURRENT.read().unwrap();
             if current.is_some() {
                 return Ok(current.as_ref().unwrap().clone());

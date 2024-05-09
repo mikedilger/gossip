@@ -1,7 +1,8 @@
-use crate::error::Error;
-use crate::storage::Storage;
 use heed::RwTxn;
 use nostr_types::RelayUrl;
+
+use crate::error::Error;
+use crate::storage::Storage;
 
 impl Storage {
     pub(super) fn m3_trigger(&self) -> Result<(), Error> {

@@ -1,17 +1,14 @@
-use super::{GossipUi, NoteData, Page, RepostType};
-use eframe::{
-    egui::{self, Image, Response},
-    epaint::Vec2,
-};
+use std::cell::{Ref, RefCell};
+use std::rc::Rc;
+
+use eframe::egui::{self, Image, Response};
+use eframe::epaint::Vec2;
 use egui::{Button, Color32, Pos2, RichText, Stroke, Ui};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::FeedKind;
-use gossip_lib::GLOBALS;
+use gossip_lib::{FeedKind, GLOBALS};
 use nostr_types::{ContentSegment, EventAddr, Id, IdHex, NostrBech32, PublicKey, Span, Url};
-use std::{
-    cell::{Ref, RefCell},
-    rc::Rc,
-};
+
+use super::{GossipUi, NoteData, Page, RepostType};
 
 const MAX_POST_HEIGHT: f32 = 200.0;
 
@@ -199,8 +196,9 @@ pub(super) fn render_hyperlink(
 ) {
     let link = note.shattered_content.slice(linkspan).unwrap();
 
-    // In DMs, fetching an image allows someone to associate your pubkey with your IP address
-    // by controlling the image URL, and since only you see the URL it must have been you
+    // In DMs, fetching an image allows someone to associate your pubkey with your
+    // IP address by controlling the image URL, and since only you see the URL
+    // it must have been you
     let privacy_issue = note.direct_message;
 
     if let (Ok(url), Some(nurl)) = (url::Url::try_from(link), app.try_check_url(link)) {

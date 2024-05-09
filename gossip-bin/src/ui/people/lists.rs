@@ -1,11 +1,12 @@
 use std::cmp::Ordering;
 
-use super::{GossipUi, Page};
-use crate::ui::widgets;
 use eframe::egui::{self, Sense};
 use egui::{Context, Ui};
 use egui_winit::egui::{Label, RichText};
 use gossip_lib::{PersonList, PersonListMetadata, GLOBALS};
+
+use super::{GossipUi, Page};
+use crate::ui::widgets;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     // process popups first

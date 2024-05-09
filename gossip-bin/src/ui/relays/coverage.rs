@@ -1,14 +1,13 @@
-use crate::ui::{
-    widgets::{
-        self,
-        list_entry::{self, draw_text_at, TEXT_LEFT, TEXT_RIGHT, TEXT_TOP, TITLE_FONT_SIZE},
-        COPY_SYMBOL_SIZE,
-    },
-    GossipUi, Page, SettingsTab,
-};
 use egui_winit::egui::{self, vec2, Align, Context, Id, Response, RichText, Ui};
-use gossip_lib::{comms::ToOverlordMessage, GLOBALS};
+use gossip_lib::comms::ToOverlordMessage;
+use gossip_lib::GLOBALS;
 use nostr_types::{PublicKey, RelayUrl};
+
+use crate::ui::widgets::list_entry::{
+    self, draw_text_at, TEXT_LEFT, TEXT_RIGHT, TEXT_TOP, TITLE_FONT_SIZE,
+};
+use crate::ui::widgets::{self, COPY_SYMBOL_SIZE};
+use crate::ui::{GossipUi, Page, SettingsTab};
 
 const COVERAGE_ENTRY_HEIGHT: f32 = 2.0 * TEXT_TOP + 1.5 * TITLE_FONT_SIZE + 14.0;
 

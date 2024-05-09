@@ -1,13 +1,12 @@
-use crate::ui::wizard::WizardPage;
-use crate::ui::{GossipUi, Page};
 use eframe::egui;
 use egui::{Color32, Context, RichText, Ui};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::Relay;
-use gossip_lib::GLOBALS;
+use gossip_lib::{Relay, GLOBALS};
 use nostr_types::{RelayUrl, RelayUsage};
 
 use super::continue_control;
+use crate::ui::wizard::WizardPage;
+use crate::ui::{GossipUi, Page};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     // New users dont have existing config

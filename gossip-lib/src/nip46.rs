@@ -1,11 +1,12 @@
-use crate::comms::ToOverlordMessage;
-use crate::globals::GLOBALS;
-use crate::{Error, ErrorKind};
 use nostr_types::{
     ContentEncryptionAlgorithm, Event, EventKind, PreEvent, PublicKey, RelayUrl, Tag, Unixtime,
 };
 use serde::Deserialize;
 use speedy::{Readable, Writable};
+
+use crate::comms::ToOverlordMessage;
+use crate::globals::GLOBALS;
+use crate::{Error, ErrorKind};
 
 /// This is a server not yet connected, ready to be connected
 #[derive(Debug, Clone, Readable, Writable)]

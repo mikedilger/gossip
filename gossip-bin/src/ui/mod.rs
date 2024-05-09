@@ -48,11 +48,15 @@ mod widgets;
 mod wizard;
 mod you;
 
-use crate::about::About;
-pub use crate::ui::theme::{Theme, ThemeVariant};
-use crate::unsaved_settings::UnsavedSettings;
 #[cfg(feature = "video-ffmpeg")]
 use core::cell::RefCell;
+use std::collections::{HashMap, HashSet};
+use std::hash::Hash;
+#[cfg(feature = "video-ffmpeg")]
+use std::rc::Rc;
+use std::sync::atomic::Ordering;
+use std::time::{Duration, Instant};
+
 use eframe::egui;
 use egui::{
     Align, Color32, ColorImage, Context, IconData, Image, ImageData, Label, Layout, RichText,
@@ -60,24 +64,15 @@ use egui::{
 };
 #[cfg(feature = "video-ffmpeg")]
 use egui_video::{AudioDevice, Player};
-use egui_winit::egui::Rect;
-use egui_winit::egui::Response;
-use egui_winit::egui::ViewportBuilder;
+use egui_winit::egui::{Rect, Response, ViewportBuilder};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{
     DmChannel, DmChannelData, Error, FeedKind, Person, PersonList, Private, RunState, ZapState,
     GLOBALS,
 };
-use nostr_types::ContentSegment;
-use nostr_types::RelayUrl;
-use nostr_types::{Id, Metadata, MilliSatoshi, Profile, PublicKey, UncheckedUrl, Url};
-
-use std::collections::{HashMap, HashSet};
-use std::hash::Hash;
-#[cfg(feature = "video-ffmpeg")]
-use std::rc::Rc;
-use std::sync::atomic::Ordering;
-use std::time::{Duration, Instant};
+use nostr_types::{
+    ContentSegment, Id, Metadata, MilliSatoshi, Profile, PublicKey, RelayUrl, UncheckedUrl, Url,
+};
 use zeroize::Zeroize;
 
 use self::assets::Assets;
@@ -85,6 +80,9 @@ use self::feed::Notes;
 use self::notifications::NotificationData;
 use self::widgets::NavItem;
 use self::wizard::{WizardPage, WizardState};
+use crate::about::About;
+pub use crate::ui::theme::{Theme, ThemeVariant};
+use crate::unsaved_settings::UnsavedSettings;
 
 pub fn run() -> Result<(), Error> {
     let icon_bytes = include_bytes!("../../../logo/gossip.png");
@@ -1319,8 +1317,8 @@ impl eframe::App for GossipUi {
                 }
             }
         } else {
-            // Changes to the input state have no effect on the scrolling, because it was copied
-            // into a private FrameState at the start of the frame.
+            // Changes to the input state have no effect on the scrolling, because it was
+            // copied into a private FrameState at the start of the frame.
             // So we have to use current_scroll_offset to do this
             self.current_scroll_offset = requested_scroll;
         }
@@ -1541,8 +1539,9 @@ impl GossipUi {
         person: &Person,
         profile_page: bool,
     ) {
-        // Let the 'People' manager know that we are interested in displaying this person.
-        // It will take all actions necessary to make the data eventually available.
+        // Let the 'People' manager know that we are interested in displaying this
+        // person. It will take all actions necessary to make the data
+        // eventually available.
         GLOBALS.people.person_of_interest(person.pubkey);
 
         ui.horizontal_wrapped(|ui| {
@@ -1773,9 +1772,10 @@ impl GossipUi {
     }
 
     pub fn render_qr(&mut self, ui: &mut Ui, key: &str, content: &str) {
-        // Remember the UI runs this every frame.  We do NOT want to load the texture to the GPU
-        // every frame, so we remember the texture handle in app.qr_codes, and only load to the GPU
-        // if we don't have it yet.  We also remember if there was an error and don't try again.
+        // Remember the UI runs this every frame.  We do NOT want to load the texture to
+        // the GPU every frame, so we remember the texture handle in
+        // app.qr_codes, and only load to the GPU if we don't have it yet.  We
+        // also remember if there was an error and don't try again.
         match self.qr_codes.get(key) {
             Some(Ok((texture_handle, x, y))) => {
                 ui.add(
@@ -1938,7 +1938,8 @@ impl GossipUi {
         response
     }
 
-    // This function is to help change our subscriptions to augmenting events as we scroll.
+    // This function is to help change our subscriptions to augmenting events as we
+    // scroll.
     fn handle_visible_note_changes(&mut self) {
         let no_change = self.visible_note_ids == self.next_visible_note_ids;
         let scrolling = self.current_scroll_offset != 0.0;

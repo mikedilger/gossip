@@ -1,12 +1,13 @@
-use super::theme::FeedProperties;
-use super::{widgets, GossipUi, Page};
+use std::sync::atomic::Ordering;
+
 use eframe::egui::{self, Align, FontId, Rect};
 use egui::{Context, RichText, Ui, Vec2};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::FeedKind;
-use gossip_lib::GLOBALS;
+use gossip_lib::{FeedKind, GLOBALS};
 use nostr_types::Id;
-use std::sync::atomic::Ordering;
+
+use super::theme::FeedProperties;
+use super::{widgets, GossipUi, Page};
 
 mod notedata;
 
@@ -422,8 +423,8 @@ fn render_note_maybe_fake(
         }
     };
 
-    // If too far off of the screen, don't actually render the post, just make some space
-    // so the scrollbar isn't messed up
+    // If too far off of the screen, don't actually render the post, just make some
+    // space so the scrollbar isn't messed up
     let height = match app.height.get(&id) {
         Some(h) => *h,
         None => {

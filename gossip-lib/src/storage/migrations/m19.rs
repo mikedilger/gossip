@@ -1,10 +1,12 @@
-use crate::error::Error;
-use crate::storage::types::{PersonList1, PersonListMetadata1};
-use crate::storage::Storage;
+use std::collections::{BTreeMap, HashMap};
+
 use heed::RwTxn;
 use nostr_types::Unixtime;
 use speedy::Readable;
-use std::collections::{BTreeMap, HashMap};
+
+use crate::error::Error;
+use crate::storage::types::{PersonList1, PersonListMetadata1};
+use crate::storage::Storage;
 
 impl Storage {
     pub(super) fn m19_trigger(&self) -> Result<(), Error> {

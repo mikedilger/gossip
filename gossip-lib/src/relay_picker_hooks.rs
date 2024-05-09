@@ -1,8 +1,9 @@
-use crate::error::Error;
-use crate::globals::GLOBALS;
 use async_trait::async_trait;
 use gossip_relay_picker::RelayPickerHooks;
 use nostr_types::{PublicKey, RelayUrl, RelayUsage};
+
+use crate::error::Error;
+use crate::globals::GLOBALS;
 
 /// Hooks for the relay picker
 #[derive(Default)]
@@ -34,13 +35,14 @@ impl RelayPickerHooks for Hooks {
         GLOBALS.connected_relays.contains_key(relay)
     }
 
-    /// Returns the maximum number of relays that should be connected to at one time
+    /// Returns the maximum number of relays that should be connected to at one
+    /// time
     fn get_max_relays(&self) -> usize {
         GLOBALS.storage.read_setting_max_relays() as usize
     }
 
-    /// Returns the number of relays each followed person's events should be pulled from
-    /// Many people use 2 or 3 for redundancy.
+    /// Returns the number of relays each followed person's events should be
+    /// pulled from Many people use 2 or 3 for redundancy.
     fn get_num_relays_per_person(&self) -> usize {
         GLOBALS.storage.read_setting_num_relays_per_person() as usize
     }
@@ -52,7 +54,8 @@ impl RelayPickerHooks for Hooks {
         GLOBALS.people.get_subscribed_pubkeys()
     }
 
-    /// Adjusts the score for a given relay, perhaps based on relay-specific metrics
+    /// Adjusts the score for a given relay, perhaps based on relay-specific
+    /// metrics
     fn adjust_score(&self, url: RelayUrl, score: u64) -> u64 {
         match GLOBALS.storage.read_relay(&url, None) {
             Err(_) => 0,

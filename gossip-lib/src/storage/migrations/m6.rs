@@ -1,7 +1,8 @@
+use heed::RwTxn;
+
 use crate::error::Error;
 use crate::storage::types::PersonList1;
 use crate::storage::Storage;
-use heed::RwTxn;
 
 impl Storage {
     pub(super) fn m6_trigger(&self) -> Result<(), Error> {

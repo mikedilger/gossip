@@ -1,7 +1,10 @@
+use std::sync::Mutex;
+
+use heed::types::UnalignedSlice;
+use heed::DatabaseFlags;
+
 use crate::error::Error;
 use crate::storage::{RawDatabase, Storage};
-use heed::{types::UnalignedSlice, DatabaseFlags};
-use std::sync::Mutex;
 
 // Kind:Pubkey:d-tag -> RelationshipByAddr1:Id
 //   (has dups)

@@ -1,11 +1,13 @@
+use std::sync::Mutex;
+
+use heed::types::UnalignedSlice;
+use heed::{DatabaseFlags, RwTxn};
+use nostr_types::{EventAddr, Id};
+use speedy::{Readable, Writable};
+
 use crate::error::Error;
 use crate::storage::types::RelationshipByAddr2;
 use crate::storage::{RawDatabase, Storage};
-use heed::RwTxn;
-use heed::{types::UnalignedSlice, DatabaseFlags};
-use nostr_types::{EventAddr, Id};
-use speedy::{Readable, Writable};
-use std::sync::Mutex;
 
 // Kind:Pubkey:d-tag -> RelationshipByAddr2:Id
 //   (has dups)

@@ -1,6 +1,7 @@
+use nostr_types::RelayUrl;
+
 use crate::comms::{ToMinionMessage, ToOverlordMessage};
 use crate::people::PersonList;
-use nostr_types::RelayUrl;
 
 /// Error kinds that can occur in gossip-lib
 #[derive(Debug)]
@@ -74,8 +75,8 @@ pub enum ErrorKind {
     WrongEventKind,
 }
 
-/// Errors that can occur in gossip-lib, optionally including a file and line number
-/// where they were generated
+/// Errors that can occur in gossip-lib, optionally including a file and line
+/// number where they were generated
 #[derive(Debug)]
 pub struct Error {
     pub kind: ErrorKind,

@@ -1,19 +1,17 @@
-use std::{cell::RefCell, rc::Rc};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 use eframe::egui::{self, Align, Color32, Layout, RichText, Ui};
 use egui_extras::{Size, StripBuilder};
-use gossip_lib::{
-    comms::ToOverlordMessage,
-    nip46::{Approval, ParsedCommand},
-    PendingItem, GLOBALS,
-};
+use gossip_lib::comms::ToOverlordMessage;
+use gossip_lib::nip46::{Approval, ParsedCommand};
+use gossip_lib::{PendingItem, GLOBALS};
 use nostr_types::PublicKey;
 use serde::Serialize;
 
-use crate::ui::{widgets, Page, Theme};
-
 pub use super::Notification;
 use super::NotificationFilter;
+use crate::ui::{widgets, Page, Theme};
 
 pub struct Nip46Request {
     client_name: String,

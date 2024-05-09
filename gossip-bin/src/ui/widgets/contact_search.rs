@@ -1,6 +1,5 @@
-use egui_winit::egui::{
-    self, text_edit::TextEditOutput, AboveOrBelow, Key, Modifiers, RichText, Ui,
-};
+use egui_winit::egui::text_edit::TextEditOutput;
+use egui_winit::egui::{self, AboveOrBelow, Key, Modifiers, RichText, Ui};
 use gossip_lib::{Person, GLOBALS};
 use nostr_types::PublicKey;
 
@@ -18,9 +17,11 @@ pub(in crate::ui) fn show_contact_search(
     on_select_callback: impl Fn(&mut Ui, &mut GossipUi, &mut TextEditOutput, &(String, PublicKey)),
 ) {
     let origin_rect = if let Some(cursor) = output.cursor_range {
-        output.galley.pos_from_cursor(&cursor.primary) // position within textedit
+        output.galley.pos_from_cursor(&cursor.primary) // position within
+                                                       // textedit
     } else {
-        output.galley.pos_from_cursor(&output.galley.end()) // position within textedit
+        output.galley.pos_from_cursor(&output.galley.end()) // position within
+                                                            // textedit
     };
 
     let (pivot, fixed_pos) = match above_or_below {

@@ -1,7 +1,6 @@
-use gossip_lib::GLOBALS;
-use gossip_lib::{Person, PersonList, Private};
 use std::collections::HashMap;
 
+use gossip_lib::{Person, PersonList, Private, GLOBALS};
 use nostr_types::{
     ContentSegment, Event, EventDelegation, EventKind, Id, MilliSatoshi, NostrBech32, PublicKey,
     RelayUrl, ShatteredContent, Unixtime,
@@ -18,8 +17,8 @@ pub(crate) enum RepostType {
     MentionOnly,
     /// Post has a comment and at least one mention tag
     CommentMention,
-    /// Kind 16 generic repost, has 'k' and 'e' tag, and the reposted note's JSON
-    /// is optionally included in the content
+    /// Kind 16 generic repost, has 'k' and 'e' tag, and the reposted note's
+    /// JSON is optionally included in the content
     GenericRepost,
 }
 

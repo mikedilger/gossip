@@ -1,11 +1,11 @@
-use crate::ui::widgets::list_entry::{self};
-use crate::ui::wizard::WizardPage;
-use crate::ui::{GossipUi, Page};
 use eframe::egui;
 use egui::{Context, Ui};
 
 use super::wizard_controls;
 use super::wizard_state::WizardPath;
+use crate::ui::widgets::list_entry::{self};
+use crate::ui::wizard::WizardPage;
+use crate::ui::{GossipUi, Page};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     if app.wizard_state.pubkey.is_some() {

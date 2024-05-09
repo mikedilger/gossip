@@ -1,11 +1,13 @@
-use crate::error::Error;
-use crate::storage::types::Relationship1;
-use crate::storage::{RawDatabase, Storage};
+use std::sync::Mutex;
+
 use heed::types::UnalignedSlice;
 use heed::RwTxn;
 use nostr_types::Id;
 use speedy::Writable;
-use std::sync::Mutex;
+
+use crate::error::Error;
+use crate::storage::types::Relationship1;
+use crate::storage::{RawDatabase, Storage};
 
 // Id:Id -> Relationship1
 //   key: id.as_slice(), id.as_slice() | Id(val[32..64].try_into()?)

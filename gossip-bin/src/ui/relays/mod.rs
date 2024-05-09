@@ -1,11 +1,13 @@
 use std::cmp::Ordering;
 
-use super::{widgets, GossipUi, Page};
 use eframe::egui;
 use egui::{Context, Ui};
 use egui_winit::egui::{vec2, Id, Rect, RichText};
-use gossip_lib::{comms::ToOverlordMessage, Relay, GLOBALS};
+use gossip_lib::comms::ToOverlordMessage;
+use gossip_lib::{Relay, GLOBALS};
 use nostr_types::RelayUrl;
+
+use super::{widgets, GossipUi, Page};
 
 mod active;
 mod coverage;
@@ -140,7 +142,6 @@ enum AddRelayDialogStep {
 
 ///
 /// Show the Relays UI
-///
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Frame, ui: &mut Ui) {
     match app.page {
         Page::RelaysActivityMonitor => active::update(app, ctx, frame, ui),
@@ -357,7 +358,8 @@ fn entry_dialog_step1(ui: &mut Ui, ctx: &Context, app: &mut GossipUi) {
     ui.add(egui::Label::new("Enter relay URL:"));
     ui.add_space(10.0);
 
-    // validate relay url (we are validating one UI frame later, shouldn't be an issue)
+    // validate relay url (we are validating one UI frame later, shouldn't be an
+    // issue)
     let is_url_valid = RelayUrl::try_from_str(&app.relays.new_relay_url).is_ok();
 
     let edit_response = ui.horizontal(|ui| {
@@ -466,7 +468,6 @@ fn entry_dialog_step2(ui: &mut Ui, app: &mut GossipUi) {
 
 ///
 /// Draw button with configure popup
-///
 pub(super) fn configure_list_btn(app: &mut GossipUi, ui: &mut Ui) {
     ui.add_enabled_ui(true, |ui| {
         let min_size = vec2(180.0, 20.0);
@@ -489,7 +490,6 @@ pub(super) fn configure_list_btn(app: &mut GossipUi, ui: &mut Ui) {
 
 ///
 /// Draw relay sort comboBox
-///
 pub(super) fn relay_sort_combo(app: &mut GossipUi, ui: &mut Ui) {
     let sort_combo = egui::ComboBox::from_id_source(Id::from("RelaySortCombo"));
     sort_combo
@@ -541,7 +541,6 @@ pub(super) fn relay_sort_combo(app: &mut GossipUi, ui: &mut Ui) {
 
 ///
 /// Draw relay filter comboBox
-///
 pub(super) fn relay_filter_combo(app: &mut GossipUi, ui: &mut Ui) {
     let filter_combo = egui::ComboBox::from_id_source(Id::from("RelayFilterCombo"));
     filter_combo
@@ -639,7 +638,6 @@ pub(super) fn sort_relay(rui: &RelayUi, a: &Relay, b: &Relay) -> Ordering {
 ///
 /// Filter a relay entry
 /// - return: true if selected
-///
 pub(super) fn filter_relay(rui: &RelayUi, ri: &Relay) -> bool {
     let search = if rui.search.len() > 1 {
         ri.url

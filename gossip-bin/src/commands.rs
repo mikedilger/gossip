@@ -1,10 +1,11 @@
+use std::collections::HashSet;
+use std::env;
+
 use gossip_lib::{Error, ErrorKind, PersonList, PersonListMetadata, PersonRelay, GLOBALS};
 use nostr_types::{
     EncryptedPrivateKey, Event, EventAddr, EventKind, Filter, Id, NostrBech32, NostrUrl, PreEvent,
     PrivateKey, PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime,
 };
-use std::collections::HashSet;
-use std::env;
 use tokio::runtime::Runtime;
 use zeroize::Zeroize;
 
@@ -562,7 +563,8 @@ pub fn delete_spam_by_content(
     txn.commit()?;
 
     // Unless they were giftwraps, we are done
-    // (We cannot delete spam on relays that we didn't author unless it is a giftwrap)
+    // (We cannot delete spam on relays that we didn't author unless it is a
+    // giftwrap)
     if kind != EventKind::GiftWrap {
         println!("Ok");
         return Ok(());

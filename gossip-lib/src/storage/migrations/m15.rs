@@ -1,9 +1,11 @@
+use std::collections::HashMap;
+
+use heed::RwTxn;
+use speedy::Writable;
+
 use crate::error::Error;
 use crate::storage::types::PersonList1;
 use crate::storage::Storage;
-use heed::RwTxn;
-use speedy::Writable;
-use std::collections::HashMap;
 
 impl Storage {
     pub(super) fn m15_trigger(&self) -> Result<(), Error> {

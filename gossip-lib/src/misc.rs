@@ -1,7 +1,9 @@
+use std::ops::Deref;
+
+use nostr_types::{Event, EventReference, Id, PayRequestData, PublicKey, UncheckedUrl};
+
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use nostr_types::{Event, EventReference, Id, PayRequestData, PublicKey, UncheckedUrl};
-use std::ops::Deref;
 
 /// The state that a Zap is in (it moves through 5 states before it is complete)
 #[derive(Debug, Clone)]
@@ -25,8 +27,8 @@ pub enum Freshness {
 ///
 ///    (Some(event), None) --> we have the top event, nothing to seek
 ///    (None, Some(eventref)) --> we have no event, but something to seek
-///    (Some(event), Some(eventref)) --> we have a top local event, and something higher to seek
-///
+///    (Some(event), Some(eventref)) --> we have a top local event, and
+/// something higher to seek
 pub(crate) fn get_thread_highest_ancestors(
     eref: EventReference,
 ) -> Result<(Option<Event>, Option<EventReference>), Error> {
@@ -72,8 +74,9 @@ impl Deref for Private {
     }
 }
 
-// We define the readable/writable impls to be exactly as if this was just a bool.
-// This way we don't have to upgrade the database from when it actually was just a bool.
+// We define the readable/writable impls to be exactly as if this was just a
+// bool. This way we don't have to upgrade the database from when it actually
+// was just a bool.
 
 impl<'a, C: speedy::Context> speedy::Readable<'a, C> for Private {
     fn read_from<R: speedy::Reader<'a, C>>(reader: &mut R) -> Result<Self, C::Error> {

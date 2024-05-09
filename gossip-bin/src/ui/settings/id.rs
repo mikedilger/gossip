@@ -1,7 +1,8 @@
-use crate::ui::{GossipUi, Page};
 use eframe::egui;
 use egui::widgets::Slider;
 use egui::{Context, Ui};
+
+use crate::ui::{GossipUi, Page};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.heading("Identity Settings");

@@ -1,6 +1,7 @@
-use crate::globals::GLOBALS;
 use nostr_types::EventKind;
 use speedy::{Readable, Writable};
+
+use crate::globals::GLOBALS;
 
 /// Lists people can be added to
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Readable, Writable)]

@@ -1,7 +1,8 @@
-use crate::error::Error;
-use crate::globals::GLOBALS;
 use nostr_types::{Id, RelayInformationDocument, RelayUrl, RelayUsage, Unixtime};
 use serde::{Deserialize, Serialize};
+
+use crate::error::Error;
+use crate::globals::GLOBALS;
 
 // THIS IS HISTORICAL FOR MIGRATIONS AND THE STRUCTURES SHOULD NOT BE EDITED
 

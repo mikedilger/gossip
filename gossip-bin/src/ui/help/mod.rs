@@ -1,7 +1,8 @@
-use super::{GossipUi, Page};
 use eframe::egui;
 use egui::{Context, Ui};
 use gossip_lib::PersonList;
+
+use super::{GossipUi, Page};
 
 mod about;
 mod stats;

@@ -1,20 +1,22 @@
+use std::fmt;
+use std::hash::{Hash, Hasher};
+
+use nostr_types::{
+    Event, EventAddr, Id, IdHex, Metadata, MilliSatoshi, Profile, PublicKey, RelayUrl, Tag,
+    UncheckedUrl, Unixtime,
+};
+
 use crate::dm_channel::DmChannel;
 use crate::misc::Private;
 use crate::nip46::{Approval, ParsedCommand};
 use crate::people::PersonList;
 use crate::relay::Relay;
-use nostr_types::{
-    Event, EventAddr, Id, IdHex, Metadata, MilliSatoshi, Profile, PublicKey, RelayUrl, Tag,
-    UncheckedUrl, Unixtime,
-};
-use std::fmt;
-use std::hash::{Hash, Hasher};
 
 /// This is a message sent to the Overlord. Tasks which take any amount of time,
-/// especially involving relays, are handled by the Overlord in this way. There is
-/// no return value, you'll have to check various GLOBALS state later on if you
-/// depend on the result. Such an architecture works best with an immediate-mode
-/// renderer.
+/// especially involving relays, are handled by the Overlord in this way. There
+/// is no return value, you'll have to check various GLOBALS state later on if
+/// you depend on the result. Such an architecture works best with an
+/// immediate-mode renderer.
 #[derive(Debug, Clone)]
 pub enum ToOverlordMessage {
     /// Calls [add_pubkey_relay](crate::Overlord::add_pubkey_relay)

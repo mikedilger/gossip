@@ -1,8 +1,9 @@
-use crate::error::Error;
-use crate::storage::Storage;
 use heed::RwTxn;
 use nostr_types::{EventV1, Id, Signature};
 use speedy::Readable;
+
+use crate::error::Error;
+use crate::storage::Storage;
 
 impl Storage {
     pub(super) fn m5_trigger(&self) -> Result<(), Error> {

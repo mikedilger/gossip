@@ -1,8 +1,9 @@
+use heed::RwTxn;
+use speedy::Readable;
+
 use crate::error::Error;
 use crate::storage::types::{Theme1, ThemeVariant1};
 use crate::storage::Storage;
-use heed::RwTxn;
-use speedy::Readable;
 
 impl Storage {
     pub(super) fn m10_trigger(&self) -> Result<(), Error> {

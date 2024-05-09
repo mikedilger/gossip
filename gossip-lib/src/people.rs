@@ -1,7 +1,8 @@
-use crate::comms::ToOverlordMessage;
-use crate::error::{Error, ErrorKind};
-use crate::globals::GLOBALS;
-use crate::misc::{Freshness, Private};
+use std::collections::BTreeMap;
+use std::hash::{Hash, Hasher};
+use std::sync::atomic::Ordering;
+use std::time::Duration;
+
 use dashmap::{DashMap, DashSet};
 use image::RgbaImage;
 use nostr_types::{
@@ -9,13 +10,14 @@ use nostr_types::{
     RelayUsage, Tag, UncheckedUrl, Unixtime, Url,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
-use std::hash::{Hash, Hasher};
-use std::sync::atomic::Ordering;
-use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio::task;
 use tokio::time::Instant;
+
+use crate::comms::ToOverlordMessage;
+use crate::error::{Error, ErrorKind};
+use crate::globals::GLOBALS;
+use crate::misc::{Freshness, Private};
 
 /// Person type, aliased to the latest version
 pub type Person = crate::storage::types::Person2;
@@ -26,8 +28,8 @@ pub type PersonList = crate::storage::types::PersonList1;
 /// PersonListMetadata type, aliased to the latest version
 pub type PersonListMetadata = crate::storage::types::PersonListMetadata3;
 
-/// Handles people and remembers what needs to be done for each, such as fetching
-/// metadata or avatars.
+/// Handles people and remembers what needs to be done for each, such as
+/// fetching metadata or avatars.
 pub struct People {
     // active person's relays (pull from db as needed)
     active_person: RwLock<Option<PublicKey>>,
@@ -214,8 +216,8 @@ impl People {
         }
     }
 
-    /// This is run periodically. It checks the database first, only then does it
-    /// ask the overlord to update the metadata from the relays.
+    /// This is run periodically. It checks the database first, only then does
+    /// it ask the overlord to update the metadata from the relays.
     async fn maybe_fetch_metadata(&self) {
         // Take everybody out of self.people_of_interest, into a local var
         let mut people_of_interest: Vec<PublicKey> = self
@@ -337,13 +339,15 @@ impl People {
             person.metadata_created_at = Some(asof.0);
             if nip05_changed {
                 person.nip05_valid = false; // changed, so reset to invalid
-                person.nip05_last_checked = None; // we haven't checked this one yet
+                person.nip05_last_checked = None; // we haven't checked this one
+                                                  // yet
             }
             GLOBALS.storage.write_person(&person, None)?;
             GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
         }
 
-        // Remove from failed avatars list so the UI will try to fetch the avatar again if missing
+        // Remove from failed avatars list so the UI will try to fetch the avatar again
+        // if missing
         GLOBALS.failed_avatars.write().await.remove(pubkey);
 
         // Only if they have a nip05 dns id set
@@ -397,9 +401,9 @@ impl People {
 
     /// Get the avatar `RgbaImage` for the person.
     ///
-    /// This usually returns None when first called, and eventually returns the image.
-    /// Once the image is returned, it will return None ever after, because the image is
-    /// moved, not copied.
+    /// This usually returns None when first called, and eventually returns the
+    /// image. Once the image is returned, it will return None ever after,
+    /// because the image is moved, not copied.
     ///
     /// FIXME this API is not good for async front ends.
     pub fn get_avatar(
@@ -499,8 +503,8 @@ impl People {
         }
     }
 
-    /// This lets you start typing a name, and autocomplete the results for tagging
-    /// someone in a post.  It returns maximum 10 results.
+    /// This lets you start typing a name, and autocomplete the results for
+    /// tagging someone in a post.  It returns maximum 10 results.
     pub fn search_people_to_tag(&self, mut text: &str) -> Result<Vec<(String, PublicKey)>, Error> {
         // work with or without the @ symbol:
         if text.starts_with('@') {
@@ -705,7 +709,8 @@ impl People {
                 None
             };
 
-            // Only include recommended relay urls in public entries, and not in the mute list
+            // Only include recommended relay urls in public entries, and not in the mute
+            // list
             let recommended_relay_url = {
                 if kind != EventKind::MuteList && !private.0 {
                     let relays = GLOBALS

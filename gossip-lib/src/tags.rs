@@ -1,5 +1,6 @@
-use crate::relay::Relay;
 use nostr_types::{EventAddr, Id, PublicKey, Tag, UncheckedUrl};
+
+use crate::relay::Relay;
 
 pub async fn add_pubkey_to_tags(existing_tags: &mut Vec<Tag>, added: PublicKey) -> usize {
     let newtag = Tag::new_pubkey(added, None, None);
@@ -20,8 +21,8 @@ pub async fn add_pubkey_to_tags(existing_tags: &mut Vec<Tag>, added: PublicKey) 
     }
 }
 
-// note - this is only used for kind-1 currently. If we change to other kinds, the 'q' tag
-//        would currently be wrong.
+// note - this is only used for kind-1 currently. If we change to other kinds,
+// the 'q' tag        would currently be wrong.
 pub async fn add_event_to_tags(
     existing_tags: &mut Vec<Tag>,
     added: Id,
@@ -106,12 +107,15 @@ pub fn add_subject_to_tags_if_missing(existing_tags: &mut Vec<Tag>, subject: Str
 
 //     #[test]
 //     fn test_parse_pubkeys() {
-//         let pubkeys = keys_from_text("hello npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6 and npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6... actually npub1melv683fw6n2mvhl5h6dhqd8mqfv3wmxnz4qph83ua4dk4006ezsrt5c24");
+//         let pubkeys = keys_from_text("hello
+// npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6 and
+// npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6... actually
+// npub1melv683fw6n2mvhl5h6dhqd8mqfv3wmxnz4qph83ua4dk4006ezsrt5c24");
 //         assert_eq!(pubkeys.len(), 2);
 //         assert_eq!(
 //             pubkeys[0].1.as_hex_string(),
-//             "3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d"
-//         );
+//             
+// "3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d"         );
 //     }
 
 //     #[test]

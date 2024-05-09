@@ -1,13 +1,13 @@
-use super::{GossipUi, Page};
 use eframe::egui;
 use egui::{Context, Ui};
+
+use super::{GossipUi, Page};
 
 mod list;
 mod lists;
 mod person;
 
-pub(in crate::ui) use list::layout_list_title;
-pub(in crate::ui) use list::ListUi;
+pub(in crate::ui) use list::{layout_list_title, ListUi};
 pub(in crate::ui) use lists::sort_lists;
 
 pub(super) fn enter_page(app: &mut GossipUi) {

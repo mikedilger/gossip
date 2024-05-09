@@ -1,7 +1,8 @@
-use crate::ui::GossipUi;
 use eframe::egui;
 use egui::widgets::Slider;
 use egui::{Context, Ui};
+
+use crate::ui::GossipUi;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.heading("Posting Settings");

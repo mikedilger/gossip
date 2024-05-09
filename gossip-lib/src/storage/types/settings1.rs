@@ -1,10 +1,11 @@
-use super::super::Storage;
-use super::theme1::{Theme1, ThemeVariant1};
-use crate::error::Error;
 use heed::RwTxn;
 use nostr_types::PublicKey;
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
+
+use super::super::Storage;
+use super::theme1::{Theme1, ThemeVariant1};
+use crate::error::Error;
 
 // THIS IS HISTORICAL FOR MIGRATIONS AND THE STRUCTURES SHOULD NOT BE EDITED
 

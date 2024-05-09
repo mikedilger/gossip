@@ -1,9 +1,11 @@
+use std::fs;
+
+use nostr_types::{Event, EventKind, Id, Rumor};
+use rhai::{Engine, Scope, AST};
+
 use crate::globals::GLOBALS;
 use crate::people::Person;
 use crate::profile::Profile;
-use nostr_types::{Event, EventKind, Id, Rumor};
-use rhai::{Engine, Scope, AST};
-use std::fs;
 
 #[derive(Clone, Copy, Debug)]
 pub enum EventFilterAction {

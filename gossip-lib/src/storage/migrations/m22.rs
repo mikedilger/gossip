@@ -1,8 +1,9 @@
+use heed::RwTxn;
+
 use crate::error::Error;
 use crate::misc::Private;
 use crate::storage::types::PersonListMetadata3;
 use crate::storage::Storage;
-use heed::RwTxn;
 
 impl Storage {
     pub(super) fn m22_trigger(&self) -> Result<(), Error> {

@@ -1,5 +1,3 @@
-use crate::ui::wizard::WizardPage;
-use crate::ui::{GossipUi, Page};
 use eframe::egui;
 use egui::{Context, RichText, Ui};
 use gossip_lib::comms::ToOverlordMessage;
@@ -7,6 +5,8 @@ use gossip_lib::GLOBALS;
 use zeroize::Zeroize;
 
 use super::wizard_controls;
+use crate::ui::wizard::WizardPage;
+use crate::ui::{GossipUi, Page};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     // If already imported, advance

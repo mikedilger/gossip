@@ -1,12 +1,14 @@
+use std::collections::HashSet;
+use std::ops::Bound;
+
+use heed::RwTxn;
+use nostr_types::{EventKind, EventV2, Id, PublicKey, TagV2, Unixtime};
+use speedy::Readable;
+
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::storage::types::PersonList1;
 use crate::storage::Storage;
-use heed::RwTxn;
-use nostr_types::{EventKind, EventV2, Id, PublicKey, TagV2, Unixtime};
-use speedy::Readable;
-use std::collections::HashSet;
-use std::ops::Bound;
 
 impl Storage {
     pub(super) fn m20_trigger(&self) -> Result<(), Error> {
@@ -159,7 +161,8 @@ impl Storage {
     }
 
     /// Find events of given kinds and pubkeys.
-    /// You must supply kinds. You can skip the pubkeys and then only kinds will matter.
+    /// You must supply kinds. You can skip the pubkeys and then only kinds will
+    /// matter.
     fn m20_find_ek_pk_events(
         &self,
         kinds: &[EventKind],

@@ -1,10 +1,12 @@
+use std::collections::HashMap;
+
+use heed::RwTxn;
+use nostr_types::PublicKey;
+
 use crate::error::Error;
 use crate::misc::Private;
 use crate::storage::types::PersonList1;
 use crate::storage::Storage;
-use heed::RwTxn;
-use nostr_types::PublicKey;
-use std::collections::HashMap;
 
 impl Storage {
     pub(super) fn m13_trigger(&self) -> Result<(), Error> {
@@ -45,7 +47,8 @@ impl Storage {
         // remove db_person_lists1
         {
             self.db_person_lists1()?.clear(txn)?;
-            // heed doesn't expose mdb_drop(1) yet, so we can't actually remove this database.
+            // heed doesn't expose mdb_drop(1) yet, so we can't actually remove
+            // this database.
         }
 
         Ok(())

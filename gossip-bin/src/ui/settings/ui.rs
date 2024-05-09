@@ -1,7 +1,8 @@
-use crate::ui::{GossipUi, ThemeVariant};
 use eframe::egui;
 use egui::widgets::{Button, Slider};
 use egui::{Context, Ui};
+
+use crate::ui::{GossipUi, ThemeVariant};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.heading("UI Settings");

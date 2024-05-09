@@ -1,8 +1,9 @@
+use heed::RwTxn;
+use nostr_types::{EventKind, EventV2, EventV3};
+
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::storage::Storage;
-use heed::RwTxn;
-use nostr_types::{EventKind, EventV2, EventV3};
 
 impl Storage {
     pub(super) fn switch_to_rumor2<'a>(

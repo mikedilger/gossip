@@ -1,9 +1,6 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use super::{GossipUi, Page};
-use crate::ui::widgets::{self, MoreMenuEntry};
-use crate::AVATAR_SIZE_F32;
 use eframe::egui::{self, Galley, Label, Sense};
 use egui::{Context, RichText, Ui, Vec2};
 use egui_winit::egui::text::LayoutJob;
@@ -14,6 +11,10 @@ use gossip_lib::{
     FeedKind, Freshness, People, Person, PersonList, PersonListMetadata, Private, GLOBALS,
 };
 use nostr_types::{Profile, PublicKey, Unixtime};
+
+use super::{GossipUi, Page};
+use crate::ui::widgets::{self, MoreMenuEntry};
+use crate::AVATAR_SIZE_F32;
 
 pub(in crate::ui) struct ListUi {
     // cache
@@ -867,24 +868,24 @@ pub(super) fn render_more_list_actions(
     //                         metadata.private = Private(false);
     //                         let _ = GLOBALS
     //                             .storage
-    //                             .set_person_list_metadata(list, metadata, None);
-    //                         *is_open = false;
+    //                             .set_person_list_metadata(list, metadata,
+    // None);                         *is_open = false;
     //                     }
     //                 } else {
     //                     if ui.button("Make Private").clicked() {
     //                         metadata.private = Private(true);
     //                         let _ = GLOBALS
     //                             .storage
-    //                             .set_person_list_metadata(list, metadata, None);
-    //                         let _ = GLOBALS
+    //                             .set_person_list_metadata(list, metadata,
+    // None);                         let _ = GLOBALS
     //                             .storage
-    //                             .set_all_people_in_list_to_private(list, None);
-    //                         *is_open = false;
+    //                             .set_all_people_in_list_to_private(list,
+    // None);                         *is_open = false;
     //                     }
     //                 }
     //                 if ui
-    //                     .add_enabled(count > 0, egui::Button::new("Clear All"))
-    //                     .clicked()
+    //                     .add_enabled(count > 0, egui::Button::new("Clear
+    // All"))                     .clicked()
     //                 {
     //                     app.people_list.clear_list_needs_confirm = true;
     //                     *is_open = false;
@@ -900,8 +901,8 @@ pub(super) fn render_more_list_actions(
     // });
 
     // menu.show(ui, response, |ui, is_open| {
-    //     ui.with_layout(egui::Layout::top_down_justified(egui::Align::LEFT), |ui| {
-    //         if on_list {
+    //     ui.with_layout(egui::Layout::top_down_justified(egui::Align::LEFT),
+    // |ui| {         if on_list {
     //             app.theme.primary_button_style(ui.style_mut());
     //             ui.spacing_mut().item_spacing.y = 15.0;
     //         }
@@ -934,24 +935,24 @@ pub(super) fn render_more_list_actions(
     //                         metadata.private = Private(false);
     //                         let _ = GLOBALS
     //                             .storage
-    //                             .set_person_list_metadata(list, metadata, None);
-    //                         *is_open = false;
+    //                             .set_person_list_metadata(list, metadata,
+    // None);                         *is_open = false;
     //                     }
     //                 } else {
     //                     if ui.button("Make Private").clicked() {
     //                         metadata.private = Private(true);
     //                         let _ = GLOBALS
     //                             .storage
-    //                             .set_person_list_metadata(list, metadata, None);
-    //                         let _ = GLOBALS
+    //                             .set_person_list_metadata(list, metadata,
+    // None);                         let _ = GLOBALS
     //                             .storage
-    //                             .set_all_people_in_list_to_private(list, None);
-    //                         *is_open = false;
+    //                             .set_all_people_in_list_to_private(list,
+    // None);                         *is_open = false;
     //                     }
     //                 }
     //                 if ui
-    //                     .add_enabled(count > 0, egui::Button::new("Clear All"))
-    //                     .clicked()
+    //                     .add_enabled(count > 0, egui::Button::new("Clear
+    // All"))                     .clicked()
     //                 {
     //                     app.people_list.clear_list_needs_confirm = true;
     //                     *is_open = false;

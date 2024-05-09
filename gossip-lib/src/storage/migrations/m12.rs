@@ -1,7 +1,8 @@
-use crate::error::Error;
-use crate::storage::Storage;
 use heed::types::UnalignedSlice;
 use heed::{DatabaseFlags, RwTxn};
+
+use crate::error::Error;
+use crate::storage::Storage;
 
 impl Storage {
     pub(super) fn m12_trigger(&self) -> Result<(), Error> {
@@ -35,7 +36,8 @@ impl Storage {
             db.clear(txn)?;
         }
 
-        // heed doesn't expose mdb_drop(1) yet, so we can't actually remove this database.
+        // heed doesn't expose mdb_drop(1) yet, so we can't actually remove this
+        // database.
 
         Ok(())
     }

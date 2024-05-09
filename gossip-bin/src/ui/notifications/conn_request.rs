@@ -1,17 +1,15 @@
-use std::{cell::RefCell, rc::Rc};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 use eframe::egui::{self, Align, Color32, Layout, RichText, Ui};
 use egui_extras::{Size, StripBuilder};
-use gossip_lib::{
-    comms::{RelayJob, ToOverlordMessage},
-    PendingItem, GLOBALS,
-};
+use gossip_lib::comms::{RelayJob, ToOverlordMessage};
+use gossip_lib::{PendingItem, GLOBALS};
 use nostr_types::RelayUrl;
-
-use crate::ui::{widgets, Page, Theme};
 
 pub use super::Notification;
 use super::NotificationFilter;
+use crate::ui::{widgets, Page, Theme};
 pub struct ConnRequest {
     relay: RelayUrl,
     jobs: Vec<RelayJob>,

@@ -60,14 +60,16 @@ impl NavItem {
     ///
     /// By default, a label is inert and does not respond to click or drags.
     /// By calling this you can turn the label into a button of sorts.
-    /// This will also give the label the hover-effect of a button, but without the frame.
+    /// This will also give the label the hover-effect of a button, but without
+    /// the frame.
     ///
     /// ```
     /// # use egui::{NavItem, Sense};
     /// # egui::__run_test_ui(|ui| {
-    /// if ui.add(NavItem::new("click me").sense(Sense::click())).clicked() {
-    ///     /* … */
-    /// }
+    /// if ui
+    ///     .add(NavItem::new("click me").sense(Sense::click()))
+    ///     .clicked()
+    /// { /* … */ }
     /// # });
     /// ```
     pub fn sense(mut self, sense: Sense) -> Self {
@@ -77,7 +79,8 @@ impl NavItem {
 }
 
 impl NavItem {
-    /// Do layout and position the galley in the ui, without painting it or adding widget info.
+    /// Do layout and position the galley in the ui, without painting it or
+    /// adding widget info.
     pub fn layout_in_ui(self, ui: &mut Ui) -> (Pos2, Arc<Galley>, Response) {
         let sense = self.sense.unwrap_or(Sense::click());
         if let WidgetText::Galley(galley) = self.text {
@@ -104,8 +107,9 @@ impl NavItem {
             && ui.layout().main_wrap()
             && available_width.is_finite()
         {
-            // On a wrapping horizontal layout we want text to start after the previous widget,
-            // then continue on the line below! This will take some extra work:
+            // On a wrapping horizontal layout we want text to start after the previous
+            // widget, then continue on the line below! This will take some
+            // extra work:
 
             let cursor = ui.cursor();
             let first_row_indentation = available_width - ui.available_size_before_wrap().x;
@@ -123,13 +127,16 @@ impl NavItem {
             let pos = pos2(ui.max_rect().left(), ui.cursor().top());
             assert!(!galley.rows.is_empty(), "Galleys are never empty");
 
-            // set the row height to ensure the cursor advancement is correct. when creating a child ui such as with
-            // ui.horizontal_wrapped, the initial cursor will be set to the height of the child ui. this can lead
-            // to the cursor not advancing to the second row but rather expanding the height of the cursor.
+            // set the row height to ensure the cursor advancement is correct. when creating
+            // a child ui such as with ui.horizontal_wrapped, the initial cursor
+            // will be set to the height of the child ui. this can lead
+            // to the cursor not advancing to the second row but rather expanding the height
+            // of the cursor.
             //
-            // note that we do not set the row height earlier in this function as we do want to allow populating
-            // `first_row_min_height` above. however it is crucial the placer knows the actual row height by
-            // setting the cursor height before ui.allocate_rect() gets called.
+            // note that we do not set the row height earlier in this function as we do want
+            // to allow populating `first_row_min_height` above. however it is
+            // crucial the placer knows the actual row height by setting the
+            // cursor height before ui.allocate_rect() gets called.
             ui.set_row_height(galley.rows[0].height());
 
             // collect a response from many rows:

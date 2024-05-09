@@ -1,12 +1,11 @@
-use super::{widgets, GossipUi, Page};
-use eframe::egui;
-use eframe::egui::vec2;
-use eframe::egui::Rect;
-use egui::{Context, Label, RichText, Ui};
-use gossip_lib::FeedKind;
-use gossip_lib::GLOBALS;
-use gossip_lib::{Error, ErrorKind};
 use std::time::{Duration, Instant};
+
+use eframe::egui;
+use eframe::egui::{vec2, Rect};
+use egui::{Context, Label, RichText, Ui};
+use gossip_lib::{Error, ErrorKind, FeedKind, GLOBALS};
+
+use super::{widgets, GossipUi, Page};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     // Possibly refresh DM channels (every 5 seconds)

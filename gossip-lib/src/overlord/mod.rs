@@ -1,5 +1,25 @@
 mod minion;
 
+use std::collections::HashMap;
+use std::sync::atomic::Ordering;
+use std::sync::mpsc;
+use std::time::Duration;
+
+use gossip_relay_picker::RelayAssignment;
+use heed::RwTxn;
+use http::StatusCode;
+use minion::{Minion, MinionExitReason};
+use nostr_types::{
+    ContentEncryptionAlgorithm, EncryptedPrivateKey, Event, EventAddr, EventKind, EventReference,
+    Filter, Id, IdHex, Metadata, MilliSatoshi, NostrBech32, PayRequestData, PreEvent, PrivateKey,
+    Profile, PublicKey, RelayUrl, RelayUsage, Tag, UncheckedUrl, Unixtime,
+};
+use tokio::sync::broadcast::Sender;
+use tokio::sync::mpsc::UnboundedReceiver;
+use tokio::sync::watch::Receiver as WatchReceiver;
+use tokio::task;
+use zeroize::Zeroize;
+
 use crate::comms::{
     RelayConnectionReason, RelayJob, ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail,
     ToOverlordMessage,
@@ -18,35 +38,18 @@ use crate::tags::{
     add_addr_to_tags, add_event_to_tags, add_pubkey_to_tags, add_subject_to_tags_if_missing,
 };
 use crate::RunState;
-use gossip_relay_picker::RelayAssignment;
-use heed::RwTxn;
-use http::StatusCode;
-use minion::{Minion, MinionExitReason};
-use nostr_types::{
-    ContentEncryptionAlgorithm, EncryptedPrivateKey, Event, EventAddr, EventKind, EventReference,
-    Filter, Id, IdHex, Metadata, MilliSatoshi, NostrBech32, PayRequestData, PreEvent, PrivateKey,
-    Profile, PublicKey, RelayUrl, RelayUsage, Tag, UncheckedUrl, Unixtime,
-};
-use std::collections::HashMap;
-use std::sync::atomic::Ordering;
-use std::sync::mpsc;
-use std::time::Duration;
-use tokio::sync::broadcast::Sender;
-use tokio::sync::mpsc::UnboundedReceiver;
-use tokio::sync::watch::Receiver as WatchReceiver;
-use tokio::task;
-use zeroize::Zeroize;
 
 type MinionResult = Result<MinionExitReason, Error>;
 
-/// The overlord handles any operation that involves talking to relays, and a few more.
+/// The overlord handles any operation that involves talking to relays, and a
+/// few more.
 ///
 /// There are two ways to engage the Overlord to do something:
 ///
 /// 1. Call a function on it. This works from an async context.
-/// 2. Send it a message using `GLOBALS.to_overlord`. This works from a synchronous
-///    context, but does not wait for or deliver a result. This is how the canonical
-///    immediate-mode renderer (egui) engages the Overlord.
+/// 2. Send it a message using `GLOBALS.to_overlord`. This works from a
+///    synchronous context, but does not wait for or deliver a result. This is
+///    how the canonical immediate-mode renderer (egui) engages the Overlord.
 pub struct Overlord {
     to_minions: Sender<ToMinionMessage>,
     inbox: UnboundedReceiver<ToOverlordMessage>,
@@ -61,10 +64,11 @@ pub struct Overlord {
 }
 
 impl Overlord {
-    /// To create an Overlord (and you should really only create one, even though we have
-    /// not forced this to be a singleton), you'll want to call this `new` function and
-    /// pass one half of the unbounded_channel to the overlord. You will have to steal this
-    /// from GLOBALS as follows:
+    /// To create an Overlord (and you should really only create one, even
+    /// though we have not forced this to be a singleton), you'll want to
+    /// call this `new` function and pass one half of the unbounded_channel
+    /// to the overlord. You will have to steal this from GLOBALS as
+    /// follows:
     ///
     /// ```no_run
     /// # use std::ops::DerefMut;
@@ -72,17 +76,18 @@ impl Overlord {
     /// # async fn main() {
     /// #   use gossip_lib::GLOBALS;
     /// let overlord_receiver = {
-    ///   let mut mutex_option = GLOBALS.tmp_overlord_receiver.lock().await;
-    ///   mutex_option.deref_mut().take()
-    /// }.unwrap();
+    ///     let mut mutex_option = GLOBALS.tmp_overlord_receiver.lock().await;
+    ///     mutex_option.deref_mut().take()
+    /// }
+    /// .unwrap();
     ///
     /// let mut overlord = gossip_lib::Overlord::new(overlord_receiver);
     /// # }
     /// ```
     ///
-    /// Once you have created an overlord, run it and await on it. This will block your thread.
-    /// You may use other `tokio` or `futures` combinators, or spawn it on it's own thread
-    /// if you wish.
+    /// Once you have created an overlord, run it and await on it. This will
+    /// block your thread. You may use other `tokio` or `futures`
+    /// combinators, or spawn it on it's own thread if you wish.
     ///
     /// ```no_run
     /// # use std::ops::DerefMut;
@@ -109,8 +114,8 @@ impl Overlord {
         }
     }
 
-    /// This runs the overlord. This blocks for the entire duration and only exits
-    /// when the overlord receives a signal to shutdown.
+    /// This runs the overlord. This blocks for the entire duration and only
+    /// exits when the overlord receives a signal to shutdown.
     pub async fn run(&mut self) {
         if let Err(e) = self.run_inner().await {
             tracing::error!("{}", e);
@@ -490,7 +495,8 @@ impl Overlord {
                             };
                         } else if let tungstenite::error::Error::ConnectionClosed = wserror {
                             tracing::debug!("Minion {} completed", &url);
-                            exclusion = 30; // was not actually an error, but needs a pause
+                            exclusion = 30; // was not actually an error, but
+                                            // needs a pause
                         } else if let tungstenite::error::Error::Protocol(protocol_error) = wserror
                         {
                             exclusion = match protocol_error {
@@ -810,10 +816,10 @@ impl Overlord {
         Ok(())
     }
 
-    /// Manually associate a relay with a person. This sets both read and write, and
-    /// remembers that they were manual associations (not from a relay list) so they
-    /// have less weight. This is so the user can make these associations manually if
-    /// gossip can't find them.
+    /// Manually associate a relay with a person. This sets both read and write,
+    /// and remembers that they were manual associations (not from a relay
+    /// list) so they have less weight. This is so the user can make these
+    /// associations manually if gossip can't find them.
     pub async fn add_pubkey_relay(
         &mut self,
         pubkey: PublicKey,
@@ -873,9 +879,11 @@ impl Overlord {
                 if relay.has_usage_bits(Relay::INBOX) && relay.has_usage_bits(Relay::OUTBOX) {
                     None
                 } else if relay.has_usage_bits(Relay::INBOX) {
-                    Some("read".to_owned()) // NIP-65 uses the term 'read' instead of 'inbox'
+                    Some("read".to_owned()) // NIP-65 uses the term 'read'
+                                            // instead of 'inbox'
                 } else if relay.has_usage_bits(Relay::OUTBOX) {
-                    Some("write".to_owned()) // NIP-65 uses the term 'write' instead of 'outbox'
+                    Some("write".to_owned()) // NIP-65 uses the term 'write'
+                                             // instead of 'outbox'
                 } else {
                     unreachable!()
                 };
@@ -971,8 +979,8 @@ impl Overlord {
         Ok(())
     }
 
-    /// User has approved authentication on this relay. Save this result for later
-    /// and inform the minion.
+    /// User has approved authentication on this relay. Save this result for
+    /// later and inform the minion.
     pub fn auth_approved(&mut self, relay_url: RelayUrl, permanent: bool) -> Result<(), Error> {
         if permanent {
             // Save the answer in the relay record
@@ -1006,8 +1014,8 @@ impl Overlord {
         Ok(())
     }
 
-    /// User has declined authentication on this relay. Save this result for later
-    /// and inform the minion.
+    /// User has declined authentication on this relay. Save this result for
+    /// later and inform the minion.
     pub fn auth_declined(&mut self, relay_url: RelayUrl, permanent: bool) -> Result<(), Error> {
         if permanent {
             // Save the answer in the relay record
@@ -1049,8 +1057,9 @@ impl Overlord {
         Ok(())
     }
 
-    /// Clear the specified person lit. This wipes everybody. But it doesn't publish
-    /// the empty list. You should probably double-check that the user is certain.
+    /// Clear the specified person lit. This wipes everybody. But it doesn't
+    /// publish the empty list. You should probably double-check that the
+    /// user is certain.
     pub fn clear_person_list(&mut self, list: PersonList) -> Result<(), Error> {
         GLOBALS.people.clear_person_list(list)?;
         Ok(())
@@ -1348,15 +1357,16 @@ impl Overlord {
         Ok(())
     }
 
-    /// Delete public key (only if no private key exists) and any delegation setup
+    /// Delete public key (only if no private key exists) and any delegation
+    /// setup
     pub async fn delete_pub() -> Result<(), Error> {
         GLOBALS.identity.clear_public_key()?;
         Self::delegation_reset().await?;
         Ok(())
     }
 
-    /// Disconnect from the specified relay. This may not happen immediately if the minion
-    /// handling that relay is stuck waiting for a timeout.
+    /// Disconnect from the specified relay. This may not happen immediately if
+    /// the minion handling that relay is stuck waiting for a timeout.
     pub fn drop_relay(&mut self, relay_url: RelayUrl) -> Result<(), Error> {
         let _ = self.to_minions.send(ToMinionMessage {
             target: relay_url.as_str().to_owned(),
@@ -1494,15 +1504,17 @@ impl Overlord {
         Ok(())
     }
 
-    /// Generate an identity (private key) and keep encrypted under the given passphrase
+    /// Generate an identity (private key) and keep encrypted under the given
+    /// passphrase
     pub async fn generate_private_key(mut password: String) -> Result<(), Error> {
         GLOBALS.identity.generate_private_key(&password)?;
         password.zeroize();
         Ok(())
     }
 
-    /// Hide or Show a relay. This adjusts the `hidden` a flag on the `Relay` record
-    /// (You could easily do this yourself by talking to GLOBALS.storage directly too)
+    /// Hide or Show a relay. This adjusts the `hidden` a flag on the `Relay`
+    /// record (You could easily do this yourself by talking to
+    /// GLOBALS.storage directly too)
     pub fn hide_or_show_relay(relay_url: RelayUrl, hidden: bool) -> Result<(), Error> {
         if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url, None)? {
             relay.hidden = hidden;
@@ -1592,8 +1604,8 @@ impl Overlord {
         Ok(())
     }
 
-    /// Like a post. The backend doesn't read the event, so you have to supply the
-    /// pubkey author too.
+    /// Like a post. The backend doesn't read the event, so you have to supply
+    /// the pubkey author too.
     pub async fn like(&mut self, id: Id, pubkey: PublicKey) -> Result<(), Error> {
         let event = {
             let public_key = match GLOBALS.identity.public_key() {
@@ -1897,11 +1909,13 @@ impl Overlord {
                             add_addr_to_tags(&mut tags, ea, Some("mention".to_string())).await;
                         }
                         NostrBech32::EventPointer(ep) => {
-                            // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
+                            // NIP-10: "Those marked with "mention" denote a quoted or reposted
+                            // event id."
                             add_event_to_tags(&mut tags, ep.id, None, "mention").await;
                         }
                         NostrBech32::Id(id) => {
-                            // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
+                            // NIP-10: "Those marked with "mention" denote a quoted or reposted
+                            // event id."
                             add_event_to_tags(&mut tags, *id, None, "mention").await;
                         }
                         NostrBech32::Profile(prof) => {
@@ -1921,8 +1935,8 @@ impl Overlord {
                 }
 
                 // Standardize nostr links (prepend 'nostr:' where missing)
-                // (This was a bad idea to do this late in the process, it breaks links that contain
-                //  nostr urls)
+                // (This was a bad idea to do this late in the process, it breaks links that
+                // contain  nostr urls)
                 // content = NostrUrl::urlize(&content);
 
                 // Find and tag all hashtags
@@ -2251,7 +2265,7 @@ impl Overlord {
     pub async fn push_metadata(&mut self, metadata: Metadata) -> Result<(), Error> {
         let public_key = match GLOBALS.identity.public_key() {
             Some(pk) => pk,
-            None => return Err((ErrorKind::NoPrivateKey, file!(), line!()).into()), // not even a public key
+            None => return Err((ErrorKind::NoPrivateKey, file!(), line!()).into()), /* not even a public key */
         };
 
         let pre_event = PreEvent {
@@ -2289,9 +2303,9 @@ impl Overlord {
         Ok(())
     }
 
-    /// Rank a relay from 0 to 9.  The default rank is 3.  A rank of 0 means the relay will not be used.
-    /// This represent a user's judgement, and is factored into how suitable a relay is for various
-    /// purposes.
+    /// Rank a relay from 0 to 9.  The default rank is 3.  A rank of 0 means the
+    /// relay will not be used. This represent a user's judgement, and is
+    /// factored into how suitable a relay is for various purposes.
     pub fn rank_relay(relay_url: RelayUrl, rank: u8) -> Result<(), Error> {
         if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url, None)? {
             relay.rank = rank as u64;
@@ -2472,7 +2486,8 @@ impl Overlord {
     }
 
     /// Search people and notes in the local database.
-    /// Search results eventually arrive in `GLOBALS.people_search_results` and `GLOBALS.note_search_results`
+    /// Search results eventually arrive in `GLOBALS.people_search_results` and
+    /// `GLOBALS.note_search_results`
     pub async fn search(mut text: String) -> Result<(), Error> {
         if text.len() < 2 {
             GLOBALS
@@ -2518,10 +2533,12 @@ impl Overlord {
                             .to_overlord
                             .send(ToOverlordMessage::FetchEventAddr(ea.to_owned()));
 
-                        // FIXME - this requires eventaddr comparision on process.rs
-                        // Remember we are searching for this event, so when it comes in
+                        // FIXME - this requires eventaddr comparision on
+                        // process.rs Remember we are
+                        // searching for this event, so when it comes in
                         // it can get added to GLOBALS.note_search_results
-                        // GLOBALS.event_addrs_being_searched_for.write().push(ea.to_owned());
+                        // GLOBALS.event_addrs_being_searched_for.write().
+                        // push(ea.to_owned());
                     }
                 }
                 NostrBech32::EventPointer(ep) => {
@@ -2547,7 +2564,8 @@ impl Overlord {
                     if let Some(event) = GLOBALS.storage.read_event(id)? {
                         note_search_results.push(event);
                     }
-                    // else we can't go find it, we don't know which relays to ask.
+                    // else we can't go find it, we don't know which relays to
+                    // ask.
                 }
                 NostrBech32::Profile(prof) => {
                     if let Some(person) = GLOBALS.storage.read_person(&prof.pubkey)? {
@@ -2595,8 +2613,8 @@ impl Overlord {
         Ok(())
     }
 
-    /// Set a particular person as active in the `People` structure. This affects the results of
-    /// some functions of that structure
+    /// Set a particular person as active in the `People` structure. This
+    /// affects the results of some functions of that structure
     pub async fn set_active_person(pubkey: PublicKey) -> Result<(), Error> {
         GLOBALS.people.set_active_person(pubkey).await?;
         Ok(())
@@ -2692,8 +2710,8 @@ impl Overlord {
 
         // Seek the next higher ancestor
         {
-            // (it won't go higher right now, but if the user clicks they can climb the thread)
-            // FIXME: keep climbing somehow once this comes in.
+            // (it won't go higher right now, but if the user clicks they can climb the
+            // thread) FIXME: keep climbing somehow once this comes in.
 
             // Let's first get additional relays the event might be on
             let mut bonus_relays: Vec<RelayUrl> = Vec::new();
@@ -2938,12 +2956,12 @@ impl Overlord {
         Ok(())
     }
 
-    /// Subscribe to the multiple user's relay lists (optionally on the given relays, otherwise using
-    /// theconfigured discover relays)
+    /// Subscribe to the multiple user's relay lists (optionally on the given
+    /// relays, otherwise using theconfigured discover relays)
     ///
-    /// Caller should probably check Person.relay_list_last_sought first to make sure we don't
-    /// already have an in-flight request doing this.  This can be done with:
-    ///    GLOBALS.people.person_needs_relay_list()
+    /// Caller should probably check Person.relay_list_last_sought first to make
+    /// sure we don't already have an in-flight request doing this.  This
+    /// can be done with:    GLOBALS.people.person_needs_relay_list()
     ///    GLOBALS.people.get_subscribed_pubkeys_needing_relay_lists()
     pub async fn subscribe_discover(
         &mut self,
@@ -3035,8 +3053,8 @@ impl Overlord {
         Ok(())
     }
 
-    /// Unlock the private key with the given passphrase so that gossip can use it.
-    /// This is akin to logging in.
+    /// Unlock the private key with the given passphrase so that gossip can use
+    /// it. This is akin to logging in.
     pub fn unlock_key(mut password: String) -> Result<(), Error> {
         if let Err(e) = GLOBALS.identity.unlock(&password) {
             tracing::error!("{}", e);
@@ -3162,7 +3180,8 @@ impl Overlord {
                     .status_queue
                     .write()
                     .write("Could not find a person-list event to update from".to_string());
-                return Ok(()); // we have no event to update from, so we are done
+                return Ok(()); // we have no event to update from, so we are
+                               // done
             }
         };
 
@@ -3211,7 +3230,8 @@ impl Overlord {
                     }
                 }
             } else {
-                // If we need to decrypt contents but can't, let them know we couldn't read that part
+                // If we need to decrypt contents but can't, let them know we couldn't read that
+                // part
                 GLOBALS.status_queue.write().write(
                     format!("Since you are not logged in, the encrypted contents of the list {} will not be processed.", metadata.title),
                 );
@@ -3429,9 +3449,10 @@ impl Overlord {
         Ok(())
     }
 
-    /// Set which notes are currently visible to the user. This is used to modify subscriptions
-    /// that query for likes, zaps, and deletions. Such subscriptions only query for that data
-    /// for events currently in view, to keep them small.
+    /// Set which notes are currently visible to the user. This is used to
+    /// modify subscriptions that query for likes, zaps, and deletions. Such
+    /// subscriptions only query for that data for events currently in view,
+    /// to keep them small.
     ///
     /// WARNING: DO NOT CALL TOO OFTEN or relays will hate you.
     pub async fn visible_notes_changed(&mut self, mut visible: Vec<Id>) -> Result<(), Error> {
@@ -3495,8 +3516,8 @@ impl Overlord {
     }
 
     /// Start a Zap on the note with Id and author PubKey, at the given lnurl.
-    /// This eventually sets `GLOBALS.current_zap`, after which you can complete it
-    /// with Zap()
+    /// This eventually sets `GLOBALS.current_zap`, after which you can complete
+    /// it with Zap()
     pub async fn zap_start(
         &mut self,
         id: Id,
@@ -3555,7 +3576,8 @@ impl Overlord {
         Ok(())
     }
 
-    /// Complete a zap on the note with Id and author PublicKey by setting a value and a comment.
+    /// Complete a zap on the note with Id and author PublicKey by setting a
+    /// value and a comment.
     pub async fn zap(
         &mut self,
         id: Id,

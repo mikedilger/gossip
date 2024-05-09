@@ -1,9 +1,11 @@
-use super::GossipUi;
+use std::sync::atomic::Ordering;
+
 use eframe::egui;
 use egui::{Context, Ui};
 use gossip_lib::GLOBALS;
 use humansize::{format_size, DECIMAL};
-use std::sync::atomic::Ordering;
+
+use super::GossipUi;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.add_space(10.0);

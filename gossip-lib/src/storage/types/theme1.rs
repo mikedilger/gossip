@@ -1,8 +1,9 @@
-use crate::error::Error;
-use crate::storage::Storage;
 use heed::RwTxn;
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
+
+use crate::error::Error;
+use crate::storage::Storage;
 
 // THIS IS HISTORICAL FOR MIGRATIONS AND THE STRUCTURES SHOULD NOT BE EDITED
 

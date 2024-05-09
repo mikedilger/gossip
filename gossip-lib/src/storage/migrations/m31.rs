@@ -1,11 +1,13 @@
+use std::collections::HashMap;
+
+use heed::RwTxn;
+use nostr_types::PublicKey;
+use speedy::Readable;
+
 use crate::error::Error;
 use crate::misc::Private;
 use crate::storage::types::PersonList1;
 use crate::storage::Storage;
-use heed::RwTxn;
-use nostr_types::PublicKey;
-use speedy::Readable;
-use std::collections::HashMap;
 
 impl Storage {
     pub(super) fn m31_trigger(&self) -> Result<(), Error> {

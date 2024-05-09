@@ -1,8 +1,10 @@
-use crate::error::{Error, ErrorKind};
-use crate::storage::{EmptyDatabase, Storage};
+use std::sync::Mutex;
+
 use heed::types::{UnalignedSlice, Unit};
 use nostr_types::{EventKind, Id, PublicKey, Unixtime};
-use std::sync::Mutex;
+
+use crate::error::{Error, ErrorKind};
+use crate::storage::{EmptyDatabase, Storage};
 
 // Author:Kind:Created(reversed):Id -> ()
 
@@ -77,8 +79,9 @@ impl AkciKey {
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use nostr_types::PrivateKey;
+
+    use super::*;
 
     #[test]
     fn test_event_akci_key() {

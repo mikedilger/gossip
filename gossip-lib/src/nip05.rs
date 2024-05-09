@@ -1,10 +1,12 @@
+use std::sync::atomic::Ordering;
+
+use nostr_types::{Metadata, Nip05, PublicKey, RelayUrl, Unixtime};
+
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::misc::Private;
 use crate::people::{Person, PersonList};
 use crate::person_relay::PersonRelay;
-use nostr_types::{Metadata, Nip05, PublicKey, RelayUrl, Unixtime};
-use std::sync::atomic::Ordering;
 
 // This updates the people map and the database with the result
 pub async fn validate_nip05(person: Person) -> Result<(), Error> {

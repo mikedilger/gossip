@@ -1,8 +1,9 @@
-use crate::error::Error;
-use crate::storage::Storage;
 use heed::RwTxn;
 use nostr_types::Event;
 use speedy::Readable;
+
+use crate::error::Error;
+use crate::storage::Storage;
 
 impl Storage {
     pub(super) fn m29_trigger(&self) -> Result<(), Error> {

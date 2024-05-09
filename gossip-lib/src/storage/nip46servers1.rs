@@ -1,10 +1,12 @@
-use crate::error::Error;
-use crate::nip46::Nip46Server;
-use crate::storage::{RawDatabase, Storage};
+use std::sync::Mutex;
+
 use heed::types::UnalignedSlice;
 use heed::RwTxn;
 use speedy::Writable;
-use std::sync::Mutex;
+
+use crate::error::Error;
+use crate::nip46::Nip46Server;
+use crate::storage::{RawDatabase, Storage};
 
 // PublicKey -> Nip46Server
 //   key: pubkey.as_bytes()

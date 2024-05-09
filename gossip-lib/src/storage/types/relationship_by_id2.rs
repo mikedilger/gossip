@@ -1,6 +1,7 @@
-use super::RelationshipById1;
 use nostr_types::{MilliSatoshi, PublicKey};
 use speedy::{Readable, Writable};
+
+use super::RelationshipById1;
 
 /// A relationship between events by Ids
 #[derive(Clone, Debug, PartialEq, Eq, Readable, Writable)]

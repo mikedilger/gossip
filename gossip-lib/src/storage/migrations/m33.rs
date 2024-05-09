@@ -1,6 +1,7 @@
+use heed::RwTxn;
+
 use crate::error::Error;
 use crate::storage::Storage;
-use heed::RwTxn;
 
 impl Storage {
     pub(super) fn m33_trigger(&self) -> Result<(), Error> {

@@ -1,20 +1,18 @@
-use std::{cell::RefCell, ops::AddAssign, rc::Rc};
+use std::cell::RefCell;
+use std::ops::AddAssign;
+use std::rc::Rc;
 
 use chrono::{DateTime, Local, Utc};
-use eframe::egui::{
-    self, text::LayoutJob, vec2, Align, Color32, FontSelection, RichText, Sense, Style, Ui, Vec2,
-};
+use eframe::egui::text::LayoutJob;
+use eframe::egui::{self, vec2, Align, Color32, FontSelection, RichText, Sense, Style, Ui, Vec2};
 use gossip_lib::{PendingItem, GLOBALS};
 
-use self::{
-    auth_request::AuthRequest, conn_request::ConnRequest, nip46_request::Nip46Request,
-    pending::Pending,
-};
-
-use super::{
-    theme::{DefaultTheme, ThemeDef},
-    widgets, GossipUi, Page, Theme,
-};
+use self::auth_request::AuthRequest;
+use self::conn_request::ConnRequest;
+use self::nip46_request::Nip46Request;
+use self::pending::Pending;
+use super::theme::{DefaultTheme, ThemeDef};
+use super::{widgets, GossipUi, Page, Theme};
 mod auth_request;
 mod conn_request;
 mod nip46_request;
@@ -78,7 +76,6 @@ impl NotificationData {
 
 ///
 /// Calc notifications
-///
 pub(super) fn calc(app: &mut GossipUi) {
     let hash = GLOBALS.pending.hash();
     // recalc if hash changed
@@ -175,7 +172,6 @@ pub(super) fn calc(app: &mut GossipUi) {
 
 ///
 /// Draw the notification icons
-///
 pub(super) fn draw_icons(app: &mut GossipUi, ui: &mut Ui) {
     let (no_notification_bg_color, no_notification_text_color) = if app.theme.dark_mode {
         (app.theme.neutral_800(), app.theme.neutral_400())
@@ -376,7 +372,6 @@ pub(super) fn draw_icons(app: &mut GossipUi, ui: &mut Ui) {
 
 ///
 /// Show the Notifications page view
-///
 pub(super) fn update(app: &mut GossipUi, ui: &mut Ui) {
     widgets::page_header(ui, "Notifications", |ui| notification_filter_combo(app, ui));
 

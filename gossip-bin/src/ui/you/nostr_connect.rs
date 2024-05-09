@@ -1,10 +1,11 @@
-use super::GossipUi;
-use crate::ui::widgets::CopyButton;
 use eframe::egui;
 use egui::{Context, Ui};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{Nip46UnconnectedServer, GLOBALS};
 use nostr_types::RelayUrl;
+
+use super::GossipUi;
+use crate::ui::widgets::CopyButton;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.add_space(10.0);

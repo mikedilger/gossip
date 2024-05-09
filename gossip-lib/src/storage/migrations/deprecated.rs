@@ -1,6 +1,7 @@
+use nostr_types::Unixtime;
+
 use super::Storage;
 use crate::error::Error;
-use nostr_types::Unixtime;
 
 impl Storage {
     /// Read the user's last ContactList edit time
