@@ -351,17 +351,17 @@ impl Minion {
                     }
                 }
                 Err(e) => {
-                    if matches!(e.kind, ErrorKind::Nostr(nostr_types::Error::NoPrivateKey)) {
-                        // do not log
+                    if let ErrorKind::Websocket(_) = e.kind {
+                        return Err(e);
+                    } else if matches!(e.kind, ErrorKind::Nostr(nostr_types::Error::NoPrivateKey)) {
+                        // don't log
+                    } else if matches!(e.kind, ErrorKind::NoPrivateKey) {
+                        // don't log
+                    } else if matches!(e.kind, ErrorKind::NoPrivateKeyForAuth(_)) {
+                        tracing::warn!("{}", e);
                     } else {
                         tracing::warn!("{}", e);
                     }
-
-                    if let ErrorKind::Websocket(_) = e.kind {
-                        return Err(e);
-                    }
-
-                    // for other errors, keep going
                 }
             }
         }

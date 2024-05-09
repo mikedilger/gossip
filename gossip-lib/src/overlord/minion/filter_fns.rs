@@ -99,25 +99,27 @@ pub fn inbox_feed(spamsafe: bool, range: FeedRange) -> Vec<Filter> {
         };
         filters.push(filter);
 
-        // Giftwraps cannot be filtered by author so we have to take them regardless
-        // of the spamsafe designation of the relay.
-        //
-        // Sure, the TOTAL number of giftwraps being the limit will be MORE than we need,
-        // but since giftwraps get backdated, this is probably a good thing.
-        let filter = {
-            let mut filter = Filter {
-                kinds: vec![EventKind::GiftWrap],
-                // giftwraps may be dated 1 week in the past:
-                since: since.map(|u| Unixtime(*u - (3600 * 24 * 7))),
-                until,
-                limit,
-                ..Default::default()
+        if GLOBALS.identity.is_unlocked() {
+            // Giftwraps cannot be filtered by author so we have to take them regardless
+            // of the spamsafe designation of the relay.
+            //
+            // Sure, the TOTAL number of giftwraps being the limit will be MORE than we need,
+            // but since giftwraps get backdated, this is probably a good thing.
+            let filter = {
+                let mut filter = Filter {
+                    kinds: vec![EventKind::GiftWrap],
+                    // giftwraps may be dated 1 week in the past:
+                    since: since.map(|u| Unixtime(*u - (3600 * 24 * 7))),
+                    until,
+                    limit,
+                    ..Default::default()
+                };
+                let values = vec![pkh.to_string()];
+                filter.set_tag_values('p', values);
+                filter
             };
-            let values = vec![pkh.to_string()];
-            filter.set_tag_values('p', values);
-            filter
-        };
-        filters.push(filter);
+            filters.push(filter);
+        }
     }
 
     filters
@@ -155,51 +157,52 @@ pub fn augments(ids: &[IdHex]) -> Vec<Filter> {
 }
 
 pub fn config(since: Unixtime) -> Vec<Filter> {
+    let mut filters: Vec<Filter> = Vec::new();
+
     if let Some(pubkey) = GLOBALS.identity.public_key() {
         let pkh: PublicKeyHex = pubkey.into();
-        let giftwrap_since = Unixtime(since.0 - 60 * 60 * 24 * 7);
 
-        let giftwrap_filter = {
-            let mut f = Filter {
-                kinds: vec![EventKind::GiftWrap],
-                since: Some(giftwrap_since),
-                ..Default::default()
-            };
-            f.set_tag_values('p', vec![pkh.to_string()]);
-            f
-        };
-
-        // Read back in things that we wrote out to our write relays
-        // that we need
-        vec![
-            // Actual config stuff
-            Filter {
-                authors: vec![pkh.clone()],
-                kinds: vec![
-                    EventKind::Metadata,
-                    //EventKind::RecommendRelay,
-                    EventKind::ContactList,
-                    EventKind::MuteList,
-                    EventKind::FollowSets,
-                    EventKind::RelayList,
-                ],
-                // these are all replaceable, no since required
-                ..Default::default()
-            },
+        if GLOBALS.identity.is_unlocked() {
             // GiftWraps to me, recent only
-            giftwrap_filter,
-            // Events I posted recently, including feed_displayable and
-            //  augments (deletions, reactions, timestamp, label,reporting, and zap)
-            Filter {
-                authors: vec![pkh],
-                kinds: crate::feed::feed_related_event_kinds(false), // not DMs
-                since: Some(since),
-                ..Default::default()
-            },
-        ]
-    } else {
-        vec![]
+            let giftwrap_since = Unixtime(since.0 - 60 * 60 * 24 * 7);
+            let giftwrap_filter = {
+                let mut f = Filter {
+                    kinds: vec![EventKind::GiftWrap],
+                    since: Some(giftwrap_since),
+                    ..Default::default()
+                };
+                f.set_tag_values('p', vec![pkh.to_string()]);
+                f
+            };
+            filters.push(giftwrap_filter);
+        }
+
+        // Actual config stuff
+        filters.push(Filter {
+            authors: vec![pkh.clone()],
+            kinds: vec![
+                EventKind::Metadata,
+                //EventKind::RecommendRelay,
+                EventKind::ContactList,
+                EventKind::MuteList,
+                EventKind::FollowSets,
+                EventKind::RelayList,
+            ],
+            // these are all replaceable, no since required
+            ..Default::default()
+        });
+
+        // Events I posted recently, including feed_displayable and
+        //  augments (deletions, reactions, timestamp, label,reporting, and zap)
+        filters.push(Filter {
+            authors: vec![pkh],
+            kinds: crate::feed::feed_related_event_kinds(false), // not DMs
+            since: Some(since),
+            ..Default::default()
+        });
     }
+
+    filters
 }
 
 // This FORCES the fetch of relay lists without checking if we need them.
