@@ -2291,6 +2291,8 @@ fn wait_for_data_migration(app: &mut GossipUi, ctx: &Context) {
             })
         })
         .show(ctx, |ui| {
-            ui.label("Please wait for the data migration to complete...");
+            ui.centered_and_justified(|ui| {
+                ui.heading("Please wait for the data migration to complete...");
+            });
         });
 }
