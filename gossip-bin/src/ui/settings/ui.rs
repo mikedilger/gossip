@@ -49,7 +49,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     ui.horizontal_wrapped(|ui| {
         ui.label("Override DPI: ").on_hover_text("On some systems, DPI is not reported properly. In other cases, people like to zoom in or out. This lets you.");
         ui.checkbox(&mut app.override_dpi, "Override to ");
-        ui.add(Slider::new(&mut app.override_dpi_value, 72..=250).text("DPI"));
+        ui.add(Slider::new(&mut app.override_dpi_value, 72..=400).text("DPI"));
 
         ui.add_space(10.0); // indent
 
