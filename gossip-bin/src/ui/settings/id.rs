@@ -28,7 +28,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     ui.add_space(20.0);
     ui.label("Encrypted Private Key scrypt N parameter");
     ui.label("(NOTE: changing this will not re-encrypt any existing encrypted private key)");
-    ui.add(Slider::new(&mut app.unsaved_settings.log_n, 18..=22).text("logN iteratons"));
+    ui.add(Slider::new(&mut app.unsaved_settings.log_n, 18..=22).text("logN iterations"));
 
     // Login at startup
     ui.add_space(20.0);

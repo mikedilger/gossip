@@ -263,8 +263,8 @@ pub(super) fn render_plain(
 }
 
 pub(super) fn render_profile_link(app: &mut GossipUi, ui: &mut Ui, pubkey: &PublicKey) {
-    let nam = gossip_lib::names::best_name_from_pubkey_lookup(pubkey);
-    if ui.link(&nam).clicked() {
+    let name = gossip_lib::names::best_name_from_pubkey_lookup(pubkey);
+    if ui.link(&name).clicked() {
         app.set_page(ui.ctx(), Page::Person(pubkey.to_owned()));
     };
 }
@@ -276,8 +276,8 @@ pub(super) fn render_event_link(
     link_to_id: Id,
 ) {
     let idhex: IdHex = link_to_id.into();
-    let nam = format!("#{}", gossip_lib::names::hex_id_short(&idhex));
-    if ui.link(&nam).clicked() {
+    let name = format!("#{}", gossip_lib::names::hex_id_short(&idhex));
+    if ui.link(&name).clicked() {
         app.set_page(
             ui.ctx(),
             Page::Feed(FeedKind::Thread {
@@ -295,9 +295,9 @@ pub(super) fn render_parameterized_event_link(
     referenced_by_id: Id,
     event_addr: &EventAddr,
 ) {
-    let nam = format!("[{:?}: {}]", event_addr.kind, event_addr.d);
-    //let nam = format!("nostr:{}", event_addr.as_bech32_string());
-    if ui.link(&nam).clicked() {
+    let name = format!("[{:?}: {}]", event_addr.kind, event_addr.d);
+    // let name = format!("nostr:{}", event_addr.as_bech32_string());
+    if ui.link(&name).clicked() {
         if let Ok(Some(prevent)) =
             GLOBALS
                 .storage

@@ -53,7 +53,7 @@
 
 1. Build the flatpak:
 
-    - Folllow the [Flatpak README](flatpak/README.md)
+    - Follow the [Flatpak README](flatpak/README.md)
 
 1. Build the windows:
 
@@ -135,7 +135,7 @@ gossip
    -- cargo clippy; cargo fmt
    -- FORK 0.N:
       -- all deps switch to released versions
-      -- verison 0.N
+      -- version 0.N
       -- package/publish (see below)
       -- version 0.N.1-unstable
    -- master

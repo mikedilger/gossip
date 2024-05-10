@@ -32,10 +32,10 @@ pub struct PersonRelay1 {
     /// If they set 'write' on their relay list
     pub write: bool,
 
-    /// If the user manaully specified 'read' for this association
+    /// If the user manually specified 'read' for this association
     pub manually_paired_read: bool,
 
-    /// If the user manaully specified 'write' for this association
+    /// If the user manually specified 'write' for this association
     pub manually_paired_write: bool,
 }
 
