@@ -98,6 +98,7 @@ fn relationships_by_addr2_into_key(ea: &EventAddr) -> Vec<u8> {
     let mut key: Vec<u8> = u.to_be_bytes().as_slice().to_owned();
     key.extend(ea.author.as_bytes());
     key.extend(ea.d.as_bytes());
+    key.truncate(511);
     key
 }
 
