@@ -1,6 +1,6 @@
 use crate::error::{Error, ErrorKind};
 use crate::storage::{EmptyDatabase, Storage};
-use heed::types::{UnalignedSlice, Unit};
+use heed::types::{Bytes, Unit};
 use nostr_types::{EventKind, Id, Unixtime};
 use std::sync::Mutex;
 
@@ -37,7 +37,7 @@ impl Storage {
                 let db = self
                     .env
                     .database_options()
-                    .types::<UnalignedSlice<u8>, Unit>()
+                    .types::<Bytes, Unit>()
                     .name("event_kci_index")
                     .create(&mut txn)?;
                 txn.commit()?;

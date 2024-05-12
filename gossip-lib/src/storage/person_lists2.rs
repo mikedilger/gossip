@@ -2,7 +2,7 @@ use super::types::PersonList1;
 use crate::error::Error;
 use crate::misc::Private;
 use crate::storage::{RawDatabase, Storage};
-use heed::types::UnalignedSlice;
+use heed::types::Bytes;
 use heed::RwTxn;
 use nostr_types::PublicKey;
 use speedy::{Readable, Writable};
@@ -36,7 +36,7 @@ impl Storage {
                 let db = self
                     .env
                     .database_options()
-                    .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
+                    .types::<Bytes, Bytes>()
                     // no .flags needed
                     .name("person_lists_2")
                     .create(&mut txn)?;

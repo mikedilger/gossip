@@ -1,7 +1,7 @@
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::storage::{RawDatabase, Storage};
-use heed::types::UnalignedSlice;
+use heed::types::Bytes;
 use nostr_types::Id;
 use std::sync::Mutex;
 
@@ -32,7 +32,7 @@ impl Storage {
                 let db = self
                     .env
                     .database_options()
-                    .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
+                    .types::<Bytes, Bytes>()
                     // no .flags needed
                     .name("unindexed_giftwraps")
                     .create(&mut txn)?;

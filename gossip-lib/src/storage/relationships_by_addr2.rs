@@ -2,7 +2,7 @@ use crate::error::Error;
 use crate::storage::types::RelationshipByAddr2;
 use crate::storage::{RawDatabase, Storage};
 use heed::RwTxn;
-use heed::{types::UnalignedSlice, DatabaseFlags};
+use heed::{types::Bytes, DatabaseFlags};
 use nostr_types::{EventAddr, Id};
 use speedy::{Readable, Writable};
 use std::sync::Mutex;
@@ -33,7 +33,7 @@ impl Storage {
                 let db = self
                     .env
                     .database_options()
-                    .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
+                    .types::<Bytes, Bytes>()
                     .flags(DatabaseFlags::DUP_SORT) // NOT FIXED, RelationshipByAddr2 serialized isn't.
                     .name("relationships_by_addr2")
                     .create(&mut txn)?;

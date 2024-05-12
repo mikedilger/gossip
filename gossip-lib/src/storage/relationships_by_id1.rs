@@ -1,6 +1,6 @@
 use crate::error::Error;
 use crate::storage::{RawDatabase, Storage};
-use heed::types::UnalignedSlice;
+use heed::types::Bytes;
 use std::sync::Mutex;
 
 // Id:Id -> RelationshipById1
@@ -36,7 +36,7 @@ impl Storage {
                 let db = self
                     .env
                     .database_options()
-                    .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
+                    .types::<Bytes, Bytes>()
                     // no .flags needed?
                     .name("relationships_by_id1")
                     .create(&mut txn)?;

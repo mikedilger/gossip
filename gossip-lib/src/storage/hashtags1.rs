@@ -1,6 +1,6 @@
 use crate::error::{Error, ErrorKind};
 use crate::storage::{RawDatabase, Storage};
-use heed::{types::UnalignedSlice, DatabaseFlags, RwTxn};
+use heed::{types::Bytes, DatabaseFlags, RwTxn};
 use nostr_types::Id;
 use std::sync::Mutex;
 
@@ -32,7 +32,7 @@ impl Storage {
                 let db = self
                     .env
                     .database_options()
-                    .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
+                    .types::<Bytes, Bytes>()
                     .flags(DatabaseFlags::DUP_SORT | DatabaseFlags::DUP_FIXED)
                     .name("hashtags")
                     .create(&mut txn)?;

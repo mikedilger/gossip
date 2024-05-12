@@ -61,7 +61,7 @@ use crate::person_relay::PersonRelay;
 use crate::profile::Profile;
 use crate::relationship::{RelationshipByAddr, RelationshipById};
 use crate::relay::Relay;
-use heed::types::{UnalignedSlice, Unit};
+use heed::types::{Bytes, Unit};
 use heed::{Database, Env, EnvFlags, EnvOpenOptions, RoTxn, RwTxn};
 use nostr_types::{
     EncryptedPrivateKey, Event, EventAddr, EventKind, EventReference, Filter, Id, MilliSatoshi,
@@ -181,8 +181,8 @@ macro_rules! def_flag {
     };
 }
 
-type RawDatabase = Database<UnalignedSlice<u8>, UnalignedSlice<u8>>;
-type EmptyDatabase = Database<UnalignedSlice<u8>, Unit>;
+type RawDatabase = Database<Bytes, Bytes>;
+type EmptyDatabase = Database<Bytes, Unit>;
 
 /// The LMDB storage engine.
 ///
@@ -213,11 +213,13 @@ impl Storage {
         builder.map_size(1048576 * 1024 * 24); // 24 GB
 
         let dir = Profile::current()?.lmdb_dir;
-        let env = match builder.open(&dir) {
-            Ok(env) => env,
-            Err(e) => {
-                tracing::error!("Unable to open LMDB at {}", dir.display());
-                return Err(e.into());
+        let env = unsafe {
+            match builder.open(&dir) {
+                Ok(env) => env,
+                Err(e) => {
+                    tracing::error!("Unable to open LMDB at {}", dir.display());
+                    return Err(e.into());
+                }
             }
         };
 
@@ -225,7 +227,7 @@ impl Storage {
 
         let general = env
             .database_options()
-            .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
+            .types::<Bytes, Bytes>()
             .create(&mut txn)?;
 
         txn.commit()?;

@@ -1,7 +1,7 @@
 use crate::error::{Error, ErrorKind};
 use crate::storage::types::Relay1;
 use crate::storage::{RawDatabase, Storage};
-use heed::types::UnalignedSlice;
+use heed::types::Bytes;
 use heed::RwTxn;
 use nostr_types::RelayUrl;
 use std::sync::Mutex;
@@ -34,7 +34,7 @@ impl Storage {
                 let db = self
                     .env
                     .database_options()
-                    .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
+                    .types::<Bytes, Bytes>()
                     // no .flags needed
                     .name("relays")
                     .create(&mut txn)?;
