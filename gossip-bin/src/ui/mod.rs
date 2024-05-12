@@ -501,7 +501,7 @@ struct GossipUi {
     // Fully opened posts
     opened: HashSet<Id>,
 
-    // Visisble Note IDs
+    // Visible Note IDs
     // (we resubscribe to reactions/zaps/deletes when this changes)
     visible_note_ids: Vec<Id>,
     // This one is built up as rendering happens, then compared
@@ -510,7 +510,7 @@ struct GossipUi {
 
     // Zap state, computed once per frame instead of per note
     // zap_state and note_being_zapped are computed from GLOBALS.current_zap and are
-    //   not authoratative.
+    //   not authoritative.
     zap_state: ZapState,
     note_being_zapped: Option<Id>,
 
@@ -1954,7 +1954,7 @@ impl GossipUi {
         // Update when this happened, so we don't accept again too rapidly
         self.last_visible_update = Instant::now();
 
-        // Save to self.visibile_note_ids
+        // Save to self.visible_note_ids
         self.visible_note_ids = std::mem::take(&mut self.next_visible_note_ids);
 
         if !self.visible_note_ids.is_empty() {

@@ -11,7 +11,7 @@ Compile:
   cargo build --features=lang-cjk --release
 ````
 
-Copy the binary to the packaging diretory
+Copy the binary to the packaging directory
 
 ````dos
   cp ..\..\target\release\gossip.exe .

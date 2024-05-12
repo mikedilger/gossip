@@ -297,7 +297,7 @@ pub fn metadata(pubkeys: &[PublicKey]) -> Vec<Filter> {
         authors: pkhp,
         kinds: vec![EventKind::Metadata, EventKind::RelayList],
         // FIXME: we could probably get a since-last-fetched-their-metadata here.
-        //        but relays should just return the lastest of these.
+        //        but relays should just return the latest of these.
         ..Default::default()
     }]
 }

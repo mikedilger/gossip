@@ -17,7 +17,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     );
     ui.checkbox(
         &mut app.unsaved_settings.feed_newest_at_bottom,
-        "Order feed with newest at bottom (intead of top)",
+        "Order feed with newest at bottom (instead of top)",
     );
 
     ui.add_space(20.0);

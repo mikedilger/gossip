@@ -495,12 +495,12 @@ pub fn delete_spam_by_content(
 
     let since = match args.next() {
         Some(s) => Unixtime(s.parse::<i64>()?),
-        None => return cmd.usage("Missing <since_unixtime> paramter".to_string()),
+        None => return cmd.usage("Missing <since_unixtime> parameter".to_string()),
     };
 
     let substring = match args.next() {
         Some(c) => c,
-        None => return cmd.usage("Missing <substring> paramter".to_string()),
+        None => return cmd.usage("Missing <substring> parameter".to_string()),
     };
 
     // If DM Chat, use GiftWrap

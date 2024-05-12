@@ -1380,7 +1380,7 @@ impl Storage {
                 }
 
                 // actual deletion done in second pass
-                // (deleting during interation does not work in LMDB)
+                // (deleting during iteration does not work in LMDB)
                 for deletion in deletions.drain(..) {
                     self.db_event_seen_on_relay()?.delete(txn, &deletion)?;
                 }
@@ -1496,7 +1496,7 @@ impl Storage {
     /// Find events by filter.
     ///
     /// This function may inefficiently scrape all of storage for some filters.
-    /// To avoid an inefficent scrape, do one of these
+    /// To avoid an inefficient scrape, do one of these
     ///
     /// 1. Supply some ids
     /// 2. Supply some authors and some kinds, or
@@ -2050,7 +2050,7 @@ impl Storage {
             }
         }
 
-        // Deletes via 'a tags (entire paramterized groups)
+        // Deletes via 'a tags (entire parameterized groups)
         if let Some(parameter) = maybe_deleted_event.parameter() {
             let addr = EventAddr {
                 d: parameter,

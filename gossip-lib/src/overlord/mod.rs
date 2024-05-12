@@ -2518,7 +2518,7 @@ impl Overlord {
                             .to_overlord
                             .send(ToOverlordMessage::FetchEventAddr(ea.to_owned()));
 
-                        // FIXME - this requires eventaddr comparision on process.rs
+                        // FIXME - this requires eventaddr comparison on process.rs
                         // Remember we are searching for this event, so when it comes in
                         // it can get added to GLOBALS.note_search_results
                         // GLOBALS.event_addrs_being_searched_for.write().push(ea.to_owned());
@@ -2892,7 +2892,7 @@ impl Overlord {
 
     /// This is done at startup and after the wizard.
     pub async fn start_long_lived_subscriptions(&mut self) -> Result<(), Error> {
-        // Intialize the RelayPicker
+        // Initialize the RelayPicker
         GLOBALS.relay_picker.init().await?;
         GLOBALS.connected_relays.clear();
 

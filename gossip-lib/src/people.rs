@@ -113,7 +113,7 @@ impl People {
     /// (We also force the current user into this list)
     pub fn get_subscribed_pubkeys(&self) -> Vec<PublicKey> {
         // We subscribe to all people in all lists.
-        // This is no longer synonomous with the ContactList list
+        // This is no longer synonymous with the ContactList list
         match GLOBALS.storage.get_people_in_all_followed_lists() {
             Ok(mut people) => {
                 if let Some(pk) = GLOBALS.identity.public_key() {
