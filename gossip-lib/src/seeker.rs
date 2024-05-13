@@ -5,19 +5,51 @@ use crate::misc::Freshness;
 use crate::people::People;
 use crate::relay::Relay;
 use dashmap::DashMap;
-use nostr_types::{EventAddr, Id, PublicKey, RelayUrl, RelayUsage, Unixtime};
+use nostr_types::{
+    Event, EventAddr, EventReference, Id, PublicKey, RelayUrl, RelayUsage, Unixtime,
+};
 use std::time::Duration;
 use tokio::time::Instant;
 
 #[derive(Debug, Clone)]
 pub enum SeekState {
-    WaitingRelayList(Unixtime, PublicKey),
-    WaitingEvent(Unixtime),
+    WaitingRelayList(PublicKey),
+    WaitingEvent,
+}
+
+#[derive(Debug, Clone)]
+pub struct SeekData {
+    /// When we started seeking the event
+    pub start: Unixtime,
+
+    /// If we are waiting on the event itself, or a relay list first
+    pub state: SeekState,
+
+    /// Once we get the event, should we climb it's parents to the root?
+    pub climb: bool,
+}
+
+impl SeekData {
+    fn new_event(climb: bool) -> SeekData {
+        SeekData {
+            start: Unixtime::now().unwrap(),
+            state: SeekState::WaitingEvent,
+            climb,
+        }
+    }
+
+    fn new_relay_list(pubkey: PublicKey, climb: bool) -> SeekData {
+        SeekData {
+            start: Unixtime::now().unwrap(),
+            state: SeekState::WaitingRelayList(pubkey),
+            climb,
+        }
+    }
 }
 
 #[derive(Debug, Default)]
 pub struct Seeker {
-    events: DashMap<Id, SeekState>,
+    events: DashMap<Id, SeekData>,
 }
 
 impl Seeker {
@@ -27,7 +59,7 @@ impl Seeker {
         }
     }
 
-    fn get_relays(author: PublicKey) -> Result<Vec<RelayUrl>, Error> {
+    fn storage_get_relays(author: PublicKey) -> Result<Vec<RelayUrl>, Error> {
         Ok(GLOBALS
             .storage
             .get_best_relays(author, RelayUsage::Outbox)?
@@ -36,26 +68,31 @@ impl Seeker {
             .collect())
     }
 
-    fn seek_relay_list(author: PublicKey) {
+    fn minion_seek_relay_list(author: PublicKey) {
         let _ = GLOBALS
             .to_overlord
             .send(ToOverlordMessage::SubscribeDiscover(vec![author], None));
     }
 
-    fn seek_event_at_our_read_relays(id: Id) {
+    fn minion_seek_event_at_our_read_relays(id: Id) {
         let _ = GLOBALS
             .to_overlord
             .send(ToOverlordMessage::FetchEvent(id, vec![]));
     }
 
-    fn seek_event_at_relays(id: Id, relays: Vec<RelayUrl>) {
+    fn minion_seek_event_at_relays(id: Id, relays: Vec<RelayUrl>) {
         let _ = GLOBALS
             .to_overlord
             .send(ToOverlordMessage::FetchEvent(id, relays));
     }
 
     /// Seek an event when you only have the `Id`
-    pub(crate) fn seek_id(&self, id: Id, speculative_relays: Vec<RelayUrl>) -> Result<(), Error> {
+    pub(crate) fn seek_id(
+        &self,
+        id: Id,
+        speculative_relays: Vec<RelayUrl>,
+        climb: bool,
+    ) -> Result<(), Error> {
         if self.events.get(&id).is_some() {
             return Ok(()); // we are already seeking this event
         }
@@ -69,11 +106,10 @@ impl Seeker {
             .map(|relay| relay.url.clone())
             .collect();
         relays.extend(speculative_relays);
-        Self::seek_event_at_relays(id, relays);
+        Self::minion_seek_event_at_relays(id, relays);
 
         // Remember when we asked
-        let now = Unixtime::now().unwrap();
-        self.events.insert(id, SeekState::WaitingEvent(now));
+        self.events.insert(id, SeekData::new_event(climb));
 
         Ok(())
     }
@@ -85,11 +121,12 @@ impl Seeker {
         id: Id,
         author: PublicKey,
         speculative_relays: Vec<RelayUrl>,
+        climb: bool,
     ) -> Result<(), Error> {
         // Start speculative seek (this is untracked. We will track the by author
         // seek process instead. BUT if the event comes in, it does cancel).
         if !speculative_relays.is_empty() {
-            Self::seek_event_at_relays(id, speculative_relays);
+            Self::minion_seek_event_at_relays(id, speculative_relays);
         }
 
         if self.events.get(&id).is_some() {
@@ -102,28 +139,26 @@ impl Seeker {
             author.as_hex_string()
         );
 
-        let when = Unixtime::now().unwrap();
-
         // Check if we have the author's relay list
         match People::person_needs_relay_list(author) {
             Freshness::NeverSought => {
-                Self::seek_relay_list(author);
+                Self::minion_seek_relay_list(author);
                 self.events
-                    .insert(id, SeekState::WaitingRelayList(when, author));
+                    .insert(id, SeekData::new_relay_list(author, climb));
             }
             Freshness::Stale => {
                 // Seek the relay list because it is stale, but don't let that hold us up
                 // using the stale data
-                Self::seek_relay_list(author);
+                Self::minion_seek_relay_list(author);
 
-                let relays = Self::get_relays(author)?;
-                Self::seek_event_at_relays(id, relays);
-                self.events.insert(id, SeekState::WaitingEvent(when));
+                let relays = Self::storage_get_relays(author)?;
+                Self::minion_seek_event_at_relays(id, relays);
+                self.events.insert(id, SeekData::new_event(climb));
             }
             Freshness::Fresh => {
-                let relays = Self::get_relays(author)?;
-                Self::seek_event_at_relays(id, relays);
-                self.events.insert(id, SeekState::WaitingEvent(when));
+                let relays = Self::storage_get_relays(author)?;
+                Self::minion_seek_event_at_relays(id, relays);
+                self.events.insert(id, SeekData::new_event(climb));
             }
         }
 
@@ -131,15 +166,14 @@ impl Seeker {
     }
 
     /// Seek an event when you have the `Id` and the relays to seek from
-    pub(crate) fn seek_id_and_relays(&self, id: Id, relays: Vec<RelayUrl>) {
+    pub(crate) fn seek_id_and_relays(&self, id: Id, relays: Vec<RelayUrl>, climb: bool) {
         if let Some(existing) = self.events.get(&id) {
-            if matches!(existing.value(), SeekState::WaitingEvent(_)) {
+            if matches!(existing.value().state, SeekState::WaitingEvent) {
                 return; // Already seeking it
             }
         }
-        let when = Unixtime::now().unwrap();
-        Self::seek_event_at_relays(id, relays);
-        self.events.insert(id, SeekState::WaitingEvent(when));
+        Self::minion_seek_event_at_relays(id, relays);
+        self.events.insert(id, SeekData::new_event(climb));
     }
 
     /// Seek an event when you have an EventAddr
@@ -153,16 +187,16 @@ impl Seeker {
     pub(crate) fn found_author_relays(&self, pubkey: PublicKey) {
         // Instead of updating the map while we iterate (which could deadlock)
         // we save updates here and apply when the iterator is finished.
-        let mut updates: Vec<(Id, SeekState)> = Vec::new();
+        let mut updates: Vec<(Id, SeekData)> = Vec::new();
 
         for refmutmulti in self.events.iter_mut() {
-            if let SeekState::WaitingRelayList(_when, author) = refmutmulti.value() {
-                if *author == pubkey {
-                    let now = Unixtime::now().unwrap();
+            let data = refmutmulti.value();
+            if let SeekState::WaitingRelayList(author) = data.state {
+                if author == pubkey {
                     let id = *refmutmulti.key();
-                    if let Ok(relays) = Self::get_relays(*author) {
-                        Self::seek_event_at_relays(id, relays);
-                        updates.push((id, SeekState::WaitingEvent(now)));
+                    if let Ok(relays) = Self::storage_get_relays(author) {
+                        Self::minion_seek_event_at_relays(id, relays);
+                        updates.push((id, SeekData::new_event(data.climb)));
                     }
                 }
             }
@@ -173,8 +207,37 @@ impl Seeker {
         }
     }
 
-    pub(crate) fn found_or_cancel(&self, id: Id) {
-        self.events.remove(&id);
+    /// An event was found (you can call this even if the seeker wasn't seeking it)
+    pub(crate) fn found(&self, event: &Event) -> Result<(), Error> {
+        // Remove the event
+        if let Some((_, data)) = self.events.remove(&event.id) {
+            // Possibly seek it's parent
+            if data.climb {
+                let mut eref = EventReference::Id {
+                    id: event.id,
+                    author: Some(event.pubkey),
+                    relays: vec![],
+                    marker: None,
+                };
+                while let Some(event) = GLOBALS.storage.read_event_reference(&eref)? {
+                    if let Some(parent_eref) = event.replies_to() {
+                        eref = parent_eref;
+                        continue;
+                    } else {
+                        // no missing parent to fetch
+                        return Ok(());
+                    }
+                }
+
+                // FIXME make better use of hints, author hints, etc.
+                // we have lost relay information along the way.
+                if let EventReference::Id { id, .. } = eref {
+                    self.seek_id(id, vec![], true)?;
+                }
+            }
+        }
+
+        Ok(())
     }
 
     pub(crate) fn start() {
@@ -213,20 +276,21 @@ impl Seeker {
 
         // Instead of updating the map while we iterate (which could deadlock)
         // we save updates here and apply when the iterator is finished.
-        let mut updates: Vec<(Id, Option<SeekState>)> = Vec::new();
+        let mut updates: Vec<(Id, Option<SeekData>)> = Vec::new();
 
         let now = Unixtime::now().unwrap();
 
         for refmulti in self.events.iter() {
             let id = *refmulti.key();
-            match refmulti.value() {
-                SeekState::WaitingRelayList(when, author) => {
+            let data = refmulti.value();
+            match data.state {
+                SeekState::WaitingRelayList(author) => {
                     // Check if we have their relays yet
-                    match People::person_needs_relay_list(*author) {
+                    match People::person_needs_relay_list(author) {
                         Freshness::Fresh | Freshness::Stale => {
-                            if let Ok(relays) = Self::get_relays(*author) {
-                                Self::seek_event_at_relays(id, relays);
-                                updates.push((id, Some(SeekState::WaitingEvent(now))));
+                            if let Ok(relays) = Self::storage_get_relays(author) {
+                                Self::minion_seek_event_at_relays(id, relays);
+                                updates.push((id, Some(SeekData::new_event(data.climb))));
                                 continue;
                             }
                         }
@@ -234,15 +298,15 @@ impl Seeker {
                     }
 
                     // If it has been 15 seconds, give up the wait and seek from our READ relays
-                    if now - *when > Duration::from_secs(15) {
-                        Self::seek_event_at_our_read_relays(id);
-                        updates.push((id, Some(SeekState::WaitingEvent(now))));
+                    if now - data.start > Duration::from_secs(15) {
+                        Self::minion_seek_event_at_our_read_relays(id);
+                        updates.push((id, Some(SeekData::new_event(data.climb))));
                     }
 
                     // Otherwise keep waiting
                 }
-                SeekState::WaitingEvent(when) => {
-                    if now - *when > Duration::from_secs(15) {
+                SeekState::WaitingEvent => {
+                    if now - data.start > Duration::from_secs(15) {
                         tracing::debug!("Failed to find id={}", id.as_hex_string());
                         updates.push((id, None));
                     }

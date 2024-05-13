@@ -124,6 +124,11 @@ pub fn run() -> Result<(), Error> {
         centered: true,
         vsync: true,
         follow_system_theme: read_setting!(follow_os_dark_mode),
+        renderer: if read_setting!(wgpu_renderer) {
+            eframe::Renderer::Wgpu
+        } else {
+            eframe::Renderer::Glow
+        },
         ..Default::default()
     };
 
@@ -497,7 +502,7 @@ struct GossipUi {
     // Fully opened posts
     opened: HashSet<Id>,
 
-    // Visisble Note IDs
+    // Visible Note IDs
     // (we resubscribe to reactions/zaps/deletes when this changes)
     visible_note_ids: Vec<Id>,
     // This one is built up as rendering happens, then compared
@@ -506,7 +511,7 @@ struct GossipUi {
 
     // Zap state, computed once per frame instead of per note
     // zap_state and note_being_zapped are computed from GLOBALS.current_zap and are
-    //   not authoratative.
+    //   not authoritative.
     zap_state: ZapState,
     note_being_zapped: Option<Id>,
 
@@ -1470,25 +1475,12 @@ impl eframe::App for GossipUi {
         egui::CentralPanel::default()
             .frame({
                 let frame = egui::Frame::central_panel(&self.theme.get_style());
-                frame
-                    .inner_margin(egui::Margin {
-                        left: 20.0,
-                        right: 10.0,
-                        top: 10.0,
-                        bottom: 0.0,
-                    })
-                    .fill({
-                        match self.page {
-                            Page::Person(_) => {
-                                if self.theme.dark_mode {
-                                    ctx.style().visuals.panel_fill
-                                } else {
-                                    self.theme.main_content_bgcolor()
-                                }
-                            }
-                            _ => ctx.style().visuals.panel_fill,
-                        }
-                    })
+                frame.inner_margin(egui::Margin {
+                    left: 20.0,
+                    right: 10.0,
+                    top: 10.0,
+                    bottom: 0.0,
+                })
             })
             .show(ctx, |ui| {
                 self.begin_ui(ui);
@@ -1964,7 +1956,7 @@ impl GossipUi {
         // Update when this happened, so we don't accept again too rapidly
         self.last_visible_update = Instant::now();
 
-        // Save to self.visibile_note_ids
+        // Save to self.visible_note_ids
         self.visible_note_ids = std::mem::take(&mut self.next_visible_note_ids);
 
         if !self.visible_note_ids.is_empty() {
@@ -2293,6 +2285,8 @@ fn wait_for_data_migration(app: &mut GossipUi, ctx: &Context) {
             })
         })
         .show(ctx, |ui| {
-            ui.label("Please wait for the data migration to complete...");
+            ui.centered_and_justified(|ui| {
+                ui.heading("Please wait for the data migration to complete...");
+            });
         });
 }

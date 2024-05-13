@@ -1,6 +1,6 @@
 use crate::error::Error;
 use crate::storage::{RawDatabase, Storage};
-use heed::types::UnalignedSlice;
+use heed::types::Bytes;
 use heed::RwTxn;
 use nostr_types::{EventV3, Id};
 use speedy::{Readable, Writable};
@@ -33,7 +33,7 @@ impl Storage {
                 let db = self
                     .env
                     .database_options()
-                    .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
+                    .types::<Bytes, Bytes>()
                     // no .flags needed
                     .name("events3")
                     .create(&mut txn)?;
@@ -55,24 +55,29 @@ impl Storage {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
             self.db_events3()?.put(txn, event.id.as_slice(), &bytes)?;
 
-            // If giftwrap, index the inner rumor instead
-            let mut eventptr: &EventV3 = event;
+            // If giftwrap:
+            //   Use the id and kind of the giftwrap,
+            //   Use the pubkey and created_at of the rumor
+            let mut innerevent: &EventV3 = event;
             let rumor: EventV3;
             if let Some(r) = self.switch_to_rumor3(event, txn)? {
                 rumor = r;
-                eventptr = &rumor;
+                innerevent = &rumor;
             }
 
             // also index the event
             self.write_event_akci_index(
-                eventptr.pubkey,
-                eventptr.kind,
-                eventptr.created_at,
-                eventptr.id,
+                innerevent.pubkey,
+                event.kind,
+                innerevent.created_at,
+                event.id,
                 Some(txn),
             )?;
-            self.write_event_kci_index(eventptr.kind, eventptr.created_at, eventptr.id, Some(txn))?;
-            self.write_event3_tag_index1(eventptr, Some(txn))?;
+            self.write_event_kci_index(event.kind, innerevent.created_at, event.id, Some(txn))?;
+            self.write_event3_tag_index1(
+                &event, // use the outer giftwrap event
+                Some(txn),
+            )?;
 
             for hashtag in event.hashtags() {
                 if hashtag.is_empty() {

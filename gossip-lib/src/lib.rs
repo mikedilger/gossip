@@ -204,7 +204,9 @@ pub fn init() -> Result<(), Error> {
     // If we have a key but have not unlocked it
     if GLOBALS.identity.has_private_key() && !GLOBALS.identity.is_unlocked() {
         // If we need to rebuild relationships
-        if GLOBALS.storage.get_flag_rebuild_relationships_needed() {
+        if GLOBALS.storage.get_flag_rebuild_relationships_needed()
+            || GLOBALS.storage.get_flag_rebuild_indexes_needed()
+        {
             GLOBALS
                 .wait_for_login
                 .store(true, std::sync::atomic::Ordering::Relaxed);

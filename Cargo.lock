@@ -1412,6 +1412,7 @@ dependencies = [
  "objc",
  "parking_lot",
  "percent-encoding",
+ "pollster",
  "raw-window-handle 0.5.2",
  "raw-window-handle 0.6.1",
  "ron",
@@ -1422,6 +1423,7 @@ dependencies = [
  "wasm-bindgen-futures",
  "web-sys",
  "web-time",
+ "wgpu",
  "winapi",
  "winit",
 ]
@@ -2255,7 +2257,7 @@ dependencies = [
 [[package]]
 name = "gossip-relay-picker"
 version = "0.2.0-unstable"
-source = "git+https://github.com/mikedilger/gossip-relay-picker?rev=c5b0f1061aefd9edab246a2b808d950ce9554382#c5b0f1061aefd9edab246a2b808d950ce9554382"
+source = "git+https://github.com/mikedilger/gossip-relay-picker?rev=6e67994be02d7504069de7579b369972b2bdf318#6e67994be02d7504069de7579b369972b2bdf318"
 dependencies = [
  "async-trait",
  "dashmap",
@@ -2382,11 +2384,11 @@ dependencies = [
 
 [[package]]
 name = "heed"
-version = "0.20.0-alpha.8"
-source = "git+https://github.com/meilisearch/heed?rev=64fd6fec293c0dee94855b8267557ce03e7ce5d8#64fd6fec293c0dee94855b8267557ce03e7ce5d8"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7a300b0deeb2957162d7752b0f063b3be1c88333af5bb4e7a57d8fb3716f50b"
 dependencies = [
  "bitflags 2.5.0",
- "bytemuck",
  "byteorder",
  "heed-traits",
  "heed-types",
@@ -2401,16 +2403,17 @@ dependencies = [
 
 [[package]]
 name = "heed-traits"
-version = "0.20.0-alpha.8"
-source = "git+https://github.com/meilisearch/heed?rev=64fd6fec293c0dee94855b8267557ce03e7ce5d8#64fd6fec293c0dee94855b8267557ce03e7ce5d8"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eb3130048d404c57ce5a1ac61a903696e8fcde7e8c2991e9fcfc1f27c3ef74ff"
 
 [[package]]
 name = "heed-types"
-version = "0.20.0-alpha.8"
-source = "git+https://github.com/meilisearch/heed?rev=64fd6fec293c0dee94855b8267557ce03e7ce5d8#64fd6fec293c0dee94855b8267557ce03e7ce5d8"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3cb0d6ba3700c9a57e83c013693e3eddb68a6d9b6781cacafc62a0d992e8ddb3"
 dependencies = [
  "bincode",
- "bytemuck",
  "byteorder",
  "heed-traits",
  "serde",
@@ -2934,8 +2937,9 @@ checksum = "b4ce301924b7887e9d637144fdade93f9dfff9b60981d4ac161db09720d39aa5"
 
 [[package]]
 name = "lmdb-master-sys"
-version = "0.1.0"
-source = "git+https://github.com/meilisearch/heed?rev=64fd6fec293c0dee94855b8267557ce03e7ce5d8#64fd6fec293c0dee94855b8267557ce03e7ce5d8"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc9048db3a58c0732d7236abc4909058f9d2708cfb6d7d047eb895fddec6419a"
 dependencies = [
  "cc",
  "doxygen-rs",
@@ -3247,7 +3251,7 @@ dependencies = [
 [[package]]
 name = "nostr-types"
 version = "0.8.0-unstable"
-source = "git+https://github.com/mikedilger/nostr-types?rev=ea42e2f34bf2a017ccea0e9ec6c3e59fb2e3ceba#ea42e2f34bf2a017ccea0e9ec6c3e59fb2e3ceba"
+source = "git+https://github.com/mikedilger/nostr-types?rev=56fce9692b44c895ffe98f83d0c7ec63943c6e16#56fce9692b44c895ffe98f83d0c7ec63943c6e16"
 dependencies = [
  "aes",
  "base64 0.22.0",
@@ -3531,9 +3535,9 @@ dependencies = [
 
 [[package]]
 name = "page_size"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b7663cbd190cfd818d08efa8497f6cd383076688c49a391ef7c0d03cd12b561"
+checksum = "30d5b2194ed13191c1999ae0704b7839fb18384fa22e49b57eeaa97d79ce40da"
 dependencies = [
  "libc",
  "winapi",
@@ -3743,6 +3747,12 @@ dependencies = [
  "tracing",
  "windows-sys 0.52.0",
 ]
+
+[[package]]
+name = "pollster"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22686f4785f02a4fcc856d3b3bb19bf6c8160d103f7a99cc258bddd0251dc7f2"
 
 [[package]]
 name = "poly1305"
@@ -5869,6 +5879,7 @@ dependencies = [
  "cfg_aliases",
  "js-sys",
  "log",
+ "naga",
  "parking_lot",
  "profiling",
  "raw-window-handle 0.6.1",
@@ -5918,6 +5929,7 @@ dependencies = [
  "arrayvec",
  "ash",
  "bitflags 2.5.0",
+ "block",
  "cfg_aliases",
  "core-graphics-types",
  "glow",

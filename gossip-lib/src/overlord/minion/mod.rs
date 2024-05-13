@@ -351,13 +351,17 @@ impl Minion {
                     }
                 }
                 Err(e) => {
-                    tracing::warn!("{}", e);
-
                     if let ErrorKind::Websocket(_) = e.kind {
                         return Err(e);
+                    } else if matches!(e.kind, ErrorKind::Nostr(nostr_types::Error::NoPrivateKey)) {
+                        // don't log
+                    } else if matches!(e.kind, ErrorKind::NoPrivateKey) {
+                        // don't log
+                    } else if matches!(e.kind, ErrorKind::NoPrivateKeyForAuth(_)) {
+                        tracing::warn!("{}", e);
+                    } else {
+                        tracing::warn!("{}", e);
                     }
-
-                    // for other errors, keep going
                 }
             }
         }
@@ -571,6 +575,9 @@ impl Minion {
             ToMinionPayloadDetail::SubscribeReplies(main) => {
                 self.subscribe_replies(message.job_id, main).await?;
             }
+            ToMinionPayloadDetail::SubscribeRootReplies(main) => {
+                self.subscribe_root_replies(message.job_id, main).await?;
+            }
             ToMinionPayloadDetail::SubscribeDmChannel(dmchannel) => {
                 self.subscribe_dm_channel(message.job_id, dmchannel).await?;
             }
@@ -598,6 +605,7 @@ impl Minion {
             }
             ToMinionPayloadDetail::UnsubscribeReplies => {
                 self.unsubscribe("replies").await?;
+                self.unsubscribe("root_replies").await?;
             }
         }
 
@@ -867,6 +875,17 @@ impl Minion {
         Ok(())
     }
 
+    async fn subscribe_root_replies(&mut self, job_id: u64, main: IdHex) -> Result<(), Error> {
+        // NOTE we do not unsubscribe to the general feed
+
+        // Replies
+        let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
+        let filters = filter_fns::replies(main, spamsafe);
+        self.subscribe(filters, "root_replies", job_id).await?;
+
+        Ok(())
+    }
+
     async fn subscribe_replies(&mut self, job_id: u64, main: IdHex) -> Result<(), Error> {
         // NOTE we do not unsubscribe to the general feed
 
@@ -883,6 +902,11 @@ impl Minion {
         job_id: u64,
         dmchannel: DmChannel,
     ) -> Result<(), Error> {
+        // We will need the private key to auth to the relay for this
+        if !GLOBALS.identity.is_unlocked() {
+            return Err(ErrorKind::NoPrivateKey.into());
+        }
+
         let filters = filter_fns::dm_channel(dmchannel);
 
         if !filters.is_empty() {

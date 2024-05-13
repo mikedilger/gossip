@@ -61,7 +61,7 @@ use crate::person_relay::PersonRelay;
 use crate::profile::Profile;
 use crate::relationship::{RelationshipByAddr, RelationshipById};
 use crate::relay::Relay;
-use heed::types::{UnalignedSlice, Unit};
+use heed::types::{Bytes, Unit};
 use heed::{Database, Env, EnvFlags, EnvOpenOptions, RoTxn, RwTxn};
 use nostr_types::{
     EncryptedPrivateKey, Event, EventAddr, EventKind, EventReference, Filter, Id, MilliSatoshi,
@@ -181,8 +181,8 @@ macro_rules! def_flag {
     };
 }
 
-type RawDatabase = Database<UnalignedSlice<u8>, UnalignedSlice<u8>>;
-type EmptyDatabase = Database<UnalignedSlice<u8>, Unit>;
+type RawDatabase = Database<Bytes, Bytes>;
+type EmptyDatabase = Database<Bytes, Unit>;
 
 /// The LMDB storage engine.
 ///
@@ -213,11 +213,13 @@ impl Storage {
         builder.map_size(1048576 * 1024 * 24); // 24 GB
 
         let dir = Profile::current()?.lmdb_dir;
-        let env = match builder.open(&dir) {
-            Ok(env) => env,
-            Err(e) => {
-                tracing::error!("Unable to open LMDB at {}", dir.display());
-                return Err(e.into());
+        let env = unsafe {
+            match builder.open(&dir) {
+                Ok(env) => env,
+                Err(e) => {
+                    tracing::error!("Unable to open LMDB at {}", dir.display());
+                    return Err(e.into());
+                }
             }
         };
 
@@ -225,7 +227,7 @@ impl Storage {
 
         let general = env
             .database_options()
-            .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
+            .types::<Bytes, Bytes>()
             .create(&mut txn)?;
 
         txn.commit()?;
@@ -691,6 +693,7 @@ impl Storage {
         b"rebuild_relationships_needed",
         false
     );
+    def_flag!(rebuild_indexes_needed, b"rebuild_indexes_needed", false);
 
     // Settings ----------------------------------------------------------
 
@@ -703,6 +706,7 @@ impl Storage {
     def_setting!(load_avatars, b"load_avatars", bool, true);
     def_setting!(load_media, b"load_media", bool, true);
     def_setting!(check_nip05, b"check_nip05", bool, true);
+    def_setting!(wgpu_renderer, b"wgpu_renderer", bool, false);
     def_setting!(
         automatically_fetch_metadata,
         b"automatically_fetch_metadata",
@@ -1351,6 +1355,14 @@ impl Storage {
         self.has_event3(id)
     }
 
+    #[inline]
+    pub fn read_event_reference(&self, eref: &EventReference) -> Result<Option<Event>, Error> {
+        match eref {
+            EventReference::Id { id, .. } => self.read_event(*id),
+            EventReference::Addr(ea) => self.get_replaceable_event(ea.kind, ea.author, &ea.d),
+        }
+    }
+
     /// Delete the event
     pub fn delete_event<'a>(&'a self, id: Id, rw_txn: Option<&mut RwTxn<'a>>) -> Result<(), Error> {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
@@ -1370,7 +1382,7 @@ impl Storage {
                 }
 
                 // actual deletion done in second pass
-                // (deleting during interation does not work in LMDB)
+                // (deleting during iteration does not work in LMDB)
                 for deletion in deletions.drain(..) {
                     self.db_event_seen_on_relay()?.delete(txn, &deletion)?;
                 }
@@ -1486,7 +1498,7 @@ impl Storage {
     /// Find events by filter.
     ///
     /// This function may inefficiently scrape all of storage for some filters.
-    /// To avoid an inefficent scrape, do one of these
+    /// To avoid an inefficient scrape, do one of these
     ///
     /// 1. Supply some ids
     /// 2. Supply some authors and some kinds, or
@@ -1794,7 +1806,7 @@ impl Storage {
         Ok(())
     }
 
-    // Switch to rumor before calling this.
+    // This should be called with the outer giftwrap
     fn write_event_tag_index<'a>(
         &'a self,
         event: &Event,
@@ -2040,7 +2052,7 @@ impl Storage {
             }
         }
 
-        // Deletes via 'a tags (entire paramterized groups)
+        // Deletes via 'a tags (entire parameterized groups)
         if let Some(parameter) = maybe_deleted_event.parameter() {
             let addr = EventAddr {
                 d: parameter,
@@ -2377,11 +2389,10 @@ impl Storage {
 
         let mut output: Vec<Event> = self.find_events_by_filter(&filter, |event| {
             if let Some(event_dm_channel) = DmChannel::from_event(event, Some(my_pubkey)) {
-                if event_dm_channel == *channel {
-                    return true;
-                }
+                event_dm_channel == *channel
+            } else {
+                false
             }
-            false
         })?;
 
         // Sort by rumor's time, not giftwrap's time
@@ -2405,14 +2416,15 @@ impl Storage {
         Ok(sortable.iter().map(|(_, e)| e.id).collect())
     }
 
-    /// Rebuild all the event indices. This is generally internal, but might be used
-    /// to fix a broken database.
+    /// Rebuild all the event indices.
     pub fn rebuild_event_indices<'a>(
         &'a self,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
             // Erase all indices first
+            self.db_event_akci_index()?.clear(txn)?;
+            self.db_event_kci_index()?.clear(txn)?;
             self.db_event_tag_index()?.clear(txn)?;
             self.db_hashtags()?.clear(txn)?;
 
@@ -2421,28 +2433,28 @@ impl Storage {
                 let (_key, val) = result?;
                 let event = Event::read_from_buffer(val)?;
 
-                // If giftwrap, index the inner rumor instead
-                let mut eventptr: &Event = &event;
+                // If giftwrap:
+                //   Use the id and kind of the giftwrap,
+                //   Use the pubkey and created_at of the rumor
+                let mut innerevent: &Event = &event;
                 let rumor: Event;
                 if let Some(r) = self.switch_to_rumor(&event, txn)? {
                     rumor = r;
-                    eventptr = &rumor;
+                    innerevent = &rumor;
                 }
 
                 self.write_event_akci_index(
-                    eventptr.pubkey,
-                    eventptr.kind,
-                    eventptr.created_at,
-                    eventptr.id,
+                    innerevent.pubkey,
+                    event.kind,
+                    innerevent.created_at,
+                    event.id,
                     Some(txn),
                 )?;
-                self.write_event_kci_index(
-                    eventptr.kind,
-                    eventptr.created_at,
-                    eventptr.id,
+                self.write_event_kci_index(event.kind, innerevent.created_at, event.id, Some(txn))?;
+                self.write_event_tag_index(
+                    &event, // this handles giftwrap internally
                     Some(txn),
                 )?;
-                self.write_event_tag_index(eventptr, Some(txn))?;
                 for hashtag in event.hashtags() {
                     if hashtag.is_empty() {
                         continue;
@@ -2450,6 +2462,7 @@ impl Storage {
                     self.add_hashtag(&hashtag, event.id, Some(txn))?;
                 }
             }
+            self.set_flag_rebuild_indexes_needed(false, Some(txn))?;
             Ok(())
         };
 
@@ -2695,8 +2708,6 @@ impl Storage {
         &'a self,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        tracing::info!("Rebuilding relationships...");
-
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
             // Iterate through all events
             let loop_txn = self.env.read_txn()?;

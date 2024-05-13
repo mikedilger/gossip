@@ -96,7 +96,7 @@ impl DmChannel {
     }
 }
 
-/// Data about a DM channel such as when the latest message occured, how many massages
+/// Data about a DM channel such as when the latest message occurred, how many massages
 /// it has, and how many are unread.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DmChannelData {

@@ -1,5 +1,7 @@
 use super::{widgets, GossipUi, Page};
 use eframe::egui;
+use eframe::egui::vec2;
+use eframe::egui::Rect;
 use egui::{Context, Label, RichText, Ui};
 use gossip_lib::FeedKind;
 use gossip_lib::GLOBALS;
@@ -122,8 +124,15 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                             });
                         },
                     );
-                if row_response
-                    .response
+                let rect = Rect::from_min_size(
+                    row_response.response.rect.min,
+                    vec2(
+                        row_response.response.rect.width() - 100.0,
+                        row_response.response.rect.height(),
+                    ),
+                );
+                if ui
+                    .interact(rect, ui.next_auto_id(), egui::Sense::click())
                     .on_hover_cursor(egui::CursorIcon::PointingHand)
                     .clicked()
                 {

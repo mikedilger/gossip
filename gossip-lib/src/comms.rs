@@ -260,6 +260,7 @@ pub(crate) enum ToMinionPayloadDetail {
     SubscribeInbox,
     SubscribePersonFeed(PublicKey),
     SubscribeReplies(IdHex),
+    SubscribeRootReplies(IdHex),
     SubscribeDmChannel(DmChannel),
     SubscribeNip46,
     TempSubscribeGeneralFeedChunk(Unixtime),

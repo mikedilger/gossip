@@ -1,6 +1,6 @@
 use crate::error::Error;
 use crate::storage::{RawDatabase, Storage};
-use heed::{types::UnalignedSlice, DatabaseFlags};
+use heed::{types::Bytes, DatabaseFlags};
 use std::sync::Mutex;
 
 // Kind:Pubkey:d-tag -> Relationship1:Id
@@ -29,7 +29,7 @@ impl Storage {
                 let db = self
                     .env
                     .database_options()
-                    .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
+                    .types::<Bytes, Bytes>()
                     .flags(DatabaseFlags::DUP_SORT) // NOT FIXED, Relationship1 serialized isn't.
                     .name("reprel1")
                     .create(&mut txn)?;

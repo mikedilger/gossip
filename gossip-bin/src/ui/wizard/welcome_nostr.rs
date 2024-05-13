@@ -27,7 +27,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     ui.add_space(20.0);
     ui.heading("Generate a Keypair");
 
-    // compute results from previus ui update
+    // compute results from previous ui update
     let password_mismatch = app.password != app.password2;
     let ready = !password_mismatch;
 

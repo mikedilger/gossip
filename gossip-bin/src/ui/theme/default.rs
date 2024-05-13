@@ -18,6 +18,29 @@ impl DefaultTheme {
     }
 }
 
+// Trait for creating different types of shadows
+pub trait ShadowBuilder {
+    fn soft_dark() -> Self;
+    fn soft_light() -> Self;
+}
+
+// Implement the trait for Shadow
+impl ShadowBuilder for Shadow {
+    fn soft_dark() -> Self {
+        Self {
+            extrusion: 30.0,
+            color: Color32::from_black_alpha(40),
+        }
+    }
+
+    fn soft_light() -> Self {
+        Self {
+            extrusion: 30.0,
+            color: Color32::from_black_alpha(10),
+        }
+    }
+}
+
 impl ThemeDef for DefaultTheme {
     fn name() -> &'static str {
         "Default"
@@ -114,15 +137,9 @@ impl ThemeDef for DefaultTheme {
 
     fn main_content_bgcolor(dark_mode: bool) -> Color32 {
         if dark_mode {
-            let mut hsva: ecolor::HsvaGamma = Self::accent_color(dark_mode).into();
-            hsva.s = 0.0;
-            hsva.v = 0.12;
-            hsva.into()
+            Self::neutral_800()
         } else {
-            let mut hsva: ecolor::HsvaGamma = Self::highlighted_note_bgcolor(dark_mode).into();
-            hsva.s = 0.0;
-            hsva.v = 1.0;
-            hsva.into()
+            Self::neutral_100()
         }
     }
 
@@ -249,8 +266,8 @@ impl ThemeDef for DefaultTheme {
                 },
 
                 // Background colors
-                window_fill: Color32::from_gray(31), // pulldown menus and tooltips
-                panel_fill: Color32::from_gray(24),  // panel backgrounds, even-table-rows
+                window_fill: Self::neutral_950(), // pulldown menus and tooltips
+                panel_fill: Self::neutral_900(),  // panel backgrounds, even-table-rows
                 faint_bg_color: Color32::from_gray(20), // odd-table-rows
                 extreme_bg_color: Color32::from_gray(45), // text input background; scrollbar background
                 code_bg_color: Color32::from_gray(64),    // ???
@@ -268,7 +285,7 @@ impl ThemeDef for DefaultTheme {
                 },
 
                 window_shadow: Shadow::big_dark(),
-                popup_shadow: Shadow::small_dark(),
+                popup_shadow: Shadow::soft_dark(),
 
                 indent_has_left_vline: false,
                 menu_rounding: Rounding::same(2.0),
@@ -337,8 +354,8 @@ impl ThemeDef for DefaultTheme {
                 },
 
                 // Background colors
-                window_fill: Color32::from_gray(236), // pulldown menus and tooltips
-                panel_fill: Color32::from_gray(236),  // panel backgrounds, even-table-rows
+                window_fill: Self::neutral_100(), // pulldown menus and tooltips
+                panel_fill: Self::neutral_50(),   // panel backgrounds, even-table-rows
                 faint_bg_color: Color32::from_gray(248), // odd-table-rows
                 extreme_bg_color: Color32::from_gray(246), // text input background; scrollbar background
                 code_bg_color: Color32::from_gray(230),    // ???
@@ -356,7 +373,7 @@ impl ThemeDef for DefaultTheme {
                 },
 
                 window_shadow: Shadow::big_light(),
-                popup_shadow: Shadow::small_light(),
+                popup_shadow: Shadow::soft_light(),
 
                 indent_has_left_vline: false,
                 menu_rounding: Rounding::same(2.0),

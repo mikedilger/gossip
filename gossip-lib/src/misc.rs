@@ -20,45 +20,54 @@ pub enum Freshness {
     Fresh,
 }
 
-/// Get the highest local and remote ancestors in a thread
-/// This never returns (None, None) but the other three cases get returned:
-///
-///    (Some(event), None) --> we have the top event, nothing to seek
-///    (None, Some(eventref)) --> we have no event, but something to seek
-///    (Some(event), Some(eventref)) --> we have a top local event, and something higher to seek
-///
-pub(crate) fn get_thread_highest_ancestors(
-    eref: EventReference,
-) -> Result<(Option<Event>, Option<EventReference>), Error> {
-    let mut highest_local: Option<Event> = None;
-    let mut highest_remote: Option<EventReference> = Some(eref);
+/// The ancestors of a note
+pub struct EventAncestors {
+    /// The root of the thread, if we know it (even if we don't have it)
+    pub root: Option<EventReference>,
+
+    /// Whether we have the root of the thread in local storage
+    pub root_is_local: bool,
+
+    /// The highest connected ancestor that is in local storage (we can render from it
+    /// straight to the event in question without anything missing)
+    pub highest_connected_local: Option<Event>,
+
+    /// Any event that may be the direct parent of the highest connected ancestor
+    /// (which we don't have in local storage)
+    pub highest_connected_remote: Option<EventReference>,
+}
+
+/// Get the ancestors of an event
+pub(crate) fn get_event_ancestors(main: EventReference) -> Result<EventAncestors, Error> {
+    let mut ancestors = EventAncestors {
+        root: None,
+        root_is_local: false,
+        highest_connected_local: None,
+        highest_connected_remote: Some(main),
+    };
 
     loop {
-        match highest_remote {
-            None => break,
-            Some(EventReference::Id { id, .. }) => match GLOBALS.storage.read_event(id)? {
-                None => break,
-                Some(event) => {
-                    highest_remote = event.replies_to();
-                    highest_local = Some(event);
+        if let Some(ref remote) = ancestors.highest_connected_remote {
+            if let Some(event) = GLOBALS.storage.read_event_reference(remote)? {
+                ancestors.highest_connected_local = Some(event.clone());
+                ancestors.highest_connected_remote = None;
+                if let Some(parent) = event.replies_to() {
+                    ancestors.highest_connected_remote = Some(parent);
                 }
-            },
-            Some(EventReference::Addr(ref ea)) => {
-                match GLOBALS
-                    .storage
-                    .get_replaceable_event(ea.kind, ea.author, &ea.d)?
-                {
-                    None => break,
-                    Some(event) => {
-                        highest_remote = event.replies_to();
-                        highest_local = Some(event);
-                    }
+                if let Some(root) = event.replies_to_root() {
+                    ancestors.root_is_local =
+                        GLOBALS.storage.read_event_reference(&root)?.is_some();
+                    ancestors.root = Some(root);
                 }
+            } else {
+                // We have nothing more locally.
+                return Ok(ancestors);
             }
+        } else {
+            // We have everything, nothing more is needed from remote
+            return Ok(ancestors);
         }
     }
-
-    Ok((highest_local, highest_remote))
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]

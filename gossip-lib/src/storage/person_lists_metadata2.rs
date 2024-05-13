@@ -1,7 +1,7 @@
 use super::types::{PersonList1, PersonListMetadata2};
 use crate::error::Error;
 use crate::storage::{RawDatabase, Storage};
-use heed::types::UnalignedSlice;
+use heed::types::Bytes;
 use heed::RwTxn;
 use speedy::{Readable, Writable};
 use std::sync::Mutex;
@@ -31,7 +31,7 @@ impl Storage {
                 let db = self
                     .env
                     .database_options()
-                    .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
+                    .types::<Bytes, Bytes>()
                     // no .flags needed
                     .name("person_lists_metadata2")
                     .create(&mut txn)?;

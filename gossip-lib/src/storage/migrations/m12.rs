@@ -1,6 +1,6 @@
 use crate::error::Error;
 use crate::storage::Storage;
-use heed::types::UnalignedSlice;
+use heed::types::Bytes;
 use heed::{DatabaseFlags, RwTxn};
 
 impl Storage {
@@ -27,7 +27,7 @@ impl Storage {
             let db = self
                 .env
                 .database_options()
-                .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
+                .types::<Bytes, Bytes>()
                 .flags(DatabaseFlags::DUP_SORT | DatabaseFlags::DUP_FIXED)
                 .name("event_references_person")
                 .create(txn)?;

@@ -1,7 +1,7 @@
 use crate::error::Error;
 use crate::storage::types::RelationshipById2;
 use crate::storage::{RawDatabase, Storage};
-use heed::types::UnalignedSlice;
+use heed::types::Bytes;
 use heed::RwTxn;
 use nostr_types::Id;
 use speedy::{Readable, Writable};
@@ -40,7 +40,7 @@ impl Storage {
                 let db = self
                     .env
                     .database_options()
-                    .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
+                    .types::<Bytes, Bytes>()
                     // no .flags needed?
                     .name("relationships_by_id2")
                     .create(&mut txn)?;

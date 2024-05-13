@@ -1,5 +1,5 @@
 /// A queue of up to three status messages for the UI, generally
-/// representing errors that occured in disconnected backend processes.
+/// representing errors that occurred in disconnected backend processes.
 pub struct StatusQueue {
     head: usize,
     messages: [String; 3],

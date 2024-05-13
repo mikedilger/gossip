@@ -1,7 +1,7 @@
 use crate::error::Error;
 use crate::storage::types::PersonRelay1;
 use crate::storage::{RawDatabase, Storage, MAX_LMDB_KEY};
-use heed::types::UnalignedSlice;
+use heed::types::Bytes;
 use heed::RwTxn;
 use nostr_types::{PublicKey, RelayUrl};
 use speedy::{Readable, Writable};
@@ -34,7 +34,7 @@ impl Storage {
                 let db = self
                     .env
                     .database_options()
-                    .types::<UnalignedSlice<u8>, UnalignedSlice<u8>>()
+                    .types::<Bytes, Bytes>()
                     // no .flags needed
                     .name("person_relays")
                     .create(&mut txn)?;

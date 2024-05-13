@@ -114,6 +114,7 @@ impl GossipIdentity {
     pub(crate) async fn change_passphrase(&self, old: &str, new: &str) -> Result<(), Error> {
         let log_n = GLOBALS.storage.read_setting_log_n();
         self.inner.write().change_passphrase(old, new, log_n)?;
+        self.on_keychange()?;
         Ok(())
     }
 

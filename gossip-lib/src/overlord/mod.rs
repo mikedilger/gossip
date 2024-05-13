@@ -153,9 +153,20 @@ impl Overlord {
             return Ok(());
         }
 
-        // If we need to rebuild relationships, do so now
-        if GLOBALS.storage.get_flag_rebuild_relationships_needed() {
-            GLOBALS.storage.rebuild_relationships(None)?;
+        {
+            // If we need to rebuild relationships, do so now
+            if GLOBALS.storage.get_flag_rebuild_relationships_needed() {
+                tracing::info!("Rebuilding relationships...");
+                GLOBALS.storage.rebuild_relationships(None)?;
+            }
+
+            // If we need to rebuild indexes, do so now
+            if GLOBALS.storage.get_flag_rebuild_indexes_needed() {
+                tracing::info!("Rebuilding event indices...");
+                GLOBALS.storage.rebuild_event_indices(None)?;
+            }
+
+            // Data migrations complete
             GLOBALS
                 .wait_for_data_migration
                 .store(false, Ordering::Relaxed);
@@ -2519,7 +2530,7 @@ impl Overlord {
                             .to_overlord
                             .send(ToOverlordMessage::FetchEventAddr(ea.to_owned()));
 
-                        // FIXME - this requires eventaddr comparision on process.rs
+                        // FIXME - this requires eventaddr comparison on process.rs
                         // Remember we are searching for this event, so when it comes in
                         // it can get added to GLOBALS.note_search_results
                         // GLOBALS.event_addrs_being_searched_for.write().push(ea.to_owned());
@@ -2673,18 +2684,17 @@ impl Overlord {
         // The UI will traverse and render the replies if they are local.
         // The UI will traverse and render the ancestors if they are local.
 
-        let (highest, higher_still) =
-            crate::misc::get_thread_highest_ancestors(EventReference::Id {
-                id,
-                author,
-                relays: vec![],
-                marker: None,
-            })?;
+        let ancestors = crate::misc::get_event_ancestors(EventReference::Id {
+            id,
+            author,
+            relays: vec![],
+            marker: None,
+        })?;
 
         // Set the thread feed to the highest parent that we have or to the event itself
         // even if we don't have it (it might be coming in soon)
-        if let Some(ref highest_event) = highest {
-            GLOBALS.feed.set_thread_parent(highest_event.id);
+        if let Some(ref event) = ancestors.highest_connected_local {
+            GLOBALS.feed.set_thread_parent(event.id);
         } else {
             GLOBALS.feed.set_thread_parent(id);
         }
@@ -2699,7 +2709,7 @@ impl Overlord {
             // Let's first get additional relays the event might be on
             let mut bonus_relays: Vec<RelayUrl> = Vec::new();
 
-            if let Some(highest_event) = highest {
+            if let Some(highest_event) = ancestors.highest_connected_local {
                 // Include the relays where the event was seen
                 bonus_relays.extend(
                     GLOBALS
@@ -2768,7 +2778,7 @@ impl Overlord {
             bonus_relays.sort();
             bonus_relays.dedup();
 
-            match higher_still {
+            match ancestors.highest_connected_remote {
                 Some(EventReference::Addr(ea)) => GLOBALS.seeker.seek_event_addr(ea),
                 Some(EventReference::Id {
                     id,
@@ -2780,28 +2790,50 @@ impl Overlord {
                         relays.extend(bonus_relays);
                         relays.sort();
                         relays.dedup();
-                        GLOBALS.seeker.seek_id_and_relays(id, relays);
+                        GLOBALS.seeker.seek_id_and_relays(id, relays, true);
                     } else if let Some(auth) = author {
-                        GLOBALS.seeker.seek_id_and_author(id, auth, bonus_relays)?;
+                        GLOBALS
+                            .seeker
+                            .seek_id_and_author(id, auth, bonus_relays, true)?;
                     } else {
-                        GLOBALS.seeker.seek_id(id, bonus_relays)?;
+                        GLOBALS.seeker.seek_id(id, bonus_relays, true)?;
                     }
                 }
                 None => {}
             }
         }
 
+        // Cancel current subscriptions to replies and root_replies
+        let _ = self.to_minions.send(ToMinionMessage {
+            target: "all".to_string(),
+            payload: ToMinionPayload {
+                job_id: 0,
+                detail: ToMinionPayloadDetail::UnsubscribeReplies,
+            },
+        });
+
+        // Subscribe to replies to root
+        if let Some(root_eref) = ancestors.root {
+            if let EventReference::Id { id, relays, .. } = root_eref {
+                for url in relays.iter() {
+                    // Subscribe root replies
+                    let jobs: Vec<RelayJob> = vec![RelayJob {
+                        reason: RelayConnectionReason::ReadThread,
+                        payload: ToMinionPayload {
+                            job_id: rand::random::<u64>(),
+                            detail: ToMinionPayloadDetail::SubscribeRootReplies(id.into()),
+                        },
+                    }];
+
+                    self.engage_minion(url.to_owned(), jobs).await?;
+                }
+            }
+            // FIXME what if root is an EventAddr? minion doesn't have a way to subscribe
+            // to their replies.
+        }
+
         // Search for replies
         {
-            // Cancel current thread subscriptions, if any
-            let _ = self.to_minions.send(ToMinionMessage {
-                target: "all".to_string(),
-                payload: ToMinionPayload {
-                    job_id: 0,
-                    detail: ToMinionPayloadDetail::UnsubscribeReplies,
-                },
-            });
-
             // Let's collect relays where replies might show up
             let mut bonus_relays: Vec<RelayUrl> = Vec::new();
 
@@ -2872,7 +2904,7 @@ impl Overlord {
 
     /// This is done at startup and after the wizard.
     pub async fn start_long_lived_subscriptions(&mut self) -> Result<(), Error> {
-        // Intialize the RelayPicker
+        // Initialize the RelayPicker
         GLOBALS.relay_picker.init().await?;
         GLOBALS.connected_relays.clear();
 

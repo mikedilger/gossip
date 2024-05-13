@@ -29,7 +29,7 @@ mod modal_popup;
 pub use modal_popup::modal_popup;
 
 mod more_menu;
-pub(super) use more_menu::MoreMenu;
+pub(super) use more_menu::{MoreMenu, MoreMenuEntry};
 
 mod information_popup;
 pub use information_popup::InformationPopup;
@@ -243,3 +243,17 @@ pub(crate) fn warning_frame<R>(
 //     let output = safe_truncate(input, 20);
 //     assert_eq!(&input[0..10], output);
 // }
+
+fn interact_widget_state(ui: &mut Ui, response: &Response) -> WidgetState {
+    if response.is_pointer_button_down_on() {
+        WidgetState::Active
+    } else if response.has_focus() {
+        WidgetState::Focused
+    } else if response.hovered() || response.highlighted() {
+        WidgetState::Hovered
+    } else if !ui.is_enabled() {
+        WidgetState::Disabled
+    } else {
+        WidgetState::Default
+    }
+}
