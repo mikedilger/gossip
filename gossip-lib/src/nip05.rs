@@ -144,7 +144,10 @@ async fn update_relays(nip05: &str, nip05file: Nip05, pubkey: &PublicKey) -> Res
             GLOBALS.storage.modify_person_relay(
                 *pubkey,
                 &relay_url,
-                |pr| pr.last_suggested_nip05 = Some(Unixtime::now().unwrap().0 as u64),
+                |pr| {
+                    pr.read = true;
+                    pr.write = true;
+                },
                 None,
             )?;
         }

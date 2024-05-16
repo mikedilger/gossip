@@ -40,6 +40,7 @@ mod person_lists_metadata1;
 mod person_lists_metadata2;
 mod person_lists_metadata3;
 mod person_relays1;
+mod person_relays2;
 mod relationships1;
 mod relationships_by_addr1;
 mod relationships_by_addr2;
@@ -322,7 +323,7 @@ impl Storage {
 
     #[inline]
     pub(crate) fn db_person_relays(&self) -> Result<RawDatabase, Error> {
-        self.db_person_relays1()
+        self.db_person_relays2()
     }
 
     #[inline]
@@ -440,7 +441,7 @@ impl Storage {
     /// The number of records in the person_relays table
     #[inline]
     pub fn get_person_relays_len(&self) -> Result<u64, Error> {
-        self.get_person_relays1_len()
+        self.get_person_relays2_len()
     }
 
     /// The number of records in the person_lists table
@@ -2142,7 +2143,7 @@ impl Storage {
         pubkey: PublicKey,
         url: &RelayUrl,
     ) -> Result<Option<PersonRelay>, Error> {
-        self.read_person_relay1(pubkey, url)
+        self.read_person_relay2(pubkey, url)
     }
 
     /// Write a PersonRelay record
@@ -2152,7 +2153,7 @@ impl Storage {
         person_relay: &PersonRelay,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.write_person_relay1(person_relay, rw_txn)
+        self.write_person_relay2(person_relay, rw_txn)
     }
 
     /// Modify a specific person relay record
@@ -2166,19 +2167,19 @@ impl Storage {
     where
         M: FnMut(&mut PersonRelay),
     {
-        self.modify_person_relay1(pubkey, url, modify, rw_txn)
+        self.modify_person_relay2(pubkey, url, modify, rw_txn)
     }
 
     /// get PersonRelay records for a person
     #[inline]
     pub fn get_person_relays(&self, pubkey: PublicKey) -> Result<Vec<PersonRelay>, Error> {
-        self.get_person_relays1(pubkey)
+        self.get_person_relays2(pubkey)
     }
 
     /// Do we have any PersonRelay records for the person?
     #[inline]
     pub fn have_persons_relays(&self, pubkey: PublicKey) -> Result<bool, Error> {
-        self.have_persons_relays1(pubkey)
+        self.have_persons_relays2(pubkey)
     }
 
     /// Modify all person_relay records for a person
@@ -2191,7 +2192,7 @@ impl Storage {
     where
         M: FnMut(&mut PersonRelay),
     {
-        self.modify_all_persons_relays1(pubkey, modify, rw_txn)
+        self.modify_all_persons_relays2(pubkey, modify, rw_txn)
     }
 
     /// Delete PersonRelay records that match the filter
@@ -2204,7 +2205,7 @@ impl Storage {
     where
         F: Fn(&PersonRelay) -> bool,
     {
-        self.delete_person_relays1(filter, rw_txn)
+        self.delete_person_relays2(filter, rw_txn)
     }
 
     /// Get the best relays for a person, given a direction.

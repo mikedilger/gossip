@@ -12,7 +12,6 @@ use crate::misc::{Private, ZapState};
 use crate::nip46::{Approval, ParsedCommand};
 use crate::pending::PendingItem;
 use crate::people::{Person, PersonList};
-use crate::person_relay::PersonRelay;
 use crate::relay::Relay;
 use crate::tags::{
     add_addr_to_tags, add_event_to_tags, add_pubkey_to_tags, add_subject_to_tags_if_missing,
@@ -1434,15 +1433,14 @@ impl Overlord {
                 GLOBALS.storage.write_relay_if_missing(&relay_url, None)?;
 
                 // Save person_relay
-                let mut pr = match GLOBALS
-                    .storage
-                    .read_person_relay(nprofile.pubkey, &relay_url)?
-                {
-                    Some(pr) => pr,
-                    None => PersonRelay::new(nprofile.pubkey, relay_url.clone()),
-                };
-                pr.last_suggested_nip05 = Some(Unixtime::now().unwrap().0 as u64);
-                GLOBALS.storage.write_person_relay(&pr, None)?;
+                GLOBALS.storage.modify_person_relay(
+                    nprofile.pubkey,
+                    &relay_url,
+                    |pr| {
+                        pr.last_suggested = Some(Unixtime::now().unwrap().0 as u64);
+                    },
+                    None
+                )?
             }
         }
 
@@ -3260,7 +3258,7 @@ impl Overlord {
             GLOBALS.storage.modify_person_relay(
                 *pubkey,
                 &url,
-                |pr| pr.last_suggested_kind3 = Some(now.0 as u64),
+                |pr| pr.last_suggested = Some(now.0 as u64),
                 Some(txn),
             )?;
         }

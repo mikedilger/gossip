@@ -222,11 +222,11 @@ pub async fn process_new_event(
                     if let Ok(url) = RelayUrl::try_from_unchecked_url(&uncheckedurl) {
                         GLOBALS.storage.write_relay_if_missing(&url, None)?;
 
-                        // upsert person_relay.last_suggested_bytag
+                        // upsert person_relay.last_suggested
                         GLOBALS.storage.modify_person_relay(
                             pubkey,
                             &url,
-                            |pr| pr.last_suggested_bytag = Some(now.0 as u64),
+                            |pr| pr.last_suggested = Some(now.0 as u64),
                             None,
                         )?;
                     }
@@ -402,7 +402,7 @@ pub async fn process_new_event(
                                         pr.write = true;
                                     } else {
                                         // It was suggested by someone else
-                                        pr.last_suggested_bytag = Some(now.0 as u64);
+                                        pr.last_suggested = Some(now.0 as u64);
                                     }
                                 },
                                 None,
