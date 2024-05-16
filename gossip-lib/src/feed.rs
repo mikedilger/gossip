@@ -563,15 +563,17 @@ pub fn enabled_event_kinds() -> Vec<EventKind> {
             //|| *k == EventKind::ChannelMessage
             //|| *k == EventKind::ChannelHideMessage
             //|| *k == EventKind::ChannelMuteUser
-            //|| *k == EventKind::PublicChatReserved45
-            //|| *k == EventKind::PublicChatReserved46
-            //|| *k == EventKind::PublicChatReserved47
-            //|| *k == EventKind::PublicChatReserved48
-            //|| *k == EventKind::PublicChatReserved49
             // || *k == EventKind::Timestamp
                 || ((*k == EventKind::GiftWrap) && direct_messages)
             // || *k == EventKind::FileMetadata
             // || *k == EventKind::LiveChatMessage
+            // || *k == EventKind::Patches
+            // || *k == EventKind::GitIssue
+            // || *k == EventKind::GitReply
+            // || *k == EventKind::GitStatusOpen
+            // || *k == EventKind::GitStatusApproved
+            // || *k == EventKind::GitStatusClosed
+            // || *k == EventKind::GitStatusDraft
             // || *k == EventKind::ProblemTracker
             // || *k == EventKind::Reporting
             // || *k == EventKind::Label
@@ -590,9 +592,13 @@ pub fn enabled_event_kinds() -> Vec<EventKind> {
             // || *k == EventKind::PublicChatsList
             // || *k == EventKind::BlockedRelaysList
             // || *k == EventKind::SearchRelaysList
+            // || *k == EventKind::UserGroups
             // || *k == EventKind::InterestsList
             // || *k == EventKind::UserEmojiList
+                || (*k == EventKind::DmRelayList && direct_messages)
+            // || *k == EventKind::FileStorageServerList
             // || *k == EventKind::WalletInfo
+            // || *k == EventKind::LightningPubRpc
             // || *k == EventKind::Auth -- never subscribed to
             // || *k == EventKind::WalletRequest
             // || *k == EventKind::WalletResponse
@@ -608,14 +614,19 @@ pub fn enabled_event_kinds() -> Vec<EventKind> {
             // || *k == EventKind::InterestSets
             // || *k == EventKind::CreateUpdateStall
             // || *k == EventKind::CreateUpdateProduct
+            // || *k == EventKind::MarketplaceUi
+            // || *k == EventKind::ProductSoldAuction
                 || ((*k == EventKind::LongFormContent) && show_long_form)
             // || *k == EventKind::DraftLongFormContent
             // || *k == EventKind::EmojiSets
+            // || *k == EventKind::ReleaseArtifactSets
             // || *k == EventKind::AppSpecificData
             // || *k == EventKind::LiveEvent
             // || *k == EventKind::UserStatus
             // || *k == EventKind::ClassifiedListing
             // || *k == EventKind::DraftClassifiedListing
+            // || *k == EventKind::RepositoryAnnouncement
+            // || *k == EventKind::WikiArticle
             // || *k == EventKind::DateBasedCalendarEvent
             // || *k == EventKind::TimeBasedCalendarEvent
             // || *k == EventKind::Calendar
