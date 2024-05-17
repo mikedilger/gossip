@@ -1288,50 +1288,47 @@ impl Storage {
         relay_list: RelayList,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        // We need to update PersonRelay records for this pubkey, including:
-        // 1) Create new ones as needed, and
-        // 2) Turn off usage on existing ones not in the relay list
-
-        // Get all their person relay records
-        let mut person_relays = self.get_person_relays(pubkey)?;
-
-        // Add new records where needed
-        'add_new: for (url, _) in relay_list.0.iter() {
-            for pr in &person_relays {
-                if pr.url == *url {
-                    continue 'add_new;
-                }
-            }
-            let pr = PersonRelay::new(pubkey, url.clone());
-            person_relays.push(pr);
-        }
-
-        // Update each record, and save if it changed
-        for mut pr in person_relays.drain(..) {
-            let orig_read = pr.read;
-            let orig_write = pr.write;
-            match relay_list.0.get(&pr.url) {
-                Some(usage) => {
-                    pr.read = *usage == RelayUsage::Inbox || *usage == RelayUsage::Both;
-                    pr.write = *usage == RelayUsage::Outbox || *usage == RelayUsage::Both;
-                }
-                None => {
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            // Clear all current relay settings for this person
+            self.modify_all_persons_relays(
+                pubkey,
+                |pr| {
                     pr.read = false;
                     pr.write = false;
-                }
+                },
+                Some(txn)
+            )?;
+
+            // Apply relay list
+            for (relay_url, usage) in relay_list.0.iter() {
+                self.modify_person_relay(
+                    pubkey,
+                    relay_url,
+                    |pr| {
+                        pr.read = *usage == RelayUsage::Inbox || *usage == RelayUsage::Both;
+                        pr.write = *usage == RelayUsage::Outbox || *usage == RelayUsage::Both;
+                    },
+                    Some(txn)
+                )?;
             }
-            if pr.read != orig_read || pr.write != orig_write {
-                // here is some reborrow magic we needed to appease the borrow checker
-                if let Some(&mut ref mut v) = rw_txn {
-                    self.write_person_relay(&pr, Some(v))?;
-                } else {
-                    self.write_person_relay(&pr, None)?;
-                }
+
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => {
+                f(txn)?;
             }
-        }
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
 
         Ok(())
     }
+
 
     /// Write an event
     #[inline]
