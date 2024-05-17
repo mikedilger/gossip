@@ -819,16 +819,19 @@ impl Overlord {
         pubkey: PublicKey,
         relay: RelayUrl,
     ) -> Result<(), Error> {
-        // Save person_relay
-        let mut pr = match GLOBALS.storage.read_person_relay(pubkey, &relay)? {
-            Some(pr) => pr,
-            None => PersonRelay::new(pubkey, relay.clone()),
-        };
+        // Update person_relay
         let now = Unixtime::now().unwrap().0 as u64;
-        pr.last_suggested_kind3 = Some(now); // not kind3, but we have no other field for this
-        pr.manually_paired_read = true;
-        pr.manually_paired_write = true;
-        GLOBALS.storage.write_person_relay(&pr, None)?;
+        GLOBALS.storage.modify_person_relay(
+            pubkey,
+            &relay,
+            |pr| {
+                // not kind3, but we have no other field for this
+                pr.last_suggested_kind3 = Some(now);
+                pr.manually_paired_read = true;
+                pr.manually_paired_write = true;
+            },
+            None,
+        )?;
 
         if let Some(pk) = GLOBALS.people.get_active_person_async().await {
             if pk == pubkey {
@@ -3293,13 +3296,13 @@ impl Overlord {
             // Save relay if missing
             GLOBALS.storage.write_relay_if_missing(&url, Some(txn))?;
 
-            // create or update person_relay last_suggested_kind3
-            let mut pr = match GLOBALS.storage.read_person_relay(*pubkey, &url)? {
-                Some(pr) => pr,
-                None => PersonRelay::new(*pubkey, url.clone()),
-            };
-            pr.last_suggested_kind3 = Some(now.0 as u64);
-            GLOBALS.storage.write_person_relay(&pr, Some(txn))?;
+            // Modify person_relay
+            GLOBALS.storage.modify_person_relay(
+                *pubkey,
+                &url,
+                |pr| pr.last_suggested_kind3 = Some(now.0 as u64),
+                Some(txn),
+            )?;
         }
 
         // Handle petname
@@ -3403,13 +3406,13 @@ impl Overlord {
             -1 => (), // TBD unsubscribe_inbox
             1 => {
                 if let Some(pubkey) = GLOBALS.identity.public_key() {
-                    // Update self person_relay record
-                    let mut pr = match GLOBALS.storage.read_person_relay(pubkey, &new.url)? {
-                        Some(pr) => pr,
-                        None => PersonRelay::new(pubkey, new.url.clone()),
-                    };
-                    pr.read = true;
-                    GLOBALS.storage.write_person_relay(&pr, None)?;
+                    // Modify self person_relay
+                    GLOBALS.storage.modify_person_relay(
+                        pubkey,
+                        &new.url,
+                        |pr| pr.read = true,
+                        None,
+                    )?;
 
                     // Subscribe to inbox on this inbox relay
                     self.subscribe_inbox(Some(vec![new.url.clone()])).await?;
@@ -3422,13 +3425,13 @@ impl Overlord {
             -1 => (), // TBD unsubscribe_config
             1 => {
                 if let Some(pubkey) = GLOBALS.identity.public_key() {
-                    // Update self person_relay record
-                    let mut pr = match GLOBALS.storage.read_person_relay(pubkey, &new.url)? {
-                        Some(pr) => pr,
-                        None => PersonRelay::new(pubkey, new.url.clone()),
-                    };
-                    pr.write = true;
-                    GLOBALS.storage.write_person_relay(&pr, None)?;
+                    // Modify self person_relay
+                    GLOBALS.storage.modify_person_relay(
+                        pubkey,
+                        &new.url,
+                        |pr| pr.write = true,
+                        None,
+                    )?;
 
                     // Subscribe to config on this outbox relay
                     self.subscribe_config(Some(vec![new.url.clone()])).await?;

@@ -59,12 +59,12 @@ pub async fn process_new_event(
             .write_person_if_missing(&event.pubkey, None)?;
 
         // Update person-relay information (seen them on this relay)
-        let mut pr = match GLOBALS.storage.read_person_relay(event.pubkey, url)? {
-            Some(pr) => pr,
-            None => PersonRelay::new(event.pubkey, url.clone()),
-        };
-        pr.last_fetched = Some(now.0 as u64);
-        GLOBALS.storage.write_person_relay(&pr, None)?;
+        GLOBALS.storage.modify_person_relay(
+            event.pubkey,
+            url,
+            |pr| pr.last_fetched = Some(now.0 as u64),
+            None,
+        )?;
     }
 
     // Spam filter (displayable and author is not followed)
@@ -224,12 +224,12 @@ pub async fn process_new_event(
                         GLOBALS.storage.write_relay_if_missing(&url, None)?;
 
                         // upsert person_relay.last_suggested_bytag
-                        let mut pr = match GLOBALS.storage.read_person_relay(pubkey, &url)? {
-                            Some(pr) => pr,
-                            None => PersonRelay::new(pubkey, url.clone()),
-                        };
-                        pr.last_suggested_bytag = Some(now.0 as u64);
-                        GLOBALS.storage.write_person_relay(&pr, None)?;
+                        GLOBALS.storage.modify_person_relay(
+                            pubkey,
+                            &url,
+                            |pr| pr.last_suggested_bytag = Some(now.0 as u64),
+                            None,
+                        )?;
                     }
                 }
             }
