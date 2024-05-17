@@ -4,7 +4,6 @@ use crate::filter::EventFilterAction;
 use crate::globals::GLOBALS;
 use crate::misc::{Freshness, Private};
 use crate::people::{People, PersonList, PersonListMetadata};
-use crate::person_relay::PersonRelay;
 use crate::relationship::{RelationshipByAddr, RelationshipById};
 use async_recursion::async_recursion;
 use heed::RwTxn;
@@ -393,18 +392,21 @@ pub async fn process_new_event(
                     // Make sure we have their relays
                     for relay in prof.relays {
                         if let Ok(rurl) = RelayUrl::try_from_unchecked_url(&relay) {
-                            if let Some(_pr) =
-                                GLOBALS.storage.read_person_relay(prof.pubkey, &rurl)?
-                            {
-                                // FIXME: we need a new field in PersonRelay for this case.
-                                // If the event was signed by the profile person, we should trust it.
-                                // If it wasn't, we can instead bump last_suggested_bytag.
-                            } else {
-                                let mut pr = PersonRelay::new(prof.pubkey, rurl);
-                                pr.read = true;
-                                pr.write = true;
-                                GLOBALS.storage.write_person_relay(&pr, None)?;
-                            }
+                            GLOBALS.storage.modify_person_relay(
+                                prof.pubkey,
+                                &rurl,
+                                |pr| {
+                                    if prof.pubkey == event.pubkey {
+                                        // The author themselves said it
+                                        pr.read = true;
+                                        pr.write = true;
+                                    } else {
+                                        // It was suggested by someone else
+                                        pr.last_suggested_bytag = Some(now.0 as u64);
+                                    }
+                                },
+                                None
+                            )?
                         }
                     }
                 }
