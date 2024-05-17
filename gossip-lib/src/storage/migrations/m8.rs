@@ -43,7 +43,7 @@ impl Storage {
             // Read event to get the person
             if let Some(event) = self.read_event(id)? {
                 // Read (or create) person_relay
-                let (mut pr, update) = match self.read_person_relay(event.pubkey, &url)? {
+                let (mut pr, update) = match self.read_person_relay1(event.pubkey, &url)? {
                     Some(pr) => match pr.last_fetched {
                         Some(lf) => (pr, lf < time),
                         None => (pr, true),
@@ -56,7 +56,7 @@ impl Storage {
 
                 if update {
                     pr.last_fetched = Some(time);
-                    self.write_person_relay(&pr, Some(txn))?;
+                    self.write_person_relay1(&pr, Some(txn))?;
                 }
             }
 

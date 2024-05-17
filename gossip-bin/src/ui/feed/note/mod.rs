@@ -329,7 +329,8 @@ pub fn render_note_inner(
                                 ui.add_space(8.0);
                                 ui.style_mut().override_text_style = Some(TextStyle::Small);
                                 let idhex: IdHex = e.id.into();
-                                let name = format!("▲ #{}", gossip_lib::names::hex_id_short(&idhex));
+                                let name =
+                                    format!("▲ #{}", gossip_lib::names::hex_id_short(&idhex));
                                 if ui.link(&name).clicked() {
                                     app.set_page(
                                         ui.ctx(),

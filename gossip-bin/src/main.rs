@@ -37,6 +37,9 @@ fn main() -> Result<(), Error> {
         .with_env_filter(env_filter)
         .init();
 
+    let about = about::About::new();
+    println!("Gossip {}", about.version);
+
     // Initialize the lib
     gossip_lib::init()?;
 
