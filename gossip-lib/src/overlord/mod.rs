@@ -594,9 +594,6 @@ impl Overlord {
 
     async fn handle_message(&mut self, message: ToOverlordMessage) -> Result<(), Error> {
         match message {
-            ToOverlordMessage::AddPubkeyRelay(pubkey, relayurl) => {
-                self.add_pubkey_relay(pubkey, relayurl).await?;
-            }
             ToOverlordMessage::AddRelay(relay_url) => {
                 self.add_relay(relay_url).await?;
             }
@@ -806,41 +803,6 @@ impl Overlord {
                 self.zap(id, pubkey, msats, comment).await?;
             }
         }
-
-        Ok(())
-    }
-
-    /// Manually associate a relay with a person. This sets both read and write, and
-    /// remembers that they were manual associations (not from a relay list) so they
-    /// have less weight. This is so the user can make these associations manually if
-    /// gossip can't find them.
-    pub async fn add_pubkey_relay(
-        &mut self,
-        pubkey: PublicKey,
-        relay: RelayUrl,
-    ) -> Result<(), Error> {
-        // Update person_relay
-        let now = Unixtime::now().unwrap().0 as u64;
-        GLOBALS.storage.modify_person_relay(
-            pubkey,
-            &relay,
-            |pr| {
-                // not kind3, but we have no other field for this
-                pr.last_suggested_kind3 = Some(now);
-                pr.manually_paired_read = true;
-                pr.manually_paired_write = true;
-            },
-            None,
-        )?;
-
-        if let Some(pk) = GLOBALS.people.get_active_person_async().await {
-            if pk == pubkey {
-                // Refresh active person data from storage
-                GLOBALS.people.set_active_person(pubkey).await?;
-            }
-        }
-
-        self.refresh_scores_and_pick_relays().await?;
 
         Ok(())
     }

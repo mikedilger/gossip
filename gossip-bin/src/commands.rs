@@ -1,4 +1,4 @@
-use gossip_lib::{Error, ErrorKind, PersonList, PersonListMetadata, PersonRelay, GLOBALS};
+use gossip_lib::{Error, ErrorKind, PersonList, PersonListMetadata, GLOBALS};
 use nostr_types::{
     EncryptedPrivateKey, Event, EventAddr, EventKind, Filter, Id, NostrBech32, NostrUrl, PreEvent,
     PrivateKey, PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime,
@@ -25,16 +25,11 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 35] = [
+const COMMANDS: [Command; 34] = [
     Command {
         cmd: "oneshot",
         usage_params: "{depends}",
         desc: "temporary oneshot action",
-    },
-    Command {
-        cmd: "add_person_relay",
-        usage_params: "<hexOrBech32String> <relayurl>",
-        desc: "add the relay as a read and write relay for the person",
     },
     Command {
         cmd: "add_person_list",
@@ -221,7 +216,6 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
 
     match command.cmd {
         "oneshot" => oneshot(command, args)?,
-        "add_person_relay" => add_person_relay(command, args)?,
         "add_person_list" => add_person_list(command, args)?,
         "backdate_eose" => backdate_eose()?,
         "bech32_decode" => bech32_decode(command, args)?,
@@ -287,33 +281,6 @@ pub fn help(_cmd: Command, mut args: env::Args) -> Result<(), Error> {
 
 pub fn oneshot(_cmd: Command, mut _args: env::Args) -> Result<(), Error> {
     // This code area is reserved for doing things that do not get committed
-    Ok(())
-}
-
-pub fn add_person_relay(cmd: Command, mut args: env::Args) -> Result<(), Error> {
-    let pubkey = match args.next() {
-        Some(s) => match PublicKey::try_from_hex_string(&s, true) {
-            Ok(pk) => pk,
-            Err(_) => PublicKey::try_from_bech32_string(&s, true)?,
-        },
-        None => return cmd.usage("Missing hexOrBech32String parameter".to_string()),
-    };
-
-    let relay_url = match args.next() {
-        Some(s) => RelayUrl::try_from_str(&s)?,
-        None => return cmd.usage("Missing relayurl parameter".to_string()),
-    };
-
-    let mut pr = match GLOBALS.storage.read_person_relay(pubkey, &relay_url) {
-        Ok(None) => PersonRelay::new(pubkey, relay_url),
-        Ok(Some(pr)) => pr,
-        Err(_) => PersonRelay::new(pubkey, relay_url),
-    };
-
-    pr.manually_paired_read = true;
-    pr.manually_paired_write = true;
-    GLOBALS.storage.write_person_relay(&pr, None)?;
-
     Ok(())
 }
 

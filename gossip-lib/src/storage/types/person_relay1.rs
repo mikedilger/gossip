@@ -63,15 +63,14 @@ impl PersonRelay1 {
 
         let scorefn = |when: u64, fade_period: u64, base: u64| -> u64 {
             let dur = now.saturating_sub(when); // seconds since
-            let periods = (dur / fade_period) + 1; // minimum one period
-            base / periods
+            base * fade_period / fade_period.max(dur)
         };
 
         for dbpr in dbprs.drain(..) {
             let mut score = 0;
 
             // 'write' is an author-signed explicit claim of where they write
-            if dbpr.write || dbpr.manually_paired_write {
+            if dbpr.write {
                 score += 20;
             }
 
@@ -116,15 +115,14 @@ impl PersonRelay1 {
 
         let scorefn = |when: u64, fade_period: u64, base: u64| -> u64 {
             let dur = now.saturating_sub(when); // seconds since
-            let periods = (dur / fade_period) + 1; // minimum one period
-            base / periods
+            base * fade_period / fade_period.max(dur)
         };
 
         for dbpr in dbprs.drain(..) {
             let mut score = 0;
 
             // 'read' is an author-signed explicit claim of where they read
-            if dbpr.read || dbpr.manually_paired_read {
+            if dbpr.read {
                 score += 20;
             }
 

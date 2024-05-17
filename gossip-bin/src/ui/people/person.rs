@@ -11,7 +11,7 @@ use egui_winit::egui::Response;
 use egui_winit::egui::Widget;
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{DmChannel, FeedKind, Freshness, People, Person, PersonList, Private, GLOBALS};
-use nostr_types::{PublicKey, RelayUrl};
+use nostr_types::PublicKey;
 use serde_json::Value;
 
 const ITEM_V_SPACE: f32 = 2.0;
@@ -383,30 +383,6 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                                 Page::RelaysKnownNetwork(Some(relay_url)),
                                             );
                                         }
-                                    }
-                                }
-                            });
-                        });
-                    });
-
-                    // Option to manually add a relay for them
-                    make_frame().show(ui, |ui| {
-                        ui.vertical(|ui| {
-                            item_label(ui, "Manually add an Outbox Relay");
-                            ui.add_space(ITEM_V_SPACE);
-                            ui.horizontal(|ui| {
-                                ui.add(text_edit_line!(app, app.add_relay).hint_text("wss://..."));
-                                if ui.button("Add").clicked() {
-                                    if let Ok(url) = RelayUrl::try_from_str(&app.add_relay) {
-                                        let _ = GLOBALS
-                                            .to_overlord
-                                            .send(ToOverlordMessage::AddPubkeyRelay(pubkey, url));
-                                        app.add_relay = "".to_owned();
-                                    } else {
-                                        GLOBALS
-                                            .status_queue
-                                            .write()
-                                            .write("Invalid Relay Url".to_string());
                                     }
                                 }
                             });
