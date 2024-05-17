@@ -78,6 +78,15 @@ impl Storage {
         Ok(())
     }
 
+    pub(crate) fn has_person2(&self, pubkey: &PublicKey) -> Result<bool, Error> {
+        let key: Vec<u8> = pubkey.to_bytes();
+        let txn = self.env.read_txn()?;
+        Ok(match self.db_people2()?.get(&txn, &key)? {
+            Some(_) => true,
+            None => false
+        })
+    }
+
     pub(crate) fn read_person2(&self, pubkey: &PublicKey) -> Result<Option<Person2>, Error> {
         // Note that we use serde instead of speedy because the complexity of the
         // serde_json::Value type makes it difficult. Any other serde serialization

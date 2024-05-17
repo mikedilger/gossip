@@ -2086,6 +2086,12 @@ impl Storage {
         self.write_person2(person, rw_txn)
     }
 
+    /// Has a person record
+    #[inline]
+    pub fn has_person(&self, pubkey: &PublicKey) -> Result<bool, Error> {
+        self.has_person2(pubkey)
+    }
+
     /// Read a person record
     #[inline]
     pub fn read_person(&self, pubkey: &PublicKey) -> Result<Option<Person>, Error> {
@@ -2115,7 +2121,7 @@ impl Storage {
         pubkey: &PublicKey,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        if self.read_person(pubkey)?.is_none() {
+        if !self.has_person(pubkey)? {
             let person = Person::new(pubkey.to_owned());
             self.write_person(&person, rw_txn)?;
         }
