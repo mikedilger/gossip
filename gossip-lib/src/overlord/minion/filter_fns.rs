@@ -187,6 +187,7 @@ pub fn config(since: Unixtime) -> Vec<Filter> {
                 EventKind::MuteList,
                 EventKind::FollowSets,
                 EventKind::RelayList,
+                EventKind::DmRelayList,
             ],
             // these are all replaceable, no since required
             ..Default::default()
@@ -211,7 +212,7 @@ pub fn discover(pubkeys: &[PublicKey]) -> Vec<Filter> {
     let pkp: Vec<PublicKeyHex> = pubkeys.iter().map(|pk| pk.into()).collect();
     vec![Filter {
         authors: pkp,
-        kinds: vec![EventKind::RelayList],
+        kinds: vec![EventKind::RelayList, EventKind::DmRelayList],
         // these are all replaceable, no since required
         ..Default::default()
     }]
@@ -295,7 +296,11 @@ pub fn metadata(pubkeys: &[PublicKey]) -> Vec<Filter> {
 
     vec![Filter {
         authors: pkhp,
-        kinds: vec![EventKind::Metadata, EventKind::RelayList],
+        kinds: vec![
+            EventKind::Metadata,
+            EventKind::RelayList,
+            EventKind::DmRelayList,
+        ],
         // FIXME: we could probably get a since-last-fetched-their-metadata here.
         //        but relays should just return the latest of these.
         ..Default::default()
