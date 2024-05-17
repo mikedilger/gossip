@@ -163,4 +163,82 @@ impl Storage {
 
         Ok(())
     }
+
+    pub(crate) fn modify_person_relay1<'a, M>(
+        &'a self,
+        pubkey: PublicKey,
+        url: &RelayUrl,
+        mut modify: M,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error>
+    where
+        M: FnMut(&mut PersonRelay1),
+    {
+        let key = {
+            let mut key = pubkey.to_bytes();
+            key.extend(url.as_str().as_bytes());
+            key.truncate(MAX_LMDB_KEY);
+            key
+        };
+
+        let mut f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            let bytes = self.db_person_relays1()?.get(txn, &key)?;
+            let mut person_relay = match bytes {
+                Some(bytes) => PersonRelay1::read_from_buffer(bytes)?,
+                None => PersonRelay1::new(pubkey, url.to_owned()),
+            };
+            modify(&mut person_relay);
+            let bytes = person_relay.write_to_vec()?;
+            self.db_person_relays1()?.put(txn, &key, &bytes)?;
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
+    }
+
+    pub(crate) fn modify_all_persons_relays1<'a, M>(
+        &'a self,
+        pubkey: PublicKey,
+        mut modify: M,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error>
+    where
+        M: FnMut(&mut PersonRelay1),
+    {
+        let mut f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            let prefix = pubkey.to_bytes();
+            let mut iter = self.db_person_relays1()?.prefix_iter_mut(txn, &prefix)?;
+            while let Some(result) = iter.next() {
+                let (key, val) = result?;
+                let mut person_relay = PersonRelay1::read_from_buffer(val)?;
+                modify(&mut person_relay);
+                let bytes = person_relay.write_to_vec()?;
+                let key = key.to_owned();
+                unsafe {
+                    iter.put_current(&key, &bytes)?;
+                }
+            }
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
+    }
 }

@@ -2134,6 +2134,16 @@ impl Storage {
         self.filter_people2(f)
     }
 
+    /// Read a PersonRelay record
+    #[inline]
+    pub fn read_person_relay(
+        &self,
+        pubkey: PublicKey,
+        url: &RelayUrl,
+    ) -> Result<Option<PersonRelay>, Error> {
+        self.read_person_relay1(pubkey, url)
+    }
+
     /// Write a PersonRelay record
     #[inline]
     pub fn write_person_relay<'a>(
@@ -2144,14 +2154,18 @@ impl Storage {
         self.write_person_relay1(person_relay, rw_txn)
     }
 
-    /// Read a PersonRelay record
-    #[inline]
-    pub fn read_person_relay(
-        &self,
+    /// Modify a specific person relay record
+    pub fn modify_person_relay<'a, M>(
+        &'a self,
         pubkey: PublicKey,
         url: &RelayUrl,
-    ) -> Result<Option<PersonRelay>, Error> {
-        self.read_person_relay1(pubkey, url)
+        modify: M,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error>
+    where
+        M: FnMut(&mut PersonRelay),
+    {
+        self.modify_person_relay1(pubkey, url, modify, rw_txn)
     }
 
     /// get PersonRelay records for a person
@@ -2164,6 +2178,19 @@ impl Storage {
     #[inline]
     pub fn have_persons_relays(&self, pubkey: PublicKey) -> Result<bool, Error> {
         self.have_persons_relays1(pubkey)
+    }
+
+    /// Modify all person_relay records for a person
+    pub fn modify_all_persons_relays<'a, M>(
+        &'a self,
+        pubkey: PublicKey,
+        modify: M,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error>
+    where
+        M: FnMut(&mut PersonRelay),
+    {
+        self.modify_all_persons_relays1(pubkey, modify, rw_txn)
     }
 
     /// Delete PersonRelay records that match the filter
