@@ -2766,24 +2766,22 @@ impl Overlord {
         });
 
         // Subscribe to replies to root
-        if let Some(root_eref) = ancestors.root {
-            if let EventReference::Id { id, relays, .. } = root_eref {
-                for url in relays.iter() {
-                    // Subscribe root replies
-                    let jobs: Vec<RelayJob> = vec![RelayJob {
-                        reason: RelayConnectionReason::ReadThread,
-                        payload: ToMinionPayload {
-                            job_id: rand::random::<u64>(),
-                            detail: ToMinionPayloadDetail::SubscribeRootReplies(id.into()),
-                        },
-                    }];
+        if let Some(EventReference::Id { id, relays, .. }) = ancestors.root {
+            for url in relays.iter() {
+                // Subscribe root replies
+                let jobs: Vec<RelayJob> = vec![RelayJob {
+                    reason: RelayConnectionReason::ReadThread,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::SubscribeRootReplies(id.into()),
+                    },
+                }];
 
-                    self.engage_minion(url.to_owned(), jobs).await?;
-                }
+                self.engage_minion(url.to_owned(), jobs).await?;
             }
-            // FIXME what if root is an EventAddr? minion doesn't have a way to subscribe
-            // to their replies.
         }
+        // FIXME what if root is an EventAddr? minion doesn't have a way to subscribe
+        // to their replies.
 
         // Search for replies
         {

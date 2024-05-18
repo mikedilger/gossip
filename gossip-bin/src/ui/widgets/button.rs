@@ -249,6 +249,7 @@ impl Button<'_> {
         (rect, response)
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn draw(
         ui: &mut Ui,
         text: Option<Arc<Galley>>,

@@ -116,8 +116,6 @@ impl Storage {
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let event = event;
-
             // If giftwrap:
             //   Use the id and kind of the giftwrap,
             //   Use the pubkey and created_at of the rumor
@@ -134,7 +132,7 @@ impl Storage {
             // Index tags from giftwrap and rumor
             let mut tags: Vec<TagV3> = event.tags.clone();
             if innerevent != event {
-                tags.extend(innerevent.tags.clone().drain(..));
+                tags.append(&mut innerevent.tags.clone());
             }
 
             for tag in &tags {

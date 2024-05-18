@@ -1295,7 +1295,7 @@ impl Storage {
                     pr.read = false;
                     pr.write = false;
                 },
-                Some(txn)
+                Some(txn),
             )?;
 
             // Apply relay list
@@ -1307,7 +1307,7 @@ impl Storage {
                         pr.read = *usage == RelayUsage::Inbox || *usage == RelayUsage::Both;
                         pr.write = *usage == RelayUsage::Outbox || *usage == RelayUsage::Both;
                     },
-                    Some(txn)
+                    Some(txn),
                 )?;
             }
 
@@ -1327,7 +1327,6 @@ impl Storage {
 
         Ok(())
     }
-
 
     /// Write an event
     #[inline]

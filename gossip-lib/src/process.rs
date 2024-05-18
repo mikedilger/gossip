@@ -405,7 +405,7 @@ pub async fn process_new_event(
                                         pr.last_suggested_bytag = Some(now.0 as u64);
                                     }
                                 },
-                                None
+                                None,
                             )?
                         }
                     }

@@ -351,6 +351,7 @@ impl Minion {
                     }
                 }
                 Err(e) => {
+                    #[allow(clippy::if_same_then_else)]
                     if let ErrorKind::Websocket(_) = e.kind {
                         return Err(e);
                     } else if matches!(e.kind, ErrorKind::Nostr(nostr_types::Error::NoPrivateKey)) {

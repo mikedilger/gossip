@@ -75,7 +75,7 @@ impl Storage {
             )?;
             self.write_event_kci_index(event.kind, innerevent.created_at, event.id, Some(txn))?;
             self.write_event3_tag_index1(
-                &event, // use the outer giftwrap event
+                event, // use the outer giftwrap event
                 Some(txn),
             )?;
 

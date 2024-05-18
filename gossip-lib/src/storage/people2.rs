@@ -81,10 +81,7 @@ impl Storage {
     pub(crate) fn has_person2(&self, pubkey: &PublicKey) -> Result<bool, Error> {
         let key: Vec<u8> = pubkey.to_bytes();
         let txn = self.env.read_txn()?;
-        Ok(match self.db_people2()?.get(&txn, &key)? {
-            Some(_) => true,
-            None => false
-        })
+        Ok(self.db_people2()?.get(&txn, &key)?.is_some())
     }
 
     pub(crate) fn read_person2(&self, pubkey: &PublicKey) -> Result<Option<Person2>, Error> {
