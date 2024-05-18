@@ -31,22 +31,26 @@ impl Minion {
 
                 if let Some(sub) = self.subscription_map.get_mut_by_id(&subid.0) {
                     // Check if the event matches one of our filters
-                    // and ignore it if it doesn't
-                    let mut it_matches = false;
-                    for filter in sub.get_filters().iter() {
-                        if filter.event_matches(&event) {
-                            it_matches = true;
-                            break;
+                    // (except augments which often flow in late after the filter changed)
+                    if handle != "temp_augments" {
+                        let mut it_matches = false;
+                        for filter in sub.get_filters().iter() {
+                            if filter.event_matches(&event) {
+                                it_matches = true;
+                                break;
+                            }
                         }
-                    }
-                    if !it_matches {
-                        tracing::debug!(
-                            "{} sent event that does not match filters on subscription {}: {}",
-                            self.url,
-                            handle,
-                            event.id.as_hex_string()
-                        );
-                        return Ok(());
+                        if !it_matches {
+                            tracing::info!(
+                                "{} sent event that does not match filters on subscription {}: {}",
+                                self.url,
+                                handle,
+                                event.id.as_hex_string()
+                            );
+
+                            // ignore it
+                            return Ok(());
+                        }
                     }
 
                     // Events that come in after EOSE on the general feed bump the last_general_eose
