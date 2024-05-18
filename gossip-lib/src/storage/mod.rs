@@ -1220,8 +1220,7 @@ impl Storage {
             // Check if this relay list is newer than the stamp we have for its author
             if let Some(previous_at) = person.relay_list_created_at {
                 if event.created_at.0 <= previous_at {
-                    // This list is old. But let's save the last_received setting:
-                    self.write_person(&person, Some(&mut txn))?;
+                    // This list is old.
                     return Ok(());
                 }
             }
