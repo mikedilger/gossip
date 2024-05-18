@@ -113,8 +113,7 @@ impl Storage {
         for result in iter {
             let (_key, val) = result?;
             let person_relay = PersonRelay2::read_from_buffer(val)?;
-            if person_relay.write || person_relay.read
-            {
+            if person_relay.write || person_relay.read {
                 return Ok(true);
             }
         }

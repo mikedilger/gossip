@@ -1439,7 +1439,7 @@ impl Overlord {
                     |pr| {
                         pr.last_suggested = Some(Unixtime::now().unwrap().0 as u64);
                     },
-                    None
+                    None,
                 )?
             }
         }

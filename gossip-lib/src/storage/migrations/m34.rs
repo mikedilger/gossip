@@ -47,7 +47,7 @@ impl Storage {
                 last_suggested,
             };
             let bytes = pr2.write_to_vec()?;
-            self.db_person_relays2()?.put(txn, &key, &bytes)?;
+            self.db_person_relays2()?.put(txn, key, &bytes)?;
         }
 
         self.db_person_relays1()?.clear(txn)?;
