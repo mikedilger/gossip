@@ -358,9 +358,9 @@ impl Minion {
                     } else if matches!(e.kind, ErrorKind::NoPrivateKey) {
                         // don't log
                     } else if matches!(e.kind, ErrorKind::NoPrivateKeyForAuth(_)) {
-                        tracing::warn!("{}", e);
+                        tracing::warn!("{}: {}", &self.url, e);
                     } else {
-                        tracing::warn!("{}", e);
+                        tracing::warn!("{}: {}", &self.url, e);
                     }
                 }
             }
@@ -371,7 +371,7 @@ impl Minion {
         if !ws_stream.is_terminated() {
             if self.exiting != Some(MinionExitReason::GotWSClose) {
                 if let Err(e) = ws_stream.send(WsMessage::Close(None)).await {
-                    tracing::warn!("websocket close error: {}", e);
+                    tracing::warn!("{}, websocket close error: {}", self.url, e);
                     return Err(e.into());
                 }
             }
@@ -379,11 +379,11 @@ impl Minion {
 
         match self.exiting {
             Some(reason) => {
-                tracing::debug!("Minion for {} shutting down: {:?}", self.url, reason);
+                tracing::debug!("Minion for {} shutting down: {:?}", &self.url, reason);
                 Ok(reason)
             }
             None => {
-                tracing::debug!("Minion for {} shutting down", self.url);
+                tracing::debug!("Minion for {} shutting down", &self.url);
                 Ok(MinionExitReason::Unknown)
             }
         }
