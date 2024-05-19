@@ -663,6 +663,11 @@ impl Storage {
         false
     );
     def_flag!(rebuild_indexes_needed, b"rebuild_indexes_needed", false);
+    def_flag!(
+        reprocess_relay_lists_needed,
+        b"reprocess_relay_lists_needed",
+        true
+    );
 
     // Settings ----------------------------------------------------------
 
@@ -1165,70 +1170,88 @@ impl Storage {
     }
 
     /// Process a relay list event
-    pub fn process_relay_list(&self, event: &Event) -> Result<(), Error> {
-        let mut txn = self.env.write_txn()?;
+    pub fn process_relay_list<'a>(
+        &'a self,
+        event: &Event,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            if let Some(mut person) = self.read_person(&event.pubkey, Some(&txn))? {
+                // Check if this relay list is newer than the stamp we have for its author
+                if let Some(previous_at) = person.relay_list_created_at {
+                    if event.created_at.0 <= previous_at {
+                        // This list is old.
+                        return Ok(());
+                    }
+                }
+                // If we got here, the list is new.
 
-        if let Some(mut person) = self.read_person(&event.pubkey, Some(&txn))? {
-            // Check if this relay list is newer than the stamp we have for its author
-            if let Some(previous_at) = person.relay_list_created_at {
-                if event.created_at.0 <= previous_at {
-                    // This list is old.
-                    return Ok(());
+                // Mark when it was created
+                person.relay_list_created_at = Some(event.created_at.0);
+
+                // And save those marks in the Person record
+                self.write_person(&person, Some(txn))?;
+            }
+
+            let mut ours = false;
+            if let Some(pubkey) = self.read_setting_public_key() {
+                if event.pubkey == pubkey {
+                    tracing::info!("Processing our own relay list");
+                    ours = true;
                 }
             }
-            // If we got here, the list is new.
 
-            // Mark when it was created
-            person.relay_list_created_at = Some(event.created_at.0);
+            let relay_list = RelayList::from_event(event);
 
-            // And save those marks in the Person record
-            self.write_person(&person, Some(&mut txn))?;
-        }
+            if ours {
+                // If INBOX or OUTBOX is set, we also must turn on READ and WRITE
+                // or they won't actually get used.  However, we don't turn OFF
+                // these bits automatically.
 
-        let mut ours = false;
-        if let Some(pubkey) = self.read_setting_public_key() {
-            if event.pubkey == pubkey {
-                tracing::info!("Processing our own relay list");
-                ours = true;
-            }
-        }
+                // Clear all current read/write bits (within the transaction)
+                // note: inbox is kind10002 'read', outbox is kind10002 'write'
+                self.modify_all_relays(
+                    |relay| relay.clear_usage_bits(Relay::INBOX | Relay::OUTBOX),
+                    Some(txn),
+                )?;
 
-        let relay_list = RelayList::from_event(event);
+                // Set or create read relays
+                for (relay_url, usage) in relay_list.0.iter() {
+                    let bits = match usage {
+                        RelayUsage::Inbox => Relay::INBOX | Relay::READ,
+                        RelayUsage::Outbox => Relay::OUTBOX | Relay::WRITE,
+                        RelayUsage::Both => {
+                            Relay::INBOX | Relay::OUTBOX | Relay::READ | Relay::WRITE
+                        }
+                    };
 
-        if ours {
-            // If INBOX or OUTBOX is set, we also must turn on READ and WRITE
-            // or they won't actually get used.  However, we don't turn OFF
-            // these bits automatically.
-
-            // Clear all current read/write bits (within the transaction)
-            // note: inbox is kind10002 'read', outbox is kind10002 'write'
-            self.modify_all_relays(
-                |relay| relay.clear_usage_bits(Relay::INBOX | Relay::OUTBOX),
-                Some(&mut txn),
-            )?;
-
-            // Set or create read relays
-            for (relay_url, usage) in relay_list.0.iter() {
-                let bits = match usage {
-                    RelayUsage::Inbox => Relay::INBOX | Relay::READ,
-                    RelayUsage::Outbox => Relay::OUTBOX | Relay::WRITE,
-                    RelayUsage::Both => Relay::INBOX | Relay::OUTBOX | Relay::READ | Relay::WRITE,
-                };
-
-                if let Some(mut dbrelay) = self.read_relay(relay_url, Some(&txn))? {
-                    dbrelay.set_usage_bits(bits);
-                    self.write_relay(&dbrelay, Some(&mut txn))?;
-                } else {
-                    let mut dbrelay = Relay::new(relay_url.to_owned());
-                    dbrelay.set_usage_bits(bits);
-                    self.write_relay(&dbrelay, Some(&mut txn))?;
+                    if let Some(mut dbrelay) = self.read_relay(relay_url, Some(&txn))? {
+                        dbrelay.set_usage_bits(bits);
+                        self.write_relay(&dbrelay, Some(txn))?;
+                    } else {
+                        let mut dbrelay = Relay::new(relay_url.to_owned());
+                        dbrelay.set_usage_bits(bits);
+                        self.write_relay(&dbrelay, Some(txn))?;
+                    }
                 }
             }
-        }
 
-        self.set_relay_list(event.pubkey, relay_list, Some(&mut txn))?;
+            self.set_relay_list(event.pubkey, relay_list, Some(txn))?;
 
-        txn.commit()?;
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => {
+                f(txn)?;
+            }
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
         Ok(())
     }
 
@@ -2459,6 +2482,42 @@ impl Storage {
         };
 
         write_transact!(self, rw_txn, f)
+    }
+
+    pub fn reprocess_relay_lists(&self) -> Result<(), Error> {
+        let mut txn = self.env.write_txn()?;
+
+        // Clear relay_list_created_at fields in person records so that
+        // it will rebuild
+        self.modify_all_people(
+            |person| {
+                person.relay_list_created_at = None;
+            },
+            Some(&mut txn),
+        )?;
+
+        // Commit this change, otherwise read_person (which takes no transaction)
+        // will give stale data when it is called within process_relay_list()
+        txn.commit()?;
+
+        let mut txn = self.env.write_txn()?;
+
+        // Load all RelayLists
+        let mut filter = Filter::new();
+        filter.add_event_kind(EventKind::RelayList);
+        let relay_lists = self.find_events_by_filter(&filter, |_| true)?;
+
+        // Process all RelayLists
+        for event in relay_lists.iter() {
+            self.process_relay_list(event, Some(&mut txn))?;
+        }
+
+        // Turn off the flag
+        self.set_flag_reprocess_relay_lists_needed(false, Some(&mut txn))?;
+
+        txn.commit()?;
+
+        Ok(())
     }
 
     /// Read person lists

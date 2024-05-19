@@ -276,7 +276,7 @@ pub async fn process_new_event(
             }
         }
     } else if event.kind == EventKind::RelayList {
-        GLOBALS.storage.process_relay_list(event)?;
+        GLOBALS.storage.process_relay_list(event, None)?;
 
         // Let the seeker know we now have relays for this author, in case the seeker
         // wants to update it's state

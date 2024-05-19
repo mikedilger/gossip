@@ -165,6 +165,12 @@ impl Overlord {
                 GLOBALS.storage.rebuild_event_indices(None)?;
             }
 
+            // If we need to reapply relay lists, do so now
+            if GLOBALS.storage.get_flag_reprocess_relay_lists_needed() {
+                tracing::info!("Reprocessing relay lists...");
+                GLOBALS.storage.reprocess_relay_lists()?;
+            }
+
             // Data migrations complete
             GLOBALS
                 .wait_for_data_migration
