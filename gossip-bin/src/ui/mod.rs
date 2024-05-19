@@ -900,7 +900,7 @@ impl GossipUi {
     }
 
     fn side_panel(&mut self, ctx: &Context) {
-        egui::SidePanel::left("main-naviation-panel")
+        egui::SidePanel::left("main-navigation-panel")
             .show_separator_line(false)
             .frame(
                 egui::Frame::none()
@@ -921,7 +921,7 @@ impl GossipUi {
             .show(ctx, |ui| {
                 self.begin_ui(ui);
 
-                // cut indentation
+                // Cut indentation
                 ui.style_mut().spacing.indent = 0.0;
                 ui.visuals_mut().widgets.inactive.fg_stroke.color =
                     self.theme.navigation_text_color();
@@ -932,310 +932,321 @@ impl GossipUi {
                     self.theme.navigation_text_active_color();
 
                 ui.add_space(4.0);
-                let back_label_text = RichText::new("‹ Back");
-                let label = if self.history.is_empty() {
-                    Label::new(
-                        back_label_text.color(self.theme.navigation_text_deactivated_color()),
-                    )
-                } else {
-                    Label::new(back_label_text.color(self.theme.navigation_text_color()))
-                        .sense(Sense::click())
-                };
-                let response = ui.add(label);
-                let response = if let Some(page) = self.history.last() {
-                    response.on_hover_text(format!("back to {}", page.to_short_string()))
-                } else {
-                    response
-                };
-                let response = if !self.history.is_empty() {
-                    response.on_hover_cursor(egui::CursorIcon::PointingHand)
-                } else {
-                    response.on_hover_cursor(egui::CursorIcon::NotAllowed)
-                };
-                if response.clicked() {
-                    self.back(ctx);
-                }
+                self.add_back_button(ui, ctx);
 
                 ui.add_space(4.0);
                 ui.separator();
                 ui.add_space(4.0);
 
-                // ---- Feeds SubMenu ----
-                {
-                    let (mut cstate, header_response) =
-                        self.get_openable_menu(ui, ctx, SubMenu::Feeds);
-                    cstate.show_body_indented(&header_response, ui, |ui| {
-                        let mut all_lists = GLOBALS
-                            .storage
-                            .get_all_person_list_metadata()
-                            .unwrap_or_default();
-
-                        all_lists.sort_by(people::sort_lists);
-
-                        let mut more: usize = 0;
-                        for (list, metadata) in all_lists {
-                            if list == PersonList::Muted {
-                                more += 1;
-                                continue;
-                            }
-                            if list == PersonList::Followed || metadata.favorite {
-                                self.add_menu_item_page(
-                                    ui,
-                                    Page::Feed(FeedKind::List(list, self.mainfeed_include_nonroot)),
-                                    Some(&metadata.title),
-                                    true,
-                                );
-                            } else {
-                                more += 1;
-                            }
-                        }
-                        if more != 0 {
-                            self.add_menu_item_page(
-                                ui,
-                                Page::PeopleLists,
-                                Some(&format!("More ({})...", more)),
-                                false, // do not highlight this entry
-                            );
-                        }
-                    });
-                    self.after_openable_menu(ui, &cstate);
-                }
-
-                if let Some(pubkey) = GLOBALS.identity.public_key() {
-                    if self
-                        .add_selected_label(
-                            ui,
-                            self.page == Page::Feed(FeedKind::Person(pubkey)),
-                            "My notes",
-                        )
-                        .clicked()
-                    {
-                        self.set_page(ctx, Page::Feed(FeedKind::Person(pubkey)));
-                    }
-                    if self
-                        .add_selected_label(
-                            ui,
-                            self.page == Page::Feed(FeedKind::Inbox(self.inbox_include_indirect)),
-                            "Inbox",
-                        )
-                        .clicked()
-                    {
-                        self.set_page(
-                            ctx,
-                            Page::Feed(FeedKind::Inbox(self.inbox_include_indirect)),
-                        );
-                    }
-                }
-
-                // Private chats
-                if GLOBALS.identity.is_unlocked() {
-                    if self
-                        .add_selected_label(ui, self.page == Page::DmChatList, "Private chats")
-                        .clicked()
-                    {
-                        self.set_page(ctx, Page::DmChatList);
-                    }
-                }
-
-                // Search
-                if self
-                    .add_selected_label(ui, self.page == Page::Search, "Search")
-                    .clicked()
-                {
-                    self.set_page(ctx, Page::Search);
-                }
+                self.add_feeds_submenu(ui, ctx);
+                self.add_personal_notes(ui, ctx);
+                self.add_private_chats(ui, ctx);
+                self.add_search(ui, ctx);
 
                 ui.add_space(10.0);
 
-                // ---- People Lists ----
-                {
-                    if self
-                        .add_selected_label(ui, self.page == Page::PeopleLists, "People Lists")
-                        .clicked()
-                    {
-                        self.set_page(ctx, Page::PeopleLists);
-                    }
-                }
-
-                // ---- Relays SubMenu ----
-                {
-                    let (mut cstate, header_response) =
-                        self.get_openable_menu(ui, ctx, SubMenu::Relays);
-                    cstate.show_body_indented(&header_response, ui, |ui| {
-                        self.add_menu_item_page(ui, Page::RelaysActivityMonitor, None, true);
-                        self.add_menu_item_page(ui, Page::RelaysMine, None, true);
-                        self.add_menu_item_page(ui, Page::RelaysKnownNetwork(None), None, true);
-                        ui.vertical(|ui| {
-                            ui.spacing_mut().button_padding *= 2.0;
-                            ui.visuals_mut().widgets.inactive.weak_bg_fill =
-                                self.theme.accent_color().linear_multiply(0.2);
-                            ui.visuals_mut().widgets.inactive.fg_stroke.width = 1.0;
-                            ui.visuals_mut().widgets.hovered.weak_bg_fill =
-                                self.theme.navigation_text_color();
-                            ui.visuals_mut().widgets.hovered.fg_stroke.color =
-                                self.theme.accent_color();
-                            if ui
-                                .button(RichText::new("Add Relay"))
-                                .on_hover_cursor(egui::CursorIcon::PointingHand)
-                                .clicked()
-                            {
-                                relays::start_entry_dialog(self);
-                            }
-                        });
-                    });
-                    self.after_openable_menu(ui, &cstate);
-                }
-
-                // ---- Account SubMenu ----
-                {
-                    let (mut cstate, header_response) =
-                        self.get_openable_menu(ui, ctx, SubMenu::Account);
-                    cstate.show_body_indented(&header_response, ui, |ui| {
-                        self.add_menu_item_page(ui, Page::YourMetadata, None, true);
-                        self.add_menu_item_page(ui, Page::YourKeys, None, true);
-                        self.add_menu_item_page(ui, Page::YourDelegation, None, true);
-                        self.add_menu_item_page(ui, Page::YourNostrConnect, None, true);
-                    });
-                    self.after_openable_menu(ui, &cstate);
-                }
-
-                // ---- Settings ----
-                if self
-                    .add_selected_label(ui, self.page == Page::Settings, "Settings")
-                    .clicked()
-                {
-                    self.set_page(ctx, Page::Settings);
-                }
-
-                // ---- Help SubMenu ----
-                {
-                    let (mut cstate, header_response) =
-                        self.get_openable_menu(ui, ctx, SubMenu::Help);
-                    cstate.show_body_indented(&header_response, ui, |ui| {
-                        self.add_menu_item_page(ui, Page::HelpHelp, None, true);
-                        self.add_menu_item_page(ui, Page::HelpStats, None, true);
-                        self.add_menu_item_page(ui, Page::HelpAbout, None, true);
-                    });
-                    self.after_openable_menu(ui, &cstate);
-                }
+                self.add_people_lists(ui, ctx);
+                self.add_relays_submenu(ui, ctx);
+                self.add_account_submenu(ui, ctx);
+                self.add_settings(ui, ctx);
+                self.add_help_submenu(ui, ctx);
 
                 #[cfg(debug_assertions)]
-                if self
-                    .add_selected_label(ui, self.page == Page::ThemeTest, "Theme Test")
+                self.add_theme_test(ui, ctx);
+
+                self.add_status_area(ui, ctx);
+                self.add_plus_icon(ui, ctx);
+            });
+    }
+
+    fn add_back_button(&mut self, ui: &mut Ui, ctx: &Context) {
+        let back_label_text = RichText::new("‹ Back");
+        let label = if self.history.is_empty() {
+            Label::new(back_label_text.color(self.theme.navigation_text_deactivated_color()))
+        } else {
+            Label::new(back_label_text.color(self.theme.navigation_text_color()))
+                .sense(Sense::click())
+        };
+        let response = ui.add(label);
+        let response = if let Some(page) = self.history.last() {
+            response.on_hover_text(format!("back to {}", page.to_short_string()))
+        } else {
+            response
+        };
+        let response = if !self.history.is_empty() {
+            response.on_hover_cursor(egui::CursorIcon::PointingHand)
+        } else {
+            response.on_hover_cursor(egui::CursorIcon::NotAllowed)
+        };
+        if response.clicked() {
+            self.back(ctx);
+        }
+    }
+
+    fn add_feeds_submenu(&mut self, ui: &mut Ui, ctx: &Context) {
+        let (mut cstate, header_response) = self.get_openable_menu(ui, ctx, SubMenu::Feeds);
+        cstate.show_body_indented(&header_response, ui, |ui| {
+            let mut all_lists = GLOBALS
+                .storage
+                .get_all_person_list_metadata()
+                .unwrap_or_default();
+            all_lists.sort_by(people::sort_lists);
+
+            let mut more: usize = 0;
+            for (list, metadata) in all_lists {
+                if list == PersonList::Muted {
+                    more += 1;
+                    continue;
+                }
+                if list == PersonList::Followed || metadata.favorite {
+                    self.add_menu_item_page(
+                        ui,
+                        Page::Feed(FeedKind::List(list, self.mainfeed_include_nonroot)),
+                        Some(&metadata.title),
+                        true,
+                    );
+                } else {
+                    more += 1;
+                }
+            }
+            if more != 0 {
+                self.add_menu_item_page(
+                    ui,
+                    Page::PeopleLists,
+                    Some(&format!("More ({})...", more)),
+                    false,
+                );
+            }
+        });
+        self.after_openable_menu(ui, &cstate);
+    }
+
+    fn add_personal_notes(&mut self, ui: &mut Ui, ctx: &Context) {
+        if let Some(pubkey) = GLOBALS.identity.public_key() {
+            if self
+                .add_selected_label(
+                    ui,
+                    self.page == Page::Feed(FeedKind::Person(pubkey)),
+                    "My notes",
+                )
+                .clicked()
+            {
+                self.set_page(ctx, Page::Feed(FeedKind::Person(pubkey)));
+            }
+            if self
+                .add_selected_label(
+                    ui,
+                    self.page == Page::Feed(FeedKind::Inbox(self.inbox_include_indirect)),
+                    "Inbox",
+                )
+                .clicked()
+            {
+                self.set_page(
+                    ctx,
+                    Page::Feed(FeedKind::Inbox(self.inbox_include_indirect)),
+                );
+            }
+        }
+    }
+
+    fn add_private_chats(&mut self, ui: &mut Ui, ctx: &Context) {
+        if GLOBALS.identity.is_unlocked() {
+            if self
+                .add_selected_label(ui, self.page == Page::DmChatList, "Private chats")
+                .clicked()
+            {
+                self.set_page(ctx, Page::DmChatList);
+            }
+        }
+    }
+
+    fn add_search(&mut self, ui: &mut Ui, ctx: &Context) {
+        if self
+            .add_selected_label(ui, self.page == Page::Search, "Search")
+            .clicked()
+        {
+            self.set_page(ctx, Page::Search);
+        }
+    }
+
+    fn add_people_lists(&mut self, ui: &mut Ui, ctx: &Context) {
+        if self
+            .add_selected_label(ui, self.page == Page::PeopleLists, "People Lists")
+            .clicked()
+        {
+            self.set_page(ctx, Page::PeopleLists);
+        }
+    }
+
+    fn add_relays_submenu(&mut self, ui: &mut Ui, ctx: &Context) {
+        let (mut cstate, header_response) = self.get_openable_menu(ui, ctx, SubMenu::Relays);
+        cstate.show_body_indented(&header_response, ui, |ui| {
+            self.add_menu_item_page(ui, Page::RelaysActivityMonitor, None, true);
+            self.add_menu_item_page(ui, Page::RelaysMine, None, true);
+            self.add_menu_item_page(ui, Page::RelaysKnownNetwork(None), None, true);
+            ui.vertical(|ui| {
+                ui.spacing_mut().button_padding *= 2.0;
+                ui.visuals_mut().widgets.inactive.weak_bg_fill =
+                    self.theme.accent_color().linear_multiply(0.2);
+                ui.visuals_mut().widgets.inactive.fg_stroke.width = 1.0;
+                ui.visuals_mut().widgets.hovered.weak_bg_fill = self.theme.navigation_text_color();
+                ui.visuals_mut().widgets.hovered.fg_stroke.color = self.theme.accent_color();
+                if ui
+                    .button(RichText::new("Add Relay"))
+                    .on_hover_cursor(egui::CursorIcon::PointingHand)
                     .clicked()
                 {
-                    self.set_page(ctx, Page::ThemeTest);
-                }
-
-                // -- Status Area
-                ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
-                    notifications::draw_icons(self, ui);
-
-                    // -- DEBUG status area
-                    if read_setting!(status_bar) {
-                        let in_flight = GLOBALS.fetcher.requests_in_flight();
-                        let queued = GLOBALS.fetcher.requests_queued();
-                        let m = format!("HTTP: {} / {}", in_flight, queued);
-                        ui.add(Label::new(
-                            RichText::new(m).color(self.theme.notice_marker_text_color()),
-                        ));
-
-                        let subs = GLOBALS.open_subscriptions.load(Ordering::Relaxed);
-                        let m = format!("RELAY SUBSC {}", subs);
-                        ui.add(Label::new(
-                            RichText::new(m).color(self.theme.notice_marker_text_color()),
-                        ));
-
-                        let relays = GLOBALS.connected_relays.len();
-                        let m = format!("RELAYS CONN {}", relays);
-                        ui.add(Label::new(
-                            RichText::new(m).color(self.theme.notice_marker_text_color()),
-                        ));
-
-                        let events = GLOBALS.storage.get_event_len().unwrap_or(0);
-                        let m = format!("EVENTS STOR {}", events);
-                        ui.add(Label::new(
-                            RichText::new(m).color(self.theme.notice_marker_text_color()),
-                        ));
-
-                        let processed = GLOBALS.events_processed.load(Ordering::Relaxed);
-                        let m = format!("EVENTS RECV {}", processed);
-                        ui.add(Label::new(
-                            RichText::new(m).color(self.theme.notice_marker_text_color()),
-                        ));
-
-                        ui.separator();
-                    }
-
-                    self.render_status_queue_area(ui);
-                });
-
-                // ---- "plus icon" ----
-                if !self.show_post_area_fn() && self.page.show_post_icon() {
-                    let feed_newest_at_bottom =
-                        GLOBALS.storage.read_setting_feed_newest_at_bottom();
-                    let pos = if feed_newest_at_bottom {
-                        let top_right = ui.ctx().screen_rect().right_top();
-                        top_right
-                            + Vec2::new(-crate::AVATAR_SIZE_F32 * 2.0, crate::AVATAR_SIZE_F32 * 2.0)
-                    } else {
-                        let bottom_right = ui.ctx().screen_rect().right_bottom();
-                        bottom_right
-                            + Vec2::new(
-                                -crate::AVATAR_SIZE_F32 * 2.0,
-                                -crate::AVATAR_SIZE_F32 * 2.0,
-                            )
-                    };
-
-                    egui::Area::new(ui.next_auto_id())
-                        .movable(false)
-                        .interactable(true)
-                        .fixed_pos(pos)
-                        .constrain(true)
-                        .show(ctx, |ui| {
-                            self.begin_ui(ui);
-                            egui::Frame::popup(&self.theme.get_style())
-                                .rounding(egui::Rounding::same(crate::AVATAR_SIZE_F32 / 2.0)) // need the rounding for the shadow
-                                .stroke(egui::Stroke::NONE)
-                                .fill(Color32::TRANSPARENT)
-                                .shadow(egui::epaint::Shadow::NONE)
-                                .show(ui, |ui| {
-                                    let text = if GLOBALS.identity.is_unlocked() {
-                                        RichText::new("+").size(22.5)
-                                    } else {
-                                        RichText::new("\u{1f513}").size(20.0)
-                                    };
-                                    let fill_color = {
-                                        let fill_color_tuple = self.theme.accent_color().to_tuple();
-                                        Color32::from_rgba_premultiplied(
-                                            fill_color_tuple.0,
-                                            fill_color_tuple.1,
-                                            fill_color_tuple.2,
-                                            128, // half transparent
-                                        )
-                                    };
-                                    let response = ui.add_sized(
-                                        [crate::AVATAR_SIZE_F32, crate::AVATAR_SIZE_F32],
-                                        egui::Button::new(
-                                            text.color(self.theme.get_style().visuals.panel_fill),
-                                        )
-                                        .stroke(egui::Stroke::NONE)
-                                        .rounding(egui::Rounding::same(crate::AVATAR_SIZE_F32))
-                                        .fill(fill_color),
-                                    );
-                                    if response.clicked() {
-                                        self.show_post_area = true;
-                                        if GLOBALS.identity.is_unlocked() {
-                                            self.draft_needs_focus = true;
-                                        } else {
-                                            self.unlock_needs_focus = true;
-                                        }
-                                    }
-                                    response.on_hover_cursor(egui::CursorIcon::PointingHand);
-                                });
-                        });
+                    relays::start_entry_dialog(self);
                 }
             });
+        });
+        self.after_openable_menu(ui, &cstate);
+    }
+
+    fn add_account_submenu(&mut self, ui: &mut Ui, ctx: &Context) {
+        let (mut cstate, header_response) = self.get_openable_menu(ui, ctx, SubMenu::Account);
+        cstate.show_body_indented(&header_response, ui, |ui| {
+            self.add_menu_item_page(ui, Page::YourMetadata, None, true);
+            self.add_menu_item_page(ui, Page::YourKeys, None, true);
+            self.add_menu_item_page(ui, Page::YourDelegation, None, true);
+            self.add_menu_item_page(ui, Page::YourNostrConnect, None, true);
+        });
+        self.after_openable_menu(ui, &cstate);
+    }
+
+    fn add_settings(&mut self, ui: &mut Ui, ctx: &Context) {
+        if self
+            .add_selected_label(ui, self.page == Page::Settings, "Settings")
+            .clicked()
+        {
+            self.set_page(ctx, Page::Settings);
+        }
+    }
+
+    fn add_help_submenu(&mut self, ui: &mut Ui, ctx: &Context) {
+        let (mut cstate, header_response) = self.get_openable_menu(ui, ctx, SubMenu::Help);
+        cstate.show_body_indented(&header_response, ui, |ui| {
+            self.add_menu_item_page(ui, Page::HelpHelp, None, true);
+            self.add_menu_item_page(ui, Page::HelpStats, None, true);
+            self.add_menu_item_page(ui, Page::HelpAbout, None, true);
+        });
+        self.after_openable_menu(ui, &cstate);
+    }
+
+    #[cfg(debug_assertions)]
+    fn add_theme_test(&mut self, ui: &mut Ui, ctx: &Context) {
+        if self
+            .add_selected_label(ui, self.page == Page::ThemeTest, "Theme Test")
+            .clicked()
+        {
+            self.set_page(ctx, Page::ThemeTest);
+        }
+    }
+
+    fn add_status_area(&mut self, ui: &mut Ui, ctx: &Context) {
+        ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
+            notifications::draw_icons(self, ui);
+
+            // DEBUG status area
+            if read_setting!(status_bar) {
+                let in_flight = GLOBALS.fetcher.requests_in_flight();
+                let queued = GLOBALS.fetcher.requests_queued();
+                let m = format!("HTTP: {} / {}", in_flight, queued);
+                ui.add(Label::new(
+                    RichText::new(m).color(self.theme.notice_marker_text_color()),
+                ));
+
+                let subs = GLOBALS.open_subscriptions.load(Ordering::Relaxed);
+                let m = format!("RELAY SUBSC {}", subs);
+                ui.add(Label::new(
+                    RichText::new(m).color(self.theme.notice_marker_text_color()),
+                ));
+
+                let relays = GLOBALS.connected_relays.len();
+                let m = format!("RELAYS CONN {}", relays);
+                ui.add(Label::new(
+                    RichText::new(m).color(self.theme.notice_marker_text_color()),
+                ));
+
+                let events = GLOBALS.storage.get_event_len().unwrap_or(0);
+                let m = format!("EVENTS STOR {}", events);
+                ui.add(Label::new(
+                    RichText::new(m).color(self.theme.notice_marker_text_color()),
+                ));
+
+                let processed = GLOBALS.events_processed.load(Ordering::Relaxed);
+                let m = format!("EVENTS RECV {}", processed);
+                ui.add(Label::new(
+                    RichText::new(m).color(self.theme.notice_marker_text_color()),
+                ));
+
+                ui.separator();
+            }
+
+            self.render_status_queue_area(ui);
+        });
+    }
+
+    fn add_plus_icon(&mut self, ui: &mut Ui, ctx: &Context) {
+        if !self.show_post_area_fn() && self.page.show_post_icon() {
+            let feed_newest_at_bottom = GLOBALS.storage.read_setting_feed_newest_at_bottom();
+            let pos = if feed_newest_at_bottom {
+                let top_right = ui.ctx().screen_rect().right_top();
+                top_right + Vec2::new(-crate::AVATAR_SIZE_F32 * 2.0, crate::AVATAR_SIZE_F32 * 2.0)
+            } else {
+                let bottom_right = ui.ctx().screen_rect().right_bottom();
+                bottom_right
+                    + Vec2::new(-crate::AVATAR_SIZE_F32 * 2.0, -crate::AVATAR_SIZE_F32 * 2.0)
+            };
+
+            egui::Area::new(ui.next_auto_id())
+                .movable(false)
+                .interactable(true)
+                .fixed_pos(pos)
+                .constrain(true)
+                .show(ctx, |ui| {
+                    self.begin_ui(ui);
+                    egui::Frame::popup(&self.theme.get_style())
+                        .rounding(egui::Rounding::same(crate::AVATAR_SIZE_F32 / 2.0))
+                        .stroke(egui::Stroke::NONE)
+                        .fill(Color32::TRANSPARENT)
+                        .shadow(egui::epaint::Shadow::NONE)
+                        .show(ui, |ui| {
+                            let text = if GLOBALS.identity.is_unlocked() {
+                                RichText::new("+").size(22.5)
+                            } else {
+                                RichText::new("\u{1f513}").size(20.0)
+                            };
+                            let fill_color = {
+                                let fill_color_tuple = self.theme.accent_color().to_tuple();
+                                Color32::from_rgba_premultiplied(
+                                    fill_color_tuple.0,
+                                    fill_color_tuple.1,
+                                    fill_color_tuple.2,
+                                    128,
+                                )
+                            };
+                            let response = ui.add_sized(
+                                [crate::AVATAR_SIZE_F32, crate::AVATAR_SIZE_F32],
+                                egui::Button::new(
+                                    text.color(self.theme.get_style().visuals.panel_fill),
+                                )
+                                .stroke(egui::Stroke::NONE)
+                                .rounding(egui::Rounding::same(crate::AVATAR_SIZE_F32))
+                                .fill(fill_color),
+                            );
+                            if response.clicked() {
+                                self.show_post_area = true;
+                                if GLOBALS.identity.is_unlocked() {
+                                    self.draft_needs_focus = true;
+                                } else {
+                                    self.unlock_needs_focus = true;
+                                }
+                            }
+                            response.on_hover_cursor(egui::CursorIcon::PointingHand);
+                        });
+                });
+        }
     }
 }
 
@@ -1981,51 +1992,20 @@ impl GossipUi {
 
         match self.zap_state {
             ZapState::None => return, // should not occur
-            ZapState::CheckingLnurl(_id, _pubkey, ref _lnurl) => {
+            ZapState::CheckingLnurl(_, _, _) => {
                 ui.label("Loading lnurl...");
             }
-            ZapState::SeekingAmount(id, pubkey, ref _prd, ref _lnurl) => {
+            ZapState::SeekingAmount(id, pubkey, _, _) => {
                 let mut amt = 0;
                 ui.label("Zap Amount:");
-                if ui.button("1").clicked() {
-                    amt = 1;
+
+                let amounts = [1, 2, 5, 10, 21, 46, 100, 215, 464, 1000, 2154, 4642, 10000];
+                for &amount in &amounts {
+                    if ui.button(amount.to_string()).clicked() {
+                        amt = amount;
+                    }
                 }
-                if ui.button("2").clicked() {
-                    amt = 2;
-                }
-                if ui.button("5").clicked() {
-                    amt = 5;
-                }
-                if ui.button("10").clicked() {
-                    amt = 10;
-                }
-                if ui.button("21").clicked() {
-                    amt = 21;
-                }
-                if ui.button("46").clicked() {
-                    amt = 46;
-                }
-                if ui.button("100").clicked() {
-                    amt = 100;
-                }
-                if ui.button("215").clicked() {
-                    amt = 215;
-                }
-                if ui.button("464").clicked() {
-                    amt = 464;
-                }
-                if ui.button("1000").clicked() {
-                    amt = 1000;
-                }
-                if ui.button("2154").clicked() {
-                    amt = 2154;
-                }
-                if ui.button("4642").clicked() {
-                    amt = 4642;
-                }
-                if ui.button("10000").clicked() {
-                    amt = 10000;
-                }
+
                 if amt > 0 {
                     let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Zap(
                         id,
