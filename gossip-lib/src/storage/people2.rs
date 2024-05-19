@@ -66,16 +66,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     pub(crate) fn has_person2(&self, pubkey: &PublicKey) -> Result<bool, Error> {
@@ -136,16 +127,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     pub(crate) fn modify_all_people2<'a, M>(
@@ -172,15 +154,6 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 }

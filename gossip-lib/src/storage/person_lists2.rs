@@ -73,16 +73,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     pub(crate) fn get_people_in_all_followed_lists2(&self) -> Result<Vec<PublicKey>, Error> {
@@ -150,16 +141,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     pub(crate) fn hash_person_list2(&self, list: PersonList1) -> Result<u64, Error> {

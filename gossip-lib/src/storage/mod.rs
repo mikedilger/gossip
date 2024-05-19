@@ -10,6 +10,32 @@ macro_rules! key {
     };
 }
 
+macro_rules! write_transact {
+    ($storage:ident, $opttxn:ident, $f:ident) => {
+        match $opttxn {
+            Some(txn) => $f(txn),
+            None => {
+                let mut txn = $storage.env.write_txn()?;
+                let result = $f(&mut txn);
+                txn.commit()?;
+                result
+            }
+        }
+    };
+}
+
+macro_rules! read_transact {
+    ($storage:ident, $opttxn:ident, $f:ident) => {
+        match $opttxn {
+            Some(txn) => $f(txn),
+            None => {
+                let txn = $storage.env.read_txn()?;
+                $f(&txn)
+            }
+        }
+    };
+}
+
 mod migrations;
 
 // type implementations
@@ -93,18 +119,7 @@ macro_rules! def_setting {
                     Ok(self.general.put(txn, $string, &bytes)?)
                 };
 
-                match rw_txn {
-                    Some(txn) => {
-                        f(txn)?;
-                    }
-                    None => {
-                        let mut txn = self.env.write_txn()?;
-                        f(&mut txn)?;
-                        txn.commit()?;
-                    }
-                };
-
-                Ok(())
+                write_transact!(self, rw_txn, f)
             }
 
             #[allow(dead_code)]
@@ -154,16 +169,7 @@ macro_rules! def_flag {
                     Ok(self.general.put(txn, $string, &bytes)?)
                 };
 
-                match rw_txn {
-                    Some(txn) => f(txn)?,
-                    None => {
-                        let mut txn = self.env.write_txn()?;
-                        f(&mut txn)?;
-                        txn.commit()?;
-                    }
-                };
-
-                Ok(())
+                write_transact!(self, rw_txn, f)
             }
 
             pub fn [<get_flag_ $field>](&self) -> bool {
@@ -562,18 +568,7 @@ impl Storage {
             Ok(self.general.put(txn, b"migration_level", &bytes)?)
         };
 
-        match rw_txn {
-            Some(txn) => {
-                f(txn)?;
-            }
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     pub(crate) fn read_migration_level(&self) -> Result<Option<u32>, Error> {
@@ -598,16 +593,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     /// Read the user's encrypted private key
@@ -637,16 +623,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     /// Read NIP-46 unconnected server
@@ -673,16 +650,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     // Flags ------------------------------------------------------------
@@ -1092,16 +1060,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     /// Modify a relay record
@@ -1159,15 +1118,7 @@ impl Storage {
             }
         };
 
-        match rw_txn {
-            Some(txn) => f(txn),
-            None => {
-                let mut txn = self.env.write_txn()?;
-                let result = f(&mut txn);
-                txn.commit()?;
-                result
-            }
-        }
+        write_transact!(self, rw_txn, f)
     }
 
     /// Read matching relay records
@@ -1315,18 +1266,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => {
-                f(txn)?;
-            }
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     /// Write an event
@@ -1406,16 +1346,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     /// Replace any existing event with the passed in event, if it is of a replaceable kind
@@ -1758,16 +1689,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     // We don't call this externally. Whenever we write an event, we do this
@@ -1790,16 +1712,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     // This should be called with the outer giftwrap
@@ -2506,18 +2419,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => {
-                f(txn)?;
-            }
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     pub fn rebuild_event_tags_index<'a>(
@@ -2537,18 +2439,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => {
-                f(txn)?;
-            }
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     /// Read person lists
@@ -2613,18 +2504,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => {
-                f(txn)?;
-            }
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     /// Mark everybody in a list as private
@@ -2641,18 +2521,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => {
-                f(txn)?;
-            }
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     /// Is a person in a list?
@@ -2692,18 +2561,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => {
-                f(txn)?;
-            }
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     /// Remove a person from a list
@@ -2729,18 +2587,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => {
-                f(txn)?;
-            }
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     /// Rebuild relationships
@@ -2760,18 +2607,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => {
-                f(txn)?;
-            }
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     pub fn write_nip46server<'a>(

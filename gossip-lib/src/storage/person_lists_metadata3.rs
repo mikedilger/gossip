@@ -93,16 +93,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     pub(crate) fn get_all_person_list_metadata3(
@@ -189,15 +180,7 @@ impl Storage {
             Ok(list)
         };
 
-        match rw_txn {
-            Some(txn) => Ok(f(txn)?),
-            None => {
-                let mut txn = self.env.write_txn()?;
-                let list = f(&mut txn)?;
-                txn.commit()?;
-                Ok(list)
-            }
-        }
+        write_transact!(self, rw_txn, f)
     }
 
     /// Deallocate this PersonList1
@@ -221,15 +204,6 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 }

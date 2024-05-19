@@ -34,7 +34,7 @@ impl Minion {
                     //
                     // exclude temp_ feeds that get rewritten as we are likely to get data
                     // from the previous version of said filter.
-                    if ! handle.starts_with("temp_") {
+                    if !handle.starts_with("temp_") {
                         let mut it_matches = false;
                         for filter in sub.get_filters().iter() {
                             if filter.event_matches(&event) {

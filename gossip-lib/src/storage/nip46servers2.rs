@@ -59,16 +59,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     pub(crate) fn read_nip46server2(
@@ -106,15 +97,6 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 }
