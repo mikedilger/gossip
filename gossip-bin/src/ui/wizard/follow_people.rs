@@ -32,7 +32,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     for iter in app.wizard_state.followed.iter_mut() {
         if iter.1.is_none() {
             let pk = iter.0.unwrap();
-            if let Ok(Some(p)) = GLOBALS.storage.read_person(&pk) {
+            if let Ok(Some(p)) = GLOBALS.storage.read_person(&pk, None) {
                 iter.0 = None;
                 iter.1 = Some(Rc::new(RefCell::new(p)));
             }

@@ -19,7 +19,7 @@ pub fn hex_id_short(idhex: &IdHex) -> String {
 }
 
 pub fn best_name_from_pubkey_lookup(pubkey: &PublicKey) -> String {
-    match GLOBALS.storage.read_person(pubkey) {
+    match GLOBALS.storage.read_person(pubkey, None) {
         Ok(Some(person)) => person.best_name(),
         _ => pubkey_short(pubkey),
     }

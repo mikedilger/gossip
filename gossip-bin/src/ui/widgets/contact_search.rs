@@ -102,7 +102,7 @@ pub(in crate::ui) fn show_contact_search(
                                 }
                                 let person = GLOBALS
                                     .storage
-                                    .read_person(&pair.1)
+                                    .read_person(&pair.1, None)
                                     .unwrap_or(Some(Person::new(pair.1)))
                                     .unwrap_or(Person::new(pair.1));
                                 ui.horizontal(|ui| {

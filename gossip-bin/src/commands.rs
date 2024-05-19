@@ -712,7 +712,7 @@ pub fn print_seen_on(cmd: Command, mut args: env::Args) -> Result<(), Error> {
 pub fn print_followed(_cmd: Command) -> Result<(), Error> {
     let members = GLOBALS.storage.get_people_in_list(PersonList::Followed)?;
     for (pk, private) in &members {
-        if let Some(person) = GLOBALS.storage.read_person(pk)? {
+        if let Some(person) = GLOBALS.storage.read_person(pk, None)? {
             println!(
                 "{} {} {}",
                 if **private { "prv" } else { "pub" },
@@ -748,7 +748,7 @@ pub fn print_person_lists(_cmd: Command) -> Result<(), Error> {
         println!("LIST {}: {}", u8::from(*list), metadata.title);
         let members = GLOBALS.storage.get_people_in_list(*list)?;
         for (pk, private) in &members {
-            if let Some(person) = GLOBALS.storage.read_person(pk)? {
+            if let Some(person) = GLOBALS.storage.read_person(pk, None)? {
                 println!(
                     "{} {} {}",
                     if **private { "prv" } else { "pub" },
@@ -777,7 +777,7 @@ pub fn print_person(cmd: Command, mut args: env::Args) -> Result<(), Error> {
         None => return cmd.usage("Missing pubkeyHexOrBech32 parameter".to_string()),
     };
 
-    let person = GLOBALS.storage.read_person(&pubkey)?;
+    let person = GLOBALS.storage.read_person(&pubkey, None)?;
     println!("{}", serde_json::to_string(&person)?);
     Ok(())
 }

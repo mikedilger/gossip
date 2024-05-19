@@ -2513,7 +2513,7 @@ impl Overlord {
                     // else we can't go find it, we don't know which relays to ask.
                 }
                 NostrBech32::Profile(prof) => {
-                    if let Some(person) = GLOBALS.storage.read_person(&prof.pubkey)? {
+                    if let Some(person) = GLOBALS.storage.read_person(&prof.pubkey, None)? {
                         people_search_results.push(person);
                     } else {
                         // Create person from profile
@@ -2521,7 +2521,7 @@ impl Overlord {
                     }
                 }
                 NostrBech32::Pubkey(pk) => {
-                    if let Some(person) = GLOBALS.storage.read_person(&pk)? {
+                    if let Some(person) = GLOBALS.storage.read_person(&pk, None)? {
                         people_search_results.push(person);
                     } else {
                         // Create person from pubkey
@@ -3271,7 +3271,7 @@ impl Overlord {
         } else {
             // In every other case we have to load the person and compare
             let mut person_needs_save = false;
-            let mut person = match GLOBALS.storage.read_person(pubkey)? {
+            let mut person = match GLOBALS.storage.read_person(pubkey, None)? {
                 Some(person) => person,
                 None => {
                     person_needs_save = true;

@@ -90,7 +90,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut Frame, ui: 
                             .weak(),
                     );
 
-                    if let Ok(Some(person)) = GLOBALS.storage.read_person(&event.pubkey) {
+                    if let Ok(Some(person)) = GLOBALS.storage.read_person(&event.pubkey, None) {
                         GossipUi::render_person_name_line(app, ui, &person, false);
                     } else {
                         ui.label(event.pubkey.as_bech32_string());

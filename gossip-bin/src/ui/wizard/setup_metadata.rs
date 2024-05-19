@@ -20,7 +20,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         }
     };
 
-    let you = match GLOBALS.storage.read_person(&pubkey) {
+    let you = match GLOBALS.storage.read_person(&pubkey, None) {
         Ok(Some(person)) => person,
         _ => {
             GLOBALS.people.create_if_missing(pubkey);

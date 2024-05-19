@@ -23,7 +23,7 @@ const MIN_ITEM_WIDTH: f32 = 200.0;
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     let (pubkey, person) = match &app.page {
         Page::Person(pubkey) => {
-            let person = match GLOBALS.storage.read_person(pubkey) {
+            let person = match GLOBALS.storage.read_person(pubkey, None) {
                 Ok(Some(p)) => p,
                 _ => Person::new(pubkey.to_owned()),
             };

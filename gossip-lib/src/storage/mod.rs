@@ -1168,7 +1168,7 @@ impl Storage {
     pub fn process_relay_list(&self, event: &Event) -> Result<(), Error> {
         let mut txn = self.env.write_txn()?;
 
-        if let Some(mut person) = self.read_person(&event.pubkey)? {
+        if let Some(mut person) = self.read_person(&event.pubkey, Some(&txn))? {
             // Check if this relay list is newer than the stamp we have for its author
             if let Some(previous_at) = person.relay_list_created_at {
                 if event.created_at.0 <= previous_at {
@@ -2000,14 +2000,22 @@ impl Storage {
 
     /// Has a person record
     #[inline]
-    pub fn has_person(&self, pubkey: &PublicKey) -> Result<bool, Error> {
-        self.has_person2(pubkey)
+    pub fn has_person<'a>(
+        &'a self,
+        pubkey: &PublicKey,
+        txn: Option<&RoTxn<'a>>,
+    ) -> Result<bool, Error> {
+        self.has_person2(pubkey, txn)
     }
 
     /// Read a person record
     #[inline]
-    pub fn read_person(&self, pubkey: &PublicKey) -> Result<Option<Person>, Error> {
-        self.read_person2(pubkey)
+    pub fn read_person<'a>(
+        &'a self,
+        pubkey: &PublicKey,
+        txn: Option<&RoTxn<'a>>,
+    ) -> Result<Option<Person>, Error> {
+        self.read_person2(pubkey, txn)
     }
 
     /// Read a person record, create if missing
@@ -2017,14 +2025,20 @@ impl Storage {
         pubkey: &PublicKey,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<Person, Error> {
-        match self.read_person(pubkey)? {
-            Some(p) => Ok(p),
-            None => {
-                let person = Person::new(pubkey.to_owned());
-                self.write_person(&person, rw_txn)?;
-                Ok(person)
+        let f = |txn: &mut RwTxn<'a>| -> Result<Person, Error> {
+            let rtxn = &**txn;
+
+            match self.read_person(pubkey, Some(rtxn))? {
+                Some(p) => Ok(p),
+                None => {
+                    let person = Person::new(pubkey.to_owned());
+                    self.write_person(&person, Some(txn))?;
+                    Ok(person)
+                }
             }
-        }
+        };
+
+        write_transact!(self, rw_txn, f)
     }
 
     /// Write a new person record only if missing
@@ -2033,11 +2047,16 @@ impl Storage {
         pubkey: &PublicKey,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        if !self.has_person(pubkey)? {
-            let person = Person::new(pubkey.to_owned());
-            self.write_person(&person, rw_txn)?;
-        }
-        Ok(())
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            let rtxn = &**txn;
+            if !self.has_person(pubkey, Some(rtxn))? {
+                let person = Person::new(pubkey.to_owned());
+                self.write_person(&person, Some(txn))?;
+            }
+            Ok(())
+        };
+
+        write_transact!(self, rw_txn, f)
     }
 
     /// Read people matching the filter
