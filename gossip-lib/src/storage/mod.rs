@@ -2136,6 +2136,33 @@ impl Storage {
         self.filter_people2(f)
     }
 
+    /// Modify a person record
+    #[inline]
+    pub fn modify_person<'a, M>(
+        &'a self,
+        pubkey: PublicKey,
+        modify: M,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error>
+    where
+        M: FnMut(&mut Person),
+    {
+        self.modify_person2(pubkey, modify, rw_txn)
+    }
+
+    //// Modify all person records
+    #[inline]
+    pub fn modify_all_people<'a, M>(
+        &'a self,
+        modify: M,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error>
+    where
+        M: FnMut(&mut Person),
+    {
+        self.modify_all_people2(modify, rw_txn)
+    }
+
     /// Read a PersonRelay record
     #[inline]
     pub fn read_person_relay(

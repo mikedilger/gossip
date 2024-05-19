@@ -112,4 +112,75 @@ impl Storage {
         }
         Ok(output)
     }
+
+    pub(crate) fn modify_person2<'a, M>(
+        &'a self,
+        pubkey: PublicKey,
+        mut modify: M,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error>
+    where
+        M: FnMut(&mut Person2),
+    {
+        let key = key!(pubkey.as_bytes());
+
+        let mut f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            let bytes = self.db_people2()?.get(txn, key)?;
+            let mut person = match bytes {
+                Some(bytes) => serde_json::from_slice(bytes)?,
+                None => Person2::new(pubkey.to_owned()),
+            };
+            modify(&mut person);
+            let bytes = serde_json::to_vec(&person)?;
+            self.db_people2()?.put(txn, key, &bytes)?;
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
+    }
+
+    pub(crate) fn modify_all_people2<'a, M>(
+        &'a self,
+        mut modify: M,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error>
+    where
+        M: FnMut(&mut Person2),
+    {
+        let mut f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            let mut iter = self.db_people2()?.iter_mut(txn)?;
+            while let Some(result) = iter.next() {
+                let (key, val) = result?;
+                let mut person: Person2 = serde_json::from_slice(val)?;
+                modify(&mut person);
+                let bytes = serde_json::to_vec(&person)?;
+                // to deal with the unsafety of put_current
+                let key = key.to_owned();
+                unsafe {
+                    iter.put_current(&key, &bytes)?;
+                }
+            }
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => f(txn)?,
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
+        Ok(())
+    }
 }
