@@ -7,6 +7,10 @@ mod migrations;
 // type implementations
 pub mod types;
 
+// table definition
+pub mod table;
+pub use table::Table;
+
 // database implementations
 mod event_akci_index;
 use event_akci_index::AkciKey;
@@ -161,6 +165,11 @@ impl Storage {
     /// Bundling multiple writes together is more efficient.
     pub fn get_write_txn(&self) -> Result<RwTxn<'_>, Error> {
         Ok(self.env.write_txn()?)
+    }
+
+    /// Get a read transaction.
+    pub fn get_read_txn(&self) -> Result<RoTxn<'_>, Error> {
+        Ok(self.env.read_txn()?)
     }
 
     /// Sync the data to disk. This happens periodically, but sometimes it's useful to force
