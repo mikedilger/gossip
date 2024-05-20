@@ -11,6 +11,10 @@ pub mod types;
 pub mod table;
 pub use table::Table;
 
+// new tables
+pub mod person3_table;
+pub use person3_table::Person3Table;
+
 // database implementations
 mod event_akci_index;
 use event_akci_index::AkciKey;
