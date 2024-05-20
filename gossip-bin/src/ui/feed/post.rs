@@ -9,9 +9,7 @@ use egui_winit::egui::text::{CCursor, CCursorRange};
 use egui_winit::egui::text_edit::TextEditOutput;
 use egui_winit::egui::{vec2, AboveOrBelow, Id};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::DmChannel;
-use gossip_lib::Relay;
-use gossip_lib::GLOBALS;
+use gossip_lib::{DmChannel, PersonTable, Relay, Table, GLOBALS};
 use memoize::memoize;
 use nostr_types::{ContentSegment, NostrBech32, NostrUrl, ShatteredContent, Tag};
 use std::collections::HashMap;
@@ -332,7 +330,7 @@ fn dm_posting_area(
             NostrBech32::Profile(prof) => &prof.pubkey,
             _ => continue,
         };
-        let rendered = if let Ok(Some(person)) = GLOBALS.storage.read_person(pk, None) {
+        let rendered = if let Ok(Some(person)) = PersonTable::read_record(*pk, None) {
             match person.name() {
                 Some(name) => name.to_owned(),
                 None => format!("{}", bech32),
@@ -695,7 +693,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
             NostrBech32::Profile(prof) => &prof.pubkey,
             _ => continue,
         };
-        let rendered = if let Ok(Some(person)) = GLOBALS.storage.read_person(pk, None) {
+        let rendered = if let Ok(Some(person)) = PersonTable::read_record(*pk, None) {
             match person.name() {
                 Some(name) => name.to_owned(),
                 None => format!("{}", bech32),
@@ -835,7 +833,7 @@ fn calc_tag_hovers(ui: &mut Ui, app: &mut GossipUi, output: &TextEditOutput) {
                     };
 
                     // create popup and store it
-                    if let Ok(Some(person)) = GLOBALS.storage.read_person(&pubkey, None) {
+                    if let Ok(Some(person)) = PersonTable::read_record(pubkey, None) {
                         let popup = Box::new(
                             widgets::ProfilePopup::new(popup_id, interact_rect, avatar, person)
                                 .show_duration(1.0)

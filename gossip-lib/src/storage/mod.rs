@@ -14,6 +14,7 @@ pub use table::Table;
 // new tables
 pub mod person3_table;
 pub use person3_table::Person3Table;
+pub type PersonTable = Person3Table;
 
 // database implementations
 mod event_akci_index;
@@ -57,7 +58,7 @@ use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::misc::Private;
 use crate::nip46::{Nip46Server, Nip46UnconnectedServer};
-use crate::people::{Person, PersonList, PersonListMetadata};
+use crate::people::{PersonList, PersonListMetadata};
 use crate::person_relay::PersonRelay;
 use crate::profile::Profile;
 use crate::relationship::{RelationshipByAddr, RelationshipById};
@@ -147,7 +148,6 @@ impl Storage {
         let _ = self.db_event_viewed()?;
         let _ = self.db_hashtags()?;
         let _ = self.db_nip46servers()?;
-        let _ = self.db_people()?;
         let _ = self.db_person_relays()?;
         let _ = self.db_relationships_by_id()?;
         let _ = self.db_relationships_by_addr()?;
@@ -155,6 +155,7 @@ impl Storage {
         let _ = self.db_unindexed_giftwraps()?;
         let _ = self.db_person_lists()?;
         let _ = self.db_person_lists_metadata()?;
+        let _ = PersonTable::db()?;
 
         // Do migrations
         match self.read_migration_level()? {
@@ -213,11 +214,6 @@ impl Storage {
     #[inline]
     pub(crate) fn db_nip46servers(&self) -> Result<RawDatabase, Error> {
         self.db_nip46servers2()
-    }
-
-    #[inline]
-    pub(crate) fn db_people(&self) -> Result<RawDatabase, Error> {
-        self.db_people2()
     }
 
     #[inline]
@@ -329,12 +325,6 @@ impl Storage {
     pub fn get_relationships_by_id_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
         Ok(self.db_relationships_by_id()?.len(&txn)?)
-    }
-
-    /// The number of records in the people table
-    #[inline]
-    pub fn get_people_len(&self) -> Result<u64, Error> {
-        self.get_people2_len()
     }
 
     /// The number of records in the person_relays table
@@ -1069,7 +1059,7 @@ impl Storage {
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            if let Some(mut person) = self.read_person(&event.pubkey, Some(&txn))? {
+            if let Some(mut person) = PersonTable::read_record(event.pubkey, Some(&txn))? {
                 // Check if this relay list is newer than the stamp we have for its author
                 if let Some(previous_at) = person.relay_list_created_at {
                     if event.created_at.0 <= previous_at {
@@ -1083,7 +1073,7 @@ impl Storage {
                 person.relay_list_created_at = Some(event.created_at.0);
 
                 // And save those marks in the Person record
-                self.write_person(&person, Some(txn))?;
+                PersonTable::write_record(&mut person, Some(txn))?;
             }
 
             let mut ours = false;
@@ -1904,113 +1894,6 @@ impl Storage {
         Ok(reasons)
     }
 
-    /// Write a person record
-    #[inline]
-    pub fn write_person<'a>(
-        &'a self,
-        person: &Person,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error> {
-        self.write_person2(person, rw_txn)
-    }
-
-    /// Has a person record
-    #[inline]
-    pub fn has_person<'a>(
-        &'a self,
-        pubkey: &PublicKey,
-        txn: Option<&RoTxn<'a>>,
-    ) -> Result<bool, Error> {
-        self.has_person2(pubkey, txn)
-    }
-
-    /// Read a person record
-    #[inline]
-    pub fn read_person<'a>(
-        &'a self,
-        pubkey: &PublicKey,
-        txn: Option<&RoTxn<'a>>,
-    ) -> Result<Option<Person>, Error> {
-        self.read_person2(pubkey, txn)
-    }
-
-    /// Read a person record, create if missing
-    #[inline]
-    pub fn read_or_create_person<'a>(
-        &'a self,
-        pubkey: &PublicKey,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<Person, Error> {
-        let f = |txn: &mut RwTxn<'a>| -> Result<Person, Error> {
-            let rtxn = &**txn;
-
-            match self.read_person(pubkey, Some(rtxn))? {
-                Some(p) => Ok(p),
-                None => {
-                    let person = Person::new(pubkey.to_owned());
-                    self.write_person(&person, Some(txn))?;
-                    Ok(person)
-                }
-            }
-        };
-
-        write_transact!(self, rw_txn, f)
-    }
-
-    /// Write a new person record only if missing
-    pub fn write_person_if_missing<'a>(
-        &'a self,
-        pubkey: &PublicKey,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error> {
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let rtxn = &**txn;
-            if !self.has_person(pubkey, Some(rtxn))? {
-                let person = Person::new(pubkey.to_owned());
-                self.write_person(&person, Some(txn))?;
-            }
-            Ok(())
-        };
-
-        write_transact!(self, rw_txn, f)
-    }
-
-    /// Read people matching the filter
-    #[inline]
-    pub fn filter_people<F>(&self, f: F) -> Result<Vec<Person>, Error>
-    where
-        F: Fn(&Person) -> bool,
-    {
-        self.filter_people2(f)
-    }
-
-    /// Modify a person record
-    #[inline]
-    pub fn modify_person<'a, M>(
-        &'a self,
-        pubkey: PublicKey,
-        modify: M,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error>
-    where
-        M: FnMut(&mut Person),
-    {
-        self.modify_person2(pubkey, modify, rw_txn)
-    }
-
-    //// Modify all person records
-    #[inline]
-    pub fn modify_all_people<'a, M>(
-        &'a self,
-        modify: M,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error>
-    where
-        M: FnMut(&mut Person),
-    {
-        self.modify_all_people2(modify, rw_txn)
-    }
-
     /// Read a PersonRelay record
     #[inline]
     pub fn read_person_relay(
@@ -2382,7 +2265,8 @@ impl Storage {
 
         // Clear relay_list_created_at fields in person records so that
         // it will rebuild
-        self.modify_all_people(
+        PersonTable::filter_modify(
+            |_| true,
             |person| {
                 person.relay_list_created_at = None;
             },

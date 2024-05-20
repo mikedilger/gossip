@@ -1,7 +1,7 @@
 use egui_winit::egui::{
     self, text_edit::TextEditOutput, AboveOrBelow, Key, Modifiers, RichText, Ui,
 };
-use gossip_lib::{Person, GLOBALS};
+use gossip_lib::{Person, PersonTable, Table};
 use nostr_types::PublicKey;
 
 use crate::ui::GossipUi;
@@ -100,9 +100,7 @@ pub(in crate::ui) fn show_contact_search(
                                 if is_selected {
                                     app.theme.on_accent_style(ui.style_mut())
                                 }
-                                let person = GLOBALS
-                                    .storage
-                                    .read_person(&pair.1, None)
+                                let person = PersonTable::read_record(pair.1, None)
                                     .unwrap_or(Some(Person::new(pair.1)))
                                     .unwrap_or(Person::new(pair.1));
                                 ui.horizontal(|ui| {

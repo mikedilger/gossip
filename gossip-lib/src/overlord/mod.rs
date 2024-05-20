@@ -13,6 +13,7 @@ use crate::nip46::{Approval, ParsedCommand};
 use crate::pending::PendingItem;
 use crate::people::{Person, PersonList};
 use crate::relay::Relay;
+use crate::storage::{PersonTable, Table};
 use crate::tags::{
     add_addr_to_tags, add_event_to_tags, add_pubkey_to_tags, add_subject_to_tags_if_missing,
 };
@@ -2519,7 +2520,7 @@ impl Overlord {
                     // else we can't go find it, we don't know which relays to ask.
                 }
                 NostrBech32::Profile(prof) => {
-                    if let Some(person) = GLOBALS.storage.read_person(&prof.pubkey, None)? {
+                    if let Some(person) = PersonTable::read_record(prof.pubkey, None)? {
                         people_search_results.push(person);
                     } else {
                         // Create person from profile
@@ -2527,7 +2528,7 @@ impl Overlord {
                     }
                 }
                 NostrBech32::Pubkey(pk) => {
-                    if let Some(person) = GLOBALS.storage.read_person(&pk, None)? {
+                    if let Some(person) = PersonTable::read_record(pk, None)? {
                         people_search_results.push(person);
                     } else {
                         // Create person from pubkey
@@ -2538,23 +2539,26 @@ impl Overlord {
             }
         }
 
-        people_search_results.extend(GLOBALS.storage.filter_people(|p| {
-            if let Some(metadata) = &p.metadata {
-                if let Ok(s) = serde_json::to_string(&metadata) {
-                    if s.to_lowercase().contains(&text) {
+        people_search_results.extend(PersonTable::filter_records(
+            |p| {
+                if let Some(metadata) = p.metadata() {
+                    if let Ok(s) = serde_json::to_string(&metadata) {
+                        if s.to_lowercase().contains(&text) {
+                            return true;
+                        }
+                    }
+                }
+
+                if let Some(petname) = &p.petname {
+                    if petname.to_lowercase().contains(&text) {
                         return true;
                     }
                 }
-            }
 
-            if let Some(petname) = &p.petname {
-                if petname.to_lowercase().contains(&text) {
-                    return true;
-                }
-            }
-
-            false
-        })?);
+                false
+            },
+            None,
+        )?);
 
         note_search_results.extend(GLOBALS.storage.search_events(&text)?);
 
@@ -2943,9 +2947,7 @@ impl Overlord {
         let now = Unixtime::now().unwrap();
         let mut txn = GLOBALS.storage.get_write_txn()?;
         for pk in pubkeys.iter() {
-            let mut person = GLOBALS.storage.read_or_create_person(pk, Some(&mut txn))?;
-            person.relay_list_last_sought = now.0;
-            GLOBALS.storage.write_person(&person, Some(&mut txn))?;
+            PersonTable::modify(*pk, |p| p.relay_list_last_sought = now.0, Some(&mut txn))?;
         }
         txn.commit()?;
 
@@ -3273,32 +3275,22 @@ impl Overlord {
         if merge && petname.is_none() {
             // In this case, we leave any existing petname, so no need to load the
             // person record. But we need to ensure the person exists
-            GLOBALS.storage.write_person_if_missing(pubkey, Some(txn))?;
+            PersonTable::create_record_if_missing(*pubkey, Some(txn))?;
         } else {
-            // In every other case we have to load the person and compare
-            let mut person_needs_save = false;
-            let mut person = match GLOBALS.storage.read_person(pubkey, None)? {
-                Some(person) => person,
-                None => {
-                    person_needs_save = true;
-                    Person::new(pubkey.to_owned())
-                }
-            };
-
-            if *petname != person.petname {
-                if petname.is_some() && petname != &Some("".to_string()) {
-                    person_needs_save = true;
-                    person.petname = petname.clone();
-                } else if !merge {
-                    // In overwrite mode, clear to None
-                    person_needs_save = true;
-                    person.petname = None;
-                }
-            }
-
-            if person_needs_save {
-                GLOBALS.storage.write_person(&person, Some(txn))?;
-            }
+            PersonTable::modify(
+                *pubkey,
+                |person| {
+                    if *petname != person.petname {
+                        if petname.is_some() && petname != &Some("".to_string()) {
+                            person.petname = petname.clone();
+                        } else if !merge {
+                            // In overwrite mode, clear to None
+                            person.petname = None;
+                        }
+                    }
+                },
+                None,
+            )?;
         }
 
         Ok(())

@@ -1,5 +1,5 @@
 use gossip_lib::GLOBALS;
-use gossip_lib::{Person, PersonList, Private};
+use gossip_lib::{Person, PersonList, PersonTable, Private, Table};
 use std::collections::HashMap;
 
 use nostr_types::{
@@ -246,7 +246,7 @@ impl NoteData {
             event.pubkey
         };
 
-        let author = match GLOBALS.storage.read_person(&author_pubkey, None) {
+        let author = match PersonTable::read_record(author_pubkey, None) {
             Ok(Some(p)) => p,
             _ => Person::new(author_pubkey),
         };

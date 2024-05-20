@@ -78,20 +78,20 @@ impl Person3 {
         }
     }
 
-    pub fn metadata(&self) -> Option<&Metadata> {
-        self.deserialized_metadata.get_or_init(|| {
-            match &self.metadata_json {
+    pub fn metadata(&self) -> &Option<Metadata> {
+        &self
+            .deserialized_metadata
+            .get_or_init(|| match &self.metadata_json {
                 None => None,
-                Some(s) => serde_json::from_str::<Metadata>(s).ok()
-            }
-        }).as_ref()
+                Some(s) => serde_json::from_str::<Metadata>(s).ok(),
+            })
     }
 
     pub fn metadata_mut(&mut self) -> &mut Option<Metadata> {
         if self.deserialized_metadata.get().is_none() {
             let md = match &self.metadata_json {
                 None => None,
-                Some(s) => serde_json::from_str::<Metadata>(s).ok()
+                Some(s) => serde_json::from_str::<Metadata>(s).ok(),
             };
             self.deserialized_metadata.set(md).unwrap();
         }

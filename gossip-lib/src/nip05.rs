@@ -14,7 +14,9 @@ pub async fn validate_nip05(person: Person) -> Result<(), Error> {
     let now = Unixtime::now().unwrap();
 
     // invalid if their nip-05 is not set
-    if person.metadata.is_none() || matches!(person.metadata, Some(Metadata { nip05: None, .. })) {
+    if person.metadata().is_none()
+        || matches!(person.metadata(), Some(Metadata { nip05: None, .. }))
+    {
         GLOBALS
             .people
             .upsert_nip05_validity(&person.pubkey, None, false, now.0 as u64)
@@ -22,7 +24,7 @@ pub async fn validate_nip05(person: Person) -> Result<(), Error> {
         return Ok(());
     }
 
-    let metadata = person.metadata.as_ref().unwrap().to_owned();
+    let metadata = person.metadata().as_ref().unwrap().to_owned();
     let nip05 = metadata.nip05.as_ref().unwrap().to_owned();
 
     // Split their DNS ID

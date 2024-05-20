@@ -966,7 +966,7 @@ pub fn render_note_inner(
                                     // To zap, the user must have a lnurl, and the event must have been
                                     // seen on some relays
                                     let mut zap_lnurl: Option<String> = None;
-                                    if let Some(ref metadata) = note.author.metadata {
+                                    if let Some(ref metadata) = note.author.metadata() {
                                         if let Some(lnurl) = metadata.lnurl() {
                                             zap_lnurl = Some(lnurl);
                                         }

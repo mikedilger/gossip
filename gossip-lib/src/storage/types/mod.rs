@@ -94,5 +94,5 @@ pub trait Record: ByteRep {
 
     /// Stabilize a record prior to writing.
     /// Usually nothing needs to be done.
-    fn stabilize(&mut self) { }
+    fn stabilize(&mut self) {}
 }

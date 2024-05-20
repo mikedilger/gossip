@@ -4,7 +4,7 @@ use egui::widgets::{Button, Slider};
 use egui::{Align, Context, Layout};
 use egui_winit::egui::{vec2, Ui};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::{FeedKind, PersonList, Relay, RunState, GLOBALS};
+use gossip_lib::{FeedKind, PersonList, PersonTable, Relay, RunState, Table, GLOBALS};
 use nostr_types::RelayUrl;
 
 mod follow_people;
@@ -199,9 +199,9 @@ pub(super) fn start_wizard_page(wizard_state: &mut WizardState) -> Option<Wizard
 
     if !wizard_state.follow_only {
         if let Some(pk) = &wizard_state.pubkey {
-            match GLOBALS.storage.read_person(pk, None) {
+            match PersonTable::read_record(*pk, None) {
                 Ok(Some(person)) => {
-                    if person.metadata.is_none() {
+                    if person.metadata().is_none() {
                         return Some(WizardPage::SetupMetadata);
                     }
                 }

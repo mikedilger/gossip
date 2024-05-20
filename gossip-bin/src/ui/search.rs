@@ -3,8 +3,7 @@ use eframe::{egui, Frame};
 use egui::widgets::Button;
 use egui::{Context, Label, RichText, Sense, Ui};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::FeedKind;
-use gossip_lib::GLOBALS;
+use gossip_lib::{FeedKind, PersonTable, Table, GLOBALS};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut Frame, ui: &mut Ui) {
     ui.add_space(10.0);
@@ -90,7 +89,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut Frame, ui: 
                             .weak(),
                     );
 
-                    if let Ok(Some(person)) = GLOBALS.storage.read_person(&event.pubkey, None) {
+                    if let Ok(Some(person)) = PersonTable::read_record(event.pubkey, None) {
                         GossipUi::render_person_name_line(app, ui, &person, false);
                     } else {
                         ui.label(event.pubkey.as_bech32_string());

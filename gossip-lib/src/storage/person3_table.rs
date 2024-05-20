@@ -1,9 +1,9 @@
+use super::types::Person3;
+use super::Table;
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use super::Table;
-use super::types::Person3;
-use heed::Database;
 use heed::types::Bytes;
+use heed::Database;
 use std::sync::Mutex;
 
 static PERSON3_DB_CREATE_LOCK: Mutex<()> = Mutex::new(());
@@ -34,7 +34,8 @@ impl Table for Person3Table {
                 // Create it. We know that nobody else is doing this and that
                 // it cannot happen twice.
                 let mut txn = GLOBALS.storage.env.write_txn()?;
-                let db = GLOBALS.storage
+                let db = GLOBALS
+                    .storage
                     .env
                     .database_options()
                     .types::<Bytes, Bytes>()
