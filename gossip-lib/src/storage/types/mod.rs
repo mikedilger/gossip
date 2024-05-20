@@ -4,6 +4,9 @@ pub(crate) use person1::Person1;
 mod person2;
 pub use person2::Person2;
 
+mod person3;
+pub use person3::Person3;
+
 mod person_list1;
 pub use person_list1::PersonList1;
 
