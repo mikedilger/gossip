@@ -1052,6 +1052,74 @@ impl Storage {
         Ok(relay_list)
     }
 
+    /// Process a DM relay list event
+    pub fn process_dm_relay_list(&self, event: &Event) -> Result<(), Error> {
+        let mut txn = self.env.write_txn()?;
+
+        // Determine if this is our own DM relay list
+        let mut ours = false;
+        if let Some(pubkey) = self.read_setting_public_key() {
+            if event.pubkey == pubkey {
+                tracing::info!("Processing our own dm relay list");
+                ours = true;
+            }
+        }
+
+        // Update the person.dm_relay_list_created_at field
+        {
+            let mut person = PersonTable::read_or_create_record(event.pubkey, Some(&mut txn))?;
+
+            // Bail out if this list wasn't newer than the last one we processed
+            if let Some(prior_created_at) = person.dm_relay_list_created_at {
+                if prior_created_at >= *event.created_at {
+                    txn.commit()?; // because we may have created the person record.
+                    return Ok(());
+                }
+            }
+
+            person.dm_relay_list_created_at = Some(*event.created_at);
+
+            PersonTable::write_record(&mut person, Some(&mut txn))?;
+        }
+
+        // Clear all current 'dm' flags in all matching person_relays
+        {
+            self.modify_all_persons_relays(event.pubkey, |pr| pr.dm = false, Some(&mut txn))?;
+        }
+
+        // Extract relays from event
+        let mut relays: Vec<RelayUrl> = Vec::new();
+        for tag in event.tags.iter() {
+            if tag.tagname() == "relay" {
+                if let Ok(relay_url) = RelayUrl::try_from_str(tag.value()) {
+                    relays.push(relay_url);
+                }
+            }
+        }
+
+        // Set 'dm' flags in person_relay record
+        for relay_url in relays.iter() {
+            self.modify_person_relay(event.pubkey, relay_url, |pr| pr.dm = true, Some(&mut txn))?;
+        }
+
+        if ours {
+            // Clear all relay DM flags
+            self.modify_all_relays(|relay| relay.clear_usage_bits(Relay::DM), Some(&mut txn))?;
+
+            for relay_url in relays.iter() {
+                // Set DM flag in relay
+                self.modify_relay(
+                    relay_url,
+                    |relay| relay.set_usage_bits(Relay::DM),
+                    Some(&mut txn),
+                )?;
+            }
+        }
+
+        txn.commit()?;
+        Ok(())
+    }
+
     /// Process a relay list event
     pub fn process_relay_list<'a>(
         &'a self,
