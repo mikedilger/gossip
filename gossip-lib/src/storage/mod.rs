@@ -1928,6 +1928,24 @@ impl Storage {
         self.modify_person_relay2(pubkey, url, modify, rw_txn)
     }
 
+    /// Read a person record, create if missing
+    #[inline]
+    pub fn read_or_create_person_relay<'a>(
+        &'a self,
+        pubkey: PublicKey,
+        url: &RelayUrl,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<PersonRelay, Error> {
+        match self.read_person_relay(pubkey, url)? {
+            Some(pr) => Ok(pr),
+            None => {
+                let person_relay = PersonRelay::new(pubkey.to_owned(), url.to_owned());
+                self.write_person_relay(&person_relay, rw_txn)?;
+                Ok(person_relay)
+            }
+        }
+    }
+
     /// get PersonRelay records for a person
     #[inline]
     pub fn get_person_relays(&self, pubkey: PublicKey) -> Result<Vec<PersonRelay>, Error> {
