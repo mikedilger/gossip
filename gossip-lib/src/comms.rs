@@ -24,7 +24,7 @@ pub enum ToOverlordMessage {
     AdvertiseRelayList,
 
     /// internal
-    AdvertiseRelayListNextChunk(Box<Event>, Vec<RelayUrl>),
+    AdvertiseRelayListNextChunk(Box<Event>, Box<Event>, Vec<RelayUrl>),
 
     /// Calls [auth_approved](crate::Overlord::auth_approved)
     /// pass 'true' as the second parameter for a permanent approval
@@ -242,7 +242,7 @@ impl PartialEq for ToMinionPayload {
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum ToMinionPayloadDetail {
-    AdvertiseRelayList(Box<Event>),
+    AdvertiseRelayList(Box<Event>, Box<Event>),
     AuthApproved,
     AuthDeclined,
     FetchEvent(Id),

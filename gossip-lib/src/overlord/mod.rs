@@ -606,8 +606,9 @@ impl Overlord {
             ToOverlordMessage::AdvertiseRelayList => {
                 self.advertise_relay_list().await?;
             }
-            ToOverlordMessage::AdvertiseRelayListNextChunk(event, relays) => {
-                self.advertise_relay_list_next_chunk(event, relays).await?;
+            ToOverlordMessage::AdvertiseRelayListNextChunk(event, dmevent, relays) => {
+                self.advertise_relay_list_next_chunk(event, dmevent, relays)
+                    .await?;
             }
             ToOverlordMessage::AuthApproved(relay_url, permanent) => {
                 self.auth_approved(relay_url, permanent)?;
@@ -835,34 +836,56 @@ impl Overlord {
             }
         };
 
-        let inbox_or_outbox_relays: Vec<Relay> = GLOBALS
-            .storage
-            .filter_relays(|r| r.has_usage_bits(Relay::INBOX) || r.has_usage_bits(Relay::OUTBOX))?;
-        let mut tags: Vec<Tag> = Vec::new();
-        for relay in inbox_or_outbox_relays.iter() {
-            let marker =
-                if relay.has_usage_bits(Relay::INBOX) && relay.has_usage_bits(Relay::OUTBOX) {
-                    None
-                } else if relay.has_usage_bits(Relay::INBOX) {
-                    Some("read".to_owned()) // NIP-65 uses the term 'read' instead of 'inbox'
-                } else if relay.has_usage_bits(Relay::OUTBOX) {
-                    Some("write".to_owned()) // NIP-65 uses the term 'write' instead of 'outbox'
-                } else {
-                    unreachable!()
-                };
+        let event = {
+            let inbox_or_outbox_relays: Vec<Relay> = GLOBALS.storage.filter_relays(|r| {
+                r.has_usage_bits(Relay::INBOX) || r.has_usage_bits(Relay::OUTBOX)
+            })?;
+            let mut tags: Vec<Tag> = Vec::new();
+            for relay in inbox_or_outbox_relays.iter() {
+                let marker =
+                    if relay.has_usage_bits(Relay::INBOX) && relay.has_usage_bits(Relay::OUTBOX) {
+                        None
+                    } else if relay.has_usage_bits(Relay::INBOX) {
+                        Some("read".to_owned()) // NIP-65 uses the term 'read' instead of 'inbox'
+                    } else if relay.has_usage_bits(Relay::OUTBOX) {
+                        Some("write".to_owned()) // NIP-65 uses the term 'write' instead of 'outbox'
+                    } else {
+                        unreachable!()
+                    };
 
-            tags.push(Tag::new_relay(relay.url.to_unchecked_url(), marker));
-        }
+                tags.push(Tag::new_relay(relay.url.to_unchecked_url(), marker));
+            }
 
-        let pre_event = PreEvent {
-            pubkey: public_key,
-            created_at: Unixtime::now().unwrap(),
-            kind: EventKind::RelayList,
-            tags,
-            content: "".to_string(),
+            let pre_event = PreEvent {
+                pubkey: public_key,
+                created_at: Unixtime::now().unwrap(),
+                kind: EventKind::RelayList,
+                tags,
+                content: "".to_string(),
+            };
+
+            GLOBALS.identity.sign_event(pre_event)?
         };
 
-        let event = GLOBALS.identity.sign_event(pre_event)?;
+        let dm_event = {
+            let dm_relays: Vec<Relay> = GLOBALS
+                .storage
+                .filter_relays(|r| r.has_usage_bits(Relay::DM))?;
+            let mut tags: Vec<Tag> = Vec::new();
+            for relay in dm_relays.iter() {
+                tags.push(Tag::new(&["relay", relay.url.as_str()]));
+            }
+
+            let pre_event = PreEvent {
+                pubkey: public_key,
+                created_at: Unixtime::now().unwrap(),
+                kind: EventKind::DmRelayList,
+                tags,
+                content: "".to_string(),
+            };
+
+            GLOBALS.identity.sign_event(pre_event)?
+        };
 
         let relays: Vec<RelayUrl> = GLOBALS
             .storage
@@ -878,6 +901,7 @@ impl Overlord {
             .to_overlord
             .send(ToOverlordMessage::AdvertiseRelayListNextChunk(
                 Box::new(event),
+                Box::new(dm_event),
                 relays,
             ));
 
@@ -888,10 +912,11 @@ impl Overlord {
     pub async fn advertise_relay_list_next_chunk(
         &mut self,
         event: Box<Event>,
+        dmevent: Box<Event>,
         relays: Vec<RelayUrl>,
     ) -> Result<(), Error> {
         tracing::info!(
-            "Advertising relay list, {} more relays to go...",
+            "Advertising relay lists, {} more relays to go...",
             relays.len()
         );
 
@@ -909,7 +934,10 @@ impl Overlord {
                         reason: RelayConnectionReason::Advertising,
                         payload: ToMinionPayload {
                             job_id,
-                            detail: ToMinionPayloadDetail::AdvertiseRelayList(event.clone()),
+                            detail: ToMinionPayloadDetail::AdvertiseRelayList(
+                                event.clone(),
+                                dmevent.clone(),
+                            ),
                         },
                     }],
                 )
@@ -934,6 +962,7 @@ impl Overlord {
                     .to_overlord
                     .send(ToOverlordMessage::AdvertiseRelayListNextChunk(
                         event,
+                        dmevent,
                         relays[10..].to_owned(),
                     ));
             }

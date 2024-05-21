@@ -144,7 +144,7 @@ impl Minion {
         let mut short_timeout = false;
         for m in &messages {
             // When advertising relay lists, use a short timeout
-            if matches!(m.detail, ToMinionPayloadDetail::AdvertiseRelayList(_)) {
+            if matches!(m.detail, ToMinionPayloadDetail::AdvertiseRelayList(_, _)) {
                 short_timeout = true;
             }
         }
@@ -476,7 +476,7 @@ impl Minion {
         message: ToMinionPayload,
     ) -> Result<(), Error> {
         match message.detail {
-            ToMinionPayloadDetail::AdvertiseRelayList(event) => {
+            ToMinionPayloadDetail::AdvertiseRelayList(event, dmevent) => {
                 let id = event.id;
                 self.postings.insert(id);
                 let msg = ClientMessage::Event(event);
@@ -484,7 +484,17 @@ impl Minion {
                 let ws_stream = self.stream.as_mut().unwrap();
                 self.last_message_sent = wire.clone();
                 ws_stream.send(WsMessage::Text(wire)).await?;
-                tracing::info!("Advertised relay list to {}", &self.url);
+
+                let id = dmevent.id;
+                self.postings.insert(id);
+                let msg = ClientMessage::Event(dmevent);
+                let wire = serde_json::to_string(&msg)?;
+                let ws_stream = self.stream.as_mut().unwrap();
+                self.last_message_sent = wire.clone();
+                ws_stream.send(WsMessage::Text(wire)).await?;
+
+                tracing::info!("Advertised relay lists to {}", &self.url);
+
                 self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
                     self.url.clone(),
                     message.job_id,
