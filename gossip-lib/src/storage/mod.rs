@@ -2052,7 +2052,8 @@ impl Storage {
         self.delete_person_relays2(filter, rw_txn)
     }
 
-    /// Get the best relays for a person, given a direction.
+    /// Get the best relays for a person, given a direction (read/write/both).
+    /// Does not handle DM usage, use get_dm_relays() for that.
     ///
     /// This returns the relays for a person, along with a score, in order of score.
     /// usage must not be RelayUsage::Both
@@ -2133,6 +2134,31 @@ impl Storage {
         }
 
         Ok(ranked_relays)
+    }
+
+    /// This gets NIP-17 DM relays only.
+    ///
+    /// At the time of writing, not many people have these specified, in which case
+    /// the caller should fallback to write relays and NIP-04.
+    pub fn get_dm_relays(&self, pubkey: PublicKey) -> Result<Vec<RelayUrl>, Error> {
+        let mut output: Vec<RelayUrl> = Vec::new();
+        for pr in self.get_person_relays(pubkey)?.drain(..) {
+            if pr.dm {
+                output.push(pr.url)
+            }
+        }
+        Ok(output)
+    }
+
+    /// This determines if a person has any NIP-17 DM relays, slightly faster
+    /// than get_dm_relays() would.
+    pub fn has_dm_relays(&self, pubkey: PublicKey) -> Result<bool, Error> {
+        for pr in self.get_person_relays(pubkey)?.drain(..) {
+            if pr.dm {
+                return Ok(true);
+            }
+        }
+        Ok(false)
     }
 
     /// Get all the DM channels with associated data
