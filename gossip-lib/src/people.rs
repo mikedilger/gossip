@@ -163,7 +163,7 @@ impl People {
                 .storage
                 .read_setting_relay_list_becomes_stale_minutes() as i64;
 
-        match GLOBALS.storage.read_person(&pubkey) {
+        match GLOBALS.storage.read_person(&pubkey, None) {
             Err(_) => Freshness::NeverSought,
             Ok(None) => Freshness::NeverSought,
             Ok(Some(p)) => {
@@ -259,7 +259,7 @@ impl People {
                 }
             }
 
-            match GLOBALS.storage.read_person(&pubkey) {
+            match GLOBALS.storage.read_person(&pubkey, None) {
                 Ok(Some(person)) => {
                     // We need metadata if it is missing or old
                     let need = {
@@ -312,7 +312,7 @@ impl People {
         // Copy the person
         let mut person = GLOBALS
             .storage
-            .read_person(pubkey)?
+            .read_person(pubkey, None)?
             .unwrap_or(Person::new(pubkey.to_owned()));
 
         // Update metadata_last_received, even if we don't update the metadata
@@ -429,7 +429,7 @@ impl People {
         }
 
         // Get the person this is about
-        let person = match GLOBALS.storage.read_person(pubkey) {
+        let person = match GLOBALS.storage.read_person(pubkey, None) {
             Ok(Some(person)) => person,
             _ => return None, // can recover once the person is loaded
         };
@@ -696,7 +696,7 @@ impl People {
 
             // Only include petnames in the ContactList (which is only public people)
             let petname = if kind == EventKind::ContactList {
-                if let Some(person) = GLOBALS.storage.read_person(pubkey)? {
+                if let Some(person) = GLOBALS.storage.read_person(pubkey, None)? {
                     person.petname.clone()
                 } else {
                     None
@@ -856,7 +856,7 @@ impl People {
     ) -> Result<bool, Error> {
         let mut retval = false;
 
-        let mut person = match GLOBALS.storage.read_person(&pubkey)? {
+        let mut person = match GLOBALS.storage.read_person(&pubkey, None)? {
             Some(person) => person,
             None => Person::new(pubkey),
         };
@@ -879,7 +879,7 @@ impl People {
     pub(crate) async fn update_nip05_last_checked(&self, pubkey: PublicKey) -> Result<(), Error> {
         let now = Unixtime::now().unwrap().0;
 
-        if let Some(mut person) = GLOBALS.storage.read_person(&pubkey)? {
+        if let Some(mut person) = GLOBALS.storage.read_person(&pubkey, None)? {
             person.nip05_last_checked = Some(now as u64);
             GLOBALS.storage.write_person(&person, None)?;
         }
@@ -895,7 +895,7 @@ impl People {
         nip05_last_checked: u64,
     ) -> Result<(), Error> {
         // Update memory
-        if let Some(mut person) = GLOBALS.storage.read_person(pubkey)? {
+        if let Some(mut person) = GLOBALS.storage.read_person(pubkey, None)? {
             if let Some(metadata) = &mut person.metadata {
                 metadata.nip05 = nip05
             } else {

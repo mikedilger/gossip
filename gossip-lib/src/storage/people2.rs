@@ -2,7 +2,7 @@ use crate::error::Error;
 use crate::storage::types::Person2;
 use crate::storage::{RawDatabase, Storage};
 use heed::types::Bytes;
-use heed::RwTxn;
+use heed::{RoTxn, RwTxn};
 use nostr_types::PublicKey;
 use std::sync::Mutex;
 
@@ -66,28 +66,39 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
-    pub(crate) fn read_person2(&self, pubkey: &PublicKey) -> Result<Option<Person2>, Error> {
-        // Note that we use serde instead of speedy because the complexity of the
-        // serde_json::Value type makes it difficult. Any other serde serialization
-        // should work though: Consider bincode.
-        let key: Vec<u8> = pubkey.to_bytes();
-        let txn = self.env.read_txn()?;
-        Ok(match self.db_people2()?.get(&txn, &key)? {
-            Some(bytes) => Some(serde_json::from_slice(bytes)?),
-            None => None,
-        })
+    pub(crate) fn has_person2<'a>(
+        &'a self,
+        pubkey: &PublicKey,
+        txn: Option<&RoTxn<'a>>,
+    ) -> Result<bool, Error> {
+        let f = |txn: &RoTxn<'a>| -> Result<bool, Error> {
+            let key: Vec<u8> = pubkey.to_bytes();
+            Ok(self.db_people2()?.get(txn, &key)?.is_some())
+        };
+
+        read_transact!(self, txn, f)
+    }
+
+    pub(crate) fn read_person2<'a>(
+        &'a self,
+        pubkey: &PublicKey,
+        txn: Option<&RoTxn<'a>>,
+    ) -> Result<Option<Person2>, Error> {
+        let f = |txn: &RoTxn<'a>| -> Result<Option<Person2>, Error> {
+            // Note that we use serde instead of speedy because the complexity of the
+            // serde_json::Value type makes it difficult. Any other serde serialization
+            // should work though: Consider bincode.
+            let key: Vec<u8> = pubkey.to_bytes();
+            Ok(match self.db_people2()?.get(txn, &key)? {
+                Some(bytes) => Some(serde_json::from_slice(bytes)?),
+                None => None,
+            })
+        };
+
+        read_transact!(self, txn, f)
     }
 
     pub(crate) fn filter_people2<F>(&self, f: F) -> Result<Vec<Person2>, Error>
@@ -105,5 +116,58 @@ impl Storage {
             }
         }
         Ok(output)
+    }
+
+    pub(crate) fn modify_person2<'a, M>(
+        &'a self,
+        pubkey: PublicKey,
+        mut modify: M,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error>
+    where
+        M: FnMut(&mut Person2),
+    {
+        let key = key!(pubkey.as_bytes());
+
+        let mut f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            let bytes = self.db_people2()?.get(txn, key)?;
+            let mut person = match bytes {
+                Some(bytes) => serde_json::from_slice(bytes)?,
+                None => Person2::new(pubkey.to_owned()),
+            };
+            modify(&mut person);
+            let bytes = serde_json::to_vec(&person)?;
+            self.db_people2()?.put(txn, key, &bytes)?;
+            Ok(())
+        };
+
+        write_transact!(self, rw_txn, f)
+    }
+
+    pub(crate) fn modify_all_people2<'a, M>(
+        &'a self,
+        mut modify: M,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error>
+    where
+        M: FnMut(&mut Person2),
+    {
+        let mut f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            let mut iter = self.db_people2()?.iter_mut(txn)?;
+            while let Some(result) = iter.next() {
+                let (key, val) = result?;
+                let mut person: Person2 = serde_json::from_slice(val)?;
+                modify(&mut person);
+                let bytes = serde_json::to_vec(&person)?;
+                // to deal with the unsafety of put_current
+                let key = key.to_owned();
+                unsafe {
+                    iter.put_current(&key, &bytes)?;
+                }
+            }
+            Ok(())
+        };
+
+        write_transact!(self, rw_txn, f)
     }
 }

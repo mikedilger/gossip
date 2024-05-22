@@ -12,7 +12,6 @@ use crate::misc::{Private, ZapState};
 use crate::nip46::{Approval, ParsedCommand};
 use crate::pending::PendingItem;
 use crate::people::{Person, PersonList};
-use crate::person_relay::PersonRelay;
 use crate::relay::Relay;
 use crate::tags::{
     add_addr_to_tags, add_event_to_tags, add_pubkey_to_tags, add_subject_to_tags_if_missing,
@@ -164,6 +163,12 @@ impl Overlord {
             if GLOBALS.storage.get_flag_rebuild_indexes_needed() {
                 tracing::info!("Rebuilding event indices...");
                 GLOBALS.storage.rebuild_event_indices(None)?;
+            }
+
+            // If we need to reapply relay lists, do so now
+            if GLOBALS.storage.get_flag_reprocess_relay_lists_needed() {
+                tracing::info!("Reprocessing relay lists...");
+                GLOBALS.storage.reprocess_relay_lists()?;
             }
 
             // Data migrations complete
@@ -594,9 +599,6 @@ impl Overlord {
 
     async fn handle_message(&mut self, message: ToOverlordMessage) -> Result<(), Error> {
         match message {
-            ToOverlordMessage::AddPubkeyRelay(pubkey, relayurl) => {
-                self.add_pubkey_relay(pubkey, relayurl).await?;
-            }
             ToOverlordMessage::AddRelay(relay_url) => {
                 self.add_relay(relay_url).await?;
             }
@@ -808,38 +810,6 @@ impl Overlord {
                 self.zap(id, pubkey, msats, comment).await?;
             }
         }
-
-        Ok(())
-    }
-
-    /// Manually associate a relay with a person. This sets both read and write, and
-    /// remembers that they were manual associations (not from a relay list) so they
-    /// have less weight. This is so the user can make these associations manually if
-    /// gossip can't find them.
-    pub async fn add_pubkey_relay(
-        &mut self,
-        pubkey: PublicKey,
-        relay: RelayUrl,
-    ) -> Result<(), Error> {
-        // Save person_relay
-        let mut pr = match GLOBALS.storage.read_person_relay(pubkey, &relay)? {
-            Some(pr) => pr,
-            None => PersonRelay::new(pubkey, relay.clone()),
-        };
-        let now = Unixtime::now().unwrap().0 as u64;
-        pr.last_suggested_kind3 = Some(now); // not kind3, but we have no other field for this
-        pr.manually_paired_read = true;
-        pr.manually_paired_write = true;
-        GLOBALS.storage.write_person_relay(&pr, None)?;
-
-        if let Some(pk) = GLOBALS.people.get_active_person_async().await {
-            if pk == pubkey {
-                // Refresh active person data from storage
-                GLOBALS.people.set_active_person(pubkey).await?;
-            }
-        }
-
-        self.refresh_scores_and_pick_relays().await?;
 
         Ok(())
     }
@@ -1471,15 +1441,14 @@ impl Overlord {
                 GLOBALS.storage.write_relay_if_missing(&relay_url, None)?;
 
                 // Save person_relay
-                let mut pr = match GLOBALS
-                    .storage
-                    .read_person_relay(nprofile.pubkey, &relay_url)?
-                {
-                    Some(pr) => pr,
-                    None => PersonRelay::new(nprofile.pubkey, relay_url.clone()),
-                };
-                pr.last_suggested_nip05 = Some(Unixtime::now().unwrap().0 as u64);
-                GLOBALS.storage.write_person_relay(&pr, None)?;
+                GLOBALS.storage.modify_person_relay(
+                    nprofile.pubkey,
+                    &relay_url,
+                    |pr| {
+                        pr.last_suggested = Some(Unixtime::now().unwrap().0 as u64);
+                    },
+                    None,
+                )?
             }
         }
 
@@ -2562,7 +2531,7 @@ impl Overlord {
                     // else we can't go find it, we don't know which relays to ask.
                 }
                 NostrBech32::Profile(prof) => {
-                    if let Some(person) = GLOBALS.storage.read_person(&prof.pubkey)? {
+                    if let Some(person) = GLOBALS.storage.read_person(&prof.pubkey, None)? {
                         people_search_results.push(person);
                     } else {
                         // Create person from profile
@@ -2570,7 +2539,7 @@ impl Overlord {
                     }
                 }
                 NostrBech32::Pubkey(pk) => {
-                    if let Some(person) = GLOBALS.storage.read_person(&pk)? {
+                    if let Some(person) = GLOBALS.storage.read_person(&pk, None)? {
                         people_search_results.push(person);
                     } else {
                         // Create person from pubkey
@@ -2813,24 +2782,22 @@ impl Overlord {
         });
 
         // Subscribe to replies to root
-        if let Some(root_eref) = ancestors.root {
-            if let EventReference::Id { id, relays, .. } = root_eref {
-                for url in relays.iter() {
-                    // Subscribe root replies
-                    let jobs: Vec<RelayJob> = vec![RelayJob {
-                        reason: RelayConnectionReason::ReadThread,
-                        payload: ToMinionPayload {
-                            job_id: rand::random::<u64>(),
-                            detail: ToMinionPayloadDetail::SubscribeRootReplies(id.into()),
-                        },
-                    }];
+        if let Some(EventReference::Id { id, relays, .. }) = ancestors.root {
+            for url in relays.iter() {
+                // Subscribe root replies
+                let jobs: Vec<RelayJob> = vec![RelayJob {
+                    reason: RelayConnectionReason::ReadThread,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::SubscribeRootReplies(id.into()),
+                    },
+                }];
 
-                    self.engage_minion(url.to_owned(), jobs).await?;
-                }
+                self.engage_minion(url.to_owned(), jobs).await?;
             }
-            // FIXME what if root is an EventAddr? minion doesn't have a way to subscribe
-            // to their replies.
         }
+        // FIXME what if root is an EventAddr? minion doesn't have a way to subscribe
+        // to their replies.
 
         // Search for replies
         {
@@ -3305,13 +3272,13 @@ impl Overlord {
             // Save relay if missing
             GLOBALS.storage.write_relay_if_missing(&url, Some(txn))?;
 
-            // create or update person_relay last_suggested_kind3
-            let mut pr = match GLOBALS.storage.read_person_relay(*pubkey, &url)? {
-                Some(pr) => pr,
-                None => PersonRelay::new(*pubkey, url.clone()),
-            };
-            pr.last_suggested_kind3 = Some(now.0 as u64);
-            GLOBALS.storage.write_person_relay(&pr, Some(txn))?;
+            // Modify person_relay
+            GLOBALS.storage.modify_person_relay(
+                *pubkey,
+                &url,
+                |pr| pr.last_suggested = Some(now.0 as u64),
+                Some(txn),
+            )?;
         }
 
         // Handle petname
@@ -3322,7 +3289,7 @@ impl Overlord {
         } else {
             // In every other case we have to load the person and compare
             let mut person_needs_save = false;
-            let mut person = match GLOBALS.storage.read_person(pubkey)? {
+            let mut person = match GLOBALS.storage.read_person(pubkey, None)? {
                 Some(person) => person,
                 None => {
                     person_needs_save = true;
@@ -3415,13 +3382,13 @@ impl Overlord {
             -1 => (), // TBD unsubscribe_inbox
             1 => {
                 if let Some(pubkey) = GLOBALS.identity.public_key() {
-                    // Update self person_relay record
-                    let mut pr = match GLOBALS.storage.read_person_relay(pubkey, &new.url)? {
-                        Some(pr) => pr,
-                        None => PersonRelay::new(pubkey, new.url.clone()),
-                    };
-                    pr.read = true;
-                    GLOBALS.storage.write_person_relay(&pr, None)?;
+                    // Modify self person_relay
+                    GLOBALS.storage.modify_person_relay(
+                        pubkey,
+                        &new.url,
+                        |pr| pr.read = true,
+                        None,
+                    )?;
 
                     // Subscribe to inbox on this inbox relay
                     self.subscribe_inbox(Some(vec![new.url.clone()])).await?;
@@ -3434,13 +3401,13 @@ impl Overlord {
             -1 => (), // TBD unsubscribe_config
             1 => {
                 if let Some(pubkey) = GLOBALS.identity.public_key() {
-                    // Update self person_relay record
-                    let mut pr = match GLOBALS.storage.read_person_relay(pubkey, &new.url)? {
-                        Some(pr) => pr,
-                        None => PersonRelay::new(pubkey, new.url.clone()),
-                    };
-                    pr.write = true;
-                    GLOBALS.storage.write_person_relay(&pr, None)?;
+                    // Modify self person_relay
+                    GLOBALS.storage.modify_person_relay(
+                        pubkey,
+                        &new.url,
+                        |pr| pr.write = true,
+                        None,
+                    )?;
 
                     // Subscribe to config on this outbox relay
                     self.subscribe_config(Some(vec![new.url.clone()])).await?;

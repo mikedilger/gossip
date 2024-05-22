@@ -199,7 +199,7 @@ pub(super) fn start_wizard_page(wizard_state: &mut WizardState) -> Option<Wizard
 
     if !wizard_state.follow_only {
         if let Some(pk) = &wizard_state.pubkey {
-            match GLOBALS.storage.read_person(pk) {
+            match GLOBALS.storage.read_person(pk, None) {
                 Ok(Some(person)) => {
                     if person.metadata.is_none() {
                         return Some(WizardPage::SetupMetadata);

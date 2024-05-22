@@ -2,7 +2,6 @@ use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::misc::Private;
 use crate::people::{Person, PersonList};
-use crate::person_relay::PersonRelay;
 use nostr_types::{Metadata, Nip05, PublicKey, RelayUrl, Unixtime};
 use std::sync::atomic::Ordering;
 
@@ -141,13 +140,16 @@ async fn update_relays(nip05: &str, nip05file: Nip05, pubkey: &PublicKey) -> Res
         if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(relay) {
             GLOBALS.storage.write_relay_if_missing(&relay_url, None)?;
 
-            // Save person_relay
-            let mut pr = match GLOBALS.storage.read_person_relay(*pubkey, &relay_url)? {
-                Some(pr) => pr,
-                None => PersonRelay::new(*pubkey, relay_url.clone()),
-            };
-            pr.last_suggested_nip05 = Some(Unixtime::now().unwrap().0 as u64);
-            GLOBALS.storage.write_person_relay(&pr, None)?;
+            // Update person_relay
+            GLOBALS.storage.modify_person_relay(
+                *pubkey,
+                &relay_url,
+                |pr| {
+                    pr.read = true;
+                    pr.write = true;
+                },
+                None,
+            )?;
         }
     }
 

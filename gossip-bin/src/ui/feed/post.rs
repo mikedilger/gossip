@@ -333,7 +333,7 @@ fn dm_posting_area(
             NostrBech32::Profile(prof) => &prof.pubkey,
             _ => continue,
         };
-        let rendered = if let Ok(Some(person)) = GLOBALS.storage.read_person(pk) {
+        let rendered = if let Ok(Some(person)) = GLOBALS.storage.read_person(pk, None) {
             match person.name() {
                 Some(name) => name.to_owned(),
                 None => format!("{}", bech32),
@@ -703,7 +703,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
             NostrBech32::Profile(prof) => &prof.pubkey,
             _ => continue,
         };
-        let rendered = if let Ok(Some(person)) = GLOBALS.storage.read_person(pk) {
+        let rendered = if let Ok(Some(person)) = GLOBALS.storage.read_person(pk, None) {
             match person.name() {
                 Some(name) => name.to_owned(),
                 None => format!("{}", bech32),
@@ -843,7 +843,7 @@ fn calc_tag_hovers(ui: &mut Ui, app: &mut GossipUi, output: &TextEditOutput) {
                     };
 
                     // create popup and store it
-                    if let Ok(Some(person)) = GLOBALS.storage.read_person(&pubkey) {
+                    if let Ok(Some(person)) = GLOBALS.storage.read_person(&pubkey, None) {
                         let popup = Box::new(
                             widgets::ProfilePopup::new(popup_id, interact_rect, avatar, person)
                                 .show_duration(1.0)

@@ -31,7 +31,7 @@ pub struct Person2 {
     pub nip05_last_checked: Option<u64>,
 
     /// When their relay list was created (to determine if we need to check
-    /// for an update)
+    /// for an update, and if a list is newer than what we've had before)
     pub relay_list_created_at: Option<i64>,
 
     /// When their relay list was last sought (to determine if we need to

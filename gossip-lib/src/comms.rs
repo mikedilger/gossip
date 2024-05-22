@@ -17,9 +17,6 @@ use std::hash::{Hash, Hasher};
 /// renderer.
 #[derive(Debug, Clone)]
 pub enum ToOverlordMessage {
-    /// Calls [add_pubkey_relay](crate::Overlord::add_pubkey_relay)
-    AddPubkeyRelay(PublicKey, RelayUrl),
-
     /// Calls [add_relay](crate::Overlord::add_relay)
     AddRelay(RelayUrl),
 

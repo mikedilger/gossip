@@ -45,11 +45,6 @@ impl Storage {
         }
     }
 
-    pub(crate) fn get_person_relays1_len(&self) -> Result<u64, Error> {
-        let txn = self.env.read_txn()?;
-        Ok(self.db_person_relays1()?.len(&txn)?)
-    }
-
     #[allow(dead_code)]
     pub(crate) fn write_person_relay1<'a>(
         &'a self,
@@ -66,16 +61,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     pub(crate) fn read_person_relay1(
@@ -91,76 +77,5 @@ impl Storage {
             Some(bytes) => Some(PersonRelay1::read_from_buffer(bytes)?),
             None => None,
         })
-    }
-
-    pub(crate) fn get_person_relays1(&self, pubkey: PublicKey) -> Result<Vec<PersonRelay1>, Error> {
-        let start_key = pubkey.to_bytes();
-        let txn = self.env.read_txn()?;
-        let iter = self.db_person_relays1()?.prefix_iter(&txn, &start_key)?;
-        let mut output: Vec<PersonRelay1> = Vec::new();
-        for result in iter {
-            let (_key, val) = result?;
-            let person_relay = PersonRelay1::read_from_buffer(val)?;
-            output.push(person_relay);
-        }
-        Ok(output)
-    }
-
-    pub(crate) fn have_persons_relays1(&self, pubkey: PublicKey) -> Result<bool, Error> {
-        let start_key = pubkey.to_bytes();
-        let txn = self.env.read_txn()?;
-        let iter = self.db_person_relays1()?.prefix_iter(&txn, &start_key)?;
-        for result in iter {
-            let (_key, val) = result?;
-            let person_relay = PersonRelay1::read_from_buffer(val)?;
-            if person_relay.write
-                || person_relay.read
-                || person_relay.manually_paired_read
-                || person_relay.manually_paired_write
-            {
-                return Ok(true);
-            }
-        }
-        Ok(false)
-    }
-
-    pub(crate) fn delete_person_relays1<'a, F>(
-        &'a self,
-        filter: F,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error>
-    where
-        F: Fn(&PersonRelay1) -> bool,
-    {
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            // Delete any person_relay with this relay
-            let mut deletions: Vec<Vec<u8>> = Vec::new();
-            {
-                for result in self.db_person_relays1()?.iter(txn)? {
-                    let (key, val) = result?;
-                    if let Ok(person_relay) = PersonRelay1::read_from_buffer(val) {
-                        if filter(&person_relay) {
-                            deletions.push(key.to_owned());
-                        }
-                    }
-                }
-            }
-            for deletion in deletions.drain(..) {
-                self.db_person_relays1()?.delete(txn, &deletion)?;
-            }
-
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
     }
 }

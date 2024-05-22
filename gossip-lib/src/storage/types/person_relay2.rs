@@ -6,58 +6,48 @@ use speedy::{Readable, Writable};
 
 /// A person-relay association
 #[derive(Debug, Readable, Writable, Serialize, Deserialize)]
-pub struct PersonRelay1 {
+pub struct PersonRelay2 {
     /// The person
     pub pubkey: PublicKey,
 
     /// The relay associated with that person
     pub url: RelayUrl,
 
+    /// If they set 'read' on their relay list (kind 10002 or kind 3 contents)
+    /// or nip05 relays (which sets both read and write)
+    pub read: bool,
+
+    /// If they set 'write' on their relay list (kind 10002 or kind 3 contents)
+    /// or nip05 relays (which sets both read and write)
+    pub write: bool,
+
+    /// If it was listed in their kind-10050 NIP-17 DM relay list
+    pub dm: bool,
+
     /// The last time we fetched one of the person's events from this relay
     pub last_fetched: Option<u64>,
 
-    /// When we follow someone at a relay
-    pub last_suggested_kind3: Option<u64>,
-
-    /// When we get their nip05 and it specifies this relay
-    pub last_suggested_nip05: Option<u64>,
-
-    /// Updated when a 'p' tag on any event associates this person and relay via the
-    /// recommended_relay_url field
-    pub last_suggested_bytag: Option<u64>,
-
-    /// If they set 'read' on their relay list
-    pub read: bool,
-
-    /// If they set 'write' on their relay list
-    pub write: bool,
-
-    /// If the user manually specified 'read' for this association
-    pub manually_paired_read: bool,
-
-    /// If the user manually specified 'write' for this association
-    pub manually_paired_write: bool,
+    /// The last time it was suggested by a 3rd party
+    /// (e.g. in a 'p' tag recommended_relay_url)
+    pub last_suggested: Option<u64>,
 }
 
-impl PersonRelay1 {
-    pub fn new(pubkey: PublicKey, url: RelayUrl) -> PersonRelay1 {
-        PersonRelay1 {
+impl PersonRelay2 {
+    pub fn new(pubkey: PublicKey, url: RelayUrl) -> PersonRelay2 {
+        PersonRelay2 {
             pubkey,
             url,
-            last_fetched: None,
-            last_suggested_kind3: None,
-            last_suggested_nip05: None,
-            last_suggested_bytag: None,
             read: false,
             write: false,
-            manually_paired_read: false,
-            manually_paired_write: false,
+            dm: false,
+            last_fetched: None,
+            last_suggested: None,
         }
     }
 
     // This ranks the relays that a person writes to, but does not consider local
     // factors such as our relay rank or the success rate of the relay.
-    pub fn write_rank(mut dbprs: Vec<PersonRelay1>) -> Vec<(RelayUrl, u64)> {
+    pub fn write_rank(mut dbprs: Vec<PersonRelay2>) -> Vec<(RelayUrl, u64)> {
         let now = Unixtime::now().unwrap().0 as u64;
         let mut output: Vec<(RelayUrl, u64)> = Vec::new();
 
@@ -74,23 +64,13 @@ impl PersonRelay1 {
                 score += 20;
             }
 
-            // nip05 is an unsigned dns-based author claim of using this relay
-            if let Some(when) = dbpr.last_suggested_nip05 {
-                score += scorefn(when, 60 * 60 * 24 * 15, 10);
-            }
-
-            // kind3 is our memory of where we are following someone
-            if let Some(when) = dbpr.last_suggested_kind3 {
-                score += scorefn(when, 60 * 60 * 24 * 30, 10);
-            }
-
             // last_fetched is gossip verified happened-to-work-before
             if let Some(when) = dbpr.last_fetched {
-                score += scorefn(when, 60 * 60 * 24 * 3, 3);
+                score += scorefn(when, 60 * 60 * 24 * 3, 4);
             }
 
-            // last_suggested_bytag is an anybody-signed suggestion
-            if let Some(when) = dbpr.last_suggested_bytag {
+            // last_suggested is an anybody-signed suggestion
+            if let Some(when) = dbpr.last_suggested {
                 score += scorefn(when, 60 * 60 * 24 * 2, 1);
             }
 
@@ -109,7 +89,7 @@ impl PersonRelay1 {
 
     // This ranks the relays that a person reads from, but does not consider local
     // factors such as our relay rank or the success rate of the relay.
-    pub fn read_rank(mut dbprs: Vec<PersonRelay1>) -> Vec<(RelayUrl, u64)> {
+    pub fn read_rank(mut dbprs: Vec<PersonRelay2>) -> Vec<(RelayUrl, u64)> {
         let now = Unixtime::now().unwrap().0 as u64;
         let mut output: Vec<(RelayUrl, u64)> = Vec::new();
 
@@ -126,23 +106,13 @@ impl PersonRelay1 {
                 score += 20;
             }
 
-            // nip05 is an unsigned dns-based author claim of using this relay
-            if let Some(when) = dbpr.last_suggested_nip05 {
-                score += scorefn(when, 60 * 60 * 24 * 15, 10);
-            }
-
-            // kind3 is our memory of where we are following someone
-            if let Some(when) = dbpr.last_suggested_kind3 {
-                score += scorefn(when, 60 * 60 * 24 * 30, 10);
-            }
-
             // last_fetched is gossip verified happened-to-work-before
             if let Some(when) = dbpr.last_fetched {
-                score += scorefn(when, 60 * 60 * 24 * 3, 3);
+                score += scorefn(when, 60 * 60 * 24 * 3, 4);
             }
 
-            // last_suggested_bytag is an anybody-signed suggestion
-            if let Some(when) = dbpr.last_suggested_bytag {
+            // last_suggested is an anybody-signed suggestion
+            if let Some(when) = dbpr.last_suggested {
                 score += scorefn(when, 60 * 60 * 24 * 2, 1);
             }
 

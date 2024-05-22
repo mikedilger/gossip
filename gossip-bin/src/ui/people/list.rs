@@ -1046,7 +1046,7 @@ fn refresh_list_data(app: &mut GossipUi, list: PersonList) {
         let mut people: Vec<(Person, Private)> = Vec::new();
 
         for (pk, private) in &members {
-            if let Ok(Some(person)) = GLOBALS.storage.read_person(pk) {
+            if let Ok(Some(person)) = GLOBALS.storage.read_person(pk, None) {
                 people.push((person, *private));
             } else {
                 let person = Person::new(*pk);

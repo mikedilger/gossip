@@ -10,6 +10,32 @@ macro_rules! key {
     };
 }
 
+macro_rules! write_transact {
+    ($storage:ident, $opttxn:ident, $f:ident) => {
+        match $opttxn {
+            Some(txn) => $f(txn),
+            None => {
+                let mut txn = $storage.env.write_txn()?;
+                let result = $f(&mut txn);
+                txn.commit()?;
+                result
+            }
+        }
+    };
+}
+
+macro_rules! read_transact {
+    ($storage:ident, $opttxn:ident, $f:ident) => {
+        match $opttxn {
+            Some(txn) => $f(txn),
+            None => {
+                let txn = $storage.env.read_txn()?;
+                $f(&txn)
+            }
+        }
+    };
+}
+
 mod migrations;
 
 // type implementations
@@ -40,6 +66,7 @@ mod person_lists_metadata1;
 mod person_lists_metadata2;
 mod person_lists_metadata3;
 mod person_relays1;
+mod person_relays2;
 mod relationships1;
 mod relationships_by_addr1;
 mod relationships_by_addr2;
@@ -92,18 +119,7 @@ macro_rules! def_setting {
                     Ok(self.general.put(txn, $string, &bytes)?)
                 };
 
-                match rw_txn {
-                    Some(txn) => {
-                        f(txn)?;
-                    }
-                    None => {
-                        let mut txn = self.env.write_txn()?;
-                        f(&mut txn)?;
-                        txn.commit()?;
-                    }
-                };
-
-                Ok(())
+                write_transact!(self, rw_txn, f)
             }
 
             #[allow(dead_code)]
@@ -153,16 +169,7 @@ macro_rules! def_flag {
                     Ok(self.general.put(txn, $string, &bytes)?)
                 };
 
-                match rw_txn {
-                    Some(txn) => f(txn)?,
-                    None => {
-                        let mut txn = self.env.write_txn()?;
-                        f(&mut txn)?;
-                        txn.commit()?;
-                    }
-                };
-
-                Ok(())
+                write_transact!(self, rw_txn, f)
             }
 
             pub fn [<get_flag_ $field>](&self) -> bool {
@@ -322,7 +329,7 @@ impl Storage {
 
     #[inline]
     pub(crate) fn db_person_relays(&self) -> Result<RawDatabase, Error> {
-        self.db_person_relays1()
+        self.db_person_relays2()
     }
 
     #[inline]
@@ -440,7 +447,7 @@ impl Storage {
     /// The number of records in the person_relays table
     #[inline]
     pub fn get_person_relays_len(&self) -> Result<u64, Error> {
-        self.get_person_relays1_len()
+        self.get_person_relays2_len()
     }
 
     /// The number of records in the person_lists table
@@ -561,18 +568,7 @@ impl Storage {
             Ok(self.general.put(txn, b"migration_level", &bytes)?)
         };
 
-        match rw_txn {
-            Some(txn) => {
-                f(txn)?;
-            }
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     pub(crate) fn read_migration_level(&self) -> Result<Option<u32>, Error> {
@@ -597,16 +593,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     /// Read the user's encrypted private key
@@ -636,16 +623,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     /// Read NIP-46 unconnected server
@@ -672,16 +650,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     // Flags ------------------------------------------------------------
@@ -694,6 +663,11 @@ impl Storage {
         false
     );
     def_flag!(rebuild_indexes_needed, b"rebuild_indexes_needed", false);
+    def_flag!(
+        reprocess_relay_lists_needed,
+        b"reprocess_relay_lists_needed",
+        true
+    );
 
     // Settings ----------------------------------------------------------
 
@@ -1091,16 +1065,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     /// Modify a relay record
@@ -1158,15 +1123,7 @@ impl Storage {
             }
         };
 
-        match rw_txn {
-            Some(txn) => f(txn),
-            None => {
-                let mut txn = self.env.write_txn()?;
-                let result = f(&mut txn);
-                txn.commit()?;
-                result
-            }
-        }
+        write_transact!(self, rw_txn, f)
     }
 
     /// Read matching relay records
@@ -1213,71 +1170,88 @@ impl Storage {
     }
 
     /// Process a relay list event
-    pub fn process_relay_list(&self, event: &Event) -> Result<(), Error> {
-        let mut txn = self.env.write_txn()?;
+    pub fn process_relay_list<'a>(
+        &'a self,
+        event: &Event,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            if let Some(mut person) = self.read_person(&event.pubkey, Some(&txn))? {
+                // Check if this relay list is newer than the stamp we have for its author
+                if let Some(previous_at) = person.relay_list_created_at {
+                    if event.created_at.0 <= previous_at {
+                        // This list is old.
+                        return Ok(());
+                    }
+                }
+                // If we got here, the list is new.
 
-        if let Some(mut person) = self.read_person(&event.pubkey)? {
-            // Check if this relay list is newer than the stamp we have for its author
-            if let Some(previous_at) = person.relay_list_created_at {
-                if event.created_at.0 <= previous_at {
-                    // This list is old. But let's save the last_received setting:
-                    self.write_person(&person, Some(&mut txn))?;
-                    return Ok(());
+                // Mark when it was created
+                person.relay_list_created_at = Some(event.created_at.0);
+
+                // And save those marks in the Person record
+                self.write_person(&person, Some(txn))?;
+            }
+
+            let mut ours = false;
+            if let Some(pubkey) = self.read_setting_public_key() {
+                if event.pubkey == pubkey {
+                    tracing::info!("Processing our own relay list");
+                    ours = true;
                 }
             }
-            // If we got here, the list is new.
 
-            // Mark when it was created
-            person.relay_list_created_at = Some(event.created_at.0);
+            let relay_list = RelayList::from_event(event);
 
-            // And save those marks in the Person record
-            self.write_person(&person, Some(&mut txn))?;
-        }
+            if ours {
+                // If INBOX or OUTBOX is set, we also must turn on READ and WRITE
+                // or they won't actually get used.  However, we don't turn OFF
+                // these bits automatically.
 
-        let mut ours = false;
-        if let Some(pubkey) = self.read_setting_public_key() {
-            if event.pubkey == pubkey {
-                tracing::info!("Processing our own relay list");
-                ours = true;
-            }
-        }
+                // Clear all current read/write bits (within the transaction)
+                // note: inbox is kind10002 'read', outbox is kind10002 'write'
+                self.modify_all_relays(
+                    |relay| relay.clear_usage_bits(Relay::INBOX | Relay::OUTBOX),
+                    Some(txn),
+                )?;
 
-        let relay_list = RelayList::from_event(event);
+                // Set or create read relays
+                for (relay_url, usage) in relay_list.0.iter() {
+                    let bits = match usage {
+                        RelayUsage::Inbox => Relay::INBOX | Relay::READ,
+                        RelayUsage::Outbox => Relay::OUTBOX | Relay::WRITE,
+                        RelayUsage::Both => {
+                            Relay::INBOX | Relay::OUTBOX | Relay::READ | Relay::WRITE
+                        }
+                    };
 
-        if ours {
-            // If INBOX or OUTBOX is set, we also must turn on READ and WRITE
-            // or they won't actually get used.  However, we don't turn OFF
-            // these bits automatically.
-
-            // Clear all current read/write bits (within the transaction)
-            // note: inbox is kind10002 'read', outbox is kind10002 'write'
-            self.modify_all_relays(
-                |relay| relay.clear_usage_bits(Relay::INBOX | Relay::OUTBOX),
-                Some(&mut txn),
-            )?;
-
-            // Set or create read relays
-            for (relay_url, usage) in relay_list.0.iter() {
-                let bits = match usage {
-                    RelayUsage::Inbox => Relay::INBOX | Relay::READ,
-                    RelayUsage::Outbox => Relay::OUTBOX | Relay::WRITE,
-                    RelayUsage::Both => Relay::INBOX | Relay::OUTBOX | Relay::READ | Relay::WRITE,
-                };
-
-                if let Some(mut dbrelay) = self.read_relay(relay_url, Some(&txn))? {
-                    dbrelay.set_usage_bits(bits);
-                    self.write_relay(&dbrelay, Some(&mut txn))?;
-                } else {
-                    let mut dbrelay = Relay::new(relay_url.to_owned());
-                    dbrelay.set_usage_bits(bits);
-                    self.write_relay(&dbrelay, Some(&mut txn))?;
+                    if let Some(mut dbrelay) = self.read_relay(relay_url, Some(&txn))? {
+                        dbrelay.set_usage_bits(bits);
+                        self.write_relay(&dbrelay, Some(txn))?;
+                    } else {
+                        let mut dbrelay = Relay::new(relay_url.to_owned());
+                        dbrelay.set_usage_bits(bits);
+                        self.write_relay(&dbrelay, Some(txn))?;
+                    }
                 }
             }
-        }
 
-        self.set_relay_list(event.pubkey, relay_list, Some(&mut txn))?;
+            self.set_relay_list(event.pubkey, relay_list, Some(txn))?;
 
-        txn.commit()?;
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => {
+                f(txn)?;
+            }
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
         Ok(())
     }
 
@@ -1288,49 +1262,34 @@ impl Storage {
         relay_list: RelayList,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        // We need to update PersonRelay records for this pubkey, including:
-        // 1) Create new ones as needed, and
-        // 2) Turn off usage on existing ones not in the relay list
-
-        // Get all their person relay records
-        let mut person_relays = self.get_person_relays(pubkey)?;
-
-        // Add new records where needed
-        'add_new: for (url, _) in relay_list.0.iter() {
-            for pr in &person_relays {
-                if pr.url == *url {
-                    continue 'add_new;
-                }
-            }
-            let pr = PersonRelay::new(pubkey, url.clone());
-            person_relays.push(pr);
-        }
-
-        // Update each record, and save if it changed
-        for mut pr in person_relays.drain(..) {
-            let orig_read = pr.read;
-            let orig_write = pr.write;
-            match relay_list.0.get(&pr.url) {
-                Some(usage) => {
-                    pr.read = *usage == RelayUsage::Inbox || *usage == RelayUsage::Both;
-                    pr.write = *usage == RelayUsage::Outbox || *usage == RelayUsage::Both;
-                }
-                None => {
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            // Clear all current relay settings for this person
+            self.modify_all_persons_relays(
+                pubkey,
+                |pr| {
                     pr.read = false;
                     pr.write = false;
-                }
-            }
-            if pr.read != orig_read || pr.write != orig_write {
-                // here is some reborrow magic we needed to appease the borrow checker
-                if let Some(&mut ref mut v) = rw_txn {
-                    self.write_person_relay(&pr, Some(v))?;
-                } else {
-                    self.write_person_relay(&pr, None)?;
-                }
-            }
-        }
+                },
+                Some(txn),
+            )?;
 
-        Ok(())
+            // Apply relay list
+            for (relay_url, usage) in relay_list.0.iter() {
+                self.modify_person_relay(
+                    pubkey,
+                    relay_url,
+                    |pr| {
+                        pr.read = *usage == RelayUsage::Inbox || *usage == RelayUsage::Both;
+                        pr.write = *usage == RelayUsage::Outbox || *usage == RelayUsage::Both;
+                    },
+                    Some(txn),
+                )?;
+            }
+
+            Ok(())
+        };
+
+        write_transact!(self, rw_txn, f)
     }
 
     /// Write an event
@@ -1410,16 +1369,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     /// Replace any existing event with the passed in event, if it is of a replaceable kind
@@ -1762,16 +1712,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     // We don't call this externally. Whenever we write an event, we do this
@@ -1794,16 +1735,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => f(txn)?,
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     // This should be called with the outer giftwrap
@@ -2105,10 +2037,24 @@ impl Storage {
         self.write_person2(person, rw_txn)
     }
 
+    /// Has a person record
+    #[inline]
+    pub fn has_person<'a>(
+        &'a self,
+        pubkey: &PublicKey,
+        txn: Option<&RoTxn<'a>>,
+    ) -> Result<bool, Error> {
+        self.has_person2(pubkey, txn)
+    }
+
     /// Read a person record
     #[inline]
-    pub fn read_person(&self, pubkey: &PublicKey) -> Result<Option<Person>, Error> {
-        self.read_person2(pubkey)
+    pub fn read_person<'a>(
+        &'a self,
+        pubkey: &PublicKey,
+        txn: Option<&RoTxn<'a>>,
+    ) -> Result<Option<Person>, Error> {
+        self.read_person2(pubkey, txn)
     }
 
     /// Read a person record, create if missing
@@ -2118,14 +2064,20 @@ impl Storage {
         pubkey: &PublicKey,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<Person, Error> {
-        match self.read_person(pubkey)? {
-            Some(p) => Ok(p),
-            None => {
-                let person = Person::new(pubkey.to_owned());
-                self.write_person(&person, rw_txn)?;
-                Ok(person)
+        let f = |txn: &mut RwTxn<'a>| -> Result<Person, Error> {
+            let rtxn = &**txn;
+
+            match self.read_person(pubkey, Some(rtxn))? {
+                Some(p) => Ok(p),
+                None => {
+                    let person = Person::new(pubkey.to_owned());
+                    self.write_person(&person, Some(txn))?;
+                    Ok(person)
+                }
             }
-        }
+        };
+
+        write_transact!(self, rw_txn, f)
     }
 
     /// Write a new person record only if missing
@@ -2134,11 +2086,16 @@ impl Storage {
         pubkey: &PublicKey,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        if self.read_person(pubkey)?.is_none() {
-            let person = Person::new(pubkey.to_owned());
-            self.write_person(&person, rw_txn)?;
-        }
-        Ok(())
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            let rtxn = &**txn;
+            if !self.has_person(pubkey, Some(rtxn))? {
+                let person = Person::new(pubkey.to_owned());
+                self.write_person(&person, Some(txn))?;
+            }
+            Ok(())
+        };
+
+        write_transact!(self, rw_txn, f)
     }
 
     /// Read people matching the filter
@@ -2150,14 +2107,31 @@ impl Storage {
         self.filter_people2(f)
     }
 
-    /// Write a PersonRelay record
+    /// Modify a person record
     #[inline]
-    pub fn write_person_relay<'a>(
+    pub fn modify_person<'a, M>(
         &'a self,
-        person_relay: &PersonRelay,
+        pubkey: PublicKey,
+        modify: M,
         rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error> {
-        self.write_person_relay1(person_relay, rw_txn)
+    ) -> Result<(), Error>
+    where
+        M: FnMut(&mut Person),
+    {
+        self.modify_person2(pubkey, modify, rw_txn)
+    }
+
+    //// Modify all person records
+    #[inline]
+    pub fn modify_all_people<'a, M>(
+        &'a self,
+        modify: M,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error>
+    where
+        M: FnMut(&mut Person),
+    {
+        self.modify_all_people2(modify, rw_txn)
     }
 
     /// Read a PersonRelay record
@@ -2167,19 +2141,56 @@ impl Storage {
         pubkey: PublicKey,
         url: &RelayUrl,
     ) -> Result<Option<PersonRelay>, Error> {
-        self.read_person_relay1(pubkey, url)
+        self.read_person_relay2(pubkey, url)
+    }
+
+    /// Write a PersonRelay record
+    #[inline]
+    pub fn write_person_relay<'a>(
+        &'a self,
+        person_relay: &PersonRelay,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        self.write_person_relay2(person_relay, rw_txn)
+    }
+
+    /// Modify a specific person relay record
+    pub fn modify_person_relay<'a, M>(
+        &'a self,
+        pubkey: PublicKey,
+        url: &RelayUrl,
+        modify: M,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error>
+    where
+        M: FnMut(&mut PersonRelay),
+    {
+        self.modify_person_relay2(pubkey, url, modify, rw_txn)
     }
 
     /// get PersonRelay records for a person
     #[inline]
     pub fn get_person_relays(&self, pubkey: PublicKey) -> Result<Vec<PersonRelay>, Error> {
-        self.get_person_relays1(pubkey)
+        self.get_person_relays2(pubkey)
     }
 
     /// Do we have any PersonRelay records for the person?
     #[inline]
     pub fn have_persons_relays(&self, pubkey: PublicKey) -> Result<bool, Error> {
-        self.have_persons_relays1(pubkey)
+        self.have_persons_relays2(pubkey)
+    }
+
+    /// Modify all person_relay records for a person
+    pub fn modify_all_persons_relays<'a, M>(
+        &'a self,
+        pubkey: PublicKey,
+        modify: M,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error>
+    where
+        M: FnMut(&mut PersonRelay),
+    {
+        self.modify_all_persons_relays2(pubkey, modify, rw_txn)
     }
 
     /// Delete PersonRelay records that match the filter
@@ -2192,7 +2203,7 @@ impl Storage {
     where
         F: Fn(&PersonRelay) -> bool,
     {
-        self.delete_person_relays1(filter, rw_txn)
+        self.delete_person_relays2(filter, rw_txn)
     }
 
     /// Get the best relays for a person, given a direction.
@@ -2466,18 +2477,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => {
-                f(txn)?;
-            }
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     pub fn rebuild_event_tags_index<'a>(
@@ -2497,16 +2497,41 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => {
-                f(txn)?;
-            }
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
+        write_transact!(self, rw_txn, f)
+    }
+
+    pub fn reprocess_relay_lists(&self) -> Result<(), Error> {
+        let mut txn = self.env.write_txn()?;
+
+        // Clear relay_list_created_at fields in person records so that
+        // it will rebuild
+        self.modify_all_people(
+            |person| {
+                person.relay_list_created_at = None;
+            },
+            Some(&mut txn),
+        )?;
+
+        // Commit this change, otherwise read_person (which takes no transaction)
+        // will give stale data when it is called within process_relay_list()
+        txn.commit()?;
+
+        let mut txn = self.env.write_txn()?;
+
+        // Load all RelayLists
+        let mut filter = Filter::new();
+        filter.add_event_kind(EventKind::RelayList);
+        let relay_lists = self.find_events_by_filter(&filter, |_| true)?;
+
+        // Process all RelayLists
+        for event in relay_lists.iter() {
+            self.process_relay_list(event, Some(&mut txn))?;
+        }
+
+        // Turn off the flag
+        self.set_flag_reprocess_relay_lists_needed(false, Some(&mut txn))?;
+
+        txn.commit()?;
 
         Ok(())
     }
@@ -2573,18 +2598,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => {
-                f(txn)?;
-            }
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     /// Mark everybody in a list as private
@@ -2601,18 +2615,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => {
-                f(txn)?;
-            }
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     /// Is a person in a list?
@@ -2652,18 +2655,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => {
-                f(txn)?;
-            }
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     /// Remove a person from a list
@@ -2689,18 +2681,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => {
-                f(txn)?;
-            }
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     /// Rebuild relationships
@@ -2720,18 +2701,7 @@ impl Storage {
             Ok(())
         };
 
-        match rw_txn {
-            Some(txn) => {
-                f(txn)?;
-            }
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
-
-        Ok(())
+        write_transact!(self, rw_txn, f)
     }
 
     pub fn write_nip46server<'a>(

@@ -4,7 +4,6 @@ use crate::filter::EventFilterAction;
 use crate::globals::GLOBALS;
 use crate::misc::{Freshness, Private};
 use crate::people::{People, PersonList, PersonListMetadata};
-use crate::person_relay::PersonRelay;
 use crate::relationship::{RelationshipByAddr, RelationshipById};
 use async_recursion::async_recursion;
 use heed::RwTxn;
@@ -59,12 +58,12 @@ pub async fn process_new_event(
             .write_person_if_missing(&event.pubkey, None)?;
 
         // Update person-relay information (seen them on this relay)
-        let mut pr = match GLOBALS.storage.read_person_relay(event.pubkey, url)? {
-            Some(pr) => pr,
-            None => PersonRelay::new(event.pubkey, url.clone()),
-        };
-        pr.last_fetched = Some(now.0 as u64);
-        GLOBALS.storage.write_person_relay(&pr, None)?;
+        GLOBALS.storage.modify_person_relay(
+            event.pubkey,
+            url,
+            |pr| pr.last_fetched = Some(now.0 as u64),
+            None,
+        )?;
     }
 
     // Spam filter (displayable and author is not followed)
@@ -76,13 +75,13 @@ pub async fn process_new_event(
         let filter_result = {
             if event.kind == EventKind::GiftWrap {
                 if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(event) {
-                    let author = GLOBALS.storage.read_person(&rumor.pubkey)?;
+                    let author = GLOBALS.storage.read_person(&rumor.pubkey, None)?;
                     Some(crate::filter::filter_rumor(rumor, author, event.id))
                 } else {
                     None
                 }
             } else {
-                let author = GLOBALS.storage.read_person(&event.pubkey)?;
+                let author = GLOBALS.storage.read_person(&event.pubkey, None)?;
                 Some(crate::filter::filter_event(event.clone(), author))
             }
         };
@@ -223,13 +222,13 @@ pub async fn process_new_event(
                     if let Ok(url) = RelayUrl::try_from_unchecked_url(&uncheckedurl) {
                         GLOBALS.storage.write_relay_if_missing(&url, None)?;
 
-                        // upsert person_relay.last_suggested_bytag
-                        let mut pr = match GLOBALS.storage.read_person_relay(pubkey, &url)? {
-                            Some(pr) => pr,
-                            None => PersonRelay::new(pubkey, url.clone()),
-                        };
-                        pr.last_suggested_bytag = Some(now.0 as u64);
-                        GLOBALS.storage.write_person_relay(&pr, None)?;
+                        // upsert person_relay.last_suggested
+                        GLOBALS.storage.modify_person_relay(
+                            pubkey,
+                            &url,
+                            |pr| pr.last_suggested = Some(now.0 as u64),
+                            None,
+                        )?;
                     }
                 }
             }
@@ -277,7 +276,7 @@ pub async fn process_new_event(
             }
         }
     } else if event.kind == EventKind::RelayList {
-        GLOBALS.storage.process_relay_list(event)?;
+        GLOBALS.storage.process_relay_list(event, None)?;
 
         // Let the seeker know we now have relays for this author, in case the seeker
         // wants to update it's state
@@ -393,18 +392,21 @@ pub async fn process_new_event(
                     // Make sure we have their relays
                     for relay in prof.relays {
                         if let Ok(rurl) = RelayUrl::try_from_unchecked_url(&relay) {
-                            if let Some(_pr) =
-                                GLOBALS.storage.read_person_relay(prof.pubkey, &rurl)?
-                            {
-                                // FIXME: we need a new field in PersonRelay for this case.
-                                // If the event was signed by the profile person, we should trust it.
-                                // If it wasn't, we can instead bump last_suggested_bytag.
-                            } else {
-                                let mut pr = PersonRelay::new(prof.pubkey, rurl);
-                                pr.read = true;
-                                pr.write = true;
-                                GLOBALS.storage.write_person_relay(&pr, None)?;
-                            }
+                            GLOBALS.storage.modify_person_relay(
+                                prof.pubkey,
+                                &rurl,
+                                |pr| {
+                                    if prof.pubkey == event.pubkey {
+                                        // The author themselves said it
+                                        pr.read = true;
+                                        pr.write = true;
+                                    } else {
+                                        // It was suggested by someone else
+                                        pr.last_suggested = Some(now.0 as u64);
+                                    }
+                                },
+                                None,
+                            )?
                         }
                     }
                 }

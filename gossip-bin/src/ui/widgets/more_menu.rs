@@ -24,6 +24,7 @@ enum MoreMenuStyle {
     Bubble,
 }
 
+#[allow(clippy::type_complexity)]
 pub(in crate::ui) struct MoreMenuEntry<'a> {
     text: WidgetText,
     action: Box<dyn FnOnce(&mut Ui, &mut GossipUi) + 'a>,
@@ -31,6 +32,7 @@ pub(in crate::ui) struct MoreMenuEntry<'a> {
 }
 
 impl<'a> MoreMenuEntry<'a> {
+    #[allow(clippy::type_complexity)]
     pub fn new(
         text: impl Into<WidgetText>,
         action: Box<dyn FnOnce(&mut Ui, &mut GossipUi) + 'a>,
