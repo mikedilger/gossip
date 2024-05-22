@@ -10,7 +10,10 @@ use egui_winit::egui::InnerResponse;
 use egui_winit::egui::Response;
 use egui_winit::egui::Widget;
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::{DmChannel, FeedKind, Freshness, People, Person, PersonList, Private, GLOBALS};
+use gossip_lib::{
+    DmChannel, FeedKind, Freshness, People, Person, PersonList, PersonTable, Private, Table,
+    GLOBALS,
+};
 use nostr_types::PublicKey;
 use serde_json::Value;
 
@@ -23,7 +26,7 @@ const MIN_ITEM_WIDTH: f32 = 200.0;
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     let (pubkey, person) = match &app.page {
         Page::Person(pubkey) => {
-            let person = match GLOBALS.storage.read_person(pubkey, None) {
+            let person = match PersonTable::read_record(*pubkey, None) {
                 Ok(Some(p)) => p,
                 _ => Person::new(pubkey.to_owned()),
             };
@@ -126,7 +129,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                         app.petname = app.petname.replace('.', "_");
                                         person.petname = Some(app.petname.clone());
                                     }
-                                    if let Err(e) = GLOBALS.storage.write_person(&person, None) {
+                                    if let Err(e) = PersonTable::write_record(&mut person, None) {
                                         GLOBALS.status_queue.write().write(format!("{}", e));
                                     }
                                     app.editing_petname = false;
@@ -138,7 +141,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                 if ui.link("Remove").clicked() {
                                     let mut person = person.clone();
                                     person.petname = None;
-                                    if let Err(e) = GLOBALS.storage.write_person(&person, None) {
+                                    if let Err(e) = PersonTable::write_record(&mut person, None) {
                                         GLOBALS.status_queue.write().write(format!("{}", e));
                                     }
                                     app.editing_petname = false;
@@ -155,7 +158,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                     if ui.link("Remove").clicked() {
                                         let mut person = person.clone();
                                         person.petname = None;
-                                        if let Err(e) = GLOBALS.storage.write_person(&person, None)
+                                        if let Err(e) = PersonTable::write_record(&mut person, None)
                                         {
                                             GLOBALS.status_queue.write().write(format!("{}", e));
                                         }
@@ -268,7 +271,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
             ui.separator();
             ui.add_space(10.0);
 
-            if let Some(md) = &person.metadata {
+            if let Some(md) = person.metadata() {
                 // render some important fields first
                 {
                     const LUD06: &str = "lud06";

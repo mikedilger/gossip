@@ -64,6 +64,7 @@ impl Relay2 {
     pub const OUTBOX: u64 = 1 << 4; // 16          this is 'write' of kind 10002
     pub const DISCOVER: u64 = 1 << 5; // 32
     pub const SPAMSAFE: u64 = 1 << 6; // 64
+    pub const DM: u64 = 1 << 7; // 128             this is of kind 10050
 
     pub fn new(url: RelayUrl) -> Self {
         Self {
@@ -105,6 +106,9 @@ impl Relay2 {
         if self.has_usage_bits(Self::OUTBOX) {
             output |= 1 << 3;
         }
+        if self.has_usage_bits(Self::DM) {
+            output |= 1 << 2;
+        }
         // DISCOVER and SPAMSAFE shouldn't affect sort
         output
     }
@@ -135,7 +139,7 @@ impl Relay2 {
 
     #[inline]
     pub fn has_any_usage_bit(&self) -> bool {
-        let all = Self::READ | Self::WRITE | Self::INBOX | Self::OUTBOX | Self::DISCOVER;
+        let all = Self::READ | Self::WRITE | Self::INBOX | Self::OUTBOX | Self::DISCOVER | Self::DM;
         self.usage_bits & all != 0
     }
 

@@ -6,7 +6,7 @@ use crate::ui::{widgets, GossipUi, Page};
 use eframe::egui;
 use egui::{Context, RichText, Ui};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::{PersonList, Private, GLOBALS};
+use gossip_lib::{PersonList, PersonTable, Private, Table, GLOBALS};
 use nostr_types::{Profile, PublicKey, RelayUsage};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
@@ -32,7 +32,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     for iter in app.wizard_state.followed.iter_mut() {
         if iter.1.is_none() {
             let pk = iter.0.unwrap();
-            if let Ok(Some(p)) = GLOBALS.storage.read_person(&pk, None) {
+            if let Ok(Some(p)) = PersonTable::read_record(pk, None) {
                 iter.0 = None;
                 iter.1 = Some(Rc::new(RefCell::new(p)));
             }
@@ -85,7 +85,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
                                     ui.add_space(10.0);
 
-                                    if person.borrow().metadata.is_none() {
+                                    if person.borrow().metadata().is_none() {
                                         // We don't have metadata
                                         if let Ok(outboxes) = GLOBALS
                                             .storage

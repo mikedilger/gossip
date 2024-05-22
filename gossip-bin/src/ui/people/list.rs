@@ -11,7 +11,8 @@ use egui_winit::egui::text_edit::TextEditOutput;
 use egui_winit::egui::vec2;
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{
-    FeedKind, Freshness, People, Person, PersonList, PersonListMetadata, Private, GLOBALS,
+    FeedKind, Freshness, People, Person, PersonList, PersonListMetadata, PersonTable, Private,
+    Table, GLOBALS,
 };
 use nostr_types::{Profile, PublicKey, Unixtime};
 
@@ -1046,11 +1047,11 @@ fn refresh_list_data(app: &mut GossipUi, list: PersonList) {
         let mut people: Vec<(Person, Private)> = Vec::new();
 
         for (pk, private) in &members {
-            if let Ok(Some(person)) = GLOBALS.storage.read_person(pk, None) {
+            if let Ok(Some(person)) = PersonTable::read_record(*pk, None) {
                 people.push((person, *private));
             } else {
-                let person = Person::new(*pk);
-                let _ = GLOBALS.storage.write_person(&person, None);
+                let mut person = Person::new(*pk);
+                let _ = PersonTable::write_record(&mut person, None);
                 people.push((person, *private));
             }
 

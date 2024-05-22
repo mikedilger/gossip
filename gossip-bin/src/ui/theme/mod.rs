@@ -527,6 +527,7 @@ theme_dispatch!(ThemeVariant::Default, DefaultTheme, "Default");
 
 pub trait ThemeDef: Send + Sync {
     // User facing name
+    #[allow(dead_code)]
     fn name() -> &'static str;
 
     // Palette

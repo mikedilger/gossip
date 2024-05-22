@@ -2,6 +2,7 @@ use crate::comms::ToOverlordMessage;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::misc::{Freshness, Private};
+use crate::storage::{PersonTable, Table};
 use dashmap::{DashMap, DashSet};
 use image::RgbaImage;
 use nostr_types::{
@@ -18,7 +19,7 @@ use tokio::task;
 use tokio::time::Instant;
 
 /// Person type, aliased to the latest version
-pub type Person = crate::storage::types::Person2;
+pub type Person = crate::storage::types::Person3;
 
 /// PersonList type, aliased to the latest version
 pub type PersonList = crate::storage::types::PersonList1;
@@ -146,10 +147,10 @@ impl People {
                 .storage
                 .read_setting_relay_list_becomes_stale_minutes() as i64;
 
-        if let Ok(vec) = GLOBALS
-            .storage
-            .filter_people(|p| p.is_subscribed_to() && p.relay_list_last_sought < stale)
-        {
+        if let Ok(vec) = PersonTable::filter_records(
+            |p| p.is_subscribed_to() && p.relay_list_last_sought < stale,
+            None,
+        ) {
             vec.iter().map(|p| p.pubkey).collect()
         } else {
             vec![]
@@ -163,7 +164,7 @@ impl People {
                 .storage
                 .read_setting_relay_list_becomes_stale_minutes() as i64;
 
-        match GLOBALS.storage.read_person(&pubkey, None) {
+        match PersonTable::read_record(pubkey, None) {
             Err(_) => Freshness::NeverSought,
             Ok(None) => Freshness::NeverSought,
             Ok(Some(p)) => {
@@ -188,7 +189,7 @@ impl People {
     /// Create person records for these pubkeys, if missing
     pub fn create_all_if_missing(&self, pubkeys: &[PublicKey]) -> Result<(), Error> {
         for pubkey in pubkeys {
-            GLOBALS.storage.write_person_if_missing(pubkey, None)?;
+            PersonTable::create_record_if_missing(*pubkey, None)?;
         }
 
         Ok(())
@@ -259,7 +260,7 @@ impl People {
                 }
             }
 
-            match GLOBALS.storage.read_person(&pubkey, None) {
+            match PersonTable::read_record(pubkey, None) {
                 Ok(Some(person)) => {
                     // We need metadata if it is missing or old
                     let need = {
@@ -310,14 +311,12 @@ impl People {
         let now = Unixtime::now().unwrap();
 
         // Copy the person
-        let mut person = GLOBALS
-            .storage
-            .read_person(pubkey, None)?
-            .unwrap_or(Person::new(pubkey.to_owned()));
+        let mut person =
+            PersonTable::read_record(*pubkey, None)?.unwrap_or(Person::new(pubkey.to_owned()));
 
         // Update metadata_last_received, even if we don't update the metadata
         person.metadata_last_received = now.0;
-        GLOBALS.storage.write_person(&person, None)?;
+        PersonTable::write_record(&mut person, None)?;
 
         // Determine whether it is fresh
         let fresh = match person.metadata_created_at {
@@ -326,20 +325,20 @@ impl People {
         };
 
         if fresh {
-            let nip05_changed = if let Some(md) = &person.metadata {
+            let nip05_changed = if let Some(md) = person.metadata() {
                 metadata.nip05 != md.nip05.clone()
             } else {
                 metadata.nip05.is_some()
             };
 
             // Update person in the map, and the local variable
-            person.metadata = Some(metadata);
+            *person.metadata_mut() = Some(metadata);
             person.metadata_created_at = Some(asof.0);
             if nip05_changed {
                 person.nip05_valid = false; // changed, so reset to invalid
                 person.nip05_last_checked = None; // we haven't checked this one yet
             }
-            GLOBALS.storage.write_person(&person, None)?;
+            PersonTable::write_record(&mut person, None)?;
             GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
         }
 
@@ -347,13 +346,7 @@ impl People {
         GLOBALS.failed_avatars.write().await.remove(pubkey);
 
         // Only if they have a nip05 dns id set
-        if matches!(
-            person,
-            Person {
-                metadata: Some(Metadata { nip05: Some(_), .. }),
-                ..
-            }
-        ) {
+        if matches!(person.metadata(), Some(Metadata { nip05: Some(_), .. })) {
             // Recheck nip05 every day if invalid, and every two weeks if valid
 
             let recheck = {
@@ -429,7 +422,7 @@ impl People {
         }
 
         // Get the person this is about
-        let person = match GLOBALS.storage.read_person(pubkey, None) {
+        let person = match PersonTable::read_record(*pubkey, None) {
             Ok(Some(person)) => person,
             _ => return None, // can recover once the person is loaded
         };
@@ -510,56 +503,55 @@ impl People {
         let search = String::from(text).to_lowercase();
 
         // grab all results then sort by score
-        let mut results: Vec<(u16, String, PublicKey)> = GLOBALS
-            .storage
-            .filter_people(|_| true)?
-            .iter()
-            .filter_map(|person| {
-                let mut score = 0u16;
-                let mut result_name = String::from("");
+        let mut results: Vec<(u16, String, PublicKey)> =
+            PersonTable::filter_records(|_| true, None)?
+                .iter()
+                .filter_map(|person| {
+                    let mut score = 0u16;
+                    let mut result_name = String::from("");
 
-                // search for users by name
-                let name = person.best_name();
-                let matchable = name.to_lowercase();
-                if matchable.starts_with(&search) {
-                    score = 300;
-                    result_name = name.to_string();
-                }
-                if matchable.contains(&search) {
-                    score = 200;
-                    result_name = name.to_string();
-                }
-
-                // search for users by nip05 id
-                if score == 0 && person.nip05_valid {
-                    if let Some(nip05) = &person.nip05().map(|n| n.to_lowercase()) {
-                        if nip05.starts_with(&search) {
-                            score = 400;
-                            result_name = nip05.to_string();
-                        }
-                        if nip05.contains(&search) {
-                            score = 100;
-                            result_name = nip05.to_string();
-                        }
+                    // search for users by name
+                    let name = person.best_name();
+                    let matchable = name.to_lowercase();
+                    if matchable.starts_with(&search) {
+                        score = 300;
+                        result_name = name.to_string();
                     }
-                }
-
-                if score > 0 {
-                    // if there is not a name, fallback to showing the initial chars of the pubkey,
-                    // but this is probably unnecessary and will never happen
-                    if result_name.is_empty() {
-                        result_name = person.pubkey.as_hex_string();
+                    if matchable.contains(&search) {
+                        score = 200;
+                        result_name = name.to_string();
                     }
 
-                    // bigger names have a higher match chance, but they should be scored lower
-                    score -= result_name.len() as u16;
+                    // search for users by nip05 id
+                    if score == 0 && person.nip05_valid {
+                        if let Some(nip05) = &person.nip05().map(|n| n.to_lowercase()) {
+                            if nip05.starts_with(&search) {
+                                score = 400;
+                                result_name = nip05.to_string();
+                            }
+                            if nip05.contains(&search) {
+                                score = 100;
+                                result_name = nip05.to_string();
+                            }
+                        }
+                    }
 
-                    return Some((score, result_name, person.pubkey));
-                }
+                    if score > 0 {
+                        // if there is not a name, fallback to showing the initial chars of the pubkey,
+                        // but this is probably unnecessary and will never happen
+                        if result_name.is_empty() {
+                            result_name = person.pubkey.as_hex_string();
+                        }
 
-                None
-            })
-            .collect();
+                        // bigger names have a higher match chance, but they should be scored lower
+                        score -= result_name.len() as u16;
+
+                        return Some((score, result_name, person.pubkey));
+                    }
+
+                    None
+                })
+                .collect();
 
         results.sort_by(|a, b| a.0.cmp(&b.0).reverse());
         let max = if results.len() > 10 {
@@ -696,7 +688,7 @@ impl People {
 
             // Only include petnames in the ContactList (which is only public people)
             let petname = if kind == EventKind::ContactList {
-                if let Some(person) = GLOBALS.storage.read_person(pubkey, None)? {
+                if let Some(person) = PersonTable::read_record(*pubkey, None)? {
                     person.petname.clone()
                 } else {
                     None
@@ -856,22 +848,22 @@ impl People {
     ) -> Result<bool, Error> {
         let mut retval = false;
 
-        let mut person = match GLOBALS.storage.read_person(&pubkey, None)? {
-            Some(person) => person,
-            None => Person::new(pubkey),
-        };
-
-        if let Some(old_at) = person.relay_list_created_at {
-            if created_at < old_at {
-                retval = false;
-            } else {
-                person.relay_list_created_at = Some(created_at);
-            }
-        } else {
-            person.relay_list_created_at = Some(created_at);
-        }
-
-        GLOBALS.storage.write_person(&person, None)?;
+        PersonTable::modify(
+            pubkey,
+            |person| {
+                if let Some(old_at) = person.relay_list_created_at {
+                    if created_at < old_at {
+                        retval = false;
+                    } else {
+                        retval = true;
+                        person.relay_list_created_at = Some(created_at);
+                    }
+                } else {
+                    person.relay_list_created_at = Some(created_at);
+                }
+            },
+            None,
+        )?;
 
         Ok(retval)
     }
@@ -879,10 +871,11 @@ impl People {
     pub(crate) async fn update_nip05_last_checked(&self, pubkey: PublicKey) -> Result<(), Error> {
         let now = Unixtime::now().unwrap().0;
 
-        if let Some(mut person) = GLOBALS.storage.read_person(&pubkey, None)? {
-            person.nip05_last_checked = Some(now as u64);
-            GLOBALS.storage.write_person(&person, None)?;
-        }
+        PersonTable::modify(
+            pubkey,
+            |person| person.nip05_last_checked = Some(now as u64),
+            None,
+        )?;
 
         Ok(())
     }
@@ -895,20 +888,22 @@ impl People {
         nip05_last_checked: u64,
     ) -> Result<(), Error> {
         // Update memory
-        if let Some(mut person) = GLOBALS.storage.read_person(pubkey, None)? {
-            if let Some(metadata) = &mut person.metadata {
-                metadata.nip05 = nip05
-            } else {
-                let mut metadata = Metadata::new();
-                metadata.nip05 = nip05;
-                person.metadata = Some(metadata);
-            }
-            person.nip05_valid = nip05_valid;
-            person.nip05_last_checked = Some(nip05_last_checked);
-
-            GLOBALS.storage.write_person(&person, None)?;
-            GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
-        }
+        PersonTable::modify(
+            *pubkey,
+            |person| {
+                if let Some(metadata) = person.metadata_mut() {
+                    metadata.nip05 = nip05.clone();
+                } else {
+                    let mut metadata = Metadata::new();
+                    metadata.nip05 = nip05.clone();
+                    *person.metadata_mut() = Some(metadata);
+                }
+                person.nip05_valid = nip05_valid;
+                person.nip05_last_checked = Some(nip05_last_checked);
+                GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
+            },
+            None,
+        )?;
 
         Ok(())
     }

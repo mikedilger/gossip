@@ -2,8 +2,7 @@ use super::{GossipUi, Page};
 use eframe::egui;
 use egui::{Align, Color32, Context, Layout, RichText, TextEdit, Ui};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::Relay;
-use gossip_lib::GLOBALS;
+use gossip_lib::{PersonTable, Relay, Table, GLOBALS};
 use lazy_static::lazy_static;
 use nostr_types::Metadata;
 use serde_json::map::Map;
@@ -34,7 +33,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         }
     };
 
-    let you = match GLOBALS.storage.read_person(&public_key, None) {
+    let you = match PersonTable::read_record(public_key, None) {
         Ok(Some(dbp)) => dbp,
         _ => {
             ui.label("I cannot find you.");
@@ -43,7 +42,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         }
     };
 
-    let view_metadata: &Metadata = match &you.metadata {
+    let view_metadata: &Metadata = match you.metadata() {
         Some(m) => m,
         None => &EMPTY_METADATA,
     };
@@ -102,7 +101,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 if ui.button("CANCEL (revert)").clicked() {
                     app.editing_metadata = false;
                     // revert any changes:
-                    app.metadata = match &you.metadata {
+                    app.metadata = match you.metadata() {
                         Some(m) => m.to_owned(),
                         None => Metadata::new(),
                     };
@@ -114,8 +113,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 {
                     app.editing_metadata = false;
                     let mut new_you = you.clone();
-                    new_you.metadata = Some(app.metadata.clone());
-                    let _ = GLOBALS.storage.write_person(&new_you, None);
+                    *new_you.metadata_mut() = Some(app.metadata.clone());
+                    let _ = PersonTable::write_record(&mut new_you, None);
                     let _ = GLOBALS
                         .to_overlord
                         .send(ToOverlordMessage::PushMetadata(app.metadata.clone()));

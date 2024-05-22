@@ -5,6 +5,7 @@ use crate::globals::GLOBALS;
 use crate::misc::{Freshness, Private};
 use crate::people::{People, PersonList, PersonListMetadata};
 use crate::relationship::{RelationshipByAddr, RelationshipById};
+use crate::storage::{PersonTable, Table};
 use async_recursion::async_recursion;
 use heed::RwTxn;
 use nostr_types::{
@@ -53,9 +54,7 @@ pub async fn process_new_event(
             .add_event_seen_on_relay(event.id, url, now, None)?;
 
         // Create the person if missing in the database
-        GLOBALS
-            .storage
-            .write_person_if_missing(&event.pubkey, None)?;
+        PersonTable::create_record_if_missing(event.pubkey, None)?;
 
         // Update person-relay information (seen them on this relay)
         GLOBALS.storage.modify_person_relay(
@@ -75,13 +74,13 @@ pub async fn process_new_event(
         let filter_result = {
             if event.kind == EventKind::GiftWrap {
                 if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(event) {
-                    let author = GLOBALS.storage.read_person(&rumor.pubkey, None)?;
+                    let author = PersonTable::read_record(rumor.pubkey, None)?;
                     Some(crate::filter::filter_rumor(rumor, author, event.id))
                 } else {
                     None
                 }
             } else {
-                let author = GLOBALS.storage.read_person(&event.pubkey, None)?;
+                let author = PersonTable::read_record(event.pubkey, None)?;
                 Some(crate::filter::filter_event(event.clone(), author))
             }
         };

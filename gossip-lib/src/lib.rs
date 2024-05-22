@@ -143,7 +143,7 @@ pub use status::StatusQueue;
 
 mod storage;
 pub use storage::types::*;
-pub use storage::Storage;
+pub use storage::{PersonTable, Storage, Table};
 
 mod tags;
 

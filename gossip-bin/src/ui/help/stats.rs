@@ -1,7 +1,7 @@
 use super::GossipUi;
 use eframe::egui;
 use egui::{Context, Ui};
-use gossip_lib::GLOBALS;
+use gossip_lib::{PersonTable, Table, GLOBALS};
 use humansize::{format_size, DECIMAL};
 use std::sync::atomic::Ordering;
 
@@ -108,7 +108,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
         ui.label(format!(
             "People: {} records",
-            GLOBALS.storage.get_people_len().unwrap_or(0)
+            PersonTable::num_records().unwrap_or(0)
         ));
         ui.add_space(6.0);
 

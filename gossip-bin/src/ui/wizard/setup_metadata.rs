@@ -4,8 +4,7 @@ use crate::ui::{GossipUi, Page, RichText};
 use eframe::egui;
 use egui::{Context, Ui};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::Person;
-use gossip_lib::GLOBALS;
+use gossip_lib::{Person, PersonTable, Table, GLOBALS};
 use nostr_types::Metadata;
 
 use super::continue_control;
@@ -20,7 +19,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         }
     };
 
-    let you = match GLOBALS.storage.read_person(&pubkey, None) {
+    let you = match PersonTable::read_record(pubkey, None) {
         Ok(Some(person)) => person,
         _ => {
             GLOBALS.people.create_if_missing(pubkey);
@@ -29,7 +28,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     };
 
     let mut existing_metadata = false;
-    let metadata: Metadata = match &you.metadata {
+    let metadata: Metadata = match you.metadata() {
         Some(m) => {
             existing_metadata = true;
             m.to_owned()
@@ -167,6 +166,6 @@ fn save_metadata(app: &mut GossipUi, mut you: Person, mut metadata: Metadata) {
     };
 
     // Save to database
-    you.metadata = Some(metadata);
-    let _ = GLOBALS.storage.write_person(&you, None);
+    *you.metadata_mut() = Some(metadata);
+    let _ = PersonTable::write_record(&mut you, None);
 }

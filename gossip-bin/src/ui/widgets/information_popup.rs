@@ -3,6 +3,7 @@ use egui_winit::egui::{
 };
 use gossip_lib::Person;
 pub trait InformationPopup {
+    #[allow(dead_code)]
     fn id(&self) -> Id;
     fn interact_rect(&self) -> Rect;
     fn set_last_seen(&mut self, time: f64);
