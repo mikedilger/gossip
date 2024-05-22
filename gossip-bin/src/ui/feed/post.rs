@@ -190,8 +190,13 @@ fn dm_posting_area(
     }
 
     ui.label(format!("DIRECT MESSAGE TO: {}", dm_channel.name()));
+
     ui.add_space(10.0);
-    ui.label("WARNING: DMs currently have security weaknesses and the more DMs you send, the easier it becomes for a sophisticated attacker to crack your shared secret and decrypt this entire conversation.");
+    if dm_channel.can_use_nip17() {
+        ui.label("SECURED with newer DM technology (NIPs 17, 44, 59)");
+    } else {
+        ui.label("WARNING: Using older less-secure DM technology (NIP-04; recipient(s) have not signalled the ability to accept the newer method)");
+    }
 
     let draft_response = ui.add(
         text_edit_multiline!(app, app.dm_draft_data.draft)
