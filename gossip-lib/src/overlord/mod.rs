@@ -14,7 +14,7 @@ use crate::pending::PendingItem;
 use crate::people::{Person, PersonList};
 use crate::relay::Relay;
 use crate::storage::{PersonTable, Table};
-use crate::tags::{
+use crate::post::{
     add_addr_to_tags, add_event_to_tags, add_pubkey_to_tags, add_subject_to_tags_if_missing,
 };
 use crate::RunState;
