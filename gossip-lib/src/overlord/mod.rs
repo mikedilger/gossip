@@ -1577,9 +1577,7 @@ impl Overlord {
             let mut tags: Vec<Tag> = vec![
                 Tag::new_event(
                     id,
-                    Relay::recommended_relay_for_reply(id)
-                        .await?
-                        .map(|rr| rr.to_unchecked_url()),
+                    Relay::recommended_relay_for_reply(id)?.map(|rr| rr.to_unchecked_url()),
                     None,
                 ),
                 Tag::new_pubkey(pubkey, None, None),
@@ -1864,24 +1862,24 @@ impl Overlord {
                 for bech32 in NostrBech32::find_all_in_string(&content).iter() {
                     match bech32 {
                         NostrBech32::EventAddr(ea) => {
-                            add_addr_to_tags(&mut tags, ea, Some("mention".to_string())).await;
+                            add_addr_to_tags(&mut tags, ea, Some("mention".to_string()));
                         }
                         NostrBech32::EventPointer(ep) => {
                             // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
-                            add_event_to_tags(&mut tags, ep.id, None, "mention").await;
+                            add_event_to_tags(&mut tags, ep.id, None, "mention");
                         }
                         NostrBech32::Id(id) => {
                             // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
-                            add_event_to_tags(&mut tags, *id, None, "mention").await;
+                            add_event_to_tags(&mut tags, *id, None, "mention");
                         }
                         NostrBech32::Profile(prof) => {
                             if dm_channel.is_none() {
-                                add_pubkey_to_tags(&mut tags, prof.pubkey).await;
+                                add_pubkey_to_tags(&mut tags, prof.pubkey);
                             }
                         }
                         NostrBech32::Pubkey(pk) => {
                             if dm_channel.is_none() {
-                                add_pubkey_to_tags(&mut tags, *pk).await;
+                                add_pubkey_to_tags(&mut tags, *pk);
                             }
                         }
                         NostrBech32::Relay(_) => {
@@ -1910,7 +1908,7 @@ impl Overlord {
                     // Add a 'p' tag for the author we are replying to (except if it is our own key)
                     if parent.pubkey != public_key {
                         if dm_channel.is_none() {
-                            add_pubkey_to_tags(&mut tags, parent.pubkey).await;
+                            add_pubkey_to_tags(&mut tags, parent.pubkey);
                         }
                     }
 
@@ -1920,7 +1918,7 @@ impl Overlord {
                         for tag in &parent.tags {
                             if let Ok((pubkey, _, _)) = tag.parse_pubkey() {
                                 if pubkey != public_key {
-                                    add_pubkey_to_tags(&mut tags, pubkey).await;
+                                    add_pubkey_to_tags(&mut tags, pubkey);
                                 }
                             }
                         }
@@ -1941,13 +1939,12 @@ impl Overlord {
                                 root,
                                 relays.pop().map(|u| u.to_unchecked_url()),
                                 "root",
-                            )
-                            .await;
+                            );
                             parent_is_root = false;
                         }
                         Some(EventReference::Addr(ea)) => {
                             // Add an 'a' tag for the root
-                            add_addr_to_tags(&mut tags, &ea, Some("root".to_string())).await;
+                            add_addr_to_tags(&mut tags, &ea, Some("root".to_string()));
                             parent_is_root = false;
                         }
                         None => {
@@ -1956,7 +1953,7 @@ impl Overlord {
                             let ancestor = parent.replies_to();
                             if ancestor.is_none() {
                                 // parent is the root
-                                add_event_to_tags(&mut tags, parent_id, None, "root").await;
+                                add_event_to_tags(&mut tags, parent_id, None, "root");
                             } else {
                                 parent_is_root = false;
                             }
@@ -1965,7 +1962,7 @@ impl Overlord {
 
                     // Add 'reply tags
                     let reply_marker = if parent_is_root { "root" } else { "reply" };
-                    add_event_to_tags(&mut tags, parent_id, None, reply_marker).await;
+                    add_event_to_tags(&mut tags, parent_id, None, reply_marker);
                     if parent.kind.is_replaceable() {
                         // Add an 'a' tag for the note we are replying to
                         let d = parent.parameter().unwrap_or("".to_owned());
@@ -1978,8 +1975,7 @@ impl Overlord {
                                 author: parent.pubkey,
                             },
                             Some(reply_marker.to_string()),
-                        )
-                        .await;
+                        );
                     }
 
                     // Possibly propagate a subject tag
@@ -2331,9 +2327,7 @@ impl Overlord {
         let relay_url = {
             let seen_on = GLOBALS.storage.get_event_seen_on_relay(reposted_event.id)?;
             if seen_on.is_empty() {
-                Relay::recommended_relay_for_reply(id)
-                    .await?
-                    .map(|rr| rr.to_unchecked_url())
+                Relay::recommended_relay_for_reply(id)?.map(|rr| rr.to_unchecked_url())
             } else {
                 seen_on.first().map(|(rurl, _)| rurl.to_unchecked_url())
             }

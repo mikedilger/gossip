@@ -165,7 +165,7 @@ impl Relay2 {
     }
 
     /// This generates a "recommended_relay_url" for an 'e' tag.
-    pub async fn recommended_relay_for_reply(reply_to: Id) -> Result<Option<RelayUrl>, Error> {
+    pub fn recommended_relay_for_reply(reply_to: Id) -> Result<Option<RelayUrl>, Error> {
         let seen_on_relays: Vec<(RelayUrl, Unixtime)> =
             GLOBALS.storage.get_event_seen_on_relay(reply_to)?;
 

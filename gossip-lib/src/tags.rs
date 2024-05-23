@@ -1,7 +1,7 @@
 use crate::relay::Relay;
 use nostr_types::{EventAddr, Id, PublicKey, Tag, UncheckedUrl};
 
-pub async fn add_pubkey_to_tags(existing_tags: &mut Vec<Tag>, added: PublicKey) -> usize {
+pub fn add_pubkey_to_tags(existing_tags: &mut Vec<Tag>, added: PublicKey) -> usize {
     let newtag = Tag::new_pubkey(added, None, None);
 
     match existing_tags.iter().position(|existing_tag| {
@@ -22,7 +22,7 @@ pub async fn add_pubkey_to_tags(existing_tags: &mut Vec<Tag>, added: PublicKey) 
 
 // note - this is only used for kind-1 currently. If we change to other kinds, the 'q' tag
 //        would currently be wrong.
-pub async fn add_event_to_tags(
+pub fn add_event_to_tags(
     existing_tags: &mut Vec<Tag>,
     added: Id,
     relay_url: Option<UncheckedUrl>,
@@ -31,7 +31,6 @@ pub async fn add_event_to_tags(
     let optrelay = match relay_url {
         Some(url) => Some(url),
         None => Relay::recommended_relay_for_reply(added)
-            .await
             .ok()
             .flatten()
             .map(|rr| rr.to_unchecked_url()),
@@ -74,7 +73,7 @@ pub async fn add_event_to_tags(
 }
 
 // FIXME pass in and set marker
-pub async fn add_addr_to_tags(
+pub fn add_addr_to_tags(
     existing_tags: &mut Vec<Tag>,
     addr: &EventAddr,
     marker: Option<String>,
