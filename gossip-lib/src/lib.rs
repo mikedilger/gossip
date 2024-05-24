@@ -121,6 +121,8 @@ pub use people::{hash_person_list_event, People, Person, PersonList, PersonListM
 mod person_relay;
 pub use person_relay::PersonRelay;
 
+mod post;
+
 /// Processing incoming events
 pub mod process;
 
@@ -144,8 +146,6 @@ pub use status::StatusQueue;
 mod storage;
 pub use storage::types::*;
 pub use storage::{PersonTable, Storage, Table};
-
-mod tags;
 
 #[macro_use]
 extern crate lazy_static;

@@ -9,15 +9,37 @@ use sha2::Digest;
 //
 // The pubkey of the gossip user is not included. If they send themselves
 // a note, that channel has an empty vec.
+//
+// The second field indicates whether or not we can use NIP-17
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct DmChannel(Vec<PublicKey>);
+pub struct DmChannel(Vec<PublicKey>, bool);
 
 impl DmChannel {
     pub fn new(public_keys: &[PublicKey]) -> DmChannel {
         let mut vec = public_keys.to_owned();
         vec.sort();
         vec.dedup();
-        DmChannel(vec)
+
+        let can_use_nip17 = {
+            if let Some(pk) = GLOBALS.storage.read_setting_public_key() {
+                if !matches!(GLOBALS.storage.has_dm_relays(pk), Ok(true)) {
+                    false
+                } else {
+                    let mut others_can_use_nip17 = true;
+                    for pk in &vec {
+                        if !matches!(GLOBALS.storage.has_dm_relays(*pk), Ok(true)) {
+                            others_can_use_nip17 = false;
+                            break;
+                        }
+                    }
+                    others_can_use_nip17
+                }
+            } else {
+                false
+            }
+        };
+
+        DmChannel(vec, can_use_nip17)
     }
 
     pub fn keys(&self) -> &[PublicKey] {
@@ -53,6 +75,10 @@ impl DmChannel {
             hasher.update(pk.as_bytes());
         }
         hex::encode(hasher.finalize())
+    }
+
+    pub fn can_use_nip17(&self) -> bool {
+        self.1
     }
 
     pub fn from_event(event: &Event, my_pubkey: Option<PublicKey>) -> Option<DmChannel> {

@@ -9,10 +9,11 @@ use std::sync::Mutex;
 static EVENT_KCI_INDEX_DB_CREATE_LOCK: Mutex<()> = Mutex::new(());
 static mut EVENT_KCI_INDEX_DB: Option<EmptyDatabase> = None;
 
-pub(super) const INDEXED_KINDS: [EventKind; 5] = [
+pub(super) const INDEXED_KINDS: [EventKind; 6] = [
     EventKind::Metadata,
     EventKind::ContactList,
     EventKind::RelayList,
+    EventKind::DmRelayList,
     EventKind::EncryptedDirectMessage,
     EventKind::GiftWrap,
 ];

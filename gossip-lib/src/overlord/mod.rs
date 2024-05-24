@@ -14,18 +14,15 @@ use crate::pending::PendingItem;
 use crate::people::{Person, PersonList};
 use crate::relay::Relay;
 use crate::storage::{PersonTable, Table};
-use crate::tags::{
-    add_addr_to_tags, add_event_to_tags, add_pubkey_to_tags, add_subject_to_tags_if_missing,
-};
 use crate::RunState;
 use gossip_relay_picker::RelayAssignment;
 use heed::RwTxn;
 use http::StatusCode;
 use minion::{Minion, MinionExitReason};
 use nostr_types::{
-    ContentEncryptionAlgorithm, EncryptedPrivateKey, Event, EventAddr, EventKind, EventReference,
-    Filter, Id, IdHex, Metadata, MilliSatoshi, NostrBech32, PayRequestData, PreEvent, PrivateKey,
-    Profile, PublicKey, RelayUrl, RelayUsage, Tag, UncheckedUrl, Unixtime,
+    EncryptedPrivateKey, Event, EventAddr, EventKind, EventReference, Filter, Id, IdHex, Metadata,
+    MilliSatoshi, NostrBech32, PayRequestData, PreEvent, PrivateKey, Profile, PublicKey, RelayUrl,
+    RelayUsage, Tag, UncheckedUrl, Unixtime,
 };
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
@@ -606,8 +603,9 @@ impl Overlord {
             ToOverlordMessage::AdvertiseRelayList => {
                 self.advertise_relay_list().await?;
             }
-            ToOverlordMessage::AdvertiseRelayListNextChunk(event, relays) => {
-                self.advertise_relay_list_next_chunk(event, relays).await?;
+            ToOverlordMessage::AdvertiseRelayListNextChunk(event, dmevent, relays) => {
+                self.advertise_relay_list_next_chunk(event, dmevent, relays)
+                    .await?;
             }
             ToOverlordMessage::AuthApproved(relay_url, permanent) => {
                 self.auth_approved(relay_url, permanent)?;
@@ -835,34 +833,56 @@ impl Overlord {
             }
         };
 
-        let inbox_or_outbox_relays: Vec<Relay> = GLOBALS
-            .storage
-            .filter_relays(|r| r.has_usage_bits(Relay::INBOX) || r.has_usage_bits(Relay::OUTBOX))?;
-        let mut tags: Vec<Tag> = Vec::new();
-        for relay in inbox_or_outbox_relays.iter() {
-            let marker =
-                if relay.has_usage_bits(Relay::INBOX) && relay.has_usage_bits(Relay::OUTBOX) {
-                    None
-                } else if relay.has_usage_bits(Relay::INBOX) {
-                    Some("read".to_owned()) // NIP-65 uses the term 'read' instead of 'inbox'
-                } else if relay.has_usage_bits(Relay::OUTBOX) {
-                    Some("write".to_owned()) // NIP-65 uses the term 'write' instead of 'outbox'
-                } else {
-                    unreachable!()
-                };
+        let event = {
+            let inbox_or_outbox_relays: Vec<Relay> = GLOBALS.storage.filter_relays(|r| {
+                r.has_usage_bits(Relay::INBOX) || r.has_usage_bits(Relay::OUTBOX)
+            })?;
+            let mut tags: Vec<Tag> = Vec::new();
+            for relay in inbox_or_outbox_relays.iter() {
+                let marker =
+                    if relay.has_usage_bits(Relay::INBOX) && relay.has_usage_bits(Relay::OUTBOX) {
+                        None
+                    } else if relay.has_usage_bits(Relay::INBOX) {
+                        Some("read".to_owned()) // NIP-65 uses the term 'read' instead of 'inbox'
+                    } else if relay.has_usage_bits(Relay::OUTBOX) {
+                        Some("write".to_owned()) // NIP-65 uses the term 'write' instead of 'outbox'
+                    } else {
+                        unreachable!()
+                    };
 
-            tags.push(Tag::new_relay(relay.url.to_unchecked_url(), marker));
-        }
+                tags.push(Tag::new_relay(relay.url.to_unchecked_url(), marker));
+            }
 
-        let pre_event = PreEvent {
-            pubkey: public_key,
-            created_at: Unixtime::now().unwrap(),
-            kind: EventKind::RelayList,
-            tags,
-            content: "".to_string(),
+            let pre_event = PreEvent {
+                pubkey: public_key,
+                created_at: Unixtime::now().unwrap(),
+                kind: EventKind::RelayList,
+                tags,
+                content: "".to_string(),
+            };
+
+            GLOBALS.identity.sign_event(pre_event)?
         };
 
-        let event = GLOBALS.identity.sign_event(pre_event)?;
+        let dm_event = {
+            let dm_relays: Vec<Relay> = GLOBALS
+                .storage
+                .filter_relays(|r| r.has_usage_bits(Relay::DM))?;
+            let mut tags: Vec<Tag> = Vec::new();
+            for relay in dm_relays.iter() {
+                tags.push(Tag::new(&["relay", relay.url.as_str()]));
+            }
+
+            let pre_event = PreEvent {
+                pubkey: public_key,
+                created_at: Unixtime::now().unwrap(),
+                kind: EventKind::DmRelayList,
+                tags,
+                content: "".to_string(),
+            };
+
+            GLOBALS.identity.sign_event(pre_event)?
+        };
 
         let relays: Vec<RelayUrl> = GLOBALS
             .storage
@@ -878,6 +898,7 @@ impl Overlord {
             .to_overlord
             .send(ToOverlordMessage::AdvertiseRelayListNextChunk(
                 Box::new(event),
+                Box::new(dm_event),
                 relays,
             ));
 
@@ -888,10 +909,11 @@ impl Overlord {
     pub async fn advertise_relay_list_next_chunk(
         &mut self,
         event: Box<Event>,
+        dmevent: Box<Event>,
         relays: Vec<RelayUrl>,
     ) -> Result<(), Error> {
         tracing::info!(
-            "Advertising relay list, {} more relays to go...",
+            "Advertising relay lists, {} more relays to go...",
             relays.len()
         );
 
@@ -909,7 +931,10 @@ impl Overlord {
                         reason: RelayConnectionReason::Advertising,
                         payload: ToMinionPayload {
                             job_id,
-                            detail: ToMinionPayloadDetail::AdvertiseRelayList(event.clone()),
+                            detail: ToMinionPayloadDetail::AdvertiseRelayList(
+                                event.clone(),
+                                dmevent.clone(),
+                            ),
                         },
                     }],
                 )
@@ -934,6 +959,7 @@ impl Overlord {
                     .to_overlord
                     .send(ToOverlordMessage::AdvertiseRelayListNextChunk(
                         event,
+                        dmevent,
                         relays[10..].to_owned(),
                     ));
             }
@@ -1805,11 +1831,11 @@ impl Overlord {
     pub async fn post(
         &mut self,
         content: String,
-        mut tags: Vec<Tag>,
-        reply_to: Option<Id>,
+        tags: Vec<Tag>,
+        in_reply_to: Option<Id>,
         dm_channel: Option<DmChannel>,
     ) -> Result<(), Error> {
-        let public_key = match GLOBALS.identity.public_key() {
+        let author = match GLOBALS.identity.public_key() {
             Some(pk) => pk,
             None => {
                 tracing::warn!("No public key! Not posting");
@@ -1817,267 +1843,40 @@ impl Overlord {
             }
         };
 
-        let pre_event = match dm_channel {
-            Some(dmc) => {
-                if dmc.keys().len() > 1 {
-                    return Err((ErrorKind::GroupDmsNotYetSupported, file!(), line!()).into());
-                }
-
-                let recipient = if dmc.keys().is_empty() {
-                    public_key // must be to yourself
+        // Prepare events for posting
+        let mut prepared_events = match dm_channel {
+            Some(channel) => {
+                if channel.can_use_nip17() {
+                    crate::post::prepare_post_nip17(author, content, tags, channel)?
                 } else {
-                    dmc.keys()[0]
-                };
-
-                // On a DM, we ignore tags and reply_to
-                let enc_content = GLOBALS.identity.encrypt(
-                    &recipient,
-                    &content,
-                    ContentEncryptionAlgorithm::Nip04,
-                )?;
-
-                PreEvent {
-                    pubkey: public_key,
-                    created_at: Unixtime::now().unwrap(),
-                    kind: EventKind::EncryptedDirectMessage,
-                    tags: vec![Tag::new_pubkey(
-                        recipient, None, // FIXME
-                        None,
-                    )],
-                    content: enc_content,
+                    crate::post::prepare_post_nip04(author, content, channel)?
                 }
             }
-            _ => {
-                if GLOBALS.storage.read_setting_set_client_tag() {
-                    tags.push(Tag::new(&["client", "gossip"]));
-                }
-
-                // Add Tags based on references in the content
-                //
-                // FIXME - this function takes a 'tags' variable. We may want to let
-                // the user determine which tags to keep and which to delete, so we
-                // should probably move this processing into the post editor instead.
-                // For now, I'm just trying to remove the old #[0] type substitutions
-                // and use the new NostrBech32 parsing.
-                for bech32 in NostrBech32::find_all_in_string(&content).iter() {
-                    match bech32 {
-                        NostrBech32::EventAddr(ea) => {
-                            add_addr_to_tags(&mut tags, ea, Some("mention".to_string()));
-                        }
-                        NostrBech32::EventPointer(ep) => {
-                            // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
-                            add_event_to_tags(&mut tags, ep.id, None, "mention");
-                        }
-                        NostrBech32::Id(id) => {
-                            // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
-                            add_event_to_tags(&mut tags, *id, None, "mention");
-                        }
-                        NostrBech32::Profile(prof) => {
-                            if dm_channel.is_none() {
-                                add_pubkey_to_tags(&mut tags, prof.pubkey);
-                            }
-                        }
-                        NostrBech32::Pubkey(pk) => {
-                            if dm_channel.is_none() {
-                                add_pubkey_to_tags(&mut tags, *pk);
-                            }
-                        }
-                        NostrBech32::Relay(_) => {
-                            // we don't need to add this to tags I don't think.
-                        }
-                    }
-                }
-
-                // Standardize nostr links (prepend 'nostr:' where missing)
-                // (This was a bad idea to do this late in the process, it breaks links that contain
-                //  nostr urls)
-                // content = NostrUrl::urlize(&content);
-
-                // Find and tag all hashtags
-                for capture in GLOBALS.hashtag_regex.captures_iter(&content) {
-                    tags.push(Tag::new_hashtag(capture[1][1..].to_string()));
-                }
-
-                if let Some(parent_id) = reply_to {
-                    // Get the event we are replying to
-                    let parent = match GLOBALS.storage.read_event(parent_id)? {
-                        Some(e) => e,
-                        None => return Err("Cannot find event we are replying to.".into()),
-                    };
-
-                    // Add a 'p' tag for the author we are replying to (except if it is our own key)
-                    if parent.pubkey != public_key {
-                        if dm_channel.is_none() {
-                            add_pubkey_to_tags(&mut tags, parent.pubkey);
-                        }
-                    }
-
-                    // Add all the 'p' tags from the note we are replying to (except our own)
-                    // FIXME: Should we avoid taging people who are muted?
-                    if dm_channel.is_none() {
-                        for tag in &parent.tags {
-                            if let Ok((pubkey, _, _)) = tag.parse_pubkey() {
-                                if pubkey != public_key {
-                                    add_pubkey_to_tags(&mut tags, pubkey);
-                                }
-                            }
-                        }
-                    }
-
-                    // Possibly add a tag to the 'root'
-                    let mut parent_is_root = true;
-                    match parent.replies_to_root() {
-                        Some(EventReference::Id {
-                            id: root,
-                            author: _,
-                            mut relays,
-                            marker: _,
-                        }) => {
-                            // Add an 'e' tag for the root
-                            add_event_to_tags(
-                                &mut tags,
-                                root,
-                                relays.pop().map(|u| u.to_unchecked_url()),
-                                "root",
-                            );
-                            parent_is_root = false;
-                        }
-                        Some(EventReference::Addr(ea)) => {
-                            // Add an 'a' tag for the root
-                            add_addr_to_tags(&mut tags, &ea, Some("root".to_string()));
-                            parent_is_root = false;
-                        }
-                        None => {
-                            // double check in case replies_to_root() isn't sufficient
-                            // (it might be but this code doesn't hurt)
-                            let ancestor = parent.replies_to();
-                            if ancestor.is_none() {
-                                // parent is the root
-                                add_event_to_tags(&mut tags, parent_id, None, "root");
-                            } else {
-                                parent_is_root = false;
-                            }
-                        }
-                    }
-
-                    // Add 'reply tags
-                    let reply_marker = if parent_is_root { "root" } else { "reply" };
-                    add_event_to_tags(&mut tags, parent_id, None, reply_marker);
-                    if parent.kind.is_replaceable() {
-                        // Add an 'a' tag for the note we are replying to
-                        let d = parent.parameter().unwrap_or("".to_owned());
-                        add_addr_to_tags(
-                            &mut tags,
-                            &EventAddr {
-                                d,
-                                relays: vec![],
-                                kind: parent.kind,
-                                author: parent.pubkey,
-                            },
-                            Some(reply_marker.to_string()),
-                        );
-                    }
-
-                    // Possibly propagate a subject tag
-                    for tag in &parent.tags {
-                        if let Ok(subject) = tag.parse_subject() {
-                            let mut subject = subject.to_owned();
-                            if !subject.starts_with("Re: ") {
-                                subject = format!("Re: {}", subject);
-                            }
-                            subject = subject.chars().take(80).collect();
-                            add_subject_to_tags_if_missing(&mut tags, subject);
-                        }
-                    }
-                }
-
-                PreEvent {
-                    pubkey: public_key,
-                    created_at: Unixtime::now().unwrap(),
-                    kind: EventKind::TextNote,
-                    tags,
-                    content,
-                }
-            }
+            None => crate::post::prepare_post_normal(author, content, tags, in_reply_to)?,
         };
 
-        // Copy the tagged pubkeys for determine which relays to send to
-        let mut tagged_pubkeys: Vec<PublicKey> = pre_event
-            .tags
-            .iter()
-            .filter_map(|t| {
-                if let Ok((pubkey, _, _)) = t.parse_pubkey() {
-                    Some(pubkey)
-                } else {
-                    None
-                }
-            })
-            .collect();
+        // Post them
+        for (event, relay_urls) in prepared_events.drain(..) {
+            // Process this event locally
+            crate::process::process_new_event(&event, None, None, false, false).await?;
 
-        let event = {
-            let powint = GLOBALS.storage.read_setting_pow();
-            if powint > 0 {
-                let (work_sender, work_receiver) = mpsc::channel();
-                std::thread::spawn(move || {
-                    work_logger(work_receiver, powint);
-                });
-                GLOBALS
-                    .identity
-                    .sign_event_with_pow(pre_event, powint, Some(work_sender))?
-            } else {
-                GLOBALS.identity.sign_event(pre_event)?
+            // Engage minions to post
+            for url in relay_urls {
+                // Send it the event to post
+                tracing::debug!("Asking {} to post", &url);
+
+                self.engage_minion(
+                    url.clone(),
+                    vec![RelayJob {
+                        reason: RelayConnectionReason::PostEvent,
+                        payload: ToMinionPayload {
+                            job_id: rand::random::<u64>(),
+                            detail: ToMinionPayloadDetail::PostEvents(vec![event.clone()]),
+                        },
+                    }],
+                )
+                .await?;
             }
-        };
-
-        // Process this event locally
-        crate::process::process_new_event(&event, None, None, false, false).await?;
-
-        // Maybe include parent to retransmit it
-        let events = vec![event];
-
-        // Determine which relays to post this to
-        let mut relay_urls: Vec<RelayUrl> = Vec::new();
-        {
-            // Get 'read' relays for everybody tagged in the event.
-            // We write to ALL of their read relays now
-            for pubkey in tagged_pubkeys.drain(..) {
-                let best_relays: Vec<RelayUrl> = GLOBALS
-                    .storage
-                    .get_best_relays(pubkey, RelayUsage::Inbox)?
-                    .drain(..)
-                    .map(|(u, _)| u)
-                    .collect();
-                relay_urls.extend(best_relays);
-            }
-
-            // Get all of the relays that we write to
-            let write_relay_urls: Vec<RelayUrl> = GLOBALS
-                .storage
-                .filter_relays(|r| r.has_usage_bits(Relay::WRITE) && r.rank != 0)?
-                .iter()
-                .map(|relay| relay.url.clone())
-                .collect();
-            relay_urls.extend(write_relay_urls);
-
-            relay_urls.sort();
-            relay_urls.dedup();
-        }
-
-        for url in relay_urls {
-            // Send it the event to post
-            tracing::debug!("Asking {} to post", &url);
-
-            self.engage_minion(
-                url.clone(),
-                vec![RelayJob {
-                    reason: RelayConnectionReason::PostEvent,
-                    payload: ToMinionPayload {
-                        job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::PostEvents(events.clone()),
-                    },
-                }],
-            )
-            .await?;
         }
 
         Ok(())
