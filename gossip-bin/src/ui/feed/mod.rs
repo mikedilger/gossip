@@ -175,6 +175,16 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
         }
         FeedKind::Thread { id, .. } => {
             if let Some(parent) = GLOBALS.feed.get_thread_parent() {
+                if let Some(note_ref) = app.notes.try_update_and_get(&parent) {
+                    if let Ok(note_data) = note_ref.try_borrow() {
+                        if note_data.event.replies_to().is_some() {
+                            ui.add_space(4.0);
+                            ui.label("CLIMBING THREAD...");
+                            ui.add_space(4.0);
+                        }
+                    }
+                }
+
                 render_a_feed(
                     app,
                     ctx,
@@ -184,6 +194,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                     &id.as_hex_string(),
                     load_more,
                 );
+            } else {
+                ui.label("THREAD NOT FOUND");
             }
         }
         FeedKind::Person(pubkey) => {
