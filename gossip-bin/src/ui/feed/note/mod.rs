@@ -304,20 +304,36 @@ pub fn render_note_inner(
                 ui.horizontal_wrapped(|ui| {
                     match note.event.replies_to() {
                         Some(EventReference::Id { id: irt, .. }) => {
+                            let muted = if let Some(note_ref) = app.notes.try_update_and_get(&irt) {
+                                if let Ok(note_data) = note_ref.try_borrow() {
+                                    note_data.muted()
+                                } else {
+                                    false
+                                }
+                            } else {
+                                false
+                            };
+
                             ui.add_space(8.0);
                             ui.style_mut().override_text_style = Some(TextStyle::Small);
                             let idhex: IdHex = irt.into();
-                            let name = format!("▲ #{}", gossip_lib::names::hex_id_short(&idhex));
-                            if ui.link(&name).clicked() {
-                                app.set_page(
-                                    ui.ctx(),
-                                    Page::Feed(FeedKind::Thread {
-                                        id: irt,
-                                        referenced_by: note.event.id,
-                                        author: Some(note.event.pubkey),
-                                    }),
-                                );
-                            };
+                            if muted {
+                                let name = format!("▲ (parent is muted)");
+                                let _ = ui.link(&name);
+                            } else {
+                                let name =
+                                    format!("▲ #{}", gossip_lib::names::hex_id_short(&idhex));
+                                if ui.link(&name).clicked() {
+                                    app.set_page(
+                                        ui.ctx(),
+                                        Page::Feed(FeedKind::Thread {
+                                            id: irt,
+                                            referenced_by: note.event.id,
+                                            author: Some(note.event.pubkey),
+                                        }),
+                                    );
+                                };
+                            }
                             ui.reset_style();
                         }
                         Some(EventReference::Addr(ea)) => {
@@ -326,21 +342,37 @@ pub fn render_note_inner(
                                 .storage
                                 .get_replaceable_event(ea.kind, ea.author, &ea.d)
                             {
+                                let muted =
+                                    if let Some(note_ref) = app.notes.try_update_and_get(&e.id) {
+                                        if let Ok(note_data) = note_ref.try_borrow() {
+                                            note_data.muted()
+                                        } else {
+                                            false
+                                        }
+                                    } else {
+                                        false
+                                    };
+
                                 ui.add_space(8.0);
                                 ui.style_mut().override_text_style = Some(TextStyle::Small);
                                 let idhex: IdHex = e.id.into();
-                                let name =
-                                    format!("▲ #{}", gossip_lib::names::hex_id_short(&idhex));
-                                if ui.link(&name).clicked() {
-                                    app.set_page(
-                                        ui.ctx(),
-                                        Page::Feed(FeedKind::Thread {
-                                            id: e.id,
-                                            referenced_by: note.event.id,
-                                            author: Some(note.event.pubkey),
-                                        }),
-                                    );
-                                };
+                                if muted {
+                                    let name = format!("▲ (parent is muted)");
+                                    let _ = ui.link(&name);
+                                } else {
+                                    let name =
+                                        format!("▲ #{}", gossip_lib::names::hex_id_short(&idhex));
+                                    if ui.link(&name).clicked() {
+                                        app.set_page(
+                                            ui.ctx(),
+                                            Page::Feed(FeedKind::Thread {
+                                                id: e.id,
+                                                referenced_by: note.event.id,
+                                                author: Some(note.event.pubkey),
+                                            }),
+                                        );
+                                    };
+                                }
                                 ui.reset_style();
                             }
                         }
