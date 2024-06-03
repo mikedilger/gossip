@@ -2438,25 +2438,28 @@ impl Overlord {
         // The UI will traverse and render the replies if they are local.
         // The UI will traverse and render the ancestors if they are local.
 
-        let ancestors = crate::misc::get_event_ancestors(EventReference::Id {
+        let eref = EventReference::Id {
             id,
             author,
             relays: vec![],
             marker: None,
-        })?;
+        };
 
-        // Set the thread feed to the highest parent that we have or to the event itself
-        // even if we don't have it (it might be coming in soon)
+        let ancestors = crate::misc::get_event_ancestors(eref)?;
+
+        // Set thread parent
         if let Some(ref event) = ancestors.highest_connected_local {
+            // ... to the highest local event
             GLOBALS.feed.set_thread_parent(event.id);
         } else {
+            // ... else to the event itself (note that it might not be local)
             GLOBALS.feed.set_thread_parent(id);
         }
 
         let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
 
-        // Seek the next higher ancestor
-        {
+        // If we don't have it all, seek the next higher ancestor
+        if ancestors.highest_connected_remote.is_some() {
             // (it won't go higher right now, but if the user clicks they can climb the thread)
             // FIXME: keep climbing somehow once this comes in.
 
@@ -2553,7 +2556,7 @@ impl Overlord {
                         GLOBALS.seeker.seek_id(id, bonus_relays, true)?;
                     }
                 }
-                None => {}
+                None => unreachable!(),
             }
         }
 

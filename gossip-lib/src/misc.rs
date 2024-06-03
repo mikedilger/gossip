@@ -32,8 +32,8 @@ pub struct EventAncestors {
     /// straight to the event in question without anything missing)
     pub highest_connected_local: Option<Event>,
 
-    /// Any event that may be the direct parent of the highest connected ancestor
-    /// (which we don't have in local storage)
+    /// If set, the next event up that we don't have yet (or the initial event before
+    /// we have even checked)
     pub highest_connected_remote: Option<EventReference>,
 }
 

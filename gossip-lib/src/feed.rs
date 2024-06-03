@@ -288,7 +288,8 @@ impl Feed {
         *self.thread_parent.read()
     }
 
-    /// Overlord climbs and sets this
+    /// When initially changing to the thread feed, the Overlord sets the thread
+    /// parent to the highest locally available one (or the event if it is not local)
     pub(crate) fn set_thread_parent(&self, id: Id) {
         *self.thread_parent.write() = Some(id);
     }
@@ -338,13 +339,13 @@ impl Feed {
         // Copy some values from settings
         let feed_recompute_interval_ms = GLOBALS.storage.read_setting_feed_recompute_interval_ms();
 
-        let kinds_with_dms = feed_displayable_event_kinds(true);
-        let kinds_without_dms = feed_displayable_event_kinds(false);
-
         // We only need to set this the first time, but has to be after
         // settings is loaded (can't be in new()).  Doing it every time is
         // ok because it is more reactive to changes to the setting.
         *self.interval_ms.write() = feed_recompute_interval_ms;
+
+        let kinds_with_dms = feed_displayable_event_kinds(true);
+        let kinds_without_dms = feed_displayable_event_kinds(false);
 
         // Filter further for the general feed
         let dismissed = GLOBALS.dismissed.read().await.clone();
@@ -485,6 +486,9 @@ impl Feed {
                         }
                     }
                 }
+
+                // Thread recompute can be much faster, the above code is pretty cheap
+                *self.interval_ms.write() = 500;
             }
             FeedKind::Person(person_pubkey) => {
                 let start: Unixtime = *self.person_feed_start.read();
