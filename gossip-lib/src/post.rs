@@ -14,7 +14,6 @@ pub fn prepare_post_normal(
     mut tags: Vec<Tag>,
     in_reply_to: Option<Id>,
 ) -> Result<Vec<(Event, Vec<RelayUrl>)>, Error> {
-
     add_gossip_tag(&mut tags);
 
     add_tags_mirroring_content(&content, &mut tags, false);
@@ -84,8 +83,7 @@ pub fn prepare_post_nip04(
         created_at: Unixtime::now().unwrap(),
         kind: EventKind::EncryptedDirectMessage,
         tags: vec![Tag::new_pubkey(
-            recipient,
-            None, // FIXME
+            recipient, None, // FIXME
             None,
         )],
         content,
@@ -116,8 +114,7 @@ pub fn prepare_post_nip17(
     mut tags: Vec<Tag>,
     dm_channel: DmChannel,
 ) -> Result<Vec<(Event, Vec<RelayUrl>)>, Error> {
-
-    if ! dm_channel.can_use_nip17() {
+    if !dm_channel.can_use_nip17() {
         return Err(ErrorKind::UsersCantUseNip17.into());
     }
 

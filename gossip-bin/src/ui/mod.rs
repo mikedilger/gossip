@@ -81,10 +81,10 @@ use std::time::{Duration, Instant};
 use zeroize::Zeroize;
 
 use self::assets::Assets;
-use self::feed::Notes;
 use self::notifications::NotificationData;
 use self::widgets::NavItem;
 use self::wizard::{WizardPage, WizardState};
+use crate::notes::Notes;
 
 pub fn run() -> Result<(), Error> {
     let icon_bytes = include_bytes!("../../../logo/gossip.png");

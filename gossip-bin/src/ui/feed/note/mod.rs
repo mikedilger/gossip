@@ -3,7 +3,7 @@ mod content;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use super::notedata::{NoteData, RepostType};
+use crate::notedata::{NoteData, RepostType};
 
 use super::FeedNoteParams;
 use crate::ui::widgets::{self, AvatarSize, CopyButton, MoreMenuEntry};

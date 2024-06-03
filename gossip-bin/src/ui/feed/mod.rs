@@ -8,11 +8,6 @@ use gossip_lib::GLOBALS;
 use nostr_types::Id;
 use std::sync::atomic::Ordering;
 
-mod notedata;
-
-mod notes;
-pub use notes::Notes;
-
 mod note;
 pub use note::NoteRenderData;
 pub(super) mod post;
