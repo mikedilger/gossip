@@ -67,7 +67,7 @@ wss://nostr-02.yakihonne.com/           mainly for longform content creators
 wss://relay.mutinywallet.com/           VERIFIED FUNCTIONAL FOR NEW USERS
 wss://nostr.sathoarder.com/             VERIFIED FUNCTIONAL FOR NEW USERS
 wss://nostr.coinfund.app/               says OK 'true', but event is not there
-wss://relay.nostr.jabber.ch/            VERIFIED FUNCTIONAL FOR NEW USERS
+wss://relay.nostr.jabber.ch/            VERIFIED FUNCTIONAL FOR NEW USERS - ASKED TO BE REMOVED
 wss://relay.nostrss.re/                 NIP11 fails
 wss://ca.relayable.org/                 NIP11 fails
 wss://relay.benthecarman.com/           says "private relay"
@@ -79,7 +79,7 @@ wss://nostr.data.haus/                  VERIFIED FUNCTIONAL FOR NEW USERS
 wss://relay.nostr.net/                  VERIFIED FUNCTIONAL FOR NEW USERS
  */
 
-static DEFAULT_RELAYS: [&str; 20] = [
+static DEFAULT_RELAYS: [&str; 19] = [
     "wss://nostr.einundzwanzig.space/",
     "wss://relay.primal.net/",
     "wss://nostrue.com/",
@@ -96,7 +96,6 @@ static DEFAULT_RELAYS: [&str; 20] = [
     "wss://purplerelay.com/",
     "wss://relay.mutinywallet.com/",
     "wss://nostr.sathoarder.com/",
-    "wss://relay.nostr.jabber.ch/",
     "wss://bostr.lecturify.net/",
     "wss://nostr.data.haus/",
     "wss://relay.nostr.net/",
