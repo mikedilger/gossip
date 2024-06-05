@@ -336,7 +336,15 @@ fn render_load_more(app: &mut GossipUi, ui: &mut Ui) {
         |ui| {
             ui.spacing_mut().button_padding.x *= 3.0;
             ui.spacing_mut().button_padding.y *= 2.0;
-            let response = widgets::Button::primary(&app.theme, "Load More").show(ui);
+
+            let relays_still_loading = GLOBALS.loading_more.load(Ordering::SeqCst);
+            let msg = if relays_still_loading > 0 {
+                format!("Load More (loading from {})", relays_still_loading)
+            } else {
+                "Load More".to_owned()
+            };
+
+            let response = widgets::Button::primary(&app.theme, msg).show(ui);
             if response.clicked() {
                 let _ = GLOBALS
                     .to_overlord

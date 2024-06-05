@@ -88,6 +88,13 @@ pub struct Minion {
     exiting: Option<MinionExitReason>,
     auth_state: AuthState,
     failed_subs: HashSet<String>,
+    loading_more: usize,
+}
+
+impl Drop for Minion {
+    fn drop(&mut self) {
+        let _ = GLOBALS.loading_more.fetch_sub(self.loading_more, Ordering::SeqCst);
+    }
 }
 
 impl Minion {
@@ -122,6 +129,7 @@ impl Minion {
             exiting: None,
             auth_state: AuthState::None,
             failed_subs: HashSet::new(),
+            loading_more: 0,
         })
     }
 }
@@ -829,6 +837,8 @@ impl Minion {
             ))?;
         } else {
             let sub_name = format!("temp_person_feed_chunk_{}", job_id);
+            self.loading_more += 1;
+            let _ = GLOBALS.loading_more.fetch_add(1, Ordering::SeqCst);
             self.subscribe(filters, &sub_name, job_id).await?;
         }
 
@@ -860,6 +870,8 @@ impl Minion {
         }
 
         let sub_name = format!("temp_inbox_feed_chunk_{}", job_id);
+        self.loading_more += 1;
+        let _ = GLOBALS.loading_more.fetch_add(1, Ordering::SeqCst);
         self.subscribe(filters, &sub_name, job_id).await?;
 
         Ok(())
@@ -1058,7 +1070,8 @@ impl Minion {
             // the new chunk subscription doesn't clobber this subscription which might
             // not have run to completion yet.
             let sub_name = format!("temp_general_feed_chunk_{}", job_id);
-
+            self.loading_more += 1;
+            let _ = GLOBALS.loading_more.fetch_add(1, Ordering::SeqCst);
             self.subscribe(filters, &sub_name, job_id).await?;
         }
 
@@ -1170,6 +1183,11 @@ impl Minion {
     async fn unsubscribe(&mut self, handle: &str) -> Result<(), Error> {
         if !self.subscription_map.has(handle) {
             return Ok(());
+        }
+        // If it was a chunk, update loading_more
+        if handle.contains("_feed_chunk") {
+            self.loading_more -= 1;
+            let _ = GLOBALS.loading_more.fetch_sub(1, Ordering::SeqCst);
         }
         let subscription = self.subscription_map.get(handle).unwrap();
         let wire = serde_json::to_string(&subscription.close_message())?;
