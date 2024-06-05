@@ -230,6 +230,7 @@ pub(crate) struct ToMinionMessage {
 #[derive(Debug, Clone)]
 pub(crate) struct ToMinionPayload {
     /// A job id, so the minion and overlord can talk about the job.
+    /// If set to 0, the job is not restarted on failure.
     pub job_id: u64,
 
     pub detail: ToMinionPayloadDetail,

@@ -10,7 +10,7 @@ pub enum FeedRange {
 
     // Short-term subscription for up to limit events preceding the until time
     #[allow(dead_code)]
-    Before {
+    ChunkBefore {
         until: Unixtime,
         limit: usize,
     },
@@ -26,7 +26,7 @@ impl FeedRange {
     pub fn since_until_limit(&self) -> (Option<Unixtime>, Option<Unixtime>, Option<usize>) {
         match *self {
             FeedRange::After { since } => (Some(since), None, None),
-            FeedRange::Before { until, limit } => (None, Some(until), Some(limit)),
+            FeedRange::ChunkBefore { until, limit } => (None, Some(until), Some(limit)),
             FeedRange::OriginalChunk { since, until } => (Some(since), Some(until), None),
         }
     }

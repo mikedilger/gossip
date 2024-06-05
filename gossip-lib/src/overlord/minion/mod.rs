@@ -565,9 +565,9 @@ impl Minion {
                 if self.general_feed_keys.is_empty() {
                     self.general_feed_keys = pubkeys;
                     self.subscribe_general_feed_initial(message.job_id).await?;
-                    //self.subscribe_general_feed_additional(message.job_id, pubkeys)
+                    //self.subscribe_general_feed_additional_keys(message.job_id, pubkeys)
                 } else {
-                    self.subscribe_general_feed_additional(message.job_id, pubkeys)
+                    self.subscribe_general_feed_additional_keys(message.job_id, pubkeys)
                         .await?;
                 }
             }
@@ -695,7 +695,7 @@ impl Minion {
     }
 
     /// Subscribe to general feed with change of pubkeys
-    async fn subscribe_general_feed_additional(
+    async fn subscribe_general_feed_additional_keys(
         &mut self,
         job_id: u64,
         pubkeys: Vec<PublicKey>,
