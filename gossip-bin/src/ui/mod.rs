@@ -462,6 +462,7 @@ struct GossipUi {
     unlock_needs_focus: bool,
     draft_data: DraftData,
     dm_draft_data: DraftData,
+    draft_is_annotate: bool,
 
     // User entry: metadata
     editing_metadata: bool,
@@ -693,6 +694,7 @@ impl GossipUi {
             unlock_needs_focus: true,
             draft_data: DraftData::default(),
             dm_draft_data: DraftData::default(),
+            draft_is_annotate: false,
             editing_metadata: false,
             metadata: Metadata::new(),
             delegatee_tag_str: "".to_owned(),

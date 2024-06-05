@@ -13,6 +13,7 @@ pub fn prepare_post_normal(
     content: String,
     mut tags: Vec<Tag>,
     in_reply_to: Option<Id>,
+    annotation: bool,
 ) -> Result<Vec<(Event, Vec<RelayUrl>)>, Error> {
     add_gossip_tag(&mut tags);
 
@@ -20,6 +21,10 @@ pub fn prepare_post_normal(
 
     if let Some(parent_id) = in_reply_to {
         add_thread_based_tags(author, &mut tags, parent_id)?;
+    }
+
+    if annotation {
+        tags.push(Tag::new(&["annotation"]))
     }
 
     let pre_event = PreEvent {
@@ -62,6 +67,7 @@ pub fn prepare_post_nip04(
     author: PublicKey,
     content: String,
     dm_channel: DmChannel,
+    annotation: bool,
 ) -> Result<Vec<(Event, Vec<RelayUrl>)>, Error> {
     if dm_channel.keys().len() > 1 {
         return Err((ErrorKind::GroupDmsNotSupported, file!(), line!()).into());
@@ -78,14 +84,19 @@ pub fn prepare_post_nip04(
             .identity
             .encrypt(&recipient, &content, ContentEncryptionAlgorithm::Nip04)?;
 
+    let mut tags = vec![Tag::new_pubkey(
+        recipient, None, // FIXME
+        None,
+    )];
+    if annotation {
+        tags.push(Tag::new(&["annotation"]))
+    }
+
     let pre_event = PreEvent {
         pubkey: author,
         created_at: Unixtime::now().unwrap(),
         kind: EventKind::EncryptedDirectMessage,
-        tags: vec![Tag::new_pubkey(
-            recipient, None, // FIXME
-            None,
-        )],
+        tags,
         content,
     };
 
@@ -113,6 +124,7 @@ pub fn prepare_post_nip17(
     content: String,
     mut tags: Vec<Tag>,
     dm_channel: DmChannel,
+    annotation: bool,
 ) -> Result<Vec<(Event, Vec<RelayUrl>)>, Error> {
     if !dm_channel.can_use_nip17() {
         return Err(ErrorKind::UsersCantUseNip17.into());
@@ -130,6 +142,10 @@ pub fn prepare_post_nip17(
     add_tags_mirroring_content(&content, &mut tags, true);
 
     // But we don't need (or want) the thread based tags.
+
+    if annotation {
+        tags.push(Tag::new(&["annotation"]))
+    }
 
     let pre_event = PreEvent {
         pubkey: author,

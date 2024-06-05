@@ -1962,6 +1962,22 @@ impl Storage {
         Ok(reasons)
     }
 
+    /// Get annotations for an event
+    pub fn get_annotations(&self, event: &Event) -> Result<Vec<(Unixtime, String)>, Error> {
+        let mut annotations: Vec<(Unixtime, String)> = Vec::new();
+        for (other_id, rel) in self.find_relationships_by_id(event.id)? {
+            if rel == RelationshipById::Annotates {
+                if let Some(event) = self.read_event(other_id)? {
+                    annotations.push((event.created_at, event.content));
+                }
+            }
+        }
+
+        annotations.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)));
+
+        Ok(annotations)
+    }
+
     /// Read a PersonRelay record
     #[inline]
     pub fn read_person_relay(

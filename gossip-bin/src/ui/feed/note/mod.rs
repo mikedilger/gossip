@@ -756,6 +756,26 @@ pub fn render_note_inner(
                     content_pull_top,
                 );
 
+                // annotations
+                for (created_at, content) in note.annotations.iter() {
+                    ui.label(
+                        RichText::new(crate::date_ago::date_ago(*created_at))
+                            .italics()
+                            .weak(),
+                    )
+                    .on_hover_ui(|ui| {
+                        if let Ok(stamp) = time::OffsetDateTime::from_unix_timestamp(created_at.0) {
+                            if let Ok(formatted) =
+                                stamp.format(&time::format_description::well_known::Rfc2822)
+                            {
+                                ui.label(formatted);
+                            }
+                        }
+                    });
+
+                    ui.label(format!("EDIT: {}", content));
+                }
+
                 // deleted?
                 for delete_reason in &note.deletions {
                     Frame::none()
@@ -931,6 +951,7 @@ pub fn render_note_inner(
                                     .on_hover_text("Reply")
                                     .clicked()
                                     {
+                                        app.draft_is_annotate = false;
                                         app.draft_needs_focus = true;
                                         app.show_post_area = true;
 
@@ -956,6 +977,47 @@ pub fn render_note_inner(
                                     }
 
                                     ui.add_space(24.0);
+
+                                    // Button to annotate
+                                    if Some(note.event.pubkey) == GLOBALS.identity.public_key() {
+                                        if widgets::clickable_label(
+                                            ui,
+                                            true,
+                                            RichText::new("A").size(18.0),
+                                        )
+                                        .on_hover_text("Annotate")
+                                        .clicked()
+                                        {
+                                            app.draft_is_annotate = true;
+                                            app.draft_needs_focus = true;
+                                            app.show_post_area = true;
+                                            if note.event.kind.is_direct_message_related() {
+                                                if let Some(channel) =
+                                                    DmChannel::from_event(&note.event, None)
+                                                {
+                                                    app.set_page(
+                                                        ui.ctx(),
+                                                        Page::Feed(FeedKind::DmChat(
+                                                            channel.clone(),
+                                                        )),
+                                                    );
+                                                }
+                                                // FIXME: else error
+                                            } else {
+                                                app.draft_data.replying_to = if note
+                                                    .event
+                                                    .kind
+                                                    .is_direct_message_related()
+                                                {
+                                                    None
+                                                } else {
+                                                    Some(note.event.id)
+                                                };
+                                            }
+                                        }
+
+                                        ui.add_space(24.0);
+                                    }
                                 }
 
                                 // Button to render raw

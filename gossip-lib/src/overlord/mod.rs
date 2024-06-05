@@ -714,9 +714,10 @@ impl Overlord {
                 content,
                 tags,
                 in_reply_to,
+                annotation,
                 dm_channel,
             } => {
-                self.post(content, tags, in_reply_to, dm_channel).await?;
+                self.post(content, tags, in_reply_to, annotation, dm_channel).await?;
             }
             ToOverlordMessage::PostAgain(event) => {
                 self.post_again(event).await?;
@@ -1833,6 +1834,7 @@ impl Overlord {
         content: String,
         tags: Vec<Tag>,
         in_reply_to: Option<Id>,
+        annotation: bool,
         dm_channel: Option<DmChannel>,
     ) -> Result<(), Error> {
         let author = match GLOBALS.identity.public_key() {
@@ -1847,12 +1849,12 @@ impl Overlord {
         let mut prepared_events = match dm_channel {
             Some(channel) => {
                 if channel.can_use_nip17() {
-                    crate::post::prepare_post_nip17(author, content, tags, channel)?
+                    crate::post::prepare_post_nip17(author, content, tags, channel, annotation)?
                 } else {
-                    crate::post::prepare_post_nip04(author, content, channel)?
+                    crate::post::prepare_post_nip04(author, content, channel, annotation)?
                 }
             }
-            None => crate::post::prepare_post_normal(author, content, tags, in_reply_to)?,
+            None => crate::post::prepare_post_normal(author, content, tags, in_reply_to, annotation)?,
         };
 
         // Post them
