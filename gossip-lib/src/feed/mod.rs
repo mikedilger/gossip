@@ -22,11 +22,7 @@ pub struct Feed {
     pub recompute_lock: AtomicBool,
 
     current_feed_kind: RwLock<FeedKind>,
-
-    followed_feed: RwLock<Vec<Id>>,
-    inbox_feed: RwLock<Vec<Id>>,
-    person_feed: RwLock<Vec<Id>>,
-    dm_chat_feed: RwLock<Vec<Id>>,
+    current_feed_events: RwLock<Vec<Id>>,
 
     // When feeds start
     general_feed_start: RwLock<Unixtime>,
@@ -51,10 +47,8 @@ impl Feed {
         Feed {
             recompute_lock: AtomicBool::new(false),
             current_feed_kind: RwLock::new(FeedKind::List(PersonList::Followed, false)),
-            followed_feed: RwLock::new(Vec::new()),
-            inbox_feed: RwLock::new(Vec::new()),
-            person_feed: RwLock::new(Vec::new()),
-            dm_chat_feed: RwLock::new(Vec::new()),
+            current_feed_events: RwLock::new(Vec::new()),
+
             general_feed_start: RwLock::new(Unixtime::now().unwrap()),
             person_feed_start: RwLock::new(Unixtime::now().unwrap()),
             inbox_feed_start: RwLock::new(Unixtime::now().unwrap()),
@@ -216,27 +210,9 @@ impl Feed {
     }
 
     /// Read the followed feed
-    pub fn get_followed(&self) -> Vec<Id> {
+    pub fn get_feed_events(&self) -> Vec<Id> {
         self.sync_maybe_periodic_recompute();
-        self.followed_feed.read().clone()
-    }
-
-    /// Read the inbox
-    pub fn get_inbox(&self) -> Vec<Id> {
-        self.sync_maybe_periodic_recompute();
-        self.inbox_feed.read().clone()
-    }
-
-    /// Read the person feed
-    pub fn get_person_feed(&self) -> Vec<Id> {
-        self.sync_maybe_periodic_recompute();
-        self.person_feed.read().clone()
-    }
-
-    /// Read the DmChat feed
-    pub fn get_dm_chat_feed(&self) -> Vec<Id> {
-        self.sync_maybe_periodic_recompute();
-        self.dm_chat_feed.read().clone()
+        self.current_feed_events.read().clone()
     }
 
     /// Get the parent of the current thread feed.
@@ -351,7 +327,7 @@ impl Feed {
                         .collect()
                 };
 
-                *self.followed_feed.write() = events;
+                *self.current_feed_events.write() = events;
             }
             FeedKind::Inbox(indirect) => {
                 if let Some(my_pubkey) = GLOBALS.identity.public_key() {
@@ -435,7 +411,7 @@ impl Feed {
                         .map(|e| e.id)
                         .collect();
 
-                    *self.inbox_feed.write() = inbox_events;
+                    *self.current_feed_events.write() = inbox_events;
                 }
             }
             FeedKind::Thread { .. } => {
@@ -492,11 +468,11 @@ impl Feed {
 
                 let events: Vec<Id> = events.iter().map(|e| e.id).collect();
 
-                *self.person_feed.write() = events;
+                *self.current_feed_events.write() = events;
             }
             FeedKind::DmChat(channel) => {
                 let ids = GLOBALS.storage.dm_events(&channel)?;
-                *self.dm_chat_feed.write() = ids;
+                *self.current_feed_events.write() = ids;
             }
         }
 

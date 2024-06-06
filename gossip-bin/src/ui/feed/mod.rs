@@ -74,7 +74,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                 .unwrap_or_default()
                 .unwrap_or_default();
 
-            let feed = GLOBALS.feed.get_followed();
+            let feed = GLOBALS.feed.get_feed_events();
             let id = format!(
                 "{} {}",
                 Into::<u8>::into(list),
@@ -135,7 +135,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                     ui.label(" to see any replies to that identity.");
                 });
             }
-            let feed = GLOBALS.feed.get_inbox();
+            let feed = GLOBALS.feed.get_feed_events();
             let id = if indirect { "activity" } else { "inbox" };
             ui.add_space(10.0);
             ui.allocate_ui_with_layout(
@@ -209,7 +209,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
             });
             ui.add_space(6.0);
 
-            let feed = GLOBALS.feed.get_person_feed();
+            let feed = GLOBALS.feed.get_feed_events();
             render_a_feed(
                 app,
                 ctx,
@@ -239,7 +239,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
             });
             ui.add_space(10.0);
 
-            let feed = GLOBALS.feed.get_dm_chat_feed();
+            let feed = GLOBALS.feed.get_feed_events();
             let id = channel.unique_id();
             render_a_feed(app, ctx, ui, feed, false, &id, load_more);
         }
