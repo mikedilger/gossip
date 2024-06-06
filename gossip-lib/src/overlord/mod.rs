@@ -717,7 +717,8 @@ impl Overlord {
                 annotation,
                 dm_channel,
             } => {
-                self.post(content, tags, in_reply_to, annotation, dm_channel).await?;
+                self.post(content, tags, in_reply_to, annotation, dm_channel)
+                    .await?;
             }
             ToOverlordMessage::PostAgain(event) => {
                 self.post_again(event).await?;
@@ -1854,7 +1855,9 @@ impl Overlord {
                     crate::post::prepare_post_nip04(author, content, channel, annotation)?
                 }
             }
-            None => crate::post::prepare_post_normal(author, content, tags, in_reply_to, annotation)?,
+            None => {
+                crate::post::prepare_post_normal(author, content, tags, in_reply_to, annotation)?
+            }
         };
 
         // Post them
