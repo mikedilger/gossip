@@ -239,43 +239,22 @@ impl Feed {
         let current_feed_kind = self.current_feed_kind.read().to_owned();
         match current_feed_kind {
             FeedKind::List(list, with_replies) => {
-                let pubkeys: Vec<PublicKeyHex> = GLOBALS
-                    .storage
-                    .get_people_in_list(list)?
-                    .drain(..)
-                    .map(|(pk, _)| pk.into())
-                    .collect();
-                let dismissed = GLOBALS.dismissed.read().await.clone();
-                let now = Unixtime::now().unwrap();
+                let filter = {
+                    let mut filter = Filter::new();
+                    filter.authors = GLOBALS
+                        .storage
+                        .get_people_in_list(list)?
+                        .drain(..)
+                        .map(|(pk, _)| pk.into())
+                        .collect();
+                    filter.kinds = feed_displayable_event_kinds(false);
+                    filter
+                };
 
-                // FIXME we don't include delegated events. We should look for all events
-                // delegated to people we follow and include those in the feed too.
-
-                let events: Vec<Id> = if pubkeys.is_empty() {
+                let events = if filter.authors.is_empty() {
                     Default::default()
                 } else {
-                    let mut filter = Filter::new();
-                    filter.authors = pubkeys;
-                    filter.kinds = feed_displayable_event_kinds(false);
-                    filter.since = Some(since);
-
-                    GLOBALS
-                        .storage
-                        .find_events_by_filter(&filter, |e| {
-                            e.created_at <= now // no future events
-                                && e.kind != EventKind::EncryptedDirectMessage // no DMs
-                                && e.kind != EventKind::DmChat // no DMs
-                                && !dismissed.contains(&e.id) // not dismissed
-                                && !e.is_annotation()
-                                && if !with_replies {
-                                    e.replies_to().is_none() // is not a reply
-                                } else {
-                                    true
-                                }
-                        })?
-                        .iter()
-                        .map(|e| e.id)
-                        .collect()
+                    Self::load_event_range(since, filter, with_replies, false, |_| true).await?
                 };
 
                 *self.current_feed_events.write() = events;
