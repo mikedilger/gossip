@@ -17,24 +17,6 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     });
 
     ui.horizontal(|ui| {
-        ui.label("Feed Chunk: ").on_hover_text("This is the amount of time backwards from now that we will load events from initially. You can then load more (another chunk of the same size). Mostly takes effect on restart.");
-        ui.add(Slider::new(&mut app.unsaved_settings.feed_chunk, 1800..=43200).text("seconds, "));
-        ui.label(secs_to_string(app.unsaved_settings.feed_chunk));
-    });
-
-    ui.horizontal(|ui| {
-        ui.label("Replies Chunk: ").on_hover_text("This is the amount of time backwards from now that we will load replies, mentions, and DMs from. You can then load more (another chunk of the same size). Mostly takes effect on restart.");
-        ui.add(Slider::new(&mut app.unsaved_settings.replies_chunk, 86400..=2592000).text("seconds, "));
-        ui.label(secs_to_string(app.unsaved_settings.replies_chunk));
-    });
-
-    ui.horizontal(|ui| {
-        ui.label("Person Feed Chunk: ").on_hover_text("This is the amount of time backwards from now that we will load a persons notes from. You can then load more (another chunk of the same size). Mostly takes effect on restart.");
-        ui.add(Slider::new(&mut app.unsaved_settings.person_feed_chunk, 86400..=2592000).text("seconds, "));
-        ui.label(secs_to_string(app.unsaved_settings.person_feed_chunk));
-    });
-
-    ui.horizontal(|ui| {
         ui.label("Overlap: ").on_hover_text("If we recently loaded events up to time T, but restarted, we will now load events starting from time T minus overlap. Takes effect on restart. I recommend 300 (5 minutes).");
         ui.add(Slider::new(&mut app.unsaved_settings.overlap, 0..=3600).text("seconds, "));
         ui.label(secs_to_string(app.unsaved_settings.overlap));

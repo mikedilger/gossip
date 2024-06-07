@@ -585,14 +585,6 @@ impl Storage {
     def_setting!(num_relays_per_person, b"num_relays_per_person", u8, 2);
     def_setting!(max_relays, b"max_relays", u8, 50);
     def_setting!(load_more_count, b"load_more_count", u64, 35);
-    def_setting!(feed_chunk, b"feed_chunk", u64, 60 * 60 * 4);
-    def_setting!(replies_chunk, b"replies_chunk", u64, 60 * 60 * 24 * 7);
-    def_setting!(
-        person_feed_chunk,
-        b"person_feed_chunk",
-        u64,
-        60 * 60 * 24 * 15
-    );
     def_setting!(overlap, b"overlap", u64, 300);
     def_setting!(reposts, b"reposts", bool, true);
     def_setting!(show_long_form, b"show_long_form", bool, false);

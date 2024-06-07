@@ -661,7 +661,7 @@ impl Minion {
                 // to get their events over the past chunk.
                 Unixtime::now().unwrap()
             } else {
-                let since = self.compute_since(GLOBALS.storage.read_setting_feed_chunk());
+                let since = self.compute_since();
                 self.general_feed_start = Some(since);
                 since
             }
@@ -706,7 +706,7 @@ impl Minion {
         if !new_keys.is_empty() {
             let since = match self.general_feed_start {
                 Some(start) => start,
-                None => self.compute_since(GLOBALS.storage.read_setting_feed_chunk()),
+                None => self.compute_since(),
             };
 
             let filters = filter_fns::general_feed(&new_keys, FeedRange::After { since });
@@ -731,7 +731,7 @@ impl Minion {
         }
 
         // Compute how far to look back
-        let replies_since = self.compute_since(GLOBALS.storage.read_setting_replies_chunk());
+        let replies_since = self.compute_since();
         self.inbox_feed_start = Some(replies_since);
 
         let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
@@ -766,7 +766,7 @@ impl Minion {
 
     // Subscribe to the user's config (config, DMs, etc) which is on their own write relays
     async fn subscribe_config(&mut self, job_id: u64) -> Result<(), Error> {
-        let since = self.compute_since(GLOBALS.storage.read_setting_person_feed_chunk());
+        let since = self.compute_since();
 
         let filters = filter_fns::config(since);
 
@@ -799,7 +799,7 @@ impl Minion {
     async fn subscribe_person_feed(&mut self, job_id: u64, pubkey: PublicKey) -> Result<(), Error> {
         // NOTE we do not unsubscribe to the general feed
 
-        let since = self.compute_since(GLOBALS.storage.read_setting_person_feed_chunk());
+        let since = self.compute_since();
         self.person_feed_start = Some(since);
 
         let filters = filter_fns::person_feed(pubkey, FeedRange::After { since });
@@ -1320,10 +1320,10 @@ impl Minion {
         }
     }
 
-    fn compute_since(&self, chunk_seconds: u64) -> Unixtime {
+    fn compute_since(&self) -> Unixtime {
         let now = Unixtime::now().unwrap();
         let overlap = Duration::from_secs(GLOBALS.storage.read_setting_overlap());
-        let chunk = Duration::from_secs(chunk_seconds);
+        let chunk = Duration::from_secs(43200);
 
         // FIXME - general subscription EOSE is not necessarily applicable to
         //         other subscriptions. BUt we don't record when we got an EOSE
