@@ -374,7 +374,7 @@ impl Feed {
         let mut before_filter = filter;
         let mut after_filter = before_filter.clone();
 
-        before_filter.until = Some(since);
+        before_filter.until = Some(since - Duration::from_secs(1));
         before_filter.limit = Some(limit);
 
         after_filter.since = Some(since);
