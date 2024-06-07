@@ -11,6 +11,12 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.add_space(10.0);
 
     ui.horizontal(|ui| {
+        ui.label("Load How Many More: ")
+            .on_hover_text("The number of events to load when you press Load More.");
+        ui.add(Slider::new(&mut app.unsaved_settings.load_more_count, 10..=100).text("events"));
+    });
+
+    ui.horizontal(|ui| {
         ui.label("Feed Chunk: ").on_hover_text("This is the amount of time backwards from now that we will load events from initially. You can then load more (another chunk of the same size). Mostly takes effect on restart.");
         ui.add(Slider::new(&mut app.unsaved_settings.feed_chunk, 1800..=43200).text("seconds, "));
         ui.label(secs_to_string(app.unsaved_settings.feed_chunk));

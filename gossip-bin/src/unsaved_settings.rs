@@ -52,6 +52,7 @@ pub struct UnsavedSettings {
     pub max_relays: u8,
 
     // Feed Settings
+    pub load_more_count: u64,
     pub feed_chunk: u64,
     pub replies_chunk: u64,
     pub person_feed_chunk: u64,
@@ -145,6 +146,7 @@ impl Default for UnsavedSettings {
             relay_auth_requires_approval: default_setting!(relay_auth_requires_approval),
             num_relays_per_person: default_setting!(num_relays_per_person),
             max_relays: default_setting!(max_relays),
+            load_more_count: default_setting!(load_more_count),
             feed_chunk: default_setting!(feed_chunk),
             replies_chunk: default_setting!(replies_chunk),
             person_feed_chunk: default_setting!(person_feed_chunk),
@@ -232,6 +234,7 @@ impl UnsavedSettings {
             relay_auth_requires_approval: load_setting!(relay_auth_requires_approval),
             num_relays_per_person: load_setting!(num_relays_per_person),
             max_relays: load_setting!(max_relays),
+            load_more_count: load_setting!(load_more_count),
             feed_chunk: load_setting!(feed_chunk),
             replies_chunk: load_setting!(replies_chunk),
             person_feed_chunk: load_setting!(person_feed_chunk),
@@ -315,6 +318,7 @@ impl UnsavedSettings {
         save_setting!(relay_auth_requires_approval, self, txn);
         save_setting!(num_relays_per_person, self, txn);
         save_setting!(max_relays, self, txn);
+        save_setting!(load_more_count, self, txn);
         save_setting!(feed_chunk, self, txn);
         save_setting!(replies_chunk, self, txn);
         save_setting!(person_feed_chunk, self, txn);
