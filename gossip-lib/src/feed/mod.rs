@@ -241,6 +241,8 @@ impl Feed {
         let dismissed = GLOBALS.dismissed.read().await.clone();
         let now = Unixtime::now().unwrap();
 
+        let since: Unixtime = *self.current_feed_start.read();
+
         let current_feed_kind = self.current_feed_kind.read().to_owned();
         match current_feed_kind {
             FeedKind::List(list, with_replies) => {
@@ -385,44 +387,14 @@ impl Feed {
                 *self.interval_ms.write() = 500;
             }
             FeedKind::Person(person_pubkey) => {
-                let start: Unixtime = *self.current_feed_start.read();
-
-                let pphex: PublicKeyHex = person_pubkey.into();
-
-                let screen = |e: &Event| {
-                    if dismissed.contains(&e.id) {
-                        return false;
-                    }
-                    if e.is_annotation() {
-                        return false;
-                    }
-                    if !kinds_without_dms.contains(&e.kind) {
-                        return false;
-                    }
-                    true
+                let filter = {
+                    let mut filter = Filter::new();
+                    filter.authors = vec![person_pubkey.into()];
+                    filter.kinds = feed_displayable_event_kinds(false);
+                    filter
                 };
 
-                let mut filter: Filter = Filter::new();
-                filter.authors = vec![person_pubkey.into()];
-                filter.kinds = kinds_without_dms.clone();
-                filter.since = Some(start);
-
-                let mut events: Vec<Event> = GLOBALS
-                    .storage
-                    .find_events_by_filter(&filter, screen)?
-                    .iter()
-                    .chain(
-                        GLOBALS
-                            .storage
-                            .find_tagged_events("delegation", Some(pphex.as_str()), screen, false)?
-                            .iter(),
-                    )
-                    .map(|e| e.to_owned())
-                    .collect();
-
-                events.sort_by(|a, b| b.created_at.cmp(&a.created_at).then(b.id.cmp(&a.id)));
-
-                let events: Vec<Id> = events.iter().map(|e| e.id).collect();
+                let events = Self::load_event_range(since, filter, true, false, |_| true).await?;
 
                 *self.current_feed_events.write() = events;
             }
@@ -437,6 +409,75 @@ impl Feed {
 
         Ok(())
     }
+
+    async fn load_event_range<F>(
+        since: Unixtime,
+        filter: Filter,
+        include_replies: bool,
+        include_dms: bool,
+        screen: F,
+    ) -> Result<Vec<Id>, Error>
+    where
+        F: Fn(&Event) -> bool,
+    {
+        let now = Unixtime::now().unwrap();
+        //let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
+        let dismissed = GLOBALS.dismissed.read().await.clone();
+
+        let outer_screen =
+            |e: &Event| basic_screen(e, include_replies, include_dms, &dismissed) && screen(e);
+
+        //let mut before_filter = filter;
+        //let mut after_filter = before_filter.clone();
+        let mut after_filter = filter;
+
+        //before_filter.until = Some(since);
+        //before_filter.limit = Some(limit);
+
+        after_filter.since = Some(since);
+        after_filter.until = Some(now);
+
+        // FIXME we don't include delegated events.
+        /*
+        This would screw up the sort:
+                    .chain(
+                        GLOBALS
+                            .storage
+                            .find_tagged_events("delegation", Some(pphex.as_str()), screen, false)?
+                            .iter(),
+                    )
+         */
+
+        Ok(GLOBALS
+            .storage
+            .find_events_by_filter(&after_filter, outer_screen)?
+            .iter()
+            .map(|e| e.id)
+            /* Once we do anchor, we want to add this chain
+               .chain(
+               GLOBALS
+               .storage
+               .find_events_by_filter(&before_filter, outer_screen)?
+               .iter()
+               .map(|e| e.id),
+            )
+               */
+            .collect())
+    }
+}
+
+#[inline]
+fn basic_screen(e: &Event, include_replies: bool, include_dms: bool, dismissed: &[Id]) -> bool {
+    let now = Unixtime::now().unwrap();
+
+    e.created_at <= now
+        && (include_replies || e.replies_to().is_none())
+        && (include_dms
+            || (e.kind != EventKind::EncryptedDirectMessage
+                && e.kind != EventKind::DmChat
+                && e.kind != EventKind::GiftWrap))
+        && !dismissed.contains(&e.id)
+        && !e.is_annotation()
 }
 
 pub fn enabled_event_kinds() -> Vec<EventKind> {
