@@ -5,9 +5,10 @@ use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOv
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::people::PersonList;
-use nostr_types::{Event, EventKind, EventReference, Filter, Id, PublicKeyHex, Unixtime};
+use nostr_types::{
+    Event, EventAddr, EventKind, EventReference, Filter, Id, PublicKeyHex, Unixtime,
+};
 use parking_lot::RwLock;
-use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 use tokio::task;
@@ -261,83 +262,50 @@ impl Feed {
             }
             FeedKind::Inbox(indirect) => {
                 if let Some(my_pubkey) = GLOBALS.identity.public_key() {
-                    // Unfortunately it is expensive to find all events referencing
-                    // any of my events, and we don't have such an index.
+                    // Ideally all replies would 'p' tag me (NIP-10)
                     //
-                    // so for now we rely on the fact that replies are supposed to
-                    // 'p' tag the authors of people up the chain (see last paragraph
-                    // of NIP-10)
+                    // BUT some don't. To see such replies, we would like to look for any
+                    // event that replies to any of my events. But it is too expensive to
+                    // load all the IDs of all my events and screen for 'e' tags against
+                    // them (we used to do that for the most recent of my events, but I
+                    // have taken it out).
 
                     let kinds_with_dms = feed_displayable_event_kinds(true);
                     let dismissed = GLOBALS.dismissed.read().await.clone();
-
-                    let mut filter = Filter::new();
-                    filter.kinds = kinds_with_dms.clone();
-                    filter.add_author(&my_pubkey.into());
-                    filter.since = Some(since);
-                    let my_events: Vec<Event> =
-                        GLOBALS.storage.find_events_by_filter(&filter, |_| true)?;
-                    let my_event_ids: HashSet<Id> = my_events.iter().map(|e| e.id).collect();
                     let my_pubkeyhex: PublicKeyHex = my_pubkey.into();
-                    let now = Unixtime::now().unwrap();
 
+                    let screen = |e: &Event| {
+                        e.created_at >= since
+                            && kinds_with_dms.contains(&e.kind)
+                            && basic_screen(e, true, true, &dismissed)
+                            && e.pubkey != my_pubkey
+                            && ((e.kind == EventKind::GiftWrap
+                                || e.kind == EventKind::EncryptedDirectMessage)
+                                || (
+                                    // We can't check against EventReference::Id because we would
+                                    // have to know all the Ids of my events, which is too much to
+                                    // check against. BUT we can check for these cheaply:
+                                    matches!(
+                                        e.replies_to(),
+                                        Some(EventReference::Addr(EventAddr { author, .. }))
+                                            if author == my_pubkey
+                                    ) || (e.people().iter().any(|(p, _, _)| *p == my_pubkey)
+                                        && (indirect
+                                            || e.people_referenced_in_content()
+                                                .iter()
+                                                .any(|p| *p == my_pubkey)))
+                                ))
+                    };
+
+                    // FIXME: storage.find_tagged_events() sucks compared to pocket-db
+                    //        using a filter to do this, because it sorts afterwards
+                    //        and we can't do other filter filtering, only on the tag.
+                    //
+                    //        Upgrade storage to be more like pocket-db and we can get
+                    //        a lot better performance here.
                     let inbox_events: Vec<Id> = GLOBALS
                         .storage
-                        .find_tagged_events(
-                            "p",
-                            Some(my_pubkeyhex.as_str()),
-                            |e| {
-                                if e.created_at < since || e.created_at > now {
-                                    return false;
-                                }
-                                if !kinds_with_dms.contains(&e.kind) {
-                                    return false;
-                                }
-                                if dismissed.contains(&e.id) {
-                                    return false;
-                                }
-                                if e.is_annotation() {
-                                    return false;
-                                }
-
-                                // exclude if it's my own note
-                                if e.pubkey == my_pubkey {
-                                    return false;
-                                }
-
-                                if e.kind == EventKind::GiftWrap
-                                    || e.kind == EventKind::EncryptedDirectMessage
-                                {
-                                    return true;
-                                }
-
-                                // Include if it directly replies to one of my events
-                                match e.replies_to() {
-                                    Some(EventReference::Id { id, .. }) => {
-                                        if my_event_ids.contains(&id) {
-                                            return true;
-                                        }
-                                    }
-                                    Some(EventReference::Addr(ea)) => {
-                                        if ea.author == my_pubkey {
-                                            return true;
-                                        }
-                                    }
-                                    None => (),
-                                }
-
-                                if indirect {
-                                    // Include if it tags me
-                                    e.people().iter().any(|(p, _, _)| *p == my_pubkey)
-                                } else {
-                                    // Include if it directly references me in the content
-                                    e.people_referenced_in_content()
-                                        .iter()
-                                        .any(|p| *p == my_pubkey)
-                                }
-                            },
-                            true,
-                        )?
+                        .find_tagged_events("p", Some(my_pubkeyhex.as_str()), screen, true)?
                         .iter()
                         .map(|e| e.id)
                         .collect();
