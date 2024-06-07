@@ -226,8 +226,6 @@ impl Feed {
             return Ok(());
         }
 
-        *self.last_computed.write() = Some(Instant::now());
-
         // Copy some values from settings
         let feed_recompute_interval_ms = GLOBALS.storage.read_setting_feed_recompute_interval_ms();
 
@@ -434,6 +432,7 @@ impl Feed {
             }
         }
 
+        *self.last_computed.write() = Some(Instant::now());
         self.recompute_lock.store(false, Ordering::Relaxed);
 
         Ok(())
