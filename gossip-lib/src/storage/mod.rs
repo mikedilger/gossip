@@ -1697,7 +1697,7 @@ impl Storage {
         &self,
         tagname: &str,
         tagvalue: Option<&str>,
-        f: F,
+        screen: F,
         sort: bool,
     ) -> Result<Vec<Event>, Error>
     where
@@ -1732,7 +1732,7 @@ impl Storage {
             // this is like self.read_event(), but we supply our existing transaction
             if let Some(bytes) = self.db_events()?.get(&txn, id.as_slice())? {
                 let event = Event::read_from_buffer(bytes)?;
-                if f(&event) {
+                if screen(&event) {
                     events.push(event);
                 }
             }
