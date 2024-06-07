@@ -234,13 +234,6 @@ impl Feed {
         // ok because it is more reactive to changes to the setting.
         *self.interval_ms.write() = feed_recompute_interval_ms;
 
-        let kinds_with_dms = feed_displayable_event_kinds(true);
-        let kinds_without_dms = feed_displayable_event_kinds(false);
-
-        // Filter further for the general feed
-        let dismissed = GLOBALS.dismissed.read().await.clone();
-        let now = Unixtime::now().unwrap();
-
         let since: Unixtime = *self.current_feed_start.read();
 
         let current_feed_kind = self.current_feed_kind.read().to_owned();
@@ -252,8 +245,8 @@ impl Feed {
                     .drain(..)
                     .map(|(pk, _)| pk.into())
                     .collect();
-
-                let since: Unixtime = *self.current_feed_start.read();
+                let dismissed = GLOBALS.dismissed.read().await.clone();
+                let now = Unixtime::now().unwrap();
 
                 // FIXME we don't include delegated events. We should look for all events
                 // delegated to people we follow and include those in the feed too.
@@ -263,7 +256,7 @@ impl Feed {
                 } else {
                     let mut filter = Filter::new();
                     filter.authors = pubkeys;
-                    filter.kinds = kinds_without_dms;
+                    filter.kinds = feed_displayable_event_kinds(false);
                     filter.since = Some(since);
 
                     GLOBALS
@@ -296,7 +289,8 @@ impl Feed {
                     // 'p' tag the authors of people up the chain (see last paragraph
                     // of NIP-10)
 
-                    let since = *self.current_feed_start.read();
+                    let kinds_with_dms = feed_displayable_event_kinds(true);
+                    let dismissed = GLOBALS.dismissed.read().await.clone();
 
                     let mut filter = Filter::new();
                     filter.kinds = kinds_with_dms.clone();
@@ -305,8 +299,8 @@ impl Feed {
                     let my_events: Vec<Event> =
                         GLOBALS.storage.find_events_by_filter(&filter, |_| true)?;
                     let my_event_ids: HashSet<Id> = my_events.iter().map(|e| e.id).collect();
-
                     let my_pubkeyhex: PublicKeyHex = my_pubkey.into();
+                    let now = Unixtime::now().unwrap();
 
                     let inbox_events: Vec<Id> = GLOBALS
                         .storage
