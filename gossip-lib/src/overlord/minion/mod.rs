@@ -84,9 +84,6 @@ pub struct Minion {
     subscriptions_waiting_for_metadata: Vec<(u64, Vec<PublicKey>)>,
     subscriptions_rate_limited: Vec<String>,
     general_feed_keys: Vec<PublicKey>,
-    general_feed_start: Option<Unixtime>,
-    person_feed_start: Option<Unixtime>,
-    inbox_feed_start: Option<Unixtime>,
     read_runstate: WatchReceiver<RunState>,
     exiting: Option<MinionExitReason>,
     auth_state: AuthState,
@@ -121,9 +118,6 @@ impl Minion {
             subscriptions_waiting_for_metadata: Vec::new(),
             subscriptions_rate_limited: Vec::new(),
             general_feed_keys: Vec::new(),
-            general_feed_start: None,
-            person_feed_start: None,
-            inbox_feed_start: None,
             read_runstate,
             exiting: None,
             auth_state: AuthState::None,
@@ -561,18 +555,18 @@ impl Minion {
             ToMinionPayloadDetail::SubscribeAugments(ids) => {
                 self.subscribe_augments(message.job_id, ids).await?;
             }
-            ToMinionPayloadDetail::SubscribeGeneralFeed(pubkeys) => {
+            ToMinionPayloadDetail::SubscribeGeneralFeed(pubkeys, anchor) => {
                 if self.general_feed_keys.is_empty() {
                     self.general_feed_keys = pubkeys;
-                    self.subscribe_general_feed_initial(message.job_id).await?;
+                    self.subscribe_general_feed_initial(message.job_id, anchor).await?;
                     //self.subscribe_general_feed_additional_keys(message.job_id, pubkeys)
                 } else {
-                    self.subscribe_general_feed_additional_keys(message.job_id, pubkeys)
+                    self.subscribe_general_feed_additional_keys(message.job_id, pubkeys, anchor)
                         .await?;
                 }
             }
-            ToMinionPayloadDetail::SubscribeInbox => {
-                self.subscribe_inbox(message.job_id).await?;
+            ToMinionPayloadDetail::SubscribeInbox(anchor) => {
+                self.subscribe_inbox(message.job_id, anchor).await?;
             }
             ToMinionPayloadDetail::SubscribeConfig => {
                 self.subscribe_config(message.job_id).await?;
@@ -580,8 +574,8 @@ impl Minion {
             ToMinionPayloadDetail::SubscribeDiscover(pubkeys) => {
                 self.subscribe_discover(message.job_id, pubkeys).await?;
             }
-            ToMinionPayloadDetail::SubscribePersonFeed(pubkey) => {
-                self.subscribe_person_feed(message.job_id, pubkey).await?;
+            ToMinionPayloadDetail::SubscribePersonFeed(pubkey, anchor) => {
+                self.subscribe_person_feed(message.job_id, pubkey, anchor).await?;
             }
             ToMinionPayloadDetail::SubscribeReplies(main) => {
                 self.subscribe_replies(message.job_id, main).await?;
@@ -595,16 +589,16 @@ impl Minion {
             ToMinionPayloadDetail::SubscribeNip46 => {
                 self.subscribe_nip46(message.job_id).await?;
             }
-            ToMinionPayloadDetail::TempSubscribeGeneralFeedChunk(start) => {
-                self.temp_subscribe_general_feed_chunk(message.job_id, start)
+            ToMinionPayloadDetail::TempSubscribeGeneralFeedChunk(anchor) => {
+                self.temp_subscribe_general_feed_chunk(message.job_id, anchor)
                     .await?;
             }
-            ToMinionPayloadDetail::TempSubscribePersonFeedChunk { pubkey, start } => {
-                self.temp_subscribe_person_feed_chunk(message.job_id, pubkey, start)
+            ToMinionPayloadDetail::TempSubscribePersonFeedChunk { pubkey, anchor } => {
+                self.temp_subscribe_person_feed_chunk(message.job_id, pubkey, anchor)
                     .await?;
             }
-            ToMinionPayloadDetail::TempSubscribeInboxFeedChunk(start) => {
-                self.temp_subscribe_inbox_feed_chunk(message.job_id, start)
+            ToMinionPayloadDetail::TempSubscribeInboxFeedChunk(anchor) => {
+                self.temp_subscribe_inbox_feed_chunk(message.job_id, anchor)
                     .await?;
             }
             ToMinionPayloadDetail::TempSubscribeMetadata(pubkeys) => {
@@ -644,30 +638,22 @@ impl Minion {
     }
 
     // Subscribe to the user's followers on the relays they write to
-    async fn subscribe_general_feed_initial(&mut self, job_id: u64) -> Result<(), Error> {
+    async fn subscribe_general_feed_initial(
+        &mut self,
+        job_id: u64,
+        anchor: Unixtime
+    ) -> Result<(), Error> {
         tracing::debug!(
             "Following {} people at {}",
             self.general_feed_keys.len(),
             &self.url
         );
 
-        // Compute how far to look back
-        let since = {
-            if self.general_feed_start.is_some() {
-                // We already have a general subscription.
-                // Therefore, don't lookback at all. We are just adding more people
-                //    and we don't want to reload everybody's events again.
-                // FIXME: we should do a separate temp subscription for the more people added
-                // to get their events over the past chunk.
-                Unixtime::now().unwrap()
-            } else {
-                let since = self.compute_since(60 * 60 * 4);
-                self.general_feed_start = Some(since);
-                since
-            }
-        };
-
-        let filters = filter_fns::general_feed(&self.general_feed_keys, FeedRange::After { since });
+        let filters = filter_fns::general_feed(
+            &self.general_feed_keys,
+            FeedRange::After {
+                since: anchor
+            });
 
         if filters.is_empty() {
             self.unsubscribe("general_feed").await?;
@@ -699,17 +685,18 @@ impl Minion {
         &mut self,
         job_id: u64,
         pubkeys: Vec<PublicKey>,
+        anchor: Unixtime
     ) -> Result<(), Error> {
         // Figure out who the new people are (if any)
         let mut new_keys = pubkeys.clone();
         new_keys.retain(|key| !self.general_feed_keys.contains(key));
         if !new_keys.is_empty() {
-            let since = match self.general_feed_start {
-                Some(start) => start,
-                None => self.compute_since(60 * 60 * 4),
-            };
-
-            let filters = filter_fns::general_feed(&new_keys, FeedRange::After { since });
+            let filters = filter_fns::general_feed(
+                &new_keys,
+                FeedRange::After {
+                    since: anchor,
+                }
+            );
 
             if !filters.is_empty() {
                 self.subscribe(filters, "temp_general_feed_update", job_id)
@@ -724,22 +711,18 @@ impl Minion {
 
     // Subscribe to anybody mentioning the user on the relays the user reads from
     // (and any other relay for the time being until nip65 is in widespread use)
-    async fn subscribe_inbox(&mut self, job_id: u64) -> Result<(), Error> {
+    async fn subscribe_inbox(&mut self, job_id: u64, anchor: Unixtime) -> Result<(), Error> {
         // If we have already subscribed to inbox, do not resubscribe
         if self.subscription_map.has("inbox_feed") {
             return Ok(());
         }
-
-        // Compute how far to look back
-        let replies_since = self.compute_since(60 * 60 * 24 * 7);
-        self.inbox_feed_start = Some(replies_since);
 
         let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
 
         let filters = filter_fns::inbox_feed(
             spamsafe,
             FeedRange::After {
-                since: replies_since,
+                since: anchor,
             },
         );
 
@@ -796,13 +779,20 @@ impl Minion {
     }
 
     // Subscribe to the posts a person generates on the relays they write to
-    async fn subscribe_person_feed(&mut self, job_id: u64, pubkey: PublicKey) -> Result<(), Error> {
+    async fn subscribe_person_feed(
+        &mut self,
+        job_id: u64,
+        pubkey: PublicKey,
+        anchor: Unixtime,
+    ) -> Result<(), Error> {
         // NOTE we do not unsubscribe to the general feed
 
-        let since = self.compute_since(60 * 60 * 24 * 15);
-        self.person_feed_start = Some(since);
-
-        let filters = filter_fns::person_feed(pubkey, FeedRange::After { since });
+        let filters = filter_fns::person_feed(
+            pubkey,
+            FeedRange::After {
+                since: anchor
+            }
+        );
 
         if filters.is_empty() {
             self.unsubscribe_person_feed().await?;
@@ -821,15 +811,15 @@ impl Minion {
         &mut self,
         job_id: u64,
         pubkey: PublicKey,
-        since: Unixtime,
+        anchor: Unixtime,
     ) -> Result<(), Error> {
-        let until = match self.person_feed_start {
-            Some(old_since_new_until) => old_since_new_until,
-            None => Unixtime::now().unwrap(),
-        };
-        self.person_feed_start = Some(since);
-
-        let filters = filter_fns::person_feed(pubkey, FeedRange::OriginalChunk { since, until });
+        let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
+        let filters = filter_fns::person_feed(
+            pubkey,
+            FeedRange::ChunkBefore {
+                until: anchor,
+                limit
+            });
 
         if filters.is_empty() {
             self.unsubscribe_person_feed().await?;
@@ -848,17 +838,18 @@ impl Minion {
     async fn temp_subscribe_inbox_feed_chunk(
         &mut self,
         job_id: u64,
-        since: Unixtime,
+        anchor: Unixtime,
     ) -> Result<(), Error> {
-        let until = match self.inbox_feed_start {
-            Some(old_since_new_until) => old_since_new_until,
-            None => Unixtime::now().unwrap(),
-        };
-        self.inbox_feed_start = Some(since);
+        let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
 
         let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
 
-        let filters = filter_fns::inbox_feed(spamsafe, FeedRange::OriginalChunk { since, until });
+        let filters = filter_fns::inbox_feed(
+            spamsafe,
+            FeedRange::ChunkBefore {
+                until: anchor,
+                limit
+            });
 
         if filters.is_empty() {
             self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
@@ -882,7 +873,6 @@ impl Minion {
         for handle in handles {
             self.unsubscribe(&handle).await?;
         }
-        self.person_feed_start = None;
         Ok(())
     }
 
@@ -1052,35 +1042,18 @@ impl Minion {
     async fn temp_subscribe_general_feed_chunk(
         &mut self,
         job_id: u64,
-        start: Unixtime,
+        anchor: Unixtime,
     ) -> Result<(), Error> {
-        let end = {
-            if let Some(end) = self.general_feed_start {
-                end
-            } else {
-                // This shouldn't happen, but if it does
-                Unixtime::now().unwrap()
-            }
-        };
-        self.general_feed_start = Some(start);
-
+        let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
         let filters = filter_fns::general_feed(
             &self.general_feed_keys,
-            FeedRange::OriginalChunk {
-                since: start,
-                until: end,
+            FeedRange::ChunkBefore {
+                until: anchor,
+                limit
             },
         );
 
         if !filters.is_empty() {
-            tracing::debug!(
-                "Following {} people at {}, from {} to {}",
-                self.general_feed_keys.len(),
-                &self.url,
-                start,
-                end
-            );
-
             // We include the job_id so that if the user presses "load more" yet again,
             // the new chunk subscription doesn't clobber this subscription which might
             // not have run to completion yet.
