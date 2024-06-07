@@ -4,7 +4,6 @@ use heed::{types::Bytes, DatabaseFlags, RwTxn};
 use nostr_types::{EventV2, EventV3, PublicKeyHex, TagV3};
 use std::sync::Mutex;
 
-// NOTE: "innerp" is a fake tag. We store events that reference a person internally under it.
 pub(super) const INDEXED_TAGS: [&str; 4] = ["a", "d", "p", "delegation"];
 
 // TagKey:QUOTE:TagValue -> Id
