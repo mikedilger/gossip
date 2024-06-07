@@ -272,11 +272,13 @@ impl Overlord {
     }
 
     async fn apply_relay_assignment(&mut self, assignment: RelayAssignment) -> Result<(), Error> {
+        let anchor = GLOBALS.feed.current_anchor();
+
         let mut jobs = vec![RelayJob {
             reason: RelayConnectionReason::Follow,
             payload: ToMinionPayload {
                 job_id: rand::random::<u64>(),
-                detail: ToMinionPayloadDetail::SubscribeGeneralFeed(assignment.pubkeys.clone()),
+                detail: ToMinionPayloadDetail::SubscribeGeneralFeed(assignment.pubkeys.clone(), anchor),
             },
         }];
 
@@ -297,7 +299,7 @@ impl Overlord {
                 reason: RelayConnectionReason::FetchInbox,
                 payload: ToMinionPayload {
                     job_id: rand::random::<u64>(),
-                    detail: ToMinionPayloadDetail::SubscribeInbox,
+                    detail: ToMinionPayloadDetail::SubscribeInbox(anchor),
                 },
             });
         }
@@ -741,8 +743,8 @@ impl Overlord {
             ToOverlordMessage::SetDmChannel(dmchannel) => {
                 self.set_dm_channel(dmchannel).await?;
             }
-            ToOverlordMessage::SetPersonFeed(pubkey) => {
-                self.set_person_feed(pubkey).await?;
+            ToOverlordMessage::SetPersonFeed(pubkey, anchor) => {
+                self.set_person_feed(pubkey, anchor).await?;
             }
             ToOverlordMessage::SetThreadFeed {
                 id,
@@ -1649,7 +1651,7 @@ impl Overlord {
 
     pub async fn load_more(&mut self) -> Result<(), Error> {
         // Change the feed range:
-        let earliest = GLOBALS.feed.load_more();
+        let anchor = GLOBALS.feed.load_more()?;
 
         // Fetch more based on that feed range
         match GLOBALS.feed.get_feed_kind() {
@@ -1661,7 +1663,7 @@ impl Overlord {
                         target: relay_assignment.relay_url.as_str().to_owned(),
                         payload: ToMinionPayload {
                             job_id: 0,
-                            detail: ToMinionPayloadDetail::TempSubscribeGeneralFeedChunk(earliest),
+                            detail: ToMinionPayloadDetail::TempSubscribeGeneralFeedChunk(anchor),
                         },
                     });
                 }
@@ -1683,7 +1685,7 @@ impl Overlord {
                             payload: ToMinionPayload {
                                 job_id: rand::random::<u64>(),
                                 detail: ToMinionPayloadDetail::TempSubscribeInboxFeedChunk(
-                                    earliest,
+                                    anchor
                                 ),
                             },
                         }],
@@ -1712,7 +1714,7 @@ impl Overlord {
                                 job_id: rand::random::<u64>(),
                                 detail: ToMinionPayloadDetail::TempSubscribePersonFeedChunk {
                                     pubkey,
-                                    start: earliest,
+                                    anchor,
                                 },
                             },
                         }],
@@ -2375,7 +2377,7 @@ impl Overlord {
         Ok(())
     }
 
-    async fn set_person_feed(&mut self, pubkey: PublicKey) -> Result<(), Error> {
+    async fn set_person_feed(&mut self, pubkey: PublicKey, anchor: Unixtime) -> Result<(), Error> {
         let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
 
         let relays: Vec<RelayUrl> = GLOBALS
@@ -2394,7 +2396,7 @@ impl Overlord {
                     reason: RelayConnectionReason::SubscribePerson,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribePersonFeed(pubkey),
+                        detail: ToMinionPayloadDetail::SubscribePersonFeed(pubkey, anchor),
                     },
                 }],
             )
@@ -2757,6 +2759,7 @@ impl Overlord {
 
     /// Subscribe to the user's configuration events from the given relay
     pub async fn subscribe_inbox(&mut self, relays: Option<Vec<RelayUrl>>) -> Result<(), Error> {
+        let now = Unixtime::now().unwrap();
         let mention_relays: Vec<RelayUrl> = match relays {
             Some(r) => r,
             None => GLOBALS
@@ -2773,7 +2776,7 @@ impl Overlord {
                     reason: RelayConnectionReason::FetchInbox,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeInbox,
+                        detail: ToMinionPayloadDetail::SubscribeInbox(now),
                     },
                 }],
             )

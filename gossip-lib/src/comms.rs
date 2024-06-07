@@ -164,7 +164,7 @@ pub enum ToOverlordMessage {
     SetDmChannel(DmChannel),
 
     /// internal
-    SetPersonFeed(PublicKey),
+    SetPersonFeed(PublicKey, Unixtime),
 
     /// internal
     SetThreadFeed {

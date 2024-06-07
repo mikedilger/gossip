@@ -2,7 +2,7 @@ mod feed_kind;
 pub use feed_kind::FeedKind;
 
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage};
-use crate::error::Error;
+use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::people::PersonList;
 use nostr_types::{
@@ -21,7 +21,7 @@ pub struct Feed {
 
     current_feed_kind: RwLock<FeedKind>,
     current_feed_events: RwLock<Vec<Id>>,
-    current_feed_start: RwLock<Unixtime>,
+    current_feed_anchor: RwLock<Unixtime>,
 
     // We only recompute the feed at specified intervals (or when they switch)
     interval_ms: RwLock<u32>,
@@ -42,28 +42,35 @@ impl Feed {
             recompute_lock: AtomicBool::new(false),
             current_feed_kind: RwLock::new(FeedKind::List(PersonList::Followed, false)),
             current_feed_events: RwLock::new(Vec::new()),
-            current_feed_start: RwLock::new(Unixtime::now().unwrap()),
+            current_feed_anchor: RwLock::new(Unixtime::now().unwrap()),
             interval_ms: RwLock::new(10000), // Every 10 seconds, until we load from settings
             last_computed: RwLock::new(None),
             thread_parent: RwLock::new(None),
         }
     }
 
-    /// This only looks further back in stored events, it doesn't deal with minion subscriptions.
-    pub(crate) fn load_more(&self) -> Unixtime {
-        let mut start = *self.current_feed_start.read();
-
-        let kindstr = self.current_feed_kind.read().simple_string();
-        let dur = if kindstr == "person" {
-            60 * 60 * 24 * 15
-        } else if kindstr == "inbox" {
-            60 * 60 * 24 * 7
+    /// This changes the window where the feed pulls its events from by backing up the
+    /// anchor time to the time of the earliest event currently in the feed.
+    //
+    /// This doesn't deal with minion subscriptions.
+    pub(crate) fn load_more(&self) -> Result<Unixtime, Error> {
+        // Load the timestamp of the earliest event in the feed so far
+        if let Some(earliest_id) = self.current_feed_events.read().iter().next_back() {
+            let earliest_event = GLOBALS.storage.read_event(*earliest_id)?;
+            if let Some(event) = earliest_event {
+                // Move the anchor back to the earliest event we have so far
+                *self.current_feed_anchor.write() = event.created_at;
+                Ok(event.created_at)
+            } else {
+                Err(ErrorKind::LoadMoreFailed.into())
+            }
         } else {
-            60 * 60 * 4
-        };
-        start = start - Duration::from_secs(dur);
-        *self.current_feed_start.write() = start;
-        start
+            Err(ErrorKind::LoadMoreFailed.into())
+        }
+    }
+
+    pub(crate) fn current_anchor(&self) -> Unixtime {
+        *self.current_feed_anchor.read()
     }
 
     fn unlisten(&self) {
@@ -95,21 +102,13 @@ impl Feed {
     }
 
     pub fn switch_feed(&self, feed_kind: FeedKind) {
-        let kindstr = feed_kind.simple_string();
-
         // NOTE: do not clear the feed here, or the UI will get an empty feed momentarily
         // and the scroll bar "memory" will be reset to the top.  Let recompute rebuild
         // the feed (called down below)
 
-        // Reset the feed start
-        let dur = if kindstr == "person" {
-            60 * 60 * 24 * 15
-        } else if kindstr == "inbox" {
-            60 * 60 * 24 * 7
-        } else {
-            60 * 60 * 4
-        };
-        *self.current_feed_start.write() = Unixtime::now().unwrap() - Duration::from_secs(dur);
+        // Reset the feed anchor
+        let anchor = Unixtime::now().unwrap();
+        *self.current_feed_anchor.write() = anchor;
 
         // Reset the feed thread
         *self.thread_parent.write() = if let FeedKind::Thread {
@@ -151,7 +150,7 @@ impl Feed {
                 // Listen for Person events
                 let _ = GLOBALS
                     .to_overlord
-                    .send(ToOverlordMessage::SetPersonFeed(*pubkey));
+                    .send(ToOverlordMessage::SetPersonFeed(*pubkey, anchor));
             }
             FeedKind::DmChat(ref dm_channel) => {
                 // Listen for DmChat channel events
@@ -235,7 +234,7 @@ impl Feed {
         // ok because it is more reactive to changes to the setting.
         *self.interval_ms.write() = feed_recompute_interval_ms;
 
-        let since: Unixtime = *self.current_feed_start.read();
+        let anchor: Unixtime = *self.current_feed_anchor.read();
 
         let current_feed_kind = self.current_feed_kind.read().to_owned();
         match current_feed_kind {
@@ -255,7 +254,7 @@ impl Feed {
                 let events = if filter.authors.is_empty() {
                     Default::default()
                 } else {
-                    Self::load_event_range(since, filter, with_replies, false, |_| true).await?
+                    Self::load_event_range(anchor, filter, with_replies, false, |_| true).await?
                 };
 
                 *self.current_feed_events.write() = events;
@@ -273,6 +272,10 @@ impl Feed {
                     let kinds_with_dms = feed_displayable_event_kinds(true);
                     let dismissed = GLOBALS.dismissed.read().await.clone();
                     let my_pubkeyhex: PublicKeyHex = my_pubkey.into();
+
+                    // FIXME, we can't use 'anchor' which is usually 'now'.
+                    // We have to use a timewindow (instead of a limit)
+                    let since = anchor - Duration::from_secs(43200);
 
                     let screen = |e: &Event| {
                         e.created_at >= since
@@ -335,7 +338,7 @@ impl Feed {
                     filter
                 };
 
-                let events = Self::load_event_range(since, filter, true, false, |_| true).await?;
+                let events = Self::load_event_range(anchor, filter, true, false, |_| true).await?;
 
                 *self.current_feed_events.write() = events;
             }
@@ -362,18 +365,17 @@ impl Feed {
         F: Fn(&Event) -> bool,
     {
         let now = Unixtime::now().unwrap();
-        //let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
+        let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
         let dismissed = GLOBALS.dismissed.read().await.clone();
 
         let outer_screen =
             |e: &Event| basic_screen(e, include_replies, include_dms, &dismissed) && screen(e);
 
-        //let mut before_filter = filter;
-        //let mut after_filter = before_filter.clone();
-        let mut after_filter = filter;
+        let mut before_filter = filter;
+        let mut after_filter = before_filter.clone();
 
-        //before_filter.until = Some(since);
-        //before_filter.limit = Some(limit);
+        before_filter.until = Some(since);
+        before_filter.limit = Some(limit);
 
         after_filter.since = Some(since);
         after_filter.until = Some(now);
@@ -394,15 +396,13 @@ impl Feed {
             .find_events_by_filter(&after_filter, outer_screen)?
             .iter()
             .map(|e| e.id)
-            /* Once we do anchor, we want to add this chain
                .chain(
-               GLOBALS
-               .storage
-               .find_events_by_filter(&before_filter, outer_screen)?
-               .iter()
-               .map(|e| e.id),
-            )
-               */
+                   GLOBALS
+                       .storage
+                       .find_events_by_filter(&before_filter, outer_screen)?
+                       .iter()
+                       .map(|e| e.id),
+               )
             .collect())
     }
 }
