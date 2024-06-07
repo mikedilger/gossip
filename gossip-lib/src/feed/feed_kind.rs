@@ -37,6 +37,16 @@ impl std::fmt::Display for FeedKind {
 }
 
 impl FeedKind {
+    pub fn simple_string(&self) -> &'static str {
+        match self {
+            Self::List(_, _) => "list",
+            Self::Inbox(_) => "inbox",
+            Self::Thread { .. } => "thread",
+            Self::Person(_) => "person",
+            Self::DmChat(_) => "dmchat",
+        }
+    }
+
     pub fn can_load_more(&self) -> bool {
         match self {
             Self::List(_, _) => true,

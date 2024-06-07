@@ -51,7 +51,16 @@ impl Feed {
     /// This only looks further back in stored events, it doesn't deal with minion subscriptions.
     pub(crate) fn load_more(&self) -> Unixtime {
         let mut start = *self.current_feed_start.read();
-        start = start - Duration::from_secs(43200);
+
+        let kindstr = self.current_feed_kind.read().simple_string();
+        let dur = if kindstr == "person" {
+            60 * 60 * 24 * 15
+        } else if kindstr == "inbox" {
+            60 * 60 * 24 * 7
+        } else {
+            60 * 60 * 4
+        };
+        start = start - Duration::from_secs(dur);
         *self.current_feed_start.write() = start;
         start
     }
@@ -85,12 +94,21 @@ impl Feed {
     }
 
     pub fn switch_feed(&self, feed_kind: FeedKind) {
+        let kindstr = feed_kind.simple_string();
+
         // NOTE: do not clear the feed here, or the UI will get an empty feed momentarily
         // and the scroll bar "memory" will be reset to the top.  Let recompute rebuild
         // the feed (called down below)
 
         // Reset the feed start
-        *self.current_feed_start.write() = Unixtime::now().unwrap() - Duration::from_secs(43200);
+        let dur = if kindstr == "person" {
+            60 * 60 * 24 * 15
+        } else if kindstr == "inbox" {
+            60 * 60 * 24 * 7
+        } else {
+            60 * 60 * 4
+        };
+        *self.current_feed_start.write() = Unixtime::now().unwrap() - Duration::from_secs(dur);
 
         // Reset the feed thread
         *self.thread_parent.write() = if let FeedKind::Thread {
