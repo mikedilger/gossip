@@ -3,6 +3,7 @@
 #![allow(clippy::collapsible_else_if)]
 // TEMPORARILY
 #![allow(clippy::uninlined_format_args)]
+#![allow(clippy::assigning_clones)]
 
 mod about;
 mod commands;
