@@ -2,13 +2,10 @@ mod feed_kind;
 pub use feed_kind::FeedKind;
 
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage};
-use crate::dm_channel::DmChannel;
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::people::PersonList;
-use nostr_types::{
-    Event, EventKind, EventReference, Filter, Id, PublicKey, PublicKeyHex, Unixtime,
-};
+use nostr_types::{Event, EventKind, EventReference, Filter, Id, PublicKeyHex, Unixtime};
 use parking_lot::RwLock;
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -23,11 +20,7 @@ pub struct Feed {
 
     current_feed_kind: RwLock<FeedKind>,
     current_feed_events: RwLock<Vec<Id>>,
-
-    // When feeds start
-    general_feed_start: RwLock<Unixtime>,
-    person_feed_start: RwLock<Unixtime>,
-    inbox_feed_start: RwLock<Unixtime>,
+    current_feed_start: RwLock<Unixtime>,
 
     // We only recompute the feed at specified intervals (or when they switch)
     interval_ms: RwLock<u32>,
@@ -48,49 +41,18 @@ impl Feed {
             recompute_lock: AtomicBool::new(false),
             current_feed_kind: RwLock::new(FeedKind::List(PersonList::Followed, false)),
             current_feed_events: RwLock::new(Vec::new()),
-
-            general_feed_start: RwLock::new(Unixtime::now().unwrap()),
-            person_feed_start: RwLock::new(Unixtime::now().unwrap()),
-            inbox_feed_start: RwLock::new(Unixtime::now().unwrap()),
+            current_feed_start: RwLock::new(Unixtime::now().unwrap()),
             interval_ms: RwLock::new(10000), // Every 10 seconds, until we load from settings
             last_computed: RwLock::new(None),
             thread_parent: RwLock::new(None),
         }
     }
 
-    /// Done during startup
-    pub(crate) fn set_feed_starts(
-        &self,
-        general_feed_start: Unixtime,
-        person_feed_start: Unixtime,
-        inbox_feed_start: Unixtime,
-    ) {
-        *self.general_feed_start.write() = general_feed_start;
-        *self.person_feed_start.write() = person_feed_start;
-        *self.inbox_feed_start.write() = inbox_feed_start;
-    }
-
     /// This only looks further back in stored events, it doesn't deal with minion subscriptions.
-    pub(crate) fn load_more_general_feed(&self) -> Unixtime {
-        let mut start = *self.general_feed_start.read();
-        start = start - Duration::from_secs(GLOBALS.storage.read_setting_feed_chunk());
-        *self.general_feed_start.write() = start;
-        start
-    }
-
-    /// This only looks further back in stored events, it doesn't deal with minion subscriptions.
-    pub(crate) fn load_more_person_feed(&self) -> Unixtime {
-        let mut start = *self.person_feed_start.read();
-        start = start - Duration::from_secs(GLOBALS.storage.read_setting_person_feed_chunk());
-        *self.person_feed_start.write() = start;
-        start
-    }
-
-    /// This only looks further back in stored events, it doesn't deal with minion subscriptions.
-    pub(crate) fn load_more_inbox_feed(&self) -> Unixtime {
-        let mut start = *self.inbox_feed_start.read();
-        start = start - Duration::from_secs(GLOBALS.storage.read_setting_replies_chunk());
-        *self.inbox_feed_start.write() = start;
+    pub(crate) fn load_more(&self) -> Unixtime {
+        let mut start = *self.current_feed_start.read();
+        start = start - Duration::from_secs(43200);
+        *self.current_feed_start.write() = start;
         start
     }
 
@@ -122,86 +84,64 @@ impl Feed {
         }
     }
 
-    /// Change the feed to the main feed
-    pub fn set_feed_to_main(&self, list: PersonList, with_replies: bool) {
-        // We are always subscribed to the general feed. Don't resubscribe here
-        // because it won't have changed, but the relays will shower you with
-        // all those events again.
-        *self.current_feed_kind.write() = FeedKind::List(list, with_replies);
-        *self.thread_parent.write() = None;
+    pub fn switch_feed(&self, feed_kind: FeedKind) {
+        // NOTE: do not clear the feed here, or the UI will get an empty feed momentarily
+        // and the scroll bar "memory" will be reset to the top.  Let recompute rebuild
+        // the feed (called down below)
 
-        // Recompute as they switch
-        self.sync_recompute();
+        // Reset the feed start
+        *self.current_feed_start.write() = Unixtime::now().unwrap() - Duration::from_secs(43200);
 
-        self.unlisten();
-    }
-
-    /// Change the feed to the user's `inbox`
-    pub fn set_feed_to_inbox(&self, indirect: bool) {
-        *self.current_feed_kind.write() = FeedKind::Inbox(indirect);
-        *self.thread_parent.write() = None;
-
-        // Recompute as they switch
-        self.sync_recompute();
-
-        self.unlisten();
-    }
-
-    /// Change the feed to a thread
-    pub fn set_feed_to_thread(&self, id: Id, referenced_by: Id, author: Option<PublicKey>) {
-        *self.current_feed_kind.write() = FeedKind::Thread {
+        // Reset the feed thread
+        *self.thread_parent.write() = if let FeedKind::Thread {
             id,
-            referenced_by,
-            author,
+            referenced_by: _,
+            author: _,
+        } = &feed_kind
+        {
+            // Parent starts with the post itself
+            // Overlord will climb it, and recompute will climb it
+            Some(*id)
+        } else {
+            None
         };
 
-        // Parent starts with the post itself
-        // Overlord will climb it, and recompute will climb it
-        *self.thread_parent.write() = Some(id);
+        // Set the feed kind
+        *self.current_feed_kind.write() = feed_kind;
 
         // Recompute as they switch
         self.sync_recompute();
 
+        // Unlisten to the relays
         self.unlisten();
 
-        // Listen for Thread events
-        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::SetThreadFeed {
-            id,
-            referenced_by,
-            author,
-        });
-    }
-
-    /// Change the feed to a particular person's notes
-    pub fn set_feed_to_person(&self, pubkey: PublicKey) {
-        *self.current_feed_kind.write() = FeedKind::Person(pubkey);
-        *self.thread_parent.write() = None;
-
-        // Recompute as they switch
-        self.sync_recompute();
-
-        self.unlisten();
-
-        // Listen for Person events
-        let _ = GLOBALS
-            .to_overlord
-            .send(ToOverlordMessage::SetPersonFeed(pubkey));
-    }
-
-    /// Change the feed to a DmChat channel
-    pub fn set_feed_to_dmchat(&self, channel: DmChannel) {
-        *self.current_feed_kind.write() = FeedKind::DmChat(channel.clone());
-        *self.thread_parent.write() = None;
-
-        // Recompute as they switch
-        self.sync_recompute();
-
-        self.unlisten();
-
-        // Listen for DmChat channel events
-        let _ = GLOBALS
-            .to_overlord
-            .send(ToOverlordMessage::SetDmChannel(channel));
+        match &*self.current_feed_kind.read() {
+            FeedKind::Thread {
+                id,
+                referenced_by,
+                author,
+            } => {
+                // Listen for Thread events
+                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::SetThreadFeed {
+                    id: *id,
+                    referenced_by: *referenced_by,
+                    author: *author,
+                });
+            }
+            FeedKind::Person(pubkey) => {
+                // Listen for Person events
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::SetPersonFeed(*pubkey));
+            }
+            FeedKind::DmChat(ref dm_channel) => {
+                // Listen for DmChat channel events
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::SetDmChannel(dm_channel.clone()));
+            }
+            _ => (),
+        }
     }
 
     /// Get the kind of the current feed
@@ -295,7 +235,7 @@ impl Feed {
                     .map(|(pk, _)| pk.into())
                     .collect();
 
-                let since: Unixtime = *self.general_feed_start.read();
+                let since: Unixtime = *self.current_feed_start.read();
 
                 // FIXME we don't include delegated events. We should look for all events
                 // delegated to people we follow and include those in the feed too.
@@ -338,7 +278,7 @@ impl Feed {
                     // 'p' tag the authors of people up the chain (see last paragraph
                     // of NIP-10)
 
-                    let since = *self.inbox_feed_start.read();
+                    let since = *self.current_feed_start.read();
 
                     let mut filter = Filter::new();
                     filter.kinds = kinds_with_dms.clone();
@@ -429,7 +369,7 @@ impl Feed {
                 *self.interval_ms.write() = 500;
             }
             FeedKind::Person(person_pubkey) => {
-                let start: Unixtime = *self.person_feed_start.read();
+                let start: Unixtime = *self.current_feed_start.read();
 
                 let pphex: PublicKeyHex = person_pubkey.into();
 
