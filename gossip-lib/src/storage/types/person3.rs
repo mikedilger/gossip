@@ -79,8 +79,7 @@ impl Person3 {
     }
 
     pub fn metadata(&self) -> &Option<Metadata> {
-        &self
-            .deserialized_metadata
+        self.deserialized_metadata
             .get_or_init(|| match &self.metadata_json {
                 None => None,
                 Some(s) => serde_json::from_str::<Metadata>(s).ok(),

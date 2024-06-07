@@ -1,6 +1,7 @@
 //#![allow(dead_code)]
 use eframe::egui::{self, *};
 use nostr_types::{PublicKeyHex, RelayUrl, Unixtime};
+use std::fmt;
 
 use crate::ui::{widgets, GossipUi};
 use gossip_lib::{comms::ToOverlordMessage, Relay, GLOBALS};
@@ -89,12 +90,12 @@ enum Permission {
     Never,
 }
 
-impl ToString for Permission {
-    fn to_string(&self) -> String {
+impl fmt::Display for Permission {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Permission::Ask => "Ask".to_string(),
-            Permission::Always => "Always".to_string(),
-            Permission::Never => "Never".to_string(),
+            Permission::Ask => write!(f, "Ask"),
+            Permission::Always => write!(f, "Always"),
+            Permission::Never => write!(f, "Never"),
         }
     }
 }

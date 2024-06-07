@@ -110,7 +110,7 @@ pub trait Table {
             let valbytes = Self::db()?.get(txn, &keybytes)?;
             Ok(match valbytes {
                 None => None,
-                Some(valbytes) => Some(<Self::Item>::from_bytes(&valbytes)?),
+                Some(valbytes) => Some(<Self::Item>::from_bytes(valbytes)?),
             })
         };
 
@@ -146,7 +146,7 @@ pub trait Table {
                     Self::db()?.put(txn, &keybytes, &valbytes)?;
                     record
                 }
-                Some(valbytes) => <Self::Item>::from_bytes(&valbytes)?,
+                Some(valbytes) => <Self::Item>::from_bytes(valbytes)?,
             })
         };
 
@@ -167,11 +167,11 @@ pub trait Table {
         F: Fn(&Self::Item) -> bool,
     {
         let f = |txn: &RoTxn<'_>| -> Result<Vec<Self::Item>, Error> {
-            let iter = Self::db()?.iter(&txn)?;
+            let iter = Self::db()?.iter(txn)?;
             let mut output: Vec<Self::Item> = Vec::new();
             for result in iter {
                 let (_keybytes, valbytes) = result?;
-                let record = <Self::Item>::from_bytes(&valbytes)?;
+                let record = <Self::Item>::from_bytes(valbytes)?;
                 if f(&record) {
                     output.push(record);
                 }

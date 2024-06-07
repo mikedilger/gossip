@@ -53,7 +53,7 @@ pub fn prepare_post_normal(
     let mut relay_urls: Vec<RelayUrl> = Vec::new();
     relay_urls.extend({
         let tagged_pubkeys = get_tagged_pubkeys(&event.tags);
-        get_others_relays(&*tagged_pubkeys, RelayUsage::Inbox)?
+        get_others_relays(&tagged_pubkeys, RelayUsage::Inbox)?
     });
     relay_urls.extend(get_our_relays(Relay::WRITE)?);
 
@@ -216,7 +216,7 @@ fn add_gossip_tag(tags: &mut Vec<Tag>) {
     }
 }
 
-fn add_tags_mirroring_content(content: &String, tags: &mut Vec<Tag>, direct_message: bool) {
+fn add_tags_mirroring_content(content: &str, tags: &mut Vec<Tag>, direct_message: bool) {
     // Add Tags based on references in the content
     //
     // FIXME - this function takes a 'tags' variable. We may want to let
@@ -224,7 +224,7 @@ fn add_tags_mirroring_content(content: &String, tags: &mut Vec<Tag>, direct_mess
     // should probably move this processing into the post editor instead.
     // For now, I'm just trying to remove the old #[0] type substitutions
     // and use the new NostrBech32 parsing.
-    for bech32 in NostrBech32::find_all_in_string(&content).iter() {
+    for bech32 in NostrBech32::find_all_in_string(content).iter() {
         match bech32 {
             NostrBech32::EventAddr(ea) => {
                 add_addr_to_tags(tags, ea, Some("mention".to_string()));
@@ -259,7 +259,7 @@ fn add_tags_mirroring_content(content: &String, tags: &mut Vec<Tag>, direct_mess
     // content = NostrUrl::urlize(&content);
 
     // Find and tag all hashtags
-    for capture in GLOBALS.hashtag_regex.captures_iter(&content) {
+    for capture in GLOBALS.hashtag_regex.captures_iter(content) {
         tags.push(Tag::new_hashtag(capture[1][1..].to_string()));
     }
 }

@@ -1127,7 +1127,7 @@ impl Storage {
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            if let Some(mut person) = PersonTable::read_record(event.pubkey, Some(&txn))? {
+            if let Some(mut person) = PersonTable::read_record(event.pubkey, Some(txn))? {
                 // Check if this relay list is newer than the stamp we have for its author
                 if let Some(previous_at) = person.relay_list_created_at {
                     if event.created_at.0 <= previous_at {
@@ -1176,7 +1176,7 @@ impl Storage {
                         }
                     };
 
-                    if let Some(mut dbrelay) = self.read_relay(relay_url, Some(&txn))? {
+                    if let Some(mut dbrelay) = self.read_relay(relay_url, Some(txn))? {
                         dbrelay.set_usage_bits(bits);
                         self.write_relay(&dbrelay, Some(txn))?;
                     } else {

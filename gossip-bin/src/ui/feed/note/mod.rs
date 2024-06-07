@@ -318,7 +318,7 @@ pub fn render_note_inner(
                             ui.style_mut().override_text_style = Some(TextStyle::Small);
                             let idhex: IdHex = irt.into();
                             if muted {
-                                let name = format!("▲ (parent is muted)");
+                                let name = "▲ (parent is muted)".to_string();
                                 let _ = ui.link(&name);
                             } else {
                                 let name =
@@ -357,7 +357,7 @@ pub fn render_note_inner(
                                 ui.style_mut().override_text_style = Some(TextStyle::Small);
                                 let idhex: IdHex = e.id.into();
                                 if muted {
-                                    let name = format!("▲ (parent is muted)");
+                                    let name = "▲ (parent is muted)".to_string();
                                     let _ = ui.link(&name);
                                 } else {
                                     let name =
