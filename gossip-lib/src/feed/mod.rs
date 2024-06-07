@@ -220,9 +220,9 @@ impl Feed {
     }
 
     pub(crate) async fn recompute(&self) -> Result<(), Error> {
-        // If some other process is already recomputing, just return as if
-        // the recompute was successful.  Otherwise set to true.
         if self.recompute_lock.fetch_or(true, Ordering::Relaxed) {
+            // If other process is already recomputing, just return as if
+            // the recompute was successful.
             return Ok(());
         }
 
