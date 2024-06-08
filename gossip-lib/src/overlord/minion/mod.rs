@@ -657,11 +657,19 @@ impl Minion {
             &self.url
         );
 
-        let filters = filter_fns::general_feed(
+        let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
+        let mut filters = filter_fns::general_feed(
             &self.general_feed_keys,
             FeedRange::After {
                 since: anchor
             });
+        let filters2 = filter_fns::general_feed(
+            &self.general_feed_keys,
+            FeedRange::ChunkBefore {
+                until: anchor,
+                limit,
+            });
+        filters.extend(filters2);
 
         if filters.is_empty() {
             self.unsubscribe("general_feed").await?;
@@ -699,12 +707,20 @@ impl Minion {
         let mut new_keys = pubkeys.clone();
         new_keys.retain(|key| !self.general_feed_keys.contains(key));
         if !new_keys.is_empty() {
-            let filters = filter_fns::general_feed(
+
+            let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
+            let mut filters = filter_fns::general_feed(
                 &new_keys,
                 FeedRange::After {
                     since: anchor,
-                }
-            );
+                });
+            let filters2 = filter_fns::general_feed(
+                &new_keys,
+                FeedRange::ChunkBefore {
+                    until: anchor,
+                    limit
+                });
+            filters.extend(filters2);
 
             if !filters.is_empty() {
                 self.subscribe(filters, "temp_general_feed_update", job_id)
@@ -795,12 +811,19 @@ impl Minion {
     ) -> Result<(), Error> {
         // NOTE we do not unsubscribe to the general feed
 
-        let filters = filter_fns::person_feed(
+        let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
+        let mut filters = filter_fns::person_feed(
             pubkey,
             FeedRange::After {
                 since: anchor
-            }
-        );
+            });
+        let filters2 = filter_fns::person_feed(
+            pubkey,
+            FeedRange::ChunkBefore {
+                until: anchor,
+                limit
+            });
+        filters.extend(filters2);
 
         if filters.is_empty() {
             self.unsubscribe_person_feed().await?;
