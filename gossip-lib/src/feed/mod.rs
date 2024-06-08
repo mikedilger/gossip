@@ -60,6 +60,10 @@ impl Feed {
             if let Some(event) = earliest_event {
                 // Move the anchor back to the earliest event we have so far
                 *self.current_feed_anchor.write() = event.created_at;
+
+                // Recompute now to get the storage data
+                self.sync_recompute();
+
                 Ok(event.created_at)
             } else {
                 Err(ErrorKind::LoadMoreFailed.into())
