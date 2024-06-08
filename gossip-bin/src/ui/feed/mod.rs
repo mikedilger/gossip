@@ -173,7 +173,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
         }
         FeedKind::Thread { id, .. } => {
             if let Some(parent) = GLOBALS.feed.get_thread_parent() {
-                if let Some(note_ref) = app.notes.try_update_and_get(&parent) {
+                if app.notes.try_update_and_get(&id).is_none() {
+                    ui.add_space(4.0);
+                    ui.label("LOADING...");
+                    ui.add_space(4.0);
+                } else if let Some(note_ref) = app.notes.try_update_and_get(&parent) {
                     if let Ok(note_data) = note_ref.try_borrow() {
                         if note_data.event.replies_to().is_some() {
                             ui.add_space(4.0);
