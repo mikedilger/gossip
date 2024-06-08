@@ -278,7 +278,10 @@ impl Overlord {
             reason: RelayConnectionReason::Follow,
             payload: ToMinionPayload {
                 job_id: rand::random::<u64>(),
-                detail: ToMinionPayloadDetail::SubscribeGeneralFeed(assignment.pubkeys.clone(), anchor),
+                detail: ToMinionPayloadDetail::SubscribeGeneralFeed(
+                    assignment.pubkeys.clone(),
+                    anchor,
+                ),
             },
         }];
 
@@ -1684,9 +1687,7 @@ impl Overlord {
                             reason: RelayConnectionReason::FetchInbox,
                             payload: ToMinionPayload {
                                 job_id: rand::random::<u64>(),
-                                detail: ToMinionPayloadDetail::TempSubscribeInboxFeedChunk(
-                                    anchor
-                                ),
+                                detail: ToMinionPayloadDetail::TempSubscribeInboxFeedChunk(anchor),
                             },
                         }],
                     )
