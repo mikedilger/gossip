@@ -586,7 +586,6 @@ impl Minion {
                 if self.general_feed_keys.is_empty() {
                     self.general_feed_keys = pubkeys;
                     self.subscribe_general_feed_initial(message.job_id, anchor).await?;
-                    //self.subscribe_general_feed_additional_keys(message.job_id, pubkeys)
                 } else {
                     self.subscribe_general_feed_additional_keys(message.job_id, pubkeys, anchor)
                         .await?;
