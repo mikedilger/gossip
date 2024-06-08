@@ -153,6 +153,9 @@ pub struct Globals {
 
     /// Pending actions
     pub pending: Pending,
+
+    /// Loading more - how many relays are still loading a chunk of events.
+    pub loading_more: AtomicUsize,
 }
 
 lazy_static! {
@@ -220,6 +223,7 @@ lazy_static! {
             wait_for_data_migration: AtomicBool::new(false),
             active_advertise_jobs: DashSet::new(),
             pending: Pending::new(),
+            loading_more: AtomicUsize::new(0),
         }
     };
 }

@@ -2,15 +2,14 @@ mod feed_kind;
 pub use feed_kind::FeedKind;
 
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage};
-use crate::dm_channel::DmChannel;
-use crate::error::Error;
+use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::people::PersonList;
+use dashmap::DashMap;
 use nostr_types::{
-    Event, EventKind, EventReference, Filter, Id, PublicKey, PublicKeyHex, Unixtime,
+    Event, EventAddr, EventKind, EventReference, Filter, Id, PublicKeyHex, Unixtime,
 };
 use parking_lot::RwLock;
-use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 use tokio::task;
@@ -23,11 +22,7 @@ pub struct Feed {
 
     current_feed_kind: RwLock<FeedKind>,
     current_feed_events: RwLock<Vec<Id>>,
-
-    // When feeds start
-    general_feed_start: RwLock<Unixtime>,
-    person_feed_start: RwLock<Unixtime>,
-    inbox_feed_start: RwLock<Unixtime>,
+    feed_anchors: DashMap<String, Unixtime>,
 
     // We only recompute the feed at specified intervals (or when they switch)
     interval_ms: RwLock<u32>,
@@ -48,50 +43,41 @@ impl Feed {
             recompute_lock: AtomicBool::new(false),
             current_feed_kind: RwLock::new(FeedKind::List(PersonList::Followed, false)),
             current_feed_events: RwLock::new(Vec::new()),
-
-            general_feed_start: RwLock::new(Unixtime::now().unwrap()),
-            person_feed_start: RwLock::new(Unixtime::now().unwrap()),
-            inbox_feed_start: RwLock::new(Unixtime::now().unwrap()),
+            feed_anchors: DashMap::new(),
             interval_ms: RwLock::new(10000), // Every 10 seconds, until we load from settings
             last_computed: RwLock::new(None),
             thread_parent: RwLock::new(None),
         }
     }
 
-    /// Done during startup
-    pub(crate) fn set_feed_starts(
-        &self,
-        general_feed_start: Unixtime,
-        person_feed_start: Unixtime,
-        inbox_feed_start: Unixtime,
-    ) {
-        *self.general_feed_start.write() = general_feed_start;
-        *self.person_feed_start.write() = person_feed_start;
-        *self.inbox_feed_start.write() = inbox_feed_start;
+    /// This changes the window where the feed pulls its events from by backing up the
+    /// anchor time to the time of the earliest event currently in the feed.
+    //
+    /// This doesn't deal with minion subscriptions.
+    pub(crate) fn load_more(&self) -> Result<Unixtime, Error> {
+        // Load the timestamp of the earliest event in the feed so far
+        if let Some(earliest_id) = self.current_feed_events.read().iter().next_back() {
+            let earliest_event = GLOBALS.storage.read_event(*earliest_id)?;
+            if let Some(event) = earliest_event {
+                // Move the anchor back to the earliest event we have so far
+                let anchor_key = self.current_feed_kind.read().anchor_key();
+                self.feed_anchors.insert(anchor_key, event.created_at);
+
+                // Recompute now to get the storage data
+                self.sync_recompute();
+
+                Ok(event.created_at)
+            } else {
+                Err(ErrorKind::LoadMoreFailed.into())
+            }
+        } else {
+            Err(ErrorKind::LoadMoreFailed.into())
+        }
     }
 
-    /// This only looks further back in stored events, it doesn't deal with minion subscriptions.
-    pub(crate) fn load_more_general_feed(&self) -> Unixtime {
-        let mut start = *self.general_feed_start.read();
-        start = start - Duration::from_secs(GLOBALS.storage.read_setting_feed_chunk());
-        *self.general_feed_start.write() = start;
-        start
-    }
-
-    /// This only looks further back in stored events, it doesn't deal with minion subscriptions.
-    pub(crate) fn load_more_person_feed(&self) -> Unixtime {
-        let mut start = *self.person_feed_start.read();
-        start = start - Duration::from_secs(GLOBALS.storage.read_setting_person_feed_chunk());
-        *self.person_feed_start.write() = start;
-        start
-    }
-
-    /// This only looks further back in stored events, it doesn't deal with minion subscriptions.
-    pub(crate) fn load_more_inbox_feed(&self) -> Unixtime {
-        let mut start = *self.inbox_feed_start.read();
-        start = start - Duration::from_secs(GLOBALS.storage.read_setting_replies_chunk());
-        *self.inbox_feed_start.write() = start;
-        start
+    pub(crate) fn current_anchor(&self) -> Unixtime {
+        let anchor_key = self.current_feed_kind.read().anchor_key();
+        *self.feed_anchors.get(&anchor_key).unwrap()
     }
 
     fn unlisten(&self) {
@@ -122,86 +108,74 @@ impl Feed {
         }
     }
 
-    /// Change the feed to the main feed
-    pub fn set_feed_to_main(&self, list: PersonList, with_replies: bool) {
-        // We are always subscribed to the general feed. Don't resubscribe here
-        // because it won't have changed, but the relays will shower you with
-        // all those events again.
-        *self.current_feed_kind.write() = FeedKind::List(list, with_replies);
-        *self.thread_parent.write() = None;
+    pub fn switch_feed(&self, feed_kind: FeedKind) {
+        // NOTE: do not clear the feed here, or the UI will get an empty feed momentarily
+        // and the scroll bar "memory" will be reset to the top.  Let recompute rebuild
+        // the feed (called down below)
 
-        // Recompute as they switch
-        self.sync_recompute();
-
-        self.unlisten();
-    }
-
-    /// Change the feed to the user's `inbox`
-    pub fn set_feed_to_inbox(&self, indirect: bool) {
-        *self.current_feed_kind.write() = FeedKind::Inbox(indirect);
-        *self.thread_parent.write() = None;
-
-        // Recompute as they switch
-        self.sync_recompute();
-
-        self.unlisten();
-    }
-
-    /// Change the feed to a thread
-    pub fn set_feed_to_thread(&self, id: Id, referenced_by: Id, author: Option<PublicKey>) {
-        *self.current_feed_kind.write() = FeedKind::Thread {
-            id,
-            referenced_by,
-            author,
+        let anchor: Unixtime = {
+            let anchor_key = feed_kind.anchor_key();
+            match self.feed_anchors.get(&anchor_key) {
+                Some(refanchor) => *refanchor,
+                None => {
+                    // Start the feed anchor if it was not yet set
+                    let now = Unixtime::now().unwrap();
+                    self.feed_anchors.insert(anchor_key, now);
+                    now
+                }
+            }
         };
 
-        // Parent starts with the post itself
-        // Overlord will climb it, and recompute will climb it
-        *self.thread_parent.write() = Some(id);
-
-        // Recompute as they switch
-        self.sync_recompute();
-
-        self.unlisten();
-
-        // Listen for Thread events
-        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::SetThreadFeed {
+        // Reset the feed thread
+        *self.thread_parent.write() = if let FeedKind::Thread {
             id,
-            referenced_by,
-            author,
-        });
-    }
+            referenced_by: _,
+            author: _,
+        } = &feed_kind
+        {
+            // Parent starts with the post itself
+            // Overlord will climb it, and recompute will climb it
+            Some(*id)
+        } else {
+            None
+        };
 
-    /// Change the feed to a particular person's notes
-    pub fn set_feed_to_person(&self, pubkey: PublicKey) {
-        *self.current_feed_kind.write() = FeedKind::Person(pubkey);
-        *self.thread_parent.write() = None;
-
-        // Recompute as they switch
-        self.sync_recompute();
-
-        self.unlisten();
-
-        // Listen for Person events
-        let _ = GLOBALS
-            .to_overlord
-            .send(ToOverlordMessage::SetPersonFeed(pubkey));
-    }
-
-    /// Change the feed to a DmChat channel
-    pub fn set_feed_to_dmchat(&self, channel: DmChannel) {
-        *self.current_feed_kind.write() = FeedKind::DmChat(channel.clone());
-        *self.thread_parent.write() = None;
+        // Set the feed kind
+        *self.current_feed_kind.write() = feed_kind;
 
         // Recompute as they switch
         self.sync_recompute();
 
+        // Unlisten to the relays
         self.unlisten();
 
-        // Listen for DmChat channel events
-        let _ = GLOBALS
-            .to_overlord
-            .send(ToOverlordMessage::SetDmChannel(channel));
+        match &*self.current_feed_kind.read() {
+            FeedKind::Thread {
+                id,
+                referenced_by,
+                author,
+            } => {
+                // Listen for Thread events
+                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::SetThreadFeed {
+                    id: *id,
+                    referenced_by: *referenced_by,
+                    author: *author,
+                });
+            }
+            FeedKind::Person(pubkey) => {
+                // Listen for Person events
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::SetPersonFeed(*pubkey, anchor));
+            }
+            FeedKind::DmChat(ref dm_channel) => {
+                // Listen for DmChat channel events
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::SetDmChannel(dm_channel.clone()));
+            }
+            _ => (),
+        }
     }
 
     /// Get the kind of the current feed
@@ -262,13 +236,11 @@ impl Feed {
     }
 
     pub(crate) async fn recompute(&self) -> Result<(), Error> {
-        // If some other process is already recomputing, just return as if
-        // the recompute was successful.  Otherwise set to true.
         if self.recompute_lock.fetch_or(true, Ordering::Relaxed) {
+            // If other process is already recomputing, just return as if
+            // the recompute was successful.
             return Ok(());
         }
-
-        *self.last_computed.write() = Some(Instant::now());
 
         // Copy some values from settings
         let feed_recompute_interval_ms = GLOBALS.storage.read_setting_feed_recompute_interval_ms();
@@ -278,135 +250,81 @@ impl Feed {
         // ok because it is more reactive to changes to the setting.
         *self.interval_ms.write() = feed_recompute_interval_ms;
 
-        let kinds_with_dms = feed_displayable_event_kinds(true);
-        let kinds_without_dms = feed_displayable_event_kinds(false);
-
-        // Filter further for the general feed
-        let dismissed = GLOBALS.dismissed.read().await.clone();
-        let now = Unixtime::now().unwrap();
+        let anchor: Unixtime = self.current_anchor();
 
         let current_feed_kind = self.current_feed_kind.read().to_owned();
         match current_feed_kind {
             FeedKind::List(list, with_replies) => {
-                let pubkeys: Vec<PublicKeyHex> = GLOBALS
-                    .storage
-                    .get_people_in_list(list)?
-                    .drain(..)
-                    .map(|(pk, _)| pk.into())
-                    .collect();
+                let filter = {
+                    let mut filter = Filter::new();
+                    filter.authors = GLOBALS
+                        .storage
+                        .get_people_in_list(list)?
+                        .drain(..)
+                        .map(|(pk, _)| pk.into())
+                        .collect();
+                    filter.kinds = feed_displayable_event_kinds(false);
+                    filter
+                };
 
-                let since: Unixtime = *self.general_feed_start.read();
-
-                // FIXME we don't include delegated events. We should look for all events
-                // delegated to people we follow and include those in the feed too.
-
-                let events: Vec<Id> = if pubkeys.is_empty() {
+                let events = if filter.authors.is_empty() {
                     Default::default()
                 } else {
-                    let mut filter = Filter::new();
-                    filter.authors = pubkeys;
-                    filter.kinds = kinds_without_dms;
-                    filter.since = Some(since);
-
-                    GLOBALS
-                        .storage
-                        .find_events_by_filter(&filter, |e| {
-                            e.created_at <= now // no future events
-                                && e.kind != EventKind::EncryptedDirectMessage // no DMs
-                                && e.kind != EventKind::DmChat // no DMs
-                                && !dismissed.contains(&e.id) // not dismissed
-                                && !e.is_annotation()
-                                && if !with_replies {
-                                    e.replies_to().is_none() // is not a reply
-                                } else {
-                                    true
-                                }
-                        })?
-                        .iter()
-                        .map(|e| e.id)
-                        .collect()
+                    Self::load_event_range(anchor, filter, with_replies, false, |_| true).await?
                 };
 
                 *self.current_feed_events.write() = events;
             }
             FeedKind::Inbox(indirect) => {
                 if let Some(my_pubkey) = GLOBALS.identity.public_key() {
-                    // Unfortunately it is expensive to find all events referencing
-                    // any of my events, and we don't have such an index.
+                    // Ideally all replies would 'p' tag me (NIP-10)
                     //
-                    // so for now we rely on the fact that replies are supposed to
-                    // 'p' tag the authors of people up the chain (see last paragraph
-                    // of NIP-10)
+                    // BUT some don't. To see such replies, we would like to look for any
+                    // event that replies to any of my events. But it is too expensive to
+                    // load all the IDs of all my events and screen for 'e' tags against
+                    // them (we used to do that for the most recent of my events, but I
+                    // have taken it out).
 
-                    let since = *self.inbox_feed_start.read();
-
-                    let mut filter = Filter::new();
-                    filter.kinds = kinds_with_dms.clone();
-                    filter.add_author(&my_pubkey.into());
-                    filter.since = Some(since);
-                    let my_events: Vec<Event> =
-                        GLOBALS.storage.find_events_by_filter(&filter, |_| true)?;
-                    let my_event_ids: HashSet<Id> = my_events.iter().map(|e| e.id).collect();
-
+                    let kinds_with_dms = feed_displayable_event_kinds(true);
+                    let dismissed = GLOBALS.dismissed.read().await.clone();
                     let my_pubkeyhex: PublicKeyHex = my_pubkey.into();
 
+                    // FIXME, we can't use 'anchor' which is usually 'now'.
+                    // We have to use a timewindow (instead of a limit)
+                    let since = anchor - Duration::from_secs(43200);
+
+                    let screen = |e: &Event| {
+                        e.created_at >= since
+                            && kinds_with_dms.contains(&e.kind)
+                            && basic_screen(e, true, true, &dismissed)
+                            && e.pubkey != my_pubkey
+                            && ((e.kind == EventKind::GiftWrap
+                                || e.kind == EventKind::EncryptedDirectMessage)
+                                || (
+                                    // We can't check against EventReference::Id because we would
+                                    // have to know all the Ids of my events, which is too much to
+                                    // check against. BUT we can check for these cheaply:
+                                    matches!(
+                                        e.replies_to(),
+                                        Some(EventReference::Addr(EventAddr { author, .. }))
+                                            if author == my_pubkey
+                                    ) || (e.people().iter().any(|(p, _, _)| *p == my_pubkey)
+                                        && (indirect
+                                            || e.people_referenced_in_content()
+                                                .iter()
+                                                .any(|p| *p == my_pubkey)))
+                                ))
+                    };
+
+                    // FIXME: storage.find_tagged_events() sucks compared to pocket-db
+                    //        using a filter to do this, because it sorts afterwards
+                    //        and we can't do other filter filtering, only on the tag.
+                    //
+                    //        Upgrade storage to be more like pocket-db and we can get
+                    //        a lot better performance here.
                     let inbox_events: Vec<Id> = GLOBALS
                         .storage
-                        .find_tagged_events(
-                            "p",
-                            Some(my_pubkeyhex.as_str()),
-                            |e| {
-                                if e.created_at < since || e.created_at > now {
-                                    return false;
-                                }
-                                if !kinds_with_dms.contains(&e.kind) {
-                                    return false;
-                                }
-                                if dismissed.contains(&e.id) {
-                                    return false;
-                                }
-                                if e.is_annotation() {
-                                    return false;
-                                }
-
-                                // exclude if it's my own note
-                                if e.pubkey == my_pubkey {
-                                    return false;
-                                }
-
-                                if e.kind == EventKind::GiftWrap
-                                    || e.kind == EventKind::EncryptedDirectMessage
-                                {
-                                    return true;
-                                }
-
-                                // Include if it directly replies to one of my events
-                                match e.replies_to() {
-                                    Some(EventReference::Id { id, .. }) => {
-                                        if my_event_ids.contains(&id) {
-                                            return true;
-                                        }
-                                    }
-                                    Some(EventReference::Addr(ea)) => {
-                                        if ea.author == my_pubkey {
-                                            return true;
-                                        }
-                                    }
-                                    None => (),
-                                }
-
-                                if indirect {
-                                    // Include if it tags me
-                                    e.people().iter().any(|(p, _, _)| *p == my_pubkey)
-                                } else {
-                                    // Include if it directly references me in the content
-                                    e.people_referenced_in_content()
-                                        .iter()
-                                        .any(|p| *p == my_pubkey)
-                                }
-                            },
-                            true,
-                        )?
+                        .find_tagged_events("p", Some(my_pubkeyhex.as_str()), screen, true)?
                         .iter()
                         .map(|e| e.id)
                         .collect();
@@ -429,44 +347,14 @@ impl Feed {
                 *self.interval_ms.write() = 500;
             }
             FeedKind::Person(person_pubkey) => {
-                let start: Unixtime = *self.person_feed_start.read();
-
-                let pphex: PublicKeyHex = person_pubkey.into();
-
-                let screen = |e: &Event| {
-                    if dismissed.contains(&e.id) {
-                        return false;
-                    }
-                    if e.is_annotation() {
-                        return false;
-                    }
-                    if !kinds_without_dms.contains(&e.kind) {
-                        return false;
-                    }
-                    true
+                let filter = {
+                    let mut filter = Filter::new();
+                    filter.authors = vec![person_pubkey.into()];
+                    filter.kinds = feed_displayable_event_kinds(false);
+                    filter
                 };
 
-                let mut filter: Filter = Filter::new();
-                filter.authors = vec![person_pubkey.into()];
-                filter.kinds = kinds_without_dms.clone();
-                filter.since = Some(start);
-
-                let mut events: Vec<Event> = GLOBALS
-                    .storage
-                    .find_events_by_filter(&filter, screen)?
-                    .iter()
-                    .chain(
-                        GLOBALS
-                            .storage
-                            .find_tagged_events("delegation", Some(pphex.as_str()), screen, false)?
-                            .iter(),
-                    )
-                    .map(|e| e.to_owned())
-                    .collect();
-
-                events.sort_by(|a, b| b.created_at.cmp(&a.created_at).then(b.id.cmp(&a.id)));
-
-                let events: Vec<Id> = events.iter().map(|e| e.id).collect();
+                let events = Self::load_event_range(anchor, filter, true, false, |_| true).await?;
 
                 *self.current_feed_events.write() = events;
             }
@@ -476,10 +364,77 @@ impl Feed {
             }
         }
 
+        *self.last_computed.write() = Some(Instant::now());
         self.recompute_lock.store(false, Ordering::Relaxed);
 
         Ok(())
     }
+
+    async fn load_event_range<F>(
+        since: Unixtime,
+        filter: Filter,
+        include_replies: bool,
+        include_dms: bool,
+        screen: F,
+    ) -> Result<Vec<Id>, Error>
+    where
+        F: Fn(&Event) -> bool,
+    {
+        let now = Unixtime::now().unwrap();
+        let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
+        let dismissed = GLOBALS.dismissed.read().await.clone();
+
+        let outer_screen =
+            |e: &Event| basic_screen(e, include_replies, include_dms, &dismissed) && screen(e);
+
+        let mut before_filter = filter;
+        let mut after_filter = before_filter.clone();
+
+        before_filter.until = Some(since - Duration::from_secs(1));
+        before_filter.limit = Some(limit);
+
+        after_filter.since = Some(since);
+        after_filter.until = Some(now);
+
+        // FIXME we don't include delegated events.
+        /*
+        This would screw up the sort:
+                    .chain(
+                        GLOBALS
+                            .storage
+                            .find_tagged_events("delegation", Some(pphex.as_str()), screen, false)?
+                            .iter(),
+                    )
+         */
+
+        Ok(GLOBALS
+            .storage
+            .find_events_by_filter(&after_filter, outer_screen)?
+            .iter()
+            .map(|e| e.id)
+            .chain(
+                GLOBALS
+                    .storage
+                    .find_events_by_filter(&before_filter, outer_screen)?
+                    .iter()
+                    .map(|e| e.id),
+            )
+            .collect())
+    }
+}
+
+#[inline]
+fn basic_screen(e: &Event, include_replies: bool, include_dms: bool, dismissed: &[Id]) -> bool {
+    let now = Unixtime::now().unwrap();
+
+    e.created_at <= now
+        && (include_replies || e.replies_to().is_none())
+        && (include_dms
+            || (e.kind != EventKind::EncryptedDirectMessage
+                && e.kind != EventKind::DmChat
+                && e.kind != EventKind::GiftWrap))
+        && !dismissed.contains(&e.id)
+        && !e.is_annotation()
 }
 
 pub fn enabled_event_kinds() -> Vec<EventKind> {

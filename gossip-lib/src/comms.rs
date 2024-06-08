@@ -164,7 +164,7 @@ pub enum ToOverlordMessage {
     SetDmChannel(DmChannel),
 
     /// internal
-    SetPersonFeed(PublicKey),
+    SetPersonFeed(PublicKey, Unixtime),
 
     /// internal
     SetThreadFeed {
@@ -254,15 +254,15 @@ pub(crate) enum ToMinionPayloadDetail {
     SubscribeAugments(Vec<IdHex>),
     SubscribeConfig,
     SubscribeDiscover(Vec<PublicKey>),
-    SubscribeGeneralFeed(Vec<PublicKey>),
-    SubscribeInbox,
-    SubscribePersonFeed(PublicKey),
+    SubscribeGeneralFeed(Vec<PublicKey>, Unixtime),
+    SubscribeInbox(Unixtime),
+    SubscribePersonFeed(PublicKey, Unixtime),
     SubscribeReplies(IdHex),
     SubscribeRootReplies(IdHex),
     SubscribeDmChannel(DmChannel),
     SubscribeNip46,
     TempSubscribeGeneralFeedChunk(Unixtime),
-    TempSubscribePersonFeedChunk { pubkey: PublicKey, start: Unixtime },
+    TempSubscribePersonFeedChunk { pubkey: PublicKey, anchor: Unixtime },
     TempSubscribeInboxFeedChunk(Unixtime),
     TempSubscribeMetadata(Vec<PublicKey>),
     UnsubscribePersonFeed,

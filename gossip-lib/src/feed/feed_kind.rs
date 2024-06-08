@@ -37,6 +37,17 @@ impl std::fmt::Display for FeedKind {
 }
 
 impl FeedKind {
+    // this is used to keep a set of feed anchors separate for each kind of feed.
+    pub fn anchor_key(&self) -> String {
+        match self {
+            Self::List(personlist, _) => format!("list{}", personlist.as_u8()),
+            Self::Inbox(_) => "inbox".to_owned(),
+            Self::Thread { .. } => "thread".to_owned(),
+            Self::Person(pubkey) => format!("person{}", pubkey.as_hex_string()),
+            Self::DmChat(_) => "dmchat".to_owned(),
+        }
+    }
+
     pub fn can_load_more(&self) -> bool {
         match self {
             Self::List(_, _) => true,

@@ -14,12 +14,6 @@ pub enum FeedRange {
         until: Unixtime,
         limit: usize,
     },
-
-    // Original chunking method
-    OriginalChunk {
-        since: Unixtime,
-        until: Unixtime,
-    },
 }
 
 impl FeedRange {
@@ -27,7 +21,6 @@ impl FeedRange {
         match *self {
             FeedRange::After { since } => (Some(since), None, None),
             FeedRange::ChunkBefore { until, limit } => (None, Some(until), Some(limit)),
-            FeedRange::OriginalChunk { since, until } => (Some(since), Some(until), None),
         }
     }
 }

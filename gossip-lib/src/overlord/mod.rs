@@ -175,18 +175,6 @@ impl Overlord {
                 .store(false, Ordering::Relaxed);
         }
 
-        // Init some feed variables
-        let now = Unixtime::now().unwrap();
-        let general_feed_start =
-            now - Duration::from_secs(GLOBALS.storage.read_setting_feed_chunk());
-        let person_feed_start =
-            now - Duration::from_secs(GLOBALS.storage.read_setting_person_feed_chunk());
-        let inbox_feed_start =
-            now - Duration::from_secs(GLOBALS.storage.read_setting_replies_chunk());
-        GLOBALS
-            .feed
-            .set_feed_starts(general_feed_start, person_feed_start, inbox_feed_start);
-
         // Switch out of initializing RunState
         if GLOBALS.storage.read_setting_offline() {
             let _ = GLOBALS.write_runstate.send(RunState::Offline);
@@ -284,11 +272,16 @@ impl Overlord {
     }
 
     async fn apply_relay_assignment(&mut self, assignment: RelayAssignment) -> Result<(), Error> {
+        let anchor = GLOBALS.feed.current_anchor();
+
         let mut jobs = vec![RelayJob {
             reason: RelayConnectionReason::Follow,
             payload: ToMinionPayload {
                 job_id: rand::random::<u64>(),
-                detail: ToMinionPayloadDetail::SubscribeGeneralFeed(assignment.pubkeys.clone()),
+                detail: ToMinionPayloadDetail::SubscribeGeneralFeed(
+                    assignment.pubkeys.clone(),
+                    anchor,
+                ),
             },
         }];
 
@@ -309,7 +302,7 @@ impl Overlord {
                 reason: RelayConnectionReason::FetchInbox,
                 payload: ToMinionPayload {
                     job_id: rand::random::<u64>(),
-                    detail: ToMinionPayloadDetail::SubscribeInbox,
+                    detail: ToMinionPayloadDetail::SubscribeInbox(anchor),
                 },
             });
         }
@@ -674,13 +667,7 @@ impl Overlord {
                 self.like(id, pubkey).await?;
             }
             ToOverlordMessage::LoadMoreCurrentFeed => {
-                match GLOBALS.feed.get_feed_kind() {
-                    FeedKind::List(_, _) => self.load_more_general_feed().await?,
-                    FeedKind::Inbox(_) => self.load_more_inbox_feed().await?,
-                    FeedKind::Person(pubkey) => self.load_more_person_feed(pubkey).await?,
-                    FeedKind::DmChat(_) => (), // DmChat is complete, not chunked
-                    FeedKind::Thread { .. } => (), // Thread is complete, not chunked
-                }
+                self.load_more().await?;
             }
             ToOverlordMessage::MinionJobComplete(url, job_id) => {
                 self.finish_job(url, Some(job_id), None)?;
@@ -759,8 +746,8 @@ impl Overlord {
             ToOverlordMessage::SetDmChannel(dmchannel) => {
                 self.set_dm_channel(dmchannel).await?;
             }
-            ToOverlordMessage::SetPersonFeed(pubkey) => {
-                self.set_person_feed(pubkey).await?;
+            ToOverlordMessage::SetPersonFeed(pubkey, anchor) => {
+                self.set_person_feed(pubkey, anchor).await?;
             }
             ToOverlordMessage::SetThreadFeed {
                 id,
@@ -1665,87 +1652,79 @@ impl Overlord {
         Ok(())
     }
 
-    pub async fn load_more_general_feed(&mut self) -> Result<(), Error> {
-        // Set the feed to load another chunk back
-        let start = GLOBALS.feed.load_more_general_feed();
+    pub async fn load_more(&mut self) -> Result<(), Error> {
+        // Change the feed range:
+        let anchor = GLOBALS.feed.load_more()?;
 
-        // Subscribe on the minions for that missing chunk
-        for relay_assignment in GLOBALS.relay_picker.relay_assignments_iter() {
-            // Ask relay to subscribe to the missing chunk
-            let _ = self.to_minions.send(ToMinionMessage {
-                target: relay_assignment.relay_url.as_str().to_owned(),
-                payload: ToMinionPayload {
-                    job_id: 0,
-                    detail: ToMinionPayloadDetail::TempSubscribeGeneralFeedChunk(start),
-                },
-            });
-        }
-
-        Ok(())
-    }
-
-    pub async fn load_more_person_feed(&mut self, pubkey: PublicKey) -> Result<(), Error> {
-        let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
-
-        // Set the feed to load another chunk back
-        let start = GLOBALS.feed.load_more_person_feed();
-
-        // Get write relays for the person
-        let relays: Vec<RelayUrl> = GLOBALS
-            .storage
-            .get_best_relays(pubkey, RelayUsage::Outbox)?
-            .drain(..)
-            .take(num_relays_per_person as usize + 1)
-            .map(|(relay, _rank)| relay)
-            .collect();
-
-        // Subscribe on each of those write relays
-        for relay in relays.iter() {
-            // Subscribe
-            self.engage_minion(
-                relay.to_owned(),
-                vec![RelayJob {
-                    reason: RelayConnectionReason::SubscribePerson,
-                    payload: ToMinionPayload {
-                        job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::TempSubscribePersonFeedChunk {
-                            pubkey,
-                            start,
+        // Fetch more based on that feed range
+        match GLOBALS.feed.get_feed_kind() {
+            FeedKind::List(_, _) => {
+                // Subscribe on the minions for that missing chunk
+                for relay_assignment in GLOBALS.relay_picker.relay_assignments_iter() {
+                    // Ask relay to subscribe to the missing chunk
+                    let _ = self.to_minions.send(ToMinionMessage {
+                        target: relay_assignment.relay_url.as_str().to_owned(),
+                        payload: ToMinionPayload {
+                            job_id: 0,
+                            detail: ToMinionPayloadDetail::TempSubscribeGeneralFeedChunk(anchor),
                         },
-                    },
-                }],
-            )
-            .await?;
-        }
-
-        Ok(())
-    }
-
-    pub async fn load_more_inbox_feed(&mut self) -> Result<(), Error> {
-        // Set the feed to load another chunk back
-        let start = GLOBALS.feed.load_more_inbox_feed();
-
-        let relays: Vec<RelayUrl> = GLOBALS
-            .storage
-            .filter_relays(|r| r.has_usage_bits(Relay::READ) && r.rank != 0)?
-            .iter()
-            .map(|relay| relay.url.clone())
-            .collect();
-
-        // Subscribe on each of these relays
-        for relay in relays.iter() {
-            // Subscribe
-            self.engage_minion(
-                relay.to_owned(),
-                vec![RelayJob {
-                    reason: RelayConnectionReason::FetchInbox,
-                    payload: ToMinionPayload {
-                        job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::TempSubscribeInboxFeedChunk(start),
-                    },
-                }],
-            )
-            .await?;
+                    });
+                }
+            }
+            FeedKind::Inbox(_) => {
+                let relays: Vec<RelayUrl> = GLOBALS
+                    .storage
+                    .filter_relays(|r| r.has_usage_bits(Relay::READ) && r.rank != 0)?
+                    .iter()
+                    .map(|relay| relay.url.clone())
+                    .collect();
+                // Subscribe on each of these relays
+                for relay in relays.iter() {
+                    // Subscribe
+                    self.engage_minion(
+                        relay.to_owned(),
+                        vec![RelayJob {
+                            reason: RelayConnectionReason::FetchInbox,
+                            payload: ToMinionPayload {
+                                job_id: rand::random::<u64>(),
+                                detail: ToMinionPayloadDetail::TempSubscribeInboxFeedChunk(anchor),
+                            },
+                        }],
+                    )
+                    .await?;
+                }
+            }
+            FeedKind::Person(pubkey) => {
+                let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
+                // Get write relays for the person
+                let relays: Vec<RelayUrl> = GLOBALS
+                    .storage
+                    .get_best_relays(pubkey, RelayUsage::Outbox)?
+                    .drain(..)
+                    .take(num_relays_per_person as usize + 1)
+                    .map(|(relay, _rank)| relay)
+                    .collect();
+                // Subscribe on each of those write relays
+                for relay in relays.iter() {
+                    // Subscribe
+                    self.engage_minion(
+                        relay.to_owned(),
+                        vec![RelayJob {
+                            reason: RelayConnectionReason::SubscribePerson,
+                            payload: ToMinionPayload {
+                                job_id: rand::random::<u64>(),
+                                detail: ToMinionPayloadDetail::TempSubscribePersonFeedChunk {
+                                    pubkey,
+                                    anchor,
+                                },
+                            },
+                        }],
+                    )
+                    .await?;
+                }
+            }
+            FeedKind::DmChat(_) => (), // DmChat is complete, not chunked
+            FeedKind::Thread { .. } => (), // Thread is complete, not chunked
         }
 
         Ok(())
@@ -2399,7 +2378,7 @@ impl Overlord {
         Ok(())
     }
 
-    async fn set_person_feed(&mut self, pubkey: PublicKey) -> Result<(), Error> {
+    async fn set_person_feed(&mut self, pubkey: PublicKey, anchor: Unixtime) -> Result<(), Error> {
         let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
 
         let relays: Vec<RelayUrl> = GLOBALS
@@ -2418,7 +2397,7 @@ impl Overlord {
                     reason: RelayConnectionReason::SubscribePerson,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribePersonFeed(pubkey),
+                        detail: ToMinionPayloadDetail::SubscribePersonFeed(pubkey, anchor),
                     },
                 }],
             )
@@ -2781,6 +2760,7 @@ impl Overlord {
 
     /// Subscribe to the user's configuration events from the given relay
     pub async fn subscribe_inbox(&mut self, relays: Option<Vec<RelayUrl>>) -> Result<(), Error> {
+        let now = Unixtime::now().unwrap();
         let mention_relays: Vec<RelayUrl> = match relays {
             Some(r) => r,
             None => GLOBALS
@@ -2797,7 +2777,7 @@ impl Overlord {
                     reason: RelayConnectionReason::FetchInbox,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeInbox,
+                        detail: ToMinionPayloadDetail::SubscribeInbox(now),
                     },
                 }],
             )

@@ -52,9 +52,7 @@ pub struct UnsavedSettings {
     pub max_relays: u8,
 
     // Feed Settings
-    pub feed_chunk: u64,
-    pub replies_chunk: u64,
-    pub person_feed_chunk: u64,
+    pub load_more_count: u64,
     pub overlap: u64,
 
     // Event Selection
@@ -145,9 +143,7 @@ impl Default for UnsavedSettings {
             relay_auth_requires_approval: default_setting!(relay_auth_requires_approval),
             num_relays_per_person: default_setting!(num_relays_per_person),
             max_relays: default_setting!(max_relays),
-            feed_chunk: default_setting!(feed_chunk),
-            replies_chunk: default_setting!(replies_chunk),
-            person_feed_chunk: default_setting!(person_feed_chunk),
+            load_more_count: default_setting!(load_more_count),
             overlap: default_setting!(overlap),
             reposts: default_setting!(reposts),
             show_long_form: default_setting!(show_long_form),
@@ -232,9 +228,7 @@ impl UnsavedSettings {
             relay_auth_requires_approval: load_setting!(relay_auth_requires_approval),
             num_relays_per_person: load_setting!(num_relays_per_person),
             max_relays: load_setting!(max_relays),
-            feed_chunk: load_setting!(feed_chunk),
-            replies_chunk: load_setting!(replies_chunk),
-            person_feed_chunk: load_setting!(person_feed_chunk),
+            load_more_count: load_setting!(load_more_count),
             overlap: load_setting!(overlap),
             reposts: load_setting!(reposts),
             show_long_form: load_setting!(show_long_form),
@@ -315,9 +309,7 @@ impl UnsavedSettings {
         save_setting!(relay_auth_requires_approval, self, txn);
         save_setting!(num_relays_per_person, self, txn);
         save_setting!(max_relays, self, txn);
-        save_setting!(feed_chunk, self, txn);
-        save_setting!(replies_chunk, self, txn);
-        save_setting!(person_feed_chunk, self, txn);
+        save_setting!(load_more_count, self, txn);
         save_setting!(overlap, self, txn);
         save_setting!(reposts, self, txn);
         save_setting!(show_long_form, self, txn);

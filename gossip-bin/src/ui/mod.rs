@@ -817,43 +817,15 @@ impl GossipUi {
     fn set_page_inner(&mut self, ctx: &Context, page: Page) {
         // Setting the page often requires some associated actions:
         match &page {
-            Page::Feed(FeedKind::DmChat(channel)) => {
-                GLOBALS.feed.set_feed_to_dmchat(channel.to_owned());
-                feed::enter_feed(self, FeedKind::DmChat(channel.clone()));
-                self.close_all_menus_except_feeds(ctx);
-            }
-            Page::Feed(FeedKind::List(list, with_replies)) => {
-                GLOBALS.feed.set_feed_to_main(*list, *with_replies);
-                feed::enter_feed(self, FeedKind::List(*list, *with_replies));
-                self.open_menu(ctx, SubMenu::Feeds);
-            }
-            Page::Feed(FeedKind::Inbox(indirect)) => {
-                GLOBALS.feed.set_feed_to_inbox(*indirect);
-                feed::enter_feed(self, FeedKind::Inbox(*indirect));
-                self.close_all_menus_except_feeds(ctx);
-            }
-            Page::Feed(FeedKind::Thread {
-                id,
-                referenced_by,
-                author,
-            }) => {
-                GLOBALS
-                    .feed
-                    .set_feed_to_thread(*id, *referenced_by, *author);
-                feed::enter_feed(
-                    self,
-                    FeedKind::Thread {
-                        id: *id,
-                        referenced_by: *referenced_by,
-                        author: *author,
-                    },
-                );
-                self.close_all_menus_except_feeds(ctx);
-            }
-            Page::Feed(FeedKind::Person(pubkey)) => {
-                GLOBALS.feed.set_feed_to_person(pubkey.to_owned());
-                feed::enter_feed(self, FeedKind::Person(*pubkey));
-                self.close_all_menus_except_feeds(ctx);
+            Page::Feed(feed_kind) => {
+                let is_list = matches!(feed_kind, FeedKind::List(_, _));
+                GLOBALS.feed.switch_feed(feed_kind.clone());
+                feed::enter_feed(self, feed_kind.to_owned());
+                if is_list {
+                    self.open_menu(ctx, SubMenu::Feeds);
+                } else {
+                    self.close_all_menus_except_feeds(ctx);
+                }
             }
             Page::PeopleLists => {
                 people::enter_page(self);

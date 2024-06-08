@@ -32,6 +32,10 @@ impl PersonList1 {
         }
     }
 
+    pub fn as_u8(&self) -> u8 {
+        (*self).into()
+    }
+
     pub fn from_number(number: u8) -> Option<Self> {
         let list = Self::from_u8(number);
         if matches!(list, PersonList1::Custom(_)) {
