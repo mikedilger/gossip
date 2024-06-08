@@ -88,6 +88,7 @@ pub struct Minion {
     exiting: Option<MinionExitReason>,
     auth_state: AuthState,
     failed_subs: HashSet<String>,
+    initial_handling: bool,
     loading_more: usize,
 }
 
@@ -129,6 +130,7 @@ impl Minion {
             exiting: None,
             auth_state: AuthState::None,
             failed_subs: HashSet::new(),
+            initial_handling: true,
             loading_more: 0,
         })
     }
@@ -148,6 +150,21 @@ impl Minion {
             // When advertising relay lists, use a short timeout
             if matches!(m.detail, ToMinionPayloadDetail::AdvertiseRelayList(_, _)) {
                 short_timeout = true;
+            }
+        }
+
+        // Optimization:  before connecting to the relay, handle any 'loading_more' bumps
+        // that would happen after connecting to the relay.
+        for message in &messages {
+            let loading_more =
+                matches!(message.detail, ToMinionPayloadDetail::TempSubscribeGeneralFeedChunk(_))
+                ||
+                matches!(message.detail, ToMinionPayloadDetail::TempSubscribePersonFeedChunk { .. })
+                ||
+                matches!(message.detail, ToMinionPayloadDetail::TempSubscribeInboxFeedChunk(_));
+            if loading_more {
+                self.loading_more += 1;
+                let _ = GLOBALS.loading_more.fetch_add(1, Ordering::SeqCst);
             }
         }
 
@@ -331,6 +348,8 @@ impl Minion {
         for message in messages.drain(..) {
             self.handle_overlord_message(message).await?;
         }
+
+        self.initial_handling = false;
 
         // Ping timer
         let mut ping_timer = tokio::time::interval(std::time::Duration::new(
@@ -860,8 +879,10 @@ impl Minion {
             ))?;
         } else {
             let sub_name = format!("temp_person_feed_chunk_{}", job_id);
-            self.loading_more += 1;
-            let _ = GLOBALS.loading_more.fetch_add(1, Ordering::SeqCst);
+            if ! self.initial_handling {
+                self.loading_more += 1;
+                let _ = GLOBALS.loading_more.fetch_add(1, Ordering::SeqCst);
+            }
             self.subscribe(filters, &sub_name, job_id).await?;
         }
 
@@ -893,8 +914,10 @@ impl Minion {
         }
 
         let sub_name = format!("temp_inbox_feed_chunk_{}", job_id);
-        self.loading_more += 1;
-        let _ = GLOBALS.loading_more.fetch_add(1, Ordering::SeqCst);
+        if ! self.initial_handling {
+            self.loading_more += 1;
+            let _ = GLOBALS.loading_more.fetch_add(1, Ordering::SeqCst);
+        }
         self.subscribe(filters, &sub_name, job_id).await?;
 
         Ok(())
@@ -1093,8 +1116,10 @@ impl Minion {
             // the new chunk subscription doesn't clobber this subscription which might
             // not have run to completion yet.
             let sub_name = format!("temp_general_feed_chunk_{}", job_id);
-            self.loading_more += 1;
-            let _ = GLOBALS.loading_more.fetch_add(1, Ordering::SeqCst);
+            if ! self.initial_handling {
+                self.loading_more += 1;
+                let _ = GLOBALS.loading_more.fetch_add(1, Ordering::SeqCst);
+            }
             self.subscribe(filters, &sub_name, job_id).await?;
         }
 
