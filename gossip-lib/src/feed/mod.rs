@@ -5,6 +5,7 @@ use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOv
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::people::PersonList;
+use dashmap::DashMap;
 use nostr_types::{
     Event, EventAddr, EventKind, EventReference, Filter, Id, PublicKeyHex, Unixtime,
 };
@@ -21,7 +22,7 @@ pub struct Feed {
 
     current_feed_kind: RwLock<FeedKind>,
     current_feed_events: RwLock<Vec<Id>>,
-    current_feed_anchor: RwLock<Unixtime>,
+    feed_anchors: DashMap<String, Unixtime>,
 
     // We only recompute the feed at specified intervals (or when they switch)
     interval_ms: RwLock<u32>,
@@ -42,7 +43,7 @@ impl Feed {
             recompute_lock: AtomicBool::new(false),
             current_feed_kind: RwLock::new(FeedKind::List(PersonList::Followed, false)),
             current_feed_events: RwLock::new(Vec::new()),
-            current_feed_anchor: RwLock::new(Unixtime::now().unwrap()),
+            feed_anchors: DashMap::new(),
             interval_ms: RwLock::new(10000), // Every 10 seconds, until we load from settings
             last_computed: RwLock::new(None),
             thread_parent: RwLock::new(None),
@@ -59,7 +60,8 @@ impl Feed {
             let earliest_event = GLOBALS.storage.read_event(*earliest_id)?;
             if let Some(event) = earliest_event {
                 // Move the anchor back to the earliest event we have so far
-                *self.current_feed_anchor.write() = event.created_at;
+                let anchor_key = self.current_feed_kind.read().anchor_key();
+                self.feed_anchors.insert(anchor_key, event.created_at);
 
                 // Recompute now to get the storage data
                 self.sync_recompute();
@@ -74,7 +76,8 @@ impl Feed {
     }
 
     pub(crate) fn current_anchor(&self) -> Unixtime {
-        *self.current_feed_anchor.read()
+        let anchor_key = self.current_feed_kind.read().anchor_key();
+        *self.feed_anchors.get(&anchor_key).unwrap()
     }
 
     fn unlisten(&self) {
@@ -110,9 +113,18 @@ impl Feed {
         // and the scroll bar "memory" will be reset to the top.  Let recompute rebuild
         // the feed (called down below)
 
-        // Reset the feed anchor
-        let anchor = Unixtime::now().unwrap();
-        *self.current_feed_anchor.write() = anchor;
+        let anchor: Unixtime = {
+            let anchor_key = feed_kind.anchor_key();
+            match self.feed_anchors.get(&anchor_key) {
+                Some(refanchor) => *refanchor,
+                None => {
+                    // Start the feed anchor if it was not yet set
+                    let now = Unixtime::now().unwrap();
+                    self.feed_anchors.insert(anchor_key, now);
+                    now
+                }
+            }
+        };
 
         // Reset the feed thread
         *self.thread_parent.write() = if let FeedKind::Thread {
@@ -238,7 +250,7 @@ impl Feed {
         // ok because it is more reactive to changes to the setting.
         *self.interval_ms.write() = feed_recompute_interval_ms;
 
-        let anchor: Unixtime = *self.current_feed_anchor.read();
+        let anchor: Unixtime = self.current_anchor();
 
         let current_feed_kind = self.current_feed_kind.read().to_owned();
         match current_feed_kind {
@@ -400,13 +412,13 @@ impl Feed {
             .find_events_by_filter(&after_filter, outer_screen)?
             .iter()
             .map(|e| e.id)
-               .chain(
-                   GLOBALS
-                       .storage
-                       .find_events_by_filter(&before_filter, outer_screen)?
-                       .iter()
-                       .map(|e| e.id),
-               )
+            .chain(
+                GLOBALS
+                    .storage
+                    .find_events_by_filter(&before_filter, outer_screen)?
+                    .iter()
+                    .map(|e| e.id),
+            )
             .collect())
     }
 }
