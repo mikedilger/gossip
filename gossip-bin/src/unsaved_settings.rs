@@ -53,7 +53,6 @@ pub struct UnsavedSettings {
 
     // Feed Settings
     pub load_more_count: u64,
-    pub overlap: u64,
 
     // Event Selection
     pub reposts: bool,
@@ -144,7 +143,6 @@ impl Default for UnsavedSettings {
             num_relays_per_person: default_setting!(num_relays_per_person),
             max_relays: default_setting!(max_relays),
             load_more_count: default_setting!(load_more_count),
-            overlap: default_setting!(overlap),
             reposts: default_setting!(reposts),
             show_long_form: default_setting!(show_long_form),
             show_mentions: default_setting!(show_mentions),
@@ -229,7 +227,6 @@ impl UnsavedSettings {
             num_relays_per_person: load_setting!(num_relays_per_person),
             max_relays: load_setting!(max_relays),
             load_more_count: load_setting!(load_more_count),
-            overlap: load_setting!(overlap),
             reposts: load_setting!(reposts),
             show_long_form: load_setting!(show_long_form),
             show_mentions: load_setting!(show_mentions),
@@ -310,7 +307,6 @@ impl UnsavedSettings {
         save_setting!(num_relays_per_person, self, txn);
         save_setting!(max_relays, self, txn);
         save_setting!(load_more_count, self, txn);
-        save_setting!(overlap, self, txn);
         save_setting!(reposts, self, txn);
         save_setting!(show_long_form, self, txn);
         save_setting!(show_mentions, self, txn);

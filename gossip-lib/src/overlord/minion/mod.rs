@@ -789,7 +789,7 @@ impl Minion {
 
     // Subscribe to the user's config (config, DMs, etc) which is on their own write relays
     async fn subscribe_config(&mut self, job_id: u64) -> Result<(), Error> {
-        let since = self.compute_since(60 * 60 * 24 * 15);
+        let since = Unixtime::now().unwrap() - Duration::from_secs(60 * 60 * 24 * 15);
 
         let filters = filter_fns::config(since);
 
@@ -1353,32 +1353,5 @@ impl Minion {
         if let Err(e) = GLOBALS.storage.write_relay(&self.dbrelay, None) {
             tracing::error!("{}: ERROR bumping relay success count: {}", &self.url, e);
         }
-    }
-
-    fn compute_since(&self, chunk_seconds: u64) -> Unixtime {
-        let now = Unixtime::now().unwrap();
-        let overlap = Duration::from_secs(GLOBALS.storage.read_setting_overlap());
-        let chunk = Duration::from_secs(chunk_seconds);
-
-        // FIXME - general subscription EOSE is not necessarily applicable to
-        //         other subscriptions. BUt we don't record when we got an EOSE
-        //         on other subscriptions.
-        let eose: Unixtime = match self.dbrelay.last_general_eose_at {
-            Some(u) => Unixtime(u as i64),
-            None => Unixtime(0),
-        };
-
-        let mut since = eose;
-        since = since - overlap;
-
-        // No dates before 2020:
-        if since.0 < 1577836800 {
-            since.0 = 1577836800;
-        }
-
-        // Do not go back by more than one chunk
-        let one_chunk_ago = now - chunk;
-
-        since.max(one_chunk_ago)
     }
 }

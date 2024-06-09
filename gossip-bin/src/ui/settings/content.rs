@@ -16,12 +16,6 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ui.add(Slider::new(&mut app.unsaved_settings.load_more_count, 10..=100).text("events"));
     });
 
-    ui.horizontal(|ui| {
-        ui.label("Overlap: ").on_hover_text("If we recently loaded events up to time T, but restarted, we will now load events starting from time T minus overlap. Takes effect on restart. I recommend 300 (5 minutes).");
-        ui.add(Slider::new(&mut app.unsaved_settings.overlap, 0..=3600).text("seconds, "));
-        ui.label(secs_to_string(app.unsaved_settings.overlap));
-    });
-
     ui.checkbox(
         &mut app.unsaved_settings.recompute_feed_periodically,
         "Recompute feed periodically. If this is off, you will get a refresh button",
@@ -106,25 +100,4 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     });
 
     ui.add_space(20.0);
-}
-
-fn secs_to_string(secs: u64) -> String {
-    let days = secs / 86400;
-    let remainder = secs % 86400;
-    let hours = remainder / 3600;
-    let remainder = remainder % 3600;
-    let minutes = remainder / 60;
-    let seconds = remainder % 60;
-    let mut output: String = String::new();
-    if days > 0 {
-        output.push_str(&format!(" {} days", days));
-    }
-    if hours > 0 {
-        output.push_str(&format!(" {} hours", hours));
-    }
-    if minutes > 0 {
-        output.push_str(&format!(" {} minutes", minutes));
-    }
-    output.push_str(&format!(" {} seconds", seconds));
-    output
 }

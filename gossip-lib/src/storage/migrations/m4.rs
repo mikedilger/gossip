@@ -49,7 +49,6 @@ impl Storage {
         )?;
         self.write_setting_num_relays_per_person(&settings.num_relays_per_person, Some(rw_txn))?;
         self.write_setting_max_relays(&settings.max_relays, Some(rw_txn))?;
-        self.write_setting_overlap(&settings.overlap, Some(rw_txn))?;
         self.write_setting_reposts(&settings.reposts, Some(rw_txn))?;
         self.write_setting_show_long_form(&settings.show_long_form, Some(rw_txn))?;
         self.write_setting_show_mentions(&settings.show_mentions, Some(rw_txn))?;
