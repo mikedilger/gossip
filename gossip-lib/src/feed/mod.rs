@@ -55,23 +55,38 @@ impl Feed {
     //
     /// This doesn't deal with minion subscriptions.
     pub(crate) fn load_more(&self) -> Result<Unixtime, Error> {
-        // Load the timestamp of the earliest event in the feed so far
-        if let Some(earliest_id) = self.current_feed_events.read().iter().next_back() {
-            let earliest_event = GLOBALS.storage.read_event(*earliest_id)?;
-            if let Some(event) = earliest_event {
-                // Move the anchor back to the earliest event we have so far
-                let anchor_key = self.current_feed_kind.read().anchor_key();
-                self.feed_anchors.insert(anchor_key, event.created_at);
+        let anchor_key = self.current_feed_kind.read().anchor_key();
 
-                // Recompute now to get the storage data
-                self.sync_recompute();
+        if anchor_key == "inbox" {
+            let mut anchor = match self.feed_anchors.get(&anchor_key) {
+                Some(r) => *r.value(),
+                None => Unixtime::now().unwrap(), // 12 hours
+            };
+            anchor = anchor - Duration::from_secs(60 * 60 * 12);
+            self.feed_anchors.insert(anchor_key, anchor);
 
-                Ok(event.created_at)
+            // Recompute now to get the storage data
+            self.sync_recompute();
+
+            Ok(anchor)
+        } else {
+            // Load the timestamp of the earliest event in the feed so far
+            if let Some(earliest_id) = self.current_feed_events.read().iter().next_back() {
+                let earliest_event = GLOBALS.storage.read_event(*earliest_id)?;
+                if let Some(event) = earliest_event {
+                    // Move the anchor back to the earliest event we have so far
+                    self.feed_anchors.insert(anchor_key, event.created_at);
+
+                    // Recompute now to get the storage data
+                    self.sync_recompute();
+
+                    Ok(event.created_at)
+                } else {
+                    Err(ErrorKind::LoadMoreFailed.into())
+                }
             } else {
                 Err(ErrorKind::LoadMoreFailed.into())
             }
-        } else {
-            Err(ErrorKind::LoadMoreFailed.into())
         }
     }
 
