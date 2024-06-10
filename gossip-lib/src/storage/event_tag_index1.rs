@@ -4,7 +4,7 @@ use heed::{types::Bytes, DatabaseFlags, RwTxn};
 use nostr_types::{EventV2, EventV3, PublicKeyHex, TagV3};
 use std::sync::Mutex;
 
-pub(super) const INDEXED_TAGS: [&str; 4] = ["a", "d", "p", "delegation"];
+pub(super) const INDEXED_TAGS: [&str; 4] = ["a", "d", "p"];
 
 // TagKey:QUOTE:TagValue -> Id
 // (dup keys, so multiple Ids per key)
