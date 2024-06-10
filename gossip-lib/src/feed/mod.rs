@@ -6,9 +6,7 @@ use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::people::PersonList;
 use dashmap::DashMap;
-use nostr_types::{
-    Event, EventAddr, EventKind, EventReference, Filter, Id, PublicKeyHex, Unixtime,
-};
+use nostr_types::{Event, EventAddr, EventKind, EventReference, Filter, Id, Unixtime};
 use parking_lot::RwLock;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
@@ -56,37 +54,22 @@ impl Feed {
     /// This doesn't deal with minion subscriptions.
     pub(crate) fn load_more(&self) -> Result<Unixtime, Error> {
         let anchor_key = self.current_feed_kind.read().anchor_key();
+        // Load the timestamp of the earliest event in the feed so far
+        if let Some(earliest_id) = self.current_feed_events.read().iter().next_back() {
+            let earliest_event = GLOBALS.storage.read_event(*earliest_id)?;
+            if let Some(event) = earliest_event {
+                // Move the anchor back to the earliest event we have so far
+                self.feed_anchors.insert(anchor_key, event.created_at);
 
-        if anchor_key == "inbox" {
-            let mut anchor = match self.feed_anchors.get(&anchor_key) {
-                Some(r) => *r.value(),
-                None => Unixtime::now().unwrap(), // 12 hours
-            };
-            anchor = anchor - Duration::from_secs(60 * 60 * 12);
-            self.feed_anchors.insert(anchor_key, anchor);
+                // Recompute now to get the storage data
+                self.sync_recompute();
 
-            // Recompute now to get the storage data
-            self.sync_recompute();
-
-            Ok(anchor)
-        } else {
-            // Load the timestamp of the earliest event in the feed so far
-            if let Some(earliest_id) = self.current_feed_events.read().iter().next_back() {
-                let earliest_event = GLOBALS.storage.read_event(*earliest_id)?;
-                if let Some(event) = earliest_event {
-                    // Move the anchor back to the earliest event we have so far
-                    self.feed_anchors.insert(anchor_key, event.created_at);
-
-                    // Recompute now to get the storage data
-                    self.sync_recompute();
-
-                    Ok(event.created_at)
-                } else {
-                    Err(ErrorKind::LoadMoreFailed.into())
-                }
+                Ok(event.created_at)
             } else {
                 Err(ErrorKind::LoadMoreFailed.into())
             }
+        } else {
+            Err(ErrorKind::LoadMoreFailed.into())
         }
     }
 
@@ -294,27 +277,27 @@ impl Feed {
                 if let Some(my_pubkey) = GLOBALS.identity.public_key() {
                     // Ideally all replies would 'p' tag me (NIP-10)
                     //
-                    // BUT some don't. To see such replies, we would like to look for any
+                    // But some don't. To see such replies, we would like to look for any
                     // event that replies to any of my events. But it is too expensive to
                     // load all the IDs of all my events and screen for 'e' tags against
                     // them (we used to do that for the most recent of my events, but I
                     // have taken it out).
 
-                    let kinds_with_dms = feed_displayable_event_kinds(true);
-                    let dismissed = GLOBALS.dismissed.read().await.clone();
-                    let my_pubkeyhex: PublicKeyHex = my_pubkey.into();
+                    let filter = {
+                        let mut filter = Filter::new();
+                        filter.kinds = feed_displayable_event_kinds(true);
+                        filter.add_tag_value('p', my_pubkey.as_hex_string());
+                        filter
+                    };
 
-                    // FIXME, we can't use 'anchor' which is usually 'now'.
-                    // We have to use a timewindow (instead of a limit)
-                    let since = anchor - Duration::from_secs(43200);
+                    // TODO: If event_tag_index had reverse created_at, we could much more
+                    //       quickly find inbox messages by using a better prefix scan in
+                    //       find_events_by_filter
 
                     let screen = |e: &Event| {
-                        e.created_at >= since
-                            && kinds_with_dms.contains(&e.kind)
-                            && basic_screen(e, true, true, &dismissed)
-                            && e.pubkey != my_pubkey
+                        e.pubkey != my_pubkey
                             && ((e.kind == EventKind::GiftWrap
-                                || e.kind == EventKind::EncryptedDirectMessage)
+                                 || e.kind == EventKind::EncryptedDirectMessage)
                                 || (
                                     // We can't check against EventReference::Id because we would
                                     // have to know all the Ids of my events, which is too much to
@@ -323,28 +306,17 @@ impl Feed {
                                         e.replies_to(),
                                         Some(EventReference::Addr(EventAddr { author, .. }))
                                             if author == my_pubkey
-                                    ) || (e.people().iter().any(|(p, _, _)| *p == my_pubkey)
-                                        && (indirect
+                                    ) || (
+                                        indirect
                                             || e.people_referenced_in_content()
-                                                .iter()
-                                                .any(|p| *p == my_pubkey)))
+                                            .iter()
+                                            .any(|p| *p == my_pubkey)
+                                    )
                                 ))
                     };
 
-                    // FIXME: storage.find_tagged_events() sucks compared to pocket-db
-                    //        using a filter to do this, because it sorts afterwards
-                    //        and we can't do other filter filtering, only on the tag.
-                    //
-                    //        Upgrade storage to be more like pocket-db and we can get
-                    //        a lot better performance here.
-                    let inbox_events: Vec<Id> = GLOBALS
-                        .storage
-                        .find_tagged_events("p", Some(my_pubkeyhex.as_str()), screen, true)?
-                        .iter()
-                        .map(|e| e.id)
-                        .collect();
-
-                    *self.current_feed_events.write() = inbox_events;
+                    let events = Self::load_event_range(anchor, filter, true, false, screen).await?;
+                    *self.current_feed_events.write() = events;
                 }
             }
             FeedKind::Thread { .. } => {

@@ -1394,8 +1394,9 @@ impl Storage {
     /// To avoid an inefficient scrape, do one of these
     ///
     /// 1. Supply some ids
-    /// 2. Supply some authors and some kinds, or
-    /// 3. Supply some kinds, all of which are INDEXED_KINDS,
+    /// 2. Supply some single-letter tag(s) that we index, or
+    /// 3. Supply some authors and some kinds, or
+    /// 4. Supply some kinds, all of which are INDEXED_KINDS,
     ///
     /// The output will be sorted in reverse time order.
     pub fn find_events_by_filter<F>(&self, filter: &Filter, screen: F) -> Result<Vec<Event>, Error>
@@ -1423,6 +1424,28 @@ impl Storage {
                     let event = Event::read_from_buffer(bytes)?;
                     if filter.event_matches(&event) && screen(&event) {
                         output.insert(event);
+                    }
+                }
+            }
+        } else if !filter.tags.is_empty() && filter.tags.iter().all(|t| INDEXED_TAGS.contains(&&*t.0.to_string())) {
+            // event_tag_index
+            for tag in &filter.tags {
+                let mut start_key: Vec<u8> = tag.0.to_string().as_bytes().to_owned();
+                start_key.push(b'\"'); // double quote separator, unlikely to be inside of a tagname
+                if let Some(tv) = tag.1.first() {
+                    start_key.extend(tv.as_bytes());
+                }
+                let start_key = key!(&start_key); // limit the size
+                let iter = self.db_event_tag_index()?.prefix_iter(&txn, start_key)?;
+                for result in iter {
+                    let (_key, val) = result?;
+                    // Take the event
+                    let id = Id(val[0..32].try_into()?);
+                    if let Some(bytes) = self.db_events()?.get(&txn, id.as_slice())? {
+                        let event = Event::read_from_buffer(bytes)?;
+                        if filter.event_matches(&event) && screen(&event) {
+                            output.insert(event);
+                        }
                     }
                 }
             }
@@ -1688,60 +1711,6 @@ impl Storage {
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         self.write_event3_tag_index1(event, rw_txn)
-    }
-
-    /// Find events having a given tag, and passing the filter.
-    /// Only some tags are indxed: "a", "d", "delegation", and "p" for the gossip user only
-    pub fn find_tagged_events<F>(
-        &self,
-        tagname: &str,
-        tagvalue: Option<&str>,
-        screen: F,
-        sort: bool,
-    ) -> Result<Vec<Event>, Error>
-    where
-        F: Fn(&Event) -> bool,
-    {
-        // Make sure we are asking for something that we have indexed
-        if !INDEXED_TAGS.contains(&tagname) {
-            return Err(ErrorKind::TagNotIndexed(tagname.to_owned()).into());
-        }
-
-        let mut ids: HashSet<Id> = HashSet::new();
-        let txn = self.env.read_txn()?;
-
-        let mut start_key: Vec<u8> = tagname.as_bytes().to_owned();
-        start_key.push(b'\"'); // double quote separator, unlikely to be inside of a tagname
-        if let Some(tv) = tagvalue {
-            start_key.extend(tv.as_bytes());
-        }
-        let start_key = key!(&start_key); // limit the size
-        let iter = self.db_event_tag_index()?.prefix_iter(&txn, start_key)?;
-        for result in iter {
-            let (_key, val) = result?;
-            // Take the event
-            let id = Id(val[0..32].try_into()?);
-            ids.insert(id);
-        }
-
-        // Now that we have that Ids, fetch and filter the events
-        let txn = self.env.read_txn()?;
-        let mut events: Vec<Event> = Vec::new();
-        for id in ids {
-            // this is like self.read_event(), but we supply our existing transaction
-            if let Some(bytes) = self.db_events()?.get(&txn, id.as_slice())? {
-                let event = Event::read_from_buffer(bytes)?;
-                if screen(&event) {
-                    events.push(event);
-                }
-            }
-        }
-
-        if sort {
-            events.sort_by(|a, b| b.created_at.cmp(&a.created_at).then(b.id.cmp(&a.id)));
-        }
-
-        Ok(events)
     }
 
     #[inline]
