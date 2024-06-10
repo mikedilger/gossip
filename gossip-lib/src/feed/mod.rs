@@ -285,7 +285,7 @@ impl Feed {
 
                     let filter = {
                         let mut filter = Filter::new();
-                        filter.kinds = feed_displayable_event_kinds(true);
+                        filter.kinds = feed_displayable_event_kinds(false);
                         filter.add_tag_value('p', my_pubkey.as_hex_string());
                         filter
                     };
@@ -296,23 +296,21 @@ impl Feed {
 
                     let screen = |e: &Event| {
                         e.pubkey != my_pubkey
-                            && ((e.kind == EventKind::GiftWrap
-                                 || e.kind == EventKind::EncryptedDirectMessage)
-                                || (
-                                    // We can't check against EventReference::Id because we would
-                                    // have to know all the Ids of my events, which is too much to
-                                    // check against. BUT we can check for these cheaply:
-                                    matches!(
-                                        e.replies_to(),
-                                        Some(EventReference::Addr(EventAddr { author, .. }))
-                                            if author == my_pubkey
-                                    ) || (
-                                        indirect
-                                            || e.people_referenced_in_content()
-                                            .iter()
-                                            .any(|p| *p == my_pubkey)
-                                    )
-                                ))
+                            && (
+                                // We can't check against EventReference::Id because we would
+                                // have to know all the Ids of my events, which is too much to
+                                // check against. BUT we can check for these cheaply:
+                                matches!(
+                                    e.replies_to(),
+                                    Some(EventReference::Addr(EventAddr { author, .. }))
+                                        if author == my_pubkey
+                                ) || (
+                                    indirect
+                                        || e.people_referenced_in_content()
+                                        .iter()
+                                        .any(|p| *p == my_pubkey)
+                                )
+                            )
                     };
 
                     let events = Self::load_event_range(anchor, filter, true, false, screen).await?;

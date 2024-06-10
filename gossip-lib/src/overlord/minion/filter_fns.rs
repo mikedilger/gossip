@@ -54,8 +54,8 @@ pub fn general_feed(authors: &[PublicKey], range: FeedRange) -> Vec<Filter> {
 pub fn inbox_feed(spamsafe: bool, range: FeedRange) -> Vec<Filter> {
     let mut filters: Vec<Filter> = Vec::new();
 
-    // Allow all feed related event kinds (including DMs)
-    let mut event_kinds = crate::feed::feed_related_event_kinds(true);
+    // Allow all feed displayable event kinds (including DMs)
+    let mut event_kinds = crate::feed::feed_displayable_event_kinds(true);
     event_kinds.retain(|f| *f != EventKind::GiftWrap); // gift wrap has special filter
 
     let (since, until, limit) = range.since_until_limit();
