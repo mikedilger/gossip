@@ -468,9 +468,6 @@ struct GossipUi {
     editing_metadata: bool,
     metadata: Metadata,
 
-    // User entry: delegatee tag (as JSON string)
-    delegatee_tag_str: String,
-
     // User entry: general
     add_contact: String,
     password: String,
@@ -697,7 +694,6 @@ impl GossipUi {
             draft_is_annotate: false,
             editing_metadata: false,
             metadata: Metadata::new(),
-            delegatee_tag_str: "".to_owned(),
             add_contact: "".to_owned(),
             password: "".to_owned(),
             password2: "".to_owned(),

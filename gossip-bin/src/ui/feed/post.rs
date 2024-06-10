@@ -306,9 +306,6 @@ fn dm_posting_area(
         if app.dm_draft_data.include_content_warning {
             tags.push(Tag::new_content_warning(&app.dm_draft_data.content_warning));
         }
-        if let Some(delegatee_tag) = GLOBALS.delegation.get_delegatee_tag() {
-            tags.push(delegatee_tag);
-        }
         if app.dm_draft_data.include_subject {
             tags.push(Tag::new_subject(app.dm_draft_data.subject.clone()));
         }
@@ -657,9 +654,6 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
         let mut tags: Vec<Tag> = Vec::new();
         if app.draft_data.include_content_warning {
             tags.push(Tag::new_content_warning(&app.draft_data.content_warning));
-        }
-        if let Some(delegatee_tag) = GLOBALS.delegation.get_delegatee_tag() {
-            tags.push(delegatee_tag);
         }
         if app.draft_data.include_subject {
             tags.push(Tag::new_subject(app.draft_data.subject.clone()));

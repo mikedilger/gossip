@@ -1,5 +1,4 @@
 use crate::comms::{RelayJob, ToMinionMessage, ToOverlordMessage};
-use crate::delegation::Delegation;
 use crate::error::Error;
 use crate::feed::Feed;
 use crate::fetcher::Fetcher;
@@ -98,9 +97,6 @@ pub struct Globals {
 
     /// How many subscriptions are open and not yet at EOSE
     pub open_subscriptions: AtomicUsize,
-
-    /// Delegation handling
-    pub delegation: Delegation,
 
     /// Media loading
     pub media: Media,
@@ -202,7 +198,6 @@ lazy_static! {
             )),
             bytes_read: AtomicUsize::new(0),
             open_subscriptions: AtomicUsize::new(0),
-            delegation: Delegation::default(),
             media: Media::new(),
             events_being_searched_for: PRwLock::new(Vec::new()),
             //event_addrs_being_searched_for: PRwLock::new(Vec::new()),

@@ -3,8 +3,8 @@ use gossip_lib::{Person, PersonList, PersonTable, Private, Table};
 use std::collections::HashMap;
 
 use nostr_types::{
-    ContentSegment, Event, EventDelegation, EventKind, Id, MilliSatoshi, NostrBech32, PublicKey,
-    RelayUrl, ShatteredContent, Unixtime,
+    ContentSegment, Event, EventKind, Id, MilliSatoshi, NostrBech32, RelayUrl, ShatteredContent,
+    Unixtime,
 };
 
 #[derive(PartialEq)]
@@ -27,10 +27,7 @@ pub(crate) struct NoteData {
     /// Original Event object, as received from nostr
     pub event: Event,
 
-    /// Delegation status of this event
-    pub delegation: EventDelegation,
-
-    /// Author of this note (considers delegation)
+    /// Author of this note
     pub author: Person,
 
     /// Lists the author is on
@@ -98,8 +95,6 @@ impl NoteData {
         if event.kind == EventKind::EncryptedDirectMessage {
             direct_message = true;
         }
-
-        let delegation = event.delegation();
 
         // This function checks that the deletion author is allowed
         let deletions = GLOBALS.storage.get_deletions(&event).unwrap_or_default();
@@ -245,19 +240,12 @@ impl NoteData {
             }
         };
 
-        // If delegated, use the delegated person
-        let author_pubkey: PublicKey = if let EventDelegation::DelegatedBy(pubkey) = delegation {
-            pubkey
-        } else {
-            event.pubkey
-        };
-
-        let author = match PersonTable::read_record(author_pubkey, None) {
+        let author = match PersonTable::read_record(event.pubkey, None) {
             Ok(Some(p)) => p,
-            _ => Person::new(author_pubkey),
+            _ => Person::new(event.pubkey),
         };
 
-        let lists = match GLOBALS.storage.read_person_lists(&author_pubkey) {
+        let lists = match GLOBALS.storage.read_person_lists(&event.pubkey) {
             Ok(lists) => lists,
             _ => HashMap::new(),
         };
@@ -269,7 +257,6 @@ impl NoteData {
 
         NoteData {
             event,
-            delegation,
             author,
             lists,
             deletions,

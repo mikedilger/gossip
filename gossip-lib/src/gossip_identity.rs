@@ -1,9 +1,8 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use nostr_types::{
-    ContentEncryptionAlgorithm, DelegationConditions, EncryptedPrivateKey, Event, EventKind,
-    EventV1, EventV2, Filter, Id, Identity, KeySecurity, Metadata, PreEvent, PrivateKey, PublicKey,
-    Rumor, RumorV1, RumorV2, Signature,
+    ContentEncryptionAlgorithm, EncryptedPrivateKey, Event, EventKind, EventV1, EventV2, Filter,
+    Id, Identity, KeySecurity, Metadata, PreEvent, PrivateKey, PublicKey, Rumor, RumorV1, RumorV2,
 };
 use parking_lot::RwLock;
 use std::sync::mpsc::Sender;
@@ -265,31 +264,7 @@ impl GossipIdentity {
         )?)
     }
 
-    pub fn generate_delegation_signature(
-        &self,
-        delegated_pubkey: PublicKey,
-        delegation_conditions: &DelegationConditions,
-    ) -> Result<Signature, Error> {
-        Ok(self
-            .inner
-            .read()
-            .generate_delegation_signature(delegated_pubkey, delegation_conditions)?)
-    }
-
     pub fn giftwrap(&self, input: PreEvent, pubkey: PublicKey) -> Result<Event, Error> {
         Ok(self.inner.read().giftwrap(input, pubkey)?)
-    }
-
-    pub fn verify_delegation_signature(
-        &self,
-        delegated_pubkey: PublicKey,
-        delegation_conditions: &DelegationConditions,
-        signature: &Signature,
-    ) -> Result<(), Error> {
-        Ok(self.inner.read().verify_delegation_signature(
-            delegated_pubkey,
-            delegation_conditions,
-            signature,
-        )?)
     }
 }

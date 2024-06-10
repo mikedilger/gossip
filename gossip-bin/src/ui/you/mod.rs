@@ -8,7 +8,6 @@ use gossip_lib::{Globals, GLOBALS};
 use nostr_types::{KeySecurity, PublicKeyHex};
 use zeroize::Zeroize;
 
-mod delegation;
 mod metadata;
 mod nostr_connect;
 
@@ -116,8 +115,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             });
     } else if app.page == Page::YourMetadata {
         metadata::update(app, ctx, _frame, ui);
-    } else if app.page == Page::YourDelegation {
-        delegation::update(app, ctx, _frame, ui);
     } else if app.page == Page::YourNostrConnect {
         nostr_connect::update(app, ctx, _frame, ui);
     }
