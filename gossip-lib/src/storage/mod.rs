@@ -858,6 +858,11 @@ impl Storage {
         when: Unixtime,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
+        // Don't save banned relay URLs
+        if Self::url_is_banned(url) {
+            return Ok(());
+        }
+
         self.add_event_seen_on_relay1(id, url, when, rw_txn)
     }
 
@@ -931,6 +936,11 @@ impl Storage {
         url: &RelayUrl,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
+        // Don't save banned relay URLs
+        if Self::url_is_banned(url) {
+            return Ok(());
+        }
+
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
             let rtxn = &**txn;
             if self.read_relay(url, Some(rtxn))?.is_none() {
@@ -986,6 +996,11 @@ impl Storage {
         url: &RelayUrl,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<Relay, Error> {
+        // Don't save banned relay URLs
+        if Self::url_is_banned(url) {
+            return Ok(Relay::new(url.to_owned()));
+        }
+
         let f = |txn: &mut RwTxn<'a>| -> Result<Relay, Error> {
             let rtxn = &**txn;
             match self.read_relay(url, Some(rtxn))? {
@@ -1084,7 +1099,10 @@ impl Storage {
         for tag in event.tags.iter() {
             if tag.tagname() == "relay" {
                 if let Ok(relay_url) = RelayUrl::try_from_str(tag.value()) {
-                    relays.push(relay_url);
+                    // Don't use banned relay URLs
+                    if !Self::url_is_banned(&relay_url) {
+                        relays.push(relay_url);
+                    }
                 }
             }
         }
@@ -1427,7 +1445,12 @@ impl Storage {
                     }
                 }
             }
-        } else if !filter.tags.is_empty() && filter.tags.iter().all(|t| INDEXED_TAGS.contains(&&*t.0.to_string())) {
+        } else if !filter.tags.is_empty()
+            && filter
+                .tags
+                .iter()
+                .all(|t| INDEXED_TAGS.contains(&&*t.0.to_string()))
+        {
             // event_tag_index
             for tag in &filter.tags {
                 let mut start_key: Vec<u8> = tag.0.to_string().as_bytes().to_owned();
@@ -1956,6 +1979,11 @@ impl Storage {
         person_relay: &PersonRelay,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
+        // Don't save banned relay URLs
+        if Self::url_is_banned(&person_relay.url) {
+            return Ok(());
+        }
+
         self.write_person_relay2(person_relay, rw_txn)
     }
 
@@ -1981,6 +2009,11 @@ impl Storage {
         url: &RelayUrl,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<PersonRelay, Error> {
+        // Don't save banned relay URLs
+        if Self::url_is_banned(&url) {
+            return Ok(PersonRelay::new(pubkey.to_owned(), url.to_owned()));
+        }
+
         match self.read_person_relay(pubkey, url)? {
             Some(pr) => Ok(pr),
             None => {
@@ -2576,5 +2609,9 @@ impl Storage {
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         self.delete_nip46server2(pubkey, rw_txn)
+    }
+
+    fn url_is_banned(url: &RelayUrl) -> bool {
+        url.as_str().contains("relay.nostr.band") || url.as_str().contains("filter.nostr.wine")
     }
 }
