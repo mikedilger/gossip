@@ -1815,7 +1815,28 @@ impl Storage {
             kind: event.kind,
             author: event.pubkey,
         })?);
+
+        let annotation_children = self.get_non_replaceable_annotates(event.id)?;
+        for annotation in annotation_children.iter() {
+            // Extend with children of annotation
+            output.extend(self.get_non_replaceable_replies(*annotation)?);
+        }
+
         Ok(output)
+    }
+
+    pub fn get_non_replaceable_annotates(&self, id: Id) -> Result<Vec<Id>, Error> {
+        Ok(self
+            .find_relationships_by_id(id)?
+            .iter()
+            .filter_map(|(id, rel)| {
+                if *rel == RelationshipById::Annotates {
+                    Some(*id)
+                } else {
+                    None
+                }
+            })
+            .collect())
     }
 
     pub fn get_non_replaceable_replies(&self, id: Id) -> Result<Vec<Id>, Error> {
