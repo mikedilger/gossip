@@ -304,16 +304,15 @@ impl Feed {
                                     e.replies_to(),
                                     Some(EventReference::Addr(EventAddr { author, .. }))
                                         if author == my_pubkey
-                                ) || (
-                                    indirect
-                                        || e.people_referenced_in_content()
+                                ) || (indirect
+                                    || e.people_referenced_in_content()
                                         .iter()
-                                        .any(|p| *p == my_pubkey)
-                                )
+                                        .any(|p| *p == my_pubkey))
                             )
                     };
 
-                    let events = Self::load_event_range(anchor, filter, true, false, screen).await?;
+                    let events =
+                        Self::load_event_range(anchor, filter, true, false, screen).await?;
                     *self.current_feed_events.write() = events;
                 }
             }
