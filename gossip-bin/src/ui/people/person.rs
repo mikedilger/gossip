@@ -344,10 +344,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                             Freshness::Fresh => (false, ""),
                         };
 
-                    let mut relays = GLOBALS.people.get_active_person_write_relays();
-                    relays.sort_by(|a, b| b.1.cmp(&a.1)); // list in score order
-
-                    // show relays
+                    // OUTBOX relays
                     make_frame().show(ui, |ui| {
                         ui.vertical(|ui| {
                             ui.horizontal(|ui| {
@@ -374,6 +371,9 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                             });
                             ui.add_space(ITEM_V_SPACE);
                             ui.horizontal_wrapped(|ui| {
+                                let mut relays = GLOBALS.people.get_active_person_write_relays();
+                                relays.sort_by(|a, b| b.1.cmp(&a.1)); // list in score order
+
                                 for (relay_url, score) in relays {
                                     if score >= 10 {
                                         // do not list low-score relays
@@ -381,6 +381,59 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                             .link(format!("{} ({})", relay_url.host(), score))
                                             .clicked()
                                         {
+                                            app.set_page(
+                                                ctx,
+                                                Page::RelaysKnownNetwork(Some(relay_url)),
+                                            );
+                                        }
+                                    }
+                                }
+                            });
+                        });
+                    });
+
+                    // DM Relays
+                    make_frame().show(ui, |ui| {
+                        ui.vertical(|ui| {
+                            ui.horizontal(|ui| {
+                                item_label(ui, "DM Relays");
+                                if show_fetch_now {
+                                    ui.add(Label::new(
+                                        RichText::new(show_fetch_reason)
+                                            .small()
+                                            .color(app.theme.warning_marker_text_color()),
+                                    ));
+                                    if ui.add(egui::Button::new("Fetch now").small()).clicked() {
+                                        app.setting_active_person = true;
+                                        let _ = GLOBALS.to_overlord.send(
+                                            ToOverlordMessage::SubscribeDiscover(
+                                                vec![person.pubkey],
+                                                None,
+                                            ),
+                                        );
+                                        let _ = GLOBALS
+                                            .to_overlord
+                                            .send(ToOverlordMessage::SetActivePerson(pubkey));
+                                    }
+                                }
+                            });
+                            ui.add_space(ITEM_V_SPACE);
+                            ui.horizontal_wrapped(|ui| {
+                                let relays = GLOBALS.people.get_active_person_dm_relays();
+
+                                if relays.is_empty() {
+                                    ui.label(
+                                        "No DM relays found. This means we cannot use the improved",
+                                    );
+                                    crate::ui::widgets::break_anywhere_hyperlink_to(
+                                        ui,
+                                        "NIP-17",
+                                        "https://github.com/nostr-protocol/nips/blob/master/17.md",
+                                    );
+                                    ui.label("encryption standard for DM communication with this person.");
+                                } else {
+                                    for relay_url in relays {
+                                        if ui.link(relay_url.host()).clicked() {
                                             app.set_page(
                                                 ctx,
                                                 Page::RelaysKnownNetwork(Some(relay_url)),

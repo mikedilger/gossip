@@ -32,7 +32,8 @@ pub type PersonListMetadata = crate::storage::types::PersonListMetadata3;
 pub struct People {
     // active person's relays (pull from db as needed)
     active_person: RwLock<Option<PublicKey>>,
-    active_persons_write_relays: RwLock<Vec<(RelayUrl, u64)>>,
+    active_persons_write_relays: RwLock<Vec<(RelayUrl, u64 /* score */)>>,
+    active_persons_dm_relays: RwLock<Vec<RelayUrl>>,
 
     // We fetch (with Fetcher), process, and temporarily hold avatars
     // until the UI next asks for them, at which point we remove them
@@ -67,6 +68,7 @@ impl People {
         People {
             active_person: RwLock::new(None),
             active_persons_write_relays: RwLock::new(vec![]),
+            active_persons_dm_relays: RwLock::new(vec![]),
             avatars_temp: DashMap::new(),
             avatars_pending_processing: DashSet::new(),
             recheck_nip05: DashSet::new(),
@@ -918,6 +920,10 @@ impl People {
             .get_best_relays(pubkey, RelayUsage::Outbox)?;
         *self.active_persons_write_relays.write().await = best_relays;
 
+        // Load their DM relays
+        let dm_relays = GLOBALS.storage.get_dm_relays(pubkey)?;
+        *self.active_persons_dm_relays.write().await = dm_relays;
+
         Ok(())
     }
 
@@ -929,8 +935,12 @@ impl People {
         *self.active_person.read().await
     }
 
-    pub fn get_active_person_write_relays(&self) -> Vec<(RelayUrl, u64)> {
+    pub fn get_active_person_write_relays(&self) -> Vec<(RelayUrl, u64 /* score */)> {
         self.active_persons_write_relays.blocking_read().clone()
+    }
+
+    pub fn get_active_person_dm_relays(&self) -> Vec<RelayUrl> {
+        self.active_persons_dm_relays.blocking_read().clone()
     }
 }
 
