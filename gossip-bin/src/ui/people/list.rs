@@ -150,35 +150,36 @@ pub(super) fn update(
         ui.horizontal(|ui|{
             if app.people_list.cache_local_hash == app.people_list.cache_remote_hash {
                 ui.label("List is synchronized");
-            } else {
-                if ui
-                    .button("↓ Overwrite ↓")
-                    .on_hover_text(
-                        "This imports data from the latest event, erasing anything that is already here",
-                    )
-                    .clicked()
-                {
-                    let _ = GLOBALS
-                        .to_overlord
-                        .send(ToOverlordMessage::UpdatePersonList {
-                            person_list: list,
-                            merge: false,
-                        });
-                }
-                if ui
-                    .button("↓ Merge ↓")
-                    .on_hover_text(
-                        "This imports data from the latest event, merging it into what is already here",
-                    )
-                    .clicked()
-                {
-                    let _ = GLOBALS
-                        .to_overlord
-                        .send(ToOverlordMessage::UpdatePersonList {
-                            person_list: list,
-                            merge: true,
-                        });
-                }
+                ui.add_space(10.0);
+            }
+
+            if ui
+                .button("↓ Overwrite ↓")
+                .on_hover_text(
+                    "This imports data from the latest event, erasing anything that is already here",
+                )
+                .clicked()
+            {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::UpdatePersonList {
+                        person_list: list,
+                        merge: false,
+                    });
+            }
+            if ui
+                .button("↓ Merge ↓")
+                .on_hover_text(
+                    "This imports data from the latest event, merging it into what is already here",
+                )
+                .clicked()
+            {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::UpdatePersonList {
+                        person_list: list,
+                        merge: true,
+                    });
             }
 
             if GLOBALS.identity.is_unlocked() {
