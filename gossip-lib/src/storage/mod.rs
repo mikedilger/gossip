@@ -2107,6 +2107,12 @@ impl Storage {
             }
         };
 
+        // Remove banned relays
+        ranked_relays = ranked_relays
+            .drain(..)
+            .filter(|(r, _score)| !Self::url_is_banned(&r))
+            .collect();
+
         // Modulate these scores with our local rankings
         for ranked_relay in ranked_relays.iter_mut() {
             let relay = self.read_or_create_relay(&ranked_relay.0, None)?;
