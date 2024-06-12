@@ -238,7 +238,13 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
 
             ui.add_space(10.0);
             ui.horizontal(|ui| {
-                ui.heading(channel.name());
+                if let Some(key) = channel.keys().first() {
+                    if ui.link(RichText::new(channel.name()).heading()).clicked() {
+                        app.set_page(ctx, Page::Person(key.to_owned()));
+                    }
+                } else {
+                    ui.heading(channel.name());
+                }
                 recompute_btn(ui);
             });
             ui.add_space(10.0);
