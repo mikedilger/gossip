@@ -145,11 +145,12 @@ pub(super) fn update(
 
         ui.add_space(5.0);
 
-        if app.people_list.cache_local_hash == app.people_list.cache_remote_hash {
-            ui.label("List is synchronized");
-        } else {
-            // remote <-> local buttons
-            ui.horizontal(|ui|{
+
+        // remote <-> local buttons
+        ui.horizontal(|ui|{
+            if app.people_list.cache_local_hash == app.people_list.cache_remote_hash {
+                ui.label("List is synchronized");
+            } else {
                 if ui
                     .button("↓ Overwrite ↓")
                     .on_hover_text(
@@ -178,28 +179,28 @@ pub(super) fn update(
                             merge: true,
                         });
                 }
+            }
 
-                if GLOBALS.identity.is_unlocked() {
-                    if ui
-                        .button("↑ Publish ↑")
-                        .on_hover_text("This publishes the list to your relays")
-                        .clicked()
-                    {
-                        let _ = GLOBALS
-                            .to_overlord
-                            .send(ToOverlordMessage::PushPersonList(list));
-                    }
-                } else {
-                    ui.horizontal(|ui| {
-                        ui.label("You need to ");
-                        if ui.link("setup your private-key").clicked() {
-                            app.set_page(ctx, Page::YourKeys);
-                        }
-                        ui.label(" to push lists.");
-                    });
+            if GLOBALS.identity.is_unlocked() {
+                if ui
+                    .button("↑ Publish ↑")
+                    .on_hover_text("This publishes the list to your relays")
+                    .clicked()
+                {
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::PushPersonList(list));
                 }
-            });
-        }
+            } else {
+                ui.horizontal(|ui| {
+                    ui.label("You need to ");
+                    if ui.link("setup your private-key").clicked() {
+                        app.set_page(ctx, Page::YourKeys);
+                    }
+                    ui.label(" to push lists.");
+                });
+            }
+        });
 
         ui.add_space(5.0);
 
