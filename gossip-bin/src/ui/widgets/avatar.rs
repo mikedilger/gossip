@@ -1,6 +1,7 @@
 use crate::{AVATAR_SIZE_F32, AVATAR_SIZE_REPOST_F32};
+use eframe::egui::TextStyle;
 use egui_winit::egui::{self, vec2, Image, Response, TextureHandle, Ui, Vec2};
-use gossip_lib::{Person, PersonList};
+use gossip_lib::{Person, PersonList, GLOBALS};
 
 pub(crate) enum AvatarSize {
     Profile,
@@ -71,6 +72,11 @@ pub(crate) fn paint_avatar(
     let muted = person.is_in_list(PersonList::Muted);
     let on_list = person.is_in_list(PersonList::Custom(2)); // TODO: change to any list
     let size = avatar_size.get_size();
+    let has_dm_relays = GLOBALS
+        .storage
+        .has_dm_relays(person.pubkey)
+        .unwrap_or(false);
+    const UNICODE_CIRCLED_17: &str = "\u{2470}";
 
     let avatar_response = ui.add(
         Image::new(avatar)
@@ -114,6 +120,27 @@ pub(crate) fn paint_avatar(
                 }
                 stat.join(", ")
             });
+    }
+    if has_dm_relays {
+        let center = avatar_response.rect.right_bottom() + vec2(-0.139 * size.x, -0.139 * size.y);
+        let mut fontid = TextStyle::Body.resolve(ui.style());
+        fontid.size = 11.0;
+        ui.painter().circle(
+            center,
+            avatar_size.get_status_size() + 1.0,
+            egui::Color32::WHITE,
+            egui::Stroke::new(
+                avatar_size.get_status_stroke_width(),
+                ui.visuals().panel_fill,
+            ),
+        );
+        ui.painter().text(
+            center + vec2(0.0, -1.0),
+            egui::Align2::CENTER_CENTER,
+            UNICODE_CIRCLED_17,
+            fontid,
+            ui.visuals().hyperlink_color,
+        );
     }
     avatar_response
 }
