@@ -19,13 +19,13 @@ const LIST_VIEW_HEIGHT: f32 = 60.0;
 /// Height of the list view (width always max. available)
 const DETAIL_VIEW_HEIGHT: f32 = 80.0;
 /// Height of the edit view (width always max. available)
-const EDIT_VIEW_HEIGHT: f32 = 250.0;
+const EDIT_VIEW_HEIGHT: f32 = 280.0;
 /// Height required for one auth-permission drop-down
 const EDIT_VIEW_AUTH_PERM_HEIGHT: f32 = 25.0;
 /// Y-offset for first separator
 const HLINE_1_Y_OFFSET: f32 = LIST_VIEW_HEIGHT - 12.0;
 /// Y-offset for second separator
-const HLINE_2_Y_OFFSET: f32 = 180.0;
+const HLINE_2_Y_OFFSET: f32 = 210.0;
 /// Y top for the detail section
 const DETAIL_SECTION_TOP: f32 = TEXT_TOP + LIST_VIEW_HEIGHT;
 /// Size of edit button
@@ -49,7 +49,7 @@ const USAGE_LINE_X_END: f32 = -10.0;
 /// Line thickness
 const USAGE_LINE_THICKNESS: f32 = 1.0;
 /// Start of permission section from top
-const PERMISSION_SECTION_TOP: f32 = 200.0;
+const PERMISSION_SECTION_TOP: f32 = 230.0;
 const PERMISSION_SECTION_SIZE: Vec2 = Vec2 { x: 223.0, y: 50.0 };
 /// Spacing between nip11 text rows
 const NIP11_Y_SPACING: f32 = 20.0;
@@ -75,6 +75,7 @@ const WRITE_HOVER_TEXT: &str =
     "Where you actually write your events to. It is recommended to have a few.";
 const OUTBOX_HOVER_TEXT: &str = "Where you tell others you write to. You should also check Write. It is recommended to have a few.";
 const SPAMSAFE_HOVER_TEXT: &str = "Relay is trusted to filter spam. If not set, replies and mentions from unfollowed people will not be fetched from the relay (when SpamSafe is enabled in settings).";
+const DM_USE_HOVER_TEXT: &str = "Use Relay to receive and send Direct Messages";
 
 #[derive(Clone, PartialEq)]
 pub enum RelayEntryView {
@@ -129,6 +130,7 @@ struct UsageBits {
     outbox: bool,
     discover: bool,
     spamsafe: bool,
+    dm: bool,
 }
 
 impl UsageBits {
@@ -141,6 +143,7 @@ impl UsageBits {
             outbox: usage_bits & Relay::OUTBOX == Relay::OUTBOX,
             discover: usage_bits & Relay::DISCOVER == Relay::DISCOVER,
             spamsafe: usage_bits & Relay::SPAMSAFE == Relay::SPAMSAFE,
+            dm: usage_bits & Relay::DM == Relay::DM,
         }
     }
 
@@ -584,8 +587,10 @@ impl RelayEntry {
 
         let align = Align::Center;
 
-        let bg_rect =
-            egui::Rect::from_x_y_ranges(right.x - 153.0..=right.x, right.y - 5.0..=right.y + 18.0);
+        let bg_rect = egui::Rect::from_x_y_ranges(
+            right.x - 170.0..=right.x + 3.0,
+            right.y - 5.0..=right.y + 18.0,
+        );
         let bg_radius = bg_rect.height() / 2.0;
         ui.painter().rect_filled(
             bg_rect,
@@ -604,14 +609,14 @@ impl RelayEntry {
         }
 
         // ---- Read ----
-        let pos = right + vec2(RIGHT - 5.0 * SPACE, 0.0);
+        let pos = right + vec2(RIGHT - 6.0 * SPACE, 0.0);
         let (text, color) = switch(ui, "R", self.usage.read);
         let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("R"));
         draw_text_galley_at(ui, pos, galley, Some(color), None);
         response.on_hover_text(READ_HOVER_TEXT);
 
         // ---- Inbox ----
-        let pos = right + vec2(RIGHT - 4.0 * SPACE, 0.0);
+        let pos = right + vec2(RIGHT - 5.0 * SPACE, 0.0);
         let (text, color) = switch(ui, "I", self.usage.inbox);
         let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("I"));
         draw_text_galley_at(ui, pos, galley, Some(color), None);
@@ -622,14 +627,14 @@ impl RelayEntry {
         draw_text_at(ui, pos, "+".into(), align, Some(color), None);
 
         // ---- Write ----
-        let pos = right + vec2(RIGHT - 3.0 * SPACE, 0.0);
+        let pos = right + vec2(RIGHT - 4.0 * SPACE, 0.0);
         let (text, color) = switch(ui, "W", self.usage.write);
         let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("W"));
         draw_text_galley_at(ui, pos, galley, Some(color), None);
         response.on_hover_text(WRITE_HOVER_TEXT);
 
         // ---- Outbox ----
-        let pos = right + vec2(RIGHT - 2.0 * SPACE, 0.0);
+        let pos = right + vec2(RIGHT - 3.0 * SPACE, 0.0);
         let (text, color) = switch(ui, "O", self.usage.outbox);
         let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("O"));
         draw_text_galley_at(ui, pos, galley, Some(color), None);
@@ -640,18 +645,25 @@ impl RelayEntry {
         draw_text_at(ui, pos, "+".into(), align, Some(color), None);
 
         // ---- Discover ----
-        let pos = right + vec2(RIGHT - 1.0 * SPACE, 0.0);
+        let pos = right + vec2(RIGHT - 2.0 * SPACE, 0.0);
         let (text, color) = switch(ui, "D", self.usage.discover);
         let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("D"));
         draw_text_galley_at(ui, pos, galley, Some(color), None);
         response.on_hover_text(DISCOVER_HOVER_TEXT);
 
         // ---- Spamsafe ----
-        let pos = right + vec2(RIGHT - 0.0 * SPACE, 0.0);
+        let pos = right + vec2(RIGHT - 1.0 * SPACE, 0.0);
         let (text, color) = switch(ui, "S", self.usage.spamsafe);
         let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("S"));
         draw_text_galley_at(ui, pos, galley, Some(color), None);
         response.on_hover_text(SPAMSAFE_HOVER_TEXT);
+
+        // ---- DM ----
+        let pos = right + vec2(RIGHT - 0.0 * SPACE, 0.0);
+        let (text, color) = switch(ui, "DM", self.usage.dm);
+        let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("DM"));
+        draw_text_galley_at(ui, pos, galley, Some(color), None);
+        response.on_hover_text(DM_USE_HOVER_TEXT);
     }
 
     fn paint_nip11(&self, ui: &mut Ui, rect: &Rect) {
@@ -1007,6 +1019,36 @@ impl RelayEntry {
                 ui,
                 pos + vec2(ui.spacing().item_spacing.x + switch_size.x, 0.0),
                 "Spam safe".into(),
+                Align::LEFT,
+                Some(ui.visuals().text_color()),
+                None,
+            );
+        }
+        let pos = pos + vec2(0.0, USAGE_SWITCH_Y_SPACING);
+        {
+            // ---- DM use ----
+            let id = self.make_id("dm_use_switch");
+            let sw_rect = Rect::from_min_size(pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET), switch_size);
+            let response = widgets::switch_custom_at(
+                ui,
+                true,
+                &mut self.usage.dm,
+                sw_rect,
+                id,
+                knob_fill,
+                on_fill,
+                off_fill,
+            );
+            if response.changed() {
+                modify_relay(&self.relay.url, |relay| {
+                    relay.adjust_usage_bit(Relay::DM, self.usage.dm)
+                });
+            }
+            response.on_hover_text(DM_USE_HOVER_TEXT);
+            draw_text_at(
+                ui,
+                pos + vec2(ui.spacing().item_spacing.x + switch_size.x, 0.0),
+                "Direct Message".into(),
                 Align::LEFT,
                 Some(ui.visuals().text_color()),
                 None,
