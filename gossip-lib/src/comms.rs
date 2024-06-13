@@ -23,8 +23,8 @@ pub enum ToOverlordMessage {
     /// Calls [advertise_relay_list](crate::Overlord::advertise_relay_list)
     AdvertiseRelayList,
 
-    /// internal
-    AdvertiseRelayListNextChunk(Box<Event>, Box<Event>, Vec<RelayUrl>),
+    /// Calls [advertise_relay_list_one](crate::Overlord::advertise_relay_list)
+    AdvertiseRelayListOne(RelayUrl, Box<Event>, Box<Event>),
 
     /// Calls [auth_approved](crate::Overlord::auth_approved)
     /// pass 'true' as the second parameter for a permanent approval

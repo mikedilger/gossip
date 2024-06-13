@@ -529,17 +529,7 @@ impl Overlord {
             return;
         }
 
-        // Remove any advertise jobs from the active set
-        let mut all_are_advertise: bool = true;
-        for job in &jobs {
-            if job.reason == RelayConnectionReason::Advertising {
-                GLOBALS.active_advertise_jobs.remove(&job.payload.job_id);
-            } else {
-                all_are_advertise = false;
-            }
-        }
-
-        if all_are_advertise { // also true if empty
+        if jobs.is_empty() {
             return;
         }
 
@@ -601,8 +591,8 @@ impl Overlord {
             ToOverlordMessage::AdvertiseRelayList => {
                 self.advertise_relay_list().await?;
             }
-            ToOverlordMessage::AdvertiseRelayListNextChunk(event, dmevent, relays) => {
-                self.advertise_relay_list_next_chunk(event, dmevent, relays)
+            ToOverlordMessage::AdvertiseRelayListOne(relay_url, event, dmevent) => {
+                self.advertise_relay_list_one(relay_url, event, dmevent)
                     .await?;
             }
             ToOverlordMessage::AuthApproved(relay_url, permanent) => {
@@ -855,7 +845,7 @@ impl Overlord {
             GLOBALS.identity.sign_event(pre_event)?
         };
 
-        let dm_event = {
+        let dmevent = {
             let dm_relays: Vec<Relay> = GLOBALS
                 .storage
                 .filter_relays(|r| r.has_usage_bits(Relay::DM))?;
@@ -875,86 +865,69 @@ impl Overlord {
             GLOBALS.identity.sign_event(pre_event)?
         };
 
-        let relays: Vec<RelayUrl> = GLOBALS
+        let mut relays: Vec<Relay> = GLOBALS
             .storage
-            .filter_relays(|r| r.is_good_for_advertise() && r.rank != 0)?
-            .iter()
-            .map(|relay| relay.url.clone())
-            .collect();
+            .filter_relays(|r| r.is_good_for_advertise() && r.rank != 0)?;
+        relays.sort_by(|a, b| {
+            a.rank.cmp(&b.rank).then(
+                a.success_rate()
+                    .partial_cmp(&b.success_rate())
+                    .unwrap()
+                    .then(a.success_count.cmp(&b.success_count)),
+            )
+        });
 
-        // Send ourself a message to do this by chunks
-        // It will do a chunk, when that is done, it will send ourself another message
-        // to do the remaining.
         let _ = GLOBALS
-            .to_overlord
-            .send(ToOverlordMessage::AdvertiseRelayListNextChunk(
-                Box::new(event),
-                Box::new(dm_event),
-                relays,
-            ));
+            .advertise_jobs_remaining
+            .fetch_add(relays.len(), Ordering::SeqCst);
+
+        std::mem::drop(tokio::spawn(async move {
+            for relay in relays.drain(..) {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::AdvertiseRelayListOne(
+                        relay.url.clone(),
+                        Box::new(event.clone()),
+                        Box::new(dmevent.clone()),
+                    ));
+
+                tokio::time::sleep(Duration::from_millis(250)).await;
+            }
+        }));
 
         Ok(())
     }
 
-    /// Advertise the user's current relay list in chunks
-    pub async fn advertise_relay_list_next_chunk(
+    /// Advertise the user's current relay list to one relay
+    pub async fn advertise_relay_list_one(
         &mut self,
+        relay_url: RelayUrl,
         event: Box<Event>,
         dmevent: Box<Event>,
-        relays: Vec<RelayUrl>,
     ) -> Result<(), Error> {
-        tracing::info!(
-            "Advertising relay lists, {} more relays to go...",
-            relays.len()
-        );
+        let job_id = rand::random::<u64>();
 
-        for relay_url in relays.iter().take(10) {
-            let job_id = rand::random::<u64>();
-            GLOBALS.active_advertise_jobs.insert(job_id);
-
-            // Send it the event to post
-            tracing::debug!("Asking {} to advertise relay list", &relay_url);
-
-            if let Err(e) = self
-                .engage_minion(
-                    relay_url.to_owned(),
-                    vec![RelayJob {
-                        reason: RelayConnectionReason::Advertising,
-                        payload: ToMinionPayload {
-                            job_id,
-                            detail: ToMinionPayloadDetail::AdvertiseRelayList(
-                                event.clone(),
-                                dmevent.clone(),
-                            ),
-                        },
-                    }],
-                )
-                .await
-            {
-                tracing::error!("{}", e);
-                GLOBALS.active_advertise_jobs.remove(&job_id);
-            }
+        // Send it the event to post
+        tracing::debug!("Asking {} to advertise relay list", &relay_url);
+        if let Err(e) = self
+            .engage_minion(
+                relay_url,
+                vec![RelayJob {
+                    reason: RelayConnectionReason::Advertising,
+                    payload: ToMinionPayload {
+                        job_id,
+                        detail: ToMinionPayloadDetail::AdvertiseRelayList(event, dmevent),
+                    },
+                }],
+            )
+            .await
+        {
+            tracing::error!("{}", e);
         }
 
-        // Separate task so the overlord can do other things while we wait
-        // for that chunk to complete
-        std::mem::drop(tokio::spawn(async move {
-            // Wait until all of them have completed
-            while !GLOBALS.active_advertise_jobs.is_empty() {
-                tokio::time::sleep(Duration::from_millis(500)).await;
-            }
-
-            // Send the overlord the remaining ones
-            if relays.len() > 10 {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::AdvertiseRelayListNextChunk(
-                        event,
-                        dmevent,
-                        relays[10..].to_owned(),
-                    ));
-            }
-        }));
+        let _ = GLOBALS
+            .advertise_jobs_remaining
+            .fetch_sub(1, Ordering::SeqCst);
 
         Ok(())
     }
@@ -1772,9 +1745,6 @@ impl Overlord {
             if job_id == 0 {
                 return Ok(());
             }
-
-            // in case it was an advertise job, remove from active set
-            GLOBALS.active_advertise_jobs.remove(&job_id);
 
             if let Some(mut refmut) = GLOBALS.connected_relays.get_mut(&relay_url) {
                 // Remove job by job_id

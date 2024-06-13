@@ -6,6 +6,7 @@ use egui_winit::egui::Id;
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::Relay;
 use gossip_lib::GLOBALS;
+use std::sync::atomic::Ordering;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     let is_editing = app.relays.edit.is_some();
@@ -22,7 +23,8 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             .show(ui);
         widgets::set_important_button_visuals(ui, app);
 
-        if GLOBALS.active_advertise_jobs.is_empty() {
+        let advertise_remaining = GLOBALS.advertise_jobs_remaining.load(Ordering::Relaxed);
+        if advertise_remaining == 0 {
             if ui.button("Advertise Relay List")
                 .on_hover_cursor(egui::CursorIcon::PointingHand)
                 .on_hover_text("Advertise my relays. Will send your relay usage information to every relay that seems to be working well so that other people know how to follow and contact you.")
@@ -33,7 +35,9 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                     .send(ToOverlordMessage::AdvertiseRelayList);
             }
         } else {
-            ui.add_enabled(false, egui::Button::new("Advertise Relay List"));
+            ui.add_enabled(false, egui::Button::new(
+                format!("Advertising, {} to go", advertise_remaining)
+            ));
         }
     });
 

@@ -13,7 +13,7 @@ use crate::seeker::Seeker;
 use crate::status::StatusQueue;
 use crate::storage::Storage;
 use crate::RunState;
-use dashmap::{DashMap, DashSet};
+use dashmap::DashMap;
 use gossip_relay_picker::RelayPicker;
 use nostr_types::{Event, Id, Profile, PublicKey, RelayUrl, RelayUsage};
 use parking_lot::RwLock as PRwLock;
@@ -145,7 +145,7 @@ pub struct Globals {
     pub wait_for_data_migration: AtomicBool,
 
     // Active advertise jobs
-    pub active_advertise_jobs: DashSet<u64>,
+    pub advertise_jobs_remaining: AtomicUsize,
 
     /// Pending actions
     pub pending: Pending,
@@ -216,7 +216,7 @@ lazy_static! {
             wait_for_login: AtomicBool::new(false),
             wait_for_login_notify: Notify::new(),
             wait_for_data_migration: AtomicBool::new(false),
-            active_advertise_jobs: DashSet::new(),
+            advertise_jobs_remaining: AtomicUsize::new(0),
             pending: Pending::new(),
             loading_more: AtomicUsize::new(0),
         }
