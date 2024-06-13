@@ -21,13 +21,19 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             .desired_width(200.0)
             .show(ui);
         widgets::set_important_button_visuals(ui, app);
-        if ui.button("Advertise Relay List")
-            .on_hover_cursor(egui::CursorIcon::PointingHand)
-            .on_hover_text("Advertise my relays. Will send 10002 kind to all relays that have 'ADVERTISE' usage enabled")
-            .clicked() {
-            let _ = GLOBALS
-                .to_overlord
-                .send(ToOverlordMessage::AdvertiseRelayList);
+
+        if GLOBALS.active_advertise_jobs.is_empty() {
+            if ui.button("Advertise Relay List")
+                .on_hover_cursor(egui::CursorIcon::PointingHand)
+                .on_hover_text("Advertise my relays. Will send your relay usage information to every relay that seems to be working well so that other people know how to follow and contact you.")
+                .clicked()
+            {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::AdvertiseRelayList);
+            }
+        } else {
+            ui.add_enabled(false, egui::Button::new("Advertise Relay List"));
         }
     });
 
