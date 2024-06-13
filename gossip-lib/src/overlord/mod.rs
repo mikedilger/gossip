@@ -530,11 +530,16 @@ impl Overlord {
         }
 
         // Remove any advertise jobs from the active set
+        let mut all_are_advertise: bool = true;
         for job in &jobs {
-            GLOBALS.active_advertise_jobs.remove(&job.payload.job_id);
+            if job.reason == RelayConnectionReason::Advertising {
+                GLOBALS.active_advertise_jobs.remove(&job.payload.job_id);
+            } else {
+                all_are_advertise = false;
+            }
         }
 
-        if jobs.is_empty() {
+        if all_are_advertise { // also true if empty
             return;
         }
 
