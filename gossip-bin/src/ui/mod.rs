@@ -1143,7 +1143,7 @@ impl GossipUi {
         }
     }
 
-    fn add_status_area(&mut self, ui: &mut Ui, ctx: &Context) {
+    fn add_status_area(&mut self, ui: &mut Ui, _ctx: &Context) {
         ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
             notifications::draw_icons(self, ui);
 
