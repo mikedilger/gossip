@@ -1014,7 +1014,7 @@ impl GossipUi {
                     ui,
                     Page::PeopleLists,
                     Some(&format!("More ({})...", more)),
-                    false,
+                    false, // do not highlight this entry
                 );
             }
         });
@@ -1207,7 +1207,7 @@ impl GossipUi {
                 .show(ctx, |ui| {
                     self.begin_ui(ui);
                     egui::Frame::popup(&self.theme.get_style())
-                        .rounding(egui::Rounding::same(crate::AVATAR_SIZE_F32 / 2.0))
+                        .rounding(egui::Rounding::same(crate::AVATAR_SIZE_F32 / 2.0)) // need the rounding for the shadow
                         .stroke(egui::Stroke::NONE)
                         .fill(Color32::TRANSPARENT)
                         .shadow(egui::epaint::Shadow::NONE)
@@ -1223,7 +1223,7 @@ impl GossipUi {
                                     fill_color_tuple.0,
                                     fill_color_tuple.1,
                                     fill_color_tuple.2,
-                                    128,
+                                    128, // half transparent
                                 )
                             };
                             let response = ui.add_sized(
@@ -1992,10 +1992,10 @@ impl GossipUi {
 
         match self.zap_state {
             ZapState::None => return, // should not occur
-            ZapState::CheckingLnurl(_, _, _) => {
+            ZapState::CheckingLnurl(_id, _pubkey, ref _lnurl) => {
                 ui.label("Loading lnurl...");
             }
-            ZapState::SeekingAmount(id, pubkey, _, _) => {
+            ZapState::SeekingAmount(id, pubkey, ref _prd, ref _lnurl) => {
                 let mut amt = 0;
                 ui.label("Zap Amount:");
 
