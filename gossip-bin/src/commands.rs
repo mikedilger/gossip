@@ -87,9 +87,9 @@ const COMMANDS: [Command; 34] = [
         desc: "Export the encrypted private key",
     },
     Command {
-        cmd: "giftwrap_ids",
+        cmd: "giftwraps",
         usage_params: "",
-        desc: "List the IDs of all giftwrap events you are tagged on",
+        desc: "Decrypt all of your giftwraps",
     },
     Command {
         cmd: "help",
@@ -227,7 +227,7 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
         "events_of_kind" => events_of_kind(command, args)?,
         "events_of_pubkey_and_kind" => events_of_pubkey_and_kind(command, args)?,
         "export_encrypted_key" => export_encrypted_key()?,
-        "giftwrap_ids" => giftwrap_ids(command)?,
+        "giftwraps" => giftwraps(command)?,
         "help" => help(command, args)?,
         "import_encrypted_private_key" => import_encrypted_private_key(command, args)?,
         "import_event" => import_event(command, args, runtime)?,
@@ -873,14 +873,21 @@ pub fn ungiftwrap(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn giftwrap_ids(_cmd: Command) -> Result<(), Error> {
+pub fn giftwraps(_cmd: Command) -> Result<(), Error> {
+    login()?;
+
     let mut filter = Filter::new();
     filter.add_event_kind(EventKind::GiftWrap);
-
     let events = GLOBALS.storage.find_events_by_filter(&filter, |_| true)?;
 
-    for event in events {
-        println!("{}", event.id.as_hex_string());
+    for event in &events {
+        println!("giftwrap_id={} giftwrap_created_at={}",
+                 event.id.as_hex_string(),
+                 event.created_at);
+        match GLOBALS.identity.unwrap_giftwrap(event) {
+            Ok(rumor) => println!("{}", serde_json::to_string(&rumor)?),
+            Err(e) => println!("  {}", e),
+        }
     }
 
     Ok(())
