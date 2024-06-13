@@ -161,7 +161,7 @@ impl Relay2 {
         self.has_usage_bits(Self::INBOX)
             || self.has_usage_bits(Self::OUTBOX)
             || self.has_usage_bits(Self::DISCOVER)
-            || (self.rank > 0 && self.success_rate() > 0.35 && self.success_count > 10)
+            || (self.rank > 0 && self.success_rate() > 0.50 && self.success_count > 15)
     }
 
     /// This generates a "recommended_relay_url" for an 'e' tag.
