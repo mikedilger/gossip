@@ -380,17 +380,6 @@ impl Feed {
         after_filter.since = Some(since);
         after_filter.until = Some(now);
 
-        // FIXME we don't include delegated events.
-        /*
-        This would screw up the sort:
-                    .chain(
-                        GLOBALS
-                            .storage
-                            .find_tagged_events("delegation", Some(pphex.as_str()), screen, false)?
-                            .iter(),
-                    )
-         */
-
         Ok(GLOBALS
             .storage
             .find_events_by_filter(&after_filter, outer_screen)?
