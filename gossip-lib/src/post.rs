@@ -155,7 +155,7 @@ pub fn prepare_post_nip17(
     let pre_event = PreEvent {
         pubkey: author,
         created_at: Unixtime::now().unwrap(),
-        kind: EventKind::TextNote,
+        kind: EventKind::DmChat,
         tags,
         content,
     };
