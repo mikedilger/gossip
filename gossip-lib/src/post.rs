@@ -141,6 +141,11 @@ pub fn prepare_post_nip17(
 
     add_tags_mirroring_content(&content, &mut tags, true);
 
+    // All recipients get 'p' tagged on the DM rumor
+    for pk in dm_channel.keys() {
+        add_pubkey_to_tags(&mut tags, *pk);
+    }
+
     // But we don't need (or want) the thread based tags.
 
     if annotation {
