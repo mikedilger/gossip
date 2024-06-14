@@ -35,9 +35,10 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                     .send(ToOverlordMessage::AdvertiseRelayList);
             }
         } else {
-            ui.add_enabled(false, egui::Button::new(
-                format!("Advertising, {} to go", advertise_remaining)
-            ));
+            ui.add_enabled(
+                false,
+                egui::Button::new(format!("Advertising, {} to go", advertise_remaining)),
+            );
         }
     });
 

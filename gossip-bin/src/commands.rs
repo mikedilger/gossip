@@ -881,9 +881,11 @@ pub fn giftwraps(_cmd: Command) -> Result<(), Error> {
     let events = GLOBALS.storage.find_events_by_filter(&filter, |_| true)?;
 
     for event in &events {
-        println!("giftwrap_id={} giftwrap_created_at={}",
-                 event.id.as_hex_string(),
-                 event.created_at);
+        println!(
+            "giftwrap_id={} giftwrap_created_at={}",
+            event.id.as_hex_string(),
+            event.created_at
+        );
         match GLOBALS.identity.unwrap_giftwrap(event) {
             Ok(rumor) => println!("{}", serde_json::to_string(&rumor)?),
             Err(e) => println!("  {}", e),

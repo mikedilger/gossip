@@ -2031,7 +2031,7 @@ impl Storage {
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<PersonRelay, Error> {
         // Don't save banned relay URLs
-        if Self::url_is_banned(&url) {
+        if Self::url_is_banned(url) {
             return Ok(PersonRelay::new(pubkey.to_owned(), url.to_owned()));
         }
 
@@ -2110,7 +2110,7 @@ impl Storage {
         // Remove banned relays
         ranked_relays = ranked_relays
             .drain(..)
-            .filter(|(r, _score)| !Self::url_is_banned(&r))
+            .filter(|(r, _score)| !Self::url_is_banned(r))
             .collect();
 
         // Modulate these scores with our local rankings
