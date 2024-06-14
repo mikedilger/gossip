@@ -199,10 +199,14 @@ pub async fn process_new_event(
     let mut event: &Event = event; // take ownership of this reference
     let mut rumor_event: Event;
     if event.kind == EventKind::GiftWrap {
-        let rumor = GLOBALS.identity.unwrap_giftwrap(event)?;
-        rumor_event = rumor.into_event_with_bad_signature();
-        rumor_event.id = event.id; // Lie so it's handled with the giftwrap's id
-        event = &rumor_event;
+        if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(event) {
+            rumor_event = rumor.into_event_with_bad_signature();
+            rumor_event.id = event.id; // Lie so it's handled with the giftwrap's id
+            event = &rumor_event;
+        } else {
+            // Not for us.
+            return Ok(());
+        }
     }
 
     if seen_on.is_some() {

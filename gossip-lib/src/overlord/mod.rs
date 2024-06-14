@@ -1798,8 +1798,8 @@ impl Overlord {
 
         // Post them
         for (event, relay_urls) in prepared_events.drain(..) {
-            // Process this event locally
-            crate::process::process_new_event(&event, None, None, false, false).await?;
+            // Process this event locally (ignore any error)
+            let _ = crate::process::process_new_event(&event, None, None, false, false).await;
 
             // Engage minions to post
             for url in relay_urls {
