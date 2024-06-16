@@ -4,7 +4,7 @@ use crate::globals::GLOBALS;
 use crate::relay::Relay;
 use nostr_types::{
     ContentEncryptionAlgorithm, Event, EventAddr, EventKind, EventReference, Id, NostrBech32,
-    PreEvent, PublicKey, RelayUrl, RelayUsage, Tag, UncheckedUrl, Unixtime,
+    PreEvent, PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime,
 };
 use std::sync::mpsc;
 
@@ -53,7 +53,7 @@ pub fn prepare_post_normal(
     let mut relay_urls: Vec<RelayUrl> = Vec::new();
     relay_urls.extend({
         let tagged_pubkeys = get_tagged_pubkeys(&event.tags);
-        get_others_relays(&tagged_pubkeys, RelayUsage::Inbox)?
+        get_others_relays(&tagged_pubkeys, false)?
     });
     relay_urls.extend(get_our_relays(Relay::WRITE)?);
 
@@ -108,7 +108,7 @@ pub fn prepare_post_nip04(
         let mut relays = GLOBALS.storage.get_dm_relays(recipient)?;
         if relays.is_empty() {
             // Fallback to their INBOX relays
-            relays = get_others_relays(&[recipient], RelayUsage::Inbox)?;
+            relays = get_others_relays(&[recipient], false)?;
         }
         relays
     });
@@ -188,15 +188,10 @@ fn get_our_relays(bits: u64) -> Result<Vec<RelayUrl>, Error> {
         .collect())
 }
 
-fn get_others_relays(recipients: &[PublicKey], usage: RelayUsage) -> Result<Vec<RelayUrl>, Error> {
+fn get_others_relays(recipients: &[PublicKey], write: bool) -> Result<Vec<RelayUrl>, Error> {
     let mut relay_urls: Vec<RelayUrl> = Vec::new();
     for pubkey in recipients {
-        let best_relays: Vec<RelayUrl> = GLOBALS
-            .storage
-            .get_best_relays(*pubkey, usage)?
-            .drain(..)
-            .map(|(u, _)| u)
-            .collect();
+        let best_relays: Vec<RelayUrl> = GLOBALS.storage.get_best_relays(*pubkey, write, 0)?;
         relay_urls.extend(best_relays);
     }
     Ok(relay_urls)

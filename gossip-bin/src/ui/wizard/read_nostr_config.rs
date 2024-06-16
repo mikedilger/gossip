@@ -5,7 +5,7 @@ use egui::{Color32, Context, RichText, Ui};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::Relay;
 use gossip_lib::GLOBALS;
-use nostr_types::{RelayUrl, RelayUsage};
+use nostr_types::RelayUrl;
 
 use super::continue_control;
 
@@ -82,8 +82,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         let mut found = false;
 
         // If we have write relays, show those
-        if let Ok(pairs) = GLOBALS.storage.get_best_relays(pubkey, RelayUsage::Outbox) {
-            if !pairs.is_empty() {
+        if let Ok(urls) = GLOBALS.storage.get_best_relays(pubkey, true, 0) {
+            if !urls.is_empty() {
                 app.vert_scroll_area()
                 .max_width(f32::INFINITY)
                 .max_height(ctx.screen_rect().height() - 340.0)
@@ -91,7 +91,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     found = true;
                     ui.label("Good news: we found your profile!");
                     ui.label("Please choose one relay to load your profile (kind: 03) from, or specify a manual relay below:");
-                    for (url, _score) in pairs {
+                    for url in urls {
                         ui.add_space(10.0);
                         ui.horizontal(|ui| {
                             ui.label(url.as_str());

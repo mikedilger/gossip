@@ -15,7 +15,7 @@ use crate::storage::Storage;
 use crate::RunState;
 use dashmap::DashMap;
 use gossip_relay_picker::RelayPicker;
-use nostr_types::{Event, Id, Profile, PublicKey, RelayUrl, RelayUsage};
+use nostr_types::{Event, Id, Profile, PublicKey, RelayUrl};
 use parking_lot::RwLock as PRwLock;
 use regex::Regex;
 use rhai::{Engine, AST};
@@ -281,13 +281,11 @@ impl Globals {
             })
             .collect();
         for pubkey in tagged_pubkeys.drain(..) {
-            let best_relays: Vec<RelayUrl> = GLOBALS
-                .storage
-                .get_best_relays(pubkey, RelayUsage::Inbox)?
-                .drain(..)
-                .take(num_relays_per_person as usize + 1)
-                .map(|(u, _)| u)
-                .collect();
+            let best_relays: Vec<RelayUrl> = GLOBALS.storage.get_best_relays(
+                pubkey,
+                false,
+                num_relays_per_person as usize + 1,
+            )?;
             relay_urls.extend(best_relays);
         }
 

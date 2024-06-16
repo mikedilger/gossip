@@ -2083,94 +2083,123 @@ impl Storage {
         self.delete_person_relays2(filter, rw_txn)
     }
 
-    /// Get the best relays for a person, given a direction (read/write/both).
-    /// Does not handle DM usage, use get_dm_relays() for that.
+    /// Get the best relays for a person, given a direction (read or write).
+    /// This does not handle DM usage, use get_dm_relays() for that.
     ///
-    /// This returns the relays for a person, along with a score, in order of score.
-    /// usage must not be RelayUsage::Both
+    /// This takes ALL of their relay-list declared relays (except anything we banned
+    /// with rank=0), and if that is less than `min` it includes the best additional
+    /// relays it can to make up `min` relays.
     pub fn get_best_relays(
         &self,
         pubkey: PublicKey,
-        usage: RelayUsage,
-    ) -> Result<Vec<(RelayUrl, u64)>, Error> {
-        let person_relays = self.get_person_relays(pubkey)?;
-
-        // Note: the following read_rank and write_rank do not consider our own
-        // rank or the success rate.
-        let mut ranked_relays = match usage {
-            RelayUsage::Outbox => PersonRelay::write_rank(person_relays),
-            RelayUsage::Inbox => PersonRelay::read_rank(person_relays),
-            RelayUsage::Both => {
-                return Err(
-                    ErrorKind::General("RelayUsage::Both is not allowed here".to_string()).into(),
-                )
-            }
-        };
-
-        // Remove banned relays
-        ranked_relays = ranked_relays
+        write: bool,
+        min: usize,
+    ) -> Result<Vec<RelayUrl>, Error> {
+        Ok(self
+            .get_best_relays_with_score(pubkey, write, min)?
             .drain(..)
-            .filter(|(r, _score)| !Self::url_is_banned(r))
+            .map(|(url, _score)| url)
+            .collect())
+    }
+
+    /// Get the best relays for a person, given a direction (read or write).
+    /// This does not handle DM usage, use get_dm_relays() for that.
+    ///
+    /// This takes ALL of their relay-list declared relays (except anything we banned
+    /// with rank=0), and if that is less than `min` it includes the best additional
+    /// relays it can to make up `min` relays.
+    pub fn get_best_relays_with_score(
+        &self,
+        pubkey: PublicKey,
+        write: bool,
+        min: usize,
+    ) -> Result<Vec<(RelayUrl, u64)>, Error> {
+        let now = Unixtime::now().unwrap();
+
+        // Load person relays, filtering out banned URLs
+        let mut person_relays: Vec<PersonRelay> = self
+            .get_person_relays(pubkey)?
+            .drain(..)
+            .filter(|pr| !Self::url_is_banned(&pr.url))
             .collect();
 
-        // Modulate these scores with our local rankings
-        for ranked_relay in ranked_relays.iter_mut() {
-            let relay = self.read_or_create_relay(&ranked_relay.0, None)?;
-            ranked_relay.1 = (ranked_relay.1 as f32
-                * (relay.rank as f32 / 3.0)
-                * (0.75 + 0.25 * relay.success_rate())) as u64;
+        // Load associated relay records, and compute scores
+        let mut candidates: Vec<(RelayUrl, u64)> = Vec::new();
+        for pr in person_relays.drain(..) {
+            // Compute how strongly it associates to them
+            let association_rank = pr.association_rank(now, write);
+
+            // Load the relay so we can get more score-determining data
+            let relay = self.read_or_create_relay(&pr.url, None)?;
+
+            // If the relay is rank=0, never use
+            if relay.rank == 0 {
+                continue;
+            }
+
+            let mut score = if association_rank >= 20 {
+                // Do not modulate scores of declared relays.
+                20
+            } else {
+                // Compute a score based on the association_rank and also
+                // whether or not the relay is any good
+                (association_rank as f32
+                    * (relay.rank as f32 / 3.0)
+                    * (0.75 + 0.25 * relay.success_rate())) as u64
+            };
+
+            // Cap scores at 20
+            if score > 20 {
+                score = 20;
+            }
+
+            candidates.push((pr.url, score));
         }
 
-        // Resort
-        ranked_relays.sort_by(|(_, score1), (_, score2)| score2.cmp(score1));
+        // Sort
+        candidates.sort_by(|(_, score1), (_, score2)| score2.cmp(score1));
 
-        let num_relays_per_person = self.read_setting_num_relays_per_person() as usize;
+        // Take all score=20 (declared or very preferred), or while we haven't reached min
+        let mut relays: Vec<(RelayUrl, u64)> = candidates
+            .drain(..)
+            .enumerate()
+            .take_while(|(i, (_u, s))| *s >= 20 || *i <= min)
+            .map(|(_i, (u, s))| (u, s))
+            .collect();
 
-        // If we can't get enough of them, extend with some of our relays at score=2
-        if ranked_relays.len() < (num_relays_per_person + 1) {
-            let how_many_more = (num_relays_per_person + 1) - ranked_relays.len();
-            let score = 2;
-            match usage {
-                RelayUsage::Outbox => {
-                    // substitute our read relays
-                    let additional: Vec<(RelayUrl, u64)> = self
-                        .filter_relays(|r| {
-                            // not already in their list
-                            !ranked_relays.iter().any(|(url, _)| *url == r.url)
-                                && r.has_usage_bits(Relay::READ)
-                        })?
-                        .iter()
-                        .map(|r| (r.url.clone(), score))
-                        .take(how_many_more)
-                        .collect();
-
-                    ranked_relays.extend(additional);
-                }
-                RelayUsage::Inbox => {
-                    // substitute our write relays???
-                    let additional: Vec<(RelayUrl, u64)> = self
-                        .filter_relays(|r| {
-                            // not already in their list
-                            !ranked_relays.iter().any(|(url, _)| *url == r.url)
-                                && r.has_usage_bits(Relay::WRITE)
-                        })?
-                        .iter()
-                        .map(|r| (r.url.clone(), score))
-                        .take(how_many_more)
-                        .collect();
-
-                    ranked_relays.extend(additional);
-                }
-                RelayUsage::Both => {
-                    return Err(ErrorKind::General(
-                        "RelayUsage::Both is not allowed here".to_string(),
-                    )
-                    .into());
-                }
+        // If we still haven't got minimum relays, use our own relays
+        if relays.len() < min {
+            let how_many_more = min - relays.len();
+            if write {
+                // substitute our read relays
+                let additional: Vec<(RelayUrl, u64)> = self
+                    .filter_relays(|r| {
+                        // not already in their list
+                        !relays.iter().any(|(url, _)| *url == r.url)
+                            && r.has_usage_bits(Relay::READ)
+                    })?
+                    .iter()
+                    .map(|r| (r.url.clone(), 1))
+                    .take(how_many_more)
+                    .collect();
+                relays.extend(additional);
+            } else {
+                // substitute our write relays
+                let additional: Vec<(RelayUrl, u64)> = self
+                    .filter_relays(|r| {
+                        // not already in their list
+                        !relays.iter().any(|(url, _)| *url == r.url)
+                            && r.has_usage_bits(Relay::WRITE)
+                    })?
+                    .iter()
+                    .map(|r| (r.url.clone(), 1))
+                    .take(how_many_more)
+                    .collect();
+                relays.extend(additional);
             }
         }
 
-        Ok(ranked_relays)
+        Ok(relays)
     }
 
     /// This gets NIP-17 DM relays only.

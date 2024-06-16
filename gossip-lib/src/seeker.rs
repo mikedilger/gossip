@@ -5,9 +5,7 @@ use crate::misc::Freshness;
 use crate::people::People;
 use crate::relay::Relay;
 use dashmap::DashMap;
-use nostr_types::{
-    Event, EventAddr, EventReference, Id, PublicKey, RelayUrl, RelayUsage, Unixtime,
-};
+use nostr_types::{Event, EventAddr, EventReference, Id, PublicKey, RelayUrl, Unixtime};
 use std::time::Duration;
 use tokio::time::Instant;
 
@@ -60,12 +58,7 @@ impl Seeker {
     }
 
     fn storage_get_relays(author: PublicKey) -> Result<Vec<RelayUrl>, Error> {
-        Ok(GLOBALS
-            .storage
-            .get_best_relays(author, RelayUsage::Outbox)?
-            .iter()
-            .map(|(r, _)| r.to_owned())
-            .collect())
+        Ok(GLOBALS.storage.get_best_relays(author, true, 0)?)
     }
 
     fn minion_seek_relay_list(author: PublicKey) {

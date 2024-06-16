@@ -371,21 +371,16 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                             });
                             ui.add_space(ITEM_V_SPACE);
                             ui.horizontal_wrapped(|ui| {
-                                let mut relays = GLOBALS.people.get_active_person_write_relays();
-                                relays.sort_by(|a, b| b.1.cmp(&a.1)); // list in score order
-
-                                for (relay_url, score) in relays {
-                                    if score >= 10 {
-                                        // do not list low-score relays
-                                        if ui
-                                            .link(format!("{} ({})", relay_url.host(), score))
-                                            .clicked()
-                                        {
-                                            app.set_page(
-                                                ctx,
-                                                Page::RelaysKnownNetwork(Some(relay_url)),
-                                            );
-                                        }
+                                let relays = GLOBALS.people.get_active_person_write_relays();
+                                for relay_url in relays {
+                                    if ui
+                                        .link(format!("{}", relay_url.host()))
+                                        .clicked()
+                                    {
+                                        app.set_page(
+                                            ctx,
+                                            Page::RelaysKnownNetwork(Some(relay_url)),
+                                        );
                                     }
                                 }
                             });
