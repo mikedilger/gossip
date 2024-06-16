@@ -183,11 +183,6 @@ impl Relay2 {
                 }
             }
 
-            // Else use my first inbox
-            if let Some(mir) = my_inbox_relays.first() {
-                return Ok(Some(mir.0.clone()));
-            }
-
             // Else fall through to seen on relays only
         }
 
