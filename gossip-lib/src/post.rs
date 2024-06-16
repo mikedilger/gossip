@@ -231,7 +231,7 @@ fn add_tags_mirroring_content(content: &str, tags: &mut Vec<Tag>, direct_message
             }
             NostrBech32::EventPointer(ep) => {
                 // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
-                add_event_to_tags(tags, ep.id, None, "mention");
+                add_event_to_tags(tags, ep.id, ep.relays.first().cloned(), "mention");
             }
             NostrBech32::Id(id) => {
                 // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
