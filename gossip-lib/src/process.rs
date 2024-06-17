@@ -492,81 +492,6 @@ pub(crate) fn process_relationships_of_event<'a>(
     let mut invalidate: Vec<Id> = Vec::new();
 
     let mut f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-        // RepliesTo (or Annotation)
-        match event.replies_to() {
-            Some(EventReference::Id { id, .. }) => {
-                if event.is_annotation() {
-                    GLOBALS.storage.write_relationship_by_id(
-                        id,
-                        event.id,
-                        RelationshipById::Annotates,
-                        Some(txn),
-                    )?;
-                    invalidate.push(id);
-                } else {
-                    GLOBALS.storage.write_relationship_by_id(
-                        id,
-                        event.id,
-                        RelationshipById::RepliesTo,
-                        Some(txn),
-                    )?;
-                }
-            }
-            Some(EventReference::Addr(ea)) => {
-                if event.is_annotation() {
-                    GLOBALS.storage.write_relationship_by_addr(
-                        ea,
-                        event.id,
-                        RelationshipByAddr::Annotates,
-                        Some(txn),
-                    )?;
-                } else {
-                    GLOBALS.storage.write_relationship_by_addr(
-                        ea,
-                        event.id,
-                        RelationshipByAddr::RepliesTo,
-                        Some(txn),
-                    )?;
-                }
-            }
-            None => (),
-        }
-
-        // Reposts
-        if event.kind == EventKind::Repost {
-            if let Ok(inner_event) = serde_json::from_str::<Event>(&event.content) {
-                GLOBALS.storage.write_relationship_by_id(
-                    inner_event.id,
-                    event.id,
-                    RelationshipById::Reposts,
-                    Some(txn),
-                )?;
-            } else {
-                for eref in event.mentions().iter() {
-                    if let EventReference::Id { id, .. } = eref {
-                        GLOBALS.storage.write_relationship_by_id(
-                            *id,
-                            event.id,
-                            RelationshipById::Reposts,
-                            Some(txn),
-                        )?;
-                    }
-                }
-            }
-        }
-
-        // Quotes
-        for eref in event.quotes().iter() {
-            if let EventReference::Id { id, .. } = eref {
-                GLOBALS.storage.write_relationship_by_id(
-                    *id,
-                    event.id,
-                    RelationshipById::Quotes,
-                    Some(txn),
-                )?;
-            }
-        }
-
         // timestamps
         if event.kind == EventKind::Timestamp {
             for tag in &event.tags {
@@ -880,6 +805,81 @@ pub(crate) fn process_relationships_of_event<'a>(
                     )?;
                 }
             }
+        }
+
+        // Reposts
+        if event.kind == EventKind::Repost {
+            if let Ok(inner_event) = serde_json::from_str::<Event>(&event.content) {
+                GLOBALS.storage.write_relationship_by_id(
+                    inner_event.id,
+                    event.id,
+                    RelationshipById::Reposts,
+                    Some(txn),
+                )?;
+            } else {
+                for eref in event.mentions().iter() {
+                    if let EventReference::Id { id, .. } = eref {
+                        GLOBALS.storage.write_relationship_by_id(
+                            *id,
+                            event.id,
+                            RelationshipById::Reposts,
+                            Some(txn),
+                        )?;
+                    }
+                }
+            }
+        }
+
+        // Quotes
+        for eref in event.quotes().iter() {
+            if let EventReference::Id { id, .. } = eref {
+                GLOBALS.storage.write_relationship_by_id(
+                    *id,
+                    event.id,
+                    RelationshipById::Quotes,
+                    Some(txn),
+                )?;
+            }
+        }
+
+        // RepliesTo (or Annotation)
+        match event.replies_to() {
+            Some(EventReference::Id { id, .. }) => {
+                if event.is_annotation() {
+                    GLOBALS.storage.write_relationship_by_id(
+                        id,
+                        event.id,
+                        RelationshipById::Annotates,
+                        Some(txn),
+                    )?;
+                    invalidate.push(id);
+                } else {
+                    GLOBALS.storage.write_relationship_by_id(
+                        id,
+                        event.id,
+                        RelationshipById::RepliesTo,
+                        Some(txn),
+                    )?;
+                }
+            }
+            Some(EventReference::Addr(ea)) => {
+                if event.is_annotation() {
+                    GLOBALS.storage.write_relationship_by_addr(
+                        ea,
+                        event.id,
+                        RelationshipByAddr::Annotates,
+                        Some(txn),
+                    )?;
+                } else {
+                    GLOBALS.storage.write_relationship_by_addr(
+                        ea,
+                        event.id,
+                        RelationshipByAddr::RepliesTo,
+                        Some(txn),
+                    )?;
+                }
+            }
+            None => (),
         }
 
         Ok(())
