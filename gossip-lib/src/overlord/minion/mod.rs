@@ -1077,7 +1077,7 @@ impl Minion {
         }
 
         // If we are authenticated
-        if self.auth_state != AuthState::Authenticated {
+        if self.auth_state == AuthState::Authenticated {
             // Apply subscriptions that were waiting for auth
             let mut handles = std::mem::take(&mut self.subscriptions_waiting_for_auth);
             let now = Unixtime::now().unwrap();
@@ -1327,7 +1327,6 @@ impl Minion {
         self.last_message_sent = wire.clone();
         let ws_stream = self.stream.as_mut().unwrap();
         ws_stream.send(WsMessage::Text(wire)).await?;
-        tracing::info!("Authenticated to {}", &self.url);
 
         self.auth_state = AuthState::Waiting(id);
 

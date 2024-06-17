@@ -165,6 +165,7 @@ impl Minion {
                             // Auth failed.
                             tracing::warn!("AUTH failed to {}: {}", &self.url, ok_message);
                         } else {
+                            tracing::info!("Authenticated to {}", &self.url);
                             self.auth_state = AuthState::Authenticated;
                             self.try_subscribe_waiting().await?;
                         }
