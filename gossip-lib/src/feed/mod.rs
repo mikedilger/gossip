@@ -75,7 +75,10 @@ impl Feed {
 
     pub(crate) fn current_anchor(&self) -> Unixtime {
         let anchor_key = self.current_feed_kind.read().anchor_key();
-        *self.feed_anchors.get(&anchor_key).unwrap()
+        *self
+            .feed_anchors
+            .get(&anchor_key)
+            .unwrap_or(Unixtime::now().unwrap())
     }
 
     fn unlisten(&self) {
