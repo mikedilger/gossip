@@ -15,6 +15,7 @@ use crate::people::{Person, PersonList};
 use crate::relay::Relay;
 use crate::storage::{PersonTable, Table};
 use crate::RunState;
+use dashmap::mapref::entry::Entry;
 use gossip_relay_picker::RelayAssignment;
 use heed::RwTxn;
 use http::StatusCode;
@@ -358,28 +359,7 @@ impl Overlord {
             return Ok(());
         }
 
-        if let Some(mut refmut) = GLOBALS.connected_relays.get_mut(&url) {
-            // We are already connected. Send it the jobs
-            for job in jobs.drain(..) {
-                let _ = self.to_minions.send(ToMinionMessage {
-                    target: url.as_str().to_owned(),
-                    payload: job.payload.clone(),
-                });
-
-                // Record the job:
-                // If the relay already has a job of the same RelayConnectionReason
-                // and that reason is not persistent, then this job replaces that
-                // one (e.g. FetchAugments)
-                if !job.reason.persistent() {
-                    let vec = refmut.value_mut();
-                    if let Some(pos) = vec.iter().position(|e| e.reason == job.reason) {
-                        vec[pos] = job;
-                        return Ok(());
-                    }
-                }
-                refmut.value_mut().push(job);
-            }
-        } else if GLOBALS.penalty_box_relays.contains_key(&url) {
+        if GLOBALS.penalty_box_relays.contains_key(&url) {
             // It is in the penalty box.
             // To avoid a race condition with the task that removes it from the penalty
             // box we have to use entry to make sure it was still there
@@ -387,6 +367,33 @@ impl Overlord {
                 .penalty_box_relays
                 .entry(url)
                 .and_modify(|existing_jobs| Self::extend_jobs(existing_jobs, jobs));
+            return Ok(());
+        }
+
+        let entry = GLOBALS.connected_relays.entry(url.clone());
+
+        if let Entry::Occupied(mut oe) = entry {
+            // We are already connected. Send it the jobs
+            for job in jobs.drain(..) {
+                let _ = self.to_minions.send(ToMinionMessage {
+                    target: url.as_str().to_owned(),
+                    payload: job.payload.clone(),
+                });
+
+                let vec = oe.get_mut();
+
+                // Record the job:
+                // If the relay already has a job of the same RelayConnectionReason
+                // and that reason is not persistent, then this job replaces that
+                // one (e.g. FetchAugments)
+                if !job.reason.persistent() {
+                    if let Some(pos) = vec.iter().position(|e| e.reason == job.reason) {
+                        vec[pos] = job;
+                        return Ok(());
+                    }
+                }
+                vec.push(job);
+            }
         } else {
             // Start up the minion
             let mut minion = Minion::new(url.clone()).await?;
@@ -397,8 +404,7 @@ impl Overlord {
             let id = abort_handle.id();
             self.minions_task_url.insert(id, url.clone());
 
-            // And record it
-            GLOBALS.connected_relays.insert(url, jobs);
+            entry.insert(jobs);
         }
 
         Ok(())
