@@ -2313,7 +2313,6 @@ impl Overlord {
         let relays: Vec<Relay> = GLOBALS
             .storage
             .filter_relays(|r| r.has_usage_bits(Relay::OUTBOX) || r.has_usage_bits(Relay::INBOX))?;
-
         for relay in relays.iter() {
             // Subscribe
             self.engage_minion(
@@ -2604,6 +2603,9 @@ impl Overlord {
         //       not in widespread usage.
         self.subscribe_inbox(None).await?;
 
+        // Separately subscribe to our giftwraps on our DM and INBOX relays
+        self.subscribe_giftwraps().await?;
+
         // Separately subscribe to nostr-connect channels
         let mut relays: Vec<RelayUrl> = Vec::new();
         let servers = GLOBALS.storage.read_all_nip46servers()?;
@@ -2717,6 +2719,32 @@ impl Overlord {
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
                         detail: ToMinionPayloadDetail::SubscribeInbox(now),
+                    },
+                }],
+            )
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    /// Subscribe to the user's giftwrap events on their DM and INBOX relays
+    pub async fn subscribe_giftwraps(&mut self) -> Result<(), Error> {
+        let relays: Vec<Relay> = GLOBALS
+            .storage
+            .filter_relays(|r| r.has_usage_bits(Relay::DM) || r.has_usage_bits(Relay::INBOX))?;
+
+        // 30 days worth (FIXME make this a setting?)
+        let after = Unixtime::now().unwrap() - Duration::new(3600 * 24 * 30, 0);
+
+        for relay in relays.iter() {
+            self.engage_minion(
+                relay.url.clone(),
+                vec![RelayJob {
+                    reason: RelayConnectionReason::Giftwraps,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::SubscribeGiftwraps(after),
                     },
                 }],
             )

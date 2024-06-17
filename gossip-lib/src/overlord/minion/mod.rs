@@ -607,6 +607,9 @@ impl Minion {
             ToMinionPayloadDetail::SubscribeDiscover(pubkeys) => {
                 self.subscribe_discover(message.job_id, pubkeys).await?;
             }
+            ToMinionPayloadDetail::SubscribeGiftwraps(anchor) => {
+                self.subscribe_giftwraps(message.job_id, anchor).await?;
+            }
             ToMinionPayloadDetail::SubscribePersonFeed(pubkey, anchor) => {
                 self.subscribe_person_feed(message.job_id, pubkey, anchor)
                     .await?;
@@ -750,6 +753,36 @@ impl Minion {
         }
 
         self.general_feed_keys = pubkeys;
+
+        Ok(())
+    }
+
+    async fn subscribe_giftwraps(&mut self, job_id: u64, after: Unixtime) -> Result<(), Error> {
+        // If we have already subscribed to giftwraps, do not resubscribe
+        if self.subscription_map.has("giftwraps") {
+            return Ok(());
+        }
+
+        let filters = filter_fns::giftwraps(FeedRange::After { since: after });
+
+        if filters.is_empty() {
+            return Ok(());
+        }
+
+        self.subscribe(filters, "giftwraps", job_id).await?;
+
+        // FIXME move this code into subscribe() function
+        if let Some(sub) = self.subscription_map.get_mut("giftwraps") {
+            if let Some(nip11) = &self.nip11 {
+                if !nip11.supports_nip(15) {
+                    // Does not support EOSE.  Set subscription to EOSE now.
+                    sub.set_eose();
+                }
+            } else {
+                // Does not support EOSE.  Set subscription to EOSE now.
+                sub.set_eose();
+            }
+        }
 
         Ok(())
     }

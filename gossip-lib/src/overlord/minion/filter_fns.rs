@@ -56,7 +56,7 @@ pub fn inbox_feed(spamsafe: bool, range: FeedRange) -> Vec<Filter> {
 
     // Allow all feed displayable event kinds (including DMs)
     let mut event_kinds = crate::feed::feed_displayable_event_kinds(true);
-    event_kinds.retain(|f| *f != EventKind::GiftWrap); // gift wrap has special filter
+    event_kinds.retain(|f| *f != EventKind::GiftWrap); // gift wrap is not included here
 
     let (since, until, limit) = range.since_until_limit();
 
@@ -91,30 +91,37 @@ pub fn inbox_feed(spamsafe: bool, range: FeedRange) -> Vec<Filter> {
             filter
         };
         filters.push(filter);
-
-        if GLOBALS.identity.is_unlocked() {
-            // Giftwraps cannot be filtered by author so we have to take them regardless
-            // of the spamsafe designation of the relay.
-            //
-            // Sure, the TOTAL number of giftwraps being the limit will be MORE than we need,
-            // but since giftwraps get backdated, this is probably a good thing.
-            let filter = {
-                let mut filter = Filter {
-                    kinds: vec![EventKind::GiftWrap],
-                    // giftwraps may be dated 1 week in the past:
-                    since: since.map(|u| Unixtime(*u - (3600 * 24 * 7))),
-                    until,
-                    limit,
-                    ..Default::default()
-                };
-                let values = vec![pkh.to_string()];
-                filter.set_tag_values('p', values);
-                filter
-            };
-            filters.push(filter);
-        }
     }
 
+    filters
+}
+
+pub fn giftwraps(range: FeedRange) -> Vec<Filter> {
+    let mut filters: Vec<Filter> = Vec::new();
+    let (since, until, limit) = range.since_until_limit();
+    if let Some(pubkey) = GLOBALS.identity.public_key() {
+        let pkh: PublicKeyHex = pubkey.into();
+
+        // Giftwraps cannot be filtered by author so we have to take them regardless
+        // of the spamsafe designation of the relay.
+        //
+        // Sure, the TOTAL number of giftwraps being the limit will be MORE than we need,
+        // but since giftwraps get backdated, this is probably a good thing.
+        let filter = {
+            let mut filter = Filter {
+                kinds: vec![EventKind::GiftWrap],
+                // giftwraps may be dated 1 week in the past:
+                since: since.map(|u| Unixtime(*u - (3600 * 24 * 7))),
+                until,
+                limit,
+                ..Default::default()
+            };
+            let values = vec![pkh.to_string()];
+            filter.set_tag_values('p', values);
+            filter
+        };
+        filters.push(filter);
+    }
     filters
 }
 
