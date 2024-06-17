@@ -2307,15 +2307,12 @@ impl Overlord {
     }
 
     async fn set_dm_channel(&mut self, dmchannel: DmChannel) -> Result<(), Error> {
-        // subscribe to channel on outbox, inbox, and dm relays
+        // subscribe to channel on outbox and inbox relays
         //   outbox: you may have written them there. Other clients may have too.
         //   inbox: they may have put theirs here for you to pick up.
-        //   dm: used for NIP-17 DMs
-        let relays: Vec<Relay> = GLOBALS.storage.filter_relays(|r| {
-            r.has_usage_bits(Relay::OUTBOX)
-                || r.has_usage_bits(Relay::INBOX)
-                || r.has_usage_bits(Relay::DM)
-        })?;
+        let relays: Vec<Relay> = GLOBALS
+            .storage
+            .filter_relays(|r| r.has_usage_bits(Relay::OUTBOX) || r.has_usage_bits(Relay::INBOX))?;
 
         for relay in relays.iter() {
             // Subscribe
