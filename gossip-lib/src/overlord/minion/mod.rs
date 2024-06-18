@@ -676,18 +676,6 @@ impl Minion {
 
         self.subscribe(filters, "temp_augments", job_id).await?;
 
-        if let Some(sub) = self.subscription_map.get_mut("temp_augments") {
-            if let Some(nip11) = &self.nip11 {
-                if !nip11.supports_nip(15) {
-                    // Does not support EOSE.  Set subscription to EOSE now.
-                    sub.set_eose();
-                }
-            } else {
-                // Does not support EOSE.  Set subscription to EOSE now.
-                sub.set_eose();
-            }
-        }
-
         Ok(())
     }
 
@@ -723,18 +711,6 @@ impl Minion {
             ))?;
         } else {
             self.subscribe(filters, "general_feed", job_id).await?;
-
-            if let Some(sub) = self.subscription_map.get_mut("general_feed") {
-                if let Some(nip11) = &self.nip11 {
-                    if !nip11.supports_nip(15) {
-                        // Does not support EOSE.  Set subscription to EOSE now.
-                        sub.set_eose();
-                    }
-                } else {
-                    // Does not support EOSE.  Set subscription to EOSE now.
-                    sub.set_eose();
-                }
-            }
         }
 
         Ok(())
@@ -788,19 +764,6 @@ impl Minion {
 
         self.subscribe(filters, "giftwraps", job_id).await?;
 
-        // FIXME move this code into subscribe() function
-        if let Some(sub) = self.subscription_map.get_mut("giftwraps") {
-            if let Some(nip11) = &self.nip11 {
-                if !nip11.supports_nip(15) {
-                    // Does not support EOSE.  Set subscription to EOSE now.
-                    sub.set_eose();
-                }
-            } else {
-                // Does not support EOSE.  Set subscription to EOSE now.
-                sub.set_eose();
-            }
-        }
-
         Ok(())
     }
 
@@ -821,18 +784,6 @@ impl Minion {
         }
 
         self.subscribe(filters, "inbox_feed", job_id).await?;
-
-        if let Some(sub) = self.subscription_map.get_mut("inbox_feed") {
-            if let Some(nip11) = &self.nip11 {
-                if !nip11.supports_nip(15) {
-                    // Does not support EOSE.  Set subscription to EOSE now.
-                    sub.set_eose();
-                }
-            } else {
-                // Does not support EOSE.  Set subscription to EOSE now.
-                sub.set_eose();
-            }
-        }
 
         Ok(())
     }
