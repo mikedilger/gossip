@@ -491,7 +491,10 @@ impl Minion {
         }
 
         // Don't continue if we have no more subscriptions
-        if self.subscription_map.is_empty() {
+        if self.subscription_map.is_empty()
+            && self.subscriptions_waiting_for_auth.is_empty()
+            && self.subscriptions_waiting_for_metadata.is_empty()
+        {
             self.exiting = Some(MinionExitReason::SubscriptionsHaveCompleted);
         }
 
