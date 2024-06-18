@@ -196,6 +196,14 @@ impl Minion {
                 }
             }
             RelayMessage::Auth(challenge) => {
+                match self.auth_state {
+                    AuthState::Authenticated | AuthState::Failed => {
+                        // Ignore the AUTH. We already did.
+                        return Ok(());
+                    }
+                    _ => {}
+                }
+
                 self.auth_challenge = challenge.to_owned();
                 if GLOBALS.storage.read_setting_relay_auth_requires_approval() {
                     match self.dbrelay.allow_auth {
@@ -295,9 +303,8 @@ impl Minion {
                                     }
                                     AuthState::Authenticated => {
                                         // We are authenticated, but it doesn't think so.
-                                        // Presume it is a race condition and ignore it.
-                                        // (fall through, it will be removed, but subsequent
-                                        //  similar subs will not be listed in failed_subs)
+                                        // The relay is broken. Fail this sub.
+                                        self.failed_subs.insert(handle.clone());
                                     }
                                     AuthState::Failed => {
                                         // fail this subscription handle
