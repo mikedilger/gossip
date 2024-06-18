@@ -14,9 +14,7 @@ use egui::{
     Align, Context, Frame, Label, Layout, RichText, Sense, Separator, Stroke, TextStyle, Ui,
 };
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::DmChannel;
-use gossip_lib::FeedKind;
-use gossip_lib::{Globals, ZapState, GLOBALS};
+use gossip_lib::{DmChannel, FeedKind, Relay, ZapState, GLOBALS};
 use nostr_types::{
     Event, EventAddr, EventKind, EventPointer, EventReference, IdHex, NostrUrl, UncheckedUrl,
 };
@@ -581,8 +579,7 @@ pub fn render_note_inner(
                                 }
 
                                 // Chance to post our note again to relays it missed
-                                if let Ok(broadcast_relays) = Globals::relays_for_event(&note.event)
-                                {
+                                if let Ok(broadcast_relays) = Relay::relays_for_event(&note.event) {
                                     if !broadcast_relays.is_empty() {
                                         entries.push(MoreMenuEntry::new(
                                             format!("Post again ({})", broadcast_relays.len()),

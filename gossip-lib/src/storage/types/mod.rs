@@ -46,6 +46,9 @@ pub use relay1::Relay1;
 mod relay2;
 pub use relay2::Relay2;
 
+mod relay3;
+pub use relay3::Relay3;
+
 mod settings1;
 pub(crate) use settings1::Settings1;
 

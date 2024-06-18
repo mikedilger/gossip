@@ -55,7 +55,8 @@ pub fn prepare_post_normal(
         let tagged_pubkeys = get_tagged_pubkeys(&event.tags);
         get_others_relays(&tagged_pubkeys, false)?
     });
-    relay_urls.extend(get_our_relays(Relay::WRITE)?);
+    let our_relays = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
+    relay_urls.extend(our_relays);
 
     relay_urls.sort();
     relay_urls.dedup();
@@ -112,7 +113,8 @@ pub fn prepare_post_nip04(
         }
         relays
     });
-    relay_urls.extend(get_our_relays(Relay::WRITE)?);
+    let our_relays = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
+    relay_urls.extend(our_relays);
     relay_urls.sort();
     relay_urls.dedup();
 
@@ -177,15 +179,6 @@ pub fn prepare_post_nip17(
     }
 
     Ok(output)
-}
-
-fn get_our_relays(bits: u64) -> Result<Vec<RelayUrl>, Error> {
-    Ok(GLOBALS
-        .storage
-        .filter_relays(|r| r.has_usage_bits(bits) && r.rank != 0)?
-        .iter()
-        .map(|relay| relay.url.clone())
-        .collect())
 }
 
 fn get_others_relays(recipients: &[PublicKey], write: bool) -> Result<Vec<RelayUrl>, Error> {

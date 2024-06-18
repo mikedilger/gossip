@@ -2,8 +2,7 @@ use crate::error::{Error, ErrorKind};
 use crate::storage::types::Relay2;
 use crate::storage::{RawDatabase, Storage};
 use heed::types::Bytes;
-use heed::{RoTxn, RwTxn};
-use nostr_types::RelayUrl;
+use heed::RwTxn;
 use std::sync::Mutex;
 
 // Url -> Relay
@@ -44,11 +43,6 @@ impl Storage {
         }
     }
 
-    pub(crate) fn get_relays2_len(&self) -> Result<u64, Error> {
-        let txn = self.env.read_txn()?;
-        Ok(self.db_relays2()?.len(&txn)?)
-    }
-
     #[allow(dead_code)]
     pub(crate) fn write_relay2<'a>(
         &'a self,
@@ -70,109 +64,6 @@ impl Storage {
         };
 
         write_transact!(self, rw_txn, f)
-    }
-
-    pub(crate) fn delete_relay2<'a>(
-        &'a self,
-        url: &RelayUrl,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error> {
-        // Note that we use serde instead of speedy because the complexity of the
-        // serde_json::Value type makes it difficult. Any other serde serialization
-        // should work though: Consider bincode.
-        let key = key!(url.as_str().as_bytes());
-        if key.is_empty() {
-            return Err(ErrorKind::Empty("relay url".to_owned()).into());
-        }
-
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            // Delete any PersonRelay with this url
-            self.delete_person_relays(|f| f.url == *url, Some(txn))?;
-
-            // Delete the relay
-            self.db_relays2()?.delete(txn, key)?;
-            Ok(())
-        };
-
-        write_transact!(self, rw_txn, f)
-    }
-
-    pub(crate) fn modify_relay2<'a, M>(
-        &'a self,
-        url: &RelayUrl,
-        mut modify: M,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error>
-    where
-        M: FnMut(&mut Relay2),
-    {
-        let key = key!(url.as_str().as_bytes());
-        if key.is_empty() {
-            return Err(ErrorKind::Empty("relay url".to_owned()).into());
-        }
-
-        let mut f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let bytes = self.db_relays2()?.get(txn, key)?;
-            let mut relay = match bytes {
-                Some(bytes) => serde_json::from_slice(bytes)?,
-                None => Relay2::new(url.to_owned()),
-            };
-            modify(&mut relay);
-            let bytes = serde_json::to_vec(&relay)?;
-            self.db_relays2()?.put(txn, key, &bytes)?;
-            Ok(())
-        };
-
-        write_transact!(self, rw_txn, f)
-    }
-
-    pub(crate) fn modify_all_relays2<'a, M>(
-        &'a self,
-        mut modify: M,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error>
-    where
-        M: FnMut(&mut Relay2),
-    {
-        let mut f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let mut iter = self.db_relays2()?.iter_mut(txn)?;
-            while let Some(result) = iter.next() {
-                let (key, val) = result?;
-                let mut dbrelay: Relay2 = serde_json::from_slice(val)?;
-                modify(&mut dbrelay);
-                let bytes = serde_json::to_vec(&dbrelay)?;
-                // to deal with the unsafety of put_current
-                let key = key.to_owned();
-                unsafe {
-                    iter.put_current(&key, &bytes)?;
-                }
-            }
-            Ok(())
-        };
-
-        write_transact!(self, rw_txn, f)
-    }
-
-    pub(crate) fn read_relay2<'a>(
-        &'a self,
-        url: &RelayUrl,
-        txn: Option<&RoTxn<'a>>,
-    ) -> Result<Option<Relay2>, Error> {
-        let f = |txn: &RoTxn<'a>| -> Result<Option<Relay2>, Error> {
-            // Note that we use serde instead of speedy because the complexity of the
-            // serde_json::Value type makes it difficult. Any other serde serialization
-            // should work though: Consider bincode.
-            let key = key!(url.as_str().as_bytes());
-            if key.is_empty() {
-                return Err(ErrorKind::Empty("relay url".to_owned()).into());
-            }
-            match self.db_relays2()?.get(txn, key)? {
-                Some(bytes) => Ok(Some(serde_json::from_slice(bytes)?)),
-                None => Ok(None),
-            }
-        };
-
-        read_transact!(self, txn, f)
     }
 
     pub(crate) fn filter_relays2<F>(&self, f: F) -> Result<Vec<Relay2>, Error>

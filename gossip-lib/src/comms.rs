@@ -140,7 +140,7 @@ pub enum ToOverlordMessage {
     RankRelay(RelayUrl, u8),
 
     /// internal (the overlord sends messages to itself sometimes!)
-    ReengageMinion(RelayUrl),
+    ReengageMinion(RelayUrl, Vec<RelayJob>),
 
     /// Calls [refresh_scores_and_pick_relays](crate::Overlord::refresh_scores_and_pick_relays)
     RefreshScoresAndPickRelays,

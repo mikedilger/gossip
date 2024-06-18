@@ -92,12 +92,7 @@ impl Seeker {
 
         tracing::debug!("Seeking id={}", id.as_hex_string());
 
-        let mut relays: Vec<RelayUrl> = GLOBALS
-            .storage
-            .filter_relays(|r| r.has_usage_bits(Relay::READ) && r.rank != 0)?
-            .iter()
-            .map(|relay| relay.url.clone())
-            .collect();
+        let mut relays: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::READ, |_| true)?;
         relays.extend(speculative_relays);
         Self::minion_seek_event_at_relays(id, relays);
 

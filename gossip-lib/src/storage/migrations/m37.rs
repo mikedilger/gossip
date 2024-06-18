@@ -17,7 +17,7 @@ impl Storage {
         txn: &mut RwTxn<'a>,
     ) -> Result<(), Error> {
         // Info message
-        tracing::info!("{prefix}: Migrating relationship data to new type...");
+        tracing::info!("{prefix}: Flagging that relationships need to be rebuilt...");
 
         // Migrate
         self.m37_migrate_relationship_data(txn)?;

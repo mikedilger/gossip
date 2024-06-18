@@ -49,6 +49,7 @@ mod relationships_by_id1;
 mod relationships_by_id2;
 mod relays1;
 mod relays2;
+mod relays3;
 mod reprel1;
 mod unindexed_giftwraps1;
 mod versioned;
@@ -233,7 +234,7 @@ impl Storage {
 
     #[inline]
     pub(crate) fn db_relays(&self) -> Result<RawDatabase, Error> {
-        self.db_relays2()
+        self.db_relays3()
     }
 
     #[inline]
@@ -286,7 +287,7 @@ impl Storage {
     /// The number of records in the relays table
     #[inline]
     pub fn get_relays_len(&self) -> Result<u64, Error> {
-        self.get_relays2_len()
+        self.get_relays3_len()
     }
 
     /// The number of records in the event table
@@ -916,7 +917,7 @@ impl Storage {
         relay: &Relay,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.write_relay2(relay, rw_txn)
+        self.write_relay3(relay, rw_txn)
     }
 
     /// Delete a relay record
@@ -927,7 +928,7 @@ impl Storage {
         url: &RelayUrl,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.delete_relay2(url, rw_txn)
+        self.delete_relay3(url, rw_txn)
     }
 
     /// Write a new relay record only if it is missing
@@ -964,7 +965,7 @@ impl Storage {
     where
         M: FnMut(&mut Relay),
     {
-        self.modify_relay2(url, modify, rw_txn)
+        self.modify_relay3(url, modify, rw_txn)
     }
 
     //// Modify all relay records
@@ -977,7 +978,7 @@ impl Storage {
     where
         M: FnMut(&mut Relay),
     {
-        self.modify_all_relays2(modify, rw_txn)
+        self.modify_all_relays3(modify, rw_txn)
     }
 
     /// Read a relay record
@@ -987,7 +988,7 @@ impl Storage {
         url: &RelayUrl,
         txn: Option<&RoTxn<'a>>,
     ) -> Result<Option<Relay>, Error> {
-        self.read_relay2(url, txn)
+        self.read_relay3(url, txn)
     }
 
     /// Read or create relay
@@ -1022,7 +1023,7 @@ impl Storage {
     where
         F: Fn(&Relay) -> bool,
     {
-        self.filter_relays2(f)
+        self.filter_relays3(f)
     }
 
     /// Load effective relay list
@@ -2132,8 +2133,10 @@ impl Storage {
             // Load the relay so we can get more score-determining data
             let relay = self.read_or_create_relay(&pr.url, None)?;
 
-            // If the relay is rank=0, never use
             if relay.rank == 0 {
+                continue;
+            }
+            if relay.should_avoid() {
                 continue;
             }
 
@@ -2209,6 +2212,14 @@ impl Storage {
     pub fn get_dm_relays(&self, pubkey: PublicKey) -> Result<Vec<RelayUrl>, Error> {
         let mut output: Vec<RelayUrl> = Vec::new();
         for pr in self.get_person_relays(pubkey)?.drain(..) {
+            let relay = self.read_or_create_relay(&pr.url, None)?;
+            if relay.rank == 0 {
+                continue;
+            }
+            if relay.should_avoid() {
+                continue;
+            }
+
             if pr.dm {
                 output.push(pr.url)
             }

@@ -1,2 +1,2 @@
 /// Relay type, aliased to the latest version
-pub type Relay = crate::storage::types::Relay2;
+pub type Relay = crate::storage::types::Relay3;

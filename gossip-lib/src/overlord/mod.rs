@@ -7,7 +7,7 @@ use crate::comms::{
 use crate::dm_channel::DmChannel;
 use crate::error::{Error, ErrorKind};
 use crate::feed::FeedKind;
-use crate::globals::{Globals, GLOBALS};
+use crate::globals::GLOBALS;
 use crate::misc::{Private, ZapState};
 use crate::nip46::{Approval, ParsedCommand};
 use crate::pending::PendingItem;
@@ -34,6 +34,8 @@ use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::watch::Receiver as WatchReceiver;
 use tokio::task;
 use zeroize::Zeroize;
+
+const MAX_EXCLUSION: u64 = 60 * 60 * 24 * 7; // one week max exclusion
 
 type MinionResult = Result<MinionExitReason, Error>;
 
@@ -354,19 +356,13 @@ impl Overlord {
             return Ok(());
         }
 
-        // don't connect to rank=0 relays
-        if relay.rank == 0 {
+        // don't connect while avoiding this relay
+        if relay.should_avoid() {
             return Ok(());
         }
 
-        if GLOBALS.penalty_box_relays.contains_key(&url) {
-            // It is in the penalty box.
-            // To avoid a race condition with the task that removes it from the penalty
-            // box we have to use entry to make sure it was still there
-            GLOBALS
-                .penalty_box_relays
-                .entry(url)
-                .and_modify(|existing_jobs| Self::extend_jobs(existing_jobs, jobs));
+        // don't connect to rank=0 relays
+        if relay.rank == 0 {
             return Ok(());
         }
 
@@ -471,22 +467,22 @@ impl Overlord {
                     tracing::error!("Minion {} completed with error: {}", &url, e);
                     exclusion = 120;
                     if let ErrorKind::RelayRejectedUs = e.kind {
-                        exclusion = u64::MAX;
+                        exclusion = MAX_EXCLUSION;
                     } else if let ErrorKind::ReqwestHttpError(_) = e.kind {
-                        exclusion = u64::MAX;
+                        exclusion = MAX_EXCLUSION;
                     } else if let ErrorKind::Websocket(wserror) = e.kind {
                         if let tungstenite::error::Error::Http(response) = wserror {
                             exclusion = match response.status() {
-                                StatusCode::MOVED_PERMANENTLY => u64::MAX,
-                                StatusCode::PERMANENT_REDIRECT => u64::MAX,
-                                StatusCode::UNAUTHORIZED => u64::MAX,
-                                StatusCode::PAYMENT_REQUIRED => u64::MAX,
-                                StatusCode::FORBIDDEN => u64::MAX,
-                                StatusCode::NOT_FOUND => u64::MAX,
-                                StatusCode::PROXY_AUTHENTICATION_REQUIRED => u64::MAX,
-                                StatusCode::UNAVAILABLE_FOR_LEGAL_REASONS => u64::MAX,
-                                StatusCode::NOT_IMPLEMENTED => u64::MAX,
-                                StatusCode::BAD_GATEWAY => u64::MAX,
+                                StatusCode::MOVED_PERMANENTLY => MAX_EXCLUSION,
+                                StatusCode::PERMANENT_REDIRECT => MAX_EXCLUSION,
+                                StatusCode::UNAUTHORIZED => MAX_EXCLUSION,
+                                StatusCode::PAYMENT_REQUIRED => MAX_EXCLUSION,
+                                StatusCode::FORBIDDEN => MAX_EXCLUSION,
+                                StatusCode::NOT_FOUND => MAX_EXCLUSION,
+                                StatusCode::PROXY_AUTHENTICATION_REQUIRED => MAX_EXCLUSION,
+                                StatusCode::UNAVAILABLE_FOR_LEGAL_REASONS => MAX_EXCLUSION,
+                                StatusCode::NOT_IMPLEMENTED => MAX_EXCLUSION,
+                                StatusCode::BAD_GATEWAY => MAX_EXCLUSION,
                                 s if s.as_u16() >= 400 => 120,
                                 _ => 120,
                             };
@@ -539,37 +535,43 @@ impl Overlord {
             return;
         }
 
-        // OK we have an exclusion and unfinished jobs.
-        //
-        // Add this relay to the penalty box, and setup a task to reengage
-        // it after the exclusion completes
-        let exclusion = exclusion.max(10); // safety catch, minimum exclusion is 10s
+        // Record the exclusion in the relay record
+        if let Ok(Some(mut relay)) = GLOBALS.storage.read_relay(&url, None) {
+            let until = Unixtime::now().unwrap() + Duration::from_secs(exclusion);
+            relay.avoid_until = Some(until);
+            let _ = GLOBALS.storage.write_relay(&relay, None);
+        }
 
-        GLOBALS.penalty_box_relays.insert(url.clone(), jobs);
+        // If none of the jobs were persistent, we are done
+        if !jobs.iter().any(|j| j.reason.persistent()) {
+            return;
+        }
 
-        tracing::info!(
-            "Minion {} will restart in {} seconds to continue persistent jobs",
-            &url,
-            exclusion
-        );
+        // We have unfinished persistent jobs.  We need to restart this relay after
+        // the exclusion (as long as it is reasonably short)
 
-        if exclusion != u64::MAX {
-            // Re-engage after the delay
+        // safety catch, minimum exclusion is 10s
+        let exclusion = exclusion.max(10);
+
+        if exclusion != MAX_EXCLUSION {
+            tracing::info!(
+                "Minion {} will restart in {} seconds to continue persistent jobs",
+                &url,
+                exclusion
+            );
+
             std::mem::drop(tokio::spawn(async move {
                 tokio::time::sleep(Duration::new(exclusion, 0)).await;
                 let _ = GLOBALS
                     .to_overlord
-                    .send(ToOverlordMessage::ReengageMinion(url));
+                    .send(ToOverlordMessage::ReengageMinion(url, jobs));
             }));
         }
         // otherwise leave it in the penalty box forever
     }
 
-    async fn reengage_minion(&mut self, url: RelayUrl) -> Result<(), Error> {
-        // Take from penalty box
-        if let Some(pair) = GLOBALS.penalty_box_relays.remove(&url) {
-            self.engage_minion(url, pair.1).await?;
-        }
+    async fn reengage_minion(&mut self, url: RelayUrl, jobs: Vec<RelayJob>) -> Result<(), Error> {
+        self.engage_minion(url, jobs).await?;
 
         Ok(())
     }
@@ -578,14 +580,6 @@ impl Overlord {
         if let Ok(Some(mut relay)) = GLOBALS.storage.read_relay(url, None) {
             relay.failure_count += 1;
             let _ = GLOBALS.storage.write_relay(&relay, None);
-        }
-    }
-
-    fn extend_jobs(jobs: &mut Vec<RelayJob>, mut more: Vec<RelayJob>) {
-        for newjob in more.drain(..) {
-            if !jobs.iter().any(|job| job.matches(&newjob)) {
-                jobs.push(newjob)
-            }
         }
     }
 
@@ -726,8 +720,8 @@ impl Overlord {
             ToOverlordMessage::RankRelay(relay_url, rank) => {
                 Self::rank_relay(relay_url, rank)?;
             }
-            ToOverlordMessage::ReengageMinion(url) => {
-                self.reengage_minion(url).await?;
+            ToOverlordMessage::ReengageMinion(url, jobs) => {
+                self.reengage_minion(url, jobs).await?;
             }
             ToOverlordMessage::RefreshSubscribedMetadata => {
                 self.refresh_subscribed_metadata().await?;
@@ -871,9 +865,7 @@ impl Overlord {
             GLOBALS.identity.sign_event(pre_event)?
         };
 
-        let mut relays: Vec<Relay> = GLOBALS
-            .storage
-            .filter_relays(|r| r.is_good_for_advertise() && r.rank != 0)?;
+        let mut relays = Relay::choose_relays(0, |r| r.is_good_for_advertise())?;
         relays.sort_by(|a, b| {
             a.rank.cmp(&b.rank).then(
                 a.success_rate()
@@ -1166,12 +1158,7 @@ impl Overlord {
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
         {
             // Get all of the relays that we write to
-            let write_relays: Vec<RelayUrl> = GLOBALS
-                .storage
-                .filter_relays(|r| r.has_usage_bits(Relay::WRITE) && r.rank != 0)?
-                .iter()
-                .map(|relay| relay.url.clone())
-                .collect();
+            let write_relays = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
             relay_urls.extend(write_relays);
 
             // Get all of the relays this events were seen on
@@ -1249,12 +1236,7 @@ impl Overlord {
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
         {
             // Get all of the relays that we write to
-            let write_relays: Vec<RelayUrl> = GLOBALS
-                .storage
-                .filter_relays(|r| r.has_usage_bits(Relay::WRITE) && r.rank != 0)?
-                .iter()
-                .map(|relay| relay.url.clone())
-                .collect();
+            let write_relays = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
             relay_urls.extend(write_relays);
 
             // Get all of the relays this event was seen on
@@ -1329,12 +1311,7 @@ impl Overlord {
     ) -> Result<(), Error> {
         // Use READ relays if relays are unknown
         if relay_urls.is_empty() {
-            relay_urls = GLOBALS
-                .storage
-                .filter_relays(|r| r.has_usage_bits(Relay::READ) && r.rank != 0)?
-                .iter()
-                .map(|relay| relay.url.clone())
-                .collect();
+            relay_urls = Relay::choose_relay_urls(Relay::READ, |_| true)?;
         }
 
         // Don't do this if we already have the event
@@ -1590,9 +1567,7 @@ impl Overlord {
             }
         };
 
-        let relays: Vec<Relay> = GLOBALS
-            .storage
-            .filter_relays(|r| r.has_usage_bits(Relay::WRITE) && r.rank != 0)?;
+        let relays: Vec<Relay> = Relay::choose_relays(Relay::WRITE, |_| true)?;
         // FIXME - post it to relays we have seen it on.
 
         for relay in relays {
@@ -1638,12 +1613,7 @@ impl Overlord {
                 }
             }
             FeedKind::Inbox(_) => {
-                let relays: Vec<RelayUrl> = GLOBALS
-                    .storage
-                    .filter_relays(|r| r.has_usage_bits(Relay::READ) && r.rank != 0)?
-                    .iter()
-                    .map(|relay| relay.url.clone())
-                    .collect();
+                let relays: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::READ, |_| true)?;
                 // Subscribe on each of these relays
                 for relay in relays.iter() {
                     // Subscribe
@@ -1828,7 +1798,7 @@ impl Overlord {
     }
 
     pub async fn post_again(&mut self, event: Event) -> Result<(), Error> {
-        let relay_urls = Globals::relays_for_event(&event)?;
+        let relay_urls = Relay::relays_for_event(&event)?;
 
         for url in relay_urls {
             // Send it the event to post
@@ -1933,10 +1903,7 @@ impl Overlord {
         crate::process::process_new_event(&event, None, None, false, false).await?;
 
         // Push to all of the relays we post to
-        let relays: Vec<Relay> = GLOBALS
-            .storage
-            .filter_relays(|r| r.has_usage_bits(Relay::WRITE) && r.rank != 0)?;
-
+        let relays: Vec<Relay> = Relay::choose_relays(Relay::WRITE, |_| true)?;
         for relay in relays {
             // Send it the event to pull our followers
             tracing::debug!("Pushing PersonList={} to {}", metadata.title, &relay.url);
@@ -1975,10 +1942,7 @@ impl Overlord {
         let event = GLOBALS.identity.sign_event(pre_event)?;
 
         // Push to all of the relays we post to
-        let relays: Vec<Relay> = GLOBALS
-            .storage
-            .filter_relays(|r| r.has_usage_bits(Relay::WRITE) && r.rank != 0)?;
-
+        let relays: Vec<Relay> = Relay::choose_relays(Relay::WRITE, |_| true)?;
         for relay in relays {
             // Send it the event to pull our followers
             tracing::debug!("Pushing Metadata to {}", &relay.url);
@@ -2147,12 +2111,7 @@ impl Overlord {
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
         {
             // Get all of the relays that we write to
-            let write_relay_urls: Vec<RelayUrl> = GLOBALS
-                .storage
-                .filter_relays(|r| r.has_usage_bits(Relay::WRITE) && r.rank != 0)?
-                .iter()
-                .map(|relay| relay.url.clone())
-                .collect();
+            let write_relay_urls: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
             relay_urls.extend(write_relay_urls);
             relay_urls.sort();
             relay_urls.dedup();
@@ -2633,12 +2592,7 @@ impl Overlord {
     pub async fn subscribe_config(&mut self, relays: Option<Vec<RelayUrl>>) -> Result<(), Error> {
         let config_relays: Vec<RelayUrl> = match relays {
             Some(r) => r,
-            None => GLOBALS
-                .storage
-                .filter_relays(|r| r.has_usage_bits(Relay::WRITE) && r.rank != 0)?
-                .iter()
-                .map(|relay| relay.url.clone())
-                .collect(),
+            None => Relay::choose_relay_urls(Relay::WRITE, |_| true)?,
         };
         for relay_url in config_relays.iter() {
             self.engage_minion(
@@ -2681,12 +2635,7 @@ impl Overlord {
         // Discover their relays
         let discover_relay_urls: Vec<RelayUrl> = match relays {
             Some(r) => r,
-            None => GLOBALS
-                .storage
-                .filter_relays(|r| r.has_usage_bits(Relay::DISCOVER) && r.rank != 0)?
-                .iter()
-                .map(|relay| relay.url.clone())
-                .collect(),
+            None => Relay::choose_relay_urls(Relay::DISCOVER, |_| true)?,
         };
         for relay_url in discover_relay_urls.iter() {
             self.engage_minion(
@@ -2710,12 +2659,7 @@ impl Overlord {
         let now = Unixtime::now().unwrap();
         let mention_relays: Vec<RelayUrl> = match relays {
             Some(r) => r,
-            None => GLOBALS
-                .storage
-                .filter_relays(|r| r.has_usage_bits(Relay::READ) && r.rank != 0)?
-                .iter()
-                .map(|relay| relay.url.clone())
-                .collect(),
+            None => Relay::choose_relay_urls(Relay::READ, |_| true)?,
         };
         for relay_url in mention_relays.iter() {
             self.engage_minion(
@@ -3385,12 +3329,7 @@ impl Overlord {
             relays.extend(target_read_relays);
 
             // Add all my write relays
-            let write_relay_urls: Vec<RelayUrl> = GLOBALS
-                .storage
-                .filter_relays(|r| r.has_usage_bits(Relay::WRITE) && r.rank != 0)?
-                .iter()
-                .map(|relay| relay.url.clone())
-                .collect();
+            let write_relay_urls: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
             relays.extend(write_relay_urls);
 
             if relays.is_empty() {
