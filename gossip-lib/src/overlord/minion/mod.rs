@@ -182,83 +182,18 @@ impl Minion {
 
         // Connect to the relay
         let websocket_stream = {
-            // Parse the URI
-            let uri: http::Uri = self.url.as_str().parse::<Uri>()?;
-            let mut parts: Parts = uri.into_parts();
-            parts.scheme = match parts.scheme {
-                Some(scheme) => match scheme.as_str() {
-                    "wss" => Some(Scheme::HTTPS),
-                    "ws" => Some(Scheme::HTTP),
-                    _ => Some(Scheme::HTTPS),
-                },
-                None => Some(Scheme::HTTPS),
-            };
-            let uri = http::Uri::from_parts(parts)?;
-
-            // Fetch NIP-11 data
-            let request_nip11_future = reqwest::Client::builder()
-                .timeout(fetcher_timeout)
-                .redirect(reqwest::redirect::Policy::none())
-                .gzip(true)
-                .brotli(true)
-                .deflate(true)
-                .build()?
-                .get(format!("{}", uri))
-                .header("Accept", "application/nostr+json")
-                .send();
-
-            let response;
-            tokio::select! {
-                _ = self.read_runstate.wait_for(|runstate| !runstate.going_online()) => {
-                    return Ok(MinionExitReason::GotShutdownMessage);
-                },
-                response_result = request_nip11_future => {
-                    response = response_result?;
-                }
-            }
-
-            self.dbrelay.last_attempt_nip11 = Some(Unixtime::now().unwrap().0 as u64);
-            let status = response.status();
-            match Self::text_with_charset(response, "utf-8").await {
-                Ok(text) => {
-                    if status.is_server_error() {
-                        tracing::warn!(
-                            "{}: {}",
-                            &self.url,
-                            status.canonical_reason().unwrap_or("")
-                        );
-                    } else {
-                        match serde_json::from_str::<RelayInformationDocument>(&text) {
-                            Ok(nip11) => {
-                                tracing::debug!("{}: {}", &self.url, nip11);
-                                self.nip11 = Some(nip11);
-                                self.dbrelay.nip11 = self.nip11.clone();
-                            }
-                            Err(e) => {
-                                tracing::warn!(
-                                    "{}: Unable to parse response as NIP-11 ({}): {}\n",
-                                    &self.url,
-                                    e,
-                                    text.lines()
-                                        .take(
-                                            GLOBALS
-                                                .storage
-                                                .read_setting_nip11_lines_to_output_on_error()
-                                        )
-                                        .collect::<Vec<_>>()
-                                        .join("\n")
-                                );
-                            }
+            // Fetch NIP-11 data (if not fetched recently)
+            if let Some(last_nip11) = self.dbrelay.last_attempt_nip11 {
+                if last_nip11 as i64 + 3600 < Unixtime::now().unwrap().0 {
+                    if let Err(e) = self.fetch_nip11(fetcher_timeout).await {
+                        if matches!(e.kind, ErrorKind::ShuttingDown) {
+                            return Ok(MinionExitReason::GotShutdownMessage);
+                        } else {
+                            return Err(e);
                         }
                     }
                 }
-                Err(e) => {
-                    tracing::warn!("{}: Unable to read NIP-11 response: {}", &self.url, e);
-                }
             }
-
-            // Save updated NIP-11 data (even if it failed)
-            GLOBALS.storage.write_relay(&self.dbrelay, None)?;
 
             let key: [u8; 16] = rand::random();
 
@@ -415,6 +350,83 @@ impl Minion {
                 Ok(MinionExitReason::Unknown)
             }
         }
+    }
+
+    async fn fetch_nip11(&mut self, fetcher_timeout: std::time::Duration) -> Result<(), Error> {
+        // Parse the URI
+        let uri: http::Uri = self.url.as_str().parse::<Uri>()?;
+        let mut parts: Parts = uri.into_parts();
+        parts.scheme = match parts.scheme {
+            Some(scheme) => match scheme.as_str() {
+                "wss" => Some(Scheme::HTTPS),
+                "ws" => Some(Scheme::HTTP),
+                _ => Some(Scheme::HTTPS),
+            },
+            None => Some(Scheme::HTTPS),
+        };
+        let uri = http::Uri::from_parts(parts)?;
+
+        let request_nip11_future = reqwest::Client::builder()
+            .timeout(fetcher_timeout)
+            .redirect(reqwest::redirect::Policy::none())
+            .gzip(true)
+            .brotli(true)
+            .deflate(true)
+            .build()?
+            .get(format!("{}", uri))
+            .header("Accept", "application/nostr+json")
+            .send();
+
+        let response;
+        tokio::select! {
+            _ = self.read_runstate.wait_for(|runstate| !runstate.going_online()) => {
+                return Err(ErrorKind::ShuttingDown.into());
+            },
+            response_result = request_nip11_future => {
+                response = response_result?;
+            }
+        }
+
+        self.dbrelay.last_attempt_nip11 = Some(Unixtime::now().unwrap().0 as u64);
+        let status = response.status();
+        match Self::text_with_charset(response, "utf-8").await {
+            Ok(text) => {
+                if status.is_server_error() {
+                    tracing::warn!("{}: {}", &self.url, status.canonical_reason().unwrap_or(""));
+                } else {
+                    match serde_json::from_str::<RelayInformationDocument>(&text) {
+                        Ok(nip11) => {
+                            tracing::debug!("{}: {}", &self.url, nip11);
+                            self.nip11 = Some(nip11);
+                            self.dbrelay.nip11 = self.nip11.clone();
+                        }
+                        Err(e) => {
+                            tracing::warn!(
+                                "{}: Unable to parse response as NIP-11 ({}): {}\n",
+                                &self.url,
+                                e,
+                                text.lines()
+                                    .take(
+                                        GLOBALS
+                                            .storage
+                                            .read_setting_nip11_lines_to_output_on_error()
+                                    )
+                                    .collect::<Vec<_>>()
+                                    .join("\n")
+                            );
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::warn!("{}: Unable to read NIP-11 response: {}", &self.url, e);
+            }
+        }
+
+        // Save updated NIP-11 data (even if it failed)
+        GLOBALS.storage.write_relay(&self.dbrelay, None)?;
+
+        Ok(())
     }
 
     async fn loop_handler(
