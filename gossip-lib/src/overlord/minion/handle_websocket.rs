@@ -172,7 +172,7 @@ impl Minion {
                     }
                 }
 
-                if self.postings.contains(&id) {
+                if let Some(job_id) = self.posting_ids.get(&id).copied() {
                     if ok {
                         // Save seen_on data
                         // (it was already processed by the overlord before the minion got it,
@@ -187,7 +187,28 @@ impl Minion {
                         // demerit the relay
                         self.bump_failure_count().await;
                     }
-                    self.postings.remove(&id);
+
+                    let mut job_is_done: bool = false;
+                    {
+                        // Take it out of the posting_jobs
+                        if let Some(job_ids) = self.posting_jobs.get_mut(&job_id) {
+                            job_ids.retain(|id_in_vec| *id_in_vec != id);
+                            job_is_done = job_ids.is_empty();
+                        } // else is not expected, but if it happens we ignore it.
+                    }
+
+                    if job_is_done {
+                        self.posting_jobs.remove(&job_id);
+
+                        // Tell overlord
+                        self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
+                            self.url.clone(),
+                            job_id,
+                        ))?;
+                    }
+
+                    // Take it out of the posting_ids whether or not job is done
+                    self.posting_ids.remove(&id);
                 }
 
                 match ok {

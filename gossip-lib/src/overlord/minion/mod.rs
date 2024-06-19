@@ -76,7 +76,8 @@ pub struct Minion {
     stream: Option<WebSocketStream<MaybeTlsStream<TcpStream>>>,
     subscription_map: SubscriptionMap,
     next_events_subscription_id: u32,
-    postings: HashSet<Id>,
+    posting_jobs: HashMap<u64, Vec<Id>>,
+    posting_ids: HashMap<Id, u64>,
     sought_events: HashMap<Id, EventSeekState>,
     last_message_sent: String,
     auth_challenge: String,
@@ -120,7 +121,8 @@ impl Minion {
             stream: None,
             subscription_map: SubscriptionMap::new(),
             next_events_subscription_id: 0,
-            postings: HashSet::new(),
+            posting_jobs: HashMap::new(),
+            posting_ids: HashMap::new(),
             sought_events: HashMap::new(),
             last_message_sent: String::new(),
             auth_challenge: "".to_string(),
@@ -506,7 +508,7 @@ impl Minion {
         if self.subscription_map.is_empty()
             && self.subscriptions_waiting_for_auth.is_empty()
             && self.subscriptions_waiting_for_metadata.is_empty()
-            && self.postings.is_empty()
+            && self.posting_jobs.is_empty()
         {
             self.exiting = Some(MinionExitReason::SubscriptionsHaveCompleted);
         }
@@ -520,8 +522,11 @@ impl Minion {
     ) -> Result<(), Error> {
         match message.detail {
             ToMinionPayloadDetail::AdvertiseRelayList(event, dmevent) => {
+                self.posting_jobs
+                    .insert(message.job_id, vec![event.id, dmevent.id]);
+
                 let id = event.id;
-                self.postings.insert(id);
+                self.posting_ids.insert(id, message.job_id);
                 let msg = ClientMessage::Event(event);
                 let wire = serde_json::to_string(&msg)?;
                 let ws_stream = self.stream.as_mut().unwrap();
@@ -529,19 +534,14 @@ impl Minion {
                 ws_stream.send(WsMessage::Text(wire)).await?;
 
                 let id = dmevent.id;
-                self.postings.insert(id);
+                self.posting_ids.insert(id, message.job_id);
                 let msg = ClientMessage::Event(dmevent);
                 let wire = serde_json::to_string(&msg)?;
                 let ws_stream = self.stream.as_mut().unwrap();
                 self.last_message_sent = wire.clone();
                 ws_stream.send(WsMessage::Text(wire)).await?;
 
-                tracing::info!("Advertised relay lists to {}", &self.url);
-
-                self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
-                    self.url.clone(),
-                    message.job_id,
-                ))?;
+                tracing::info!("Advertised relay lists to {}", &self.url)
             }
             ToMinionPayloadDetail::AuthApproved => {
                 self.dbrelay.allow_auth = Some(true); // save in our memory copy of the relay
@@ -582,9 +582,14 @@ impl Minion {
                 self.get_event_addr(message.job_id, ea).await?;
             }
             ToMinionPayloadDetail::PostEvents(mut events) => {
+                self.posting_jobs.insert(
+                    message.job_id,
+                    events.iter().map(|e| e.id).collect::<Vec<Id>>(),
+                );
+
                 for event in events.drain(..) {
                     let id = event.id;
-                    self.postings.insert(id);
+                    self.posting_ids.insert(id, message.job_id);
                     let msg = ClientMessage::Event(Box::new(event));
                     let wire = serde_json::to_string(&msg)?;
                     let ws_stream = self.stream.as_mut().unwrap();
@@ -592,10 +597,6 @@ impl Minion {
                     ws_stream.send(WsMessage::Text(wire)).await?;
                     tracing::info!("Posted event to {}", &self.url);
                 }
-                self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
-                    self.url.clone(),
-                    message.job_id,
-                ))?;
             }
             ToMinionPayloadDetail::Shutdown => {
                 tracing::debug!("{}: Websocket listener shutting down", &self.url);
