@@ -2555,11 +2555,6 @@ impl Overlord {
             self.pick_relays().await;
         }
 
-        // Separately subscribe to RelayList discovery for everyone we follow
-        // who needs to seek a relay list again.
-        let followed = GLOBALS.people.get_subscribed_pubkeys_needing_relay_lists();
-        self.subscribe_discover(followed, None).await?;
-
         // Separately subscribe to our outbox events on our write relays
         self.subscribe_config(None).await?;
 
@@ -2570,6 +2565,11 @@ impl Overlord {
 
         // Separately subscribe to our giftwraps on our DM and INBOX relays
         self.subscribe_giftwraps().await?;
+
+        // Separately subscribe to RelayList discovery for everyone we follow
+        // who needs to seek a relay list again.
+        let followed = GLOBALS.people.get_subscribed_pubkeys_needing_relay_lists();
+        self.subscribe_discover(followed, None).await?;
 
         // Separately subscribe to nostr-connect channels
         let mut relays: Vec<RelayUrl> = Vec::new();
@@ -2623,6 +2623,10 @@ impl Overlord {
         pubkeys: Vec<PublicKey>,
         relays: Option<Vec<RelayUrl>>,
     ) -> Result<(), Error> {
+        if pubkeys.is_empty() {
+            return Ok(());
+        }
+
         // Mark for each person that we are seeking their relay list
         // so that we don't repeat this for a while
         let now = Unixtime::now().unwrap();
