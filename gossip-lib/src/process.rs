@@ -9,8 +9,8 @@ use crate::storage::{PersonTable, Table};
 use async_recursion::async_recursion;
 use heed::RwTxn;
 use nostr_types::{
-    Event, EventAddr, EventKind, EventReference, Id, Metadata, NostrBech32, PublicKey, RelayList,
-    RelayUrl, RelayUsage, SimpleRelayList, Tag, Unixtime,
+    Event, EventAddr, EventKind, EventReference, Filter, Id, Metadata, NostrBech32, PublicKey,
+    RelayList, RelayUrl, RelayUsage, SimpleRelayList, Tag, Unixtime,
 };
 use std::sync::atomic::Ordering;
 
@@ -264,10 +264,10 @@ pub async fn process_new_event(
                 let (_personlist, _metadata) =
                     update_or_allocate_person_list_from_event(event, pubkey)?;
             } else {
-                process_somebody_elses_contact_list(event)?;
+                process_somebody_elses_contact_list(event, false)?;
             }
         } else {
-            process_somebody_elses_contact_list(event)?;
+            process_somebody_elses_contact_list(event, false)?;
         }
     } else if event.kind == EventKind::MuteList || event.kind == EventKind::FollowSets {
         // Only our own
@@ -279,7 +279,7 @@ pub async fn process_new_event(
             }
         }
     } else if event.kind == EventKind::RelayList {
-        GLOBALS.storage.process_relay_list(event, None)?;
+        GLOBALS.storage.process_relay_list(event, false, None)?;
 
         // Let the seeker know we now have relays for this author, in case the seeker
         // wants to update it's state
@@ -441,7 +441,7 @@ pub async fn process_new_event(
     Ok(())
 }
 
-pub fn process_somebody_elses_contact_list(event: &Event) -> Result<(), Error> {
+fn process_somebody_elses_contact_list(event: &Event, force: bool) -> Result<(), Error> {
     // We don't keep their contacts or show to the user yet.
     // We only process the contents for (non-standard) relay list information.
 
@@ -453,7 +453,7 @@ pub fn process_somebody_elses_contact_list(event: &Event) -> Result<(), Error> {
             .people
             .update_relay_list_stamps(event.pubkey, event.created_at.0)?;
 
-        if !newer {
+        if !newer && !force {
             return Ok(());
         }
 
@@ -473,13 +473,54 @@ pub fn process_somebody_elses_contact_list(event: &Event) -> Result<(), Error> {
             .storage
             .set_relay_list(event.pubkey, relay_list, None)?;
 
-        // the following also refreshes scores before it picks relays
-        let _ = GLOBALS
-            .to_overlord
-            .send(ToOverlordMessage::RefreshScoresAndPickRelays);
+        if !force {
+            // the following also refreshes scores before it picks relays
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::RefreshScoresAndPickRelays);
+        }
+    } else if event.content.len() > 0 {
+        tracing::info!("Contact list content does not parse: {}", &event.content);
     }
 
     Ok(())
+}
+
+pub fn reprocess_relay_lists() -> Result<(usize, usize), Error> {
+    let mut counts: (usize, usize) = (0, 0);
+
+    // Reprocess all contact lists
+    let mut filter = Filter::new();
+    filter.add_event_kind(EventKind::ContactList);
+    let events = GLOBALS.storage.find_events_by_filter(&filter, |_e| true)?;
+    for event in &events {
+        process_somebody_elses_contact_list(event, true)?;
+    }
+    counts.0 = events.len();
+
+    // Reprocess all relay lists
+    let mut filter = Filter::new();
+    filter.add_event_kind(EventKind::RelayList);
+
+    let mut txn = GLOBALS.storage.get_write_txn()?;
+    let relay_lists = GLOBALS.storage.find_events_by_filter(&filter, |_| true)?;
+
+    // Process all RelayLists
+    for event in relay_lists.iter() {
+        GLOBALS
+            .storage
+            .process_relay_list(event, true, Some(&mut txn))?;
+    }
+    counts.1 = events.len();
+
+    // Turn off the flag
+    GLOBALS
+        .storage
+        .set_flag_reprocess_relay_lists_needed(false, Some(&mut txn))?;
+
+    txn.commit()?;
+
+    Ok(counts)
 }
 
 /// Process relationships of an event.

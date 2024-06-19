@@ -1135,24 +1135,27 @@ impl Storage {
     pub fn process_relay_list<'a>(
         &'a self,
         event: &Event,
+        force: bool,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
             if let Some(mut person) = PersonTable::read_record(event.pubkey, Some(txn))? {
-                // Check if this relay list is newer than the stamp we have for its author
-                if let Some(previous_at) = person.relay_list_created_at {
-                    if event.created_at.0 <= previous_at {
-                        // This list is old.
-                        return Ok(());
+                if !force {
+                    // Check if this relay list is newer than the stamp we have for its author
+                    if let Some(previous_at) = person.relay_list_created_at {
+                        if event.created_at.0 <= previous_at {
+                            // This list is old.
+                            return Ok(());
+                        }
                     }
+
+                    // If we got here, the list is new
+                    // Mark when it was created
+                    person.relay_list_created_at = Some(event.created_at.0);
+
+                    // And save those marks in the Person record
+                    PersonTable::write_record(&mut person, Some(txn))?;
                 }
-                // If we got here, the list is new.
-
-                // Mark when it was created
-                person.relay_list_created_at = Some(event.created_at.0);
-
-                // And save those marks in the Person record
-                PersonTable::write_record(&mut person, Some(txn))?;
             }
 
             let mut ours = false;
@@ -2447,43 +2450,6 @@ impl Storage {
         };
 
         write_transact!(self, rw_txn, f)
-    }
-
-    pub fn reprocess_relay_lists(&self) -> Result<(), Error> {
-        let mut txn = self.env.write_txn()?;
-
-        // Clear relay_list_created_at fields in person records so that
-        // it will rebuild
-        PersonTable::filter_modify(
-            |_| true,
-            |person| {
-                person.relay_list_created_at = None;
-            },
-            Some(&mut txn),
-        )?;
-
-        // Commit this change, otherwise read_person (which takes no transaction)
-        // will give stale data when it is called within process_relay_list()
-        txn.commit()?;
-
-        let mut txn = self.env.write_txn()?;
-
-        // Load all RelayLists
-        let mut filter = Filter::new();
-        filter.add_event_kind(EventKind::RelayList);
-        let relay_lists = self.find_events_by_filter(&filter, |_| true)?;
-
-        // Process all RelayLists
-        for event in relay_lists.iter() {
-            self.process_relay_list(event, Some(&mut txn))?;
-        }
-
-        // Turn off the flag
-        self.set_flag_reprocess_relay_lists_needed(false, Some(&mut txn))?;
-
-        txn.commit()?;
-
-        Ok(())
     }
 
     /// Read person lists

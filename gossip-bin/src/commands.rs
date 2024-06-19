@@ -25,7 +25,7 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 34] = [
+const COMMANDS: [Command; 35] = [
     Command {
         cmd: "oneshot",
         usage_params: "{depends}",
@@ -177,6 +177,11 @@ const COMMANDS: [Command; 34] = [
         desc: "Reprocess events that came during the last 24 hours",
     },
     Command {
+        cmd: "reprocess_relay_lists",
+        usage_params: "",
+        desc: "Reprocess relay lists (including kind 3 contents)",
+    },
+    Command {
         cmd: "ungiftwrap",
         usage_params: "<idhex>",
         desc: "Unwrap the giftwrap event with the given ID and print the rumor (in JSON)",
@@ -251,6 +256,7 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
         "rebuild_indices" => rebuild_indices()?,
         "rename_person_list" => rename_person_list(command, args)?,
         "reprocess_recent" => reprocess_recent(command, runtime)?,
+        "reprocess_relay_lists" => reprocess_relay_lists()?,
         "ungiftwrap" => ungiftwrap(command, args)?,
         "verify" => verify(command, args)?,
         "verify_json" => verify_json(command, args)?,
@@ -930,6 +936,13 @@ pub fn reprocess_recent(_cmd: Command, runtime: &Runtime) -> Result<(), Error> {
     });
 
     Ok(runtime.block_on(job)?)
+}
+
+pub fn reprocess_relay_lists() -> Result<(), Error> {
+    let (c1, c2) = gossip_lib::process::reprocess_relay_lists()?;
+    println!("Reprocessed {} contact lists", c1);
+    println!("Reprocessed {} relay lists", c2);
+    Ok(())
 }
 
 pub fn verify(cmd: Command, mut args: env::Args) -> Result<(), Error> {

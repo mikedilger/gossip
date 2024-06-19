@@ -169,7 +169,7 @@ impl Overlord {
             // If we need to reapply relay lists, do so now
             if GLOBALS.storage.get_flag_reprocess_relay_lists_needed() {
                 tracing::info!("Reprocessing relay lists...");
-                GLOBALS.storage.reprocess_relay_lists()?;
+                crate::process::reprocess_relay_lists()?;
             }
 
             // Data migrations complete
