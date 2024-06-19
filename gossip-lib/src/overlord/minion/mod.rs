@@ -447,7 +447,7 @@ impl Minion {
             _ = ping_timer.tick() => {
                 ws_stream.send(WsMessage::Ping(vec![0x1])).await?;
             },
-            _ = task_timer.tick()  => {
+            _ = task_timer.tick()  => { // 1.5 seconds
                 // Update subscription for sought events
                 self.get_events().await?;
 
@@ -506,6 +506,7 @@ impl Minion {
         if self.subscription_map.is_empty()
             && self.subscriptions_waiting_for_auth.is_empty()
             && self.subscriptions_waiting_for_metadata.is_empty()
+            && self.postings.is_empty()
         {
             self.exiting = Some(MinionExitReason::SubscriptionsHaveCompleted);
         }
