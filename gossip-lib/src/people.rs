@@ -841,7 +841,7 @@ impl People {
     }
 
     // Returns true if the date passed in is newer than what we already had
-    pub(crate) async fn update_relay_list_stamps(
+    pub(crate) fn update_relay_list_stamps(
         &self,
         pubkey: PublicKey,
         created_at: i64,

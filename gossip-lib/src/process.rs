@@ -264,10 +264,10 @@ pub async fn process_new_event(
                 let (_personlist, _metadata) =
                     update_or_allocate_person_list_from_event(event, pubkey)?;
             } else {
-                process_somebody_elses_contact_list(event).await?;
+                process_somebody_elses_contact_list(event)?;
             }
         } else {
-            process_somebody_elses_contact_list(event).await?;
+            process_somebody_elses_contact_list(event)?;
         }
     } else if event.kind == EventKind::MuteList || event.kind == EventKind::FollowSets {
         // Only our own
@@ -433,7 +433,7 @@ pub async fn process_new_event(
 
     // TBD (have to parse runes language for this)
     //if event.kind == EventKind::RelayList {
-    //    process_somebody_elses_relay_list(event.pubkey.clone(), &event.contents).await?;
+    //    process_somebody_elses_relay_list(event.pubkey.clone(), &event.contents)?;
     //}
 
     // FIXME: Handle EventKind::RecommendedRelay
@@ -441,7 +441,7 @@ pub async fn process_new_event(
     Ok(())
 }
 
-async fn process_somebody_elses_contact_list(event: &Event) -> Result<(), Error> {
+pub fn process_somebody_elses_contact_list(event: &Event) -> Result<(), Error> {
     // We don't keep their contacts or show to the user yet.
     // We only process the contents for (non-standard) relay list information.
 
@@ -451,8 +451,7 @@ async fn process_somebody_elses_contact_list(event: &Event) -> Result<(), Error>
         // if this relay list happens to be newer)
         let newer = GLOBALS
             .people
-            .update_relay_list_stamps(event.pubkey, event.created_at.0)
-            .await?;
+            .update_relay_list_stamps(event.pubkey, event.created_at.0)?;
 
         if !newer {
             return Ok(());
