@@ -213,9 +213,9 @@ impl Relay3 {
     where
         F: Fn(&Relay3) -> bool,
     {
-        Ok(GLOBALS.storage.filter_relays(|r| {
-            r.has_usage_bits(bits) && r.rank != 0 && !r.should_avoid() && f(r)
-        })?)
+        GLOBALS
+            .storage
+            .filter_relays(|r| r.has_usage_bits(bits) && r.rank != 0 && !r.should_avoid() && f(r))
     }
 
     pub fn choose_relay_urls<F>(bits: u64, f: F) -> Result<Vec<RelayUrl>, Error>

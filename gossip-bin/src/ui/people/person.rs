@@ -374,7 +374,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                 let relays = GLOBALS.people.get_active_person_write_relays();
                                 for relay_url in relays {
                                     if ui
-                                        .link(format!("{}", relay_url.host()))
+                                        .link(relay_url.host().to_string())
                                         .clicked()
                                     {
                                         app.set_page(
