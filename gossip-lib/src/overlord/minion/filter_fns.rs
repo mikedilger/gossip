@@ -224,7 +224,8 @@ pub fn replies(main: IdHex, spamsafe: bool) -> Vec<Filter> {
     let mut filters: Vec<Filter> = Vec::new();
 
     // Allow all feed related event kinds (excluding DMs)
-    let event_kinds = crate::feed::feed_displayable_event_kinds(false);
+    // (related because we want deletion events, and may as well get likes and zaps too)
+    let event_kinds = crate::feed::feed_related_event_kinds(false);
 
     let filter = {
         let mut filter = Filter {
