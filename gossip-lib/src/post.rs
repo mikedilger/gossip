@@ -174,7 +174,7 @@ pub fn prepare_post_nip17(
     // And a copy to us
     {
         let event = GLOBALS.identity.giftwrap(pre_event.clone(), our_pk)?;
-        let relays = GLOBALS.storage.get_dm_relays(our_pk)?;
+        let relays = Relay::choose_relay_urls(Relay::DM, |_| true)?;
         output.push((event, relays));
     }
 
