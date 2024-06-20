@@ -3006,7 +3006,7 @@ impl Overlord {
                         }
                     }
                 },
-                None,
+                Some(txn),
             )?;
         }
 
