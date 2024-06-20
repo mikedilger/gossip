@@ -3,8 +3,7 @@ use crate::storage::types::PersonRelay1;
 use crate::storage::{RawDatabase, Storage, MAX_LMDB_KEY};
 use heed::types::Bytes;
 use heed::RwTxn;
-use nostr_types::{PublicKey, RelayUrl};
-use speedy::{Readable, Writable};
+use speedy::Writable;
 use std::sync::Mutex;
 
 // PublicKey:Url -> PersonRelay
@@ -62,20 +61,5 @@ impl Storage {
         };
 
         write_transact!(self, rw_txn, f)
-    }
-
-    pub(crate) fn read_person_relay1(
-        &self,
-        pubkey: PublicKey,
-        url: &RelayUrl,
-    ) -> Result<Option<PersonRelay1>, Error> {
-        let mut key = pubkey.to_bytes();
-        key.extend(url.as_str().as_bytes());
-        key.truncate(MAX_LMDB_KEY);
-        let txn = self.env.read_txn()?;
-        Ok(match self.db_person_relays1()?.get(&txn, &key)? {
-            Some(bytes) => Some(PersonRelay1::read_from_buffer(bytes)?),
-            None => None,
-        })
     }
 }

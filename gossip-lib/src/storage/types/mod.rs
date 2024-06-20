@@ -1,6 +1,3 @@
-mod person1;
-pub(crate) use person1::Person1;
-
 mod person2;
 pub use person2::Person2;
 
@@ -48,15 +45,6 @@ pub use relay2::Relay2;
 
 mod relay3;
 pub use relay3::Relay3;
-
-mod settings1;
-pub(crate) use settings1::Settings1;
-
-mod settings2;
-pub(crate) use settings2::Settings2;
-
-mod theme1;
-pub(crate) use theme1::{Theme1, ThemeVariant1};
 
 use crate::error::Error;
 use nostr_types::{Id, PublicKey};

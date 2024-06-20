@@ -1,9 +1,6 @@
 use crate::error::Error;
 use crate::storage::{RawDatabase, Storage};
 use heed::types::Bytes;
-use heed::RwTxn;
-use nostr_types::EventV2;
-use speedy::Writable;
 use std::sync::Mutex;
 
 // Id -> Event
@@ -42,46 +39,5 @@ impl Storage {
                 Ok(db)
             }
         }
-    }
-
-    pub(crate) fn write_event2<'a>(
-        &'a self,
-        event: &EventV2,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error> {
-        // write to lmdb 'events'
-        let bytes = event.write_to_vec()?;
-
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.db_events2()?.put(txn, event.id.as_slice(), &bytes)?;
-
-            // If giftwrap, index the inner rumor instead
-            let mut eventptr: &EventV2 = event;
-            let rumor: EventV2;
-            if let Some(r) = self.switch_to_rumor2(event, txn)? {
-                rumor = r;
-                eventptr = &rumor;
-            }
-            // also index the event
-            self.write_event_akci_index(
-                eventptr.pubkey,
-                eventptr.kind,
-                eventptr.created_at,
-                eventptr.id,
-                Some(txn),
-            )?;
-            self.write_event_kci_index(eventptr.kind, eventptr.created_at, eventptr.id, Some(txn))?;
-            self.write_event2_tag_index1(eventptr, Some(txn))?;
-
-            for hashtag in event.hashtags() {
-                if hashtag.is_empty() {
-                    continue;
-                } // upstream bug
-                self.add_hashtag(&hashtag, event.id, Some(txn))?;
-            }
-            Ok(())
-        };
-
-        write_transact!(self, rw_txn, f)
     }
 }
