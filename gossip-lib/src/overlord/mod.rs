@@ -36,6 +36,7 @@ use tokio::task;
 use zeroize::Zeroize;
 
 const MAX_EXCLUSION: u64 = 60 * 60 * 24 * 7; // one week max exclusion
+const ONE_DAY_EXCLUSION: u64 = 60 * 60 * 24; // one day
 
 type MinionResult = Result<MinionExitReason, Error>;
 
@@ -470,6 +471,8 @@ impl Overlord {
                         exclusion = MAX_EXCLUSION;
                     } else if let ErrorKind::ReqwestHttpError(_) = e.kind {
                         exclusion = MAX_EXCLUSION;
+                    } else if let ErrorKind::Timeout(_) = e.kind {
+                        exclusion = ONE_DAY_EXCLUSION;
                     } else if let ErrorKind::Websocket(wserror) = e.kind {
                         if let tungstenite::error::Error::Http(response) = wserror {
                             exclusion = match response.status() {
@@ -483,6 +486,8 @@ impl Overlord {
                                 StatusCode::UNAVAILABLE_FOR_LEGAL_REASONS => MAX_EXCLUSION,
                                 StatusCode::NOT_IMPLEMENTED => MAX_EXCLUSION,
                                 StatusCode::BAD_GATEWAY => MAX_EXCLUSION,
+                                StatusCode::SERVICE_UNAVAILABLE => MAX_EXCLUSION,
+                                s if s.as_u16() >= 500 => ONE_DAY_EXCLUSION,
                                 s if s.as_u16() >= 400 => 120,
                                 _ => 120,
                             };
@@ -496,6 +501,13 @@ impl Overlord {
                                     60
                                 }
                                 _ => 120,
+                            }
+                        } else {
+                            let f = format!("{}", wserror);
+                            if f.contains("failed to lookup address") {
+                                exclusion = MAX_EXCLUSION;
+                            } else if f.contains("No route to host") {
+                                exclusion = ONE_DAY_EXCLUSION;
                             }
                         }
                     }
