@@ -3,6 +3,7 @@ use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::nip46::ParsedCommand;
 use crate::people::PersonList;
+use crate::relay::Relay;
 use nostr_types::{EventKind, Filter, PublicKey, PublicKeyHex, RelayList, RelayUrl, Unixtime};
 use parking_lot::RwLock as PRwLock;
 use parking_lot::RwLockReadGuard as PRwLockReadGuard;
@@ -48,6 +49,10 @@ pub enum PendingItem {
     // PROBLEM: Often there is a dead relay on somebody's list and so these events pile
     //          up far too much.
     // RetryPost(Id),
+    NeedReadRelays,
+    NeedWriteRelays,
+    NeedDiscoverRelays,
+    NeedDMRelays,
 }
 
 pub struct Pending {
@@ -279,6 +284,34 @@ impl Pending {
                 self.remove(&PendingItem::PersonListNotPublishedRecently(*list));
                 // remove if present
             }
+        }
+
+        let relay_urls = Relay::choose_relay_urls(Relay::READ, |_| true)?;
+        if relay_urls.is_empty() {
+            self.insert(PendingItem::NeedReadRelays);
+        } else {
+            self.remove(&PendingItem::NeedReadRelays);
+        }
+
+        let relay_urls = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
+        if relay_urls.is_empty() {
+            self.insert(PendingItem::NeedWriteRelays);
+        } else {
+            self.remove(&PendingItem::NeedWriteRelays);
+        }
+
+        let relay_urls = Relay::choose_relay_urls(Relay::DISCOVER, |_| true)?;
+        if relay_urls.is_empty() {
+            self.insert(PendingItem::NeedDiscoverRelays);
+        } else {
+            self.remove(&PendingItem::NeedDiscoverRelays);
+        }
+
+        let relay_urls = Relay::choose_relay_urls(Relay::DM, |_| true)?;
+        if relay_urls.is_empty() {
+            self.insert(PendingItem::NeedDMRelays);
+        } else {
+            self.remove(&PendingItem::NeedDMRelays);
         }
 
         {

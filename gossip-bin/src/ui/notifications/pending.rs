@@ -50,6 +50,9 @@ impl<'a> Notification<'a> for Pending {
     }
 
     fn show(&mut self, theme: &Theme, ui: &mut Ui) -> Option<Page> {
+        // we allow unreadchable "_" in case gossip_lib adds to this enum we still
+        // want it to compile.
+        #[allow(unreachable_patterns)]
         match self.inner {
             PendingItem::RelayAuthenticationRequest { .. } => None,
             PendingItem::RelayConnectionRequest { .. } => None,
@@ -68,6 +71,11 @@ impl<'a> Notification<'a> for Pending {
             PendingItem::PersonListNotPublishedRecently(list) => {
                 self.person_list_not_published_recently(theme, ui, list)
             }
+            PendingItem::NeedReadRelays => self.need_relays(theme, ui, "READ"),
+            PendingItem::NeedWriteRelays => self.need_relays(theme, ui, "WRITE"),
+            PendingItem::NeedDiscoverRelays => self.need_relays(theme, ui, "DISCOVER"),
+            PendingItem::NeedDMRelays => self.need_relays(theme, ui, "DM"),
+            _ => None,
         }
     }
 }
@@ -295,6 +303,24 @@ impl Pending {
                     let _ = GLOBALS
                         .to_overlord
                         .send(ToOverlordMessage::AdvertiseRelayList);
+                }
+            });
+            new_page
+        };
+        self.layout(theme, ui, description, action)
+    }
+
+    fn need_relays(&mut self, theme: &Theme, ui: &mut Ui, which: &'static str) -> Option<Page> {
+        let description = |_theme: &Theme, ui: &mut Ui| -> Option<Page> {
+            ui.label(format!("Your have not selected any {} relays", which));
+            None
+        };
+        let action = |theme: &Theme, ui: &mut Ui| -> Option<Page> {
+            let mut new_page = None;
+            ui.scope(|ui| {
+                super::manage_style(theme, ui.style_mut());
+                if ui.button("Manage Relays").clicked() {
+                    new_page = Some(crate::ui::Page::RelaysMine);
                 }
             });
             new_page
