@@ -1115,6 +1115,66 @@ impl GossipUi {
         ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
             notifications::draw_icons(self, ui);
 
+            let (frame_stroke, active_color_override) = if self.theme.dark_mode {
+                (
+                    egui::Stroke::new(1.0, self.theme.neutral_300()),
+                    Some(self.theme.neutral_900()),
+                )
+            } else {
+                (egui::Stroke::new(1.0, self.theme.neutral_300()), None)
+            };
+            let (color, text, text_color_override) = if self.unsaved_settings.offline {
+                (
+                    self.theme.amber_100(),
+                    "Offline Mode Active",
+                    active_color_override,
+                )
+            } else {
+                (Color32::TRANSPARENT, "Go Offline", None)
+            };
+            const PADDING: egui::Margin = egui::Margin {
+                left: 20.0,
+                right: 20.0,
+                top: 7.0,
+                bottom: 7.0,
+            };
+            egui::Frame::none()
+                .rounding(egui::Rounding::ZERO)
+                .outer_margin(egui::Margin {
+                    left: -20.0,
+                    right: -20.0,
+                    top: 10.0,
+                    bottom: -13.0,
+                })
+                .inner_margin(PADDING)
+                .fill(color)
+                .show(ui, |ui| {
+                    ui.set_height(16.0);
+                    ui.set_width(ui.available_width());
+
+                    // draw top frame line
+                    let ui_rect = ui.available_rect_before_wrap();
+                    let x_range = egui::Rangef::new(
+                        ui_rect.left() - PADDING.left,
+                        ui_rect.right() + PADDING.right,
+                    );
+                    ui.painter()
+                        .hline(x_range, ui_rect.top() - PADDING.top, frame_stroke);
+
+                    // switch
+                    let response =
+                        widgets::Switch::small(&self.theme, &mut self.unsaved_settings.offline)
+                            .with_label(text)
+                            .with_label_color(text_color_override)
+                            .show(ui);
+
+                    if response.changed() {
+                        if let Err(e) = self.unsaved_settings.save() {
+                            tracing::error!("Error saving settings: {}", e);
+                        }
+                    }
+                });
+
             // DEBUG status area
             if read_setting!(status_bar) {
                 let in_flight = GLOBALS.fetcher.requests_in_flight();

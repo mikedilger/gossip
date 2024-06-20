@@ -11,7 +11,8 @@ use super::WidgetState;
 
 pub struct Switch<'a> {
     value: &'a mut bool,
-    text: Option<WidgetText>,
+    label: Option<WidgetText>,
+    label_color: Option<Color32>,
     size: Vec2,
     theme: &'a Theme,
 }
@@ -21,7 +22,8 @@ impl<'a> Switch<'a> {
     pub fn small(theme: &'a Theme, value: &'a mut bool) -> Self {
         Self {
             value,
-            text: None,
+            label: None,
+            label_color: None,
             size: vec2(29.0, 16.0),
             theme,
         }
@@ -31,7 +33,8 @@ impl<'a> Switch<'a> {
     pub fn large(theme: &'a Theme, value: &'a mut bool) -> Self {
         Self {
             value,
-            text: None,
+            label: None,
+            label_color: None,
             size: vec2(40.0, 22.0),
             theme,
         }
@@ -39,15 +42,27 @@ impl<'a> Switch<'a> {
 
     /// Add a label that will be displayed to the right of the switch
     pub fn with_label(mut self, text: impl Into<WidgetText>) -> Self {
-        self.text = Some(text.into());
+        self.label = Some(text.into());
+        self
+    }
+
+    pub fn with_label_color(mut self, color: Option<Color32>) -> Self {
+        self.label_color = color;
         self
     }
 
     pub fn show(mut self, ui: &mut Ui) -> Response {
         let (response, galley) = self.allocate(ui);
-        let (state, response) = interact(ui, response, self.value);
+        let (state, response) = interact(ui, response, self.value, self.label);
         draw_at(
-            ui, self.theme, self.value, response, self.size, galley, state,
+            ui,
+            self.theme,
+            self.value,
+            response,
+            self.size,
+            galley,
+            self.label_color,
+            state,
         )
     }
 
@@ -58,7 +73,7 @@ impl<'a> Switch<'a> {
     // }
 
     fn allocate(&mut self, ui: &mut Ui) -> (Response, Option<Arc<Galley>>) {
-        let (extra_width, galley) = if let Some(text) = self.text.take() {
+        let (extra_width, galley) = if let Some(text) = self.label.take() {
             let available_width = ui.available_width() - self.size.y - ui.spacing().item_spacing.y;
             let galley = text.into_galley(ui, Some(false), available_width, TextStyle::Body);
             (
@@ -163,7 +178,12 @@ pub fn switch_custom_at(
     response
 }
 
-fn interact(ui: &Ui, response: Response, value: &mut bool) -> (WidgetState, Response) {
+fn interact(
+    ui: &Ui,
+    response: Response,
+    value: &mut bool,
+    label: Option<WidgetText>,
+) -> (WidgetState, Response) {
     let (state, mut response) = if response.is_pointer_button_down_on() {
         (WidgetState::Active, response)
     } else if response.has_focus() {
@@ -180,8 +200,12 @@ fn interact(ui: &Ui, response: Response, value: &mut bool) -> (WidgetState, Resp
     if response.clicked() {
         *value = !*value;
         response.mark_changed();
-        response.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Checkbox, *value, ""));
     }
+
+    let text = label.unwrap_or("".into());
+    response.widget_info(|| {
+        egui::WidgetInfo::selected(egui::WidgetType::Checkbox, *value, text.text())
+    });
 
     (state, response)
 }
@@ -193,6 +217,7 @@ fn draw_at(
     response: Response,
     size: Vec2,
     galley: Option<Arc<Galley>>,
+    label_color: Option<Color32>,
     _state: WidgetState,
 ) -> Response {
     let rect = response.rect;
@@ -284,8 +309,11 @@ fn draw_at(
                     ui.spacing().item_spacing.x,
                     (switch_rect.height() - galley.rect.height()) / 2.0,
                 );
-            ui.painter()
-                .galley_with_override_text_color(text_pos, galley, text_color);
+            ui.painter().galley_with_override_text_color(
+                text_pos,
+                galley,
+                label_color.unwrap_or(text_color),
+            );
         }
 
         if response.has_focus() {

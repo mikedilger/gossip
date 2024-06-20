@@ -204,7 +204,7 @@ pub(super) fn draw_icons(app: &mut GossipUi, ui: &mut Ui) {
             app.theme.neutral_300()
         })
         .show(ui, |ui| {
-            ui.set_height(33.0);
+            ui.set_height(30.0);
             ui.set_width(ui.available_width());
             egui_extras::StripBuilder::new(ui)
                 .size(egui_extras::Size::relative(0.3))
