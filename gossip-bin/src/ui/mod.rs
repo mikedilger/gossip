@@ -856,6 +856,10 @@ impl GossipUi {
             Page::HelpHelp | Page::HelpStats | Page::HelpAbout => {
                 self.open_menu(ctx, SubMenu::Help);
             }
+            Page::Notifications => {
+                let _ = GLOBALS.pending.compute_pending();
+                self.close_all_menus_except_feeds(ctx);
+            }
             _ => {
                 self.close_all_menus_except_feeds(ctx);
             }
