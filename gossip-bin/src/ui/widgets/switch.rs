@@ -210,6 +210,7 @@ fn interact(
     (state, response)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn draw_at(
     ui: &mut Ui,
     theme: &Theme,

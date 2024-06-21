@@ -479,7 +479,7 @@ fn process_somebody_elses_contact_list(event: &Event, force: bool) -> Result<(),
                 .to_overlord
                 .send(ToOverlordMessage::RefreshScoresAndPickRelays);
         }
-    } else if event.content.len() > 0 {
+    } else if !event.content.is_empty() {
         tracing::info!("Contact list content does not parse: {}", &event.content);
     }
 
