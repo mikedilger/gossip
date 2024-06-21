@@ -4,6 +4,7 @@ use crate::globals::GLOBALS;
 use crate::nip46::ParsedCommand;
 use crate::people::PersonList;
 use crate::relay::Relay;
+use crate::storage::Storage;
 use nostr_types::{EventKind, Filter, PublicKey, PublicKeyHex, RelayList, RelayUrl, Unixtime};
 use parking_lot::RwLock as PRwLock;
 use parking_lot::RwLockReadGuard as PRwLockReadGuard;
@@ -230,23 +231,50 @@ impl Pending {
         let t90days = 60 * 60 * 24 * 90;
 
         let pkh: PublicKeyHex = mypubkey.into();
-        let mut filter = Filter::new();
-        filter.add_event_kind(EventKind::RelayList);
-        filter.add_author(&pkh);
-        let relay_lists = GLOBALS.storage.find_events_by_filter(&filter, |_| true)?;
 
-        if relay_lists.is_empty() {
+        let mut filter = Filter::new();
+        filter.add_author(&pkh);
+        filter.kinds = vec![EventKind::RelayList];
+        let relay_lists = GLOBALS.storage.find_events_by_filter(&filter, |_| true)?;
+        filter.kinds = vec![EventKind::DmRelayList];
+        let dm_relay_lists = GLOBALS.storage.find_events_by_filter(&filter, |_| true)?;
+
+        if relay_lists.is_empty() && dm_relay_lists.is_empty() {
             self.insert(PendingItem::RelayListNeverAdvertised);
         } else {
             self.remove(&PendingItem::RelayListNeverAdvertised); // remove if present
 
-            let stored_relay_list = GLOBALS.storage.load_advertised_relay_list()?;
+            let stored_relay_list = GLOBALS.storage.load_effective_public_relay_list()?;
             let event_relay_list = RelayList::from_event(&relay_lists[0]);
 
-            if stored_relay_list != event_relay_list {
+            let stored_dm_relays = {
+                let mut relays = Relay::choose_relay_urls(Relay::DM, |_| true)?;
+                relays.sort();
+                relays
+            };
+            let event_dm_relays = {
+                let mut relays: Vec<RelayUrl> = Vec::new();
+                for tag in dm_relay_lists[0].tags.iter() {
+                    if tag.tagname() == "relay" {
+                        if let Ok(relay_url) = RelayUrl::try_from_str(tag.value()) {
+                            // Don't use banned relay URLs
+                            if !Storage::url_is_banned(&relay_url) {
+                                relays.push(relay_url);
+                            }
+                        }
+                    }
+                }
+                relays.sort();
+                relays
+            };
+
+            if stored_relay_list != event_relay_list || stored_dm_relays != event_dm_relays {
                 self.insert(PendingItem::RelayListChangedSinceAdvertised);
             } else {
                 self.remove(&PendingItem::RelayListChangedSinceAdvertised); // remove if present
+
+                // We could also check person.dm_relay_list_created_at, but probably not needed
+                // as they both publish together.
 
                 if relay_lists[0].created_at.0 + t30days < now.0 {
                     self.insert(PendingItem::RelayListNotAdvertisedRecently);

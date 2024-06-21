@@ -1021,25 +1021,7 @@ impl Storage {
         self.filter_relays3(f)
     }
 
-    /// Load effective relay list
-    pub fn load_effective_relay_list(&self) -> Result<RelayList, Error> {
-        let mut relay_list: RelayList = Default::default();
-
-        for relay in self.filter_relays(|_| true)? {
-            if relay.has_usage_bits(Relay::READ | Relay::WRITE) {
-                relay_list.0.insert(relay.url, RelayUsage::Both);
-            } else if relay.has_usage_bits(Relay::WRITE) {
-                relay_list.0.insert(relay.url, RelayUsage::Outbox);
-            } else if relay.has_usage_bits(Relay::READ) {
-                relay_list.0.insert(relay.url, RelayUsage::Inbox);
-            }
-        }
-
-        Ok(relay_list)
-    }
-
-    /// Load advertised relay list
-    pub fn load_advertised_relay_list(&self) -> Result<RelayList, Error> {
+    pub fn load_effective_public_relay_list(&self) -> Result<RelayList, Error> {
         let mut relay_list: RelayList = Default::default();
 
         for relay in self.filter_relays(|_| true)? {
@@ -2639,7 +2621,7 @@ impl Storage {
         self.delete_nip46server2(pubkey, rw_txn)
     }
 
-    fn url_is_banned(url: &RelayUrl) -> bool {
+    pub fn url_is_banned(url: &RelayUrl) -> bool {
         url.as_str().contains("relay.nostr.band") || url.as_str().contains("filter.nostr.wine")
     }
 }
