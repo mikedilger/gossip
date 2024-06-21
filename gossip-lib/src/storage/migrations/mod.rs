@@ -1,4 +1,3 @@
-
 // Migrations before m23 (except critical ones) are dropped from gossip-0.11
 // so you must run gossip-0.9 or gossip-0.10 at least once to come up to
 // m23 (or m28) first.
@@ -63,20 +62,23 @@ impl Storage {
 
     pub(super) fn migrate(&self, mut level: u32) -> Result<(), Error> {
         if level < Self::MIN_MIGRATION_LEVEL {
-            let lmdb_dir = crate::profile::Profile::current().map_or(
-                "<notfound>".to_owned(),
-                |p| format!("{}/", p.lmdb_dir.display()),
-            );
+            let lmdb_dir = crate::profile::Profile::current()
+                .map_or("<notfound>".to_owned(), |p| {
+                    format!("{}/", p.lmdb_dir.display())
+                });
             eprintln!("DATABASE IS TOO OLD");
             eprintln!("-------------------");
-            eprintln!("This version of gossip cannot handle your old database. You have two options:");
+            eprintln!(
+                "This version of gossip cannot handle your old database. You have two options:"
+            );
             eprintln!("Option 1: Run gossip 0.9 or 0.10 at least once to upgrade, or");
-            eprintln!("Option 2: Delete your database directory {} and restart to start fresh", lmdb_dir);
-            return Err(ErrorKind::General(format!(
-                "Migration level {} is too old.",
-                level
-            ))
-            .into());
+            eprintln!(
+                "Option 2: Delete your database directory {} and restart to start fresh",
+                lmdb_dir
+            );
+            return Err(
+                ErrorKind::General(format!("Migration level {} is too old.", level)).into(),
+            );
         }
 
         if level > Self::MAX_MIGRATION_LEVEL {
