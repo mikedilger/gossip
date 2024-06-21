@@ -308,7 +308,7 @@ fn draw_at(
             let text_pos = switch_rect.right_top()
                 + vec2(
                     ui.spacing().item_spacing.x,
-                    (switch_rect.height() - galley.rect.height()) / 2.0,
+                    (switch_rect.height() - galley.rect.height()) / 2.0 + 0.5,
                 );
             ui.painter().galley_with_override_text_color(
                 text_pos,
