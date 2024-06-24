@@ -344,6 +344,8 @@ impl Minion {
                         }
                         _ => {
                             tracing::debug!("{} closed with unknown prefix {}", &self.url, prefix);
+                            // Presume any other kind of Closed is an failed subscription
+                            self.failed_subs.insert(handle.clone());
                         }
                     }
                 }
