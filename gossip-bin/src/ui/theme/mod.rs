@@ -657,6 +657,12 @@ pub(super) fn font_definitions() -> FontDefinitions {
             "NotoSansCJK".to_owned(),
             FontData::from_static(include_bytes!("../../../../fonts/NotoSansCJK-Regular.ttc")),
         );
+        font_data.insert(
+            "NotoSansThai".to_owned(),
+            FontData::from_static(include_bytes!(
+                "../../../../fonts/NotoSansThai-VariableFont.ttf"
+            )),
+        );
     }
 
     font_data.insert(
@@ -695,6 +701,7 @@ pub(super) fn font_definitions() -> FontDefinitions {
     let mut proportional = vec!["DejaVuSans".to_owned(), "NotoEmoji-Regular".to_owned()];
     if cfg!(feature = "lang-cjk") {
         proportional.push("NotoSansCJK".to_owned());
+        proportional.push("NotoSansThai".to_owned())
     }
 
     families.insert(FontFamily::Proportional, proportional);
