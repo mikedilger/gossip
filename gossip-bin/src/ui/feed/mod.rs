@@ -1,6 +1,6 @@
 use super::theme::FeedProperties;
 use super::{widgets, GossipUi, Page};
-use eframe::egui::{self, Align, FontId, Rect};
+use eframe::egui::{self, Align, Rect};
 use egui::{Context, RichText, Ui, Vec2};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::FeedKind;
@@ -301,8 +301,16 @@ fn render_a_feed(
                 .show(ui, |ui| {
                     if feed_newest_at_bottom {
                         ui.add_space(50.0);
-                        if offer_load_more {
+                        if offer_load_more
+                            && (!feed.is_empty()
+                                || (ctx.input(|i| i.time) - app.feeds.last_enter_feed_time)
+                                    > LONG_WAIT_TIME)
+                        {
                             render_load_more(app, ui)
+                        }
+                        if feed.is_empty() {
+                            ui.add_space(50.0);
+                            widgets::giant_spinner(ui, &app.theme);
                         }
                         ui.add_space(50.0);
 
@@ -340,50 +348,7 @@ fn render_a_feed(
 
                         ui.add_space(50.0);
                         if feed.is_empty() {
-                            // show a spinner
-                            let size = ui.available_width() / 2.0;
-                            ui.horizontal(|ui| {
-                                ui.add_space((ui.available_width() - size) / 2.0);
-                                let (rect, response) = ui.allocate_exact_size(
-                                    egui::vec2(size, size),
-                                    egui::Sense::hover(),
-                                );
-                                {
-                                    ui.ctx().request_repaint(); // because it is animated
-
-                                    let spinner_color = if app.theme.dark_mode {
-                                        app.theme.neutral_950()
-                                    } else {
-                                        egui::Color32::WHITE
-                                    };
-                                    let radius = (rect.height() / 2.0) - 2.0;
-                                    let n_points = 240;
-                                    let time = ui.input(|i| i.time);
-                                    let start_angle = time * std::f64::consts::TAU;
-                                    let end_angle = start_angle + 240f64.to_radians() * time.sin();
-                                    let points: Vec<egui::Pos2> = (0..n_points)
-                                        .map(|i| {
-                                            let angle = egui::lerp(
-                                                start_angle..=end_angle,
-                                                i as f64 / n_points as f64,
-                                            );
-                                            let (sin, cos) = angle.sin_cos();
-                                            rect.center()
-                                                + radius * egui::vec2(cos as f32, sin as f32)
-                                        })
-                                        .collect();
-                                    for point in points {
-                                        ui.painter().circle_filled(point, 15.0, spinner_color);
-                                    }
-                                }
-                                ui.painter().text(
-                                    response.rect.center(),
-                                    egui::Align2::CENTER_CENTER,
-                                    "Loading",
-                                    FontId::proportional(16.0),
-                                    ui.visuals().text_color(),
-                                );
-                            });
+                            widgets::giant_spinner(ui, &app.theme);
                             ui.add_space(50.0);
                         }
                         if offer_load_more

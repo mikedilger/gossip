@@ -181,6 +181,47 @@ pub fn options_menu_button(ui: &mut Ui, theme: &Theme, assets: &Assets) -> Respo
     response
 }
 
+pub fn giant_spinner(ui: &mut Ui, theme: &Theme) -> Response {
+    // show a spinner
+    let size = ui.available_width() / 2.0;
+    ui.horizontal(|ui| {
+        ui.add_space((ui.available_width() - size) / 2.0);
+        let (rect, response) = ui.allocate_exact_size(egui::vec2(size, size), egui::Sense::hover());
+        {
+            ui.ctx().request_repaint(); // because it is animated
+
+            let spinner_color = if theme.dark_mode {
+                theme.neutral_950()
+            } else {
+                egui::Color32::WHITE
+            };
+            let radius = (rect.height() / 2.0) - 2.0;
+            let n_points = 240;
+            let time = ui.input(|i| i.time);
+            let start_angle = time * std::f64::consts::TAU;
+            let end_angle = start_angle + 240f64.to_radians() * time.sin();
+            let points: Vec<egui::Pos2> = (0..n_points)
+                .map(|i| {
+                    let angle = egui::lerp(start_angle..=end_angle, i as f64 / n_points as f64);
+                    let (sin, cos) = angle.sin_cos();
+                    rect.center() + radius * egui::vec2(cos as f32, sin as f32)
+                })
+                .collect();
+            for point in points {
+                ui.painter().circle_filled(point, 15.0, spinner_color);
+            }
+        }
+        ui.painter().text(
+            response.rect.center(),
+            egui::Align2::CENTER_CENTER,
+            "Loading",
+            FontId::proportional(16.0),
+            ui.visuals().text_color(),
+        );
+    })
+    .response
+}
+
 pub(super) fn set_important_button_visuals(ui: &mut Ui, app: &GossipUi) {
     let visuals = ui.visuals_mut();
     visuals.widgets.inactive.weak_bg_fill = app.theme.accent_color();
