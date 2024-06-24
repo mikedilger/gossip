@@ -816,7 +816,7 @@ impl GossipUi {
             Page::Feed(feed_kind) => {
                 let is_list = matches!(feed_kind, FeedKind::List(_, _));
                 GLOBALS.feed.switch_feed(feed_kind.clone());
-                feed::enter_feed(self, feed_kind.to_owned());
+                feed::enter_feed(self, ctx, feed_kind.to_owned());
                 if is_list {
                     self.open_menu(ctx, SubMenu::Feeds);
                 } else {

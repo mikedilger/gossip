@@ -1,6 +1,6 @@
 use super::theme::FeedProperties;
 use super::{widgets, GossipUi, Page};
-use eframe::egui::{self, Align, Rect};
+use eframe::egui::{self, Align, FontId, Rect};
 use egui::{Context, RichText, Ui, Vec2};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::FeedKind;
@@ -11,6 +11,8 @@ use std::sync::atomic::Ordering;
 mod note;
 pub use note::NoteRenderData;
 pub(super) mod post;
+
+const LONG_WAIT_TIME: f64 = 5.0; // seconds until the user has waited a long time for the feed to load
 
 struct FeedNoteParams {
     id: Id,
@@ -24,9 +26,10 @@ struct FeedNoteParams {
 #[derive(Default)]
 pub(super) struct Feeds {
     thread_needs_scroll: bool,
+    last_enter_feed_time: f64,
 }
 
-pub(super) fn enter_feed(app: &mut GossipUi, kind: FeedKind) {
+pub(super) fn enter_feed(app: &mut GossipUi, ctx: &Context, kind: FeedKind) {
     if let FeedKind::Thread {
         id: _,
         referenced_by: _,
@@ -37,6 +40,8 @@ pub(super) fn enter_feed(app: &mut GossipUi, kind: FeedKind) {
             app.feeds.thread_needs_scroll = true;
         }
     }
+
+    app.feeds.last_enter_feed_time = ctx.input(|i| i.time);
 }
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
@@ -65,6 +70,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
 
     let feed_kind = GLOBALS.feed.get_feed_kind();
     let load_more = feed_kind.can_load_more();
+    let long_wait = ctx.input(|i| i.time) - app.feeds.last_enter_feed_time > LONG_WAIT_TIME;
 
     match feed_kind {
         FeedKind::List(list, with_replies) => {
@@ -90,36 +96,38 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                     ui.label(title_job);
                     recompute_btn(ui);
 
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.add_space(16.0);
+                    if !feed.is_empty() || long_wait {
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            ui.add_space(16.0);
 
-                        if widgets::Button::bordered(&app.theme, "Edit List")
-                            .small(true)
-                            .show(ui)
-                            .clicked()
-                        {
-                            app.set_page(ctx, Page::PeopleList(list));
-                        }
+                            if widgets::Button::bordered(&app.theme, "Edit List")
+                                .small(true)
+                                .show(ui)
+                                .clicked()
+                            {
+                                app.set_page(ctx, Page::PeopleList(list));
+                            }
 
-                        ui.add_space(10.0);
-                        ui.label(RichText::new("Include replies").size(11.0));
-                        if widgets::Switch::small(&app.theme, &mut app.mainfeed_include_nonroot)
-                            .show(ui)
-                            .clicked()
-                        {
-                            app.set_page(
-                                ctx,
-                                Page::Feed(FeedKind::List(list, app.mainfeed_include_nonroot)),
-                            );
-                            ctx.data_mut(|d| {
-                                d.insert_persisted(
-                                    egui::Id::new("mainfeed_include_nonroot"),
-                                    app.mainfeed_include_nonroot,
+                            ui.add_space(10.0);
+                            ui.label(RichText::new("Include replies").size(11.0));
+                            if widgets::Switch::small(&app.theme, &mut app.mainfeed_include_nonroot)
+                                .show(ui)
+                                .clicked()
+                            {
+                                app.set_page(
+                                    ctx,
+                                    Page::Feed(FeedKind::List(list, app.mainfeed_include_nonroot)),
                                 );
-                            });
-                        }
-                        ui.label(RichText::new("Main posts").size(11.0));
-                    });
+                                ctx.data_mut(|d| {
+                                    d.insert_persisted(
+                                        egui::Id::new("mainfeed_include_nonroot"),
+                                        app.mainfeed_include_nonroot,
+                                    );
+                                });
+                            }
+                            ui.label(RichText::new("Main posts").size(11.0));
+                        });
+                    }
                 },
             );
             ui.add_space(6.0);
@@ -331,7 +339,58 @@ fn render_a_feed(
                         }
 
                         ui.add_space(50.0);
-                        if offer_load_more {
+                        if feed.is_empty() {
+                            // show a spinner
+                            let size = ui.available_width() / 2.0;
+                            ui.horizontal(|ui| {
+                                ui.add_space((ui.available_width() - size) / 2.0);
+                                let (rect, response) = ui.allocate_exact_size(
+                                    egui::vec2(size, size),
+                                    egui::Sense::hover(),
+                                );
+                                {
+                                    ui.ctx().request_repaint(); // because it is animated
+
+                                    let spinner_color = if app.theme.dark_mode {
+                                        app.theme.neutral_950()
+                                    } else {
+                                        egui::Color32::WHITE
+                                    };
+                                    let radius = (rect.height() / 2.0) - 2.0;
+                                    let n_points = 240;
+                                    let time = ui.input(|i| i.time);
+                                    let start_angle = time * std::f64::consts::TAU;
+                                    let end_angle = start_angle + 240f64.to_radians() * time.sin();
+                                    let points: Vec<egui::Pos2> = (0..n_points)
+                                        .map(|i| {
+                                            let angle = egui::lerp(
+                                                start_angle..=end_angle,
+                                                i as f64 / n_points as f64,
+                                            );
+                                            let (sin, cos) = angle.sin_cos();
+                                            rect.center()
+                                                + radius * egui::vec2(cos as f32, sin as f32)
+                                        })
+                                        .collect();
+                                    for point in points {
+                                        ui.painter().circle_filled(point, 15.0, spinner_color);
+                                    }
+                                }
+                                ui.painter().text(
+                                    response.rect.center(),
+                                    egui::Align2::CENTER_CENTER,
+                                    "Loading",
+                                    FontId::proportional(16.0),
+                                    ui.visuals().text_color(),
+                                );
+                            });
+                            ui.add_space(50.0);
+                        }
+                        if offer_load_more
+                            && (!feed.is_empty()
+                                || (ctx.input(|i| i.time) - app.feeds.last_enter_feed_time)
+                                    > LONG_WAIT_TIME)
+                        {
                             render_load_more(app, ui)
                         }
                         ui.add_space(50.0);
