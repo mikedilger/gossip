@@ -777,7 +777,18 @@ impl Minion {
 
         let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
 
-        let filters = filter_fns::inbox_feed(spamsafe, FeedRange::After { since: anchor });
+        let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
+        let mut filters = filter_fns::inbox_feed(
+            spamsafe,
+            FeedRange::ChunkBefore {
+                until: anchor,
+                limit,
+            },
+        );
+        filters.extend(filter_fns::inbox_feed(
+            spamsafe,
+            FeedRange::After { since: anchor },
+        ));
 
         if filters.is_empty() {
             return Ok(());
