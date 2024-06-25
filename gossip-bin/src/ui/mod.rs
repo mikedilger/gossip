@@ -1119,21 +1119,22 @@ impl GossipUi {
         ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
             notifications::draw_icons(self, ui);
 
-            let (frame_stroke, active_color_override) = if self.theme.dark_mode && self.unsaved_settings.offline {
-                (
-                    egui::Stroke::new(1.0, Color32::TRANSPARENT),
-                    Some(self.theme.neutral_900()),
-                )
-            } else if self.theme.dark_mode && !self.unsaved_settings.offline  {
-                (
-                    egui::Stroke::new(1.0, self.theme.neutral_900()),
-                    Some(self.theme.neutral_900()),
-                )
-            } else if !self.theme.dark_mode && self.unsaved_settings.offline {
-                (egui::Stroke::new(1.0, Color32::TRANSPARENT), None)
-            } else {
-                (egui::Stroke::new(1.0, self.theme.neutral_300()), None)
-            };
+            let (frame_stroke, active_color_override) =
+                if self.theme.dark_mode && self.unsaved_settings.offline {
+                    (
+                        egui::Stroke::new(1.0, Color32::TRANSPARENT),
+                        Some(self.theme.neutral_900()),
+                    )
+                } else if self.theme.dark_mode && !self.unsaved_settings.offline {
+                    (
+                        egui::Stroke::new(1.0, self.theme.neutral_900()),
+                        Some(self.theme.neutral_900()),
+                    )
+                } else if !self.theme.dark_mode && self.unsaved_settings.offline {
+                    (egui::Stroke::new(1.0, Color32::TRANSPARENT), None)
+                } else {
+                    (egui::Stroke::new(1.0, self.theme.neutral_300()), None)
+                };
             let (color, text, text_color_override) = if self.unsaved_settings.offline {
                 (
                     self.theme.amber_100(),
@@ -1141,7 +1142,11 @@ impl GossipUi {
                     active_color_override,
                 )
             } else {
-                (Color32::TRANSPARENT, "Offline mode disabled", Some(self.theme.neutral_500()))
+                (
+                    Color32::TRANSPARENT,
+                    "Offline mode disabled",
+                    Some(self.theme.neutral_500()),
+                )
             };
             const PADDING: egui::Margin = egui::Margin {
                 left: 20.0,
