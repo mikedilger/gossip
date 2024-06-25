@@ -144,6 +144,9 @@ impl Feed {
         // Set the feed kind
         *self.current_feed_kind.write() = feed_kind;
 
+        // Clear the feed before recomputing
+        *self.current_feed_events.write() = vec![];
+
         // Recompute as they switch
         self.sync_recompute();
 
