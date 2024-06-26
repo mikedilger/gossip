@@ -239,6 +239,32 @@ impl<'t> TextEdit<'t> {
 
             // paste button
             if self.with_paste {
+
+                let theme = self.theme;
+                let response = &output.response;
+
+                let (color, hover) = if ui.visuals().dark_mode {
+                    if !response.sense.interactive() {
+                        (theme.neutral_700(), theme.neutral_700())
+                    } else if response.is_pointer_button_down_on() || response.has_focus() {
+                        (theme.neutral_500(), theme.neutral_200())
+                    } else if response.hovered() || response.highlighted() {
+                        (theme.neutral_700(), theme.neutral_700())
+                    } else {
+                        (theme.neutral_700(), theme.neutral_700())
+                    }
+                } else {
+                    if !response.sense.interactive() {
+                        (theme.neutral_300(), theme.neutral_300())
+                    } else if response.is_pointer_button_down_on() || response.has_focus() {
+                        (theme.neutral_400(), theme.neutral_800())
+                    } else if response.hovered() || response.highlighted() {
+                        (theme.neutral_300(), theme.neutral_300())
+                    } else {
+                        (theme.neutral_300(), theme.neutral_300())
+                    }
+                };
+
                 let action_size = vec2(45.0, output.response.rect.height());
                 let rect = Rect::from_min_size(
                     output.response.rect.right_top() - vec2(action_size.x, 0.0),
@@ -249,9 +275,9 @@ impl<'t> TextEdit<'t> {
                     .put(
                         rect,
                         super::NavItem::new("Paste", true)
-                            .color(ui.visuals().widgets.active.fg_stroke.color)
-                            .active_color(ui.visuals().widgets.active.fg_stroke.color)
-                            .hover_color(ui.visuals().widgets.hovered.fg_stroke.color)
+                            .color(color)
+                            .active_color(color)
+                            .hover_color(hover)
                             .sense(egui::Sense::click()),
                     )
                     .clicked()
