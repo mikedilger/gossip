@@ -399,7 +399,9 @@ struct GossipUi {
     override_dpi: bool,
     override_dpi_value: u32,
     original_dpi_value: u32,
+    // How far we should scroll this frame
     current_scroll_offset: f32,
+    // How far we should scroll in future frames
     future_scroll_offset: f32,
 
     // Ui timers
@@ -1291,6 +1293,11 @@ impl GossipUi {
                         });
                 });
         }
+    }
+
+    #[inline]
+    fn is_scrolling(&self) -> bool {
+        self.current_scroll_offset != 0.0
     }
 }
 

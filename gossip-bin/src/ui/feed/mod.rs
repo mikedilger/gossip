@@ -458,7 +458,7 @@ fn render_note_maybe_fake(
         // we also need to scroll to not-rendered notes
         if is_main_event && app.feeds.thread_needs_scroll {
             // keep auto-scrolling until user scrolls
-            if app.current_scroll_offset != 0.0 {
+            if app.is_scrolling() {
                 app.feeds.thread_needs_scroll = false;
             }
             ui.scroll_to_rect(

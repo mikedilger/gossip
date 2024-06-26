@@ -151,7 +151,7 @@ pub(super) fn render_note(
             // scroll to this note if it's the main note of a thread and the user hasn't scrolled yet
             if is_main_event && app.feeds.thread_needs_scroll {
                 // keep auto-scrolling until user scrolls
-                if app.current_scroll_offset != 0.0 {
+                if app.is_scrolling() {
                     app.feeds.thread_needs_scroll = false;
                 }
                 // only request scrolling if the note is not completely visible
@@ -161,7 +161,7 @@ pub(super) fn render_note(
             }
 
             // Mark post as viewed if hovered AND we are not scrolling
-            if !viewed && inner_response.response.hovered() && app.current_scroll_offset == 0.0 {
+            if !viewed && inner_response.response.hovered() && !app.is_scrolling() {
                 let _ = GLOBALS.storage.mark_event_viewed(id, None);
             }
 
