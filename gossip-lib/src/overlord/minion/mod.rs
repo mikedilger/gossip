@@ -63,7 +63,8 @@ impl MinionExitReason {
     pub fn benign(&self) -> bool {
         matches!(
             *self,
-            MinionExitReason::GotShutdownMessage | MinionExitReason::SubscriptionsCompletedSuccessfully
+            MinionExitReason::GotShutdownMessage
+                | MinionExitReason::SubscriptionsCompletedSuccessfully
         )
     }
 }
@@ -92,6 +93,7 @@ pub struct Minion {
     failed_subs: HashSet<String>,
     initial_handling: bool,
     loading_more: usize,
+    subscriptions_empty_asof: Option<Unixtime>,
 }
 
 impl Drop for Minion {
@@ -137,6 +139,7 @@ impl Minion {
             failed_subs: HashSet::new(),
             initial_handling: true,
             loading_more: 0,
+            subscriptions_empty_asof: None,
         })
     }
 }
@@ -505,17 +508,25 @@ impl Minion {
             },
         }
 
-        // Don't continue if we have no more subscriptions
+        // Perhaps don't continue if we have no more subscriptions
         if self.subscription_map.is_empty()
             && self.subscriptions_waiting_for_auth.is_empty()
             && self.subscriptions_waiting_for_metadata.is_empty()
             && self.posting_jobs.is_empty()
         {
-            self.exiting = if self.failed_subs.is_empty() {
-                Some(MinionExitReason::SubscriptionsCompletedSuccessfully)
+            let now = Unixtime::now().unwrap();
+            if let Some(when) = self.subscriptions_empty_asof {
+                if now - when > Duration::from_secs(10) {
+                    // Exit as we have been idle 30 seconds without subscriptions
+                    self.exiting = if self.failed_subs.is_empty() {
+                        Some(MinionExitReason::SubscriptionsCompletedSuccessfully)
+                    } else {
+                        Some(MinionExitReason::SubscriptionsCompletedWithFailures)
+                    };
+                }
             } else {
-                Some(MinionExitReason::SubscriptionsCompletedWithFailures)
-            };
+                self.subscriptions_empty_asof = Some(now);
+            }
         }
 
         Ok(())
@@ -1166,6 +1177,9 @@ impl Minion {
         handle: &str,
         job_id: u64,
     ) -> Result<(), Error> {
+        // Reset timing of empty subscription period
+        self.subscriptions_empty_asof = None;
+
         if filters.is_empty() {
             tracing::warn!("EMPTY FILTERS handle={} jobid={}", handle, job_id);
             return Ok(());

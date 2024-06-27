@@ -461,7 +461,7 @@ impl Overlord {
                             // minion exited. Clear those jobs.
                             relayjobs = vec![];
                             0
-                        },
+                        }
                         MinionExitReason::SubscriptionsCompletedWithFailures => 120,
                         MinionExitReason::Unknown => 120,
                     };
