@@ -230,6 +230,40 @@ impl Relay3 {
             .collect())
     }
 
+    // Which relays are best for a reply to this event (used to find replies to this event)
+    pub fn relays_for_reply(event: &Event) -> Result<Vec<RelayUrl>, Error> {
+        let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
+
+        let mut seen_on: Vec<RelayUrl> = GLOBALS
+            .storage
+            .get_event_seen_on_relay(event.id)?
+            .drain(..)
+            .map(|(url, _time)| url)
+            .collect();
+
+        let inbox: Vec<RelayUrl> = GLOBALS.storage.get_best_relays(
+            event.pubkey,
+            false,
+            num_relays_per_person as usize + 1,
+        )?;
+
+        // Take all inbox relays, and up to 2 seen_on relays that aren't inbox relays
+        let mut answer = inbox;
+        let mut extra = 2;
+        for url in seen_on.drain(..) {
+            if extra == 0 {
+                break;
+            }
+            if answer.contains(&url) {
+                continue;
+            }
+            answer.push(url);
+            extra -= 1;
+        }
+
+        Ok(answer)
+    }
+
     // Which relays should an event be posted to (that it hasn't already been
     // seen on)?
     pub fn relays_for_event(event: &Event) -> Result<Vec<RelayUrl>, Error> {

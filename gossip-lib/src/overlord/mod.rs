@@ -3105,32 +3105,12 @@ impl Overlord {
     ///
     /// WARNING: DO NOT CALL TOO OFTEN or relays will hate you.
     pub async fn visible_notes_changed(&mut self, mut visible: Vec<Id>) -> Result<(), Error> {
-        let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
-
         // Work out which relays to use to find augments for which ids
         let mut augment_subs: HashMap<RelayUrl, Vec<Id>> = HashMap::new();
         for id in visible.drain(..) {
-            // Use the relays that the event was seen on. These are likely to contain
-            // the reactions.
-            for (relay_url, _) in GLOBALS.storage.get_event_seen_on_relay(id)?.drain(..) {
-                augment_subs
-                    .entry(relay_url)
-                    .and_modify(|vec| {
-                        if !vec.contains(&id) {
-                            vec.push(id)
-                        }
-                    })
-                    .or_insert(vec![id]);
-            }
-
             if let Some(event) = GLOBALS.storage.read_event(id)? {
-                // Use the inbox of the author. NIP-65 compliant clients should be sending their
-                // reactions to the author.
-                for relay_url in GLOBALS.storage.get_best_relays(
-                    event.pubkey,
-                    false,
-                    num_relays_per_person as usize + 1,
-                )? {
+                let relays = Relay::relays_for_reply(&event)?;
+                for relay_url in relays {
                     augment_subs
                         .entry(relay_url)
                         .and_modify(|vec| {
