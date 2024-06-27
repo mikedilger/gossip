@@ -17,6 +17,7 @@ pub struct Feed {
     /// Consumers of gossip-lib should only read this, not write to it.
     /// It will be true if the feed is being recomputed.
     pub recompute_lock: AtomicBool,
+    pub switching: AtomicBool,
 
     current_feed_kind: RwLock<FeedKind>,
     current_feed_events: RwLock<Vec<Id>>,
@@ -39,6 +40,7 @@ impl Feed {
     pub(crate) fn new() -> Feed {
         Feed {
             recompute_lock: AtomicBool::new(false),
+            switching: AtomicBool::new(false),
             current_feed_kind: RwLock::new(FeedKind::List(PersonList::Followed, false)),
             current_feed_events: RwLock::new(Vec::new()),
             feed_anchors: DashMap::new(),
@@ -113,6 +115,8 @@ impl Feed {
         // NOTE: do not clear the feed here, or the UI will get an empty feed momentarily
         // and the scroll bar "memory" will be reset to the top.  Let recompute rebuild
         // the feed (called down below)
+
+        self.switching.store(true, Ordering::Relaxed);
 
         let anchor: Unixtime = {
             let anchor_key = feed_kind.anchor_key();
@@ -204,6 +208,18 @@ impl Feed {
     /// parent to the highest locally available one (or the event if it is not local)
     pub(crate) fn set_thread_parent(&self, id: Id) {
         *self.thread_parent.write() = Some(id);
+    }
+
+    /// Are we switching feeds?
+    #[inline]
+    pub fn is_switching(&self) -> bool {
+        self.switching.load(Ordering::Relaxed)
+    }
+
+    /// Are we switching feeds?
+    #[inline]
+    pub fn is_recomputing(&self) -> bool {
+        self.recompute_lock.load(Ordering::Relaxed)
     }
 
     /// This recomputes only if periodic recomputation is enabled, and it has been
@@ -356,6 +372,7 @@ impl Feed {
 
         *self.last_computed.write() = Some(Instant::now());
         self.recompute_lock.store(false, Ordering::Relaxed);
+        self.switching.store(false, Ordering::Relaxed);
 
         Ok(())
     }

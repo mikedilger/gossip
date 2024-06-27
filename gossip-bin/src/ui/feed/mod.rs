@@ -283,6 +283,14 @@ fn render_a_feed(
 
     let feed_newest_at_bottom = GLOBALS.storage.read_setting_feed_newest_at_bottom();
 
+    // Do not render feed while switching or we will lose our scroll offset.
+    // Give us the spinner while we wait
+    if GLOBALS.feed.is_switching() {
+        ui.add_space(50.0);
+        widgets::giant_spinner(ui, &app.theme);
+        return;
+    }
+
     app.vert_scroll_area()
         .auto_shrink(false)
         .stick_to_bottom(feed_newest_at_bottom)
@@ -307,10 +315,6 @@ fn render_a_feed(
                                     > LONG_WAIT_TIME)
                         {
                             render_load_more(app, ui)
-                        }
-                        if feed.is_empty() {
-                            ui.add_space(50.0);
-                            widgets::giant_spinner(ui, &app.theme);
                         }
                         ui.add_space(50.0);
 
@@ -525,11 +529,7 @@ fn recompute_btn(ui: &mut Ui) {
             GLOBALS.feed.sync_recompute();
         }
     }
-    if GLOBALS
-        .feed
-        .recompute_lock
-        .load(std::sync::atomic::Ordering::Relaxed)
-    {
+    if GLOBALS.feed.is_recomputing() {
         ui.separator();
         ui.label("RECOMPUTING...");
     } else {
