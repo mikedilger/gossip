@@ -456,10 +456,13 @@ impl Overlord {
                         MinionExitReason::GotShutdownMessage => 0,
                         MinionExitReason::GotWSClose => 120,
                         MinionExitReason::LostOverlord => 0,
-                        MinionExitReason::SubscriptionsHaveCompleted => {
+                        MinionExitReason::SubscriptionsCompletedSuccessfully => {
+                            // The jobs completed but we didn't get messages for them before the
+                            // minion exited. Clear those jobs.
                             relayjobs = vec![];
                             0
-                        }
+                        },
+                        MinionExitReason::SubscriptionsCompletedWithFailures => 120,
                         MinionExitReason::Unknown => 120,
                     };
                 }

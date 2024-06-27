@@ -54,7 +54,8 @@ pub enum MinionExitReason {
     GotShutdownMessage,
     GotWSClose,
     LostOverlord,
-    SubscriptionsHaveCompleted,
+    SubscriptionsCompletedSuccessfully,
+    SubscriptionsCompletedWithFailures,
     Unknown,
 }
 
@@ -62,7 +63,7 @@ impl MinionExitReason {
     pub fn benign(&self) -> bool {
         matches!(
             *self,
-            MinionExitReason::GotShutdownMessage | MinionExitReason::SubscriptionsHaveCompleted
+            MinionExitReason::GotShutdownMessage | MinionExitReason::SubscriptionsCompletedSuccessfully
         )
     }
 }
@@ -510,7 +511,11 @@ impl Minion {
             && self.subscriptions_waiting_for_metadata.is_empty()
             && self.posting_jobs.is_empty()
         {
-            self.exiting = Some(MinionExitReason::SubscriptionsHaveCompleted);
+            self.exiting = if self.failed_subs.is_empty() {
+                Some(MinionExitReason::SubscriptionsCompletedSuccessfully)
+            } else {
+                Some(MinionExitReason::SubscriptionsCompletedWithFailures)
+            };
         }
 
         Ok(())
@@ -1277,6 +1282,7 @@ impl Minion {
         match self.auth_state {
             AuthState::Authenticated => return Ok(()),
             AuthState::Waiting(_) => return Ok(()),
+            AuthState::Failed => return Ok(()),
             _ => (),
         }
 
