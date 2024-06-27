@@ -1619,13 +1619,8 @@ impl Overlord {
                 }
             }
             FeedKind::Person(pubkey) => {
-                let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
                 // Get write relays for the person
-                let relays: Vec<RelayUrl> = GLOBALS.storage.get_best_relays(
-                    pubkey,
-                    true,
-                    num_relays_per_person as usize + 1,
-                )?;
+                let relays: Vec<RelayUrl> = GLOBALS.storage.get_best_relays_fixed(pubkey, true)?;
                 // Subscribe on each of those write relays
                 for relay in relays.iter() {
                     // Subscribe
@@ -1969,15 +1964,13 @@ impl Overlord {
             pubkeys.push(pubkey)
         }
 
-        let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
-
         let mut map: HashMap<RelayUrl, Vec<PublicKey>> = HashMap::new();
 
         // Sort the people into the relays we will find their metadata at
         for pubkey in &pubkeys {
             for relay in GLOBALS
                 .storage
-                .get_best_relays(*pubkey, true, num_relays_per_person as usize + 1)?
+                .get_best_relays_fixed(*pubkey, true)?
                 .drain(..)
             {
                 map.entry(relay)
@@ -2282,12 +2275,7 @@ impl Overlord {
     }
 
     async fn set_person_feed(&mut self, pubkey: PublicKey, anchor: Unixtime) -> Result<(), Error> {
-        let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
-
-        let relays: Vec<RelayUrl> =
-            GLOBALS
-                .storage
-                .get_best_relays(pubkey, true, num_relays_per_person as usize + 1)?;
+        let relays: Vec<RelayUrl> = GLOBALS.storage.get_best_relays_fixed(pubkey, true)?;
 
         for relay in relays.iter() {
             // Subscribe
@@ -2366,11 +2354,8 @@ impl Overlord {
                     if let Some(url) = opthint {
                         bonus_relays.push(url);
                     } else {
-                        let tagged_person_relays: Vec<RelayUrl> = GLOBALS.storage.get_best_relays(
-                            pk,
-                            true,
-                            num_relays_per_person as usize + 1,
-                        )?;
+                        let tagged_person_relays: Vec<RelayUrl> =
+                            GLOBALS.storage.get_best_relays_fixed(pk, true)?;
                         bonus_relays.extend(tagged_person_relays);
                     }
                 }
@@ -2402,11 +2387,8 @@ impl Overlord {
 
                 // Include the relays of the author of the referencing event
                 if let Some(pk) = author {
-                    let author_relays: Vec<RelayUrl> = GLOBALS.storage.get_best_relays(
-                        pk,
-                        true,
-                        num_relays_per_person as usize + 1,
-                    )?;
+                    let author_relays: Vec<RelayUrl> =
+                        GLOBALS.storage.get_best_relays_fixed(pk, true)?;
                     bonus_relays.extend(author_relays);
                 }
             }
@@ -2474,7 +2456,11 @@ impl Overlord {
 
             if let Some(event) = GLOBALS.storage.read_event(id)? {
                 // Include all the INBOX relays of the author of the event
-                bonus_relays.extend(GLOBALS.storage.get_best_relays(event.pubkey, false, 0)?);
+                bonus_relays.extend(
+                    GLOBALS
+                        .storage
+                        .get_best_relays_min(event.pubkey, false, 0)?,
+                );
 
                 // Include all the relays where the event was seen
                 bonus_relays.extend(
@@ -2499,11 +2485,8 @@ impl Overlord {
 
                 // Include the inbox relays of the author of the referencing event
                 if let Some(pk) = author {
-                    let author_relays: Vec<RelayUrl> = GLOBALS.storage.get_best_relays(
-                        pk,
-                        false,
-                        num_relays_per_person as usize + 1,
-                    )?;
+                    let author_relays: Vec<RelayUrl> =
+                        GLOBALS.storage.get_best_relays_min(pk, false, 0)?;
                     bonus_relays.extend(author_relays);
                 }
             }
@@ -2739,11 +2722,7 @@ impl Overlord {
         // for it's retry logic
         GLOBALS.people.metadata_fetch_initiated(&[pubkey]);
 
-        let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
-        let best_relays =
-            GLOBALS
-                .storage
-                .get_best_relays(pubkey, true, num_relays_per_person as usize + 1)?;
+        let best_relays = GLOBALS.storage.get_best_relays_fixed(pubkey, true)?;
 
         // we do 1 more than num_relays_per_person, which is really for main posts,
         // since metadata is more important and I didn't want to bother with
@@ -2778,14 +2757,9 @@ impl Overlord {
         // for it's retry logic
         GLOBALS.people.metadata_fetch_initiated(&pubkeys);
 
-        let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
         let mut map: HashMap<RelayUrl, Vec<PublicKey>> = HashMap::new();
         for pubkey in pubkeys.drain(..) {
-            let best_relays = GLOBALS.storage.get_best_relays(
-                pubkey,
-                true,
-                num_relays_per_person as usize + 1,
-            )?;
+            let best_relays = GLOBALS.storage.get_best_relays_fixed(pubkey, true)?;
             for relay_url in best_relays.iter() {
                 map.entry(relay_url.to_owned())
                     .and_modify(|entry| entry.push(pubkey))
@@ -3294,7 +3268,9 @@ impl Overlord {
 
             // Add the read relays of the target person
             let target_read_relays: Vec<RelayUrl> =
-                GLOBALS.storage.get_best_relays(target_pubkey, false, 0)?;
+                GLOBALS
+                    .storage
+                    .get_best_relays_min(target_pubkey, false, 0)?;
             relays.extend(target_read_relays);
 
             // Add all my write relays

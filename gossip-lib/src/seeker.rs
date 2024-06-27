@@ -58,7 +58,7 @@ impl Seeker {
     }
 
     fn storage_get_relays(author: PublicKey) -> Result<Vec<RelayUrl>, Error> {
-        GLOBALS.storage.get_best_relays(author, true, 0)
+        GLOBALS.storage.get_best_relays_fixed(author, true)
     }
 
     fn minion_seek_relay_list(author: PublicKey) {

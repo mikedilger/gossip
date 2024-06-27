@@ -184,7 +184,7 @@ pub fn prepare_post_nip17(
 fn get_others_relays(recipients: &[PublicKey], write: bool) -> Result<Vec<RelayUrl>, Error> {
     let mut relay_urls: Vec<RelayUrl> = Vec::new();
     for pubkey in recipients {
-        let best_relays: Vec<RelayUrl> = GLOBALS.storage.get_best_relays(*pubkey, write, 0)?;
+        let best_relays: Vec<RelayUrl> = GLOBALS.storage.get_best_relays_fixed(*pubkey, write)?;
         relay_urls.extend(best_relays);
     }
     Ok(relay_urls)

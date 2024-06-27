@@ -82,7 +82,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         let mut found = false;
 
         // If we have write relays, show those
-        if let Ok(urls) = GLOBALS.storage.get_best_relays(pubkey, true, 0) {
+        if let Ok(urls) = GLOBALS.storage.get_best_relays_min(pubkey, true, 0) {
             if !urls.is_empty() {
                 app.vert_scroll_area()
                 .max_width(f32::INFINITY)

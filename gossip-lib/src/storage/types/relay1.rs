@@ -151,7 +151,7 @@ impl Relay1 {
         let maybepubkey = GLOBALS.storage.read_setting_public_key();
         if let Some(pubkey) = maybepubkey {
             let my_inbox_relays: Vec<RelayUrl> =
-                GLOBALS.storage.get_best_relays(pubkey, false, 0)?;
+                GLOBALS.storage.get_best_relays_min(pubkey, false, 0)?;
 
             // Find the first-best intersection
             for mir in &my_inbox_relays {

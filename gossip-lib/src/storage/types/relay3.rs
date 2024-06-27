@@ -188,7 +188,7 @@ impl Relay3 {
         let maybepubkey = GLOBALS.storage.read_setting_public_key();
         if let Some(pubkey) = maybepubkey {
             let my_inbox_relays: Vec<RelayUrl> =
-                GLOBALS.storage.get_best_relays(pubkey, false, 0)?;
+                GLOBALS.storage.get_best_relays_min(pubkey, false, 0)?;
 
             // Find the first-best intersection
             for mir in &my_inbox_relays {
@@ -232,8 +232,6 @@ impl Relay3 {
 
     // Which relays are best for a reply to this event (used to find replies to this event)
     pub fn relays_for_reply(event: &Event) -> Result<Vec<RelayUrl>, Error> {
-        let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
-
         let mut seen_on: Vec<RelayUrl> = GLOBALS
             .storage
             .get_event_seen_on_relay(event.id)?
@@ -241,11 +239,7 @@ impl Relay3 {
             .map(|(url, _time)| url)
             .collect();
 
-        let inbox: Vec<RelayUrl> = GLOBALS.storage.get_best_relays(
-            event.pubkey,
-            false,
-            num_relays_per_person as usize + 1,
-        )?;
+        let inbox: Vec<RelayUrl> = GLOBALS.storage.get_best_relays_fixed(event.pubkey, false)?;
 
         // Take all inbox relays, and up to 2 seen_on relays that aren't inbox relays
         let mut answer = inbox;
@@ -267,7 +261,6 @@ impl Relay3 {
     // Which relays should an event be posted to (that it hasn't already been
     // seen on)?
     pub fn relays_for_event(event: &Event) -> Result<Vec<RelayUrl>, Error> {
-        let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
 
         // Get all of the relays that we write to
@@ -287,11 +280,8 @@ impl Relay3 {
             })
             .collect();
         for pubkey in tagged_pubkeys.drain(..) {
-            let best_relays: Vec<RelayUrl> = GLOBALS.storage.get_best_relays(
-                pubkey,
-                false,
-                num_relays_per_person as usize + 1,
-            )?;
+            let best_relays: Vec<RelayUrl> =
+                GLOBALS.storage.get_best_relays_fixed(pubkey, false)?;
             relay_urls.extend(best_relays);
         }
 

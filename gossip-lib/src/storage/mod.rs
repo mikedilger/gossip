@@ -2064,13 +2064,37 @@ impl Storage {
         self.delete_person_relays2(filter, rw_txn)
     }
 
-    /// Get the best relays for a person, given a direction (read or write).
+    /// Get best relays for a person
+    ///
+    /// This is for the given a direction (read or write).
     /// This does not handle DM usage, use get_dm_relays() for that.
     ///
-    /// This takes ALL of their relay-list declared relays (except anything we banned
-    /// with rank=0, and limited to a sane '5'), and if that is less than `min` it
-    /// includes the best additional relays it can to make up `min` relays.
-    pub fn get_best_relays(
+    /// Take the best `num_relays_per_person` relays from their declared
+    /// relays (skipping relays that are banned or with rank=0)
+    /// and we come up short, use the best alternatives.
+    pub fn get_best_relays_fixed(
+        &self,
+        pubkey: PublicKey,
+        write: bool,
+    ) -> Result<Vec<RelayUrl>, Error> {
+        let num = self.read_setting_num_relays_per_person() as usize;
+        Ok(self
+            .get_best_relays_with_score(pubkey, write, num)?
+            .drain(..)
+            .take(num)
+            .map(|(url, _score)| url)
+            .collect())
+    }
+
+    /// Get best relays for a person
+    ///
+    /// This is for the given a direction (read or write).
+    /// This does not handle DM usage, use get_dm_relays() for that.
+    ///
+    /// take all relays from their declared relays (skipping relays that are
+    /// banned or with rank=0) and if we come up short of `min`, use the
+    /// best alternatives.
+    pub fn get_best_relays_min(
         &self,
         pubkey: PublicKey,
         write: bool,
@@ -2079,7 +2103,6 @@ impl Storage {
         Ok(self
             .get_best_relays_with_score(pubkey, write, min)?
             .drain(..)
-            .take(5)
             .map(|(url, _score)| url)
             .collect())
     }

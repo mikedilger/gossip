@@ -88,7 +88,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                                     if person.borrow().metadata().is_none() {
                                         // We don't have metadata
                                         if let Ok(outboxes) =
-                                            GLOBALS.storage.get_best_relays(pubkey, true, 0)
+                                            GLOBALS.storage.get_best_relays_min(pubkey, true, 0)
                                         {
                                             if !outboxes.is_empty() {
                                                 // But we have their outboxes
