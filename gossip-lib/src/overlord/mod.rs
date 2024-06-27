@@ -694,7 +694,6 @@ impl Overlord {
                             }
                         });
                     }
-                    self.maybe_disconnect_relay(&url)?;
                 }
             }
             ToOverlordMessage::Nip46ServerOpApprovalResponse(pubkey, parsed_command, approval) => {
@@ -1509,32 +1508,6 @@ impl Overlord {
         Ok(())
     }
 
-    fn maybe_disconnect_relay(&mut self, url: &RelayUrl) -> Result<(), Error> {
-        if let Some(refmut) = GLOBALS.connected_relays.get_mut(url) {
-            // If no job remains, disconnect the relay
-            let mut disconnect = refmut.value().is_empty();
-
-            // If only one 'augments' job remains, disconnect the relay
-            if refmut.value().len() == 1
-                && refmut.value()[0].reason == RelayConnectionReason::FetchAugments
-            {
-                disconnect = true;
-            }
-
-            if disconnect {
-                let _ = self.to_minions.send(ToMinionMessage {
-                    target: url.as_str().to_owned(),
-                    payload: ToMinionPayload {
-                        job_id: 0,
-                        detail: ToMinionPayloadDetail::Shutdown,
-                    },
-                });
-            }
-        }
-
-        Ok(())
-    }
-
     /// Like a post. The backend doesn't read the event, so you have to supply the
     /// pubkey author too.
     pub async fn like(&mut self, id: Id, pubkey: PublicKey) -> Result<(), Error> {
@@ -1747,9 +1720,6 @@ impl Overlord {
                 refmut.value_mut().retain(|job| job.reason != reason);
             }
         }
-
-        // Maybe disconnect the relay
-        self.maybe_disconnect_relay(&relay_url)?;
 
         Ok(())
     }
