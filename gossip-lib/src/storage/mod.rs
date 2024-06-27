@@ -2068,8 +2068,8 @@ impl Storage {
     /// This does not handle DM usage, use get_dm_relays() for that.
     ///
     /// This takes ALL of their relay-list declared relays (except anything we banned
-    /// with rank=0), and if that is less than `min` it includes the best additional
-    /// relays it can to make up `min` relays.
+    /// with rank=0, and limited to a sane '5'), and if that is less than `min` it
+    /// includes the best additional relays it can to make up `min` relays.
     pub fn get_best_relays(
         &self,
         pubkey: PublicKey,
@@ -2079,6 +2079,7 @@ impl Storage {
         Ok(self
             .get_best_relays_with_score(pubkey, write, min)?
             .drain(..)
+            .take(5)
             .map(|(url, _score)| url)
             .collect())
     }
