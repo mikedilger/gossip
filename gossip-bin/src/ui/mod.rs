@@ -1140,13 +1140,13 @@ impl GossipUi {
             let (color, text, text_color_override) = if self.unsaved_settings.offline {
                 (
                     self.theme.amber_100(),
-                    "Offline mode enabled",
+                    "Offline mode - ON",
                     active_color_override,
                 )
             } else {
                 (
                     Color32::TRANSPARENT,
-                    "Offline mode disabled",
+                    "Offline mode",
                     Some(self.theme.neutral_500()),
                 )
             };
