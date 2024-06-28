@@ -323,7 +323,7 @@ impl RelayEntry {
                 } else {
                     (
                         egui::Color32::GRAY,
-                        "Currently not picked by picker".to_string(),
+                        "Not connected".to_string(),
                     )
                 }
             }
