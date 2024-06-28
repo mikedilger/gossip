@@ -351,10 +351,6 @@ fn render_a_feed(
                         }
 
                         ui.add_space(50.0);
-                        if feed.is_empty() {
-                            widgets::giant_spinner(ui, &app.theme);
-                            ui.add_space(50.0);
-                        }
                         if offer_load_more
                             && (!feed.is_empty()
                                 || (ctx.input(|i| i.time) - app.feeds.last_enter_feed_time)
