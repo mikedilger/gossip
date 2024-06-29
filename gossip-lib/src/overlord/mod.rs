@@ -35,9 +35,6 @@ use tokio::sync::watch::Receiver as WatchReceiver;
 use tokio::task;
 use zeroize::Zeroize;
 
-const MAX_EXCLUSION: u64 = 60 * 60 * 24 * 7; // one week max exclusion
-const ONE_DAY_EXCLUSION: u64 = 60 * 60 * 24; // one day
-
 type MinionResult = Result<MinionExitReason, Error>;
 
 /// The overlord handles any operation that involves talking to relays, and a few more.
@@ -442,7 +439,7 @@ impl Overlord {
             Err(join_error) => {
                 tracing::error!("Minion {} completed with join error: {}", &url, join_error);
                 Self::bump_failure_count(&url);
-                exclusion = 120;
+                exclusion = 60 * 2;
             }
             Ok((_id, result)) => match result {
                 Ok(exitreason) => {
@@ -452,9 +449,9 @@ impl Overlord {
                         tracing::info!("Minion {} completed: {:?}", &url, exitreason);
                     }
                     exclusion = match exitreason {
-                        MinionExitReason::GotDisconnected => 120,
+                        MinionExitReason::GotDisconnected => 60 * 2,
                         MinionExitReason::GotShutdownMessage => 0,
-                        MinionExitReason::GotWSClose => 120,
+                        MinionExitReason::GotWSClose => 60 * 2,
                         MinionExitReason::LostOverlord => 0,
                         MinionExitReason::SubscriptionsCompletedSuccessfully => {
                             // The jobs completed but we didn't get messages for them before the
@@ -462,55 +459,55 @@ impl Overlord {
                             relayjobs = vec![];
                             0
                         }
-                        MinionExitReason::SubscriptionsCompletedWithFailures => 120,
-                        MinionExitReason::Unknown => 120,
+                        MinionExitReason::SubscriptionsCompletedWithFailures => 60 * 2,
+                        MinionExitReason::Unknown => 60 * 2,
                     };
                 }
                 Err(e) => {
                     Self::bump_failure_count(&url);
                     tracing::error!("Minion {} completed with error: {}", &url, e);
-                    exclusion = 120;
+                    exclusion = 60 * 2;
                     if let ErrorKind::RelayRejectedUs = e.kind {
-                        exclusion = MAX_EXCLUSION;
+                        exclusion = 60 * 10;
                     } else if let ErrorKind::ReqwestHttpError(_) = e.kind {
-                        exclusion = MAX_EXCLUSION;
+                        exclusion = 60 * 10;
                     } else if let ErrorKind::Timeout(_) = e.kind {
-                        exclusion = ONE_DAY_EXCLUSION;
+                        exclusion = 60; // could be local issue affecting all relays so cannot go too big.
                     } else if let ErrorKind::Websocket(wserror) = e.kind {
                         if let tungstenite::error::Error::Http(response) = wserror {
                             exclusion = match response.status() {
-                                StatusCode::MOVED_PERMANENTLY => MAX_EXCLUSION,
-                                StatusCode::PERMANENT_REDIRECT => MAX_EXCLUSION,
-                                StatusCode::UNAUTHORIZED => MAX_EXCLUSION,
-                                StatusCode::PAYMENT_REQUIRED => MAX_EXCLUSION,
-                                StatusCode::FORBIDDEN => MAX_EXCLUSION,
-                                StatusCode::NOT_FOUND => MAX_EXCLUSION,
-                                StatusCode::PROXY_AUTHENTICATION_REQUIRED => MAX_EXCLUSION,
-                                StatusCode::UNAVAILABLE_FOR_LEGAL_REASONS => MAX_EXCLUSION,
-                                StatusCode::NOT_IMPLEMENTED => MAX_EXCLUSION,
-                                StatusCode::BAD_GATEWAY => MAX_EXCLUSION,
-                                StatusCode::SERVICE_UNAVAILABLE => MAX_EXCLUSION,
-                                s if s.as_u16() >= 500 => ONE_DAY_EXCLUSION,
-                                s if s.as_u16() >= 400 => 120,
-                                _ => 120,
+                                StatusCode::MOVED_PERMANENTLY => 60 * 10,
+                                StatusCode::PERMANENT_REDIRECT => 60 * 10,
+                                StatusCode::UNAUTHORIZED => 60 * 10,
+                                StatusCode::PAYMENT_REQUIRED => 60 * 10,
+                                StatusCode::FORBIDDEN => 60 * 10,
+                                StatusCode::NOT_FOUND => 60 * 10,
+                                StatusCode::PROXY_AUTHENTICATION_REQUIRED => 60 * 10,
+                                StatusCode::UNAVAILABLE_FOR_LEGAL_REASONS => 60 * 10,
+                                StatusCode::NOT_IMPLEMENTED => 60 * 10,
+                                StatusCode::BAD_GATEWAY => 60 * 10,
+                                StatusCode::SERVICE_UNAVAILABLE => 60 * 10,
+                                s if s.as_u16() >= 500 => 60 * 10,
+                                s if s.as_u16() >= 400 => 60 * 2,
+                                _ => 60 * 2,
                             };
                         } else if let tungstenite::error::Error::ConnectionClosed = wserror {
                             tracing::debug!("Minion {} completed", &url);
-                            exclusion = 30; // was not actually an error, but needs a pause
+                            exclusion = 15; // was not actually an error, but needs a pause
                         } else if let tungstenite::error::Error::Protocol(protocol_error) = wserror
                         {
                             exclusion = match protocol_error {
                                 tungstenite::error::ProtocolError::ResetWithoutClosingHandshake => {
                                     60
                                 }
-                                _ => 120,
+                                _ => 60 * 2,
                             }
                         } else {
                             let f = format!("{}", wserror);
                             if f.contains("failed to lookup address") {
-                                exclusion = MAX_EXCLUSION;
+                                exclusion = 60; // could be local issue affecting all relays so cannot go too big.
                             } else if f.contains("No route to host") {
-                                exclusion = ONE_DAY_EXCLUSION;
+                                exclusion = 60; // could be local issue affecting all relays so cannot go too big.
                             }
                         }
                     }
@@ -531,6 +528,12 @@ impl Overlord {
         jobs: Vec<RelayJob>,
         exclusion: u64,
     ) {
+        // Randomize the exclusion to between half and full
+        use rand::Rng;
+        let exclusion = rand::thread_rng().sample(
+            rand::distributions::Uniform::new(exclusion/2, exclusion)
+        );
+
         // Let the relay picker know it disconnected
         GLOBALS
             .relay_picker
@@ -568,21 +571,18 @@ impl Overlord {
         // safety catch, minimum exclusion is 10s
         let exclusion = exclusion.max(10);
 
-        if exclusion != MAX_EXCLUSION {
-            tracing::info!(
-                "Minion {} will restart in {} seconds to continue persistent jobs",
-                &url,
-                exclusion
-            );
+        tracing::info!(
+            "Minion {} will restart in {} seconds to continue persistent jobs",
+            &url,
+            exclusion
+        );
 
-            std::mem::drop(tokio::spawn(async move {
-                tokio::time::sleep(Duration::new(exclusion, 0)).await;
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::ReengageMinion(url, jobs));
-            }));
-        }
-        // otherwise leave it in the penalty box forever
+        std::mem::drop(tokio::spawn(async move {
+            tokio::time::sleep(Duration::new(exclusion, 0)).await;
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::ReengageMinion(url, jobs));
+        }));
     }
 
     async fn reengage_minion(&mut self, url: RelayUrl, jobs: Vec<RelayJob>) -> Result<(), Error> {
