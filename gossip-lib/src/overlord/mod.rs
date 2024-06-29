@@ -526,13 +526,15 @@ impl Overlord {
         &mut self,
         url: RelayUrl,
         jobs: Vec<RelayJob>,
-        exclusion: u64,
+        mut exclusion: u64,
     ) {
         // Randomize the exclusion to between half and full
         use rand::Rng;
-        let exclusion = rand::thread_rng().sample(
-            rand::distributions::Uniform::new(exclusion/2, exclusion)
-        );
+        if exclusion > 1 {
+            exclusion = rand::thread_rng().sample(
+                rand::distributions::Uniform::new(exclusion/2, exclusion)
+            );
+        }
 
         // Let the relay picker know it disconnected
         GLOBALS
