@@ -212,8 +212,8 @@ impl Minion {
                 }
 
                 match ok {
-                    true => tracing::info!("{relay_response}"),
-                    false => tracing::warn!("{relay_response}"),
+                    true => tracing::debug!("{relay_response}"),
+                    false => tracing::info!("{relay_response}"),
                 }
             }
             RelayMessage::Auth(challenge) => {
