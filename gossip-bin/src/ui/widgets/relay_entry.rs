@@ -321,10 +321,7 @@ impl RelayEntry {
                         (color, "Timeout, retry soon".to_string())
                     }
                 } else {
-                    (
-                        egui::Color32::GRAY,
-                        "Not connected".to_string(),
-                    )
+                    (egui::Color32::GRAY, "Not connected".to_string())
                 }
             }
         };

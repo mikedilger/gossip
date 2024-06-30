@@ -531,9 +531,8 @@ impl Overlord {
         // Randomize the exclusion to between half and full
         use rand::Rng;
         if exclusion > 1 {
-            exclusion = rand::thread_rng().sample(
-                rand::distributions::Uniform::new(exclusion/2, exclusion)
-            );
+            exclusion = rand::thread_rng()
+                .sample(rand::distributions::Uniform::new(exclusion / 2, exclusion));
         }
 
         // Let the relay picker know it disconnected
