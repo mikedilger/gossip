@@ -295,7 +295,10 @@ impl NoteData {
         self.seen_on.append(&mut seen_on);
 
         // Update annotations
-        self.annotations = GLOBALS.storage.get_annotations(&self.event).unwrap_or_default();
+        self.annotations = GLOBALS
+            .storage
+            .get_annotations(&self.event)
+            .unwrap_or_default();
 
         // Update zaptotal
         self.zaptotal = GLOBALS

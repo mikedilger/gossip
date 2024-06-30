@@ -283,15 +283,16 @@ pub fn render_note_inner(
                 ui.horizontal_wrapped(|ui| {
                     match note.event.replies_to() {
                         Some(EventReference::Id { id: irt, .. }) => {
-                            let muted = if let Some(note_ref) = app.notecache.try_update_and_get(&irt) {
-                                if let Ok(note_data) = note_ref.try_borrow() {
-                                    note_data.muted()
+                            let muted =
+                                if let Some(note_ref) = app.notecache.try_update_and_get(&irt) {
+                                    if let Ok(note_data) = note_ref.try_borrow() {
+                                        note_data.muted()
+                                    } else {
+                                        false
+                                    }
                                 } else {
                                     false
-                                }
-                            } else {
-                                false
-                            };
+                                };
 
                             ui.add_space(8.0);
                             ui.style_mut().override_text_style = Some(TextStyle::Small);
@@ -321,16 +322,17 @@ pub fn render_note_inner(
                                 .storage
                                 .get_replaceable_event(ea.kind, ea.author, &ea.d)
                             {
-                                let muted =
-                                    if let Some(note_ref) = app.notecache.try_update_and_get(&e.id) {
-                                        if let Ok(note_data) = note_ref.try_borrow() {
-                                            note_data.muted()
-                                        } else {
-                                            false
-                                        }
+                                let muted = if let Some(note_ref) =
+                                    app.notecache.try_update_and_get(&e.id)
+                                {
+                                    if let Ok(note_data) = note_ref.try_borrow() {
+                                        note_data.muted()
                                     } else {
                                         false
-                                    };
+                                    }
+                                } else {
+                                    false
+                                };
 
                                 ui.add_space(8.0);
                                 ui.style_mut().override_text_style = Some(TextStyle::Small);

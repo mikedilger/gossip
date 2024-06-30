@@ -426,10 +426,11 @@ impl Overlord {
         self.minions_task_url.remove(&id);
 
         // Set to not connected, and take any unfinished jobs
-        let mut relayjobs = match GLOBALS.connected_relays.remove(&url).map(|(_, v)| v) {
-            Some(jobs) => jobs,
-            None => vec![],
-        };
+        let mut relayjobs = GLOBALS
+            .connected_relays
+            .remove(&url)
+            .map(|(_, v)| v)
+            .unwrap_or_default();
 
         // Exclusion will be non-zero if there was a failure.  It will be zero if we
         // succeeded
@@ -504,9 +505,9 @@ impl Overlord {
                             }
                         } else {
                             let f = format!("{}", wserror);
-                            if f.contains("failed to lookup address") {
-                                exclusion = 60; // could be local issue affecting all relays so cannot go too big.
-                            } else if f.contains("No route to host") {
+                            if f.contains("failed to lookup address")
+                                || f.contains("No route to host")
+                            {
                                 exclusion = 60; // could be local issue affecting all relays so cannot go too big.
                             }
                         }
