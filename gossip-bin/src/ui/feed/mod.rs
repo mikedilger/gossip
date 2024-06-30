@@ -1,4 +1,3 @@
-use super::theme::FeedProperties;
 use super::{widgets, GossipUi, Page};
 use eframe::egui::{self, Align, Rect};
 use egui::{Context, RichText, Ui, Vec2};
@@ -277,10 +276,6 @@ fn render_a_feed(
     scroll_area_id: &str,
     offer_load_more: bool,
 ) {
-    let feed_properties = FeedProperties {
-        is_thread: threaded,
-    };
-
     let feed_newest_at_bottom = GLOBALS.storage.read_setting_feed_newest_at_bottom();
 
     // Do not render feed while switching or we will lose our scroll offset.
@@ -303,9 +298,9 @@ fn render_a_feed(
                     top: 0.0,
                     bottom: 0.0,
                 })
-                .rounding(app.theme.feed_scroll_rounding(&feed_properties))
-                .fill(app.theme.feed_scroll_fill(&feed_properties))
-                .stroke(app.theme.feed_scroll_stroke(&feed_properties))
+                .rounding(app.theme.feed_scroll_rounding())
+                .fill(app.theme.feed_scroll_fill())
+                .stroke(app.theme.feed_scroll_stroke())
                 .show(ui, |ui| {
                     if feed_newest_at_bottom {
                         ui.add_space(50.0);

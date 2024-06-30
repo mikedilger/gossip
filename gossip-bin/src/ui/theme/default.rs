@@ -1,4 +1,4 @@
-use super::{FeedProperties, NoteRenderData, ThemeDef};
+use super::{NoteRenderData, ThemeDef};
 use crate::ui::HighlightType;
 use eframe::egui::style::{Selection, WidgetVisuals, Widgets};
 use eframe::egui::{
@@ -740,13 +740,13 @@ impl ThemeDef for DefaultTheme {
     }
 
     // feed styling
-    fn feed_scroll_rounding(_feed: &FeedProperties) -> Rounding {
+    fn feed_scroll_rounding() -> Rounding {
         Rounding::ZERO
     }
-    fn feed_scroll_fill(_dark_mode: bool, _feed: &FeedProperties) -> Color32 {
+    fn feed_scroll_fill(_dark_mode: bool) -> Color32 {
         Color32::from_rgba_premultiplied(0, 0, 0, 0) // Transparent separator
     }
-    fn feed_scroll_stroke(_dark_mode: bool, _feed: &FeedProperties) -> Stroke {
+    fn feed_scroll_stroke(_dark_mode: bool) -> Stroke {
         Stroke::NONE
     }
     fn feed_post_separator_stroke(_dark_mode: bool, _post: &NoteRenderData) -> Stroke {

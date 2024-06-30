@@ -47,11 +47,6 @@ impl Theme {
     }
 }
 
-pub struct FeedProperties {
-    /// This is a thread
-    pub is_thread: bool,
-}
-
 macro_rules! theme_dispatch {
     ($($variant:path, $class:ident, $name:literal),+) => {
 
@@ -370,21 +365,21 @@ macro_rules! theme_dispatch {
                 }
             }
 
-            pub fn feed_scroll_fill(&self, feed: &FeedProperties) -> Color32 {
+            pub fn feed_scroll_fill(&self) -> Color32 {
                 match self.variant {
-                    $( $variant => $class::feed_scroll_fill(self.dark_mode, feed), )+
+                    $( $variant => $class::feed_scroll_fill(self.dark_mode), )+
                 }
             }
 
-            pub fn feed_scroll_stroke(&self, feed: &FeedProperties) -> Stroke {
+            pub fn feed_scroll_stroke(&self) -> Stroke {
                 match self.variant {
-                    $( $variant => $class::feed_scroll_stroke(self.dark_mode, feed), )+
+                    $( $variant => $class::feed_scroll_stroke(self.dark_mode), )+
                 }
             }
 
-            pub fn feed_scroll_rounding(&self, feed: &FeedProperties) -> Rounding {
+            pub fn feed_scroll_rounding(&self) -> Rounding {
                 match self.variant {
-                    $( $variant => $class::feed_scroll_rounding(feed), )+
+                    $( $variant => $class::feed_scroll_rounding(), )+
                 }
             }
 
@@ -601,9 +596,9 @@ pub trait ThemeDef: Send + Sync {
     fn input_bg_color(dark_mode: bool) -> eframe::egui::Color32;
 
     // feed styling
-    fn feed_scroll_rounding(feed: &FeedProperties) -> Rounding;
-    fn feed_scroll_fill(dark_mode: bool, feed: &FeedProperties) -> Color32;
-    fn feed_scroll_stroke(dark_mode: bool, feed: &FeedProperties) -> Stroke;
+    fn feed_scroll_rounding() -> Rounding;
+    fn feed_scroll_fill(dark_mode: bool) -> Color32;
+    fn feed_scroll_stroke(dark_mode: bool) -> Stroke;
     fn feed_post_separator_stroke(dark_mode: bool, post: &NoteRenderData) -> Stroke;
     fn feed_post_outer_indent(ui: &mut Ui, post: &NoteRenderData);
     fn feed_post_inner_indent(ui: &mut Ui, post: &NoteRenderData);
