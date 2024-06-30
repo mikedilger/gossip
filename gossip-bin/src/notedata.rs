@@ -51,14 +51,14 @@ pub(crate) struct NoteData {
     /// Known reactions to this post
     pub reactions: Vec<(char, usize)>,
 
+    /// Has the current user reacted to this post?
+    pub self_already_reacted: bool,
+
     /// The total amount of MilliSatoshi zapped to this note
     pub zaptotal: MilliSatoshi,
 
     /// Relays this event was seen on and when, if any
     pub seen_on: Vec<(RelayUrl, Unixtime)>,
-
-    /// Has the current user reacted to this post?
-    pub self_already_reacted: bool,
 
     /// The content shattered into renderable elements
     pub shattered_content: ShatteredContent,
@@ -265,9 +265,9 @@ impl NoteData {
             embedded_event,
             mentions,
             reactions,
+            self_already_reacted,
             zaptotal,
             seen_on,
-            self_already_reacted,
             shattered_content,
             error_content,
             direct_message,
@@ -276,16 +276,16 @@ impl NoteData {
     }
 
     pub(super) fn update(&mut self) {
+        // Update reactions
         let (mut reactions, self_already_reacted) = GLOBALS
             .storage
             .get_reactions(self.event.id)
             .unwrap_or((vec![], false));
-
         self.reactions.clear();
         self.reactions.append(&mut reactions);
-
         self.self_already_reacted = self_already_reacted;
 
+        // Update seen_on
         let mut seen_on = GLOBALS
             .storage
             .get_event_seen_on_relay(self.event.id)
@@ -293,6 +293,15 @@ impl NoteData {
 
         self.seen_on.clear();
         self.seen_on.append(&mut seen_on);
+
+        // Update annotations
+        self.annotations = GLOBALS.storage.get_annotations(&self.event).unwrap_or_default();
+
+        // Update zaptotal
+        self.zaptotal = GLOBALS
+            .storage
+            .get_zap_total(self.event.id)
+            .unwrap_or(MilliSatoshi(0));
     }
 
     #[allow(dead_code)]
