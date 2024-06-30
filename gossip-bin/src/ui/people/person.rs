@@ -133,7 +133,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                         GLOBALS.status_queue.write().write(format!("{}", e));
                                     }
                                     app.editing_petname = false;
-                                    app.notes.cache_invalidate_person(&person.pubkey);
+                                    app.notecache.invalidate_person(&person.pubkey);
                                 }
                                 if ui.link("Cancel").clicked() {
                                     app.editing_petname = false;
@@ -145,7 +145,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                         GLOBALS.status_queue.write().write(format!("{}", e));
                                     }
                                     app.editing_petname = false;
-                                    app.notes.cache_invalidate_person(&person.pubkey);
+                                    app.notecache.invalidate_person(&person.pubkey);
                                 }
                             } else {
                                 if let Some(petname) = person.petname.clone() {
@@ -162,7 +162,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                         {
                                             GLOBALS.status_queue.write().write(format!("{}", e));
                                         }
-                                        app.notes.cache_invalidate_person(&person.pubkey);
+                                        app.notecache.invalidate_person(&person.pubkey);
                                     }
                                 } else {
                                     if ui

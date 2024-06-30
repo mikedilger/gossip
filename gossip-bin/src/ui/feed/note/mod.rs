@@ -68,7 +68,7 @@ pub(super) fn render_note(
 
     let mut replies = Vec::new();
 
-    if let Some(note_ref) = app.notes.try_update_and_get(&id) {
+    if let Some(note_ref) = app.notecache.try_update_and_get(&id) {
         // FIXME respect app.settings.show_long_form on reposts
         // FIXME drop the cached notes on recompute
 
@@ -301,7 +301,7 @@ pub fn render_note_inner(
                 ui.horizontal_wrapped(|ui| {
                     match note.event.replies_to() {
                         Some(EventReference::Id { id: irt, .. }) => {
-                            let muted = if let Some(note_ref) = app.notes.try_update_and_get(&irt) {
+                            let muted = if let Some(note_ref) = app.notecache.try_update_and_get(&irt) {
                                 if let Ok(note_data) = note_ref.try_borrow() {
                                     note_data.muted()
                                 } else {
@@ -340,7 +340,7 @@ pub fn render_note_inner(
                                 .get_replaceable_event(ea.kind, ea.author, &ea.d)
                             {
                                 let muted =
-                                    if let Some(note_ref) = app.notes.try_update_and_get(&e.id) {
+                                    if let Some(note_ref) = app.notecache.try_update_and_get(&e.id) {
                                         if let Ok(note_data) = note_ref.try_borrow() {
                                             note_data.muted()
                                         } else {
@@ -598,7 +598,7 @@ pub fn render_note_inner(
                         entries.push(MoreMenuEntry::new(
                             "Rerender",
                             Box::new(|_, app| {
-                                app.notes.cache_invalidate_note(&note.event.id);
+                                app.notecache.invalidate_note(&note.event.id);
                             }),
                         ));
 
@@ -1266,7 +1266,7 @@ fn render_content(
                         } else {
                             match event.mentions().first() {
                                 Some(EventReference::Id { id, .. }) => {
-                                    if let Some(note_data) = app.notes.try_update_and_get(id) {
+                                    if let Some(note_data) = app.notecache.try_update_and_get(id) {
                                         // TODO block additional repost recursion
                                         render_repost(
                                             app,

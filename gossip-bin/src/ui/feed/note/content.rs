@@ -67,7 +67,7 @@ pub(super) fn render_content(
                                     | Some(RepostType::CommentMention)
                                     | Some(RepostType::Kind6Mention) => {
                                         if let Some(note_data) =
-                                            app.notes.try_update_and_get(&ep.id)
+                                            app.notecache.try_update_and_get(&ep.id)
                                         {
                                             // TODO block additional repost recursion
                                             super::render_repost(
@@ -95,7 +95,7 @@ pub(super) fn render_content(
                                     Some(RepostType::MentionOnly)
                                     | Some(RepostType::CommentMention)
                                     | Some(RepostType::Kind6Mention) => {
-                                        if let Some(note_data) = app.notes.try_update_and_get(id) {
+                                        if let Some(note_data) = app.notecache.try_update_and_get(id) {
                                             // TODO block additional repost recursion
                                             super::render_repost(
                                                 app,
@@ -140,7 +140,7 @@ pub(super) fn render_content(
                                         for (i, cached_id) in note.mentions.iter() {
                                             if *i == *num {
                                                 if let Some(note_data) =
-                                                    app.notes.try_update_and_get(cached_id)
+                                                    app.notecache.try_update_and_get(cached_id)
                                                 {
                                                     // TODO block additional repost recursion
                                                     super::render_repost(

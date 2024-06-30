@@ -9,7 +9,7 @@ mod about;
 mod commands;
 mod date_ago;
 mod notedata;
-mod notes;
+mod notecache;
 mod ui;
 mod unsaved_settings;
 

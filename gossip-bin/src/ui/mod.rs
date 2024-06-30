@@ -84,7 +84,7 @@ use self::assets::Assets;
 use self::notifications::NotificationData;
 use self::widgets::NavItem;
 use self::wizard::{WizardPage, WizardState};
-use crate::notes::Notes;
+use crate::notecache::NoteCache;
 
 pub fn run() -> Result<(), Error> {
     let icon_bytes = include_bytes!("../../../logo/gossip.png");
@@ -412,7 +412,7 @@ struct GossipUi {
     qr_codes: HashMap<String, Result<(TextureHandle, f32, f32), Error>>,
 
     // Processed events caching
-    notes: Notes,
+    notecache: NoteCache,
     notification_data: NotificationData,
 
     // RelayUi
@@ -676,7 +676,7 @@ impl GossipUi {
             future_scroll_offset: 0.0,
             popups: HashMap::new(),
             qr_codes: HashMap::new(),
-            notes: Notes::new(),
+            notecache: NoteCache::new(),
             notification_data: NotificationData::new(),
             relays: relays::RelayUi::new(),
             people_list: people::ListUi::new(),
@@ -1680,7 +1680,7 @@ impl GossipUi {
                     let mute_label = if muted { "Unmute" } else { "Mute" };
                     if ui.button(mute_label).clicked() {
                         let _ = GLOBALS.people.mute(&person.pubkey, !muted, Private(false));
-                        app.notes.cache_invalidate_person(&person.pubkey);
+                        app.notecache.invalidate_person(&person.pubkey);
                     }
                 }
 

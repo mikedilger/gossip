@@ -4,13 +4,13 @@ use nostr_types::{Id, PublicKey};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 /// a 'note' is a processed event
-pub struct Notes {
+pub struct NoteCache {
     notes: HashMap<Id, Rc<RefCell<NoteData>>>,
 }
 
-impl Notes {
-    pub fn new() -> Notes {
-        Notes {
+impl NoteCache {
+    pub fn new() -> NoteCache {
+        NoteCache {
             notes: HashMap::new(),
         }
     }
@@ -18,22 +18,22 @@ impl Notes {
     /*
     /// Drop NoteData objects that do not have a
     /// correlated event in the event cache
-    pub(super) fn cache_invalidate_missing_events(&mut self) {
+    pub(super) fn invalidate_missing_events(&mut self) {
         self.notes.retain(|id,_| GLOBALS.events.contains_key(id));
     }
      */
 
     /// Drop NoteData for a specific note
-    pub(super) fn cache_invalidate_note(&mut self, id: &Id) {
+    pub(super) fn invalidate_note(&mut self, id: &Id) {
         self.notes.remove(id);
     }
 
-    pub(super) fn cache_invalidate_all(&mut self) {
+    pub(super) fn invalidate_all(&mut self) {
         self.notes.clear();
     }
 
     /// Drop all NoteData for a given person
-    pub(super) fn cache_invalidate_person(&mut self, pubkey: &PublicKey) {
+    pub(super) fn invalidate_person(&mut self, pubkey: &PublicKey) {
         self.notes
             .retain(|_, note| note.borrow().author.pubkey != *pubkey);
     }

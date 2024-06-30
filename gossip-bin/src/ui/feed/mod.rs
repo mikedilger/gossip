@@ -46,14 +46,14 @@ pub(super) fn enter_feed(app: &mut GossipUi, ctx: &Context, kind: FeedKind) {
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
     if GLOBALS.ui_invalidate_all.load(Ordering::Relaxed) {
-        app.notes.cache_invalidate_all();
+        app.notecache.invalidate_all();
         GLOBALS.ui_invalidate_all.store(false, Ordering::Relaxed);
     } else {
         // Do per-note invalidations
         if !GLOBALS.ui_notes_to_invalidate.read().is_empty() {
             let mut handle = GLOBALS.ui_notes_to_invalidate.write();
             for id in handle.iter() {
-                app.notes.cache_invalidate_note(id);
+                app.notecache.invalidate_note(id);
             }
             *handle = Vec::new();
         }
@@ -62,7 +62,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
         if !GLOBALS.ui_people_to_invalidate.read().is_empty() {
             let mut handle = GLOBALS.ui_people_to_invalidate.write();
             for pkh in handle.iter() {
-                app.notes.cache_invalidate_person(pkh);
+                app.notecache.invalidate_person(pkh);
             }
             *handle = Vec::new();
         }
@@ -181,11 +181,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
         }
         FeedKind::Thread { id, .. } => {
             if let Some(parent) = GLOBALS.feed.get_thread_parent() {
-                if app.notes.try_update_and_get(&id).is_none() {
+                if app.notecache.try_update_and_get(&id).is_none() {
                     ui.add_space(4.0);
                     ui.label("LOADING...");
                     ui.add_space(4.0);
-                } else if let Some(note_ref) = app.notes.try_update_and_get(&parent) {
+                } else if let Some(note_ref) = app.notecache.try_update_and_get(&parent) {
                     if let Ok(note_data) = note_ref.try_borrow() {
                         if note_data.event.replies_to().is_some() {
                             ui.add_space(4.0);
@@ -470,7 +470,7 @@ fn render_note_maybe_fake(
         // Yes, and we need to fake render threads to get their approx height too.
         if threaded && !as_reply_to && !app.collapsed.contains(&id) {
             let mut replies = Vec::new();
-            if let Some(note_ref) = app.notes.try_update_and_get(&id) {
+            if let Some(note_ref) = app.notecache.try_update_and_get(&id) {
                 if let Ok(note_data) = note_ref.try_borrow() {
                     replies = GLOBALS
                         .storage
