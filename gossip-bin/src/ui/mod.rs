@@ -643,6 +643,23 @@ impl GossipUi {
         let theme = Theme::from_settings();
         theme::apply_theme(&theme, &cctx.egui_ctx);
 
+        // Let gossip-lib know the max texture side so it can resize things that are
+        // too large.
+        {
+            let mut max_image_side = if let Some(context) = &cctx.gl {
+                use eframe::glow::HasContext;
+                unsafe { context.get_parameter_i32(eframe::glow::MAX_TEXTURE_SIZE) as usize }
+            } else {
+                2048
+            };
+            if max_image_side > 16384 {
+                max_image_side = 16384;
+            }
+            GLOBALS
+                .max_image_side
+                .store(max_image_side, Ordering::Relaxed);
+        }
+
         GossipUi {
             #[cfg(feature = "video-ffmpeg")]
             audio_device,

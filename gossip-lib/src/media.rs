@@ -172,12 +172,13 @@ pub(crate) fn load_image_bytes(
     force_resize: bool,
     round: bool,
 ) -> Result<RgbaImage, Error> {
+    let max_image_side = GLOBALS.max_image_side.load(Ordering::Relaxed) as u32;
     if let Ok(mut image) = image::load_from_memory(image_bytes) {
         image = adjust_orientation(image_bytes, image);
         if square {
             image = crop_square(image);
         }
-        if force_resize || image.width() > 16384 || image.height() > 16384 {
+        if force_resize || image.width() > max_image_side || image.height() > max_image_side {
             // https://docs.rs/image/latest/image/imageops/enum.FilterType.html
             let algo = match &*GLOBALS.storage.read_setting_image_resize_algorithm() {
                 "Nearest" => FilterType::Nearest,
@@ -200,7 +201,9 @@ pub(crate) fn load_image_bytes(
         let opt = usvg::Options::default();
         let rtree = usvg::Tree::from_data(image_bytes, &opt)?;
         let pixmap_size = rtree.size.to_int_size();
-        let [w, h] = if force_resize || pixmap_size.width() > 16384 || pixmap_size.height() > 16384
+        let [w, h] = if force_resize
+            || pixmap_size.width() > max_image_side
+            || pixmap_size.height() > max_image_side
         {
             [default_size, default_size]
         } else {

@@ -113,6 +113,9 @@ pub struct Globals {
     /// UI invalidate all
     pub ui_invalidate_all: AtomicBool,
 
+    /// Max image side length that can be rendered
+    pub max_image_side: AtomicUsize,
+
     /// Current zap data, for UI
     pub current_zap: PRwLock<ZapState>,
 
@@ -200,6 +203,7 @@ lazy_static! {
             ui_notes_to_invalidate: PRwLock::new(Vec::new()),
             ui_people_to_invalidate: PRwLock::new(Vec::new()),
             ui_invalidate_all: AtomicBool::new(false),
+            max_image_side: AtomicUsize::new(2048),
             current_zap: PRwLock::new(ZapState::None),
             hashtag_regex: Regex::new(r"(?:^|\W)(#[\w\p{Extended_Pictographic}]+)(?:$|\W)").unwrap(),
             tagging_regex: Regex::new(r"(?:^|\s+)@([\w\p{Extended_Pictographic}]+)(?:$|\W)").unwrap(),
