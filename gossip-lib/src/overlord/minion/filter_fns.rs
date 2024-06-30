@@ -188,6 +188,7 @@ pub fn config(since: Unixtime) -> Vec<Filter> {
                 EventKind::FollowSets,
                 EventKind::RelayList,
                 EventKind::DmRelayList,
+                EventKind::BookmarkList,
             ],
             // these are all replaceable, no since required
             ..Default::default()
