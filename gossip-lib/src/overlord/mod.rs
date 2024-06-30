@@ -621,6 +621,12 @@ impl Overlord {
             ToOverlordMessage::AuthDeclined(relay_url, permanent) => {
                 self.auth_declined(relay_url, permanent)?;
             }
+            ToOverlordMessage::BookmarkAdd(er, private) => {
+                self.bookmark_add(er, private).await?;
+            }
+            ToOverlordMessage::BookmarkRm(er) => {
+                self.bookmark_rm(er).await?;
+            }
             ToOverlordMessage::ChangePassphrase { old, new } => {
                 Self::change_passphrase(old, new).await?;
             }
@@ -1014,6 +1020,53 @@ impl Overlord {
                     .pending
                     .take_relay_authentication_request(&pubkey, &relay_url);
             }
+        }
+
+        Ok(())
+    }
+
+    async fn post_bookmarks(&mut self, event: Event) -> Result<(), Error> {
+        // Process this event locally (ignore any error)
+        let _ = crate::process::process_new_event(&event, None, None, false, false).await;
+
+        let config_relays: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
+
+        for relay_url in config_relays.iter() {
+            self.engage_minion(
+                relay_url.to_owned(),
+                vec![RelayJob {
+                    reason: RelayConnectionReason::PostEvent,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::PostEvents(vec![event.clone()]),
+                    },
+                }],
+            )
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    /// Adds or removes a bookmark, and publishes new bookmarks list
+    pub async fn bookmark_add(&mut self, er: EventReference, private: bool) -> Result<(), Error> {
+        let added = GLOBALS.bookmarks.write().add(er, private)?;
+
+        if added {
+            let event = GLOBALS.bookmarks.read().into_event()?;
+            self.post_bookmarks(event).await?;
+        }
+
+        Ok(())
+    }
+
+    /// Adds or removes a bookmark, and publishes new bookmarks list
+    pub async fn bookmark_rm(&mut self, er: EventReference) -> Result<(), Error> {
+        let removed = GLOBALS.bookmarks.write().remove(er)?;
+
+        if removed {
+            let event = GLOBALS.bookmarks.read().into_event()?;
+            self.post_bookmarks(event).await?;
         }
 
         Ok(())
