@@ -50,6 +50,7 @@ We are storing data on your system in this directory: {}. This data is only used
         ui.add_space(15.0);
 
         ui.label(RichText::new("This program comes with absolutely no warranty.").text_style(TextStyle::Small));
-        ui.label(RichText::new("See the MIT License for details.").text_style(TextStyle::Small));
+
+        ui.label(RichText::new(format!("See the {} License for details.", &app.about.license)).text_style(TextStyle::Small));
     });
 }
