@@ -2652,12 +2652,12 @@ impl Storage {
     pub fn get_bookmarks(&self) -> Result<Vec<Id>, Error> {
         let my_pubkey = match GLOBALS.identity.public_key() {
             Some(pk) => pk,
-            None => return Ok(Vec::new()),
+            None => return Err(ErrorKind::NoPublicKey.into()),
         };
 
         let event = match self.get_replaceable_event(EventKind::BookmarkList, my_pubkey, "")? {
             Some(e) => e,
-            None => return Ok(Vec::new()),
+            None => return Err(ErrorKind::NoBookmarks.into()),
         };
 
         let ids: Vec<Id> = event

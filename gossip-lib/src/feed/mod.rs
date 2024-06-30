@@ -296,7 +296,13 @@ impl Feed {
                 *self.current_feed_events.write() = events;
             }
             FeedKind::Bookmarks => {
-                let ids = GLOBALS.storage.get_bookmarks()?;
+                let ids = match GLOBALS.storage.get_bookmarks() {
+                    Ok(ids) => ids,
+                    Err(e) => {
+                        tracing::error!("{}", e);
+                        vec![]
+                    }
+                };
                 *self.current_feed_events.write() = ids;
             }
             FeedKind::Inbox(indirect) => {
