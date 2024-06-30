@@ -376,8 +376,6 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                                 indent: 0,
                                 as_reply_to: true,
                                 threaded: false,
-                                is_first: true,
-                                is_last: true,
                             },
                         );
                     });

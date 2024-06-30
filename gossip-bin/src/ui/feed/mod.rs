@@ -18,8 +18,6 @@ struct FeedNoteParams {
     indent: usize,
     as_reply_to: bool,
     threaded: bool,
-    is_first: bool,
-    is_last: bool,
 }
 
 #[derive(Default)]
@@ -323,8 +321,6 @@ fn render_a_feed(
                                     indent: 0,
                                     as_reply_to: false,
                                     threaded,
-                                    is_first: Some(id) == feed.last(),
-                                    is_last: Some(id) == feed.first(),
                                 },
                             );
                         }
@@ -339,8 +335,6 @@ fn render_a_feed(
                                     indent: 0,
                                     as_reply_to: false,
                                     threaded,
-                                    is_first: Some(id) == feed.first(),
-                                    is_last: Some(id) == feed.last(),
                                 },
                             );
                         }
@@ -404,8 +398,6 @@ fn render_note_maybe_fake(
         indent,
         as_reply_to,
         threaded,
-        is_first,
-        is_last,
     } = feed_note_params;
 
     let screen_rect = ctx.input(|i| i.screen_rect); // Rect
@@ -436,8 +428,6 @@ fn render_note_maybe_fake(
                     indent,
                     as_reply_to,
                     threaded,
-                    is_first,
-                    is_last,
                 },
             );
             return;
@@ -475,8 +465,6 @@ fn render_note_maybe_fake(
             }
 
             let iter = replies.iter();
-            let first = replies.first();
-            let last = replies.last();
             for reply_id in iter {
                 render_note_maybe_fake(
                     app,
@@ -487,8 +475,6 @@ fn render_note_maybe_fake(
                         indent: indent + 1,
                         as_reply_to,
                         threaded,
-                        is_first: Some(reply_id) == first,
-                        is_last: Some(reply_id) == last,
                     },
                 );
             }
@@ -503,8 +489,6 @@ fn render_note_maybe_fake(
                 indent,
                 as_reply_to,
                 threaded,
-                is_first,
-                is_last,
             },
         );
     }

@@ -32,20 +32,11 @@ pub struct NoteRenderData {
     /// This message is the focus of the view (formerly called is_focused)
     pub is_main_event: bool,
 
-    /// This message is a repost of another message
-    pub has_repost: bool,
-
     /// Is this post being mentioned within a comment
     pub is_comment_mention: bool,
 
     /// This message is part of a thread
     pub is_thread: bool,
-
-    /// Is this the first post in the display?
-    pub is_first: bool,
-
-    /// Is this the last post in the display
-    pub is_last: bool,
 
     /// Position in the thread, focused message = 0
     pub thread_position: i32,
@@ -62,8 +53,6 @@ pub(super) fn render_note(
         indent,
         as_reply_to,
         threaded,
-        is_first,
-        is_last,
     } = feed_note_params;
 
     let mut replies = Vec::new();
@@ -104,12 +93,9 @@ pub(super) fn render_note(
 
             let render_data = NoteRenderData {
                 height,
-                has_repost: note_data.repost.is_some(),
                 is_comment_mention: false,
                 is_new,
                 is_thread: threaded,
-                is_first,
-                is_last,
                 is_main_event,
                 thread_position: indent as i32,
             };
@@ -189,8 +175,6 @@ pub(super) fn render_note(
         // even if muted, continue rendering thread children
         if threaded && !as_reply_to && !app.collapsed.contains(&id) {
             let iter = replies.iter();
-            let first = replies.first();
-            let last = replies.last();
             for reply_id in iter {
                 super::render_note_maybe_fake(
                     app,
@@ -201,8 +185,6 @@ pub(super) fn render_note(
                         indent: indent + 1,
                         as_reply_to,
                         threaded,
-                        is_first: Some(reply_id) == first,
-                        is_last: Some(reply_id) == last,
                     },
                 );
             }
@@ -1334,13 +1316,10 @@ fn render_repost(
         let render_data = NoteRenderData {
             // the full note height differs from the reposted height anyways
             height: 0.0,
-            has_repost: repost_data.repost.is_some(),
             is_comment_mention: *parent_repost == Some(RepostType::CommentMention),
             is_new: false,
             is_main_event: false,
             is_thread: false,
-            is_first: false,
-            is_last: false,
             thread_position: 0,
         };
 

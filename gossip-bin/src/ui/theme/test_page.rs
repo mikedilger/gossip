@@ -93,11 +93,8 @@ pub(in crate::ui) fn update(
                 height: 200.0,
                 is_new: false,
                 is_main_event: false,
-                has_repost: false,
                 is_comment_mention: false,
                 is_thread: false,
-                is_first: true,
-                is_last: true,
                 thread_position: 0,
             };
             Frame::none()
@@ -118,11 +115,8 @@ pub(in crate::ui) fn update(
                 height: 200.0,
                 is_new: true,
                 is_main_event: false,
-                has_repost: false,
                 is_comment_mention: false,
                 is_thread: false,
-                is_first: true,
-                is_last: true,
                 thread_position: 0,
             };
             Frame::none()
