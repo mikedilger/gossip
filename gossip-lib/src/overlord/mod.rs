@@ -1645,8 +1645,7 @@ impl Overlord {
                     .await?;
                 }
             }
-            FeedKind::DmChat(_) => (), // DmChat is complete, not chunked
-            FeedKind::Thread { .. } => (), // Thread is complete, not chunked
+            _ => (), // other feeds can't load more
         }
 
         Ok(())
