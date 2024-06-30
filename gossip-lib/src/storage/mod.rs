@@ -2648,4 +2648,14 @@ impl Storage {
     pub fn url_is_banned(url: &RelayUrl) -> bool {
         url.as_str().contains("relay.nostr.band") || url.as_str().contains("filter.nostr.wine")
     }
+
+    pub fn get_bookmarks(&self) -> Result<Vec<Id>, Error> {
+        // unimplemented!()
+        // TESTING ONLY:
+        Ok(vec![
+            Id::try_from_hex_string("2ae58fc0def34fd05ba0e3032c3263c3da7dfa77266f12ee893336df9e263b8e").unwrap(),
+            Id::try_from_hex_string("04ea730dfe89f4639140b18d3c0a64c74a3f45cf7a24616aec96b5b2a4791244").unwrap(),
+            Id::try_from_hex_string("86878b328af8ee54d3a96b93f609ddebcb11aab2955d101990532b8858528740").unwrap(),
+        ])
+    }
 }

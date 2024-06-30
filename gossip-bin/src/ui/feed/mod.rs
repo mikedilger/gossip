@@ -130,6 +130,22 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
             ui.add_space(6.0);
             render_a_feed(app, ctx, ui, feed, false, &id, load_more);
         }
+        FeedKind::Bookmarks => {
+            let feed = GLOBALS.feed.get_feed_events();
+            let id = "bookmarks";
+            ui.add_space(10.0);
+            ui.allocate_ui_with_layout(
+                Vec2::new(ui.available_width(), ui.spacing().interact_size.y),
+                egui::Layout::left_to_right(egui::Align::Center),
+                |ui| {
+                    add_left_space(ui);
+                    ui.heading("Bookmarks");
+                    recompute_btn(ui);
+                },
+            );
+            ui.add_space(6.0);
+            render_a_feed(app, ctx, ui, feed, false, id, load_more);
+        }
         FeedKind::Inbox(indirect) => {
             if read_setting!(public_key).is_none() {
                 ui.horizontal_wrapped(|ui| {
