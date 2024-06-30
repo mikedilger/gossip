@@ -411,7 +411,6 @@ struct GossipUi {
     // the f32's are the recommended image size
     qr_codes: HashMap<String, Result<(TextureHandle, f32, f32), Error>>,
 
-    // Processed events caching
     notecache: NoteCache,
     notification_data: NotificationData,
 
@@ -457,6 +456,7 @@ struct GossipUi {
     media_hide_list: HashSet<Url>,
     /// media that the user has selected to show full-width
     media_full_width_list: HashSet<Url>,
+    bookmarks: Vec<Id>,
 
     // User entry: posts
     show_post_area: bool,
@@ -660,6 +660,11 @@ impl GossipUi {
                 .store(max_image_side, Ordering::Relaxed);
         }
 
+        let bookmarks = match GLOBALS.storage.get_bookmarks() {
+            Ok(v) => v,
+            Err(_) => vec![],
+        };
+
         GossipUi {
             #[cfg(feature = "video-ffmpeg")]
             audio_device,
@@ -705,6 +710,7 @@ impl GossipUi {
             media_show_list: HashSet::new(),
             media_hide_list: HashSet::new(),
             media_full_width_list: HashSet::new(),
+            bookmarks,
             show_post_area: false,
             draft_needs_focus: false,
             unlock_needs_focus: true,
