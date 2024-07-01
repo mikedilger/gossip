@@ -1286,7 +1286,7 @@ impl GossipUi {
                                     fill_color_tuple.0,
                                     fill_color_tuple.1,
                                     fill_color_tuple.2,
-                                    128, // half transparent
+                                    170, // 2/3 transparent
                                 )
                             };
                             let response = ui.add_sized(
