@@ -36,9 +36,11 @@ pub enum RelationshipById2 {
     Pins,
 
     // NIP-51 Lists
+    // @deprecatred, doesn't work well as a relationship
     Bookmarks,
 
     // NIP-51 Lists
+    // @deprecatred, doesn't work well as a relationship
     Curates,
 
     // NIP-56 Reporting

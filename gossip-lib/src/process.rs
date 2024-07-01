@@ -697,6 +697,13 @@ pub(crate) fn process_relationships_of_event<'a>(
             }
         }
 
+        /*
+        Bookmarks as relationships don't work well because it is
+        expensive to clear all relationships that are bookmarks
+        when rewriting them to match a new bookmark list event.
+        So we are retiring creating this relationships (and may
+        delete them later)
+
         // ListBookmarks
         if event.kind == EventKind::BookmarkList {
             for tag in &event.tags {
@@ -764,6 +771,8 @@ pub(crate) fn process_relationships_of_event<'a>(
                 }
             }
         }
+
+         */
 
         if event.kind == EventKind::LiveChatMessage {
             for tag in &event.tags {
