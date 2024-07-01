@@ -25,7 +25,7 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 35] = [
+const COMMANDS: [Command; 36] = [
     Command {
         cmd: "oneshot",
         usage_params: "{depends}",
@@ -50,6 +50,11 @@ const COMMANDS: [Command; 35] = [
         cmd: "bech32_encode_event_addr",
         usage_params: "<kind> <pubkeyhex> <d> [<relayurl>, ...]",
         desc: "encode an event address (parameterized replaceable event link).",
+    },
+    Command {
+        cmd: "clear_timeouts",
+        usage_params: "",
+        desc: "clear relay avoidance timeouts.",
     },
     Command {
         cmd: "decrypt",
@@ -225,6 +230,7 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
         "backdate_eose" => backdate_eose()?,
         "bech32_decode" => bech32_decode(command, args)?,
         "bech32_encode_event_addr" => bech32_encode_event_addr(command, args)?,
+        "clear_timeouts" => clear_timeouts()?,
         "decrypt" => decrypt(command, args)?,
         "delete_spam_by_content" => delete_spam_by_content(command, args, runtime)?,
         "delete_relay" => delete_relay(command, args)?,
@@ -435,6 +441,12 @@ pub fn bech32_encode_event_addr(cmd: Command, mut args: env::Args) -> Result<(),
     println!("{}", ea.as_bech32_string());
 
     Ok(())
+}
+
+pub fn clear_timeouts() -> Result<(), Error> {
+    GLOBALS
+        .storage
+        .modify_all_relays(|r| r.avoid_until = None, None)
 }
 
 pub fn decrypt(cmd: Command, mut args: env::Args) -> Result<(), Error> {
