@@ -431,9 +431,11 @@ impl MoreMenu {
                     ui.vertical_centered_justified(|ui| {
                         // now show menu content
                         for entry in content {
-                            if entry.show(app, ui).clicked() && active {
-                                active = false;
-                            }
+                            ui.scope(|ui| {
+                                if entry.show(app, ui).clicked() && active {
+                                    active = false;
+                                }
+                            });
                         }
                     })
                 });
