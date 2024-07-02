@@ -157,6 +157,7 @@ extern crate lazy_static;
 /// when connecting to relays
 pub static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
 
+use nostr_types::EventKind;
 use std::ops::DerefMut;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -217,6 +218,17 @@ pub fn init() -> Result<(), Error> {
             GLOBALS
                 .wait_for_login
                 .store(true, std::sync::atomic::Ordering::Relaxed);
+        }
+    }
+
+    // Populate global bookmarks
+    if let Some(pubkey) = GLOBALS.identity.public_key() {
+        if let Some(event) =
+            GLOBALS
+                .storage
+                .get_replaceable_event(EventKind::BookmarkList, pubkey, "")?
+        {
+            *GLOBALS.bookmarks.write() = BookmarkList::from_event(&event)?;
         }
     }
 

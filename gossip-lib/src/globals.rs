@@ -1,3 +1,4 @@
+use crate::bookmarks::BookmarkList;
 use crate::comms::{RelayJob, ToMinionMessage, ToOverlordMessage};
 use crate::feed::Feed;
 use crate::fetcher::Fetcher;
@@ -153,6 +154,9 @@ pub struct Globals {
 
     /// Loading more - how many relays are still loading a chunk of events.
     pub loading_more: AtomicUsize,
+
+    /// Bookmarks
+    pub bookmarks: PRwLock<BookmarkList>,
 }
 
 lazy_static! {
@@ -221,6 +225,7 @@ lazy_static! {
             advertise_jobs_remaining: AtomicUsize::new(0),
             pending: Pending::new(),
             loading_more: AtomicUsize::new(0),
+            bookmarks: PRwLock::new(BookmarkList::empty()),
         }
     };
 }
