@@ -64,6 +64,9 @@
 //! with the storage engine. In some cases, the `Overlord` has more complex code for doing this,
 //! but in many cases, you can interact with `GLOBALS.storage` directly.
 
+pub mod bookmarks;
+pub use bookmarks::BookmarkList;
+
 /// Defines messages sent to the overlord
 pub mod comms;
 
