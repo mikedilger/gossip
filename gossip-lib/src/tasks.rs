@@ -1,4 +1,4 @@
-use crate::error::Error;
+use crate::error::{Error, ErrorKind};
 use crate::GLOBALS;
 use crate::RunState;
 use std::sync::atomic::Ordering;
@@ -53,6 +53,15 @@ async fn do_online_tasks(tick: usize) -> Result<(), Error> {
 
     // Do seeker tasks (every second
     GLOBALS.seeker.run_once().await;
+
+    // Update pending every 12 seconds
+    if tick % 12 == 0 {
+        if let Err(e) = GLOBALS.pending.compute_pending() {
+            if ! matches!(e.kind, ErrorKind::NoPrivateKey) {
+                tracing::error!("{:?}", e);
+            }
+        }
+    }
 
     Ok(())
 }

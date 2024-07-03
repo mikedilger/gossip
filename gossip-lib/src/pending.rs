@@ -1,5 +1,5 @@
 use crate::comms::RelayJob;
-use crate::error::{Error, ErrorKind};
+use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::nip46::ParsedCommand;
 use crate::people::PersonList;
@@ -10,9 +10,6 @@ use parking_lot::RwLock as PRwLock;
 use parking_lot::RwLockReadGuard as PRwLockReadGuard;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
-use std::time::Duration;
-use tokio::task;
-use tokio::time::Instant;
 
 #[derive(Debug, Clone, Hash, PartialEq)]
 pub enum PendingItem {
@@ -349,42 +346,4 @@ impl Pending {
 
         Ok(())
     }
-}
-
-pub fn start() {
-    tracing::info!("Pending checker startup");
-
-    task::spawn(async {
-        let mut read_runstate = GLOBALS.read_runstate.clone();
-        read_runstate.mark_unchanged();
-        if read_runstate.borrow().going_offline() {
-            return;
-        }
-
-        let sleep = tokio::time::sleep(Duration::from_secs(15));
-        tokio::pin!(sleep);
-
-        loop {
-            tokio::select! {
-                _ = &mut sleep => {
-                    sleep.as_mut().reset(Instant::now() + Duration::from_secs(15));
-                },
-                _ = read_runstate.wait_for(|runstate| runstate.going_offline()) => break,
-            }
-
-            match GLOBALS.pending.compute_pending() {
-                Ok(()) => {}
-                Err(e) => {
-                    if matches!(e.kind, ErrorKind::NoPrivateKey) {
-                        // do not log
-                    } else {
-                        tracing::error!("{:?}", e);
-                    }
-                    continue;
-                }
-            };
-        }
-
-        tracing::info!("Pending checker shutdown");
-    });
 }

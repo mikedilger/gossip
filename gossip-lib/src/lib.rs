@@ -246,9 +246,6 @@ pub async fn run() {
                     // Start periodic tasks in people manager (after signer)
                     crate::people::People::start();
 
-                    // Start periodic tasks in pending
-                    crate::pending::start();
-
                     // Start long-lived subscriptions
                     // (this also does a relay_picker init)
                     let _ = GLOBALS
