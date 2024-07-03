@@ -1056,10 +1056,10 @@ impl GossipUi {
                 let where_to_put_background = ui.painter().add(egui::Shape::Noop);
                 let pos = response.rect.right_center() + vec2(10.0, 1.0);
                 let text_color = if self.theme.dark_mode {
-                        self.theme.neutral_900()
-                    } else {
-                        self.theme.neutral_100()
-                    };
+                    self.theme.neutral_900()
+                } else {
+                    self.theme.neutral_100()
+                };
                 let bg_rect = ui
                     .painter()
                     .text(

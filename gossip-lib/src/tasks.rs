@@ -1,6 +1,6 @@
 use crate::error::{Error, ErrorKind};
-use crate::GLOBALS;
 use crate::RunState;
+use crate::GLOBALS;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 use tokio::time::Instant;
@@ -29,7 +29,9 @@ pub(crate) fn start_background_tasks() {
 
             tick += 1;
 
-            if ! GLOBALS.storage.read_setting_offline() && *read_runstate.borrow() == RunState::Online {
+            if !GLOBALS.storage.read_setting_offline()
+                && *read_runstate.borrow() == RunState::Online
+            {
                 if let Err(e) = do_online_tasks(tick).await {
                     tracing::error!("{}", e);
                 }
@@ -56,7 +58,7 @@ async fn do_online_tasks(tick: usize) -> Result<(), Error> {
     // Update pending every 12 seconds
     if tick % 12 == 0 {
         if let Err(e) = GLOBALS.pending.compute_pending() {
-            if ! matches!(e.kind, ErrorKind::NoPrivateKey) {
+            if !matches!(e.kind, ErrorKind::NoPrivateKey) {
                 tracing::error!("{:?}", e);
             }
         }
@@ -71,7 +73,6 @@ async fn do_online_tasks(tick: usize) -> Result<(), Error> {
 }
 
 async fn do_general_tasks(tick: usize) -> Result<(), Error> {
-
     // Update GLOBALS.unread_dms count (every 3 seconds)
     if tick % 3 == 0 {
         // Update unread dm channels, whether or not we are in that feed
