@@ -71,6 +71,9 @@ pub(crate) struct NoteData {
 
     /// Securely delivered via GiftWrap
     pub secure: bool,
+
+    /// Bookmarked
+    pub bookmarked: bool,
 }
 
 impl NoteData {
@@ -255,6 +258,8 @@ impl NoteData {
             .get_event_seen_on_relay(event.id)
             .unwrap_or_default();
 
+        let bookmarked = GLOBALS.current_bookmarks.read().contains(&event.id);
+
         NoteData {
             event,
             author,
@@ -272,6 +277,7 @@ impl NoteData {
             error_content,
             direct_message,
             secure,
+            bookmarked,
         }
     }
 
