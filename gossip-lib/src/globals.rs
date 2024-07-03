@@ -93,6 +93,9 @@ pub struct Globals {
     /// How many subscriptions are open and not yet at EOSE
     pub open_subscriptions: AtomicUsize,
 
+    /// How many unread direct messages
+    pub unread_dms: AtomicUsize,
+
     /// Media loading
     pub media: Media,
 
@@ -195,6 +198,7 @@ lazy_static! {
             )),
             bytes_read: AtomicUsize::new(0),
             open_subscriptions: AtomicUsize::new(0),
+            unread_dms: AtomicUsize::new(999),
             media: Media::new(),
             events_being_searched_for: PRwLock::new(Vec::new()),
             //event_addrs_being_searched_for: PRwLock::new(Vec::new()),

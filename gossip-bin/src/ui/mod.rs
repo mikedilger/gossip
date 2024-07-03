@@ -54,6 +54,8 @@ use crate::unsaved_settings::UnsavedSettings;
 #[cfg(feature = "video-ffmpeg")]
 use core::cell::RefCell;
 use eframe::egui;
+use eframe::egui::vec2;
+use eframe::egui::FontId;
 use egui::{
     Align, Color32, ColorImage, Context, IconData, Image, ImageData, Label, Layout, RichText,
     ScrollArea, Sense, TextureHandle, TextureOptions, Ui, Vec2,
@@ -1042,11 +1044,39 @@ impl GossipUi {
 
     fn add_private_chats(&mut self, ui: &mut Ui, ctx: &Context) {
         if GLOBALS.identity.is_unlocked() {
-            if self
-                .add_selected_label(ui, self.page == Page::DmChatList, "Private chats")
-                .clicked()
-            {
+            let response =
+                self.add_selected_label(ui, self.page == Page::DmChatList, "Private chats");
+            if response.clicked() {
                 self.set_page(ctx, Page::DmChatList);
+            }
+
+            // Add unread messages indicator
+            let count = GLOBALS.unread_dms.load(Ordering::Relaxed);
+            if count > 0 {
+                let where_to_put_background = ui.painter().add(egui::Shape::Noop);
+                let pos = response.rect.right_center() + vec2(10.0, 1.0);
+                let text_color = if self.theme.dark_mode {
+                        self.theme.neutral_900()
+                    } else {
+                        self.theme.neutral_100()
+                    };
+                let bg_rect = ui
+                    .painter()
+                    .text(
+                        pos,
+                        egui::Align2::LEFT_CENTER,
+                        format!("{}", count),
+                        FontId::proportional(8.0),
+                        text_color,
+                    )
+                    .expand2(vec2(5.0, 2.0))
+                    .translate(vec2(0.0, -1.0)); // FIXME: Hack to fix the line height
+                let bg_shape = egui::Shape::rect_filled(
+                    bg_rect,
+                    egui::Rounding::same(bg_rect.height()),
+                    self.theme.accent_color(),
+                );
+                ui.painter().set(where_to_put_background, bg_shape);
             }
         }
     }
