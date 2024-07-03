@@ -29,13 +29,13 @@ pub(crate) fn start_background_tasks() {
 
             tick += 1;
 
-            if *read_runstate.borrow() == RunState::Online {
-                if let Err(e) = do_online_tasks(tick) {
+            if ! GLOBALS.storage.read_setting_offline() && *read_runstate.borrow() == RunState::Online {
+                if let Err(e) = do_online_tasks(tick).await {
                     tracing::error!("{}", e);
                 }
             }
 
-            if let Err(e) = do_general_tasks(tick) {
+            if let Err(e) = do_general_tasks(tick).await {
                 tracing::error!("{}", e);
             }
         }
@@ -44,11 +44,17 @@ pub(crate) fn start_background_tasks() {
     });
 }
 
-fn do_online_tasks(_tick: usize) -> Result<(), Error> {
+async fn do_online_tasks(tick: usize) -> Result<(), Error> {
+    // Do fetcher tasks (every 2 seconds)
+    // FIXME: retire GLOBALS.storage.read_setting_fetcher_looptime_ms()
+    if tick % 2 == 0 {
+        GLOBALS.fetcher.process_queue().await;
+    }
+
     Ok(())
 }
 
-fn do_general_tasks(tick: usize) -> Result<(), Error> {
+async fn do_general_tasks(tick: usize) -> Result<(), Error> {
 
     // Update GLOBALS.unread_dms count (every 3 seconds)
     if tick % 3 == 0 {

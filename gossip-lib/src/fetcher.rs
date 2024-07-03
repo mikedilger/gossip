@@ -14,7 +14,6 @@ use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 use std::sync::RwLock;
 use std::time::{Duration, SystemTime};
-use tokio::time::Instant;
 
 #[derive(Copy, Clone, Debug)]
 enum FetchState {
@@ -74,47 +73,6 @@ impl Fetcher {
         Ok(())
     }
 
-    pub(crate) fn start() {
-        tracing::info!("Fetcher startup");
-
-        // Initialize if not already
-        if GLOBALS.fetcher.client.read().unwrap().is_none() {
-            if let Err(e) = Self::init() {
-                tracing::error!("Fetcher failed to initialize: {e}");
-                return;
-            }
-        }
-
-        // Setup periodic queue management
-        tokio::task::spawn(async move {
-            let mut read_runstate = GLOBALS.read_runstate.clone();
-            read_runstate.mark_unchanged();
-            if read_runstate.borrow().going_offline() {
-                return;
-            }
-
-            let fetcher_looptime_ms = GLOBALS.storage.read_setting_fetcher_looptime_ms();
-            let sleep = tokio::time::sleep(Duration::from_millis(fetcher_looptime_ms));
-            tokio::pin!(sleep);
-
-            loop {
-                tokio::select! {
-                    _ = &mut sleep => {
-
-                        let fetcher_looptime_ms = GLOBALS.storage.read_setting_fetcher_looptime_ms();
-                        sleep.as_mut().reset(Instant::now() + Duration::from_millis(fetcher_looptime_ms));
-                    },
-                    _ = read_runstate.wait_for(|runstate| runstate.going_offline()) => break,
-                }
-
-                // Process the queue
-                GLOBALS.fetcher.process_queue().await;
-            }
-
-            tracing::info!("Fetcher shutdown");
-        });
-    }
-
     /// Count of HTTP requests queued for future fetching
     pub fn requests_queued(&self) -> usize {
         self.urls
@@ -138,14 +96,12 @@ impl Fetcher {
     }
 
     pub(crate) async fn process_queue(&self) {
-        if GLOBALS.storage.read_setting_offline() {
-            return;
-        }
-
-        let mut read_runstate = GLOBALS.read_runstate.clone();
-        read_runstate.mark_unchanged();
-        if read_runstate.borrow().going_offline() {
-            return;
+        // Initialize if not already
+        if GLOBALS.fetcher.client.read().unwrap().is_none() {
+            if let Err(e) = Self::init() {
+                tracing::error!("Fetcher failed to initialize: {e}");
+                return;
+            }
         }
 
         let now = Unixtime::now().unwrap();
@@ -186,6 +142,8 @@ impl Fetcher {
         }
 
         // Run them all together
+        let mut read_runstate = GLOBALS.read_runstate.clone();
+        read_runstate.mark_unchanged();
         while (futures.next().await).is_some() {
             if read_runstate.borrow().going_offline() {
                 break;
