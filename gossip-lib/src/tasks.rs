@@ -75,4 +75,12 @@ async fn do_general_tasks(tick: usize) {
             GLOBALS.unread_dms.store(unread, Ordering::Relaxed);
         }
     }
+
+    // Update current bookmarks from bookmarks (every 2 seconds)
+    if tick % 2 == 0 {
+        match GLOBALS.bookmarks.read().get_bookmark_feed() {
+            Ok(feed) => *GLOBALS.current_bookmarks.write() = feed,
+            Err(e) => tracing::error!("{:?}", e),
+        }
+    }
 }
