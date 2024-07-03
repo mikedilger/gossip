@@ -145,6 +145,8 @@ mod storage;
 pub use storage::types::*;
 pub use storage::{PersonTable, Storage, Table};
 
+mod tasks;
+
 #[macro_use]
 extern crate lazy_static;
 

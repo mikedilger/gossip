@@ -185,6 +185,9 @@ impl Overlord {
             }
         }
 
+        // Start background tasks
+        crate::tasks::start_background_tasks();
+
         'mainloop: loop {
             tracing::debug!("overlord looping");
 
