@@ -51,7 +51,7 @@ async fn do_online_tasks(tick: usize) -> Result<(), Error> {
         GLOBALS.fetcher.process_queue().await;
     }
 
-    // Do seeker tasks (every second
+    // Do seeker tasks (every second)
     GLOBALS.seeker.run_once().await;
 
     // Update pending every 12 seconds
@@ -61,6 +61,12 @@ async fn do_online_tasks(tick: usize) -> Result<(), Error> {
                 tracing::error!("{:?}", e);
             }
         }
+    }
+
+    // Update people metadata every 2 seconds
+    // FIXME: retire GLOBALS.storage.read_setting_fetcher_metadata_looptime_ms();
+    if tick % 2 == 0 {
+        GLOBALS.people.maybe_fetch_metadata().await;
     }
 
     Ok(())

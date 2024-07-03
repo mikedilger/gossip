@@ -16,7 +16,6 @@ use std::sync::atomic::Ordering;
 use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio::task;
-use tokio::time::Instant;
 
 /// Person type, aliased to the latest version
 pub type Person = crate::storage::types::Person3;
@@ -75,41 +74,6 @@ impl People {
             people_of_interest: DashSet::new(),
             fetching_metadata: DashMap::new(),
         }
-    }
-
-    // Start the periodic task management
-    pub(crate) fn start() {
-        tracing::info!("People manager startup");
-
-        task::spawn(async {
-            let mut read_runstate = GLOBALS.read_runstate.clone();
-            read_runstate.mark_unchanged();
-            if read_runstate.borrow().going_offline() {
-                return;
-            }
-
-            // Every (usually 3) seconds...
-            let fetch_metadata_looptime_ms =
-                GLOBALS.storage.read_setting_fetcher_metadata_looptime_ms();
-            let sleep = tokio::time::sleep(Duration::from_millis(fetch_metadata_looptime_ms));
-            tokio::pin!(sleep);
-
-            loop {
-                tokio::select! {
-                    _ = &mut sleep => {
-                        let fetch_metadata_looptime_ms =
-                            GLOBALS.storage.read_setting_fetcher_metadata_looptime_ms();
-                        sleep.as_mut().reset(Instant::now() + Duration::from_millis(fetch_metadata_looptime_ms));
-                    },
-                    _ = read_runstate.wait_for(|runstate| runstate.going_offline()) => break,
-                }
-
-                // We fetch needed metadata
-                GLOBALS.people.maybe_fetch_metadata().await;
-            }
-
-            tracing::info!("People task manager shutdown");
-        });
     }
 
     /// Get all the pubkeys that the user subscribes to in any list
@@ -219,7 +183,7 @@ impl People {
 
     /// This is run periodically. It checks the database first, only then does it
     /// ask the overlord to update the metadata from the relays.
-    async fn maybe_fetch_metadata(&self) {
+    pub(crate) async fn maybe_fetch_metadata(&self) {
         // Take everybody out of self.people_of_interest, into a local var
         let mut people_of_interest: Vec<PublicKey> = self
             .people_of_interest
