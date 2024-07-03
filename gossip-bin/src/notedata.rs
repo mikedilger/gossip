@@ -3,8 +3,8 @@ use gossip_lib::{Person, PersonList, PersonTable, Private, Table};
 use std::collections::HashMap;
 
 use nostr_types::{
-    ContentSegment, Event, EventKind, Id, MilliSatoshi, NostrBech32, RelayUrl, ShatteredContent,
-    Unixtime,
+    ContentSegment, Event, EventAddr, EventKind, EventReference, Id, MilliSatoshi, NostrBech32,
+    RelayUrl, ShatteredContent, Unixtime,
 };
 
 #[derive(PartialEq)]
@@ -320,5 +320,23 @@ impl NoteData {
 
     pub(super) fn muted(&self) -> bool {
         self.lists.contains_key(&PersonList::Muted)
+    }
+
+    pub(super) fn event_reference(&self) -> EventReference {
+        if self.event.kind.is_replaceable() {
+            EventReference::Addr(EventAddr {
+                d: "".to_owned(),
+                relays: vec![],
+                kind: self.event.kind,
+                author: self.event.pubkey,
+            })
+        } else {
+            EventReference::Id {
+                id: self.event.id,
+                author: None,
+                relays: vec![],
+                marker: None,
+            }
+        }
     }
 }

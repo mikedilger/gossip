@@ -585,6 +585,35 @@ pub fn render_note_inner(
                                 app.notecache.invalidate_note(&note.event.id);
                             }),
                         ));
+                        if note.bookmarked {
+                            entries.push(MoreMenuEntry::new(
+                                "Unbookmark",
+                                Box::new(|_, _| {
+                                    let er = note.event_reference();
+                                    let _ =
+                                        GLOBALS.to_overlord.send(ToOverlordMessage::BookmarkRm(er));
+                                }),
+                            ));
+                        } else {
+                            entries.push(MoreMenuEntry::new(
+                                "Bookmark (public)",
+                                Box::new(|_, _| {
+                                    let er = note.event_reference();
+                                    let _ = GLOBALS
+                                        .to_overlord
+                                        .send(ToOverlordMessage::BookmarkAdd(er, false));
+                                }),
+                            ));
+                            entries.push(MoreMenuEntry::new(
+                                "Bookmark (private)",
+                                Box::new(|_, _| {
+                                    let er = note.event_reference();
+                                    let _ = GLOBALS
+                                        .to_overlord
+                                        .send(ToOverlordMessage::BookmarkAdd(er, true));
+                                }),
+                            ));
+                        }
 
                         menu.show_entries(ui, app, response, entries);
                     }
