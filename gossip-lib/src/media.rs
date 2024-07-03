@@ -168,11 +168,14 @@ impl Media {
 pub(crate) fn load_image_bytes(
     image_bytes: &[u8],
     square: bool,
-    default_size: u32,
+    mut default_size: u32,
     force_resize: bool,
     round: bool,
 ) -> Result<RgbaImage, Error> {
     let max_image_side = GLOBALS.max_image_side.load(Ordering::Relaxed) as u32;
+    if default_size > max_image_side {
+        default_size = max_image_side;
+    }
     if let Ok(mut image) = image::load_from_memory(image_bytes) {
         image = adjust_orientation(image_bytes, image);
         if square {
