@@ -711,6 +711,9 @@ pub(crate) fn process_relationships_of_event<'a>(
                     {
                         if newest_event == *event {
                             *GLOBALS.bookmarks.write() = BookmarkList::from_event(event)?;
+                            GLOBALS
+                                .recompute_current_bookmarks
+                                .store(true, Ordering::Relaxed);
                         }
                     }
                 }

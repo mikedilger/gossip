@@ -196,6 +196,8 @@ impl std::convert::TryFrom<u8> for RunState {
 
 /// Initialize gossip-lib
 pub fn init() -> Result<(), Error> {
+    use std::sync::atomic::Ordering;
+
     // Initialize storage
     GLOBALS.storage.init()?;
 
@@ -208,16 +210,12 @@ pub fn init() -> Result<(), Error> {
         if GLOBALS.storage.get_flag_rebuild_relationships_needed()
             || GLOBALS.storage.get_flag_rebuild_indexes_needed()
         {
-            GLOBALS
-                .wait_for_login
-                .store(true, std::sync::atomic::Ordering::Relaxed);
+            GLOBALS.wait_for_login.store(true, Ordering::Relaxed);
             GLOBALS
                 .wait_for_data_migration
-                .store(true, std::sync::atomic::Ordering::Relaxed);
+                .store(true, Ordering::Relaxed);
         } else if GLOBALS.storage.read_setting_login_at_startup() {
-            GLOBALS
-                .wait_for_login
-                .store(true, std::sync::atomic::Ordering::Relaxed);
+            GLOBALS.wait_for_login.store(true, Ordering::Relaxed);
         }
     }
 
@@ -229,6 +227,9 @@ pub fn init() -> Result<(), Error> {
                 .get_replaceable_event(EventKind::BookmarkList, pubkey, "")?
         {
             *GLOBALS.bookmarks.write() = BookmarkList::from_event(&event)?;
+            GLOBALS
+                .recompute_current_bookmarks
+                .store(true, Ordering::Relaxed);
         }
     }
 

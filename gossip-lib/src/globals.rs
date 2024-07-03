@@ -160,6 +160,7 @@ pub struct Globals {
 
     /// Current bookmarks, resolved into a Vec<Id> (updated by tasks)
     pub current_bookmarks: PRwLock<Vec<Id>>,
+    pub recompute_current_bookmarks: AtomicBool,
 }
 
 lazy_static! {
@@ -230,6 +231,7 @@ lazy_static! {
             loading_more: AtomicUsize::new(0),
             bookmarks: PRwLock::new(BookmarkList::empty()),
             current_bookmarks: PRwLock::new(Vec::new()),
+            recompute_current_bookmarks: AtomicBool::new(false),
         }
     };
 }

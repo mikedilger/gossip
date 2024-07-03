@@ -76,11 +76,15 @@ async fn do_general_tasks(tick: usize) {
         }
     }
 
-    // Update current bookmarks from bookmarks (every 2 seconds)
-    if tick % 2 == 0 {
+    // Update current bookmarks (as needed)
+    if GLOBALS.recompute_current_bookmarks.load(Ordering::Relaxed) {
         match GLOBALS.bookmarks.read().get_bookmark_feed() {
             Ok(feed) => *GLOBALS.current_bookmarks.write() = feed,
             Err(e) => tracing::error!("{:?}", e),
         }
+        // Turn off the flag even if we had an error so we don't get errors every second
+        GLOBALS
+            .recompute_current_bookmarks
+            .store(false, Ordering::Relaxed);
     }
 }
