@@ -243,9 +243,6 @@ pub async fn run() {
                 if last_runstate == RunState::Online {
                     tracing::info!("Starting up online systems...");
 
-                    // Start the seeker
-                    crate::seeker::Seeker::start();
-
                     // Start periodic tasks in people manager (after signer)
                     crate::people::People::start();
 

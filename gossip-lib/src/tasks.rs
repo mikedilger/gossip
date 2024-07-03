@@ -51,6 +51,9 @@ async fn do_online_tasks(tick: usize) -> Result<(), Error> {
         GLOBALS.fetcher.process_queue().await;
     }
 
+    // Do seeker tasks (every second
+    GLOBALS.seeker.run_once().await;
+
     Ok(())
 }
 

@@ -7,7 +7,6 @@ use crate::relay::Relay;
 use dashmap::DashMap;
 use nostr_types::{Event, EventAddr, EventReference, Id, PublicKey, RelayUrl, Unixtime};
 use std::time::Duration;
-use tokio::time::Instant;
 
 #[derive(Debug, Clone)]
 pub enum SeekState {
@@ -226,35 +225,6 @@ impl Seeker {
         }
 
         Ok(())
-    }
-
-    pub(crate) fn start() {
-        tracing::info!("Seeker startup");
-
-        // Setup periodic queue management
-        tokio::task::spawn(async move {
-            let mut read_runstate = GLOBALS.read_runstate.clone();
-            read_runstate.mark_unchanged();
-            if read_runstate.borrow().going_offline() {
-                return;
-            }
-
-            let sleep = tokio::time::sleep(Duration::from_millis(1000));
-            tokio::pin!(sleep);
-
-            loop {
-                tokio::select! {
-                    _ = &mut sleep => {
-                        sleep.as_mut().reset(Instant::now() + Duration::from_millis(1000));
-                    },
-                    _ = read_runstate.wait_for(|runstate| runstate.going_offline()) => break,
-                }
-
-                GLOBALS.seeker.run_once().await;
-            }
-
-            tracing::info!("Seeker shutdown");
-        });
     }
 
     pub(crate) async fn run_once(&self) {
