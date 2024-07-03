@@ -718,13 +718,6 @@ impl Storage {
         55
     );
     def_setting!(
-        fetcher_metadata_looptime_ms,
-        b"fetcher_metadata_looptime_ms",
-        u64,
-        1750
-    );
-    def_setting!(fetcher_looptime_ms, b"fetcher_looptime_ms", u64, 1800);
-    def_setting!(
         fetcher_connect_timeout_sec,
         b"fetcher_connect_timeout_sec",
         u64,

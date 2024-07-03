@@ -46,7 +46,6 @@ pub(crate) fn start_background_tasks() {
 
 async fn do_online_tasks(tick: usize) -> Result<(), Error> {
     // Do fetcher tasks (every 2 seconds)
-    // FIXME: retire GLOBALS.storage.read_setting_fetcher_looptime_ms()
     if tick % 2 == 0 {
         GLOBALS.fetcher.process_queue().await;
     }
@@ -64,7 +63,6 @@ async fn do_online_tasks(tick: usize) -> Result<(), Error> {
     }
 
     // Update people metadata every 2 seconds
-    // FIXME: retire GLOBALS.storage.read_setting_fetcher_metadata_looptime_ms();
     if tick % 2 == 0 {
         GLOBALS.people.maybe_fetch_metadata().await;
     }

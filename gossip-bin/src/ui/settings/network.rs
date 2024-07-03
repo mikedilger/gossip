@@ -56,20 +56,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     ui.add_space(10.0);
 
     ui.horizontal(|ui| {
-        ui.label("Looptime for metadata fetcher thread");
-        ui.add(
-            Slider::new(
-                &mut app.unsaved_settings.fetcher_metadata_looptime_ms,
-                1000..=6000,
-            )
-            .text("ms"),
-        );
-    });
-    ui.horizontal(|ui| {
-        ui.label("Looptime for general fetcher thread");
-        ui.add(Slider::new(&mut app.unsaved_settings.fetcher_looptime_ms, 1000..=6000).text("ms"));
-    });
-    ui.horizontal(|ui| {
         ui.label("HTTP Connect Timeout");
         ui.add(
             Slider::new(

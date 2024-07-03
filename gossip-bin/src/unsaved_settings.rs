@@ -110,8 +110,6 @@ pub struct UnsavedSettings {
     pub websocket_ping_frequency_sec: u64,
 
     // HTTP settings
-    pub fetcher_metadata_looptime_ms: u64,
-    pub fetcher_looptime_ms: u64,
     pub fetcher_connect_timeout_sec: u64,
     pub fetcher_timeout_sec: u64,
     pub fetcher_max_requests_per_host: usize,
@@ -190,8 +188,6 @@ impl Default for UnsavedSettings {
             websocket_accept_unmasked_frames: default_setting!(websocket_accept_unmasked_frames),
             websocket_connect_timeout_sec: default_setting!(websocket_connect_timeout_sec),
             websocket_ping_frequency_sec: default_setting!(websocket_ping_frequency_sec),
-            fetcher_metadata_looptime_ms: default_setting!(fetcher_metadata_looptime_ms),
-            fetcher_looptime_ms: default_setting!(fetcher_looptime_ms),
             fetcher_connect_timeout_sec: default_setting!(fetcher_connect_timeout_sec),
             fetcher_timeout_sec: default_setting!(fetcher_timeout_sec),
             fetcher_max_requests_per_host: default_setting!(fetcher_max_requests_per_host),
@@ -272,8 +268,6 @@ impl UnsavedSettings {
             websocket_accept_unmasked_frames: load_setting!(websocket_accept_unmasked_frames),
             websocket_connect_timeout_sec: load_setting!(websocket_connect_timeout_sec),
             websocket_ping_frequency_sec: load_setting!(websocket_ping_frequency_sec),
-            fetcher_metadata_looptime_ms: load_setting!(fetcher_metadata_looptime_ms),
-            fetcher_looptime_ms: load_setting!(fetcher_looptime_ms),
             fetcher_connect_timeout_sec: load_setting!(fetcher_connect_timeout_sec),
             fetcher_timeout_sec: load_setting!(fetcher_timeout_sec),
             fetcher_max_requests_per_host: load_setting!(fetcher_max_requests_per_host),
@@ -350,8 +344,6 @@ impl UnsavedSettings {
         save_setting!(websocket_accept_unmasked_frames, self, txn);
         save_setting!(websocket_connect_timeout_sec, self, txn);
         save_setting!(websocket_ping_frequency_sec, self, txn);
-        save_setting!(fetcher_metadata_looptime_ms, self, txn);
-        save_setting!(fetcher_looptime_ms, self, txn);
         save_setting!(fetcher_connect_timeout_sec, self, txn);
         save_setting!(fetcher_timeout_sec, self, txn);
         save_setting!(fetcher_max_requests_per_host, self, txn);
