@@ -198,7 +198,7 @@ lazy_static! {
             )),
             bytes_read: AtomicUsize::new(0),
             open_subscriptions: AtomicUsize::new(0),
-            unread_dms: AtomicUsize::new(999),
+            unread_dms: AtomicUsize::new(0),
             media: Media::new(),
             events_being_searched_for: PRwLock::new(Vec::new()),
             //event_addrs_being_searched_for: PRwLock::new(Vec::new()),

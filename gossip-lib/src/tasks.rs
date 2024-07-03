@@ -44,10 +44,20 @@ pub(crate) fn start_background_tasks() {
     });
 }
 
-fn do_online_tasks(tick: usize) -> Result<(), Error> {
+fn do_online_tasks(_tick: usize) -> Result<(), Error> {
     Ok(())
 }
 
 fn do_general_tasks(tick: usize) -> Result<(), Error> {
+
+    // Update GLOBALS.unread_dms count (every 3 seconds)
+    if tick % 3 == 0 {
+        // Update unread dm channels, whether or not we are in that feed
+        if let Ok(channels) = GLOBALS.storage.dm_channels() {
+            let unread = channels.iter().map(|c| c.unread_message_count).sum();
+            GLOBALS.unread_dms.store(unread, Ordering::Relaxed);
+        }
+    }
+
     Ok(())
 }
