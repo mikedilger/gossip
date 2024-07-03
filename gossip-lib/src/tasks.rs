@@ -1,4 +1,4 @@
-use crate::error::{Error, ErrorKind};
+use crate::error::ErrorKind;
 use crate::RunState;
 use crate::GLOBALS;
 use std::sync::atomic::Ordering;
@@ -32,21 +32,17 @@ pub(crate) fn start_background_tasks() {
             if !GLOBALS.storage.read_setting_offline()
                 && *read_runstate.borrow() == RunState::Online
             {
-                if let Err(e) = do_online_tasks(tick).await {
-                    tracing::error!("{}", e);
-                }
+                do_online_tasks(tick).await;
             }
 
-            if let Err(e) = do_general_tasks(tick).await {
-                tracing::error!("{}", e);
-            }
+            do_general_tasks(tick).await;
         }
 
         tracing::info!("Stopping general background tasks");
     });
 }
 
-async fn do_online_tasks(tick: usize) -> Result<(), Error> {
+async fn do_online_tasks(tick: usize) {
     // Do fetcher tasks (every 2 seconds)
     if tick % 2 == 0 {
         GLOBALS.fetcher.process_queue().await;
@@ -68,11 +64,9 @@ async fn do_online_tasks(tick: usize) -> Result<(), Error> {
     if tick % 2 == 0 {
         GLOBALS.people.maybe_fetch_metadata().await;
     }
-
-    Ok(())
 }
 
-async fn do_general_tasks(tick: usize) -> Result<(), Error> {
+async fn do_general_tasks(tick: usize) {
     // Update GLOBALS.unread_dms count (every 3 seconds)
     if tick % 3 == 0 {
         // Update unread dm channels, whether or not we are in that feed
@@ -81,6 +75,4 @@ async fn do_general_tasks(tick: usize) -> Result<(), Error> {
             GLOBALS.unread_dms.store(unread, Ordering::Relaxed);
         }
     }
-
-    Ok(())
 }
