@@ -227,9 +227,7 @@ pub fn init() -> Result<(), Error> {
                 .get_replaceable_event(EventKind::BookmarkList, pubkey, "")?
         {
             *GLOBALS.bookmarks.write() = BookmarkList::from_event(&event)?;
-            GLOBALS
-                .recompute_current_bookmarks
-                .store(true, Ordering::Relaxed);
+            GLOBALS.recompute_current_bookmarks.notify_one();
         }
     }
 

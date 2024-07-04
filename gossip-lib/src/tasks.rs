@@ -15,16 +15,26 @@ pub(crate) fn start_background_tasks() {
             return;
         }
 
-        let sleep = tokio::time::sleep(Duration::from_millis(1000));
-        tokio::pin!(sleep);
+        let sleep_future = tokio::time::sleep(Duration::from_millis(1000));
+        tokio::pin!(sleep_future);
         let mut tick: usize = 0;
 
+        let recompute_bookmarks = GLOBALS.recompute_current_bookmarks.clone();
+
         loop {
+            let recompute_bookmarks_future = recompute_bookmarks.notified();
+
             tokio::select! {
-                _ = &mut sleep => {
-                    sleep.as_mut().reset(Instant::now() + Duration::from_millis(1000));
+                _ = &mut sleep_future => {
+                    sleep_future.as_mut().reset(Instant::now() + Duration::from_millis(1000))
                 },
                 _ = read_runstate.wait_for(|runstate| *runstate == RunState::ShuttingDown) => break,
+                _ = recompute_bookmarks_future => {
+                    match GLOBALS.bookmarks.read().get_bookmark_feed() {
+                        Ok(feed) => *GLOBALS.current_bookmarks.write() = feed,
+                        Err(e) => tracing::error!("{:?}", e),
+                    }
+                }
             }
 
             tick += 1;
@@ -74,17 +84,5 @@ async fn do_general_tasks(tick: usize) {
             let unread = channels.iter().map(|c| c.unread_message_count).sum();
             GLOBALS.unread_dms.store(unread, Ordering::Relaxed);
         }
-    }
-
-    // Update current bookmarks (as needed)
-    if GLOBALS.recompute_current_bookmarks.load(Ordering::Relaxed) {
-        match GLOBALS.bookmarks.read().get_bookmark_feed() {
-            Ok(feed) => *GLOBALS.current_bookmarks.write() = feed,
-            Err(e) => tracing::error!("{:?}", e),
-        }
-        // Turn off the flag even if we had an error so we don't get errors every second
-        GLOBALS
-            .recompute_current_bookmarks
-            .store(false, Ordering::Relaxed);
     }
 }

@@ -1053,9 +1053,7 @@ impl Overlord {
         let added = GLOBALS.bookmarks.write().add(er, private)?;
 
         if added {
-            GLOBALS
-                .recompute_current_bookmarks
-                .store(true, Ordering::Relaxed);
+            GLOBALS.recompute_current_bookmarks.notify_one();
             let event = GLOBALS.bookmarks.read().into_event()?;
             self.post_bookmarks(event).await?;
         }
@@ -1068,9 +1066,7 @@ impl Overlord {
         let removed = GLOBALS.bookmarks.write().remove(er)?;
 
         if removed {
-            GLOBALS
-                .recompute_current_bookmarks
-                .store(true, Ordering::Relaxed);
+            GLOBALS.recompute_current_bookmarks.notify_one();
             let event = GLOBALS.bookmarks.read().into_event()?;
             self.post_bookmarks(event).await?;
         }

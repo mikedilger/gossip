@@ -21,6 +21,7 @@ use regex::Regex;
 use rhai::{Engine, AST};
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize};
+use std::sync::Arc;
 use tokio::sync::watch::Receiver as WatchReceiver;
 use tokio::sync::watch::Sender as WatchSender;
 use tokio::sync::{broadcast, mpsc, Mutex, Notify, RwLock};
@@ -160,7 +161,7 @@ pub struct Globals {
 
     /// Current bookmarks, resolved into a Vec<Id> (updated by tasks)
     pub current_bookmarks: PRwLock<Vec<Id>>,
-    pub recompute_current_bookmarks: AtomicBool,
+    pub recompute_current_bookmarks: Arc<Notify>,
 }
 
 lazy_static! {
@@ -231,7 +232,7 @@ lazy_static! {
             loading_more: AtomicUsize::new(0),
             bookmarks: PRwLock::new(BookmarkList::empty()),
             current_bookmarks: PRwLock::new(Vec::new()),
-            recompute_current_bookmarks: AtomicBool::new(false),
+            recompute_current_bookmarks: Arc::new(Notify::new()),
         }
     };
 }
