@@ -295,6 +295,9 @@ impl Feed {
 
                 *self.current_feed_events.write() = events;
             }
+            FeedKind::Bookmarks => {
+                *self.current_feed_events.write() = GLOBALS.current_bookmarks.read().clone();
+            }
             FeedKind::Inbox(indirect) => {
                 if let Some(my_pubkey) = GLOBALS.identity.public_key() {
                     // Ideally all replies would 'p' tag me (NIP-10)

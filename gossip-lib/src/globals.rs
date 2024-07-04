@@ -1,3 +1,4 @@
+use crate::bookmarks::BookmarkList;
 use crate::comms::{RelayJob, ToMinionMessage, ToOverlordMessage};
 use crate::feed::Feed;
 use crate::fetcher::Fetcher;
@@ -20,6 +21,7 @@ use regex::Regex;
 use rhai::{Engine, AST};
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize};
+use std::sync::Arc;
 use tokio::sync::watch::Receiver as WatchReceiver;
 use tokio::sync::watch::Sender as WatchSender;
 use tokio::sync::{broadcast, mpsc, Mutex, Notify, RwLock};
@@ -153,6 +155,13 @@ pub struct Globals {
 
     /// Loading more - how many relays are still loading a chunk of events.
     pub loading_more: AtomicUsize,
+
+    /// Bookmarks
+    pub bookmarks: PRwLock<BookmarkList>,
+
+    /// Current bookmarks, resolved into a Vec<Id> (updated by tasks)
+    pub current_bookmarks: PRwLock<Vec<Id>>,
+    pub recompute_current_bookmarks: Arc<Notify>,
 }
 
 lazy_static! {
@@ -221,6 +230,9 @@ lazy_static! {
             advertise_jobs_remaining: AtomicUsize::new(0),
             pending: Pending::new(),
             loading_more: AtomicUsize::new(0),
+            bookmarks: PRwLock::new(BookmarkList::empty()),
+            current_bookmarks: PRwLock::new(Vec::new()),
+            recompute_current_bookmarks: Arc::new(Notify::new()),
         }
     };
 }

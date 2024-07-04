@@ -64,6 +64,9 @@
 //! with the storage engine. In some cases, the `Overlord` has more complex code for doing this,
 //! but in many cases, you can interact with `GLOBALS.storage` directly.
 
+pub mod bookmarks;
+pub use bookmarks::BookmarkList;
+
 /// Defines messages sent to the overlord
 pub mod comms;
 
@@ -154,6 +157,7 @@ extern crate lazy_static;
 /// when connecting to relays
 pub static USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
 
+use nostr_types::EventKind;
 use std::ops::DerefMut;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -192,6 +196,8 @@ impl std::convert::TryFrom<u8> for RunState {
 
 /// Initialize gossip-lib
 pub fn init() -> Result<(), Error> {
+    use std::sync::atomic::Ordering;
+
     // Initialize storage
     GLOBALS.storage.init()?;
 
@@ -204,16 +210,24 @@ pub fn init() -> Result<(), Error> {
         if GLOBALS.storage.get_flag_rebuild_relationships_needed()
             || GLOBALS.storage.get_flag_rebuild_indexes_needed()
         {
-            GLOBALS
-                .wait_for_login
-                .store(true, std::sync::atomic::Ordering::Relaxed);
+            GLOBALS.wait_for_login.store(true, Ordering::Relaxed);
             GLOBALS
                 .wait_for_data_migration
-                .store(true, std::sync::atomic::Ordering::Relaxed);
+                .store(true, Ordering::Relaxed);
         } else if GLOBALS.storage.read_setting_login_at_startup() {
+            GLOBALS.wait_for_login.store(true, Ordering::Relaxed);
+        }
+    }
+
+    // Populate global bookmarks
+    if let Some(pubkey) = GLOBALS.identity.public_key() {
+        if let Some(event) =
             GLOBALS
-                .wait_for_login
-                .store(true, std::sync::atomic::Ordering::Relaxed);
+                .storage
+                .get_replaceable_event(EventKind::BookmarkList, pubkey, "")?
+        {
+            *GLOBALS.bookmarks.write() = BookmarkList::from_event(&event)?;
+            GLOBALS.recompute_current_bookmarks.notify_one();
         }
     }
 

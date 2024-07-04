@@ -4,8 +4,8 @@ use crate::nip46::{Approval, ParsedCommand};
 use crate::people::PersonList;
 use crate::relay::Relay;
 use nostr_types::{
-    Event, EventAddr, Id, IdHex, Metadata, MilliSatoshi, Profile, PublicKey, RelayUrl, Tag,
-    UncheckedUrl, Unixtime,
+    Event, EventAddr, EventReference, Id, IdHex, Metadata, MilliSatoshi, Profile, PublicKey,
+    RelayUrl, Tag, UncheckedUrl, Unixtime,
 };
 use std::fmt;
 use std::hash::{Hash, Hasher};
@@ -33,6 +33,14 @@ pub enum ToOverlordMessage {
     /// Calls [auth_approved](crate::Overlord::auth_declined)
     /// pass 'true' as the second parameter for a permanent approval
     AuthDeclined(RelayUrl, bool),
+
+    /// Calls [bookmark_add](crate::Overlord::bookmark_add)
+    /// Adds a bookmark, possibly privately, and publishes new bookmarks list
+    BookmarkAdd(EventReference, bool),
+
+    /// Calls [bookmark_rm](crate::Overlord::bookmark_rm)
+    /// Removess a bookmark, and publishes new bookmarks list
+    BookmarkRm(EventReference),
 
     /// Calls [change_passphrase](crate::Overlord::change_passphrase)
     ChangePassphrase { old: String, new: String },

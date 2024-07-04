@@ -1039,6 +1039,16 @@ impl GossipUi {
                     Page::Feed(FeedKind::Inbox(self.inbox_include_indirect)),
                 );
             }
+            if self
+                .add_selected_label(
+                    ui,
+                    self.page == Page::Feed(FeedKind::Bookmarks),
+                    "Bookmarks",
+                )
+                .clicked()
+            {
+                self.set_page(ctx, Page::Feed(FeedKind::Bookmarks));
+            }
         }
     }
 

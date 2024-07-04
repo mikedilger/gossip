@@ -1,3 +1,4 @@
+use crate::bookmarks::BookmarkList;
 use crate::comms::ToOverlordMessage;
 use crate::error::Error;
 use crate::filter::EventFilterAction;
@@ -697,82 +698,27 @@ pub(crate) fn process_relationships_of_event<'a>(
             }
         }
 
-        /*
-        Bookmarks as relationships don't work well because it is
-        expensive to clear all relationships that are bookmarks
-        when rewriting them to match a new bookmark list event.
-        So we are retiring creating this relationships (and may
-        delete them later)
-
-        // ListBookmarks
+        // Maybe update global's cache of bookmarks
         if event.kind == EventKind::BookmarkList {
-            for tag in &event.tags {
-                if let Ok((id, _, _)) = tag.parse_event() {
-                    GLOBALS.storage.write_relationship_by_id(
-                        id,
-                        event.id,
-                        RelationshipById::Bookmarks,
-                        Some(txn),
-                    )?;
-                }
-
-                if let Ok((ea, _marker)) = tag.parse_address() {
-                    GLOBALS.storage.write_relationship_by_addr(
-                        ea,
-                        event.id,
-                        RelationshipByAddr::Bookmarks,
-                        Some(txn),
-                    )?;
+            // Only if it is ours
+            if let Some(pk) = GLOBALS.identity.public_key() {
+                if pk == event.pubkey {
+                    // Only if this event is the latest (it is already stored so we can do this check)
+                    if let Some(newest_event) =
+                        GLOBALS
+                            .storage
+                            .get_replaceable_event(EventKind::BookmarkList, pk, "")?
+                    {
+                        if newest_event == *event {
+                            *GLOBALS.bookmarks.write() = BookmarkList::from_event(event)?;
+                            GLOBALS.recompute_current_bookmarks.notify_one();
+                        }
+                    }
                 }
             }
         }
 
-        // BookmarkSets
-        if event.kind == EventKind::BookmarkSets {
-            for tag in &event.tags {
-                if let Ok((id, _, _)) = tag.parse_event() {
-                    GLOBALS.storage.write_relationship_by_id(
-                        id,
-                        event.id,
-                        RelationshipById::Bookmarks,
-                        Some(txn),
-                    )?;
-                }
-
-                if let Ok((ea, _marker)) = tag.parse_address() {
-                    GLOBALS.storage.write_relationship_by_addr(
-                        ea,
-                        event.id,
-                        RelationshipByAddr::Bookmarks,
-                        Some(txn),
-                    )?;
-                }
-            }
-        }
-
-        // CurationSets
-        if event.kind == EventKind::CurationSets {
-            for tag in &event.tags {
-                if let Ok((id, _, _)) = tag.parse_event() {
-                    GLOBALS.storage.write_relationship_by_id(
-                        id,
-                        event.id,
-                        RelationshipById::Curates,
-                        Some(txn),
-                    )?;
-                }
-                if let Ok((ea, _marker)) = tag.parse_address() {
-                    GLOBALS.storage.write_relationship_by_addr(
-                        ea,
-                        event.id,
-                        RelationshipByAddr::Curates,
-                        Some(txn),
-                    )?;
-                }
-            }
-        }
-
-         */
+        // NOTE: we do not store Bookmarks or Curates relationships anymore.
 
         if event.kind == EventKind::LiveChatMessage {
             for tag in &event.tags {
