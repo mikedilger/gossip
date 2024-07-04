@@ -1,3 +1,4 @@
+use crate::bookmarks::BookmarkList;
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use nostr_types::{
@@ -75,6 +76,18 @@ impl GossipIdentity {
             .collect();
 
         GLOBALS.ui_notes_to_invalidate.write().extend(dms);
+
+        // Recompute bookmarks (including the private part)
+        if let Some(pk) = self.public_key() {
+            if let Some(event) =
+                GLOBALS
+                    .storage
+                    .get_replaceable_event(EventKind::BookmarkList, pk, "")?
+            {
+                *GLOBALS.bookmarks.write() = BookmarkList::from_event(&event)?;
+                GLOBALS.recompute_current_bookmarks.notify_one();
+            }
+        }
 
         // Index any waiting GiftWraps
         GLOBALS.storage.index_unindexed_giftwraps()?;

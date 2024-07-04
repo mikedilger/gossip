@@ -85,8 +85,8 @@ impl BookmarkList {
 
         let mut bml = Self::empty();
         bml.add_tags(event.tags.as_ref(), false)?;
-        if let Ok(bytes) = GLOBALS.identity.decrypt(&public_key, &event.content) {
-            if let Ok(vectags) = serde_json::from_str::<Vec<Tag>>(&bytes) {
+        if let Ok(json_string) = GLOBALS.identity.decrypt(&public_key, &event.content) {
+            if let Ok(vectags) = serde_json::from_str::<Vec<Tag>>(&json_string) {
                 bml.add_tags(vectags.as_ref(), true)?;
             }
         }
