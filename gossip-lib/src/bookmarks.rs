@@ -61,7 +61,7 @@ impl BookmarkList {
     pub fn remove(&mut self, er: EventReference) -> Result<bool, Error> {
         let index = self.0.iter().position(|(thiser, _)| *thiser == er);
         match index {
-            None => return Ok(false),
+            None => Ok(false),
             Some(index) => {
                 self.0.remove(index);
                 Ok(true)
