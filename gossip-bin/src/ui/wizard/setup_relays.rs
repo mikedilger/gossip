@@ -69,90 +69,96 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     }
 
     ui.add_space(20.0);
-    ui.horizontal(|ui| {
-        ui.vertical(|ui| {
+    app.vert_scroll_area()
+        .max_width(f32::INFINITY)
+        .max_height(ctx.screen_rect().height() - 400.0)
+        .show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.heading("OUTBOX")
-                    .on_hover_text("Relays where you post notes to");
-                if outbox_relays.len() >= MIN_OUTBOX {
-                    ui.label(RichText::new(" - OK").color(Color32::GREEN));
-                } else {
-                    ui.label(
-                        RichText::new(" - We suggest 3")
-                            .color(app.theme.warning_marker_text_color()),
-                    );
-                }
-            });
-            ui.add_space(10.0);
-            for relay in outbox_relays.iter() {
-                ui.horizontal(|ui| {
-                    if ui.button("🗑").clicked() {
-                        modify_relay(&relay.url, |relay| {
-                            relay.clear_usage_bits(Relay::OUTBOX | Relay::WRITE);
+                ui.vertical(|ui| {
+                    ui.horizontal(|ui| {
+                        ui.heading("OUTBOX")
+                            .on_hover_text("Relays where you post notes to");
+                        if outbox_relays.len() >= MIN_OUTBOX {
+                            ui.label(RichText::new(" - OK").color(Color32::GREEN));
+                        } else {
+                            ui.label(
+                                RichText::new(" - We suggest 3")
+                                    .color(app.theme.warning_marker_text_color()),
+                            );
+                        }
+                    });
+                    ui.add_space(10.0);
+                    for relay in outbox_relays.iter() {
+                        ui.horizontal(|ui| {
+                            if ui.button("🗑").clicked() {
+                                modify_relay(&relay.url, |relay| {
+                                    relay.clear_usage_bits(Relay::OUTBOX | Relay::WRITE);
+                                });
+                            }
+                            ui.label(relay.url.as_str());
                         });
                     }
-                    ui.label(relay.url.as_str());
                 });
-            }
-        });
 
-        ui.add_space(10.0);
+                ui.add_space(10.0);
 
-        ui.vertical(|ui| {
-            ui.horizontal(|ui| {
-                ui.heading("INBOX").on_hover_text(
-                    "Relays where people can send you events tagging you, including DMs",
-                );
-                if inbox_relays.len() >= MIN_INBOX {
-                    ui.label(RichText::new(" - OK").color(Color32::GREEN));
-                } else {
-                    ui.label(
-                        RichText::new(" - We suggest 2")
-                            .color(app.theme.warning_marker_text_color()),
-                    );
-                }
-            });
-            ui.add_space(10.0);
-            for relay in inbox_relays.iter() {
-                ui.horizontal(|ui| {
-                    if ui.button("🗑").clicked() {
-                        modify_relay(&relay.url, |relay| {
-                            relay.clear_usage_bits(Relay::INBOX | Relay::READ);
+                ui.vertical(|ui| {
+                    ui.horizontal(|ui| {
+                        ui.heading("INBOX").on_hover_text(
+                            "Relays where people can send you events tagging you, including DMs",
+                        );
+                        if inbox_relays.len() >= MIN_INBOX {
+                            ui.label(RichText::new(" - OK").color(Color32::GREEN));
+                        } else {
+                            ui.label(
+                                RichText::new(" - We suggest 2")
+                                    .color(app.theme.warning_marker_text_color()),
+                            );
+                        }
+                    });
+                    ui.add_space(10.0);
+                    for relay in inbox_relays.iter() {
+                        ui.horizontal(|ui| {
+                            if ui.button("🗑").clicked() {
+                                modify_relay(&relay.url, |relay| {
+                                    relay.clear_usage_bits(Relay::INBOX | Relay::READ);
+                                });
+                            }
+                            ui.label(relay.url.as_str());
                         });
                     }
-                    ui.label(relay.url.as_str());
                 });
-            }
-        });
 
-        ui.add_space(10.0);
+                ui.add_space(10.0);
 
-        ui.vertical(|ui| {
-            ui.horizontal(|ui| {
-                ui.heading("DISCOVERY")
-                    .on_hover_text("Relays where you find out what relays other people are using");
-                if discovery_relays.len() >= MIN_DISCOVERY {
-                    ui.label(RichText::new(" - OK").color(Color32::GREEN));
-                } else {
-                    ui.label(
-                        RichText::new(" - We suggest 4")
-                            .color(app.theme.warning_marker_text_color()),
-                    );
-                }
-            });
-            ui.add_space(10.0);
-            for relay in discovery_relays.iter() {
-                ui.horizontal(|ui| {
-                    if ui.button("🗑").clicked() {
-                        modify_relay(&relay.url, |relay| {
-                            relay.clear_usage_bits(Relay::DISCOVER);
+                ui.vertical(|ui| {
+                    ui.horizontal(|ui| {
+                        ui.heading("DISCOVERY").on_hover_text(
+                            "Relays where you find out what relays other people are using",
+                        );
+                        if discovery_relays.len() >= MIN_DISCOVERY {
+                            ui.label(RichText::new(" - OK").color(Color32::GREEN));
+                        } else {
+                            ui.label(
+                                RichText::new(" - We suggest 4")
+                                    .color(app.theme.warning_marker_text_color()),
+                            );
+                        }
+                    });
+                    ui.add_space(10.0);
+                    for relay in discovery_relays.iter() {
+                        ui.horizontal(|ui| {
+                            if ui.button("🗑").clicked() {
+                                modify_relay(&relay.url, |relay| {
+                                    relay.clear_usage_bits(Relay::DISCOVER);
+                                });
+                            }
+                            ui.label(relay.url.as_str());
                         });
                     }
-                    ui.label(relay.url.as_str());
                 });
-            }
+            });
         });
-    });
 
     ui.add_space(10.0);
     ui.separator();
