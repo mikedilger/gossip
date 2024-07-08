@@ -11,7 +11,7 @@ pub async fn validate_nip05(person: Person) -> Result<(), Error> {
         return Ok(());
     }
 
-    let now = Unixtime::now().unwrap();
+    let now = Unixtime::now()?;
 
     // invalid if their nip-05 is not set
     if person.metadata().is_none()
