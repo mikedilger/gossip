@@ -11,7 +11,7 @@ pub async fn validate_nip05(person: Person) -> Result<(), Error> {
         return Ok(());
     }
 
-    let now = Unixtime::now().unwrap();
+    let now = Unixtime::now();
 
     // invalid if their nip-05 is not set
     if person.metadata().is_none()
@@ -113,12 +113,7 @@ pub async fn get_and_follow_nip05(
     // Save person
     GLOBALS
         .people
-        .upsert_nip05_validity(
-            &pubkey,
-            Some(nip05.clone()),
-            true,
-            Unixtime::now().unwrap().0 as u64,
-        )
+        .upsert_nip05_validity(&pubkey, Some(nip05.clone()), true, Unixtime::now().0 as u64)
         .await?;
 
     update_relays(&nip05, nip05file, &pubkey).await?;

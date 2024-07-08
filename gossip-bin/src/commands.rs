@@ -313,7 +313,7 @@ pub fn add_person_list(cmd: Command, mut args: env::Args) -> Result<(), Error> {
 }
 
 pub fn backdate_eose() -> Result<(), Error> {
-    let now = Unixtime::now().unwrap();
+    let now = Unixtime::now();
     let ago = (now.0 - 60 * 60 * 24) as u64;
 
     GLOBALS.storage.modify_all_relays(
@@ -573,7 +573,7 @@ pub fn delete_spam_by_content(
         let public_key = GLOBALS.identity.public_key().unwrap();
         let pre_event = PreEvent {
             pubkey: public_key,
-            created_at: Unixtime::now().unwrap(),
+            created_at: Unixtime::now(),
             kind: EventKind::EventDeletion,
             tags,
             content: "spam".to_owned(),
@@ -917,7 +917,7 @@ pub fn reprocess_recent(_cmd: Command, runtime: &Runtime) -> Result<(), Error> {
     login()?;
 
     let job = tokio::task::spawn(async move {
-        let mut ago = Unixtime::now().unwrap();
+        let mut ago = Unixtime::now();
         ago.0 -= 86400;
 
         let mut filter = Filter::new();

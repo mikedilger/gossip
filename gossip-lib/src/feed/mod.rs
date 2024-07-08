@@ -79,7 +79,7 @@ impl Feed {
         let anchor_key = self.current_feed_kind.read().anchor_key();
         match self.feed_anchors.get(&anchor_key) {
             Some(r) => *r,
-            None => Unixtime::now().unwrap(),
+            None => Unixtime::now(),
         }
     }
 
@@ -124,7 +124,7 @@ impl Feed {
                 Some(refanchor) => *refanchor,
                 None => {
                     // Start the feed anchor if it was not yet set
-                    let now = Unixtime::now().unwrap();
+                    let now = Unixtime::now();
                     self.feed_anchors.insert(anchor_key, now);
                     now
                 }
@@ -387,7 +387,7 @@ impl Feed {
     where
         F: Fn(&Event) -> bool,
     {
-        let now = Unixtime::now().unwrap();
+        let now = Unixtime::now();
         let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
         let dismissed = GLOBALS.dismissed.read().await.clone();
 
@@ -421,7 +421,7 @@ impl Feed {
 
 #[inline]
 fn basic_screen(e: &Event, include_replies: bool, include_dms: bool, dismissed: &[Id]) -> bool {
-    let now = Unixtime::now().unwrap();
+    let now = Unixtime::now();
 
     e.created_at <= now
         && (include_replies || e.replies_to().is_none())

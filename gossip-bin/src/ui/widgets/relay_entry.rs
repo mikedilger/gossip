@@ -313,13 +313,9 @@ impl RelayEntry {
                 // show remaining time on timeout
                 if let Some(timeout) = self.timeout_until {
                     let color = egui::Color32::from_rgb(0xf4, 0xbf, 0x4f); // orange
-                    if let Ok(now) = Unixtime::now() {
-                        let remain = timeout - now.0;
-                        let text = format!("Timeout, retry in {} seconds", remain);
-                        (color, text)
-                    } else {
-                        (color, "Timeout, retry soon".to_string())
-                    }
+                    let remain = timeout - Unixtime::now().0;
+                    let text = format!("Timeout, retry in {} seconds", remain);
+                    (color, text)
                 } else {
                     (egui::Color32::GRAY, "Not connected".to_string())
                 }

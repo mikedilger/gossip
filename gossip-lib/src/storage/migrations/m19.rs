@@ -57,7 +57,7 @@ impl Storage {
                     last_edit_times
                         .get(&list)
                         .copied()
-                        .unwrap_or(Unixtime::now().unwrap().0),
+                        .unwrap_or(Unixtime::now().0),
                 ),
                 ..Default::default()
             };

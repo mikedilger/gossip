@@ -144,7 +144,7 @@ impl People {
 
     /// Get all the pubkeys that need relay lists (from the given set)
     pub fn get_subscribed_pubkeys_needing_relay_lists(&self) -> Vec<PublicKey> {
-        let stale = Unixtime::now().unwrap().0
+        let stale = Unixtime::now().0
             - 60 * GLOBALS
                 .storage
                 .read_setting_relay_list_becomes_stale_minutes() as i64;
@@ -161,7 +161,7 @@ impl People {
 
     /// Get if a person needs a relay list
     pub fn person_needs_relay_list(pubkey: PublicKey) -> Freshness {
-        let staletime = Unixtime::now().unwrap().0
+        let staletime = Unixtime::now().0
             - 60 * GLOBALS
                 .storage
                 .read_setting_relay_list_becomes_stale_minutes() as i64;
@@ -211,7 +211,7 @@ impl People {
     /// The overlord calls this to indicate that it is fetching metadata
     /// for this person from relays
     pub fn metadata_fetch_initiated(&self, pubkeys: &[PublicKey]) {
-        let now = Unixtime::now().unwrap();
+        let now = Unixtime::now();
         for pubkey in pubkeys {
             self.fetching_metadata.insert(*pubkey, now);
         }
@@ -235,7 +235,7 @@ impl People {
             );
         }
 
-        let now = Unixtime::now().unwrap();
+        let now = Unixtime::now();
         let stale = Duration::from_secs(
             60 * GLOBALS
                 .storage
@@ -310,7 +310,7 @@ impl People {
         // Sync in from database first
         self.create_all_if_missing(&[*pubkey])?;
 
-        let now = Unixtime::now().unwrap();
+        let now = Unixtime::now();
 
         // Copy the person
         let mut person =
@@ -371,7 +371,7 @@ impl People {
                                 .read_setting_nip05_becomes_stale_if_invalid_minutes(),
                         )
                     };
-                    Unixtime::now().unwrap() - Unixtime(last as i64) > recheck_duration
+                    Unixtime::now() - Unixtime(last as i64) > recheck_duration
                 } else {
                     true
                 }
@@ -737,7 +737,7 @@ impl People {
 
         let pre_event = PreEvent {
             pubkey: my_pubkey,
-            created_at: Unixtime::now().unwrap(),
+            created_at: Unixtime::now(),
             kind,
             tags: public_tags,
             content,
@@ -825,7 +825,7 @@ impl People {
             .storage
             .get_person_list_metadata(PersonList::Muted)?
         {
-            metadata.last_edit_time = Unixtime::now().unwrap();
+            metadata.last_edit_time = Unixtime::now();
             GLOBALS.storage.set_person_list_metadata(
                 PersonList::Muted,
                 &metadata,
@@ -869,7 +869,7 @@ impl People {
     }
 
     pub(crate) async fn update_nip05_last_checked(&self, pubkey: PublicKey) -> Result<(), Error> {
-        let now = Unixtime::now().unwrap().0;
+        let now = Unixtime::now().0;
 
         PersonTable::modify(
             pubkey,

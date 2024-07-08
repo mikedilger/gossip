@@ -58,7 +58,7 @@ impl PersonRelay1 {
     // This ranks the relays that a person writes to, but does not consider local
     // factors such as our relay rank or the success rate of the relay.
     pub fn write_rank(mut dbprs: Vec<PersonRelay1>) -> Vec<(RelayUrl, u64)> {
-        let now = Unixtime::now().unwrap().0 as u64;
+        let now = Unixtime::now().0 as u64;
         let mut output: Vec<(RelayUrl, u64)> = Vec::new();
 
         let scorefn = |when: u64, fade_period: u64, base: u64| -> u64 {
@@ -110,7 +110,7 @@ impl PersonRelay1 {
     // This ranks the relays that a person reads from, but does not consider local
     // factors such as our relay rank or the success rate of the relay.
     pub fn read_rank(mut dbprs: Vec<PersonRelay1>) -> Vec<(RelayUrl, u64)> {
-        let now = Unixtime::now().unwrap().0 as u64;
+        let now = Unixtime::now().0 as u64;
         let mut output: Vec<(RelayUrl, u64)> = Vec::new();
 
         let scorefn = |when: u64, fade_period: u64, base: u64| -> u64 {

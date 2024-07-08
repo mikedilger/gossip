@@ -25,7 +25,7 @@ pub async fn process_new_event(
     verify: bool,
     process_even_if_duplicate: bool,
 ) -> Result<(), Error> {
-    let now = Unixtime::now()?;
+    let now = Unixtime::now();
 
     // Bump count
     GLOBALS.events_processed.fetch_add(1, Ordering::SeqCst);

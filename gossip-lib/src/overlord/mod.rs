@@ -557,7 +557,7 @@ impl Overlord {
 
         // Record the exclusion in the relay record
         if let Ok(Some(mut relay)) = GLOBALS.storage.read_relay(&url, None) {
-            let until = Unixtime::now().unwrap() + Duration::from_secs(exclusion);
+            let until = Unixtime::now() + Duration::from_secs(exclusion);
             relay.avoid_until = Some(until);
             let _ = GLOBALS.storage.write_relay(&relay, None);
         }
@@ -852,7 +852,7 @@ impl Overlord {
 
             let pre_event = PreEvent {
                 pubkey: public_key,
-                created_at: Unixtime::now().unwrap(),
+                created_at: Unixtime::now(),
                 kind: EventKind::RelayList,
                 tags,
                 content: "".to_string(),
@@ -872,7 +872,7 @@ impl Overlord {
 
             let pre_event = PreEvent {
                 pubkey: public_key,
-                created_at: Unixtime::now().unwrap(),
+                created_at: Unixtime::now(),
                 kind: EventKind::DmRelayList,
                 tags,
                 content: "".to_string(),
@@ -1157,7 +1157,7 @@ impl Overlord {
 
             let pre_event = PreEvent {
                 pubkey: public_key,
-                created_at: Unixtime::now().unwrap(),
+                created_at: Unixtime::now(),
                 kind: EventKind::EventDeletion,
                 tags,
                 content: "Deleting person list".to_owned(),
@@ -1235,7 +1235,7 @@ impl Overlord {
 
             let pre_event = PreEvent {
                 pubkey: public_key,
-                created_at: Unixtime::now().unwrap(),
+                created_at: Unixtime::now(),
                 kind: EventKind::EventDeletion,
                 tags,
                 content: "".to_owned(), // FIXME, option to supply a delete reason
@@ -1418,7 +1418,7 @@ impl Overlord {
                     nprofile.pubkey,
                     &relay_url,
                     |pr| {
-                        pr.last_suggested = Some(Unixtime::now().unwrap().0 as u64);
+                        pr.last_suggested = Some(Unixtime::now().0 as u64);
                     },
                     None,
                 )?
@@ -1537,7 +1537,7 @@ impl Overlord {
 
             let pre_event = PreEvent {
                 pubkey: public_key,
-                created_at: Unixtime::now().unwrap(),
+                created_at: Unixtime::now(),
                 kind: EventKind::Reaction,
                 tags,
                 content: "+".to_owned(),
@@ -1856,7 +1856,7 @@ impl Overlord {
             .write()
             .write("Pruning database, please be patient..".to_owned());
 
-        let now = Unixtime::now().unwrap();
+        let now = Unixtime::now();
         let then = now
             - Duration::new(
                 GLOBALS.storage.read_setting_prune_period_days() * 60 * 60 * 24,
@@ -1915,7 +1915,7 @@ impl Overlord {
 
         let pre_event = PreEvent {
             pubkey: public_key,
-            created_at: Unixtime::now().unwrap(),
+            created_at: Unixtime::now(),
             kind: EventKind::Metadata,
             tags: vec![],
             content: serde_json::to_string(&metadata)?,
@@ -2064,7 +2064,7 @@ impl Overlord {
 
             let pre_event = PreEvent {
                 pubkey: public_key,
-                created_at: Unixtime::now().unwrap(),
+                created_at: Unixtime::now(),
                 kind,
                 tags,
                 content: serde_json::to_string(&reposted_event)?,
@@ -2599,7 +2599,7 @@ impl Overlord {
 
         // Mark for each person that we are seeking their relay list
         // so that we don't repeat this for a while
-        let now = Unixtime::now().unwrap();
+        let now = Unixtime::now();
         let mut txn = GLOBALS.storage.get_write_txn()?;
         for pk in pubkeys.iter() {
             PersonTable::modify(*pk, |p| p.relay_list_last_sought = now.0, Some(&mut txn))?;
@@ -2630,7 +2630,7 @@ impl Overlord {
 
     /// Subscribe to the user's configuration events from the given relay
     pub async fn subscribe_inbox(&mut self, relays: Option<Vec<RelayUrl>>) -> Result<(), Error> {
-        let now = Unixtime::now().unwrap();
+        let now = Unixtime::now();
         let mention_relays: Vec<RelayUrl> = match relays {
             Some(r) => r,
             None => Relay::choose_relay_urls(Relay::READ, |_| true)?,
@@ -2659,7 +2659,7 @@ impl Overlord {
             .filter_relays(|r| r.has_usage_bits(Relay::DM) || r.has_usage_bits(Relay::INBOX))?;
 
         // 30 days worth (FIXME make this a setting?)
-        let after = Unixtime::now().unwrap() - Duration::new(3600 * 24 * 30, 0);
+        let after = Unixtime::now() - Duration::new(3600 * 24 * 30, 0);
 
         for relay in relays.iter() {
             self.engage_minion(
@@ -2822,7 +2822,7 @@ impl Overlord {
             }
         };
 
-        let now = Unixtime::now().unwrap();
+        let now = Unixtime::now();
 
         let mut txn = GLOBALS.storage.get_write_txn()?;
 
@@ -3299,7 +3299,7 @@ impl Overlord {
         // Generate the zap request event
         let pre_event = PreEvent {
             pubkey: user_pubkey,
-            created_at: Unixtime::now().unwrap(),
+            created_at: Unixtime::now(),
             kind: EventKind::ZapRequest,
             tags: vec![
                 Tag::new_event(id, None, None),
