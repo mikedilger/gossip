@@ -221,7 +221,7 @@ impl Storage {
             .into());
         }
 
-        let now = Unixtime::now().unwrap();
+        let now = Unixtime::now();
         let mut ids: HashSet<Id> = HashSet::new();
         let txn = self.env.read_txn()?;
 

@@ -1,7 +1,7 @@
 use nostr_types::Unixtime;
 
 pub fn date_ago(then: Unixtime) -> String {
-    let now = Unixtime::now().unwrap();
+    let now = Unixtime::now();
     let seconds = now.0 - then.0;
     let minutes: f32 = seconds as f32 / 60.0;
     let hours: f32 = minutes / 60.0;

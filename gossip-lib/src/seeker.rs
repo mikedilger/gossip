@@ -29,7 +29,7 @@ pub struct SeekData {
 impl SeekData {
     fn new_event(climb: bool) -> SeekData {
         SeekData {
-            start: Unixtime::now().unwrap(),
+            start: Unixtime::now(),
             state: SeekState::WaitingEvent,
             climb,
         }
@@ -37,7 +37,7 @@ impl SeekData {
 
     fn new_relay_list(pubkey: PublicKey, climb: bool) -> SeekData {
         SeekData {
-            start: Unixtime::now().unwrap(),
+            start: Unixtime::now(),
             state: SeekState::WaitingRelayList(pubkey),
             climb,
         }
@@ -236,7 +236,7 @@ impl Seeker {
         // we save updates here and apply when the iterator is finished.
         let mut updates: Vec<(Id, Option<SeekData>)> = Vec::new();
 
-        let now = Unixtime::now().unwrap();
+        let now = Unixtime::now();
 
         for refmulti in self.events.iter() {
             let id = *refmulti.key();

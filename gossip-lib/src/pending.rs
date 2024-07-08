@@ -223,7 +223,7 @@ impl Pending {
             None => return Ok(()), // nothing pending if no identity
         };
 
-        let now = Unixtime::now().unwrap();
+        let now = Unixtime::now();
         let t30days = 60 * 60 * 24 * 30;
         let t90days = 60 * 60 * 24 * 90;
 

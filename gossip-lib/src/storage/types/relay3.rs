@@ -163,7 +163,7 @@ impl Relay3 {
 
     pub fn should_avoid(&self) -> bool {
         if let Some(when) = self.avoid_until {
-            when >= Unixtime::now().unwrap()
+            when >= Unixtime::now()
         } else {
             false
         }

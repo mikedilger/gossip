@@ -147,7 +147,7 @@ impl BookmarkList {
 
         let pre_event = PreEvent {
             pubkey: public_key,
-            created_at: Unixtime::now().unwrap(),
+            created_at: Unixtime::now(),
             kind: EventKind::BookmarkList,
             tags,
             content,

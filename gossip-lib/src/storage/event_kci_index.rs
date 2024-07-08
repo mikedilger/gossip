@@ -88,7 +88,7 @@ mod test {
     #[test]
     fn test_event_kci_key() {
         let kind = EventKind::TextNote;
-        let created_at = Unixtime::now().unwrap();
+        let created_at = Unixtime::now();
         let id = Id::try_from_hex_string(
             "77f7653c67147a125cc624f695029d0557e3ab402e714680eb23dd2499f439a0",
         )

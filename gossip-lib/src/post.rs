@@ -29,7 +29,7 @@ pub fn prepare_post_normal(
 
     let pre_event = PreEvent {
         pubkey: author,
-        created_at: Unixtime::now().unwrap(),
+        created_at: Unixtime::now(),
         kind: EventKind::TextNote,
         tags,
         content,
@@ -95,7 +95,7 @@ pub fn prepare_post_nip04(
 
     let pre_event = PreEvent {
         pubkey: author,
-        created_at: Unixtime::now().unwrap(),
+        created_at: Unixtime::now(),
         kind: EventKind::EncryptedDirectMessage,
         tags,
         content,
@@ -156,7 +156,7 @@ pub fn prepare_post_nip17(
 
     let pre_event = PreEvent {
         pubkey: author,
-        created_at: Unixtime::now().unwrap(),
+        created_at: Unixtime::now(),
         kind: EventKind::DmChat,
         tags,
         content,

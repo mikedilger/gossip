@@ -123,7 +123,7 @@ impl Minion {
                         }
                         if handle == "general_feed" {
                             // Update last general EOSE
-                            let now = Unixtime::now().unwrap().0 as u64;
+                            let now = Unixtime::now().0 as u64;
                             self.dbrelay.last_general_eose_at =
                                 Some(match self.dbrelay.last_general_eose_at {
                                     Some(old) => old.max(now),
@@ -180,7 +180,7 @@ impl Minion {
                         GLOBALS.storage.add_event_seen_on_relay(
                             id,
                             &self.url,
-                            Unixtime::now().unwrap(),
+                            Unixtime::now(),
                             None,
                         )?;
                     } else {
@@ -309,7 +309,7 @@ impl Minion {
 
                                         // cork and retry once auth completes
                                         self.subscriptions_waiting_for_auth
-                                            .insert(handle, Unixtime::now().unwrap());
+                                            .insert(handle, Unixtime::now());
 
                                         // return now, don't remove sub from map
                                         return Ok(());
@@ -317,7 +317,7 @@ impl Minion {
                                     AuthState::Waiting(_) => {
                                         // cork and retry once auth completes
                                         self.subscriptions_waiting_for_auth
-                                            .insert(handle, Unixtime::now().unwrap());
+                                            .insert(handle, Unixtime::now());
 
                                         // return now, don't remove sub from map
                                         return Ok(());

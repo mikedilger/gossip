@@ -654,7 +654,7 @@ pub(super) fn render_create_list_dialog(ui: &mut Ui, app: &mut GossipUi) {
                         {
                             app.new_list_name = app.new_list_name.trim().into();
                             if !app.new_list_name.is_empty() {
-                                let dtag = format!("pl{}", Unixtime::now().unwrap().0);
+                                let dtag = format!("pl{}", Unixtime::now().0);
                                 let metadata = PersonListMetadata {
                                     dtag,
                                     title: app.new_list_name.to_owned(),

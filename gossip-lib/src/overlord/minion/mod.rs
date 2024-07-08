@@ -190,7 +190,7 @@ impl Minion {
         let websocket_stream = {
             // Fetch NIP-11 data (if not fetched recently)
             if let Some(last_nip11) = self.dbrelay.last_attempt_nip11 {
-                if last_nip11 as i64 + 3600 < Unixtime::now().unwrap().0 {
+                if last_nip11 as i64 + 3600 < Unixtime::now().0 {
                     if let Err(e) = self.fetch_nip11(fetcher_timeout).await {
                         if matches!(e.kind, ErrorKind::ShuttingDown) {
                             return Ok(MinionExitReason::GotShutdownMessage);
@@ -393,7 +393,7 @@ impl Minion {
             }
         }
 
-        self.dbrelay.last_attempt_nip11 = Some(Unixtime::now().unwrap().0 as u64);
+        self.dbrelay.last_attempt_nip11 = Some(Unixtime::now().0 as u64);
         let status = response.status();
         match Self::text_with_charset(response, "utf-8").await {
             Ok(text) => {
@@ -514,7 +514,7 @@ impl Minion {
             && self.subscriptions_waiting_for_metadata.is_empty()
             && self.posting_jobs.is_empty()
         {
-            let now = Unixtime::now().unwrap();
+            let now = Unixtime::now();
             if let Some(when) = self.subscriptions_empty_asof {
                 if now - when > Duration::from_secs(10) {
                     // Exit as we have been idle 30 seconds without subscriptions
@@ -817,7 +817,7 @@ impl Minion {
 
     // Subscribe to the user's config (config, DMs, etc) which is on their own write relays
     async fn subscribe_config(&mut self, job_id: u64) -> Result<(), Error> {
-        let since = Unixtime::now().unwrap() - Duration::from_secs(60 * 60 * 24 * 15);
+        let since = Unixtime::now() - Duration::from_secs(60 * 60 * 24 * 15);
 
         let filters = filter_fns::config(since);
 
@@ -1075,7 +1075,7 @@ impl Minion {
         if self.auth_state == AuthState::Authenticated {
             // Apply subscriptions that were waiting for auth
             let mut handles = std::mem::take(&mut self.subscriptions_waiting_for_auth);
-            let now = Unixtime::now().unwrap();
+            let now = Unixtime::now();
             for (handle, when) in handles.drain() {
                 // Do not try if we just inserted it within the last second
                 if when - now < Duration::from_secs(1) {
@@ -1199,7 +1199,7 @@ impl Minion {
             // our fault the subscription is getting cut off.  This way we will pick up
             // where we left off instead of potentially loading a bunch of events
             // yet again.
-            let now = Unixtime::now().unwrap();
+            let now = Unixtime::now();
 
             // Update last general EOSE
             self.dbrelay.last_general_eose_at = Some(match self.dbrelay.last_general_eose_at {
@@ -1234,7 +1234,7 @@ impl Minion {
         if matches!(self.auth_state, AuthState::Waiting(_)) {
             // Save this, subscribe after AUTH completes
             self.subscriptions_waiting_for_auth
-                .insert(handle.to_owned(), Unixtime::now().unwrap());
+                .insert(handle.to_owned(), Unixtime::now());
             return Ok(());
         }
 
@@ -1311,7 +1311,7 @@ impl Minion {
         };
         let pre_event = PreEvent {
             pubkey,
-            created_at: Unixtime::now().unwrap(),
+            created_at: Unixtime::now(),
             kind: EventKind::Auth,
             tags: vec![
                 Tag::new(&["relay", self.url.as_str()]),
@@ -1372,7 +1372,7 @@ impl Minion {
     }
 
     async fn bump_success_count(&mut self, also_bump_last_connected: bool) {
-        let now = Unixtime::now().unwrap().0 as u64;
+        let now = Unixtime::now().0 as u64;
 
         // Update in self
         self.dbrelay.success_count += 1;

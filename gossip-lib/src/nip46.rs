@@ -76,7 +76,7 @@ impl Approval {
                 true
             }
             Approval::Until(time) => {
-                let approved = Unixtime::now().unwrap() < *time;
+                let approved = Unixtime::now() < *time;
                 if !approved {
                     *self = Approval::None;
                 }
@@ -221,7 +221,7 @@ impl Nip46Server {
 
         let pre_event: PreEvent = PreEvent {
             pubkey: public_key,
-            created_at: created_at.unwrap_or(Unixtime::now().unwrap()),
+            created_at: created_at.unwrap_or(Unixtime::now()),
             kind,
             tags,
             content,
@@ -310,7 +310,7 @@ pub struct Nip46PreEvent {
 }
 
 fn default_now() -> Option<Unixtime> {
-    Some(Unixtime::now().unwrap())
+    Some(Unixtime::now())
 }
 
 #[derive(Debug, Clone, Hash, PartialEq)]
@@ -405,7 +405,7 @@ fn send_response(
 
     let pre_event = PreEvent {
         pubkey: public_key,
-        created_at: Unixtime::now().unwrap(),
+        created_at: Unixtime::now(),
         kind: EventKind::NostrConnect,
         tags: vec![Tag::new_pubkey(peer_pubkey, None, None)],
         content: e,

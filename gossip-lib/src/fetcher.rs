@@ -104,7 +104,7 @@ impl Fetcher {
             }
         }
 
-        let now = Unixtime::now().unwrap();
+        let now = Unixtime::now();
 
         let mut count = 0;
 
@@ -512,7 +512,7 @@ impl Fetcher {
     }
 
     fn sinbin(&self, url: &Url, duration: Duration) {
-        let now = Unixtime::now().unwrap();
+        let now = Unixtime::now();
         let later = now + duration;
         let host = match self.host(url) {
             Some(h) => h,

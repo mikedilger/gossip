@@ -833,7 +833,7 @@ impl Storage {
             None => return Err(ErrorKind::ListNotFound.into()),
         };
         md.title = newname;
-        md.last_edit_time = Unixtime::now().unwrap();
+        md.last_edit_time = Unixtime::now();
         self.set_person_list_metadata(list, &md, rw_txn)?;
         Ok(())
     }
@@ -2112,7 +2112,7 @@ impl Storage {
         write: bool,
         min: usize,
     ) -> Result<Vec<(RelayUrl, u64)>, Error> {
-        let now = Unixtime::now().unwrap();
+        let now = Unixtime::now();
 
         // Load person relays, filtering out banned URLs
         let mut person_relays: Vec<PersonRelay> = self
@@ -2499,7 +2499,7 @@ impl Storage {
     ) -> Result<(), Error> {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
             self.clear_person_list2(list, Some(txn))?;
-            let now = Unixtime::now().unwrap();
+            let now = Unixtime::now();
             if let Some(mut metadata) = self.get_person_list_metadata(list)? {
                 metadata.last_edit_time = now;
                 metadata.len = 0;
@@ -2553,7 +2553,7 @@ impl Storage {
             let had = map.contains_key(&list);
             map.insert(list, private);
             self.write_person_lists(pubkey, map, Some(txn))?;
-            let now = Unixtime::now().unwrap();
+            let now = Unixtime::now();
             if let Some(mut metadata) = self.get_person_list_metadata(list)? {
                 if !had {
                     metadata.len += 1;
@@ -2580,7 +2580,7 @@ impl Storage {
             let had = map.contains_key(&list);
             map.remove(&list);
             self.write_person_lists(pubkey, map, Some(txn))?;
-            let now = Unixtime::now().unwrap();
+            let now = Unixtime::now();
             if let Some(mut metadata) = self.get_person_list_metadata(list)? {
                 if had && metadata.len > 0 {
                     metadata.len -= 1;
