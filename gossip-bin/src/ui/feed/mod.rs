@@ -2,6 +2,7 @@ use super::{widgets, GossipUi, Page};
 use eframe::egui::{self, Align, Rect};
 use egui::{Context, RichText, Ui, Vec2};
 use gossip_lib::comms::ToOverlordMessage;
+use gossip_lib::DmChannel;
 use gossip_lib::FeedKind;
 use gossip_lib::GLOBALS;
 use nostr_types::Id;
@@ -271,8 +272,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
             ui.add_space(10.0);
 
             let feed = GLOBALS.feed.get_feed_events();
-            let id = channel.unique_id();
-            render_a_feed(app, ctx, ui, feed, false, &id, load_more);
+            render_dm_feed(app, ui, feed, channel);
         }
     }
 
@@ -366,6 +366,35 @@ fn render_a_feed(
                         ui.add_space(50.0);
                     }
                 });
+        });
+}
+
+fn render_dm_feed(app: &mut GossipUi, ui: &mut Ui, feed: Vec<Id>, channel: DmChannel) {
+    let scroll_area_id = channel.name();
+    let feed_newest_at_bottom = GLOBALS.storage.read_setting_feed_newest_at_bottom();
+    let iterator: Box<dyn Iterator<Item = &Id>> = if feed_newest_at_bottom {
+        Box::new(feed.iter().rev())
+    } else {
+        Box::new(feed.iter())
+    };
+
+    app.vert_scroll_area()
+        .auto_shrink(false)
+        .stick_to_bottom(feed_newest_at_bottom)
+        .id_source(scroll_area_id)
+        .show(ui, |ui| {
+            for id in iterator {
+                note::render_dm_note(
+                    app,
+                    ui,
+                    FeedNoteParams {
+                        id: *id,
+                        indent: 0,
+                        as_reply_to: false,
+                        threaded: false,
+                    },
+                );
+            }
         });
 }
 

@@ -1,6 +1,6 @@
 use super::{GossipUi, NoteData, Page, RepostType};
 use eframe::{
-    egui::{self, Image, Response},
+    egui::{self, Image, Margin, Response},
     epaint::Vec2,
 };
 use egui::{Button, Color32, Pos2, RichText, Stroke, Ui};
@@ -20,7 +20,7 @@ pub(super) fn render_content(
     ui: &mut Ui,
     note_ref: Rc<RefCell<NoteData>>,
     as_deleted: bool,
-    content_margin_left: f32,
+    content_inner_margin: Margin,
     bottom_of_avatar: f32,
 ) {
     ui.style_mut().spacing.item_spacing.x = 0.0;
@@ -75,7 +75,7 @@ pub(super) fn render_content(
                                                 ui,
                                                 &note.repost,
                                                 note_data,
-                                                content_margin_left,
+                                                content_inner_margin,
                                                 bottom_of_avatar,
                                             );
                                             render_link = false;
@@ -104,7 +104,7 @@ pub(super) fn render_content(
                                                 ui,
                                                 &note.repost,
                                                 note_data,
-                                                content_margin_left,
+                                                content_inner_margin,
                                                 bottom_of_avatar,
                                             );
                                             render_link = false;
@@ -150,7 +150,7 @@ pub(super) fn render_content(
                                                         ui,
                                                         &note.repost,
                                                         note_data,
-                                                        content_margin_left,
+                                                        content_inner_margin,
                                                         bottom_of_avatar,
                                                     );
                                                     render_link = false;
