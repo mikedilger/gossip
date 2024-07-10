@@ -1541,7 +1541,8 @@ fn note_actions(
             }),
         )));
     } else {
-        items.push(MoreMenuItem::Button(MoreMenuButton::new(
+        let mut bm_items: Vec<MoreMenuItem> = Vec::new();
+        bm_items.push(MoreMenuItem::Button(MoreMenuButton::new(
             "Bookmark (public)",
             Box::new(|_, _| {
                 let er = note.event_reference();
@@ -1550,7 +1551,7 @@ fn note_actions(
                     .send(ToOverlordMessage::BookmarkAdd(er, false));
             }),
         )));
-        items.push(MoreMenuItem::Button(MoreMenuButton::new(
+        bm_items.push(MoreMenuItem::Button(MoreMenuButton::new(
             "Bookmark (private)",
             Box::new(|_, _| {
                 let er = note.event_reference();
@@ -1558,6 +1559,9 @@ fn note_actions(
                     .to_overlord
                     .send(ToOverlordMessage::BookmarkAdd(er, true));
             }),
+        )));
+        items.push(MoreMenuItem::SubMenu(MoreMenuSubMenu::new(
+            "Bookmark", bm_items, &menu,
         )));
     }
 
