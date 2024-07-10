@@ -7,7 +7,7 @@ use eframe::{
 };
 use egui_winit::egui::{self, vec2, AboveOrBelow, Align2, Id, Ui, Vec2};
 
-use crate::ui::GossipUi;
+use crate::ui::{GossipUi, Theme};
 
 const POPUP_MARGIN: Vec2 = Vec2 { x: 20.0, y: 16.0 };
 const CORNER_RADIUS: f32 = 8.0;
@@ -24,14 +24,19 @@ enum MoreMenuStyle {
     Bubble,
 }
 
+pub(in crate::ui) enum MoreMenuItem<'a> {
+    Button(MoreMenuButton<'a>),
+    SubMenu(MoreMenuSubMenu<'a>),
+}
+
 #[allow(clippy::type_complexity)]
-pub(in crate::ui) struct MoreMenuEntry<'a> {
+pub(in crate::ui) struct MoreMenuButton<'a> {
     text: WidgetText,
     action: Box<dyn FnOnce(&mut Ui, &mut GossipUi) + 'a>,
     enabled: bool,
 }
 
-impl<'a> MoreMenuEntry<'a> {
+impl<'a> MoreMenuButton<'a> {
     #[allow(clippy::type_complexity)]
     pub fn new(
         text: impl Into<WidgetText>,
@@ -49,129 +54,201 @@ impl<'a> MoreMenuEntry<'a> {
         self
     }
 
+    fn calc_min_width(&self, ui: &Ui) -> f32 {
+        let galley = ui.fonts(|f| {
+            f.layout_no_wrap(
+                self.text.text().into(),
+                egui::TextStyle::Body.resolve(ui.style()),
+                egui::Color32::BLACK,
+            )
+        });
+        galley.rect.width()
+    }
+
     fn show(self, app: &mut GossipUi, ui: &mut Ui) -> Response {
         ui.set_enabled(self.enabled);
 
-        let theme = &app.theme;
-
-        // layout
-        let desired_size = vec2(ui.available_width(), 32.0);
-
-        // interact
-        let (rect, response) = ui.allocate_at_least(desired_size, Sense::click());
-        response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, self.text.text()));
-        let state = super::interact_widget_state(ui, &response);
-
-        let galley = self
-            .text
-            .into_galley(ui, None, desired_size.x, TextStyle::Button);
-
-        // draw
-        let no_background = egui::Color32::TRANSPARENT;
-        let no_stroke = Stroke::NONE;
-        let neutral_100_stroke = Stroke::new(1.0, theme.neutral_100());
-        let neutral_300_stroke = Stroke::new(1.0, theme.neutral_300());
-        let neutral_800_stroke = Stroke::new(1.0, theme.neutral_800());
-        let neutral_900_stroke = Stroke::new(1.0, theme.neutral_900());
-        let neutral_950_stroke = Stroke::new(1.0, theme.neutral_950());
-        let (bg_fill, text_color, separator_stroke, under_stroke) = if theme.dark_mode {
-            match state {
-                super::WidgetState::Default => (
-                    no_background,
-                    theme.neutral_300(),
-                    neutral_800_stroke,
-                    no_stroke,
-                ),
-                super::WidgetState::Hovered => (
-                    theme.neutral_900(),
-                    theme.neutral_100(),
-                    neutral_950_stroke,
-                    no_stroke,
-                ),
-                super::WidgetState::Active => (
-                    no_background,
-                    theme.accent_dark(),
-                    neutral_800_stroke,
-                    no_stroke,
-                ),
-                super::WidgetState::Disabled => (
-                    no_background,
-                    theme.neutral_600(),
-                    neutral_800_stroke,
-                    no_stroke,
-                ),
-                super::WidgetState::Focused => (
-                    theme.neutral_900(),
-                    theme.neutral_100(),
-                    neutral_950_stroke,
-                    neutral_100_stroke,
-                ),
-            }
-        } else {
-            match state {
-                super::WidgetState::Default => (
-                    no_background,
-                    theme.neutral_800(),
-                    neutral_300_stroke,
-                    no_stroke,
-                ),
-                super::WidgetState::Hovered => (
-                    theme.neutral_200(),
-                    theme.neutral_900(),
-                    neutral_300_stroke,
-                    no_stroke,
-                ),
-                super::WidgetState::Active => (
-                    no_background,
-                    theme.accent_light(),
-                    neutral_300_stroke,
-                    no_stroke,
-                ),
-                super::WidgetState::Disabled => (
-                    no_background,
-                    theme.neutral_300(),
-                    neutral_300_stroke,
-                    no_stroke,
-                ),
-                super::WidgetState::Focused => (
-                    theme.neutral_200(),
-                    theme.neutral_900(),
-                    neutral_300_stroke,
-                    neutral_900_stroke,
-                ),
-            }
-        };
-
-        // background & separator lines
-        ui.painter().rect_filled(rect, Rounding::same(0.0), bg_fill);
-        ui.painter()
-            .hline(rect.x_range(), rect.top(), separator_stroke);
-        ui.painter()
-            .hline(rect.x_range(), rect.bottom(), separator_stroke);
-
-        // text
-        let text_pos = {
-            // Make sure button text is centered if within a centered layout
-            ui.layout().align_size_within_rect(galley.size(), rect).min
-        };
-        let painter = ui.painter();
-        painter.galley(text_pos, galley.clone(), text_color);
-        let text_rect = Rect::from_min_size(text_pos, galley.rect.size());
-        let shapes = egui::Shape::dashed_line(
-            &[
-                text_rect.left_bottom() + vec2(0.0, 0.0),
-                text_rect.right_bottom() + vec2(0.0, 0.0),
-            ],
-            under_stroke,
-            3.0,
-            3.0,
-        );
-        painter.add(shapes);
+        let response = draw_menu_button(ui, &app.theme, self.text, None);
 
         // process action
         if response.clicked() {
             (self.action)(ui, app);
         }
+
+        response
+    }
+}
+
+pub(in crate::ui) struct MoreMenuSubMenu<'a> {
+    title: WidgetText,
+    items: Vec<MoreMenuItem<'a>>,
+    enabled: bool,
+    id: Id,
+}
+
+impl<'a> MoreMenuSubMenu<'a> {
+    #[allow(clippy::type_complexity)]
+    pub fn new(
+        title: impl Into<WidgetText>,
+        items: Vec<MoreMenuItem<'a>>,
+        parent: &MoreMenu,
+    ) -> Self {
+        let title: WidgetText = title.into();
+        let id = parent.id.with(title.text());
+        Self {
+            title,
+            items,
+            enabled: true,
+            id,
+        }
+    }
+
+    #[allow(unused)]
+    pub fn enabled(mut self, enabled: bool) -> Self {
+        self.enabled = enabled;
+        self
+    }
+
+    fn calc_min_width(&self, ui: &Ui) -> f32 {
+        let galley = ui.fonts(|f| {
+            f.layout_no_wrap(
+                self.title.text().into(),
+                egui::TextStyle::Body.resolve(ui.style()),
+                egui::Color32::BLACK,
+            )
+        });
+        galley.rect.width()
+    }
+
+    fn close(&self, ui: &mut Ui) {
+        save_state(ui, &self.id, false);
+
+        // recurse
+        for entry in &self.items {
+            match entry {
+                MoreMenuItem::SubMenu(menu) => {
+                    menu.close(ui);
+                }
+                _ => {}
+            }
+        }
+    }
+
+    fn show(self, app: &mut GossipUi, ui: &mut Ui) -> Response {
+        ui.set_enabled(self.enabled);
+
+        let mut open = load_state(ui, &self.id);
+
+        let response = draw_menu_button(ui, &app.theme, self.title, Some(open));
+
+        // TODO paint open/close arrow, use animation
+
+        if response.hovered() {
+            open = true;
+        }
+
+        // to fix egui's justify bug, determine the width of the submenu first
+        let min_width = self
+            .items
+            .iter()
+            .map(|item| match item {
+                MoreMenuItem::Button(entry) => entry.calc_min_width(ui),
+                MoreMenuItem::SubMenu(menu) => menu.calc_min_width(ui),
+            })
+            .reduce(f32::max)
+            .unwrap_or(150.0)
+            + 30.0;
+
+        const SPACE: f32 = 5.0;
+        let min_space = min_width - SPACE;
+
+        // process action
+        let (pivot, fixed_pos) =
+            // try to the right first
+            if (response.rect.right() + min_space) < ui.ctx().screen_rect().right() {
+                if response.rect.top() < ui.ctx().screen_rect().center().y {
+                    (Align2::LEFT_TOP, response.rect.right_top() + vec2(-SPACE, -INNER_MARGIN.top))
+                } else {
+                    (Align2::LEFT_BOTTOM, response.rect.right_bottom() + vec2(-SPACE, INNER_MARGIN.bottom))
+                }
+            } else {
+                if response.rect.top() < ui.ctx().screen_rect().center().y {
+                    (Align2::RIGHT_TOP, response.rect.left_top() + vec2(SPACE, -INNER_MARGIN.top))
+                } else {
+                    (Align2::RIGHT_BOTTOM, response.rect.left_bottom() + vec2(SPACE, INNER_MARGIN.bottom))
+                }
+            };
+
+        let mut frame = egui::Frame::menu(ui.style());
+        let area = egui::Area::new(self.id)
+            .movable(false)
+            .interactable(true)
+            .order(egui::Order::Foreground)
+            .pivot(pivot)
+            .fixed_pos(fixed_pos)
+            .constrain(true);
+        if open {
+            let menuresp = area.show(ui.ctx(), |ui| {
+                let bg_color = if app.theme.dark_mode {
+                    app.theme.neutral_950()
+                } else {
+                    app.theme.neutral_100()
+                };
+
+                let style = ui.style_mut();
+                style.spacing.item_spacing.y = 0.0;
+                frame.inner_margin = INNER_MARGIN;
+                frame.outer_margin = Margin::same(0.0);
+                frame.fill = bg_color;
+                frame.stroke = egui::Stroke::NONE;
+                frame.shadow = ui.style().visuals.popup_shadow;
+                frame.rounding = egui::Rounding::same(CORNER_RADIUS);
+
+                frame.show(ui, |ui| {
+                    ui.set_max_width(min_width);
+                    ui.vertical_centered_justified(|ui| {
+                        // now show menu content
+                        for item in self.items {
+                            ui.scope(|ui| match item {
+                                MoreMenuItem::Button(entry) => {
+                                    if entry.show(app, ui).clicked() && open {
+                                        open = false;
+                                    }
+                                }
+                                MoreMenuItem::SubMenu(menu) => {
+                                    if menu.show(app, ui).clicked() && open {
+                                        open = false;
+                                    }
+                                }
+                            });
+                        }
+                    })
+                });
+            });
+
+            let menu_hovered = if let Some(pos) = ui.ctx().pointer_latest_pos() {
+                menuresp.response.rect.contains(pos)
+            } else {
+                false
+            };
+
+            // if cursor leaves button or submenu, close the submenu
+            if !(ui.rect_contains_pointer(response.rect) || menu_hovered) {
+                open = false;
+            }
+        } else {
+            // close all sub-menu's
+            for item in self.items {
+                match item {
+                    MoreMenuItem::SubMenu(menu) => {
+                        menu.close(ui);
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        save_state(ui, &self.id, open);
 
         response
     }
@@ -254,9 +331,9 @@ impl MoreMenu {
         ui: &mut Ui,
         app: &mut GossipUi,
         response: Response,
-        content: Vec<MoreMenuEntry>,
+        content: Vec<MoreMenuItem>,
     ) {
-        let mut active = self.load_state(ui);
+        let mut active = load_state(ui, &self.id);
 
         if !ui.is_rect_visible(response.rect) {
             active = false; // close menu when the button goes out of view
@@ -430,10 +507,17 @@ impl MoreMenu {
 
                     ui.vertical_centered_justified(|ui| {
                         // now show menu content
-                        for entry in content {
-                            ui.scope(|ui| {
-                                if entry.show(app, ui).clicked() && active {
-                                    active = false;
+                        for item in content {
+                            ui.scope(|ui| match item {
+                                MoreMenuItem::Button(entry) => {
+                                    if entry.show(app, ui).clicked() && active {
+                                        active = false;
+                                    }
+                                }
+                                MoreMenuItem::SubMenu(menu) => {
+                                    if menu.show(app, ui).clicked() && active {
+                                        active = false;
+                                    }
                                 }
                             });
                         }
@@ -444,13 +528,23 @@ impl MoreMenu {
                 // clicked outside the menu but not on the menu-button
                 active = false;
             }
+        } else {
+            // close all sub-menu's
+            for item in content {
+                match item {
+                    MoreMenuItem::SubMenu(menu) => {
+                        menu.close(ui);
+                    }
+                    _ => {}
+                }
+            }
         }
 
-        self.save_state(ui, active);
+        save_state(ui, &self.id, active);
     }
 
     pub fn show(&self, ui: &mut Ui, response: Response, content: impl FnOnce(&mut Ui, &mut bool)) {
-        let mut active = self.load_state(ui);
+        let mut active = load_state(ui, &self.id);
 
         let response = if let Some(text) = &self.hover_text {
             if !active {
@@ -584,16 +678,7 @@ impl MoreMenu {
             }
         }
 
-        self.save_state(ui, active);
-    }
-
-    fn load_state(&self, ui: &mut Ui) -> bool {
-        ui.ctx()
-            .data_mut(|d| d.get_temp::<bool>(self.id).unwrap_or_default())
-    }
-
-    fn save_state(&self, ui: &mut Ui, state: bool) {
-        ui.ctx().data_mut(|d| d.insert_temp(self.id, state));
+        save_state(ui, &self.id, active);
     }
 }
 
@@ -619,4 +704,144 @@ fn select_pivot(ui: &mut Ui, pos: egui::Pos2, above_or_below: AboveOrBelow) -> A
             AboveOrBelow::Below => Align2::LEFT_TOP,
         }
     }
+}
+
+fn load_state(ui: &mut Ui, id: &Id) -> bool {
+    ui.ctx()
+        .data_mut(|d| d.get_temp::<bool>(*id).unwrap_or_default())
+}
+
+fn save_state(ui: &mut Ui, id: &Id, state: bool) {
+    ui.ctx().data_mut(|d| d.insert_temp(*id, state));
+}
+
+fn draw_menu_button(
+    ui: &mut Ui,
+    theme: &Theme,
+    title: WidgetText,
+    force_hover: Option<bool>,
+) -> Response {
+    // layout
+    let desired_size = vec2(ui.available_width(), 32.0);
+
+    // interact
+    let (rect, response) = ui.allocate_at_least(desired_size, Sense::click());
+    response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, title.text()));
+    let state = super::interact_widget_state(ui, &response);
+    let state = match state {
+        super::WidgetState::Default => {
+            if force_hover.unwrap_or_default() {
+                super::WidgetState::Hovered
+            } else {
+                super::WidgetState::Default
+            }
+        }
+        _ => state,
+    };
+
+    let galley = title.into_galley(ui, None, desired_size.x, TextStyle::Button);
+
+    // draw
+    let no_background = egui::Color32::TRANSPARENT;
+    let no_stroke = Stroke::NONE;
+    let neutral_100_stroke = Stroke::new(1.0, theme.neutral_100());
+    let neutral_300_stroke = Stroke::new(1.0, theme.neutral_300());
+    let neutral_800_stroke = Stroke::new(1.0, theme.neutral_800());
+    let neutral_900_stroke = Stroke::new(1.0, theme.neutral_900());
+    let neutral_950_stroke = Stroke::new(1.0, theme.neutral_950());
+    let (bg_fill, text_color, separator_stroke, under_stroke) = if theme.dark_mode {
+        match state {
+            super::WidgetState::Default => (
+                no_background,
+                theme.neutral_300(),
+                neutral_800_stroke,
+                no_stroke,
+            ),
+            super::WidgetState::Hovered => (
+                theme.neutral_900(),
+                theme.neutral_100(),
+                neutral_950_stroke,
+                no_stroke,
+            ),
+            super::WidgetState::Active => (
+                no_background,
+                theme.accent_dark(),
+                neutral_800_stroke,
+                no_stroke,
+            ),
+            super::WidgetState::Disabled => (
+                no_background,
+                theme.neutral_600(),
+                neutral_800_stroke,
+                no_stroke,
+            ),
+            super::WidgetState::Focused => (
+                theme.neutral_900(),
+                theme.neutral_100(),
+                neutral_950_stroke,
+                neutral_100_stroke,
+            ),
+        }
+    } else {
+        match state {
+            super::WidgetState::Default => (
+                no_background,
+                theme.neutral_800(),
+                neutral_300_stroke,
+                no_stroke,
+            ),
+            super::WidgetState::Hovered => (
+                theme.neutral_200(),
+                theme.neutral_900(),
+                neutral_300_stroke,
+                no_stroke,
+            ),
+            super::WidgetState::Active => (
+                no_background,
+                theme.accent_light(),
+                neutral_300_stroke,
+                no_stroke,
+            ),
+            super::WidgetState::Disabled => (
+                no_background,
+                theme.neutral_300(),
+                neutral_300_stroke,
+                no_stroke,
+            ),
+            super::WidgetState::Focused => (
+                theme.neutral_200(),
+                theme.neutral_900(),
+                neutral_300_stroke,
+                neutral_900_stroke,
+            ),
+        }
+    };
+
+    // background & separator lines
+    ui.painter().rect_filled(rect, Rounding::same(0.0), bg_fill);
+    ui.painter()
+        .hline(rect.x_range(), rect.top(), separator_stroke);
+    ui.painter()
+        .hline(rect.x_range(), rect.bottom(), separator_stroke);
+
+    // text
+    let text_pos = {
+        // Make sure button text is centered if within a centered layout
+        ui.layout().align_size_within_rect(galley.size(), rect).min
+    };
+    let painter = ui.painter();
+    painter.galley(text_pos, galley.clone(), text_color);
+    let text_rect = Rect::from_min_size(text_pos, galley.rect.size());
+    let shapes = egui::Shape::dashed_line(
+        &[
+            text_rect.left_bottom() + vec2(0.0, 0.0),
+            text_rect.right_bottom() + vec2(0.0, 0.0),
+        ],
+        under_stroke,
+        3.0,
+        3.0,
+    );
+    painter.add(shapes);
+
+    response
 }

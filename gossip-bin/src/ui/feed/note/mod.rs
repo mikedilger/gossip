@@ -6,7 +6,9 @@ use std::rc::Rc;
 use crate::notedata::{EncryptionType, NoteData, RepostType};
 
 use super::FeedNoteParams;
-use crate::ui::widgets::{self, AvatarSize, CopyButton, MoreMenuEntry};
+use crate::ui::widgets::{
+    self, AvatarSize, CopyButton, MoreMenuButton, MoreMenuItem, MoreMenuSubMenu,
+};
 use crate::ui::{GossipUi, Page};
 use crate::{AVATAR_SIZE_F32, AVATAR_SIZE_REPOST_F32};
 use eframe::egui::{self, vec2, Align2, Margin, Response};
@@ -1379,11 +1381,11 @@ fn note_actions(
     let menu = widgets::MoreMenu::simple(ui.auto_id_with(note.event.id))
         .with_min_size(vec2(100.0, 0.0))
         .with_max_size(vec2(140.0, f32::INFINITY));
-    let mut entries: Vec<MoreMenuEntry> = Vec::new();
+    let mut items: Vec<MoreMenuItem> = Vec::new();
 
     if render_data.can_load_thread {
         if note.event.kind.is_direct_message_related() {
-            entries.push(MoreMenuEntry::new(
+            items.push(MoreMenuItem::Button(MoreMenuButton::new(
                 "View DM Channel",
                 Box::new(|ui, app| {
                     if let Some(channel) = DmChannel::from_event(&note.event, None) {
@@ -1395,9 +1397,9 @@ fn note_actions(
                             .write("Could not determine DM channel for that note.".to_string());
                     }
                 }),
-            ));
+            )));
         } else {
-            entries.push(MoreMenuEntry::new(
+            items.push(MoreMenuItem::Button(MoreMenuButton::new(
                 "View Thread",
                 Box::new(|ui, app| {
                     app.set_page(
@@ -1409,16 +1411,19 @@ fn note_actions(
                         }),
                     );
                 }),
-            ));
+            )));
         }
     }
+
+    let mut copy_items: Vec<MoreMenuItem> = Vec::new();
 
     if note.event.kind.is_replaceable() {
         let param = match note.event.parameter() {
             Some(p) => p,
             None => "".to_owned(),
         };
-        entries.push(MoreMenuEntry::new(
+
+        copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
             "Copy naddr",
             Box::new(|ui, _| {
                 let event_addr = EventAddr {
@@ -1430,9 +1435,9 @@ fn note_actions(
                 let nostr_url: NostrUrl = event_addr.into();
                 ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
             }),
-        ));
+        )));
     } else {
-        entries.push(MoreMenuEntry::new(
+        copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
             "Copy nevent",
             Box::new(|ui, _| {
                 let event_pointer = EventPointer {
@@ -1444,10 +1449,10 @@ fn note_actions(
                 let nostr_url: NostrUrl = event_pointer.into();
                 ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
             }),
-        ));
+        )));
     }
     if !note.event.kind.is_direct_message_related() {
-        entries.push(MoreMenuEntry::new(
+        copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
             "Copy web link",
             Box::new(|ui, _| {
                 let event_pointer = EventPointer {
@@ -1460,78 +1465,83 @@ fn note_actions(
                     o.copied_text = format!("https://njump.me/{}", event_pointer.as_bech32_string())
                 });
             }),
-        ));
+        )));
     }
-    entries.push(MoreMenuEntry::new(
+    copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
         "Copy note1 Id",
         Box::new(|ui, _| {
             let nostr_url: NostrUrl = note.event.id.into();
             ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
         }),
-    ));
-    entries.push(MoreMenuEntry::new(
+    )));
+    copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
         "Copy hex Id",
         Box::new(|ui, _| {
             ui.output_mut(|o| o.copied_text = note.event.id.as_hex_string());
         }),
-    ));
-    entries.push(MoreMenuEntry::new(
+    )));
+    copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
         "Copy Raw data",
         Box::new(|ui, _| {
             ui.output_mut(|o| o.copied_text = serde_json::to_string_pretty(&note.event).unwrap());
         }),
-    ));
-    entries.push(MoreMenuEntry::new(
+    )));
+
+    items.push(MoreMenuItem::SubMenu(MoreMenuSubMenu::new(
+        "Copy", copy_items, &menu,
+    )));
+
+    items.push(MoreMenuItem::Button(MoreMenuButton::new(
         "Dismiss",
         Box::new(|_, _| {
             GLOBALS.dismissed.blocking_write().push(note.event.id);
             GLOBALS.feed.sync_recompute();
         }),
-    ));
+    )));
     if let Some(our_pubkey) = GLOBALS.identity.public_key() {
         if note.event.pubkey == our_pubkey {
             if note.deletions.is_empty() {
-                entries.push(MoreMenuEntry::new(
+                items.push(MoreMenuItem::Button(MoreMenuButton::new(
                     "Delete",
                     Box::new(|_, _| {
                         let _ = GLOBALS
                             .to_overlord
                             .send(ToOverlordMessage::DeletePost(note.event.id));
                     }),
-                ));
+                )));
             }
 
             // Chance to post our note again to relays it missed
             if let Ok(broadcast_relays) = Relay::relays_for_event(&note.event) {
                 if !broadcast_relays.is_empty() {
-                    entries.push(MoreMenuEntry::new(
+                    items.push(MoreMenuItem::Button(MoreMenuButton::new(
                         format!("Post again ({})", broadcast_relays.len()),
                         Box::new(|_, _| {
                             let _ = GLOBALS
                                 .to_overlord
                                 .send(ToOverlordMessage::PostAgain(note.event.clone()));
                         }),
-                    ));
+                    )));
                 }
             }
         }
     }
-    entries.push(MoreMenuEntry::new(
+    items.push(MoreMenuItem::Button(MoreMenuButton::new(
         "Rerender",
         Box::new(|_, app| {
             app.notecache.invalidate_note(&note.event.id);
         }),
-    ));
+    )));
     if note.bookmarked {
-        entries.push(MoreMenuEntry::new(
+        items.push(MoreMenuItem::Button(MoreMenuButton::new(
             "Unbookmark",
             Box::new(|_, _| {
                 let er = note.event_reference();
                 let _ = GLOBALS.to_overlord.send(ToOverlordMessage::BookmarkRm(er));
             }),
-        ));
+        )));
     } else {
-        entries.push(MoreMenuEntry::new(
+        items.push(MoreMenuItem::Button(MoreMenuButton::new(
             "Bookmark (public)",
             Box::new(|_, _| {
                 let er = note.event_reference();
@@ -1539,8 +1549,8 @@ fn note_actions(
                     .to_overlord
                     .send(ToOverlordMessage::BookmarkAdd(er, false));
             }),
-        ));
-        entries.push(MoreMenuEntry::new(
+        )));
+        items.push(MoreMenuItem::Button(MoreMenuButton::new(
             "Bookmark (private)",
             Box::new(|_, _| {
                 let er = note.event_reference();
@@ -1548,10 +1558,10 @@ fn note_actions(
                     .to_overlord
                     .send(ToOverlordMessage::BookmarkAdd(er, true));
             }),
-        ));
+        )));
     }
 
-    menu.show_entries(ui, app, response, entries);
+    menu.show_entries(ui, app, response, items);
 }
 
 fn draw_seen_on(app: &mut GossipUi, ui: &mut Ui, note: &std::cell::Ref<NoteData>) -> Response {

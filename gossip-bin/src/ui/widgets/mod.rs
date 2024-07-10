@@ -29,7 +29,7 @@ mod modal_popup;
 pub use modal_popup::modal_popup;
 
 mod more_menu;
-pub(super) use more_menu::{MoreMenu, MoreMenuEntry};
+pub(super) use more_menu::{MoreMenu, MoreMenuButton, MoreMenuItem, MoreMenuSubMenu};
 
 mod information_popup;
 pub use information_popup::InformationPopup;

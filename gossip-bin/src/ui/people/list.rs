@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use super::{GossipUi, Page};
-use crate::ui::widgets::{self, MoreMenuEntry};
+use crate::ui::widgets::{self, MoreMenuButton, MoreMenuItem};
 use crate::AVATAR_SIZE_F32;
 use eframe::egui::{self, Galley, Label, Sense};
 use egui::{Context, RichText, Ui, Vec2};
@@ -304,10 +304,10 @@ pub(super) fn update(
                                         widgets::MoreMenu::bubble(ui.auto_id_with(person.pubkey))
                                             .with_min_size(vec2(100.0, 0.0))
                                             .with_max_size(vec2(100.0, f32::INFINITY));
-                                    let mut entries: Vec<MoreMenuEntry> = Vec::new();
+                                    let mut items: Vec<MoreMenuItem> = Vec::new();
 
                                     // actions
-                                    entries.push(MoreMenuEntry::new(
+                                    items.push(MoreMenuItem::Button(MoreMenuButton::new(
                                         "Remove",
                                         Box::new(|_, _| {
                                             let _ = GLOBALS.storage.remove_person_from_list(
@@ -316,9 +316,9 @@ pub(super) fn update(
                                                 None,
                                             );
                                         }),
-                                    ));
+                                    )));
 
-                                    menu.show_entries(ui, app, response, entries);
+                                    menu.show_entries(ui, app, response, items);
 
                                     if list != PersonList::Followed {
                                         // private / public switch
@@ -781,17 +781,17 @@ pub(super) fn render_more_list_actions(
         .with_min_size(vec2(100.0, 0.0))
         .with_max_size(vec2(140.0, f32::INFINITY));
 
-    let mut entries: Vec<MoreMenuEntry> = Vec::new();
-    entries.push(MoreMenuEntry::new(
+    let mut items: Vec<MoreMenuItem> = Vec::new();
+    items.push(MoreMenuItem::Button(MoreMenuButton::new(
         "Rename",
         Box::new(|_, app| {
             app.deleting_list = None;
             app.renaming_list = Some(list);
         }),
-    ));
+    )));
 
     if metadata.favorite {
-        entries.push(MoreMenuEntry::new(
+        items.push(MoreMenuItem::Button(MoreMenuButton::new(
             "Unset as Favorite",
             Box::new(|_, _| {
                 let mut metadata = metadata.clone();
@@ -800,9 +800,9 @@ pub(super) fn render_more_list_actions(
                     .storage
                     .set_person_list_metadata(list, &metadata, None);
             }),
-        ));
+        )));
     } else {
-        entries.push(MoreMenuEntry::new(
+        items.push(MoreMenuItem::Button(MoreMenuButton::new(
             "Set as Favorite",
             Box::new(|_, _| {
                 let mut metadata = metadata.clone();
@@ -811,12 +811,12 @@ pub(super) fn render_more_list_actions(
                     .storage
                     .set_person_list_metadata(list, &metadata, None);
             }),
-        ));
+        )));
     }
 
     if on_list {
         if metadata.private == Private(true) {
-            entries.push(MoreMenuEntry::new(
+            items.push(MoreMenuItem::Button(MoreMenuButton::new(
                 "Make Public",
                 Box::new(|_, _| {
                     let mut metadata = metadata.clone();
@@ -825,9 +825,9 @@ pub(super) fn render_more_list_actions(
                         .storage
                         .set_person_list_metadata(list, &metadata, None);
                 }),
-            ));
+            )));
         } else {
-            entries.push(MoreMenuEntry::new(
+            items.push(MoreMenuItem::Button(MoreMenuButton::new(
                 "Make Private",
                 Box::new(|_, _| {
                     let mut metadata = metadata.clone();
@@ -839,28 +839,28 @@ pub(super) fn render_more_list_actions(
                         .storage
                         .set_all_people_in_list_to_private(list, None);
                 }),
-            ));
+            )));
         }
-        entries.push(
-            MoreMenuEntry::new(
+        items.push(MoreMenuItem::Button(
+            MoreMenuButton::new(
                 "Clear All",
                 Box::new(|_, app| {
                     app.people_list.clear_list_needs_confirm = true;
                 }),
             )
             .enabled(count > 0),
-        );
+        ));
 
-        entries.push(MoreMenuEntry::new(
+        items.push(MoreMenuItem::Button(MoreMenuButton::new(
             "Delete",
             Box::new(|_, app| {
                 app.renaming_list = None;
                 app.deleting_list = Some(list);
             }),
-        ));
+        )));
     }
 
-    menu.show_entries(ui, app, response, entries);
+    menu.show_entries(ui, app, response, items);
 }
 
 fn recalc_add_contact_search(app: &mut GossipUi, output: &mut TextEditOutput) {

@@ -1,5 +1,5 @@
 use super::FeedNoteParams;
-use crate::ui::widgets::{InformationPopup, MoreMenuEntry};
+use crate::ui::widgets::{InformationPopup, MoreMenuButton, MoreMenuItem};
 use crate::ui::{widgets, you, FeedKind, GossipUi, HighlightType, Page, Theme};
 use eframe::egui;
 use eframe::epaint::text::LayoutJob;
@@ -238,41 +238,41 @@ fn dm_posting_area(
             .with_min_size(vec2(190.0, 40.0))
             .place_above(!read_setting!(posting_area_at_top));
 
-        let mut entries: Vec<MoreMenuEntry> = Vec::new();
+        let mut items: Vec<MoreMenuItem> = Vec::new();
         if app.dm_draft_data.include_subject {
-            entries.push(MoreMenuEntry::new(
+            items.push(MoreMenuItem::Button(MoreMenuButton::new(
                 "Remove Subject",
                 Box::new(|_, app| {
                     app.dm_draft_data.include_subject = false;
                     app.dm_draft_data.subject = "".to_owned();
                 }),
-            ));
+            )));
         } else {
-            entries.push(MoreMenuEntry::new(
+            items.push(MoreMenuItem::Button(MoreMenuButton::new(
                 "Add Subject",
                 Box::new(|_, app| {
                     app.dm_draft_data.include_subject = true;
                 }),
-            ));
+            )));
         }
         if app.dm_draft_data.include_content_warning {
-            entries.push(MoreMenuEntry::new(
+            items.push(MoreMenuItem::Button(MoreMenuButton::new(
                 "Remove Content Warning",
                 Box::new(|_, app| {
                     app.dm_draft_data.include_content_warning = false;
                     app.dm_draft_data.content_warning = "".to_owned();
                 }),
-            ));
+            )));
         } else {
-            entries.push(MoreMenuEntry::new(
+            items.push(MoreMenuItem::Button(MoreMenuButton::new(
                 "Add Content Warning",
                 Box::new(|_, app| {
                     app.dm_draft_data.include_content_warning = true;
                 }),
-            ));
+            )));
         }
 
-        menu.show_entries(ui, app, response, entries);
+        menu.show_entries(ui, app, response, items);
 
         ui.horizontal(|ui| {
             ui.visuals_mut().hyperlink_color = ui.visuals().text_color();
@@ -538,44 +538,44 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                     .with_min_size(vec2(180.0, 80.0))
                     .place_above(!read_setting!(posting_area_at_top));
 
-                let mut entries: Vec<MoreMenuEntry> = Vec::new();
+                let mut items: Vec<MoreMenuItem> = Vec::new();
 
                 if app.draft_data.include_subject {
-                    entries.push(MoreMenuEntry::new(
+                    items.push(MoreMenuItem::Button(MoreMenuButton::new(
                         "Remove Subject",
                         Box::new(|_, app| {
                             app.draft_data.include_subject = false;
                             app.draft_data.subject = "".to_owned();
                         }),
-                    ));
+                    )));
                 } else if app.draft_data.replying_to.is_none() {
-                    entries.push(MoreMenuEntry::new(
+                    items.push(MoreMenuItem::Button(MoreMenuButton::new(
                         "Add Subject",
                         Box::new(|_, app| {
                             app.draft_data.include_subject = true;
                         }),
-                    ));
+                    )));
                 }
 
                 if app.draft_data.include_content_warning {
-                    entries.push(MoreMenuEntry::new(
+                    items.push(MoreMenuItem::Button(MoreMenuButton::new(
                         "Remove Content Warning",
                         Box::new(|_, app| {
                             app.draft_data.include_content_warning = false;
                             app.draft_data.content_warning = "".to_owned();
                         }),
-                    ));
+                    )));
                 } else {
-                    entries.push(MoreMenuEntry::new(
+                    items.push(MoreMenuItem::Button(MoreMenuButton::new(
                         "Add Content Warning",
                         Box::new(|_, app| {
                             app.draft_data.include_content_warning = true;
                         }),
-                    ));
+                    )));
                 }
 
-                entries.push(
-                    MoreMenuEntry::new(
+                items.push(MoreMenuItem::Button(
+                    MoreMenuButton::new(
                         "Show raw preview",
                         Box::new(|_, app| {
                             let raw = do_replacements(
@@ -586,9 +586,9 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                         }),
                     )
                     .enabled(!app.draft_data.replacements.is_empty()),
-                );
+                ));
 
-                menu.show_entries(ui, app, response, entries);
+                menu.show_entries(ui, app, response, items);
             }
 
             ui.add_space(7.0);
