@@ -727,37 +727,50 @@ pub fn render_note_inner(
                         .show(ui, |ui| {
                             ui.set_max_width(header_response.response.rect.width());
                             ui.horizontal(|ui| {
-                                if ui
-                                    .add(CopyButton::new())
-                                    .on_hover_cursor(egui::CursorIcon::Default)
-                                    .on_hover_text("Copy Contents")
-                                    .clicked()
-                                {
-                                    if app.render_raw == Some(note.event.id) {
-                                        ui.output_mut(|o| {
-                                            o.copied_text =
-                                                serde_json::to_string(&note.event).unwrap()
-                                        });
-                                    } else if note.event.kind == EventKind::EncryptedDirectMessage {
-                                        ui.output_mut(|o| {
-                                            if let Ok(m) =
-                                                GLOBALS.identity.decrypt_event_contents(&note.event)
-                                            {
-                                                o.copied_text = m
-                                            } else {
-                                                o.copied_text = note.event.content.clone()
-                                            }
-                                        });
-                                    } else {
-                                        ui.output_mut(|o| {
-                                            o.copied_text = note.event.content.clone()
-                                        });
-                                    }
-                                }
-
-                                ui.add_space(24.0);
-
                                 if GLOBALS.identity.is_unlocked() {
+                                    // Button to reply
+                                    if note.event.kind.is_direct_message_related() {
+                                        if widgets::clickable_label(
+                                            ui,
+                                            true,
+                                            RichText::new("⏎").size(18.0),
+                                        )
+                                        .on_hover_text("Reply")
+                                        .clicked()
+                                        {
+                                            if let Some(channel) =
+                                                DmChannel::from_event(&note.event, None)
+                                            {
+                                                app.draft_is_annotate = false;
+                                                app.draft_needs_focus = true;
+                                                app.show_post_area = true;
+
+                                                app.set_page(
+                                                    ui.ctx(),
+                                                    Page::Feed(FeedKind::DmChat(channel.clone())),
+                                                );
+                                            }
+                                            // FIXME: else error
+                                        }
+                                    } else {
+                                        if widgets::clickable_label(
+                                            ui,
+                                            true,
+                                            RichText::new("💬").size(18.0),
+                                        )
+                                        .on_hover_text("Reply")
+                                        .clicked()
+                                        {
+                                            app.draft_is_annotate = false;
+                                            app.draft_needs_focus = true;
+                                            app.show_post_area = true;
+
+                                            app.draft_data.replying_to = Some(note.event.id);
+                                        }
+                                    };
+
+                                    ui.add_space(24.0);
+
                                     if note.event.kind != EventKind::EncryptedDirectMessage
                                         && note.event.kind != EventKind::DmChat
                                     {
@@ -831,123 +844,46 @@ pub fn render_note_inner(
 
                                         ui.add_space(24.0);
                                     }
+                                }
 
-                                    // Button to reply
-                                    let reply_icon = if note.event.kind.is_direct_message_related()
-                                    {
-                                        "⏎"
-                                    } else {
-                                        "💬"
-                                    };
-
+                                // Buttons to show in "debug/developer" mode
+                                if app.unsaved_settings.status_bar {
+                                    // Button to render raw
                                     if widgets::clickable_label(
                                         ui,
                                         true,
-                                        RichText::new(reply_icon).size(18.0),
+                                        RichText::new("🥩").size(13.0),
                                     )
-                                    .on_hover_text("Reply")
+                                    .on_hover_text("Raw")
                                     .clicked()
                                     {
-                                        app.draft_is_annotate = false;
-                                        app.draft_needs_focus = true;
-                                        app.show_post_area = true;
-
-                                        if note.event.kind.is_direct_message_related() {
-                                            if let Some(channel) =
-                                                DmChannel::from_event(&note.event, None)
-                                            {
-                                                app.set_page(
-                                                    ui.ctx(),
-                                                    Page::Feed(FeedKind::DmChat(channel.clone())),
-                                                );
-                                                app.draft_needs_focus = true;
-                                            }
-                                            // FIXME: else error
+                                        if app.render_raw != Some(note.event.id) {
+                                            app.render_raw = Some(note.event.id);
+                                            app.render_qr = None;
                                         } else {
-                                            app.draft_data.replying_to =
-                                                if note.event.kind.is_direct_message_related() {
-                                                    None
-                                                } else {
-                                                    Some(note.event.id)
-                                                };
+                                            app.render_raw = None;
                                         }
                                     }
 
                                     ui.add_space(24.0);
 
-                                    // Button to annotate
-                                    if Some(note.event.pubkey) == GLOBALS.identity.public_key() {
-                                        if widgets::clickable_label(
-                                            ui,
-                                            true,
-                                            RichText::new("A").size(18.0),
-                                        )
-                                        .on_hover_text("Annotate")
-                                        .clicked()
-                                        {
-                                            app.draft_is_annotate = true;
-                                            app.draft_needs_focus = true;
-                                            app.show_post_area = true;
-                                            if note.event.kind.is_direct_message_related() {
-                                                if let Some(channel) =
-                                                    DmChannel::from_event(&note.event, None)
-                                                {
-                                                    app.set_page(
-                                                        ui.ctx(),
-                                                        Page::Feed(FeedKind::DmChat(
-                                                            channel.clone(),
-                                                        )),
-                                                    );
-                                                }
-                                                // FIXME: else error
-                                            } else {
-                                                app.draft_data.replying_to = if note
-                                                    .event
-                                                    .kind
-                                                    .is_direct_message_related()
-                                                {
-                                                    None
-                                                } else {
-                                                    Some(note.event.id)
-                                                };
-                                            }
-                                        }
-
-                                        ui.add_space(24.0);
-                                    }
-                                }
-
-                                // Button to render raw
-                                if widgets::clickable_label(
-                                    ui,
-                                    true,
-                                    RichText::new("🥩").size(13.0),
-                                )
-                                .on_hover_text("Raw")
-                                .clicked()
-                                {
-                                    if app.render_raw != Some(note.event.id) {
-                                        app.render_raw = Some(note.event.id);
-                                        app.render_qr = None;
-                                    } else {
-                                        app.render_raw = None;
-                                    }
-                                }
-
-                                ui.add_space(24.0);
-
-                                // Button to render QR code
-                                if widgets::clickable_label(ui, true, RichText::new("⚃").size(16.0))
+                                    // Button to render QR code
+                                    if widgets::clickable_label(
+                                        ui,
+                                        true,
+                                        RichText::new("⚃").size(16.0),
+                                    )
                                     .on_hover_text("QR Code")
                                     .clicked()
-                                {
-                                    if app.render_qr != Some(note.event.id) {
-                                        app.render_qr = Some(note.event.id);
-                                        app.render_raw = None;
-                                        app.qr_codes.remove("feedqr");
-                                    } else {
-                                        app.render_qr = None;
-                                        app.qr_codes.remove("feedqr");
+                                    {
+                                        if app.render_qr != Some(note.event.id) {
+                                            app.render_qr = Some(note.event.id);
+                                            app.render_raw = None;
+                                            app.qr_codes.remove("feedqr");
+                                        } else {
+                                            app.render_qr = None;
+                                            app.qr_codes.remove("feedqr");
+                                        }
                                     }
                                 }
 
@@ -1415,93 +1351,13 @@ fn note_actions(
         }
     }
 
-    let mut copy_items: Vec<MoreMenuItem> = Vec::new();
-
-    if note.event.kind.is_replaceable() {
-        let param = match note.event.parameter() {
-            Some(p) => p,
-            None => "".to_owned(),
-        };
-
-        copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
-            "Copy naddr",
-            Box::new(|ui, _| {
-                let event_addr = EventAddr {
-                    d: param,
-                    relays: relays.clone(),
-                    kind: note.event.kind,
-                    author: note.event.pubkey,
-                };
-                let nostr_url: NostrUrl = event_addr.into();
-                ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
-            }),
-        )));
-    } else {
-        copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
-            "Copy nevent",
-            Box::new(|ui, _| {
-                let event_pointer = EventPointer {
-                    id: note.event.id,
-                    relays: relays.clone(),
-                    author: None,
-                    kind: None,
-                };
-                let nostr_url: NostrUrl = event_pointer.into();
-                ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
-            }),
-        )));
-    }
-    if !note.event.kind.is_direct_message_related() {
-        copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
-            "Copy web link",
-            Box::new(|ui, _| {
-                let event_pointer = EventPointer {
-                    id: note.event.id,
-                    relays: relays.clone(),
-                    author: None,
-                    kind: None,
-                };
-                ui.output_mut(|o| {
-                    o.copied_text = format!("https://njump.me/{}", event_pointer.as_bech32_string())
-                });
-            }),
-        )));
-    }
-    copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
-        "Copy note1 Id",
-        Box::new(|ui, _| {
-            let nostr_url: NostrUrl = note.event.id.into();
-            ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
-        }),
-    )));
-    copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
-        "Copy hex Id",
-        Box::new(|ui, _| {
-            ui.output_mut(|o| o.copied_text = note.event.id.as_hex_string());
-        }),
-    )));
-    copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
-        "Copy Raw data",
-        Box::new(|ui, _| {
-            ui.output_mut(|o| o.copied_text = serde_json::to_string_pretty(&note.event).unwrap());
-        }),
-    )));
-
-    items.push(MoreMenuItem::SubMenu(MoreMenuSubMenu::new(
-        "Copy", copy_items, &menu,
-    )));
-
-    items.push(MoreMenuItem::Button(MoreMenuButton::new(
-        "Dismiss",
-        Box::new(|_, _| {
-            GLOBALS.dismissed.blocking_write().push(note.event.id);
-            GLOBALS.feed.sync_recompute();
-        }),
-    )));
+    // ---- Manage SubMenu ----
     if let Some(our_pubkey) = GLOBALS.identity.public_key() {
         if note.event.pubkey == our_pubkey {
+            let mut my_items: Vec<MoreMenuItem> = Vec::new();
+
             if note.deletions.is_empty() {
-                items.push(MoreMenuItem::Button(MoreMenuButton::new(
+                my_items.push(MoreMenuItem::Button(MoreMenuButton::new(
                     "Delete",
                     Box::new(|_, _| {
                         let _ = GLOBALS
@@ -1514,7 +1370,7 @@ fn note_actions(
             // Chance to post our note again to relays it missed
             if let Ok(broadcast_relays) = Relay::relays_for_event(&note.event) {
                 if !broadcast_relays.is_empty() {
-                    items.push(MoreMenuItem::Button(MoreMenuButton::new(
+                    my_items.push(MoreMenuItem::Button(MoreMenuButton::new(
                         format!("Post again ({})", broadcast_relays.len()),
                         Box::new(|_, _| {
                             let _ = GLOBALS
@@ -1524,8 +1380,163 @@ fn note_actions(
                     )));
                 }
             }
+
+            // Annotate Button
+            my_items.push(MoreMenuItem::Button(MoreMenuButton::new(
+                "Annotate",
+                Box::new(|_ui, app| {
+                    app.draft_is_annotate = true;
+                    app.draft_needs_focus = true;
+                    app.show_post_area = true;
+
+                    app.draft_data.replying_to = Some(note.event.id)
+                }),
+            )));
+
+            items.push(MoreMenuItem::SubMenu(MoreMenuSubMenu::new(
+                "Manage", my_items, &menu,
+            )))
         }
-    }
+    } // Manage SubMenu
+
+    // ---- Copy SubMenu ----
+    {
+        // put all copy buttons in a submenu
+        let mut copy_items: Vec<MoreMenuItem> = Vec::new();
+
+        if note.event.kind.is_replaceable() {
+            let param = match note.event.parameter() {
+                Some(p) => p,
+                None => "".to_owned(),
+            };
+
+            copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
+                "Copy naddr",
+                Box::new(|ui, _| {
+                    let event_addr = EventAddr {
+                        d: param,
+                        relays: relays.clone(),
+                        kind: note.event.kind,
+                        author: note.event.pubkey,
+                    };
+                    let nostr_url: NostrUrl = event_addr.into();
+                    ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
+                }),
+            )));
+        } else {
+            copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
+                "Copy nevent",
+                Box::new(|ui, _| {
+                    let event_pointer = EventPointer {
+                        id: note.event.id,
+                        relays: relays.clone(),
+                        author: None,
+                        kind: None,
+                    };
+                    let nostr_url: NostrUrl = event_pointer.into();
+                    ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
+                }),
+            )));
+        }
+        if !note.event.kind.is_direct_message_related() {
+            copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
+                "Copy web link",
+                Box::new(|ui, _| {
+                    let event_pointer = EventPointer {
+                        id: note.event.id,
+                        relays: relays.clone(),
+                        author: None,
+                        kind: None,
+                    };
+                    ui.output_mut(|o| {
+                        o.copied_text =
+                            format!("https://njump.me/{}", event_pointer.as_bech32_string())
+                    });
+                }),
+            )));
+        }
+        copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
+            "Copy note1 Id",
+            Box::new(|ui, _| {
+                let nostr_url: NostrUrl = note.event.id.into();
+                ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
+            }),
+        )));
+        copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
+            "Copy hex Id",
+            Box::new(|ui, _| {
+                ui.output_mut(|o| o.copied_text = note.event.id.as_hex_string());
+            }),
+        )));
+        copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
+            "Copy Raw data",
+            Box::new(|ui, _| {
+                ui.output_mut(|o| {
+                    o.copied_text = serde_json::to_string_pretty(&note.event).unwrap()
+                });
+            }),
+        )));
+
+        items.push(MoreMenuItem::SubMenu(MoreMenuSubMenu::new(
+            "Copy", copy_items, &menu,
+        )));
+    } // end Copy SubMenu
+
+    // ---- Inspect SubMenu ----
+    {
+        let mut insp_items: Vec<MoreMenuItem> = Vec::new();
+
+        // Button to render raw
+        let json = if app.render_raw.is_none() {
+            "🥩 Show JSON"
+        } else {
+            "🥩 Hide JSON"
+        };
+        insp_items.push(MoreMenuItem::Button(MoreMenuButton::new(
+            json,
+            Box::new(|_ui, app| {
+                if app.render_raw != Some(note.event.id) {
+                    app.render_raw = Some(note.event.id);
+                    app.render_qr = None;
+                } else {
+                    app.render_raw = None;
+                }
+            }),
+        )));
+
+        // Button to render QR code
+        let qr = if app.render_qr.is_none() {
+            "QR Code Export"
+        } else {
+            "Hide QR"
+        };
+        insp_items.push(MoreMenuItem::Button(MoreMenuButton::new(
+            qr,
+            Box::new(|_ui, app| {
+                if app.render_qr != Some(note.event.id) {
+                    app.render_qr = Some(note.event.id);
+                    app.render_raw = None;
+                    app.qr_codes.remove("feedqr");
+                } else {
+                    app.render_qr = None;
+                    app.qr_codes.remove("feedqr");
+                }
+            }),
+        )));
+
+        items.push(MoreMenuItem::SubMenu(MoreMenuSubMenu::new(
+            "Inspect", insp_items, &menu,
+        )));
+    } // end Inspect SubMenu
+
+    items.push(MoreMenuItem::Button(MoreMenuButton::new(
+        "Dismiss",
+        Box::new(|_, _| {
+            GLOBALS.dismissed.blocking_write().push(note.event.id);
+            GLOBALS.feed.sync_recompute();
+        }),
+    )));
+
     items.push(MoreMenuItem::Button(MoreMenuButton::new(
         "Rerender",
         Box::new(|_, app| {
