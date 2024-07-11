@@ -16,7 +16,8 @@ use egui::{
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{DmChannel, FeedKind, Relay, ZapState, GLOBALS};
 use nostr_types::{
-    Event, EventAddr, EventKind, EventPointer, EventReference, IdHex, NostrUrl, UncheckedUrl,
+    Event, EventAddr, EventDelegation, EventKind, EventPointer, EventReference, IdHex, NostrUrl,
+    UncheckedUrl,
 };
 
 #[derive(Default)]
@@ -369,6 +370,27 @@ pub fn render_note_inner(
                                 .color(color)
                                 .text_style(TextStyle::Small),
                         );
+                    }
+
+                    match &note.delegation {
+                        EventDelegation::InvalidDelegation(why) => {
+                            let color = app.theme.warning_marker_text_color();
+                            ui.add(Label::new(
+                                RichText::new("INVALID DELEGATION")
+                                    .color(color)
+                                    .text_style(TextStyle::Small),
+                            ))
+                            .on_hover_text(why);
+                        }
+                        EventDelegation::DelegatedBy(_) => {
+                            let color = app.theme.notice_marker_text_color();
+                            ui.label(
+                                RichText::new("DELEGATED")
+                                    .color(color)
+                                    .text_style(TextStyle::Small),
+                            );
+                        }
+                        _ => {}
                     }
 
                     if !note.deletions.is_empty() {
