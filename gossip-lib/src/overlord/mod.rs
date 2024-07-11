@@ -630,6 +630,9 @@ impl Overlord {
             ToOverlordMessage::ConnectDeclined(relay_url, permanent) => {
                 self.connect_declined(relay_url, permanent).await?;
             }
+            ToOverlordMessage::DelegationReset => {
+                Self::delegation_reset().await?;
+            }
             ToOverlordMessage::DeletePersonList(list) => {
                 self.delete_person_list(list).await?;
             }
@@ -1082,6 +1085,19 @@ impl Overlord {
         Ok(())
     }
 
+    /// Remove any key delegation setup
+    pub async fn delegation_reset() -> Result<(), Error> {
+        if GLOBALS.delegation.reset() {
+            // save and statusmsg
+            GLOBALS.delegation.save().await?;
+            GLOBALS
+                .status_queue
+                .write()
+                .write("Delegation tag removed".to_string());
+        }
+        Ok(())
+    }
+
     /// Delete a person list
     pub async fn delete_person_list(&mut self, list: PersonList) -> Result<(), Error> {
         // Get the metadata first, we need it to delete events
@@ -1289,9 +1305,10 @@ impl Overlord {
         Ok(())
     }
 
-    /// Delete private key
+    /// Delete private key and any delegation setup
     pub async fn delete_priv() -> Result<(), Error> {
         GLOBALS.identity.delete_identity()?;
+        Self::delegation_reset().await?;
         GLOBALS
             .status_queue
             .write()
@@ -1299,9 +1316,10 @@ impl Overlord {
         Ok(())
     }
 
-    /// Delete public key (only if no private key exists)
+    /// Delete public key (only if no private key exists) and any delegation setup
     pub async fn delete_pub() -> Result<(), Error> {
         GLOBALS.identity.clear_public_key()?;
+        Self::delegation_reset().await?;
         Ok(())
     }
 
