@@ -885,11 +885,11 @@ pub fn render_note_inner(
                                             app.qr_codes.remove("feedqr");
                                         }
                                     }
+
+                                    ui.add_space(24.0);
                                 }
 
                                 if read_setting!(enable_zap_receipts) && !note.muted() {
-                                    ui.add_space(24.0);
-
                                     // To zap, the user must have a lnurl, and the event must have been
                                     // seen on some relays
                                     let mut zap_lnurl: Option<String> = None;
@@ -1031,21 +1031,21 @@ pub fn render_note_inner(
                                     if let Some(indicator) = encryption_indicator {
                                         let pos = response.rect.left_center() + vec2(-5.0, 0.0);
                                         const RADIUS: f32 = 7.0;
+                                        ui.interact(
+                                            egui::Rect::from_min_size(
+                                                pos + vec2(-RADIUS * 2.0, -RADIUS),
+                                                vec2(RADIUS * 2.0, RADIUS * 2.0),
+                                            ),
+                                            ui.next_auto_id().with("enc_ind"),
+                                            egui::Sense::hover(),
+                                        )
+                                        .on_hover_ui(indicator.tooltip_ui);
+
                                         ui.painter().circle_filled(
                                             pos + vec2(-RADIUS, 0.0),
                                             RADIUS,
                                             indicator.color,
                                         );
-                                        ui.interact(
-                                            egui::Rect::from_min_size(
-                                                pos + vec2(0.0, -RADIUS),
-                                                vec2(-RADIUS * 2.0, -RADIUS * 2.0),
-                                            ),
-                                            ui.next_auto_id().with("enc_ind"),
-                                            egui::Sense::hover(),
-                                        )
-                                        .on_hover_cursor(egui::CursorIcon::Crosshair)
-                                        .on_hover_ui(indicator.tooltip_ui);
                                     }
                                 },
                             );
