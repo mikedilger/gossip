@@ -159,6 +159,34 @@ fn dm_posting_area(
     let compose_area_id: egui::Id = egui::Id::new("compose_area");
     let mut send_now: bool = false;
 
+    let (bg_color, text_color, text, tooltip_text) = if dm_channel.can_use_nip17() {
+        let text = "STRONG ENCRYPTION";
+        let tt_text = "SECURED with Giftwrap DM technology (NIPs 17, 44, 59)";
+        if app.theme.dark_mode {
+            (
+                app.theme.neutral_300(),
+                app.theme.neutral_950(),
+                text,
+                tt_text,
+            )
+        } else {
+            (
+                app.theme.neutral_600(),
+                app.theme.neutral_50(),
+                text,
+                tt_text,
+            )
+        }
+    } else {
+        let text = "BASIC ENCRYPTION";
+        let tt_text = "WARNING: Using older less-secure DM technology (NIP-04; recipient(s) have not signalled the ability to accept the newer method)";
+        if app.theme.dark_mode {
+            (app.theme.amber_400(), app.theme.neutral_50(), text, tt_text)
+        } else {
+            (app.theme.amber_400(), app.theme.neutral_50(), text, tt_text)
+        }
+    };
+
     // Text area
     let theme = app.theme;
     let mut layouter = |ui: &Ui, text: &str, wrap_width: f32| {
@@ -189,14 +217,7 @@ fn dm_posting_area(
         });
     }
 
-    ui.label(format!("DIRECT MESSAGE TO: {}", dm_channel.name()));
-
-    ui.add_space(10.0);
-    if dm_channel.can_use_nip17() {
-        ui.label("SECURED with newer DM technology (NIPs 17, 44, 59)");
-    } else {
-        ui.label("WARNING: Using older less-secure DM technology (NIP-04; recipient(s) have not signalled the ability to accept the newer method)");
-    }
+    ui.visuals_mut().selection.stroke.color = bg_color;
 
     let draft_response = ui.add(
         text_edit_multiline!(app, app.dm_draft_data.draft)
@@ -227,6 +248,36 @@ fn dm_posting_area(
         if ui.input_mut(|i| i.consume_key(modifiers, Key::Enter)) {
             send_now = true;
         }
+    }
+
+    // if text area wasn't focused, change the bg_color to match the frame
+    let bg_color = if draft_response.has_focus() {
+        bg_color
+    } else {
+        ui.visuals().widgets.inactive.bg_stroke.color
+    };
+
+    // show encryption hint on edit area frame
+    {
+        let pos = draft_response.rect.right_top() + vec2(-35.0, -2.0);
+        let where_to_put_bg = ui.painter().add(egui::Shape::Noop);
+        let bg_rect = ui
+            .painter()
+            .text(
+                pos + vec2(10.0, 0.0),
+                egui::Align2::RIGHT_CENTER,
+                text,
+                egui::FontId::proportional(10.0),
+                text_color,
+            )
+            .expand2(vec2(10.0, 3.0))
+            .translate(vec2(0.0, 0.0)); // FIXME: Hack to fix the line height
+
+        let bg_shape =
+            egui::Shape::rect_filled(bg_rect, egui::Rounding::same(bg_rect.height()), bg_color);
+        ui.painter().set(where_to_put_bg, bg_shape);
+        ui.interact(bg_rect, ui.next_auto_id().with("enc"), egui::Sense::hover())
+            .on_hover_text(tooltip_text);
     }
 
     ui.add_space(8.0);
