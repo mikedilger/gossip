@@ -392,12 +392,7 @@ pub fn render_note_inner(
                         ui.label("NIP-04 encryption. It is recomended to upgrade [link to help page] to Giftwrap (NIP-44) encryption.");
                     }),
                 }),
-                EncryptionType::Giftwrap => Some(EncryptionIndicator {
-                    color: app.theme.lime_500(),
-                    tooltip_ui: Box::new(|ui: &mut Ui| {
-                        ui.label("Giftwrap (NIP-44) encryption used. This is currently the most advanced encryption used on nostr.");
-                    }),
-                }),
+                EncryptionType::Giftwrap => None, // Giftwrap is the new good default, we won't show an indicator
             }
         } else {
             None
