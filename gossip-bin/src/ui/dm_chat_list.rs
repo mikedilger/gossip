@@ -43,11 +43,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
     let mut channels = app.dm_channel_cache.clone();
 
-    ui.add_space(10.0);
-    ui.horizontal(|ui| {
-        ui.heading("Direct Private Message Channels");
-    });
-    ui.add_space(10.0);
+    widgets::page_header(ui, "Direct Messages", |_| {});
 
     let is_signer_ready = GLOBALS.identity.is_unlocked();
 
@@ -63,6 +59,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                         Some(app.theme.main_content_bgcolor()),
                         |ui, app| {
                             ui.set_min_width(ui.available_width());
+                            ui.set_min_height(AVATAR_SIZE_F32);
                             ui.set_max_height(AVATAR_SIZE_F32);
                             ui.horizontal(|ui| {
 
