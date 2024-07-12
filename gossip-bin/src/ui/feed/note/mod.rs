@@ -727,163 +727,118 @@ pub fn render_note_inner(
                         .show(ui, |ui| {
                             ui.set_max_width(header_response.response.rect.width());
                             ui.horizontal(|ui| {
-                                if GLOBALS.identity.is_unlocked() {
-                                    // Button to reply
-                                    if note.event.kind.is_direct_message_related() {
-                                        if widgets::clickable_label(
-                                            ui,
-                                            true,
-                                            RichText::new("⏎").size(18.0),
-                                        )
-                                        .on_hover_text("Reply")
-                                        .clicked()
-                                        {
-                                            if let Some(channel) =
-                                                DmChannel::from_event(&note.event, None)
-                                            {
-                                                app.draft_is_annotate = false;
-                                                app.draft_needs_focus = true;
-                                                app.show_post_area = true;
+                                let can_sign = GLOBALS.identity.is_unlocked();
 
-                                                app.set_page(
-                                                    ui.ctx(),
-                                                    Page::Feed(FeedKind::DmChat(channel.clone())),
-                                                );
-                                            }
-                                            // FIXME: else error
-                                        }
-                                    } else {
-                                        if widgets::clickable_label(
-                                            ui,
-                                            true,
-                                            RichText::new("💬").size(18.0),
-                                        )
-                                        .on_hover_text("Reply")
-                                        .clicked()
+                                // Button to reply
+                                if note.event.kind.is_direct_message_related() {
+                                    if widgets::clickable_label(
+                                        ui,
+                                        can_sign,
+                                        RichText::new("⏎").size(18.0),
+                                    )
+                                    .on_hover_text("Reply")
+                                    .clicked()
+                                    {
+                                        if let Some(channel) =
+                                            DmChannel::from_event(&note.event, None)
                                         {
                                             app.draft_is_annotate = false;
                                             app.draft_needs_focus = true;
                                             app.show_post_area = true;
 
-                                            app.draft_data.replying_to = Some(note.event.id);
+                                            app.set_page(
+                                                ui.ctx(),
+                                                Page::Feed(FeedKind::DmChat(channel.clone())),
+                                            );
                                         }
-                                    };
+                                        // FIXME: else error
+                                    }
+                                } else {
+                                    if widgets::clickable_label(
+                                        ui,
+                                        can_sign,
+                                        RichText::new("💬").size(18.0),
+                                    )
+                                    .on_hover_text("Reply")
+                                    .clicked()
+                                    {
+                                        app.draft_is_annotate = false;
+                                        app.draft_needs_focus = true;
+                                        app.show_post_area = true;
+
+                                        app.draft_data.replying_to = Some(note.event.id);
+                                    }
+                                };
+
+                                ui.add_space(24.0);
+
+                                if note.event.kind != EventKind::EncryptedDirectMessage
+                                    && note.event.kind != EventKind::DmChat
+                                {
+                                    // Button to Repost
+                                    if widgets::clickable_label(
+                                        ui,
+                                        can_sign,
+                                        RichText::new("↻").size(18.0),
+                                    )
+                                    .on_hover_text("Repost")
+                                    .clicked()
+                                    {
+                                        app.show_post_area = true;
+                                        app.draft_data.repost = Some(note.event.id);
+                                        app.draft_data.replying_to = None;
+                                    }
 
                                     ui.add_space(24.0);
 
-                                    if note.event.kind != EventKind::EncryptedDirectMessage
-                                        && note.event.kind != EventKind::DmChat
+                                    // Button to quote note
+                                    if widgets::clickable_label(
+                                        ui,
+                                        can_sign,
+                                        RichText::new("“…”").size(18.0),
+                                    )
+                                    .on_hover_text("Quote")
+                                    .clicked()
                                     {
-                                        // Button to Repost
-                                        if widgets::clickable_label(
-                                            ui,
-                                            true,
-                                            RichText::new("↻").size(18.0),
-                                        )
-                                        .on_hover_text("Repost")
-                                        .clicked()
+                                        let relays: Vec<UncheckedUrl> = note
+                                            .seen_on
+                                            .iter()
+                                            .map(|(url, _)| url.to_unchecked_url())
+                                            .take(3)
+                                            .collect();
+
+                                        if !app.draft_data.draft.ends_with(' ')
+                                            && !app.draft_data.draft.is_empty()
                                         {
-                                            app.show_post_area = true;
-                                            app.draft_data.repost = Some(note.event.id);
-                                            app.draft_data.replying_to = None;
+                                            app.draft_data.draft.push(' ');
                                         }
-
-                                        ui.add_space(24.0);
-
-                                        // Button to quote note
-                                        if widgets::clickable_label(
-                                            ui,
-                                            true,
-                                            RichText::new("“…”").size(18.0),
-                                        )
-                                        .on_hover_text("Quote")
-                                        .clicked()
-                                        {
-                                            let relays: Vec<UncheckedUrl> = note
-                                                .seen_on
-                                                .iter()
-                                                .map(|(url, _)| url.to_unchecked_url())
-                                                .take(3)
-                                                .collect();
-
-                                            if !app.draft_data.draft.ends_with(' ')
-                                                && !app.draft_data.draft.is_empty()
-                                            {
-                                                app.draft_data.draft.push(' ');
-                                            }
-                                            let nostr_url: NostrUrl =
-                                                if note.event.kind.is_replaceable() {
-                                                    let param = match note.event.parameter() {
-                                                        Some(p) => p,
-                                                        None => "".to_owned(),
-                                                    };
-                                                    let event_addr = EventAddr {
-                                                        d: param,
-                                                        relays: relays.clone(),
-                                                        kind: note.event.kind,
-                                                        author: note.event.pubkey,
-                                                    };
-                                                    event_addr.into()
-                                                } else {
-                                                    let event_pointer = EventPointer {
-                                                        id: note.event.id,
-                                                        relays: relays.clone(),
-                                                        author: None,
-                                                        kind: None,
-                                                    };
-                                                    event_pointer.into()
+                                        let nostr_url: NostrUrl =
+                                            if note.event.kind.is_replaceable() {
+                                                let param = match note.event.parameter() {
+                                                    Some(p) => p,
+                                                    None => "".to_owned(),
                                                 };
-                                            app.draft_data
-                                                .draft
-                                                .push_str(&format!("{}", nostr_url));
-                                            app.draft_data.repost = None;
-                                            app.draft_data.replying_to = None;
-                                            app.show_post_area = true;
-                                            app.draft_needs_focus = true;
-                                        }
-
-                                        ui.add_space(24.0);
-                                    }
-                                }
-
-                                // Buttons to show in "debug/developer" mode
-                                if app.unsaved_settings.status_bar {
-                                    // Button to render raw
-                                    if widgets::clickable_label(
-                                        ui,
-                                        true,
-                                        RichText::new("🥩").size(13.0),
-                                    )
-                                    .on_hover_text("Raw")
-                                    .clicked()
-                                    {
-                                        if app.render_raw != Some(note.event.id) {
-                                            app.render_raw = Some(note.event.id);
-                                            app.render_qr = None;
-                                        } else {
-                                            app.render_raw = None;
-                                        }
-                                    }
-
-                                    ui.add_space(24.0);
-
-                                    // Button to render QR code
-                                    if widgets::clickable_label(
-                                        ui,
-                                        true,
-                                        RichText::new("⚃").size(16.0),
-                                    )
-                                    .on_hover_text("QR Code")
-                                    .clicked()
-                                    {
-                                        if app.render_qr != Some(note.event.id) {
-                                            app.render_qr = Some(note.event.id);
-                                            app.render_raw = None;
-                                            app.qr_codes.remove("feedqr");
-                                        } else {
-                                            app.render_qr = None;
-                                            app.qr_codes.remove("feedqr");
-                                        }
+                                                let event_addr = EventAddr {
+                                                    d: param,
+                                                    relays: relays.clone(),
+                                                    kind: note.event.kind,
+                                                    author: note.event.pubkey,
+                                                };
+                                                event_addr.into()
+                                            } else {
+                                                let event_pointer = EventPointer {
+                                                    id: note.event.id,
+                                                    relays: relays.clone(),
+                                                    author: None,
+                                                    kind: None,
+                                                };
+                                                event_pointer.into()
+                                            };
+                                        app.draft_data.draft.push_str(&format!("{}", nostr_url));
+                                        app.draft_data.repost = None;
+                                        app.draft_data.replying_to = None;
+                                        app.show_post_area = true;
+                                        app.draft_needs_focus = true;
                                     }
 
                                     ui.add_space(24.0);
@@ -902,7 +857,7 @@ pub fn render_note_inner(
                                     if let Some(lnurl) = zap_lnurl {
                                         if widgets::clickable_label(
                                             ui,
-                                            true,
+                                            can_sign,
                                             RichText::new("⚡").size(18.0),
                                         )
                                         .on_hover_text("ZAP")
@@ -933,8 +888,11 @@ pub fn render_note_inner(
                                     }
 
                                     // Show the zap total
-                                    ui.add(Label::new(format!("{}", note.zaptotal.0 / 1000)))
-                                        .on_hover_cursor(egui::CursorIcon::Default);
+                                    ui.add_enabled(
+                                        can_sign,
+                                        Label::new(format!("{}", note.zaptotal.0 / 1000)),
+                                    )
+                                    .on_hover_cursor(egui::CursorIcon::Default);
                                 }
 
                                 ui.add_space(24.0);
@@ -947,11 +905,8 @@ pub fn render_note_inner(
                                     };
                                     if widgets::clickable_label(
                                         ui,
-                                        true,
+                                        can_sign,
                                         RichText::new(default_reaction_icon).size(20.0),
-                                    )
-                                    .on_disabled_hover_text(
-                                        "Can't react to note (no known relays for note)",
                                     )
                                     .clicked()
                                     {
@@ -970,15 +925,22 @@ pub fn render_note_inner(
                                     }
                                     for (ch, count) in note.reactions.iter() {
                                         if *ch == '+' {
-                                            ui.label(format!("{}", count))
-                                                .on_hover_cursor(egui::CursorIcon::Default);
+                                            ui.add_enabled(
+                                                can_sign,
+                                                egui::Label::new(format!("{}", count)),
+                                            )
+                                            .on_hover_cursor(egui::CursorIcon::Default);
                                         }
                                     }
                                     ui.add_space(12.0);
                                     for (ch, count) in note.reactions.iter() {
                                         if *ch != '+' {
-                                            ui.label(
-                                                RichText::new(format!("{} {}", ch, count)).weak(),
+                                            ui.add_enabled(
+                                                can_sign,
+                                                egui::Label::new(
+                                                    RichText::new(format!("{} {}", ch, count))
+                                                        .weak(),
+                                                ),
                                             )
                                             .on_hover_cursor(egui::CursorIcon::Default);
                                         }
