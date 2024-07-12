@@ -258,20 +258,62 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                 });
             }
 
-            ui.add_space(10.0);
-            ui.horizontal(|ui| {
-                if let Some(key) = channel.keys().first() {
-                    if ui.link(RichText::new(channel.name()).heading()).clicked() {
-                        app.set_page(ctx, Page::Person(key.to_owned()));
-                    }
-                } else {
-                    ui.heading(channel.name());
-                }
-                recompute_btn(ui);
-            });
-            ui.add_space(10.0);
-
             let feed = GLOBALS.feed.get_feed_events();
+
+            ui.add_space(10.0);
+            ui.allocate_ui_with_layout(
+                Vec2::new(ui.available_width(), ui.spacing().interact_size.y),
+                egui::Layout::left_to_right(egui::Align::Center),
+                |ui| {
+                    add_left_space(ui);
+                    if let Some(key) = channel.keys().first() {
+                        let avatar = if let Some(avatar) = app.try_get_avatar(ctx, key) {
+                            avatar
+                        } else {
+                            app.placeholder_avatar.clone()
+                        };
+
+                        widgets::paint_avatar_only(
+                            ui,
+                            &avatar,
+                            widgets::AvatarSize::Mini.get_size(),
+                        );
+
+                        if ui.link(RichText::new(channel.name()).heading()).clicked() {
+                            app.set_page(ctx, Page::Person(key.to_owned()));
+                        }
+                    } else {
+                        ui.heading(channel.name());
+                    }
+                    recompute_btn(ui);
+
+                    if let Some(key) = channel.keys().first() {
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            ui.add_space(8.0);
+
+                            if widgets::Button::bordered(&app.theme, "Profile")
+                                .small(true)
+                                .show(ui)
+                                .clicked()
+                            {
+                                app.set_page(ctx, Page::Person(key.to_owned()));
+                            }
+
+                            ui.add_space(10.0);
+
+                            if widgets::Button::bordered(&app.theme, "View notes")
+                                .small(true)
+                                .show(ui)
+                                .clicked()
+                            {
+                                app.set_page(ctx, Page::Feed(FeedKind::Person(key.to_owned())));
+                            }
+                        });
+                    }
+                },
+            );
+
+            ui.add_space(6.0);
             render_dm_feed(app, ui, feed, channel);
         }
     }

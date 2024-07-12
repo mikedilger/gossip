@@ -1,7 +1,7 @@
 mod avatar;
 use std::sync::Arc;
 
-pub(crate) use avatar::{paint_avatar, AvatarSize};
+pub(crate) use avatar::{paint_avatar, paint_avatar_only, AvatarSize};
 
 mod button;
 pub use button::Button;
