@@ -426,52 +426,12 @@ pub fn render_note_inner(
 
                 if !render_data.hide_nameline {
                     GossipUi::render_person_name_line(app, ui, &note.author, false);
-                }
 
-                ui.horizontal_wrapped(|ui| {
-                    match note.event.replies_to() {
-                        Some(EventReference::Id { id: irt, .. }) => {
-                            let muted =
-                                if let Some(note_ref) = app.notecache.try_update_and_get(&irt) {
-                                    if let Ok(note_data) = note_ref.try_borrow() {
-                                        note_data.muted()
-                                    } else {
-                                        false
-                                    }
-                                } else {
-                                    false
-                                };
-
-                            ui.add_space(8.0);
-                            ui.style_mut().override_text_style = Some(TextStyle::Small);
-                            let idhex: IdHex = irt.into();
-                            if muted {
-                                let name = "▲ (parent is muted)".to_string();
-                                let _ = ui.link(&name);
-                            } else {
-                                let name =
-                                    format!("▲ #{}", gossip_lib::names::hex_id_short(&idhex));
-                                if ui.link(&name).clicked() {
-                                    app.set_page(
-                                        ui.ctx(),
-                                        Page::Feed(FeedKind::Thread {
-                                            id: irt,
-                                            referenced_by: note.event.id,
-                                            author: Some(note.event.pubkey),
-                                        }),
-                                    );
-                                };
-                            }
-                            ui.reset_style();
-                        }
-                        Some(EventReference::Addr(ea)) => {
-                            // Link to this parent only if we can get that event
-                            if let Ok(Some(e)) = GLOBALS
-                                .storage
-                                .get_replaceable_event(ea.kind, ea.author, &ea.d)
-                            {
+                    ui.horizontal_wrapped(|ui| {
+                        match note.event.replies_to() {
+                            Some(EventReference::Id { id: irt, .. }) => {
                                 let muted = if let Some(note_ref) =
-                                    app.notecache.try_update_and_get(&e.id)
+                                    app.notecache.try_update_and_get(&irt)
                                 {
                                     if let Ok(note_data) = note_ref.try_borrow() {
                                         note_data.muted()
@@ -484,7 +444,7 @@ pub fn render_note_inner(
 
                                 ui.add_space(8.0);
                                 ui.style_mut().override_text_style = Some(TextStyle::Small);
-                                let idhex: IdHex = e.id.into();
+                                let idhex: IdHex = irt.into();
                                 if muted {
                                     let name = "▲ (parent is muted)".to_string();
                                     let _ = ui.link(&name);
@@ -495,7 +455,7 @@ pub fn render_note_inner(
                                         app.set_page(
                                             ui.ctx(),
                                             Page::Feed(FeedKind::Thread {
-                                                id: e.id,
+                                                id: irt,
                                                 referenced_by: note.event.id,
                                                 author: Some(note.event.pubkey),
                                             }),
@@ -504,63 +464,106 @@ pub fn render_note_inner(
                                 }
                                 ui.reset_style();
                             }
+                            Some(EventReference::Addr(ea)) => {
+                                // Link to this parent only if we can get that event
+                                if let Ok(Some(e)) = GLOBALS
+                                    .storage
+                                    .get_replaceable_event(ea.kind, ea.author, &ea.d)
+                                {
+                                    let muted = if let Some(note_ref) =
+                                        app.notecache.try_update_and_get(&e.id)
+                                    {
+                                        if let Ok(note_data) = note_ref.try_borrow() {
+                                            note_data.muted()
+                                        } else {
+                                            false
+                                        }
+                                    } else {
+                                        false
+                                    };
+
+                                    ui.add_space(8.0);
+                                    ui.style_mut().override_text_style = Some(TextStyle::Small);
+                                    let idhex: IdHex = e.id.into();
+                                    if muted {
+                                        let name = "▲ (parent is muted)".to_string();
+                                        let _ = ui.link(&name);
+                                    } else {
+                                        let name = format!(
+                                            "▲ #{}",
+                                            gossip_lib::names::hex_id_short(&idhex)
+                                        );
+                                        if ui.link(&name).clicked() {
+                                            app.set_page(
+                                                ui.ctx(),
+                                                Page::Feed(FeedKind::Thread {
+                                                    id: e.id,
+                                                    referenced_by: note.event.id,
+                                                    author: Some(note.event.pubkey),
+                                                }),
+                                            );
+                                        };
+                                    }
+                                    ui.reset_style();
+                                }
+                            }
+                            None => (),
                         }
-                        None => (),
-                    }
 
-                    ui.add_space(8.0);
+                        ui.add_space(8.0);
 
-                    if note.event.pow() > 0 {
-                        let color = app.theme.notice_marker_text_color();
-                        ui.label(
-                            RichText::new(format!("POW={}", note.event.pow()))
-                                .color(color)
-                                .text_style(TextStyle::Small),
-                        );
-                    }
-
-                    if !note.deletions.is_empty() {
-                        let color = app.theme.warning_marker_text_color();
-                        ui.label(
-                            RichText::new("DELETED")
-                                .color(color)
-                                .text_style(TextStyle::Small),
-                        );
-                    }
-
-                    if note.repost.is_some() {
-                        let color = app.theme.notice_marker_text_color();
-                        ui.label(
-                            RichText::new("REPOSTED")
-                                .color(color)
-                                .text_style(TextStyle::Small),
-                        );
-                    }
-
-                    if let Page::Feed(FeedKind::DmChat(_)) = app.page {
-                        // in dm_channel view, highlight the encryption standard
-                        // this will be done later in this function
-                    } else {
-                        // in the other feeds, show a text that describes the message type
-                        // we will not show the content itself in other feeds
-                        if note.event.kind.is_direct_message_related() {
+                        if note.event.pow() > 0 {
                             let color = app.theme.notice_marker_text_color();
-                            if note.encryption == EncryptionType::Giftwrap {
-                                ui.label(
-                                    RichText::new("PRIVATE CHAT (GIFT WRAPPED)")
-                                        .color(color)
-                                        .text_style(TextStyle::Small),
-                                );
-                            } else {
-                                ui.label(
-                                    RichText::new("PRIVATE CHAT")
-                                        .color(color)
-                                        .text_style(TextStyle::Small),
-                                );
+                            ui.label(
+                                RichText::new(format!("POW={}", note.event.pow()))
+                                    .color(color)
+                                    .text_style(TextStyle::Small),
+                            );
+                        }
+
+                        if !note.deletions.is_empty() {
+                            let color = app.theme.warning_marker_text_color();
+                            ui.label(
+                                RichText::new("DELETED")
+                                    .color(color)
+                                    .text_style(TextStyle::Small),
+                            );
+                        }
+
+                        if note.repost.is_some() {
+                            let color = app.theme.notice_marker_text_color();
+                            ui.label(
+                                RichText::new("REPOSTED")
+                                    .color(color)
+                                    .text_style(TextStyle::Small),
+                            );
+                        }
+
+                        if let Page::Feed(FeedKind::DmChat(_)) = app.page {
+                            // in dm_channel view, highlight the encryption standard
+                            // this will be done later in this function
+                        } else {
+                            // in the other feeds, show a text that describes the message type
+                            // we will not show the content itself in other feeds
+                            if note.event.kind.is_direct_message_related() {
+                                let color = app.theme.notice_marker_text_color();
+                                if note.encryption == EncryptionType::Giftwrap {
+                                    ui.label(
+                                        RichText::new("PRIVATE CHAT (GIFT WRAPPED)")
+                                            .color(color)
+                                            .text_style(TextStyle::Small),
+                                    );
+                                } else {
+                                    ui.label(
+                                        RichText::new("PRIVATE CHAT")
+                                            .color(color)
+                                            .text_style(TextStyle::Small),
+                                    );
+                                }
                             }
                         }
-                    }
-                });
+                    });
+                }
 
                 let mut next_page = None;
                 ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
