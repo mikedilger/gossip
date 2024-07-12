@@ -1264,36 +1264,26 @@ fn note_actions(
         .with_max_size(vec2(140.0, f32::INFINITY));
     let mut items: Vec<MoreMenuItem> = Vec::new();
 
-    if render_data.can_load_thread {
-        if note.event.kind.is_direct_message_related() {
-            items.push(MoreMenuItem::Button(MoreMenuButton::new(
-                "View DM Channel",
-                Box::new(|ui, app| {
-                    if let Some(channel) = DmChannel::from_event(&note.event, None) {
-                        app.set_page(ui.ctx(), Page::Feed(FeedKind::DmChat(channel)));
-                    } else {
-                        GLOBALS
-                            .status_queue
-                            .write()
-                            .write("Could not determine DM channel for that note.".to_string());
-                    }
-                }),
-            )));
-        } else {
-            items.push(MoreMenuItem::Button(MoreMenuButton::new(
-                "View Thread",
-                Box::new(|ui, app| {
-                    app.set_page(
-                        ui.ctx(),
-                        Page::Feed(FeedKind::Thread {
-                            id: note.event.id,
-                            referenced_by: note.event.id,
-                            author: Some(note.event.pubkey),
-                        }),
-                    );
-                }),
-            )));
-        }
+    // ---- Copy Text ----
+    {
+        let mut copy_items: Vec<MoreMenuItem> = Vec::new();
+
+        copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
+            "to Clipboard",
+            Box::new(|ui, _| {
+                ui.output_mut(|o| o.copied_text = note.event.content.clone());
+            }),
+        )));
+
+        copy_items.push(MoreMenuItem::Button(
+            MoreMenuButton::new("with QR Code", Box::new(|_, _| todo!())).enabled(false),
+        ));
+
+        items.push(MoreMenuItem::SubMenu(MoreMenuSubMenu::new(
+            "Copy text",
+            copy_items,
+            &menu,
+        )));
     }
 
     // ---- Manage SubMenu ----
@@ -1312,20 +1302,6 @@ fn note_actions(
                 )));
             }
 
-            // Chance to post our note again to relays it missed
-            if let Ok(broadcast_relays) = Relay::relays_for_event(&note.event) {
-                if !broadcast_relays.is_empty() {
-                    my_items.push(MoreMenuItem::Button(MoreMenuButton::new(
-                        format!("Post again ({})", broadcast_relays.len()),
-                        Box::new(|_, _| {
-                            let _ = GLOBALS
-                                .to_overlord
-                                .send(ToOverlordMessage::PostAgain(note.event.clone()));
-                        }),
-                    )));
-                }
-            }
-
             // Annotate Button
             my_items.push(MoreMenuItem::Button(MoreMenuButton::new(
                 "Annotate",
@@ -1338,13 +1314,61 @@ fn note_actions(
                 }),
             )));
 
+            // Chance to post our note again to relays it missed
+            if let Ok(broadcast_relays) = Relay::relays_for_event(&note.event) {
+                if !broadcast_relays.is_empty() {
+                    my_items.push(MoreMenuItem::Button(MoreMenuButton::new(
+                        format!("Rebroadcast ({})", broadcast_relays.len()),
+                        Box::new(|_, _| {
+                            let _ = GLOBALS
+                                .to_overlord
+                                .send(ToOverlordMessage::PostAgain(note.event.clone()));
+                        }),
+                    )));
+                }
+            }
+
             items.push(MoreMenuItem::SubMenu(MoreMenuSubMenu::new(
                 "Manage", my_items, &menu,
             )))
         }
     } // Manage SubMenu
 
-    // ---- Copy SubMenu ----
+    // ---- Bookmark ----
+    if note.bookmarked {
+        items.push(MoreMenuItem::Button(MoreMenuButton::new(
+            "Unbookmark",
+            Box::new(|_, _| {
+                let er = note.event_reference();
+                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::BookmarkRm(er));
+            }),
+        )));
+    } else {
+        let mut bm_items: Vec<MoreMenuItem> = Vec::new();
+        bm_items.push(MoreMenuItem::Button(MoreMenuButton::new(
+            "Public",
+            Box::new(|_, _| {
+                let er = note.event_reference();
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::BookmarkAdd(er, false));
+            }),
+        )));
+        bm_items.push(MoreMenuItem::Button(MoreMenuButton::new(
+            "Private",
+            Box::new(|_, _| {
+                let er = note.event_reference();
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::BookmarkAdd(er, true));
+            }),
+        )));
+        items.push(MoreMenuItem::SubMenu(MoreMenuSubMenu::new(
+            "Bookmark", bm_items, &menu,
+        )));
+    } // end Bookmark
+
+    // ---- Copy ID SubMenu ----
     {
         // put all copy buttons in a submenu
         let mut copy_items: Vec<MoreMenuItem> = Vec::new();
@@ -1356,7 +1380,7 @@ fn note_actions(
             };
 
             copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
-                "Copy naddr",
+                "as naddr",
                 Box::new(|ui, _| {
                     let event_addr = EventAddr {
                         d: param,
@@ -1370,7 +1394,7 @@ fn note_actions(
             )));
         } else {
             copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
-                "Copy nevent",
+                "as nevent1",
                 Box::new(|ui, _| {
                     let event_pointer = EventPointer {
                         id: note.event.id,
@@ -1385,7 +1409,7 @@ fn note_actions(
         }
         if !note.event.kind.is_direct_message_related() {
             copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
-                "Copy web link",
+                "as web link",
                 Box::new(|ui, _| {
                     let event_pointer = EventPointer {
                         id: note.event.id,
@@ -1401,31 +1425,23 @@ fn note_actions(
             )));
         }
         copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
-            "Copy note1 Id",
+            "as note1",
             Box::new(|ui, _| {
                 let nostr_url: NostrUrl = note.event.id.into();
                 ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
             }),
         )));
         copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
-            "Copy hex Id",
+            "as hex",
             Box::new(|ui, _| {
                 ui.output_mut(|o| o.copied_text = note.event.id.as_hex_string());
             }),
         )));
-        copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
-            "Copy Raw data",
-            Box::new(|ui, _| {
-                ui.output_mut(|o| {
-                    o.copied_text = serde_json::to_string_pretty(&note.event).unwrap()
-                });
-            }),
-        )));
 
         items.push(MoreMenuItem::SubMenu(MoreMenuSubMenu::new(
-            "Copy", copy_items, &menu,
+            "Copy ID", copy_items, &menu,
         )));
-    } // end Copy SubMenu
+    } // end Copy ID SubMenu
 
     // ---- Inspect SubMenu ----
     {
@@ -1433,9 +1449,9 @@ fn note_actions(
 
         // Button to render raw
         let json = if app.render_raw.is_none() {
-            "🥩 Show JSON"
+            "Show JSON"
         } else {
-            "🥩 Hide JSON"
+            "Hide JSON"
         };
         insp_items.push(MoreMenuItem::Button(MoreMenuButton::new(
             json,
@@ -1446,6 +1462,15 @@ fn note_actions(
                 } else {
                     app.render_raw = None;
                 }
+            }),
+        )));
+
+        insp_items.push(MoreMenuItem::Button(MoreMenuButton::new(
+            "Copy JSON",
+            Box::new(|ui, _| {
+                ui.output_mut(|o| {
+                    o.copied_text = serde_json::to_string_pretty(&note.event).unwrap()
+                });
             }),
         )));
 
@@ -1469,57 +1494,25 @@ fn note_actions(
             }),
         )));
 
+        insp_items.push(MoreMenuItem::Button(MoreMenuButton::new(
+            "Rerender",
+            Box::new(|_, app| {
+                app.notecache.invalidate_note(&note.event.id);
+            }),
+        )));
+
+        insp_items.push(MoreMenuItem::Button(MoreMenuButton::new(
+            "Dismiss",
+            Box::new(|_, _| {
+                GLOBALS.dismissed.blocking_write().push(note.event.id);
+                GLOBALS.feed.sync_recompute();
+            }),
+        )));
+
         items.push(MoreMenuItem::SubMenu(MoreMenuSubMenu::new(
             "Inspect", insp_items, &menu,
         )));
     } // end Inspect SubMenu
-
-    items.push(MoreMenuItem::Button(MoreMenuButton::new(
-        "Dismiss",
-        Box::new(|_, _| {
-            GLOBALS.dismissed.blocking_write().push(note.event.id);
-            GLOBALS.feed.sync_recompute();
-        }),
-    )));
-
-    items.push(MoreMenuItem::Button(MoreMenuButton::new(
-        "Rerender",
-        Box::new(|_, app| {
-            app.notecache.invalidate_note(&note.event.id);
-        }),
-    )));
-    if note.bookmarked {
-        items.push(MoreMenuItem::Button(MoreMenuButton::new(
-            "Unbookmark",
-            Box::new(|_, _| {
-                let er = note.event_reference();
-                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::BookmarkRm(er));
-            }),
-        )));
-    } else {
-        let mut bm_items: Vec<MoreMenuItem> = Vec::new();
-        bm_items.push(MoreMenuItem::Button(MoreMenuButton::new(
-            "Bookmark (public)",
-            Box::new(|_, _| {
-                let er = note.event_reference();
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::BookmarkAdd(er, false));
-            }),
-        )));
-        bm_items.push(MoreMenuItem::Button(MoreMenuButton::new(
-            "Bookmark (private)",
-            Box::new(|_, _| {
-                let er = note.event_reference();
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::BookmarkAdd(er, true));
-            }),
-        )));
-        items.push(MoreMenuItem::SubMenu(MoreMenuSubMenu::new(
-            "Bookmark", bm_items, &menu,
-        )));
-    }
 
     menu.show_entries(ui, app, response, items);
 }
