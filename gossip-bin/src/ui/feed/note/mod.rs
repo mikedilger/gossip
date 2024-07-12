@@ -251,42 +251,6 @@ pub fn render_dm_note(app: &mut GossipUi, ui: &mut Ui, feed_note_params: FeedNot
     }
 }
 
-fn render_avatar(
-    app: &mut GossipUi,
-    ui: &mut Ui,
-    person: &Person,
-    avatar_size: AvatarSize,
-) -> Response {
-    let avatar_margin_left = match avatar_size {
-        AvatarSize::Mini => (AVATAR_SIZE_F32 - AVATAR_SIZE_REPOST_F32) / 2.0,
-        _ => 0.0,
-    };
-
-    // Load avatar texture
-    let avatar = if person.is_in_list(gossip_lib::PersonList1::Muted) {
-        // no avatars for muted people
-        app.placeholder_avatar.clone()
-    } else if let Some(avatar) = app.try_get_avatar(ui.ctx(), &person.pubkey) {
-        avatar
-    } else {
-        app.placeholder_avatar.clone()
-    };
-
-    ui.with_layout(Layout::left_to_right(Align::TOP), |ui| {
-        ui.add_space(avatar_margin_left);
-
-        // render avatar
-        if widgets::paint_avatar(ui, person, &avatar, avatar_size).clicked() {
-            app.set_page(ui.ctx(), Page::Person(person.pubkey));
-        };
-
-        ui.add_space(avatar_margin_left);
-
-        ui.add_space(3.0);
-    })
-    .response
-}
-
 // FIXME, create some way to limit the arguments here.
 pub fn render_note_inner(
     app: &mut GossipUi,
@@ -426,9 +390,15 @@ pub fn render_note_inner(
                 ui.add_space(avatar_margin_left);
 
                 // render avatar
-                if widgets::paint_avatar(ui, &note.author, &avatar, avatar_size).clicked() {
-                    app.set_page(ui.ctx(), Page::Person(note.author.pubkey));
-                };
+                if is_dm_feed {
+                    if widgets::paint_avatar_only(ui, &avatar, avatar_size.get_size()).clicked() {
+                        app.set_page(ui.ctx(), Page::Person(note.author.pubkey));
+                    };
+                } else {
+                    if widgets::paint_avatar(ui, &note.author, &avatar, avatar_size).clicked() {
+                        app.set_page(ui.ctx(), Page::Person(note.author.pubkey));
+                    };
+                }
 
                 ui.add_space(avatar_margin_left);
 
