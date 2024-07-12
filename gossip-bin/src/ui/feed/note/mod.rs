@@ -303,6 +303,12 @@ pub fn render_note_inner(
     if let Ok(note) = note_ref.try_borrow() {
         let collapsed = app.collapsed.contains(&note.event.id);
 
+        let is_dm_feed = if let Page::Feed(FeedKind::DmChat(_)) = app.page {
+            true
+        } else {
+            false
+        };
+
         // Load avatar texture
         let avatar = if note.muted() {
             // no avatars for muted people
@@ -313,13 +319,24 @@ pub fn render_note_inner(
             app.placeholder_avatar.clone()
         };
 
+        let inner_margin = app.theme.feed_frame_inner_margin(render_data);
+
         // Determine avatar size
-        let (avatar_size, avatar_margin_left) = if parent_repost.is_none() {
+        let (avatar_size, avatar_margin_left, content_margin_left) = if is_dm_feed {
+            (
+                AvatarSize::Mini,
+                0.0,
+                AVATAR_SIZE_REPOST_F32 + inner_margin.left + 5.0,
+            )
+        } else if parent_repost.is_none() {
             match note.repost {
-                None | Some(RepostType::CommentMention) => (AvatarSize::Feed, 0.0),
+                None | Some(RepostType::CommentMention) => {
+                    (AvatarSize::Feed, 0.0, AVATAR_SIZE_F32 + inner_margin.left)
+                }
                 Some(_) => (
                     AvatarSize::Mini,
                     (AVATAR_SIZE_F32 - AVATAR_SIZE_REPOST_F32) / 2.0,
+                    AVATAR_SIZE_F32 + inner_margin.left,
                 ),
             }
         } else {
@@ -327,12 +344,11 @@ pub fn render_note_inner(
                 None | Some(RepostType::CommentMention) => (
                     AvatarSize::Mini,
                     (AVATAR_SIZE_F32 - AVATAR_SIZE_REPOST_F32) / 2.0,
+                    AVATAR_SIZE_F32 + inner_margin.left,
                 ),
-                Some(_) => (AvatarSize::Feed, 0.0),
+                Some(_) => (AvatarSize::Feed, 0.0, AVATAR_SIZE_F32 + inner_margin.left),
             }
         };
-
-        let inner_margin = app.theme.feed_frame_inner_margin(render_data);
 
         let hide_footer = if render_data.hide_footer {
             true
@@ -354,7 +370,6 @@ pub fn render_note_inner(
             -avatar_size.y() - ui.style().spacing.item_spacing.y * 2.0
         };
 
-        let content_margin_left = AVATAR_SIZE_F32 + inner_margin.left;
         let content_margin_right = if render_data.hide_nameline {
             CONTENT_MARGIN_RIGHT
         } else {
@@ -398,7 +413,7 @@ pub fn render_note_inner(
             None
         };
 
-        let seen_location = if let Page::Feed(FeedKind::DmChat(_)) = app.page {
+        let seen_location = if is_dm_feed {
             Align2::RIGHT_BOTTOM
         } else {
             Align2::RIGHT_TOP
