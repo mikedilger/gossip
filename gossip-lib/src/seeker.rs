@@ -5,7 +5,7 @@ use crate::misc::Freshness;
 use crate::people::People;
 use crate::relay::Relay;
 use dashmap::DashMap;
-use nostr_types::{Event, EventAddr, EventReference, Id, PublicKey, RelayUrl, Unixtime};
+use nostr_types::{Event, EventReference, Id, PublicKey, RelayUrl, Unixtime};
 use std::time::Duration;
 
 #[derive(Debug, Clone)]
@@ -161,13 +161,6 @@ impl Seeker {
         }
         Self::minion_seek_event_at_relays(id, relays);
         self.events.insert(id, SeekData::new_event(climb));
-    }
-
-    /// Seek an event when you have an EventAddr
-    pub(crate) fn seek_event_addr(&self, addr: EventAddr) {
-        let _ = GLOBALS
-            .to_overlord
-            .send(ToOverlordMessage::FetchEventAddr(addr));
     }
 
     /// Inform the seeker that an author's relay list has just arrived

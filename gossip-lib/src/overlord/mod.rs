@@ -2475,7 +2475,15 @@ impl Overlord {
             bonus_relays.dedup();
 
             match ancestors.highest_connected_remote {
-                Some(EventReference::Addr(ea)) => GLOBALS.seeker.seek_event_addr(ea),
+                Some(EventReference::Addr(ea)) => {
+                    let mut eaddr = ea.clone();
+                    eaddr
+                        .relays
+                        .extend(bonus_relays.iter().map(|r| r.to_unchecked_url()));
+                    eaddr.relays.sort();
+                    eaddr.relays.dedup();
+                    self.fetch_event_addr(eaddr).await?;
+                }
                 Some(EventReference::Id {
                     id,
                     author,
