@@ -2517,20 +2517,22 @@ impl Overlord {
         });
 
         // Subscribe to replies to root
-        if let Some(EventReference::Id { id, relays, .. }) = ancestors.root {
+        if let Some(ref root_eref) = ancestors.root {
+            let relays = root_eref.copy_relays();
             for url in relays.iter() {
                 // Subscribe root replies
                 let jobs: Vec<RelayJob> = vec![RelayJob {
                     reason: RelayConnectionReason::ReadThread,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeRootReplies(id.into()),
+                        detail: ToMinionPayloadDetail::SubscribeRootReplies(root_eref.clone()),
                     },
                 }];
 
                 self.engage_minion(url.to_owned(), jobs).await?;
             }
         }
+
         // FIXME what if root is an EventAddr? minion doesn't have a way to subscribe
         // to their replies.
 

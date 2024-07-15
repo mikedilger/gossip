@@ -1,6 +1,6 @@
 use crate::dm_channel::DmChannel;
 use crate::globals::GLOBALS;
-use nostr_types::{EventKind, Filter, IdHex, PublicKey, PublicKeyHex, Unixtime};
+use nostr_types::{EventAddr, EventKind, Filter, IdHex, PublicKey, PublicKeyHex, Tag, Unixtime};
 
 pub enum FeedRange {
     // Long-term subscription for anything after the given time
@@ -219,8 +219,6 @@ pub fn discover(pubkeys: &[PublicKey]) -> Vec<Filter> {
     }]
 }
 
-// ancestors can be done with FetchEvent, FetchEventAddr
-
 pub fn replies(main: IdHex, spamsafe: bool) -> Vec<Filter> {
     let mut filters: Vec<Filter> = Vec::new();
 
@@ -235,6 +233,38 @@ pub fn replies(main: IdHex, spamsafe: bool) -> Vec<Filter> {
         };
         let values = vec![main.to_string()];
         filter.set_tag_values('e', values);
+
+        // Spam prevention:
+        if !spamsafe && GLOBALS.storage.read_setting_avoid_spam_on_unsafe_relays() {
+            filter.authors = GLOBALS
+                .people
+                .get_subscribed_pubkeys()
+                .drain(..)
+                .map(|pk| pk.into())
+                .collect();
+        }
+
+        filter
+    };
+    filters.push(filter);
+
+    filters
+}
+
+pub fn replies_to_eaddr(ea: &EventAddr, spamsafe: bool) -> Vec<Filter> {
+    let mut filters: Vec<Filter> = Vec::new();
+
+    // Allow all feed related event kinds (excluding DMs)
+    // (related because we want deletion events, and may as well get likes and zaps too)
+    let event_kinds = crate::feed::feed_related_event_kinds(false);
+
+    let filter = {
+        let mut filter = Filter {
+            kinds: event_kinds,
+            ..Default::default()
+        };
+        let a_tag = Tag::new_address(ea, None);
+        filter.set_tag_values('a', vec![a_tag.value().to_owned()]);
 
         // Spam prevention:
         if !spamsafe && GLOBALS.storage.read_setting_avoid_spam_on_unsafe_relays() {
