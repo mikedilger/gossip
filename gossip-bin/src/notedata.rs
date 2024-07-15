@@ -3,8 +3,8 @@ use gossip_lib::{Person, PersonList, PersonTable, Private, Table};
 use std::collections::HashMap;
 
 use nostr_types::{
-    ContentSegment, Event, EventAddr, EventKind, EventReference, Id, MilliSatoshi, NostrBech32,
-    RelayUrl, ShatteredContent, Unixtime,
+    ContentSegment, Event, EventAddr, EventDelegation, EventKind, EventReference, Id, MilliSatoshi,
+    NostrBech32, PublicKey, RelayUrl, ShatteredContent, Unixtime,
 };
 
 #[derive(PartialEq)]
@@ -35,7 +35,10 @@ pub(crate) struct NoteData {
     /// Original Event object, as received from nostr
     pub event: Event,
 
-    /// Author of this note
+    /// Delegation status of this event
+    pub delegation: EventDelegation,
+
+    /// Author of this note (considers delegation)
     pub author: Person,
 
     /// Lists the author is on
@@ -105,6 +108,8 @@ impl NoteData {
             direct_message = true;
             encryption = EncryptionType::Nip04;
         }
+
+        let delegation = event.delegation();
 
         // This function checks that the deletion author is allowed
         let deletions = GLOBALS.storage.get_deletions(&event).unwrap_or_default();
@@ -250,12 +255,19 @@ impl NoteData {
             }
         };
 
-        let author = match PersonTable::read_record(event.pubkey, None) {
-            Ok(Some(p)) => p,
-            _ => Person::new(event.pubkey),
+        // If delegated, use the delegated person
+        let author_pubkey: PublicKey = if let EventDelegation::DelegatedBy(pubkey) = delegation {
+            pubkey
+        } else {
+            event.pubkey
         };
 
-        let lists = match GLOBALS.storage.read_person_lists(&event.pubkey) {
+        let author = match PersonTable::read_record(author_pubkey, None) {
+            Ok(Some(p)) => p,
+            _ => Person::new(author_pubkey),
+        };
+
+        let lists = match GLOBALS.storage.read_person_lists(&author_pubkey) {
             Ok(lists) => lists,
             _ => HashMap::new(),
         };
@@ -269,6 +281,7 @@ impl NoteData {
 
         NoteData {
             event,
+            delegation,
             author,
             lists,
             deletions,

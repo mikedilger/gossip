@@ -56,6 +56,9 @@ pub enum ToOverlordMessage {
     /// pass 'true' as the second parameter for a permanent approval
     ConnectDeclined(RelayUrl, bool),
 
+    /// Calls [delegation_reset](crate::Overlord::delegation_reset)
+    DelegationReset,
+
     /// Calls [delete_person_list](crate::Overlord::delete_person_list)
     DeletePersonList(PersonList),
 

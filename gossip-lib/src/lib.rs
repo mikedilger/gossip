@@ -70,6 +70,9 @@ pub use bookmarks::BookmarkList;
 /// Defines messages sent to the overlord
 pub mod comms;
 
+mod delegation;
+pub use delegation::Delegation;
+
 mod dm_channel;
 pub use dm_channel::{DmChannel, DmChannelData};
 
@@ -203,6 +206,9 @@ pub fn init() -> Result<(), Error> {
 
     // Load signer from settings
     GLOBALS.identity.load()?;
+
+    // Load delegation tag
+    GLOBALS.delegation.load()?;
 
     // If we have a key but have not unlocked it
     if GLOBALS.identity.has_private_key() && !GLOBALS.identity.is_unlocked() {

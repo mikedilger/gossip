@@ -1,5 +1,6 @@
 use crate::bookmarks::BookmarkList;
 use crate::comms::{RelayJob, ToMinionMessage, ToOverlordMessage};
+use crate::delegation::Delegation;
 use crate::feed::Feed;
 use crate::fetcher::Fetcher;
 use crate::gossip_identity::GossipIdentity;
@@ -97,6 +98,9 @@ pub struct Globals {
 
     /// How many unread direct messages
     pub unread_dms: AtomicUsize,
+
+    /// Delegation handling
+    pub delegation: Delegation,
 
     /// Media loading
     pub media: Media,
@@ -208,6 +212,7 @@ lazy_static! {
             bytes_read: AtomicUsize::new(0),
             open_subscriptions: AtomicUsize::new(0),
             unread_dms: AtomicUsize::new(0),
+            delegation: Delegation::default(),
             media: Media::new(),
             events_being_searched_for: PRwLock::new(Vec::new()),
             //event_addrs_being_searched_for: PRwLock::new(Vec::new()),
