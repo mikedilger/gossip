@@ -2,12 +2,13 @@ mod content;
 
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::notedata::{EncryptionType, NoteData, RepostType};
 
 use super::FeedNoteParams;
 use crate::ui::widgets::{
-    self, AvatarSize, CopyButton, MoreMenuButton, MoreMenuItem, MoreMenuSubMenu,
+    self, AvatarSize, CopyButton, ModalEntry, MoreMenuButton, MoreMenuItem, MoreMenuSubMenu,
 };
 use crate::ui::{GossipUi, Page};
 use crate::{AVATAR_SIZE_F32, AVATAR_SIZE_REPOST_F32};
@@ -16,10 +17,11 @@ use egui::{
     Align, Context, Frame, Label, Layout, RichText, Sense, Separator, Stroke, TextStyle, Ui,
 };
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::{DmChannel, FeedKind, Person, Relay, ZapState, GLOBALS};
+use gossip_lib::{DmChannel, FeedKind, Relay, ZapState, GLOBALS};
 use nostr_types::{
     Event, EventAddr, EventKind, EventPointer, EventReference, IdHex, NostrUrl, UncheckedUrl,
 };
+use serde::Serialize;
 
 const CONTENT_MARGIN_RIGHT: f32 = 35.0;
 
@@ -1042,23 +1044,13 @@ fn render_content(
             .outer_margin(content_outer_margin)
             .show(ui, |ui| {
                 ui.horizontal_wrapped(|ui| {
-                    if app.render_raw == Some(event.id) {
-                        ui.label(serde_json::to_string_pretty(&event).unwrap());
-                    } else if note.muted() {
+                    if note.muted() {
                         let color = app.theme.notice_marker_text_color();
                         ui.label(
                             RichText::new("MUTED")
                                 .color(color)
                                 .text_style(TextStyle::Small),
                         );
-                    } else if app.render_qr == Some(event.id) {
-                        if note.event.kind == EventKind::EncryptedDirectMessage {
-                            if let Ok(m) = GLOBALS.identity.decrypt_event_contents(&note.event) {
-                                app.render_qr(ui, "feedqr", m.trim());
-                            }
-                        } else {
-                            app.render_qr(ui, "feedqr", event.content.trim());
-                        }
                     } else if event.content_warning().is_some()
                         && !app.approved.contains(&event.id)
                         && read_setting!(approve_content_warning)
@@ -1246,7 +1238,7 @@ fn note_actions(
     app: &mut GossipUi,
     ui: &mut Ui,
     note: &std::cell::Ref<NoteData>,
-    render_data: &NoteRenderData,
+    _render_data: &NoteRenderData,
 ) {
     let relays: Vec<UncheckedUrl> = note
         .seen_on
@@ -1275,9 +1267,40 @@ fn note_actions(
             }),
         )));
 
-        copy_items.push(MoreMenuItem::Button(
-            MoreMenuButton::new("with QR Code", Box::new(|_, _| todo!())).enabled(false),
-        ));
+        copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
+            "with QR Code",
+            Box::new(|ui, app| {
+                app.render_qr = Some(note.event.id);
+                if let Some((_th, x, y)) = app.generate_qr(
+                    ui,
+                    note.event.id.as_hex_string().as_str(),
+                    note.event.content.as_str(),
+                ) {
+                    app.modal = Some(Arc::new(ModalEntry {
+                        min_size: vec2(300.0, 200.0),
+                        max_size: vec2(x * 1.2, y * 1.2).min(ui.ctx().screen_rect().size()),
+                        content: Rc::new(|ui, app| {
+                            ui.vertical_centered(|ui| {
+                                if let Some(id) = app.render_qr {
+                                    ui.add_space(10.0);
+                                    ui.heading("Copy note content");
+                                    ui.add_space(10.0);
+                                    app.show_qr(ui, id.as_hex_string().as_str());
+                                    ui.add_space(10.0);
+                                }
+                            });
+                        }),
+                        on_close: Rc::new(|app| {
+                            if let Some(id) = app.render_qr.take() {
+                                // delete QR to not keep private note data in memory
+                                app.delete_qr(id.as_hex_string().as_str());
+                            }
+                            app.modal.take();
+                        }),
+                    }));
+                }
+            }),
+        )));
 
         items.push(MoreMenuItem::SubMenu(MoreMenuSubMenu::new(
             "Copy text",
@@ -1447,21 +1470,53 @@ fn note_actions(
     {
         let mut insp_items: Vec<MoreMenuItem> = Vec::new();
 
-        // Button to render raw
-        let json = if app.render_raw.is_none() {
-            "Show JSON"
-        } else {
-            "Hide JSON"
-        };
+        // Button to show raw JSON
         insp_items.push(MoreMenuItem::Button(MoreMenuButton::new(
-            json,
-            Box::new(|_ui, app| {
-                if app.render_raw != Some(note.event.id) {
-                    app.render_raw = Some(note.event.id);
-                    app.render_qr = None;
-                } else {
-                    app.render_raw = None;
-                }
+            "Show JSON",
+            Box::new(|ui, app| {
+                let json = serde_json::to_string_pretty(&note.event).unwrap_or_default();
+                app.render_raw = Some((note.event.id, json));
+                app.modal = Some(Arc::new(ModalEntry {
+                    min_size: vec2(300.0, 200.0),
+                    max_size: ui.ctx().screen_rect().size() * 0.8,
+                    content: Rc::new(|ui, app| {
+                        ui.vertical(|ui| {
+                            if let Some((id, json)) = &app.render_raw {
+                                ui.heading(id.as_bech32_string());
+                                ui.add_space(20.0);
+                                app.vert_scroll_area()
+                                    .show(ui, |ui| {
+                                        if let Ok(obj) = serde_json::from_str::<serde_json::Value>(json) {
+                                            let mut writer = Vec::new();
+                                            let formatter =
+                                                serde_json::ser::PrettyFormatter::with_indent(b"  ");
+                                            let mut ser = serde_json::Serializer::with_formatter(
+                                                &mut writer,
+                                                formatter,
+                                            );
+
+                                            if obj.serialize(&mut ser).is_ok() {
+                                                if let Ok(str) = String::from_utf8(writer) {
+                                                    egui_extras::syntax_highlighting::code_view_ui(
+                                                        ui,
+                                                        &egui_extras::syntax_highlighting::CodeTheme::from_style(
+                                                            ui.style(),
+                                                        ),
+                                                        &str,
+                                                        "json",
+                                                    );
+                                                }
+                                            }
+                                        }
+                                    });
+                            }
+                        });
+                    }),
+                    on_close: Rc::new(|app| {
+                        app.render_raw.take();
+                        app.modal.take();
+                    }),
+                }));
             }),
         )));
 
@@ -1475,21 +1530,37 @@ fn note_actions(
         )));
 
         // Button to render QR code
-        let qr = if app.render_qr.is_none() {
-            "QR Code Export"
-        } else {
-            "Hide QR"
-        };
         insp_items.push(MoreMenuItem::Button(MoreMenuButton::new(
-            qr,
-            Box::new(|_ui, app| {
-                if app.render_qr != Some(note.event.id) {
-                    app.render_qr = Some(note.event.id);
-                    app.render_raw = None;
-                    app.qr_codes.remove("feedqr");
-                } else {
-                    app.render_qr = None;
-                    app.qr_codes.remove("feedqr");
+            "QR Code Export",
+            Box::new(|ui, app| {
+                app.render_qr = Some(note.event.id);
+                if let Some((_th, x, y)) = app.generate_qr(
+                    ui,
+                    note.event.id.as_hex_string().as_str(),
+                    serde_json::to_string_pretty(&note.event).unwrap().as_str(),
+                ) {
+                    app.modal = Some(Arc::new(ModalEntry {
+                        min_size: vec2(300.0, 200.0),
+                        max_size: vec2(x * 1.2, y * 1.2).min(ui.ctx().screen_rect().size()),
+                        content: Rc::new(|ui, app| {
+                            ui.vertical_centered(|ui| {
+                                if let Some(id) = app.render_qr {
+                                    ui.add_space(10.0);
+                                    ui.heading("Copy JSON");
+                                    ui.add_space(10.0);
+                                    app.show_qr(ui, id.as_hex_string().as_str());
+                                    ui.add_space(10.0);
+                                }
+                            });
+                        }),
+                        on_close: Rc::new(|app| {
+                            if let Some(id) = app.render_qr.take() {
+                                // delete QR to not keep private note data in memory
+                                app.delete_qr(id.as_hex_string().as_str());
+                            }
+                            app.modal.take();
+                        }),
+                    }));
                 }
             }),
         )));

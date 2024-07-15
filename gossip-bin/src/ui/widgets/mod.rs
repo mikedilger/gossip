@@ -26,7 +26,7 @@ use nostr_types::RelayUrl;
 pub use relay_entry::RelayEntry;
 
 mod modal_popup;
-pub use modal_popup::modal_popup;
+pub use modal_popup::{modal_popup, modal_popup_dyn, ModalEntry};
 
 mod more_menu;
 pub(super) use more_menu::{MoreMenu, MoreMenuButton, MoreMenuItem, MoreMenuSubMenu};
