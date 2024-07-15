@@ -48,12 +48,18 @@ pub(crate) fn get_event_ancestors(main: EventReference) -> Result<EventAncestors
 
     loop {
         if let Some(ref remote) = ancestors.highest_connected_remote {
+            // See if the remote is local
             if let Some(event) = GLOBALS.storage.read_event_reference(remote)? {
+                // It is!
                 ancestors.highest_connected_local = Some(event.clone());
+
+                // Maybe there is one higher, if so we will try to climb when we loop
                 ancestors.highest_connected_remote = None;
                 if let Some(parent) = event.replies_to() {
                     ancestors.highest_connected_remote = Some(parent);
                 }
+
+                // Set root data if we now have it
                 if let Some(root) = event.replies_to_root() {
                     ancestors.root_is_local =
                         GLOBALS.storage.read_event_reference(&root)?.is_some();
