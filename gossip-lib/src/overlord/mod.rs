@@ -12,6 +12,7 @@ use crate::misc::{Private, ZapState};
 use crate::nip46::{Approval, ParsedCommand};
 use crate::pending::PendingItem;
 use crate::people::{Person, PersonList};
+use crate::relay;
 use crate::relay::Relay;
 use crate::storage::{PersonTable, Table};
 use crate::RunState;
@@ -1635,7 +1636,7 @@ impl Overlord {
             let mut tags: Vec<Tag> = vec![
                 Tag::new_event(
                     id,
-                    Relay::recommended_relay_for_reply(id)?.map(|rr| rr.to_unchecked_url()),
+                    relay::recommended_relay_for_reply(id)?.map(|rr| rr.to_unchecked_url()),
                     None,
                 ),
                 Tag::new_pubkey(pubkey, None, None),
@@ -1732,7 +1733,7 @@ impl Overlord {
             }
             FeedKind::Person(pubkey) => {
                 // Get write relays for the person
-                let relays: Vec<RelayUrl> = GLOBALS.storage.get_best_relays_fixed(pubkey, true)?;
+                let relays: Vec<RelayUrl> = relay::get_best_relays_fixed(pubkey, true)?;
                 // Subscribe on each of those write relays
                 for relay in relays.iter() {
                     // Subscribe
@@ -1889,7 +1890,7 @@ impl Overlord {
     }
 
     pub async fn post_again(&mut self, event: Event) -> Result<(), Error> {
-        let relay_urls = Relay::relays_for_event(&event)?;
+        let relay_urls = relay::relays_for_event(&event)?;
 
         for url in relay_urls {
             // Send it the event to post
@@ -2079,11 +2080,7 @@ impl Overlord {
 
         // Sort the people into the relays we will find their metadata at
         for pubkey in &pubkeys {
-            for relay in GLOBALS
-                .storage
-                .get_best_relays_fixed(*pubkey, true)?
-                .drain(..)
-            {
+            for relay in relay::get_best_relays_fixed(*pubkey, true)?.drain(..) {
                 map.entry(relay)
                     .and_modify(|e| e.push(*pubkey))
                     .or_insert_with(|| vec![*pubkey]);
@@ -2123,7 +2120,7 @@ impl Overlord {
         let relay_url = {
             let seen_on = GLOBALS.storage.get_event_seen_on_relay(reposted_event.id)?;
             if seen_on.is_empty() {
-                Relay::recommended_relay_for_reply(id)?.map(|rr| rr.to_unchecked_url())
+                relay::recommended_relay_for_reply(id)?.map(|rr| rr.to_unchecked_url())
             } else {
                 seen_on.first().map(|(rurl, _)| rurl.to_unchecked_url())
             }
@@ -2386,7 +2383,7 @@ impl Overlord {
     }
 
     async fn set_person_feed(&mut self, pubkey: PublicKey, anchor: Unixtime) -> Result<(), Error> {
-        let relays: Vec<RelayUrl> = GLOBALS.storage.get_best_relays_fixed(pubkey, true)?;
+        let relays: Vec<RelayUrl> = relay::get_best_relays_fixed(pubkey, true)?;
 
         for relay in relays.iter() {
             // Subscribe
@@ -2464,7 +2461,7 @@ impl Overlord {
                         bonus_relays.push(url);
                     } else {
                         let tagged_person_relays: Vec<RelayUrl> =
-                            GLOBALS.storage.get_best_relays_fixed(pk, true)?;
+                            relay::get_best_relays_fixed(pk, true)?;
                         bonus_relays.extend(tagged_person_relays);
                     }
                 }
@@ -2496,8 +2493,7 @@ impl Overlord {
 
                 // Include the relays of the author of the referencing event
                 if let Some(pk) = author {
-                    let author_relays: Vec<RelayUrl> =
-                        GLOBALS.storage.get_best_relays_fixed(pk, true)?;
+                    let author_relays: Vec<RelayUrl> = relay::get_best_relays_fixed(pk, true)?;
                     bonus_relays.extend(author_relays);
                 }
             }
@@ -2572,11 +2568,7 @@ impl Overlord {
 
             if let Some(event) = GLOBALS.storage.read_event(id)? {
                 // Include all the INBOX relays of the author of the event
-                bonus_relays.extend(
-                    GLOBALS
-                        .storage
-                        .get_best_relays_min(event.pubkey, false, 0)?,
-                );
+                bonus_relays.extend(relay::get_best_relays_min(event.pubkey, false, 0)?);
 
                 // Include all the relays where the event was seen
                 bonus_relays.extend(
@@ -2601,8 +2593,7 @@ impl Overlord {
 
                 // Include the inbox relays of the author of the referencing event
                 if let Some(pk) = author {
-                    let author_relays: Vec<RelayUrl> =
-                        GLOBALS.storage.get_best_relays_min(pk, false, 0)?;
+                    let author_relays: Vec<RelayUrl> = relay::get_best_relays_min(pk, false, 0)?;
                     bonus_relays.extend(author_relays);
                 }
             }
@@ -2838,7 +2829,7 @@ impl Overlord {
         // for it's retry logic
         GLOBALS.people.metadata_fetch_initiated(&[pubkey]);
 
-        let best_relays = GLOBALS.storage.get_best_relays_fixed(pubkey, true)?;
+        let best_relays = relay::get_best_relays_fixed(pubkey, true)?;
 
         // we do 1 more than num_relays_per_person, which is really for main posts,
         // since metadata is more important and I didn't want to bother with
@@ -2875,7 +2866,7 @@ impl Overlord {
 
         let mut map: HashMap<RelayUrl, Vec<PublicKey>> = HashMap::new();
         for pubkey in pubkeys.drain(..) {
-            let best_relays = GLOBALS.storage.get_best_relays_fixed(pubkey, true)?;
+            let best_relays = relay::get_best_relays_fixed(pubkey, true)?;
             for relay_url in best_relays.iter() {
                 map.entry(relay_url.to_owned())
                     .and_modify(|entry| entry.push(pubkey))
@@ -3199,7 +3190,7 @@ impl Overlord {
         let mut augment_subs: HashMap<RelayUrl, Vec<Id>> = HashMap::new();
         for id in visible.drain(..) {
             if let Some(event) = GLOBALS.storage.read_event(id)? {
-                let relays = Relay::relays_for_reply(&event)?;
+                let relays = relay::relays_for_reply(&event)?;
                 for relay_url in relays {
                     augment_subs
                         .entry(relay_url)
@@ -3384,9 +3375,7 @@ impl Overlord {
 
             // Add the read relays of the target person
             let target_read_relays: Vec<RelayUrl> =
-                GLOBALS
-                    .storage
-                    .get_best_relays_min(target_pubkey, false, 0)?;
+                relay::get_best_relays_min(target_pubkey, false, 0)?;
             relays.extend(target_read_relays);
 
             // Add all my write relays

@@ -1,5 +1,6 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
+use crate::relay;
 use async_trait::async_trait;
 use gossip_relay_picker::RelayPickerHooks;
 use nostr_types::{PublicKey, RelayUrl, RelayUsage};
@@ -27,7 +28,7 @@ impl RelayPickerHooks for Hooks {
         usage: RelayUsage,
     ) -> Result<Vec<(RelayUrl, u64)>, Error> {
         let write = usage == RelayUsage::Outbox;
-        GLOBALS.storage.get_best_relays_with_score(pubkey, write, 0)
+        relay::get_best_relays_with_score(pubkey, write, 0)
     }
 
     /// Is the relay currently connected?

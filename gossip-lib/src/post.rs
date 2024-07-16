@@ -1,6 +1,7 @@
 use crate::dm_channel::DmChannel;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
+use crate::relay;
 use crate::relay::Relay;
 use nostr_types::{
     ContentEncryptionAlgorithm, Event, EventAddr, EventKind, EventReference, Id, NostrBech32,
@@ -53,7 +54,7 @@ pub fn prepare_post_normal(
     let mut relay_urls: Vec<RelayUrl> = Vec::new();
     relay_urls.extend({
         let tagged_pubkeys = get_tagged_pubkeys(&event.tags);
-        get_others_relays(&tagged_pubkeys, false)?
+        relay::get_others_relays(&tagged_pubkeys, false)?
     });
     let our_relays = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
     relay_urls.extend(our_relays);
@@ -106,10 +107,10 @@ pub fn prepare_post_nip04(
     let mut relay_urls: Vec<RelayUrl> = Vec::new();
     relay_urls.extend({
         // Try DM relays first
-        let mut relays = GLOBALS.storage.get_dm_relays(recipient)?;
+        let mut relays = relay::get_dm_relays(recipient)?;
         if relays.is_empty() {
             // Fallback to their INBOX relays
-            relays = get_others_relays(&[recipient], false)?;
+            relays = relay::get_others_relays(&[recipient], false)?;
         }
         relays
     });
@@ -167,7 +168,7 @@ pub fn prepare_post_nip17(
     // To all recipients
     for pk in dm_channel.keys() {
         let event = GLOBALS.identity.giftwrap(pre_event.clone(), *pk)?;
-        let relays = GLOBALS.storage.get_dm_relays(*pk)?;
+        let relays = relay::get_dm_relays(*pk)?;
         output.push((event, relays));
     }
 
@@ -179,15 +180,6 @@ pub fn prepare_post_nip17(
     }
 
     Ok(output)
-}
-
-fn get_others_relays(recipients: &[PublicKey], write: bool) -> Result<Vec<RelayUrl>, Error> {
-    let mut relay_urls: Vec<RelayUrl> = Vec::new();
-    for pubkey in recipients {
-        let best_relays: Vec<RelayUrl> = GLOBALS.storage.get_best_relays_fixed(*pubkey, write)?;
-        relay_urls.extend(best_relays);
-    }
-    Ok(relay_urls)
 }
 
 fn get_tagged_pubkeys(tags: &[Tag]) -> Vec<PublicKey> {
@@ -360,7 +352,7 @@ fn add_event_to_tags(
 ) -> usize {
     let relay_url = match relay_url {
         Some(url) => Some(url),
-        None => Relay::recommended_relay_for_reply(added)
+        None => relay::recommended_relay_for_reply(added)
             .ok()
             .flatten()
             .map(|rr| rr.to_unchecked_url()),

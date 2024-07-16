@@ -19,7 +19,7 @@ use egui::{
     Align, Context, Frame, Label, Layout, RichText, Sense, Separator, Stroke, TextStyle, Ui,
 };
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::{DmChannel, FeedKind, Relay, ZapState, GLOBALS};
+use gossip_lib::{relay, DmChannel, FeedKind, ZapState, GLOBALS};
 use nostr_types::{
     Event, EventAddr, EventDelegation, EventKind, EventPointer, EventReference, IdHex, NostrUrl,
     UncheckedUrl,
@@ -1395,7 +1395,7 @@ fn note_actions(
             )));
 
             // Chance to post our note again to relays it missed
-            if let Ok(broadcast_relays) = Relay::relays_for_event(&note.event) {
+            if let Ok(broadcast_relays) = relay::relays_for_event(&note.event) {
                 if !broadcast_relays.is_empty() {
                     my_items.push(MoreMenuItem::Button(MoreMenuButton::new(
                         format!("Rebroadcast ({})", broadcast_relays.len()),

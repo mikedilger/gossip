@@ -3,6 +3,7 @@ use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::misc::Freshness;
 use crate::people::People;
+use crate::relay;
 use crate::relay::Relay;
 use dashmap::DashMap;
 use nostr_types::{Event, EventReference, Id, PublicKey, RelayUrl, Unixtime};
@@ -54,10 +55,6 @@ impl Seeker {
         Seeker {
             ..Default::default()
         }
-    }
-
-    fn storage_get_relays(author: PublicKey) -> Result<Vec<RelayUrl>, Error> {
-        GLOBALS.storage.get_best_relays_fixed(author, true)
     }
 
     fn minion_seek_relay_list(author: PublicKey) {
@@ -138,12 +135,12 @@ impl Seeker {
                 // using the stale data
                 Self::minion_seek_relay_list(author);
 
-                let relays = Self::storage_get_relays(author)?;
+                let relays = relay::get_best_relays_fixed(author, true)?;
                 Self::minion_seek_event_at_relays(id, relays);
                 self.events.insert(id, SeekData::new_event(climb));
             }
             Freshness::Fresh => {
-                let relays = Self::storage_get_relays(author)?;
+                let relays = relay::get_best_relays_fixed(author, true)?;
                 Self::minion_seek_event_at_relays(id, relays);
                 self.events.insert(id, SeekData::new_event(climb));
             }
@@ -174,7 +171,7 @@ impl Seeker {
             if let SeekState::WaitingRelayList(author) = data.state {
                 if author == pubkey {
                     let id = *refmutmulti.key();
-                    if let Ok(relays) = Self::storage_get_relays(author) {
+                    if let Ok(relays) = relay::get_best_relays_fixed(author, true) {
                         Self::minion_seek_event_at_relays(id, relays);
                         updates.push((id, SeekData::new_event(data.climb)));
                     }
@@ -239,7 +236,7 @@ impl Seeker {
                     // Check if we have their relays yet
                     match People::person_needs_relay_list(author) {
                         Freshness::Fresh | Freshness::Stale => {
-                            if let Ok(relays) = Self::storage_get_relays(author) {
+                            if let Ok(relays) = relay::get_best_relays_fixed(author, true) {
                                 Self::minion_seek_event_at_relays(id, relays);
                                 updates.push((id, Some(SeekData::new_event(data.climb))));
                                 continue;

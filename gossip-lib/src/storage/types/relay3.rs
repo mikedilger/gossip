@@ -1,6 +1,6 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use nostr_types::{Event, Id, PublicKey, RelayInformationDocument, RelayUrl, Unixtime};
+use nostr_types::{RelayInformationDocument, RelayUrl, Unixtime};
 use serde::{Deserialize, Serialize};
 
 // THIS IS HISTORICAL FOR MIGRATIONS AND THE STRUCTURES SHOULD NOT BE EDITED
@@ -180,35 +180,6 @@ impl Relay3 {
             || (self.rank > 0 && self.success_rate() > 0.50 && self.success_count > 15)
     }
 
-    /// This generates a "recommended_relay_url" for an 'e' tag.
-    pub fn recommended_relay_for_reply(reply_to: Id) -> Result<Option<RelayUrl>, Error> {
-        let seen_on_relays: Vec<(RelayUrl, Unixtime)> =
-            GLOBALS.storage.get_event_seen_on_relay(reply_to)?;
-
-        let maybepubkey = GLOBALS.storage.read_setting_public_key();
-        if let Some(pubkey) = maybepubkey {
-            let my_inbox_relays: Vec<RelayUrl> =
-                GLOBALS.storage.get_best_relays_min(pubkey, false, 0)?;
-
-            // Find the first-best intersection
-            for mir in &my_inbox_relays {
-                for sor in &seen_on_relays {
-                    if *mir == sor.0 {
-                        return Ok(Some(mir.clone()));
-                    }
-                }
-            }
-
-            // Else fall through to seen on relays only
-        }
-
-        if let Some(sor) = seen_on_relays.first() {
-            return Ok(Some(sor.0.clone()));
-        }
-
-        Ok(None)
-    }
-
     pub fn choose_relays<F>(bits: u64, f: F) -> Result<Vec<Relay3>, Error>
     where
         F: Fn(&Relay3) -> bool,
@@ -228,75 +199,5 @@ impl Relay3 {
             .iter()
             .map(|r| r.url.clone())
             .collect())
-    }
-
-    // Which relays are best for a reply to this event (used to find replies to this event)
-    pub fn relays_for_reply(event: &Event) -> Result<Vec<RelayUrl>, Error> {
-        let mut seen_on: Vec<RelayUrl> = GLOBALS
-            .storage
-            .get_event_seen_on_relay(event.id)?
-            .drain(..)
-            .map(|(url, _time)| url)
-            .collect();
-
-        let inbox: Vec<RelayUrl> = GLOBALS.storage.get_best_relays_fixed(event.pubkey, false)?;
-
-        // Take all inbox relays, and up to 2 seen_on relays that aren't inbox relays
-        let mut answer = inbox;
-        let mut extra = 2;
-        for url in seen_on.drain(..) {
-            if extra == 0 {
-                break;
-            }
-            if answer.contains(&url) {
-                continue;
-            }
-            answer.push(url);
-            extra -= 1;
-        }
-
-        Ok(answer)
-    }
-
-    // Which relays should an event be posted to (that it hasn't already been
-    // seen on)?
-    pub fn relays_for_event(event: &Event) -> Result<Vec<RelayUrl>, Error> {
-        let mut relay_urls: Vec<RelayUrl> = Vec::new();
-
-        // Get all of the relays that we write to
-        let write_relay_urls: Vec<RelayUrl> = Relay3::choose_relay_urls(Relay3::WRITE, |_| true)?;
-        relay_urls.extend(write_relay_urls);
-
-        // Get 'read' relays for everybody tagged in the event.
-        let mut tagged_pubkeys: Vec<PublicKey> = event
-            .tags
-            .iter()
-            .filter_map(|t| {
-                if let Ok((pubkey, _, _)) = t.parse_pubkey() {
-                    Some(pubkey)
-                } else {
-                    None
-                }
-            })
-            .collect();
-        for pubkey in tagged_pubkeys.drain(..) {
-            let best_relays: Vec<RelayUrl> =
-                GLOBALS.storage.get_best_relays_fixed(pubkey, false)?;
-            relay_urls.extend(best_relays);
-        }
-
-        // Remove all the 'seen_on' relays for this event
-        let seen_on: Vec<RelayUrl> = GLOBALS
-            .storage
-            .get_event_seen_on_relay(event.id)?
-            .iter()
-            .map(|(url, _time)| url.to_owned())
-            .collect();
-        relay_urls.retain(|r| !seen_on.contains(r));
-
-        relay_urls.sort();
-        relay_urls.dedup();
-
-        Ok(relay_urls)
     }
 }

@@ -135,7 +135,7 @@ pub use profile::Profile;
 
 mod relationship;
 
-mod relay;
+pub mod relay;
 pub use relay::Relay;
 
 mod relay_picker_hooks;

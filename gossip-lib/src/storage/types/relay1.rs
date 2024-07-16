@@ -1,6 +1,4 @@
-use crate::error::Error;
-use crate::globals::GLOBALS;
-use nostr_types::{Id, RelayInformationDocument, RelayUrl, Unixtime};
+use nostr_types::{RelayInformationDocument, RelayUrl};
 use serde::{Deserialize, Serialize};
 
 // THIS IS HISTORICAL FOR MIGRATIONS AND THE STRUCTURES SHOULD NOT BE EDITED
@@ -141,39 +139,5 @@ impl Relay1 {
 
     pub fn is_good_for_advertise(&self) -> bool {
         self.rank > 0 && self.success_rate() > 0.35 && self.success_count > 10
-    }
-
-    /// This generates a "recommended_relay_url" for an 'e' tag.
-    pub async fn recommended_relay_for_reply(reply_to: Id) -> Result<Option<RelayUrl>, Error> {
-        let seen_on_relays: Vec<(RelayUrl, Unixtime)> =
-            GLOBALS.storage.get_event_seen_on_relay(reply_to)?;
-
-        let maybepubkey = GLOBALS.storage.read_setting_public_key();
-        if let Some(pubkey) = maybepubkey {
-            let my_inbox_relays: Vec<RelayUrl> =
-                GLOBALS.storage.get_best_relays_min(pubkey, false, 0)?;
-
-            // Find the first-best intersection
-            for mir in &my_inbox_relays {
-                for sor in &seen_on_relays {
-                    if *mir == sor.0 {
-                        return Ok(Some(mir.clone()));
-                    }
-                }
-            }
-
-            // Else use my first inbox
-            if let Some(mir) = my_inbox_relays.first() {
-                return Ok(Some(mir.clone()));
-            }
-
-            // Else fall through to seen on relays only
-        }
-
-        if let Some(sor) = seen_on_relays.first() {
-            return Ok(Some(sor.0.clone()));
-        }
-
-        Ok(None)
     }
 }

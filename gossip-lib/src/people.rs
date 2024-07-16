@@ -2,6 +2,7 @@ use crate::comms::ToOverlordMessage;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::misc::{Freshness, Private};
+use crate::relay;
 use crate::storage::{PersonTable, Table};
 use dashmap::{DashMap, DashSet};
 use image::RgbaImage;
@@ -666,7 +667,7 @@ impl People {
             // Only include recommended relay urls in public entries, and not in the mute list
             let recommended_relay_url = {
                 if kind != EventKind::MuteList && !private.0 {
-                    let relays = GLOBALS.storage.get_best_relays_min(*pubkey, true, 1)?;
+                    let relays = relay::get_best_relays_min(*pubkey, true, 1)?;
                     relays.first().map(|u| u.to_unchecked_url())
                 } else {
                     None
@@ -877,11 +878,11 @@ impl People {
         *self.active_person.write().await = Some(pubkey);
 
         // Load their relays
-        let best_relays = GLOBALS.storage.get_best_relays_min(pubkey, true, 1)?;
+        let best_relays = relay::get_best_relays_min(pubkey, true, 1)?;
         *self.active_persons_write_relays.write().await = best_relays;
 
         // Load their DM relays
-        let dm_relays = GLOBALS.storage.get_dm_relays(pubkey)?;
+        let dm_relays = relay::get_dm_relays(pubkey)?;
         *self.active_persons_dm_relays.write().await = dm_relays;
 
         Ok(())
