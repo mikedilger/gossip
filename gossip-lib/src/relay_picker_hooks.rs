@@ -2,7 +2,7 @@ use crate::error::Error;
 use crate::globals::GLOBALS;
 use async_trait::async_trait;
 use gossip_relay_picker::RelayPickerHooks;
-use nostr_types::{PublicKey, RelayUrl, RelayUsage};
+use nostr_types::{PublicKey, RelayUrl, RelayListUsage};
 
 /// Hooks for the relay picker
 #[derive(Default)]
@@ -20,13 +20,13 @@ impl RelayPickerHooks for Hooks {
         }
     }
 
-    /// Returns all relays that this public key uses in the given RelayUsage
+    /// Returns all relays that this public key uses in the given RelayListUsage
     async fn get_relays_for_pubkey(
         &self,
         pubkey: PublicKey,
-        usage: RelayUsage,
+        usage: RelayListUsage,
     ) -> Result<Vec<(RelayUrl, u64)>, Error> {
-        let write = usage == RelayUsage::Outbox;
+        let write = usage == RelayListUsage::Outbox;
         GLOBALS.storage.get_best_relays_with_score(pubkey, write, 0)
     }
 

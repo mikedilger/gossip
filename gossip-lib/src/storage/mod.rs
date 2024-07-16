@@ -63,7 +63,7 @@ use heed::types::{Bytes, Unit};
 use heed::{Database, Env, EnvFlags, EnvOpenOptions, RoTxn, RwTxn};
 use nostr_types::{
     EncryptedPrivateKey, Event, EventAddr, EventKind, EventReference, Filter, Id, MilliSatoshi,
-    PublicKey, PublicKeyHex, RelayList, RelayUrl, RelayUsage, Unixtime,
+    PublicKey, PublicKeyHex, RelayList, RelayUrl, RelayListUsage, Unixtime,
 };
 use paste::paste;
 use speedy::{Readable, Writable};
@@ -1019,11 +1019,11 @@ impl Storage {
 
         for relay in self.filter_relays(|_| true)? {
             if relay.has_usage_bits(Relay::INBOX | Relay::OUTBOX) {
-                relay_list.0.insert(relay.url, RelayUsage::Both);
+                relay_list.0.insert(relay.url, RelayListUsage::Both);
             } else if relay.has_usage_bits(Relay::OUTBOX) {
-                relay_list.0.insert(relay.url, RelayUsage::Outbox);
+                relay_list.0.insert(relay.url, RelayListUsage::Outbox);
             } else if relay.has_usage_bits(Relay::INBOX) {
-                relay_list.0.insert(relay.url, RelayUsage::Inbox);
+                relay_list.0.insert(relay.url, RelayListUsage::Inbox);
             }
         }
 
@@ -1153,9 +1153,9 @@ impl Storage {
                 // Set or create read relays
                 for (relay_url, usage) in relay_list.0.iter() {
                     let bits = match usage {
-                        RelayUsage::Inbox => Relay::INBOX | Relay::READ,
-                        RelayUsage::Outbox => Relay::OUTBOX | Relay::WRITE,
-                        RelayUsage::Both => {
+                        RelayListUsage::Inbox => Relay::INBOX | Relay::READ,
+                        RelayListUsage::Outbox => Relay::OUTBOX | Relay::WRITE,
+                        RelayListUsage::Both => {
                             Relay::INBOX | Relay::OUTBOX | Relay::READ | Relay::WRITE
                         }
                     };
@@ -1214,8 +1214,8 @@ impl Storage {
                     pubkey,
                     relay_url,
                     |pr| {
-                        pr.read = *usage == RelayUsage::Inbox || *usage == RelayUsage::Both;
-                        pr.write = *usage == RelayUsage::Outbox || *usage == RelayUsage::Both;
+                        pr.read = *usage == RelayListUsage::Inbox || *usage == RelayListUsage::Both;
+                        pr.write = *usage == RelayListUsage::Outbox || *usage == RelayListUsage::Both;
                     },
                     Some(txn),
                 )?;

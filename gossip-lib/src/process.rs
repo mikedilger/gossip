@@ -11,7 +11,7 @@ use async_recursion::async_recursion;
 use heed::RwTxn;
 use nostr_types::{
     Event, EventAddr, EventKind, EventReference, Filter, Id, Metadata, NostrBech32, PublicKey,
-    RelayList, RelayUrl, RelayUsage, SimpleRelayList, Tag, Unixtime,
+    RelayList, RelayUrl, RelayListUsage, SimpleRelayList, Tag, Unixtime,
 };
 use std::sync::atomic::Ordering;
 
@@ -462,11 +462,11 @@ fn process_somebody_elses_contact_list(event: &Event, force: bool) -> Result<(),
         for (url, simple_relay_usage) in srl.0.iter() {
             if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(url) {
                 if simple_relay_usage.read && simple_relay_usage.write {
-                    relay_list.0.insert(relay_url, RelayUsage::Both);
+                    relay_list.0.insert(relay_url, RelayListUsage::Both);
                 } else if simple_relay_usage.read {
-                    relay_list.0.insert(relay_url, RelayUsage::Inbox);
+                    relay_list.0.insert(relay_url, RelayListUsage::Inbox);
                 } else if simple_relay_usage.write {
-                    relay_list.0.insert(relay_url, RelayUsage::Outbox);
+                    relay_list.0.insert(relay_url, RelayListUsage::Outbox);
                 }
             }
         }
