@@ -2372,21 +2372,19 @@ impl Overlord {
         Ok(())
     }
 
+    /// This function:
+    ///   1. Sets GLOBALS.feed thread_parent to the highest locally connected event
+    ///   2. Engages the Seeker to climb ancestors from that event
+    ///   3. Subscribes to replies
+    ///
+    /// Note that seprately the UI constructs the thread view from local data including
+    /// relationships that are built by process.rs as events flow in.
     async fn set_thread_feed(
         &mut self,
         id: Id,
         referenced_by: Id,
         author: Option<PublicKey>,
     ) -> Result<(), Error> {
-        // We need to:
-        //   1. Find the highest parent and set that in the feed
-        //   2. Find even higher parents at relays
-        //   3. Find replies to the main event at relays
-        //
-        // process.rs will build the relationships as events come in.
-        // The UI will traverse and render the replies if they are local.
-        // The UI will traverse and render the ancestors if they are local.
-
         let eref = EventReference::Id {
             id,
             author,
@@ -2532,9 +2530,6 @@ impl Overlord {
                 self.engage_minion(url.to_owned(), jobs).await?;
             }
         }
-
-        // FIXME what if root is an EventAddr? minion doesn't have a way to subscribe
-        // to their replies.
 
         // Search for replies
         {
