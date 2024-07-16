@@ -1636,7 +1636,7 @@ impl Overlord {
             let mut tags: Vec<Tag> = vec![
                 Tag::new_event(
                     id,
-                    relay::recommended_relay_for_reply(id)?.map(|rr| rr.to_unchecked_url()),
+                    relay::recommended_relay_hint(id)?.map(|rr| rr.to_unchecked_url()),
                     None,
                 ),
                 Tag::new_pubkey(pubkey, None, None),
@@ -2120,7 +2120,8 @@ impl Overlord {
         let relay_url = {
             let seen_on = GLOBALS.storage.get_event_seen_on_relay(reposted_event.id)?;
             if seen_on.is_empty() {
-                relay::recommended_relay_for_reply(id)?.map(|rr| rr.to_unchecked_url())
+                // FIXME: is this the right way to pick this relay?
+                relay::recommended_relay_hint(id)?.map(|rr| rr.to_unchecked_url())
             } else {
                 seen_on.first().map(|(rurl, _)| rurl.to_unchecked_url())
             }

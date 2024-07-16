@@ -352,7 +352,7 @@ fn add_event_to_tags(
 ) -> usize {
     let relay_url = match relay_url {
         Some(url) => Some(url),
-        None => relay::recommended_relay_for_reply(added)
+        None => relay::recommended_relay_hint(added)
             .ok()
             .flatten()
             .map(|rr| rr.to_unchecked_url()),

@@ -9,8 +9,8 @@ use nostr_types::{Event, Id, PublicKey, RelayUrl, Unixtime};
 // The functions below are all about choosing relays for some task,
 // each returning `Result<Vec<RelayUrl>, Error>` (or similar)
 
-/// This generates a "recommended_relay_url" for an 'e' tag.
-pub fn recommended_relay_for_reply(reply_to: Id) -> Result<Option<RelayUrl>, Error> {
+/// This tries to generate a single RelayUrl to use for an 'e' or 'a' tag hint
+pub fn recommended_relay_hint(reply_to: Id) -> Result<Option<RelayUrl>, Error> {
     let seen_on_relays: Vec<(RelayUrl, Unixtime)> =
         GLOBALS.storage.get_event_seen_on_relay(reply_to)?;
 
