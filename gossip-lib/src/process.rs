@@ -11,7 +11,7 @@ use async_recursion::async_recursion;
 use heed::RwTxn;
 use nostr_types::{
     Event, EventAddr, EventKind, EventReference, Filter, Id, Metadata, NostrBech32, PublicKey,
-    RelayList, RelayUrl, RelayListUsage, SimpleRelayList, Tag, Unixtime,
+    RelayList, RelayListUsage, RelayUrl, SimpleRelayList, Tag, Unixtime,
 };
 use std::sync::atomic::Ordering;
 

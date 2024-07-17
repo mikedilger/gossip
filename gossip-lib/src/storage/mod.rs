@@ -63,7 +63,7 @@ use heed::types::{Bytes, Unit};
 use heed::{Database, Env, EnvFlags, EnvOpenOptions, RoTxn, RwTxn};
 use nostr_types::{
     EncryptedPrivateKey, Event, EventAddr, EventKind, EventReference, Filter, Id, MilliSatoshi,
-    PublicKey, PublicKeyHex, RelayList, RelayUrl, RelayListUsage, Unixtime,
+    PublicKey, PublicKeyHex, RelayList, RelayListUsage, RelayUrl, Unixtime,
 };
 use paste::paste;
 use speedy::{Readable, Writable};
@@ -1215,7 +1215,8 @@ impl Storage {
                     relay_url,
                     |pr| {
                         pr.read = *usage == RelayListUsage::Inbox || *usage == RelayListUsage::Both;
-                        pr.write = *usage == RelayListUsage::Outbox || *usage == RelayListUsage::Both;
+                        pr.write =
+                            *usage == RelayListUsage::Outbox || *usage == RelayListUsage::Both;
                     },
                     Some(txn),
                 )?;
