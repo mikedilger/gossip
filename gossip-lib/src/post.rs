@@ -5,7 +5,7 @@ use crate::relay;
 use crate::relay::Relay;
 use nostr_types::{
     ContentEncryptionAlgorithm, Event, EventAddr, EventKind, EventReference, Id, NostrBech32,
-    PreEvent, PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime,
+    PreEvent, PublicKey, RelayUrl, RelayUsage, Tag, UncheckedUrl, Unixtime,
 };
 use std::sync::mpsc;
 
@@ -54,7 +54,7 @@ pub fn prepare_post_normal(
     let mut relay_urls: Vec<RelayUrl> = Vec::new();
     relay_urls.extend({
         let tagged_pubkeys = get_tagged_pubkeys(&event.tags);
-        relay::get_others_relays(&tagged_pubkeys, false)?
+        relay::get_others_relays(&tagged_pubkeys, RelayUsage::Inbox)?
     });
     let our_relays = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
     relay_urls.extend(our_relays);
@@ -110,7 +110,7 @@ pub fn prepare_post_nip04(
         let mut relays = relay::get_dm_relays(recipient)?;
         if relays.is_empty() {
             // Fallback to their INBOX relays
-            relays = relay::get_others_relays(&[recipient], false)?;
+            relays = relay::get_others_relays(&[recipient], RelayUsage::Inbox)?;
         }
         relays
     });

@@ -1,10 +1,10 @@
 /// Relay type, aliased to the latest version
 pub type Relay = crate::storage::types::Relay3;
 
-use crate::error::Error;
+use crate::error::{Error, ErrorKind};
 use crate::person_relay::PersonRelay;
 use crate::GLOBALS;
-use nostr_types::{Event, Id, PublicKey, RelayUrl, Unixtime};
+use nostr_types::{Event, Id, PublicKey, RelayUrl, RelayUsage, Unixtime};
 
 // The functions below are all about choosing relays for some task,
 // each returning `Result<Vec<RelayUrl>, Error>` (or similar)
@@ -16,7 +16,7 @@ pub fn recommended_relay_hint(reply_to: Id) -> Result<Option<RelayUrl>, Error> {
 
     let maybepubkey = GLOBALS.storage.read_setting_public_key();
     if let Some(pubkey) = maybepubkey {
-        let my_inbox_relays: Vec<RelayUrl> = get_best_relays_min(pubkey, false, 0)?;
+        let my_inbox_relays: Vec<RelayUrl> = get_best_relays_min(pubkey, RelayUsage::Inbox, 0)?;
 
         // Find the first-best intersection
         for mir in &my_inbox_relays {
@@ -46,7 +46,7 @@ pub fn relays_for_reply(event: &Event) -> Result<Vec<RelayUrl>, Error> {
         .map(|(url, _time)| url)
         .collect();
 
-    let inbox: Vec<RelayUrl> = get_best_relays_fixed(event.pubkey, false)?;
+    let inbox: Vec<RelayUrl> = get_best_relays_fixed(event.pubkey, RelayUsage::Inbox)?;
 
     // Take all inbox relays, and up to 2 seen_on relays that aren't inbox relays
     let mut answer = inbox;
@@ -87,7 +87,7 @@ pub fn relays_for_event(event: &Event) -> Result<Vec<RelayUrl>, Error> {
         })
         .collect();
     for pubkey in tagged_pubkeys.drain(..) {
-        let best_relays: Vec<RelayUrl> = get_best_relays_fixed(pubkey, false)?;
+        let best_relays: Vec<RelayUrl> = get_best_relays_fixed(pubkey, RelayUsage::Inbox)?;
         relay_urls.extend(best_relays);
     }
 
@@ -114,10 +114,9 @@ pub fn relays_for_event(event: &Event) -> Result<Vec<RelayUrl>, Error> {
 /// Take the best `num_relays_per_person` relays from their declared
 /// relays (skipping relays that are banned or with rank=0)
 /// and we come up short, use the best alternatives.
-// FIXME - bool isn't descriptive enough of a parameter for direction.
-pub fn get_best_relays_fixed(pubkey: PublicKey, write: bool) -> Result<Vec<RelayUrl>, Error> {
+pub fn get_best_relays_fixed(pubkey: PublicKey, usage: RelayUsage) -> Result<Vec<RelayUrl>, Error> {
     let num = GLOBALS.storage.read_setting_num_relays_per_person() as usize;
-    Ok(get_best_relays_with_score(pubkey, write, num)?
+    Ok(get_best_relays_with_score(pubkey, usage, num)?
         .drain(..)
         .take(num)
         .map(|(url, _score)| url)
@@ -134,10 +133,10 @@ pub fn get_best_relays_fixed(pubkey: PublicKey, write: bool) -> Result<Vec<Relay
 /// best alternatives.
 pub fn get_best_relays_min(
     pubkey: PublicKey,
-    write: bool,
+    usage: RelayUsage,
     min: usize,
 ) -> Result<Vec<RelayUrl>, Error> {
-    Ok(get_best_relays_with_score(pubkey, write, min)?
+    Ok(get_best_relays_with_score(pubkey, usage, min)?
         .drain(..)
         .map(|(url, _score)| url)
         .collect())
@@ -151,9 +150,13 @@ pub fn get_best_relays_min(
 /// relays it can to make up `min` relays.
 pub fn get_best_relays_with_score(
     pubkey: PublicKey,
-    write: bool,
+    usage: RelayUsage,
     min: usize,
 ) -> Result<Vec<(RelayUrl, u64)>, Error> {
+    if usage != RelayUsage::Outbox && usage != RelayUsage::Inbox {
+        return Err((ErrorKind::UnsupportedRelayUsage, file!(), line!()).into());
+    }
+
     let now = Unixtime::now();
 
     // Load person relays, filtering out banned URLs
@@ -168,7 +171,7 @@ pub fn get_best_relays_with_score(
     let mut candidates: Vec<(RelayUrl, u64)> = Vec::new();
     for pr in person_relays.drain(..) {
         // Compute how strongly it associates to them
-        let association_rank = pr.association_rank(now, write);
+        let association_rank = pr.association_rank(now, usage == RelayUsage::Outbox);
 
         // Load the relay so we can get more score-determining data
         let relay = GLOBALS.storage.read_or_create_relay(&pr.url, None)?;
@@ -213,7 +216,7 @@ pub fn get_best_relays_with_score(
     // If we still haven't got minimum relays, use our own relays
     if relays.len() < min {
         let how_many_more = min - relays.len();
-        if write {
+        if usage == RelayUsage::Outbox {
             // substitute our read relays
             let additional: Vec<(RelayUrl, u64)> = GLOBALS
                 .storage
@@ -267,10 +270,13 @@ pub fn get_dm_relays(pubkey: PublicKey) -> Result<Vec<RelayUrl>, Error> {
     Ok(output)
 }
 
-pub fn get_others_relays(recipients: &[PublicKey], write: bool) -> Result<Vec<RelayUrl>, Error> {
+pub fn get_others_relays(
+    recipients: &[PublicKey],
+    usage: RelayUsage,
+) -> Result<Vec<RelayUrl>, Error> {
     let mut relay_urls: Vec<RelayUrl> = Vec::new();
     for pubkey in recipients {
-        let best_relays: Vec<RelayUrl> = get_best_relays_fixed(*pubkey, write)?;
+        let best_relays: Vec<RelayUrl> = get_best_relays_fixed(*pubkey, usage)?;
         relay_urls.extend(best_relays);
     }
     Ok(relay_urls)

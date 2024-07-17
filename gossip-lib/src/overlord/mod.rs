@@ -24,7 +24,7 @@ use minion::{Minion, MinionExitReason};
 use nostr_types::{
     EncryptedPrivateKey, Event, EventAddr, EventKind, EventReference, Filter, Id, IdHex, Metadata,
     MilliSatoshi, NostrBech32, PayRequestData, PreEvent, PrivateKey, Profile, PublicKey, RelayUrl,
-    Tag, UncheckedUrl, Unixtime,
+    RelayUsage, Tag, UncheckedUrl, Unixtime,
 };
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
@@ -1733,7 +1733,8 @@ impl Overlord {
             }
             FeedKind::Person(pubkey) => {
                 // Get write relays for the person
-                let relays: Vec<RelayUrl> = relay::get_best_relays_fixed(pubkey, true)?;
+                let relays: Vec<RelayUrl> =
+                    relay::get_best_relays_fixed(pubkey, RelayUsage::Outbox)?;
                 // Subscribe on each of those write relays
                 for relay in relays.iter() {
                     // Subscribe
@@ -2080,7 +2081,7 @@ impl Overlord {
 
         // Sort the people into the relays we will find their metadata at
         for pubkey in &pubkeys {
-            for relay in relay::get_best_relays_fixed(*pubkey, true)?.drain(..) {
+            for relay in relay::get_best_relays_fixed(*pubkey, RelayUsage::Outbox)?.drain(..) {
                 map.entry(relay)
                     .and_modify(|e| e.push(*pubkey))
                     .or_insert_with(|| vec![*pubkey]);
@@ -2384,7 +2385,7 @@ impl Overlord {
     }
 
     async fn set_person_feed(&mut self, pubkey: PublicKey, anchor: Unixtime) -> Result<(), Error> {
-        let relays: Vec<RelayUrl> = relay::get_best_relays_fixed(pubkey, true)?;
+        let relays: Vec<RelayUrl> = relay::get_best_relays_fixed(pubkey, RelayUsage::Outbox)?;
 
         for relay in relays.iter() {
             // Subscribe
@@ -2462,7 +2463,7 @@ impl Overlord {
                         bonus_relays.push(url);
                     } else {
                         let tagged_person_relays: Vec<RelayUrl> =
-                            relay::get_best_relays_fixed(pk, true)?;
+                            relay::get_best_relays_fixed(pk, RelayUsage::Outbox)?;
                         bonus_relays.extend(tagged_person_relays);
                     }
                 }
@@ -2494,7 +2495,8 @@ impl Overlord {
 
                 // Include the relays of the author of the referencing event
                 if let Some(pk) = author {
-                    let author_relays: Vec<RelayUrl> = relay::get_best_relays_fixed(pk, true)?;
+                    let author_relays: Vec<RelayUrl> =
+                        relay::get_best_relays_fixed(pk, RelayUsage::Outbox)?;
                     bonus_relays.extend(author_relays);
                 }
             }
@@ -2569,7 +2571,11 @@ impl Overlord {
 
             if let Some(event) = GLOBALS.storage.read_event(id)? {
                 // Include all the INBOX relays of the author of the event
-                bonus_relays.extend(relay::get_best_relays_min(event.pubkey, false, 0)?);
+                bonus_relays.extend(relay::get_best_relays_min(
+                    event.pubkey,
+                    RelayUsage::Inbox,
+                    0,
+                )?);
 
                 // Include all the relays where the event was seen
                 bonus_relays.extend(
@@ -2594,7 +2600,8 @@ impl Overlord {
 
                 // Include the inbox relays of the author of the referencing event
                 if let Some(pk) = author {
-                    let author_relays: Vec<RelayUrl> = relay::get_best_relays_min(pk, false, 0)?;
+                    let author_relays: Vec<RelayUrl> =
+                        relay::get_best_relays_min(pk, RelayUsage::Inbox, 0)?;
                     bonus_relays.extend(author_relays);
                 }
             }
@@ -2830,7 +2837,7 @@ impl Overlord {
         // for it's retry logic
         GLOBALS.people.metadata_fetch_initiated(&[pubkey]);
 
-        let best_relays = relay::get_best_relays_fixed(pubkey, true)?;
+        let best_relays = relay::get_best_relays_fixed(pubkey, RelayUsage::Outbox)?;
 
         // we do 1 more than num_relays_per_person, which is really for main posts,
         // since metadata is more important and I didn't want to bother with
@@ -2867,7 +2874,7 @@ impl Overlord {
 
         let mut map: HashMap<RelayUrl, Vec<PublicKey>> = HashMap::new();
         for pubkey in pubkeys.drain(..) {
-            let best_relays = relay::get_best_relays_fixed(pubkey, true)?;
+            let best_relays = relay::get_best_relays_fixed(pubkey, RelayUsage::Outbox)?;
             for relay_url in best_relays.iter() {
                 map.entry(relay_url.to_owned())
                     .and_modify(|entry| entry.push(pubkey))
@@ -3376,7 +3383,7 @@ impl Overlord {
 
             // Add the read relays of the target person
             let target_read_relays: Vec<RelayUrl> =
-                relay::get_best_relays_min(target_pubkey, false, 0)?;
+                relay::get_best_relays_min(target_pubkey, RelayUsage::Inbox, 0)?;
             relays.extend(target_read_relays);
 
             // Add all my write relays

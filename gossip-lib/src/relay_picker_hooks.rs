@@ -27,8 +27,7 @@ impl RelayPickerHooks for Hooks {
         pubkey: PublicKey,
         usage: RelayUsage,
     ) -> Result<Vec<(RelayUrl, u64)>, Error> {
-        let write = usage == RelayUsage::Outbox;
-        relay::get_best_relays_with_score(pubkey, write, 0)
+        relay::get_best_relays_with_score(pubkey, usage, 0)
     }
 
     /// Is the relay currently connected?
