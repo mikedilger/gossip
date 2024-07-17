@@ -54,7 +54,7 @@ The following features make gossip different than most other nostr clients so fa
 - ✅ NIP-01 - Basic protocol flow description
 - ✅ NIP-02 - Contact List and Petnames
 - ⬜ NIP-03 - OpenTimestamps Attestations for Events
-- 🟩 NIP-04 - Encrypted Direct Message (Read Only is implemented)
+- ✅ NIP-04 - Encrypted Direct Message (Read Only is implemented)
 - ✅ NIP-05 - Mapping Nostr keys to DNS-based internet identifiers
 - ⬜ NIP-06 - Basic key derivation from mnemonic seed phrase
 - ⬛ NIP-07 - window.nostr capability for web browsers (NOT APPLICABLE)
@@ -65,18 +65,22 @@ The following features make gossip different than most other nostr clients so fa
 - ✅ NIP-13 - Proof of Work
 - ✅ NIP-14 - Subject tag in text events
 - ⬜ NIP-15 - Nostr Marketplace (for resilient marketplaces)
+- ✅ NIP-17 - Private Direct Messages
 - ✅ NIP-18 - Reposts
 - ✅ NIP-19 - bech32-encoded entities
 - ✅ NIP-21 - nostr: URL scheme
-- 🟩 NIP-23 - Long-form Content (Optional viewing, but not creating)
+- 🟩 NIP-23 - Long-form Content (viewing, but not creating)
 - 🟩 NIP-24 - Extra metadata fields and tags (Shown in profile, not treated specially)
 - ✅ NIP-25 - Reactions
 - ✅ NIP-26 - Delegated Event Signing
 - ✅ NIP-27 - Text Note References
 - ⬜ NIP-28 - Public Chat
+- ⬜ NIP-29 - Relay-based Groups
 - ⬜ NIP-30 - Custom Emoji
 - ✅ NIP-31 - Dealing with Unknown Events
 - ⬜ NIP-32 - Labeling
+- ⬜ NIP-34 - git stuff
+- ⬜ NIP-35 - Torrents
 - ✅ NIP-36 - Sensitive Content
 - ⬜ NIP-38 - User Statuses
 - ⬜ NIP-39 - External Identities in Profiles
@@ -89,20 +93,24 @@ The following features make gossip different than most other nostr clients so fa
 - ✅ NIP-48 - Proxy Tags
 - ✅ NIP-49 - Private Key Encryption
 - ⬜ NIP-50 - Search Capability
-- 🟩 NIP-51 - Lists
+- 🟩 NIP-51 - Lists (we use some, not all)
 - ⬜ NIP-52 - Calendar Events
 - ⬜ NIP-53 - Live Activities
+- ⬜ NIP-54 - Wiki
+- ⬛ NIP-55 - Android Signer Application
 - ⬜ NIP-56 - Reporting
-- 🟩 NIP-57 - Lightning Zaps
+- ✅ NIP-57 - Lightning Zaps
 - ⬜ NIP-58 - Badges
-- 🟩 NIP-59 - Gift Wrap (receiving and displaying, not creating/sending)
+- ✅ NIP-59 - Gift Wrap
 - ✅ NIP-65 - Relay List Metadata
+- ⬜ NIP-70 - Protected Events
 - ⬜ NIP-72 - Moderated Communities
 - ⬜ NIP-75 - Zap Goals
 - ⬜ NIP-78 - Application-specific data
 - ⬜ NIP-84 - Highlights
 - ⬜ NIP-89 - Recommended Application Handlers
 - ⬜ NIP-90 - Data Vending Machines
+- ⬜ NIP-92 - Media Attachments
 - ⬜ NIP-94 - File Metadata
 - ⬜ NIP-96 - HTTP File Storage Integration
 - ⬜ NIP-98 - HTTP Auth
@@ -250,7 +258,17 @@ If you are having performance issues, please see [docs/PERFORMANCE.md](docs/PERF
 
 ### Upgrading from very old versions
 
-If you are using a version before 0.8.x, you must upgrade to a 0.8.x version and run gossip at least once in order to upgrade from SQLite3 to LMDB. This is because we have now removed the old SQLite3 code. Alternatively, just delete your old gossip directory in your [config dir](https://docs.rs/dirs/latest/dirs/fn.config_dir.html) and start fresh.
+Some code managing very old data has been removed. This happened twice now. If you are running
+an very old version (see the table, column 1) you need to upgrade to an old version of gossip
+(column 2) and run it just once in order to migrate the data because the very newest version of
+gossip doesn't have the migration code anymore.
+
+| If you are running | You must first install and run once |
+|--------------------|-------------------------------------|
+|  < 0.8.x           |  0.8.x, then see next line          |
+|  < 0.11.x          |  0.9.x -or- 0.10.x                  |
+
+Alternatively, just delete your old gossip directory in your [config dir](https://docs.rs/dirs/latest/dirs/fn.config_dir.html) and start fresh.
 
 ## Technology Involved
 
@@ -290,6 +308,7 @@ npub189j8y280mhezlp98ecmdzydn0r8970g4hpqpx3u9tcztynywfczqqr3tg8
 nprofile1qqswuyd9ml6qcxd92h6pleptfrcqucvvjy39vg4wx7mv9wm8kakyujgpzamhxue69uhhyetvv9ujumn0wd68ytnfdenx7tcprpmhxue69uhkzapwdehhxarjwahhy6mn9e3k7mf0qyt8wumn8ghj7etyv4hzumn0wd68ytnvv9hxgtcprdmhxue69uhkummnw3ezumtfddjkg6tvvajhytnrdakj7qgnwaehxw309ahkvenrdpskjm3wwp6kytcpremhxue69uhkummnw3ez6ur4vgh8wetvd3hhyer9wghxuet59uq32amnwvaz7tmwdaehgu3wdau8gu3wv3jhvtct8l34m
 
 npub1acg6thl5psv62405rljzkj8spesceyfz2c32udakc2ak0dmvfeyse9p35c
+hex: ee11a5dff40c19a555f41fe42b48f00e618c91225622ae37b6c2bb67b76c4e49
 
 You can also my NIP-05 address of `mike@mikedilger.com` which will also hook you up with the relays I post to.
 
