@@ -90,7 +90,9 @@ impl Storage {
     pub(crate) fn new() -> Result<Storage, Error> {
         let mut builder = EnvOpenOptions::new();
         unsafe {
-            builder.flags(EnvFlags::NO_TLS);
+            builder.flags(EnvFlags::NO_TLS | EnvFlags::NO_META_SYNC);
+            // See flats at http://www.lmdb.tech/doc/group__mdb__env.html
+            // See flags at http://www.lmdb.tech/doc/group__mdb.html  (more detail)
         }
         // builder.max_readers(126); // this is the default
         builder.max_dbs(32);
