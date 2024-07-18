@@ -250,25 +250,9 @@ Compile with
   --features=video-ffmpeg
 ````
 
-## Known Issues
+## Troubleshooting
 
-### Performance issues
-
-If you are having performance issues, please see [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
-
-### Upgrading from very old versions
-
-Some code managing very old data has been removed. This happened twice now. If you are running
-an very old version (see the table, column 1) you need to upgrade to an old version of gossip
-(column 2) and run it just once in order to migrate the data because the very newest version of
-gossip doesn't have the migration code anymore.
-
-| If you are running | You must first install and run once |
-|--------------------|-------------------------------------|
-|  < 0.8.x           |  0.8.x, then see next line          |
-|  < 0.11.x          |  0.9.x -or- 0.10.x                  |
-
-Alternatively, just delete your old gossip directory in your [config dir](https://docs.rs/dirs/latest/dirs/fn.config_dir.html) and start fresh.
+See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
 
 ## Technology Involved
 
