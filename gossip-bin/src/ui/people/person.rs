@@ -549,7 +549,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
     const DLG_SIZE: Vec2 = vec2(300.0, 200.0);
     match app.person_qr {
         Some("npub") => {
-            let ret = widgets::modal_popup(ui, DLG_SIZE, DLG_SIZE, true, |ui| {
+            let ret = widgets::modal_popup(ui.ctx(), DLG_SIZE, DLG_SIZE, true, |ui| {
                 ui.vertical_centered(|ui| {
                     ui.add_space(10.0);
                     ui.heading("Public Key (npub)");
@@ -568,7 +568,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
             }
         }
         Some("lud06") => {
-            let ret = widgets::modal_popup(ui, DLG_SIZE, DLG_SIZE, true, |ui| {
+            let ret = widgets::modal_popup(ui.ctx(), DLG_SIZE, DLG_SIZE, true, |ui| {
                 ui.vertical_centered(|ui| {
                     ui.add_space(10.0);
                     ui.heading("Lightning Network Address (lud06)");
@@ -587,7 +587,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
             }
         }
         Some("lud16") => {
-            let ret = widgets::modal_popup(ui, DLG_SIZE, DLG_SIZE, true, |ui| {
+            let ret = widgets::modal_popup(ui.ctx(), DLG_SIZE, DLG_SIZE, true, |ui| {
                 ui.vertical_centered(|ui| {
                     ui.add_space(10.0);
                     ui.heading("Lightning Network Address (lud16)");

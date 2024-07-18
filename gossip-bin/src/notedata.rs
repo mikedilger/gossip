@@ -23,6 +23,14 @@ pub(crate) enum RepostType {
     GenericRepost,
 }
 
+#[derive(PartialEq, Default)]
+pub(crate) enum EncryptionType {
+    #[default]
+    None,
+    Nip04,
+    Giftwrap,
+}
+
 pub(crate) struct NoteData {
     /// Original Event object, as received from nostr
     pub event: Event,
@@ -72,8 +80,8 @@ pub(crate) struct NoteData {
     /// direct message
     pub direct_message: bool,
 
-    /// Securely delivered via GiftWrap
-    pub secure: bool,
+    /// Encryption type this note had on the network
+    pub encryption: EncryptionType,
 
     /// Bookmarked
     pub bookmarked: bool,
@@ -84,11 +92,11 @@ impl NoteData {
         // We do not filter event kinds here anymore. The feed already does that.
         // There is no sense in duplicating that work.
 
-        let mut secure: bool = false;
+        let mut encryption = EncryptionType::None;
         let mut direct_message: bool = false;
         if matches!(event.kind, EventKind::GiftWrap) {
             direct_message = true;
-            secure = true;
+            encryption = EncryptionType::Giftwrap;
             // Use the rumor for subsequent processing, but swap for the Giftwrap's id
             // since that is the effective event (database-accessible, deletable, etc)
             if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(&event) {
@@ -96,10 +104,9 @@ impl NoteData {
                 event = rumor.into_event_with_bad_signature();
                 event.id = id; // lie, keep the giftwrap id
             }
-        }
-
-        if event.kind == EventKind::EncryptedDirectMessage {
+        } else if matches!(event.kind, EventKind::EncryptedDirectMessage) {
             direct_message = true;
+            encryption = EncryptionType::Nip04;
         }
 
         let delegation = event.delegation();
@@ -289,7 +296,7 @@ impl NoteData {
             shattered_content,
             error_content,
             direct_message,
-            secure,
+            encryption,
             bookmarked,
         }
     }

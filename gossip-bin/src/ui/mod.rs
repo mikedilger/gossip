@@ -73,6 +73,8 @@ use gossip_lib::{
 use nostr_types::ContentSegment;
 use nostr_types::RelayUrl;
 use nostr_types::{Id, Metadata, MilliSatoshi, Profile, PublicKey, UncheckedUrl, Url};
+use std::sync::Arc;
+use widgets::ModalEntry;
 
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
@@ -409,6 +411,9 @@ struct GossipUi {
     // Ui timers
     popups: HashMap<egui::Id, HashMap<egui::Id, Box<dyn widgets::InformationPopup>>>,
 
+    // Modal dialogue
+    modal: Option<Arc<ModalEntry>>,
+
     // QR codes being rendered (in feed or elsewhere)
     // the f32's are the recommended image size
     qr_codes: HashMap<String, Result<(TextureHandle, f32, f32), Error>>,
@@ -424,7 +429,7 @@ struct GossipUi {
     people_list: people::ListUi,
 
     // Post rendering
-    render_raw: Option<Id>,
+    render_raw: Option<(Id, String)>,
     render_qr: Option<Id>,
     approved: HashSet<Id>, // content warning posts
     height: HashMap<Id, f32>,
@@ -680,6 +685,7 @@ impl GossipUi {
             current_scroll_offset: 0.0,
             future_scroll_offset: 0.0,
             popups: HashMap::new(),
+            modal: None,
             qr_codes: HashMap::new(),
             notecache: NoteCache::new(),
             notification_data: NotificationData::new(),
@@ -1500,6 +1506,16 @@ impl eframe::App for GossipUi {
             return wizard::update(self, ctx, frame, wp);
         }
 
+        // Modal dialogue
+        if let Some(entry) = &self.modal {
+            if widgets::modal_popup_dyn(ctx, self, true, entry.clone())
+                .inner
+                .clicked()
+            {
+                self.modal = None;
+            }
+        }
+
         // Side panel
         self.side_panel(ctx);
 
@@ -1634,7 +1650,10 @@ impl eframe::App for GossipUi {
 
 impl GossipUi {
     fn enable_ui(&self) -> bool {
-        !relays::is_entry_dialog_active(self) && self.person_qr.is_none()
+        !relays::is_entry_dialog_active(self)
+            && self.person_qr.is_none()
+            && self.render_qr.is_none()
+            && self.render_raw.is_none()
     }
 
     fn begin_ui(&self, ui: &mut Ui) {
@@ -1895,10 +1914,7 @@ impl GossipUi {
         }
     }
 
-    pub fn render_qr(&mut self, ui: &mut Ui, key: &str, content: &str) {
-        // Remember the UI runs this every frame.  We do NOT want to load the texture to the GPU
-        // every frame, so we remember the texture handle in app.qr_codes, and only load to the GPU
-        // if we don't have it yet.  We also remember if there was an error and don't try again.
+    pub fn show_qr(&mut self, ui: &mut Ui, key: &str) {
         match self.qr_codes.get(key) {
             Some(Ok((texture_handle, x, y))) => {
                 ui.add(
@@ -1913,6 +1929,29 @@ impl GossipUi {
                         .color(Color32::from_rgb(160, 0, 0)),
                 );
             }
+            None => {}
+        }
+    }
+
+    pub fn render_qr(&mut self, ui: &mut Ui, key: &str, content: &str) {
+        self.generate_qr(ui, key, content);
+        self.show_qr(ui, key);
+    }
+
+    pub fn generate_qr(
+        &mut self,
+        ui: &mut Ui,
+        key: &str,
+        content: &str,
+    ) -> Option<(TextureHandle, f32, f32)> {
+        // Remember the UI runs this every frame.  We do NOT want to load the texture to the GPU
+        // every frame, so we remember the texture handle in app.qr_codes, and only load to the GPU
+        // if we don't have it yet.  We also remember if there was an error and don't try again.
+        match self.qr_codes.get(key) {
+            Some(result) => match result {
+                Ok((th, x, y)) => Some((th.clone(), *x, *y)),
+                Err(_) => None,
+            },
             None => {
                 // need bytes
                 if let Ok(code) = qrcode::QrCode::new(content) {
@@ -1930,23 +1969,27 @@ impl GossipUi {
                     // Convert image size into points for later rendering (so that it renders with
                     // the number of pixels recommended by the qrcode library)
                     let ppp = ui.ctx().pixels_per_point();
+                    let x = image.width() as f32 / ppp;
+                    let y = image.height() as f32 / ppp;
 
-                    self.qr_codes.insert(
-                        key.to_string(),
-                        Ok((
-                            texture_handle,
-                            image.width() as f32 / ppp,
-                            image.height() as f32 / ppp,
-                        )),
-                    );
+                    self.qr_codes
+                        .insert(key.to_string(), Ok((texture_handle.clone(), x, y)));
+
+                    Some((texture_handle, x, y))
                 } else {
                     self.qr_codes.insert(
                         key.to_string(),
                         Err(("Could not make a QR", file!(), line!()).into()),
                     );
+
+                    None
                 }
             }
         }
+    }
+
+    pub fn delete_qr(&mut self, key: &str) {
+        self.qr_codes.remove(key);
     }
 
     fn add_menu_item_page(

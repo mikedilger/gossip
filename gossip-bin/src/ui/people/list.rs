@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use super::{GossipUi, Page};
-use crate::ui::widgets::{self, MoreMenuEntry};
+use crate::ui::widgets::{self, MoreMenuButton, MoreMenuItem};
 use crate::AVATAR_SIZE_F32;
 use eframe::egui::{self, Galley, Label, Sense};
 use egui::{Context, RichText, Ui, Vec2};
@@ -304,10 +304,10 @@ pub(super) fn update(
                                         widgets::MoreMenu::bubble(ui.auto_id_with(person.pubkey))
                                             .with_min_size(vec2(100.0, 0.0))
                                             .with_max_size(vec2(100.0, f32::INFINITY));
-                                    let mut entries: Vec<MoreMenuEntry> = Vec::new();
+                                    let mut items: Vec<MoreMenuItem> = Vec::new();
 
                                     // actions
-                                    entries.push(MoreMenuEntry::new(
+                                    items.push(MoreMenuItem::Button(MoreMenuButton::new(
                                         "Remove",
                                         Box::new(|_, _| {
                                             let _ = GLOBALS.storage.remove_person_from_list(
@@ -316,9 +316,9 @@ pub(super) fn update(
                                                 None,
                                             );
                                         }),
-                                    ));
+                                    )));
 
-                                    menu.show_entries(ui, app, response, entries);
+                                    menu.show_entries(ui, app, response, items);
 
                                     if list != PersonList::Followed {
                                         // private / public switch
@@ -407,7 +407,7 @@ fn render_add_contact_popup(
     metadata: &PersonListMetadata,
 ) {
     const DLG_SIZE: Vec2 = vec2(400.0, 260.0);
-    let ret = crate::ui::widgets::modal_popup(ui, DLG_SIZE, DLG_SIZE, true, |ui| {
+    let ret = crate::ui::widgets::modal_popup(ui.ctx(), DLG_SIZE, DLG_SIZE, true, |ui| {
         let enter_key;
         (app.people_list.add_contact_search_selected, enter_key) =
             if app.people_list.add_contact_search_results.is_empty() {
@@ -578,7 +578,7 @@ pub(super) fn render_delete_list_dialog(ui: &mut Ui, app: &mut GossipUi, list: P
         .unwrap_or_default();
 
     let ret = crate::ui::widgets::modal_popup(
-        ui,
+        ui.ctx(),
         vec2(250.0, 80.0),
         vec2(250.0, ui.available_height()),
         true,
@@ -619,7 +619,7 @@ pub(super) fn render_delete_list_dialog(ui: &mut Ui, app: &mut GossipUi, list: P
 
 pub(super) fn render_create_list_dialog(ui: &mut Ui, app: &mut GossipUi) {
     let ret = crate::ui::widgets::modal_popup(
-        ui,
+        ui.ctx(),
         vec2(250.0, 100.0),
         vec2(250.0, ui.available_height()),
         true,
@@ -700,7 +700,7 @@ pub(super) fn render_rename_list_dialog(ui: &mut Ui, app: &mut GossipUi, list: P
         .unwrap_or_default();
 
     let ret = crate::ui::widgets::modal_popup(
-        ui,
+        ui.ctx(),
         vec2(250.0, 80.0),
         vec2(250.0, ui.available_height()),
         true,
@@ -781,17 +781,17 @@ pub(super) fn render_more_list_actions(
         .with_min_size(vec2(100.0, 0.0))
         .with_max_size(vec2(140.0, f32::INFINITY));
 
-    let mut entries: Vec<MoreMenuEntry> = Vec::new();
-    entries.push(MoreMenuEntry::new(
+    let mut items: Vec<MoreMenuItem> = Vec::new();
+    items.push(MoreMenuItem::Button(MoreMenuButton::new(
         "Rename",
         Box::new(|_, app| {
             app.deleting_list = None;
             app.renaming_list = Some(list);
         }),
-    ));
+    )));
 
     if metadata.favorite {
-        entries.push(MoreMenuEntry::new(
+        items.push(MoreMenuItem::Button(MoreMenuButton::new(
             "Unset as Favorite",
             Box::new(|_, _| {
                 let mut metadata = metadata.clone();
@@ -800,9 +800,9 @@ pub(super) fn render_more_list_actions(
                     .storage
                     .set_person_list_metadata(list, &metadata, None);
             }),
-        ));
+        )));
     } else {
-        entries.push(MoreMenuEntry::new(
+        items.push(MoreMenuItem::Button(MoreMenuButton::new(
             "Set as Favorite",
             Box::new(|_, _| {
                 let mut metadata = metadata.clone();
@@ -811,12 +811,12 @@ pub(super) fn render_more_list_actions(
                     .storage
                     .set_person_list_metadata(list, &metadata, None);
             }),
-        ));
+        )));
     }
 
     if on_list {
         if metadata.private == Private(true) {
-            entries.push(MoreMenuEntry::new(
+            items.push(MoreMenuItem::Button(MoreMenuButton::new(
                 "Make Public",
                 Box::new(|_, _| {
                     let mut metadata = metadata.clone();
@@ -825,9 +825,9 @@ pub(super) fn render_more_list_actions(
                         .storage
                         .set_person_list_metadata(list, &metadata, None);
                 }),
-            ));
+            )));
         } else {
-            entries.push(MoreMenuEntry::new(
+            items.push(MoreMenuItem::Button(MoreMenuButton::new(
                 "Make Private",
                 Box::new(|_, _| {
                     let mut metadata = metadata.clone();
@@ -839,28 +839,28 @@ pub(super) fn render_more_list_actions(
                         .storage
                         .set_all_people_in_list_to_private(list, None);
                 }),
-            ));
+            )));
         }
-        entries.push(
-            MoreMenuEntry::new(
+        items.push(MoreMenuItem::Button(
+            MoreMenuButton::new(
                 "Clear All",
                 Box::new(|_, app| {
                     app.people_list.clear_list_needs_confirm = true;
                 }),
             )
             .enabled(count > 0),
-        );
+        ));
 
-        entries.push(MoreMenuEntry::new(
+        items.push(MoreMenuItem::Button(MoreMenuButton::new(
             "Delete",
             Box::new(|_, app| {
                 app.renaming_list = None;
                 app.deleting_list = Some(list);
             }),
-        ));
+        )));
     }
 
-    menu.show_entries(ui, app, response, entries);
+    menu.show_entries(ui, app, response, items);
 }
 
 fn recalc_add_contact_search(app: &mut GossipUi, output: &mut TextEditOutput) {
@@ -896,7 +896,7 @@ fn recalc_add_contact_search(app: &mut GossipUi, output: &mut TextEditOutput) {
 
 fn render_clear_list_confirm_popup(ui: &mut Ui, app: &mut GossipUi, list: PersonList) {
     const DLG_SIZE: Vec2 = vec2(250.0, 40.0);
-    let popup = widgets::modal_popup(ui, DLG_SIZE, DLG_SIZE, true, |ui| {
+    let popup = widgets::modal_popup(ui.ctx(), DLG_SIZE, DLG_SIZE, true, |ui| {
         ui.vertical(|ui| {
             ui.label("Are you sure you want to clear this list?");
             ui.add_space(10.0);

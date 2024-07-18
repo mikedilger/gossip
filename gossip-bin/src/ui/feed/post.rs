@@ -1,5 +1,5 @@
 use super::FeedNoteParams;
-use crate::ui::widgets::{InformationPopup, MoreMenuEntry};
+use crate::ui::widgets::{InformationPopup, MoreMenuButton, MoreMenuItem};
 use crate::ui::{widgets, you, FeedKind, GossipUi, HighlightType, Page, Theme};
 use eframe::egui;
 use eframe::epaint::text::LayoutJob;
@@ -159,6 +159,34 @@ fn dm_posting_area(
     let compose_area_id: egui::Id = egui::Id::new("compose_area");
     let mut send_now: bool = false;
 
+    let (bg_color, text_color, text, tooltip_text) = if dm_channel.can_use_nip17() {
+        let text = "STRONG ENCRYPTION";
+        let tt_text = "SECURED with Giftwrap DM technology (NIPs 17, 44, 59)";
+        if app.theme.dark_mode {
+            (
+                app.theme.neutral_300(),
+                app.theme.neutral_950(),
+                text,
+                tt_text,
+            )
+        } else {
+            (
+                app.theme.neutral_600(),
+                app.theme.neutral_50(),
+                text,
+                tt_text,
+            )
+        }
+    } else {
+        let text = "BASIC ENCRYPTION";
+        let tt_text = "WARNING: Using older less-secure DM technology (NIP-04; recipient(s) have not signalled the ability to accept the newer method)";
+        if app.theme.dark_mode {
+            (app.theme.amber_400(), app.theme.neutral_50(), text, tt_text)
+        } else {
+            (app.theme.amber_400(), app.theme.neutral_50(), text, tt_text)
+        }
+    };
+
     // Text area
     let theme = app.theme;
     let mut layouter = |ui: &Ui, text: &str, wrap_width: f32| {
@@ -189,14 +217,7 @@ fn dm_posting_area(
         });
     }
 
-    ui.label(format!("DIRECT MESSAGE TO: {}", dm_channel.name()));
-
-    ui.add_space(10.0);
-    if dm_channel.can_use_nip17() {
-        ui.label("SECURED with newer DM technology (NIPs 17, 44, 59)");
-    } else {
-        ui.label("WARNING: Using older less-secure DM technology (NIP-04; recipient(s) have not signalled the ability to accept the newer method)");
-    }
+    ui.visuals_mut().selection.stroke.color = bg_color;
 
     let draft_response = ui.add(
         text_edit_multiline!(app, app.dm_draft_data.draft)
@@ -229,6 +250,36 @@ fn dm_posting_area(
         }
     }
 
+    // if text area wasn't focused, change the bg_color to match the frame
+    let bg_color = if draft_response.has_focus() {
+        bg_color
+    } else {
+        ui.visuals().widgets.inactive.bg_stroke.color
+    };
+
+    // show encryption hint on edit area frame
+    {
+        let pos = draft_response.rect.right_top() + vec2(-35.0, -2.0);
+        let where_to_put_bg = ui.painter().add(egui::Shape::Noop);
+        let bg_rect = ui
+            .painter()
+            .text(
+                pos + vec2(10.0, 0.0),
+                egui::Align2::RIGHT_CENTER,
+                text,
+                egui::FontId::proportional(10.0),
+                text_color,
+            )
+            .expand2(vec2(10.0, 3.0))
+            .translate(vec2(0.0, 0.0)); // FIXME: Hack to fix the line height
+
+        let bg_shape =
+            egui::Shape::rect_filled(bg_rect, egui::Rounding::same(bg_rect.height()), bg_color);
+        ui.painter().set(where_to_put_bg, bg_shape);
+        ui.interact(bg_rect, ui.next_auto_id().with("enc"), egui::Sense::hover())
+            .on_hover_text(tooltip_text);
+    }
+
     ui.add_space(8.0);
 
     ui.horizontal(|ui| {
@@ -238,41 +289,41 @@ fn dm_posting_area(
             .with_min_size(vec2(190.0, 40.0))
             .place_above(!read_setting!(posting_area_at_top));
 
-        let mut entries: Vec<MoreMenuEntry> = Vec::new();
+        let mut items: Vec<MoreMenuItem> = Vec::new();
         if app.dm_draft_data.include_subject {
-            entries.push(MoreMenuEntry::new(
+            items.push(MoreMenuItem::Button(MoreMenuButton::new(
                 "Remove Subject",
                 Box::new(|_, app| {
                     app.dm_draft_data.include_subject = false;
                     app.dm_draft_data.subject = "".to_owned();
                 }),
-            ));
+            )));
         } else {
-            entries.push(MoreMenuEntry::new(
+            items.push(MoreMenuItem::Button(MoreMenuButton::new(
                 "Add Subject",
                 Box::new(|_, app| {
                     app.dm_draft_data.include_subject = true;
                 }),
-            ));
+            )));
         }
         if app.dm_draft_data.include_content_warning {
-            entries.push(MoreMenuEntry::new(
+            items.push(MoreMenuItem::Button(MoreMenuButton::new(
                 "Remove Content Warning",
                 Box::new(|_, app| {
                     app.dm_draft_data.include_content_warning = false;
                     app.dm_draft_data.content_warning = "".to_owned();
                 }),
-            ));
+            )));
         } else {
-            entries.push(MoreMenuEntry::new(
+            items.push(MoreMenuItem::Button(MoreMenuButton::new(
                 "Add Content Warning",
                 Box::new(|_, app| {
                     app.dm_draft_data.include_content_warning = true;
                 }),
-            ));
+            )));
         }
 
-        menu.show_entries(ui, app, response, entries);
+        menu.show_entries(ui, app, response, items);
 
         ui.horizontal(|ui| {
             ui.visuals_mut().hyperlink_color = ui.visuals().text_color();
@@ -541,44 +592,44 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                     .with_min_size(vec2(180.0, 80.0))
                     .place_above(!read_setting!(posting_area_at_top));
 
-                let mut entries: Vec<MoreMenuEntry> = Vec::new();
+                let mut items: Vec<MoreMenuItem> = Vec::new();
 
                 if app.draft_data.include_subject {
-                    entries.push(MoreMenuEntry::new(
+                    items.push(MoreMenuItem::Button(MoreMenuButton::new(
                         "Remove Subject",
                         Box::new(|_, app| {
                             app.draft_data.include_subject = false;
                             app.draft_data.subject = "".to_owned();
                         }),
-                    ));
+                    )));
                 } else if app.draft_data.replying_to.is_none() {
-                    entries.push(MoreMenuEntry::new(
+                    items.push(MoreMenuItem::Button(MoreMenuButton::new(
                         "Add Subject",
                         Box::new(|_, app| {
                             app.draft_data.include_subject = true;
                         }),
-                    ));
+                    )));
                 }
 
                 if app.draft_data.include_content_warning {
-                    entries.push(MoreMenuEntry::new(
+                    items.push(MoreMenuItem::Button(MoreMenuButton::new(
                         "Remove Content Warning",
                         Box::new(|_, app| {
                             app.draft_data.include_content_warning = false;
                             app.draft_data.content_warning = "".to_owned();
                         }),
-                    ));
+                    )));
                 } else {
-                    entries.push(MoreMenuEntry::new(
+                    items.push(MoreMenuItem::Button(MoreMenuButton::new(
                         "Add Content Warning",
                         Box::new(|_, app| {
                             app.draft_data.include_content_warning = true;
                         }),
-                    ));
+                    )));
                 }
 
-                entries.push(
-                    MoreMenuEntry::new(
+                items.push(MoreMenuItem::Button(
+                    MoreMenuButton::new(
                         "Show raw preview",
                         Box::new(|_, app| {
                             let raw = do_replacements(
@@ -589,9 +640,9 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                         }),
                     )
                     .enabled(!app.draft_data.replacements.is_empty()),
-                );
+                ));
 
-                menu.show_entries(ui, app, response, entries);
+                menu.show_entries(ui, app, response, items);
             }
 
             ui.add_space(7.0);

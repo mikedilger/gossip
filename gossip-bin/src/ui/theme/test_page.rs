@@ -93,9 +93,12 @@ pub(in crate::ui) fn update(
                 height: 200.0,
                 is_new: false,
                 is_main_event: false,
+                can_load_thread: true,
                 is_comment_mention: false,
                 is_thread: false,
                 thread_position: 0,
+                hide_footer: false,
+                hide_nameline: false,
             };
             Frame::none()
                 .inner_margin(app.theme.feed_frame_inner_margin(&render_data))
@@ -115,9 +118,12 @@ pub(in crate::ui) fn update(
                 height: 200.0,
                 is_new: true,
                 is_main_event: false,
+                can_load_thread: true,
                 is_comment_mention: false,
                 is_thread: false,
                 thread_position: 0,
+                hide_footer: false,
+                hide_nameline: false,
             };
             Frame::none()
                 .inner_margin(app.theme.feed_frame_inner_margin(&render_data))
