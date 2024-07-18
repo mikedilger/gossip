@@ -292,7 +292,7 @@ pub async fn process_new_event(
             .to_overlord
             .send(ToOverlordMessage::RefreshScoresAndPickRelays);
     } else if event.kind == EventKind::DmRelayList {
-        GLOBALS.storage.process_dm_relay_list(event)?;
+        GLOBALS.storage.process_dm_relay_list(event, None)?;
     } else if event.kind == EventKind::Repost {
         // If it has a json encoded inner event
         if let Ok(inner_event) = serde_json::from_str::<Event>(&event.content) {
