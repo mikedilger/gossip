@@ -1036,10 +1036,9 @@ impl Storage {
     pub fn process_dm_relay_list<'a>(
         &'a self,
         event: &Event,
-        rw_txn: Option<&mut RwTxn<'a>>
+        rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-
             // Determine if this is our own DM relay list
             let mut ours = false;
             if let Some(pubkey) = self.read_setting_public_key() {

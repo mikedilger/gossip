@@ -1030,7 +1030,7 @@ impl Overlord {
 
     async fn post_bookmarks(&mut self, event: Event) -> Result<(), Error> {
         // Process this event locally (ignore any error)
-        let _ = crate::process::process_new_event(&event, None, None, false, false).await;
+        let _ = crate::process::process_new_event(&event, None, None, false, false);
 
         let config_relays: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
 
@@ -1242,7 +1242,7 @@ impl Overlord {
         };
 
         // Process this event locally
-        crate::process::process_new_event(&event, None, None, false, false).await?;
+        crate::process::process_new_event(&event, None, None, false, false)?;
 
         // Determine which relays to post this to
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
@@ -1320,7 +1320,7 @@ impl Overlord {
         };
 
         // Process this event locally
-        crate::process::process_new_event(&event, None, None, false, false).await?;
+        crate::process::process_new_event(&event, None, None, false, false)?;
 
         // Determine which relays to post this to
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
@@ -1654,7 +1654,7 @@ impl Overlord {
         }
 
         // Process the message for ourself
-        crate::process::process_new_event(&event, None, None, false, false).await?;
+        crate::process::process_new_event(&event, None, None, false, false)?;
 
         Ok(())
     }
@@ -1830,7 +1830,7 @@ impl Overlord {
         // Post them
         for (event, relay_urls) in prepared_events.drain(..) {
             // Process this event locally (ignore any error)
-            let _ = crate::process::process_new_event(&event, None, None, false, false).await;
+            let _ = crate::process::process_new_event(&event, None, None, false, false);
 
             // Engage minions to post
             for url in relay_urls {
@@ -1957,7 +1957,7 @@ impl Overlord {
         let event = GLOBALS.people.generate_person_list_event(list).await?;
 
         // process event locally
-        crate::process::process_new_event(&event, None, None, false, false).await?;
+        crate::process::process_new_event(&event, None, None, false, false)?;
 
         // Push to all of the relays we post to
         let relays: Vec<Relay> = Relay::choose_relays(Relay::WRITE, |_| true)?;
@@ -2160,7 +2160,7 @@ impl Overlord {
         };
 
         // Process this event locally
-        crate::process::process_new_event(&event, None, None, false, false).await?;
+        crate::process::process_new_event(&event, None, None, false, false)?;
 
         // Determine which relays to post this to
         let mut relay_urls: Vec<RelayUrl> = Vec::new();

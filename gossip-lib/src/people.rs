@@ -262,7 +262,7 @@ impl People {
         self.recheck_nip05.insert(pubkey.to_owned());
     }
 
-    pub(crate) async fn update_metadata(
+    pub(crate) fn update_metadata(
         &self,
         pubkey: &PublicKey,
         metadata: Metadata,
@@ -309,7 +309,7 @@ impl People {
         }
 
         // Remove from failed avatars list so the UI will try to fetch the avatar again if missing
-        GLOBALS.failed_avatars.write().await.remove(pubkey);
+        GLOBALS.failed_avatars.write().remove(pubkey);
 
         // Only if they have a nip05 dns id set
         if matches!(person.metadata(), Some(Metadata { nip05: Some(_), .. })) {
@@ -342,7 +342,7 @@ impl People {
             };
 
             if recheck {
-                self.update_nip05_last_checked(person.pubkey).await?;
+                self.update_nip05_last_checked(person.pubkey)?;
                 task::spawn(async move {
                     if let Err(e) = crate::nip05::validate_nip05(person).await {
                         tracing::warn!("{}", e);
@@ -373,7 +373,7 @@ impl People {
         }
 
         // If it failed before, error out now
-        if GLOBALS.failed_avatars.blocking_read().contains(pubkey) {
+        if GLOBALS.failed_avatars.read().contains(pubkey) {
             return None; // cannot recover.
         }
 
@@ -396,7 +396,7 @@ impl People {
         // Fail permanently if they don't have a picture url
         if person.picture().is_none() {
             // this cannot recover without new metadata
-            GLOBALS.failed_avatars.blocking_write().insert(*pubkey);
+            GLOBALS.failed_avatars.write().insert(*pubkey);
 
             return None;
         }
@@ -407,7 +407,7 @@ impl People {
             Ok(url) => url,
             Err(_) => {
                 // this cannot recover without new metadata
-                GLOBALS.failed_avatars.blocking_write().insert(*pubkey);
+                GLOBALS.failed_avatars.write().insert(*pubkey);
 
                 return None;
             }
@@ -442,7 +442,7 @@ impl People {
                         }
                         Err(_) => {
                             // this cannot recover without new metadata
-                            GLOBALS.failed_avatars.write().await.insert(apubkey);
+                            GLOBALS.failed_avatars.write().insert(apubkey);
                         }
                     }
                 });
@@ -452,7 +452,7 @@ impl People {
             Err(e) => {
                 tracing::error!("{}", e);
                 // this cannot recover without new metadata
-                GLOBALS.failed_avatars.blocking_write().insert(*pubkey);
+                GLOBALS.failed_avatars.write().insert(*pubkey);
                 None
             }
         }
@@ -832,7 +832,7 @@ impl People {
         Ok(retval)
     }
 
-    pub(crate) async fn update_nip05_last_checked(&self, pubkey: PublicKey) -> Result<(), Error> {
+    pub(crate) fn update_nip05_last_checked(&self, pubkey: PublicKey) -> Result<(), Error> {
         let now = Unixtime::now().0;
 
         PersonTable::modify(
@@ -844,7 +844,7 @@ impl People {
         Ok(())
     }
 
-    pub(crate) async fn upsert_nip05_validity(
+    pub(crate) fn upsert_nip05_validity(
         &self,
         pubkey: &PublicKey,
         nip05: Option<String>,

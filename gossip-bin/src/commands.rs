@@ -585,9 +585,7 @@ pub fn delete_spam_by_content(
 
     let job = tokio::task::spawn(async move {
         // Process this event locally
-        if let Err(e) =
-            gossip_lib::process::process_new_event(&event, None, None, false, false).await
-        {
+        if let Err(e) = gossip_lib::process::process_new_event(&event, None, None, false, false) {
             println!("ERROR: {}", e);
         } else {
             // Post the event to all the relays
@@ -664,9 +662,7 @@ pub fn import_event(cmd: Command, mut args: env::Args, runtime: &Runtime) -> Res
     login()?;
 
     let job = tokio::task::spawn(async move {
-        if let Err(e) =
-            gossip_lib::process::process_new_event(&event, None, None, false, true).await
-        {
+        if let Err(e) = gossip_lib::process::process_new_event(&event, None, None, false, true) {
             println!("ERROR: {}", e);
         }
     });
@@ -933,9 +929,7 @@ pub fn reprocess_recent(_cmd: Command, runtime: &Runtime) -> Result<(), Error> {
 
         let mut count = 0;
         for event in events.iter() {
-            if let Err(e) =
-                gossip_lib::process::process_new_event(event, None, None, false, true).await
-            {
+            if let Err(e) = gossip_lib::process::process_new_event(event, None, None, false, true) {
                 println!("ERROR: {}", e);
             }
             count += 1;

@@ -251,7 +251,7 @@ impl Pending {
             };
             let event_dm_relays = {
                 let mut relays: Vec<RelayUrl> = Vec::new();
-                if ! dm_relay_lists.is_empty() {
+                if !dm_relay_lists.is_empty() {
                     for tag in dm_relay_lists[0].tags.iter() {
                         if tag.tagname() == "relay" {
                             if let Ok(relay_url) = RelayUrl::try_from_str(tag.value()) {

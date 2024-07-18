@@ -1803,7 +1803,7 @@ impl GossipUi {
 
     pub fn try_get_avatar(&mut self, ctx: &Context, pubkey: &PublicKey) -> Option<TextureHandle> {
         // Do not keep retrying if failed
-        if GLOBALS.failed_avatars.blocking_read().contains(pubkey) {
+        if GLOBALS.failed_avatars.read().contains(pubkey) {
             return None;
         }
 

@@ -83,7 +83,7 @@ pub struct Globals {
     /// Failed Avatars
     /// If in this map, the avatar failed to load or process and is unrecoverable
     /// (but we will take them out and try again if new metadata flows in)
-    pub failed_avatars: RwLock<HashSet<PublicKey>>,
+    pub failed_avatars: PRwLock<HashSet<PublicKey>>,
 
     pub pixels_per_point_times_100: AtomicU32,
 
@@ -204,7 +204,7 @@ lazy_static! {
             feed: Feed::new(),
             fetcher: Fetcher::new(),
             seeker: Seeker::new(),
-            failed_avatars: RwLock::new(HashSet::new()),
+            failed_avatars: PRwLock::new(HashSet::new()),
             pixels_per_point_times_100: AtomicU32::new(139), // 100 dpi, 1/72th inch => 1.38888
             status_queue: PRwLock::new(StatusQueue::new(
                 "Welcome to Gossip. Status messages will appear here. Click them to dismiss them.".to_owned()
