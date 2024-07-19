@@ -29,6 +29,7 @@ use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc;
 use std::time::Duration;
+use tokio::signal::unix::{signal, SignalKind};
 use tokio::sync::broadcast::Sender;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::watch::Receiver as WatchReceiver;
@@ -185,6 +186,10 @@ impl Overlord {
             }
         }
 
+        let mut interrupt_signal = signal(SignalKind::interrupt())?;
+        let mut quit_signal = signal(SignalKind::quit())?;
+        let mut terminate_signal = signal(SignalKind::terminate())?;
+
         // Start background tasks
         crate::tasks::start_background_tasks();
 
@@ -221,7 +226,23 @@ impl Overlord {
                 },
                 task_nextjoined = self.minions.join_next_with_id(), if !self.minions.is_empty() => {
                     self.handle_task_nextjoined(task_nextjoined).await;
-                }
+                },
+                v = interrupt_signal.recv() => if v.is_some() {
+                    tracing::info!("SIGINT");
+                    let _ = GLOBALS.write_runstate.send(RunState::ShuttingDown);
+                    break;
+                },
+                v = quit_signal.recv() => if v.is_some() {
+                    tracing::info!("SIGQUIT");
+                    let _ = GLOBALS.write_runstate.send(RunState::ShuttingDown);
+                    break;
+                },
+                v = terminate_signal.recv() => if v.is_some() {
+                    tracing::info!("SIGTERM");
+                    let _ = GLOBALS.write_runstate.send(RunState::ShuttingDown);
+                    break;
+                },
+
             }
         }
 
