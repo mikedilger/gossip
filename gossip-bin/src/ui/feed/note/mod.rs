@@ -1,6 +1,7 @@
 mod content;
 
 use std::cell::RefCell;
+use std::ops::Add;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -12,6 +13,7 @@ use crate::ui::widgets::{
 };
 use crate::ui::{GossipUi, Page};
 use crate::{AVATAR_SIZE_F32, AVATAR_SIZE_REPOST_F32};
+
 use eframe::egui::{self, vec2, Align2, Margin, Response};
 use egui::{
     Align, Context, Frame, Label, Layout, RichText, Sense, Separator, Stroke, TextStyle, Ui,
@@ -910,12 +912,67 @@ pub fn render_note_inner(
                                         true => "♥",
                                         false => "♡",
                                     };
-                                    if widgets::clickable_label(
+                                    let like_count = note
+                                        .reactions
+                                        .iter()
+                                        .find_map(
+                                            |(ch, count)| {
+                                                if *ch == '+' {
+                                                    Some(*count)
+                                                } else {
+                                                    None
+                                                }
+                                            },
+                                        )
+                                        .unwrap_or_default();
+                                    let mut response = widgets::clickable_label(
                                         ui,
                                         can_sign,
                                         RichText::new(default_reaction_icon).size(20.0),
-                                    )
-                                    .clicked()
+                                    );
+                                    response |= widgets::clickable_label(
+                                        ui,
+                                        can_sign,
+                                        format!("{}", like_count),
+                                    );
+                                    let hover_ui = |ui: &mut Ui| {
+                                        ui.horizontal_wrapped(|ui| {
+                                            let mut col = 0;
+                                            for (ch, count) in note.reactions.iter() {
+                                                if *ch != '+' {
+                                                    egui::Frame::none()
+                                                        .inner_margin(egui::Margin::from(
+                                                            ui.spacing().item_spacing,
+                                                        ))
+                                                        .show(ui, |ui| {
+                                                            ui.add_enabled(
+                                                                can_sign,
+                                                                egui::Label::new(
+                                                                    RichText::new(format!(
+                                                                        "{} {}",
+                                                                        ch, count
+                                                                    ))
+                                                                    .weak(),
+                                                                ),
+                                                            )
+                                                            .on_hover_cursor(
+                                                                egui::CursorIcon::Default,
+                                                            );
+                                                        });
+                                                }
+
+                                                col = col.add(1);
+                                                if col > 5 {
+                                                    ui.end_row();
+                                                    col = 0;
+                                                }
+                                            }
+                                        });
+                                    };
+                                    if response
+                                        .on_hover_ui(hover_ui)
+                                        .on_disabled_hover_ui(hover_ui)
+                                        .clicked()
                                     {
                                         if !GLOBALS.identity.is_unlocked() {
                                             GLOBALS
@@ -928,28 +985,6 @@ pub fn render_note_inner(
                                                     note.event.id,
                                                     note.event.pubkey,
                                                 ));
-                                        }
-                                    }
-                                    for (ch, count) in note.reactions.iter() {
-                                        if *ch == '+' {
-                                            ui.add_enabled(
-                                                can_sign,
-                                                egui::Label::new(format!("{}", count)),
-                                            )
-                                            .on_hover_cursor(egui::CursorIcon::Default);
-                                        }
-                                    }
-                                    ui.add_space(12.0);
-                                    for (ch, count) in note.reactions.iter() {
-                                        if *ch != '+' {
-                                            ui.add_enabled(
-                                                can_sign,
-                                                egui::Label::new(
-                                                    RichText::new(format!("{} {}", ch, count))
-                                                        .weak(),
-                                                ),
-                                            )
-                                            .on_hover_cursor(egui::CursorIcon::Default);
                                         }
                                     }
                                 }
