@@ -1,0 +1,56 @@
+
+Update crates from the bottom up:
+
+gossip
+├── eframe
+│   ├── egui
+│   ├── egui-winit
+│   └── egui_glow
+├── egui-winit
+├── egui_extras
+├── gossip-relay-picker
+│   └── nostr-types
+│       └-- speedy
+├── nostr-types
+└── qrcode
+
+Try to push our dependency changes upstream:
+  <https://github.com/mikedilger/qrcode-rust>  (unlikely, stale for >3 years)
+  <https://github.com/mikedilger/egui>
+
+
+nostr-types
+   -- cargo update, and check for new versions, maybe update dependencies
+   -- cargo test
+   -- cargo clippy; cargo fmt
+   -- FORK 0.N:
+      -- all deps switch to released versions
+      -- version 0.N
+      -- package/publish
+      -- version to 0.N.1-unstable
+   -- master:
+      -- version to 0.N+1.0-unstable
+
+gossip-relay-picker
+   -- cargo update, and check for new versions, maybe update dependencies
+   -- cargo test
+   -- cargo clippy; cargo fmt
+   -- FORK 0.N:
+      -- all deps switch to released versions
+      -- version 0.N
+      -- package/publish
+      -- version to 0.N.1-unstable
+   -- master:
+      -- version to 0.N+1.0-unstable
+
+gossip
+   -- cargo update, and check for new versions, maybe update dependencies
+   -- cargo test
+   -- cargo clippy; cargo fmt
+   -- FORK 0.N:
+      -- all deps switch to released versions
+      -- version 0.N
+      -- package/publish (see below)
+      -- version 0.N.1-unstable
+   -- master
+      -- version 0.N+1.0-unstable
