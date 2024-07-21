@@ -7,19 +7,17 @@ use crate::misc::{Freshness, Private};
 use crate::people::{People, PersonList, PersonListMetadata};
 use crate::relationship::{RelationshipByAddr, RelationshipById};
 use crate::storage::{PersonTable, Table};
-use async_recursion::async_recursion;
 use heed::RwTxn;
 use nostr_types::{
     Event, EventAddr, EventKind, EventReference, Filter, Id, Metadata, NostrBech32, PublicKey,
-    RelayList, RelayUrl, RelayUsage, SimpleRelayList, Tag, Unixtime,
+    RelayList, RelayListUsage, RelayUrl, SimpleRelayList, Tag, Unixtime,
 };
 use std::sync::atomic::Ordering;
 
 /// This is mainly used internally to gossip-lib, but you can use it to stuff events
 /// into gossip from other sources. This processes a new event, saving the results into
 /// the database and also populating the GLOBALS maps.
-#[async_recursion]
-pub async fn process_new_event(
+pub fn process_new_event(
     event: &Event,
     seen_on: Option<RelayUrl>,
     subscription: Option<String>,
@@ -254,8 +252,7 @@ pub async fn process_new_event(
 
         GLOBALS
             .people
-            .update_metadata(&event.pubkey, metadata, event.created_at)
-            .await?;
+            .update_metadata(&event.pubkey, metadata, event.created_at)?;
     }
 
     if event.kind == EventKind::ContactList {
@@ -292,7 +289,7 @@ pub async fn process_new_event(
             .to_overlord
             .send(ToOverlordMessage::RefreshScoresAndPickRelays);
     } else if event.kind == EventKind::DmRelayList {
-        GLOBALS.storage.process_dm_relay_list(event)?;
+        GLOBALS.storage.process_dm_relay_list(event, None)?;
     } else if event.kind == EventKind::Repost {
         // If it has a json encoded inner event
         if let Ok(inner_event) = serde_json::from_str::<Event>(&event.content) {
@@ -310,7 +307,7 @@ pub async fn process_new_event(
             }
 
             // process the inner event
-            process_new_event(&inner_event, None, None, verify, false).await?;
+            process_new_event(&inner_event, None, None, verify, false)?;
 
             // Seek additional info for this event by id and author
             GLOBALS
@@ -462,11 +459,11 @@ fn process_somebody_elses_contact_list(event: &Event, force: bool) -> Result<(),
         for (url, simple_relay_usage) in srl.0.iter() {
             if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(url) {
                 if simple_relay_usage.read && simple_relay_usage.write {
-                    relay_list.0.insert(relay_url, RelayUsage::Both);
+                    relay_list.0.insert(relay_url, RelayListUsage::Both);
                 } else if simple_relay_usage.read {
-                    relay_list.0.insert(relay_url, RelayUsage::Inbox);
+                    relay_list.0.insert(relay_url, RelayListUsage::Inbox);
                 } else if simple_relay_usage.write {
-                    relay_list.0.insert(relay_url, RelayUsage::Outbox);
+                    relay_list.0.insert(relay_url, RelayListUsage::Outbox);
                 }
             }
         }

@@ -19,8 +19,7 @@ pub async fn validate_nip05(person: Person) -> Result<(), Error> {
     {
         GLOBALS
             .people
-            .upsert_nip05_validity(&person.pubkey, None, false, now.0 as u64)
-            .await?;
+            .upsert_nip05_validity(&person.pubkey, None, false, now.0 as u64)?;
         return Ok(());
     }
 
@@ -31,10 +30,12 @@ pub async fn validate_nip05(person: Person) -> Result<(), Error> {
     let (user, domain) = match parse_nip05(&nip05) {
         Ok(pair) => pair,
         Err(_) => {
-            GLOBALS
-                .people
-                .upsert_nip05_validity(&person.pubkey, Some(nip05), false, now.0 as u64)
-                .await?;
+            GLOBALS.people.upsert_nip05_validity(
+                &person.pubkey,
+                Some(nip05),
+                false,
+                now.0 as u64,
+            )?;
             return Ok(());
         }
     };
@@ -55,31 +56,32 @@ pub async fn validate_nip05(person: Person) -> Result<(), Error> {
             if let Ok(pubkey) = PublicKey::try_from_hex_string(pk, true) {
                 if pubkey == person.pubkey {
                     // Validated
-                    GLOBALS
-                        .people
-                        .upsert_nip05_validity(
-                            &person.pubkey,
-                            Some(nip05.clone()),
-                            true,
-                            now.0 as u64,
-                        )
-                        .await?;
+                    GLOBALS.people.upsert_nip05_validity(
+                        &person.pubkey,
+                        Some(nip05.clone()),
+                        true,
+                        now.0 as u64,
+                    )?;
                     valid = true;
                 }
             } else {
                 // Failed
-                GLOBALS
-                    .people
-                    .upsert_nip05_validity(&person.pubkey, Some(nip05.clone()), false, now.0 as u64)
-                    .await?;
+                GLOBALS.people.upsert_nip05_validity(
+                    &person.pubkey,
+                    Some(nip05.clone()),
+                    false,
+                    now.0 as u64,
+                )?;
             }
         }
         None => {
             // Failed
-            GLOBALS
-                .people
-                .upsert_nip05_validity(&person.pubkey, Some(nip05.clone()), false, now.0 as u64)
-                .await?;
+            GLOBALS.people.upsert_nip05_validity(
+                &person.pubkey,
+                Some(nip05.clone()),
+                false,
+                now.0 as u64,
+            )?;
         }
     }
 
@@ -87,7 +89,7 @@ pub async fn validate_nip05(person: Person) -> Result<(), Error> {
     GLOBALS.ui_people_to_invalidate.write().push(person.pubkey);
 
     if valid {
-        update_relays(&nip05, nip05file, &person.pubkey).await?;
+        update_relays(&nip05, nip05file, &person.pubkey)?;
     }
 
     Ok(())
@@ -111,12 +113,14 @@ pub async fn get_and_follow_nip05(
     };
 
     // Save person
-    GLOBALS
-        .people
-        .upsert_nip05_validity(&pubkey, Some(nip05.clone()), true, Unixtime::now().0 as u64)
-        .await?;
+    GLOBALS.people.upsert_nip05_validity(
+        &pubkey,
+        Some(nip05.clone()),
+        true,
+        Unixtime::now().0 as u64,
+    )?;
 
-    update_relays(&nip05, nip05file, &pubkey).await?;
+    update_relays(&nip05, nip05file, &pubkey)?;
 
     // Follow
     GLOBALS.people.follow(&pubkey, true, list, private)?;
@@ -126,7 +130,7 @@ pub async fn get_and_follow_nip05(
     Ok(())
 }
 
-async fn update_relays(nip05: &str, nip05file: Nip05, pubkey: &PublicKey) -> Result<(), Error> {
+fn update_relays(nip05: &str, nip05file: Nip05, pubkey: &PublicKey) -> Result<(), Error> {
     // Set their relays
     let relays = match nip05file.relays.get(&(*pubkey).into()) {
         Some(relays) => relays,

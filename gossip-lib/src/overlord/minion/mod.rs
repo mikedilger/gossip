@@ -19,8 +19,8 @@ use http::uri::{Parts, Scheme};
 use http::Uri;
 use mime::Mime;
 use nostr_types::{
-    ClientMessage, EventAddr, EventKind, Filter, Id, IdHex, PreEvent, PublicKey, PublicKeyHex,
-    RelayInformationDocument, RelayUrl, Tag, Unixtime,
+    ClientMessage, EventAddr, EventKind, EventReference, Filter, Id, IdHex, PreEvent, PublicKey,
+    PublicKeyHex, RelayInformationDocument, RelayUrl, Tag, Unixtime,
 };
 use reqwest::Response;
 use std::borrow::Cow;
@@ -958,12 +958,19 @@ impl Minion {
         Ok(())
     }
 
-    async fn subscribe_root_replies(&mut self, job_id: u64, main: IdHex) -> Result<(), Error> {
+    async fn subscribe_root_replies(
+        &mut self,
+        job_id: u64,
+        main: EventReference,
+    ) -> Result<(), Error> {
         // NOTE we do not unsubscribe to the general feed
 
         // Replies
         let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
-        let filters = filter_fns::replies(main, spamsafe);
+        let filters = match main {
+            EventReference::Id { id, .. } => filter_fns::replies(id.into(), spamsafe),
+            EventReference::Addr(ref eaddr) => filter_fns::replies_to_eaddr(eaddr, spamsafe),
+        };
         self.subscribe(filters, "root_replies", job_id).await?;
 
         Ok(())

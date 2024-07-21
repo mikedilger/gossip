@@ -1,163 +1,149 @@
 # RELEASE
 
-0. DON'T update dependencies ('cargo update'). Do that kind of stuff right after releasing. Because that stuff presents risk.
+## Phase 1 - Test and stabilize the codebase
 
-1. Stabilize the code. Make all these happy:
+### Don't update dependencies
 
-   ````bash
-      cargo clippy
-      cargo fmt
-      cargo test
-   ````
+Don't do a `cargo update`. Too risky right before a release.
+Do that kind of stuff right *after* releasing.
 
-1. Test it on Windows and MacOS. Then repeat at step 1 if fixes are needed.
+### Test it on Windows and MacOS.
 
-1. Update the documentation including:
+Yes, actually do this. We often find problems.
 
-    - README.md
-    - LICENSE.txt may need a copyright range update
-    - Help page in the UI
+### Test it with a new user on Linux, Windows and MacOS.
 
-1. Update packaging files:
+Many problems come up for new users that we normally never see.
 
-    - packaging/debian/Dockerfile may need a new rust version
-    - packaging/windows/gossip.VERSION.wxs needs creating and a UUID update
+### fmt, clippy, test
 
-1. Edit Cargo.toml and change the version (remove the -unstable).
-    Compile so you get a new Cargo.lock
+```bash
+cargo clippy
+cargo test
+cargo fmt
+```
+### Update documentation
 
-    - Commit these 2 new Cargo files as a commit named after the version.
+Update the following
 
-1. Tag this as vVERSION, and push the tag
+- README.md
+- LICENSE.txt may need a copyright range update
+- Help page in the UI
 
-1. Tag again with -unstable
+### Pre-update the packaging files
 
-    - build to get Cargo.lock,
-    - commit both as next commit,
-    - push,
-    - checkout the release commit again for the rest.
+- packaging/debian/Dockerfile may need a new rust version
+- packaging/windows/gossip.VERSION.wxs will need 3 edits
+    - Update the Package.Version near the top
+    - Update the SummaryInformation.Description near the bottom
+    - Update the Package.ProductCode GUID near the top to a new random one
 
-1. Build the debian:
+## Phase 2 - Release
 
-   ````bash
-      cd debian
-      ./deb.sh
-   ````
+- Create a new release branch (if not a point release)
+- Update */Cargo.toml to change the version number
+- COMPILE! at least once to get a new Cargo.lock
+- Commit the three changed Cargo files with the commit description as the release number, e.g. "0.11.1"
+- Tag the relase with a 'v' prefix, e.g. 'v0.11.1'
+- Push the branch and the tag to github:
 
-1. Build the appimage:
+```bash
+git push github
+git push --tags github
+```
 
-   ````bash
-      cd appimage
-      ./build-appimage.sh
-   ````
+## Phase 3 - Build the packages
 
-1. Build the flatpak:
+### Debian
 
-    - Follow the [Flatpak README](flatpak/README.md)
+```bash
+cd debian
+./deb.sh
+```
 
-1. Build the windows:
+### AppImage
 
-    - Follow the [Windows README](windows/README.md)
+```bash
+cd appimage
+./build-appimage.sh
+```
 
-1. Build the macos:
+### Flatpak
 
-   ````bash
-      cd macos
-      ./build_macos.sh
-      ./build_macos_intel.sh
-   ````
+- Follow the [Flatpak README](flatpak/README.md)
 
-1. Bundle the files, create SHA256 hashes
+### Windows
 
-  files in files/
+- Follow the [Windows README](windows/README.md)
 
-  create changelog.txt like this:
+### MacOS
 
-    git log --oneline v0.8.2..v0.9.0 > changelog.txt
+```bash
+cd macos
+./build_macos.sh
+./build_macos_intel.sh
+```
 
-1. Upload release to github
+## Phase 4 - Describe the release
 
-1. Update the AUR packages
+Review the changes from last time, and create a summary description in a README.txt file
+and put that into a packaging directory.
 
-1. Announce release on nostr under gossip account
+## Phase 5 - Bundle
 
------------------
+### Copy binaries into the release directory:
 
-This is a draft of the steps taken to make a release.
-I intend to flesh this out as I actually make releases.
+You should have six binary artifacts from the build phase, like this:
 
-Update crates from the bottom up:
+- gossip-$VERSION-1_amd64.deb
+- gossip-$VERSION-Darwin-arm64.dmg
+- gossip-$VERSION-Darwin-x86_64.dmg
+- gossip.$VERSION.flatpak
+- gossip.$VERSION.msi
+- gossip-$VERSION-x86_64.AppImage.tar.gz
 
-gossip
-├── eframe
-│   ├── egui
-│   ├── egui-winit
-│   └── egui_glow
-├── egui-winit
-├── egui_extras
-├── gossip-relay-picker
-│   └── nostr-types
-│       └-- speedy
-├── nostr-types
-└── qrcode
+Copy these into the release directory.
 
-Try to push our dependency changes upstream:
-  <https://github.com/mikedilger/qrcode-rust>  (unlikely, stale for >3 years)
-  <https://github.com/mikedilger/egui>
+### Copy these into the release directory:
 
-nostr-types
-   -- cargo update, and check for new versions, maybe update dependencies
-   -- cargo test
-   -- cargo clippy; cargo fmt
-   -- FORK 0.N:
-      -- all deps switch to released versions
-      -- version 0.N
-      -- package/publish
-      -- version to 0.N.1-unstable
-   -- master:
-      -- version to 0.N+1.0-unstable
+- gossip/filter.rhai.example
+- gossip/LICENSE.txt
+- gossip/packaging/
+- gossip/docs/README.flatpak.txt
+- gossip/docs/README.macos.txt
+- gossip/docs/README.upgrading.txt
 
-gossip-relay-picker
-   -- cargo update, and check for new versions, maybe update dependencies
-   -- cargo test
-   -- cargo clippy; cargo fmt
-   -- FORK 0.N:
-      -- all deps switch to released versions
-      -- version 0.N
-      -- package/publish
-      -- version to 0.N.1-unstable
-   -- master:
-      -- version to 0.N+1.0-unstable
+### Create a changelog and put into the release directory
 
-gossip
-   -- cargo update, and check for new versions, maybe update dependencies
-   -- cargo test
-   -- cargo clippy; cargo fmt
-   -- FORK 0.N:
-      -- all deps switch to released versions
-      -- version 0.N
-      -- package/publish (see below)
-      -- version 0.N.1-unstable
-   -- master
-      -- version 0.N+1.0-unstable
+Substituting for $PREV, $CURRENT and $PACKAGINGDIR:
 
------------------
+```bash
+    git log --oneline v$PREV..v$CURRENT > $PACKAGINGDIR/changelog-$CURRENT.txt
+```
 
-Package & Publish of gossip:
+### Create a file with the SHA hashes
 
-Package for windows:
+```bash
+SHA256sum * > ./SHA256sums.txt
+```
 
-* main version, as .msi
-* main version with lang-cjk, as .msi
+## Phase 6 - Publish
 
-Package for debian:
+On GitHub, make a new release.
 
-* main version, as .msi
-* main version with lang-cjk, as .msi
+Use the git tag of the release
 
-Create github release (it will create source tar files)
+Drag all the files into the release
 
-* Post the windows .msi files
-* Post the debian .deb files
+In the release description, copy the contents of README.txt
 
-Update aur.archlinux.org PKGBUILD
+Publish as the latest release
+
+## Phase 7 - Update Archlinux User Repository
+
+- Update the AUR packages
+
+## Phase 8 - Announce on NOSTR
+
+- Announce release on nostr under gossip account
+- Repost as Mike Dilger

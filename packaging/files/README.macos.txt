@@ -1,1 +1,0 @@
-../macos/README.macos.txt

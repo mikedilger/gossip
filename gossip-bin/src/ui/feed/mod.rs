@@ -2,6 +2,7 @@ use super::{widgets, GossipUi, Page};
 use eframe::egui::{self, Align, Rect};
 use egui::{Context, RichText, Ui, Vec2};
 use gossip_lib::comms::ToOverlordMessage;
+use gossip_lib::DmChannel;
 use gossip_lib::FeedKind;
 use gossip_lib::GLOBALS;
 use nostr_types::Id;
@@ -257,22 +258,63 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                 });
             }
 
-            ui.add_space(10.0);
-            ui.horizontal(|ui| {
-                if let Some(key) = channel.keys().first() {
-                    if ui.link(RichText::new(channel.name()).heading()).clicked() {
-                        app.set_page(ctx, Page::Person(key.to_owned()));
-                    }
-                } else {
-                    ui.heading(channel.name());
-                }
-                recompute_btn(ui);
-            });
-            ui.add_space(10.0);
-
             let feed = GLOBALS.feed.get_feed_events();
-            let id = channel.unique_id();
-            render_a_feed(app, ctx, ui, feed, false, &id, load_more);
+
+            ui.add_space(10.0);
+            ui.allocate_ui_with_layout(
+                Vec2::new(ui.available_width(), ui.spacing().interact_size.y),
+                egui::Layout::left_to_right(egui::Align::Center),
+                |ui| {
+                    add_left_space(ui);
+                    if let Some(key) = channel.keys().first() {
+                        let avatar = if let Some(avatar) = app.try_get_avatar(ctx, key) {
+                            avatar
+                        } else {
+                            app.placeholder_avatar.clone()
+                        };
+
+                        widgets::paint_avatar_only(
+                            ui,
+                            &avatar,
+                            widgets::AvatarSize::Mini.get_size(),
+                        );
+
+                        if ui.link(RichText::new(channel.name()).heading()).clicked() {
+                            app.set_page(ctx, Page::Person(key.to_owned()));
+                        }
+                    } else {
+                        ui.heading(channel.name());
+                    }
+                    recompute_btn(ui);
+
+                    if let Some(key) = channel.keys().first() {
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            ui.add_space(8.0);
+
+                            if widgets::Button::bordered(&app.theme, "Profile")
+                                .small(true)
+                                .show(ui)
+                                .clicked()
+                            {
+                                app.set_page(ctx, Page::Person(key.to_owned()));
+                            }
+
+                            ui.add_space(10.0);
+
+                            if widgets::Button::bordered(&app.theme, "View notes")
+                                .small(true)
+                                .show(ui)
+                                .clicked()
+                            {
+                                app.set_page(ctx, Page::Feed(FeedKind::Person(key.to_owned())));
+                            }
+                        });
+                    }
+                },
+            );
+
+            ui.add_space(6.0);
+            render_dm_feed(app, ui, feed, channel);
         }
     }
 
@@ -366,6 +408,35 @@ fn render_a_feed(
                         ui.add_space(50.0);
                     }
                 });
+        });
+}
+
+fn render_dm_feed(app: &mut GossipUi, ui: &mut Ui, feed: Vec<Id>, channel: DmChannel) {
+    let scroll_area_id = channel.name();
+    let feed_newest_at_bottom = GLOBALS.storage.read_setting_feed_newest_at_bottom();
+    let iterator: Box<dyn Iterator<Item = &Id>> = if feed_newest_at_bottom {
+        Box::new(feed.iter().rev())
+    } else {
+        Box::new(feed.iter())
+    };
+
+    app.vert_scroll_area()
+        .auto_shrink(false)
+        .stick_to_bottom(feed_newest_at_bottom)
+        .id_source(scroll_area_id)
+        .show(ui, |ui| {
+            for id in iterator {
+                note::render_dm_note(
+                    app,
+                    ui,
+                    FeedNoteParams {
+                        id: *id,
+                        indent: 0,
+                        as_reply_to: false,
+                        threaded: false,
+                    },
+                );
+            }
         });
 }
 

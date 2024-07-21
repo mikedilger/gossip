@@ -63,7 +63,7 @@ use heed::types::{Bytes, Unit};
 use heed::{Database, Env, EnvFlags, EnvOpenOptions, RoTxn, RwTxn};
 use nostr_types::{
     EncryptedPrivateKey, Event, EventAddr, EventKind, EventReference, Filter, Id, MilliSatoshi,
-    PublicKey, PublicKeyHex, RelayList, RelayUrl, RelayUsage, Unixtime,
+    PublicKey, PublicKeyHex, RelayList, RelayListUsage, RelayUrl, Unixtime,
 };
 use paste::paste;
 use speedy::{Readable, Writable};
@@ -90,7 +90,9 @@ impl Storage {
     pub(crate) fn new() -> Result<Storage, Error> {
         let mut builder = EnvOpenOptions::new();
         unsafe {
-            builder.flags(EnvFlags::NO_TLS);
+            builder.flags(EnvFlags::NO_TLS | EnvFlags::NO_META_SYNC);
+            // See flats at http://www.lmdb.tech/doc/group__mdb__env.html
+            // See flags at http://www.lmdb.tech/doc/group__mdb.html  (more detail)
         }
         // builder.max_readers(126); // this is the default
         builder.max_dbs(32);
@@ -1019,11 +1021,11 @@ impl Storage {
 
         for relay in self.filter_relays(|_| true)? {
             if relay.has_usage_bits(Relay::INBOX | Relay::OUTBOX) {
-                relay_list.0.insert(relay.url, RelayUsage::Both);
+                relay_list.0.insert(relay.url, RelayListUsage::Both);
             } else if relay.has_usage_bits(Relay::OUTBOX) {
-                relay_list.0.insert(relay.url, RelayUsage::Outbox);
+                relay_list.0.insert(relay.url, RelayListUsage::Outbox);
             } else if relay.has_usage_bits(Relay::INBOX) {
-                relay_list.0.insert(relay.url, RelayUsage::Inbox);
+                relay_list.0.insert(relay.url, RelayListUsage::Inbox);
             }
         }
 
@@ -1031,73 +1033,88 @@ impl Storage {
     }
 
     /// Process a DM relay list event
-    pub fn process_dm_relay_list(&self, event: &Event) -> Result<(), Error> {
-        let mut txn = self.env.write_txn()?;
-
-        // Determine if this is our own DM relay list
-        let mut ours = false;
-        if let Some(pubkey) = self.read_setting_public_key() {
-            if event.pubkey == pubkey {
-                tracing::info!("Processing our own dm relay list");
-                ours = true;
-            }
-        }
-
-        // Update the person.dm_relay_list_created_at field
-        {
-            let mut person = PersonTable::read_or_create_record(event.pubkey, Some(&mut txn))?;
-
-            // Bail out if this list wasn't newer than the last one we processed
-            if let Some(prior_created_at) = person.dm_relay_list_created_at {
-                if prior_created_at >= *event.created_at {
-                    txn.commit()?; // because we may have created the person record.
-                    return Ok(());
+    pub fn process_dm_relay_list<'a>(
+        &'a self,
+        event: &Event,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+            // Determine if this is our own DM relay list
+            let mut ours = false;
+            if let Some(pubkey) = self.read_setting_public_key() {
+                if event.pubkey == pubkey {
+                    tracing::info!("Processing our own dm relay list");
+                    ours = true;
                 }
             }
 
-            person.dm_relay_list_created_at = Some(*event.created_at);
+            // Update the person.dm_relay_list_created_at field
+            {
+                let mut person = PersonTable::read_or_create_record(event.pubkey, Some(txn))?;
 
-            PersonTable::write_record(&mut person, Some(&mut txn))?;
-        }
+                // Bail out if this list wasn't newer than the last one we processed
+                if let Some(prior_created_at) = person.dm_relay_list_created_at {
+                    if prior_created_at >= *event.created_at {
+                        return Ok(());
+                    }
+                }
 
-        // Clear all current 'dm' flags in all matching person_relays
-        {
-            self.modify_all_persons_relays(event.pubkey, |pr| pr.dm = false, Some(&mut txn))?;
-        }
+                person.dm_relay_list_created_at = Some(*event.created_at);
 
-        // Extract relays from event
-        let mut relays: Vec<RelayUrl> = Vec::new();
-        for tag in event.tags.iter() {
-            if tag.tagname() == "relay" {
-                if let Ok(relay_url) = RelayUrl::try_from_str(tag.value()) {
-                    // Don't use banned relay URLs
-                    if !Self::url_is_banned(&relay_url) {
-                        relays.push(relay_url);
+                PersonTable::write_record(&mut person, Some(txn))?;
+            }
+
+            // Clear all current 'dm' flags in all matching person_relays
+            {
+                self.modify_all_persons_relays(event.pubkey, |pr| pr.dm = false, Some(txn))?;
+            }
+
+            // Extract relays from event
+            let mut relays: Vec<RelayUrl> = Vec::new();
+            for tag in event.tags.iter() {
+                if tag.tagname() == "relay" {
+                    if let Ok(relay_url) = RelayUrl::try_from_str(tag.value()) {
+                        // Don't use banned relay URLs
+                        if !Self::url_is_banned(&relay_url) {
+                            relays.push(relay_url);
+                        }
                     }
                 }
             }
-        }
 
-        // Set 'dm' flags in person_relay record
-        for relay_url in relays.iter() {
-            self.modify_person_relay(event.pubkey, relay_url, |pr| pr.dm = true, Some(&mut txn))?;
-        }
-
-        if ours {
-            // Clear all relay DM flags
-            self.modify_all_relays(|relay| relay.clear_usage_bits(Relay::DM), Some(&mut txn))?;
-
+            // Set 'dm' flags in person_relay record
             for relay_url in relays.iter() {
-                // Set DM flag in relay
-                self.modify_relay(
-                    relay_url,
-                    |relay| relay.set_usage_bits(Relay::DM),
-                    Some(&mut txn),
-                )?;
+                self.modify_person_relay(event.pubkey, relay_url, |pr| pr.dm = true, Some(txn))?;
             }
-        }
 
-        txn.commit()?;
+            if ours {
+                // Clear all relay DM flags
+                self.modify_all_relays(|relay| relay.clear_usage_bits(Relay::DM), Some(txn))?;
+
+                for relay_url in relays.iter() {
+                    // Set DM flag in relay
+                    self.modify_relay(
+                        relay_url,
+                        |relay| relay.set_usage_bits(Relay::DM),
+                        Some(txn),
+                    )?;
+                }
+            }
+
+            Ok(())
+        };
+
+        match rw_txn {
+            Some(txn) => {
+                f(txn)?;
+            }
+            None => {
+                let mut txn = self.env.write_txn()?;
+                f(&mut txn)?;
+                txn.commit()?;
+            }
+        };
+
         Ok(())
     }
 
@@ -1153,9 +1170,9 @@ impl Storage {
                 // Set or create read relays
                 for (relay_url, usage) in relay_list.0.iter() {
                     let bits = match usage {
-                        RelayUsage::Inbox => Relay::INBOX | Relay::READ,
-                        RelayUsage::Outbox => Relay::OUTBOX | Relay::WRITE,
-                        RelayUsage::Both => {
+                        RelayListUsage::Inbox => Relay::INBOX | Relay::READ,
+                        RelayListUsage::Outbox => Relay::OUTBOX | Relay::WRITE,
+                        RelayListUsage::Both => {
                             Relay::INBOX | Relay::OUTBOX | Relay::READ | Relay::WRITE
                         }
                     };
@@ -1214,8 +1231,9 @@ impl Storage {
                     pubkey,
                     relay_url,
                     |pr| {
-                        pr.read = *usage == RelayUsage::Inbox || *usage == RelayUsage::Both;
-                        pr.write = *usage == RelayUsage::Outbox || *usage == RelayUsage::Both;
+                        pr.read = *usage == RelayListUsage::Inbox || *usage == RelayListUsage::Both;
+                        pr.write =
+                            *usage == RelayListUsage::Outbox || *usage == RelayListUsage::Both;
                     },
                     Some(txn),
                 )?;

@@ -28,7 +28,7 @@ impl AvatarSize {
         }
     }
 
-    fn get_size(&self) -> Vec2 {
+    pub fn get_size(&self) -> Vec2 {
         match self {
             AvatarSize::Profile => Vec2 {
                 x: AVATAR_SIZE_F32 * 3.0,
@@ -78,12 +78,7 @@ pub(crate) fn paint_avatar(
         .unwrap_or(false);
     const UNICODE_CIRCLED_17: &str = "\u{2470}";
 
-    let avatar_response = ui.add(
-        Image::new(avatar)
-            .max_size(size)
-            .maintain_aspect_ratio(true)
-            .sense(egui::Sense::click()),
-    );
+    let avatar_response = paint_avatar_only(ui, avatar, avatar_size.get_size());
 
     let status_color = match (followed, on_list, muted) {
         (true, _, false) => ui.visuals().hyperlink_color, // followed
@@ -142,5 +137,16 @@ pub(crate) fn paint_avatar(
             ui.visuals().hyperlink_color,
         );
     }
+    avatar_response
+}
+
+/// Paint avatar without decorations
+pub(crate) fn paint_avatar_only(ui: &mut Ui, avatar: &TextureHandle, size: Vec2) -> Response {
+    let avatar_response = ui.add(
+        Image::new(avatar)
+            .max_size(size)
+            .maintain_aspect_ratio(true)
+            .sense(egui::Sense::click()),
+    );
     avatar_response
 }

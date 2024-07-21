@@ -29,6 +29,7 @@ use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc;
 use std::time::Duration;
+use tokio::signal::unix::{signal, SignalKind};
 use tokio::sync::broadcast::Sender;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::watch::Receiver as WatchReceiver;
@@ -185,6 +186,10 @@ impl Overlord {
             }
         }
 
+        let mut interrupt_signal = signal(SignalKind::interrupt())?;
+        let mut quit_signal = signal(SignalKind::quit())?;
+        let mut terminate_signal = signal(SignalKind::terminate())?;
+
         // Start background tasks
         crate::tasks::start_background_tasks();
 
@@ -221,7 +226,23 @@ impl Overlord {
                 },
                 task_nextjoined = self.minions.join_next_with_id(), if !self.minions.is_empty() => {
                     self.handle_task_nextjoined(task_nextjoined).await;
-                }
+                },
+                v = interrupt_signal.recv() => if v.is_some() {
+                    tracing::info!("SIGINT");
+                    let _ = GLOBALS.write_runstate.send(RunState::ShuttingDown);
+                    break;
+                },
+                v = quit_signal.recv() => if v.is_some() {
+                    tracing::info!("SIGQUIT");
+                    let _ = GLOBALS.write_runstate.send(RunState::ShuttingDown);
+                    break;
+                },
+                v = terminate_signal.recv() => if v.is_some() {
+                    tracing::info!("SIGTERM");
+                    let _ = GLOBALS.write_runstate.send(RunState::ShuttingDown);
+                    break;
+                },
+
             }
         }
 
@@ -1030,7 +1051,7 @@ impl Overlord {
 
     async fn post_bookmarks(&mut self, event: Event) -> Result<(), Error> {
         // Process this event locally (ignore any error)
-        let _ = crate::process::process_new_event(&event, None, None, false, false).await;
+        let _ = crate::process::process_new_event(&event, None, None, false, false);
 
         let config_relays: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
 
@@ -1242,7 +1263,7 @@ impl Overlord {
         };
 
         // Process this event locally
-        crate::process::process_new_event(&event, None, None, false, false).await?;
+        crate::process::process_new_event(&event, None, None, false, false)?;
 
         // Determine which relays to post this to
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
@@ -1320,7 +1341,7 @@ impl Overlord {
         };
 
         // Process this event locally
-        crate::process::process_new_event(&event, None, None, false, false).await?;
+        crate::process::process_new_event(&event, None, None, false, false)?;
 
         // Determine which relays to post this to
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
@@ -1654,7 +1675,7 @@ impl Overlord {
         }
 
         // Process the message for ourself
-        crate::process::process_new_event(&event, None, None, false, false).await?;
+        crate::process::process_new_event(&event, None, None, false, false)?;
 
         Ok(())
     }
@@ -1830,7 +1851,7 @@ impl Overlord {
         // Post them
         for (event, relay_urls) in prepared_events.drain(..) {
             // Process this event locally (ignore any error)
-            let _ = crate::process::process_new_event(&event, None, None, false, false).await;
+            let _ = crate::process::process_new_event(&event, None, None, false, false);
 
             // Engage minions to post
             for url in relay_urls {
@@ -1957,7 +1978,7 @@ impl Overlord {
         let event = GLOBALS.people.generate_person_list_event(list).await?;
 
         // process event locally
-        crate::process::process_new_event(&event, None, None, false, false).await?;
+        crate::process::process_new_event(&event, None, None, false, false)?;
 
         // Push to all of the relays we post to
         let relays: Vec<Relay> = Relay::choose_relays(Relay::WRITE, |_| true)?;
@@ -2160,7 +2181,7 @@ impl Overlord {
         };
 
         // Process this event locally
-        crate::process::process_new_event(&event, None, None, false, false).await?;
+        crate::process::process_new_event(&event, None, None, false, false)?;
 
         // Determine which relays to post this to
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
@@ -2372,21 +2393,19 @@ impl Overlord {
         Ok(())
     }
 
+    /// This function:
+    ///   1. Sets GLOBALS.feed thread_parent to the highest locally connected event
+    ///   2. Engages the Seeker to climb ancestors from that event
+    ///   3. Subscribes to replies
+    ///
+    /// Note that seprately the UI constructs the thread view from local data including
+    /// relationships that are built by process.rs as events flow in.
     async fn set_thread_feed(
         &mut self,
         id: Id,
         referenced_by: Id,
         author: Option<PublicKey>,
     ) -> Result<(), Error> {
-        // We need to:
-        //   1. Find the highest parent and set that in the feed
-        //   2. Find even higher parents at relays
-        //   3. Find replies to the main event at relays
-        //
-        // process.rs will build the relationships as events come in.
-        // The UI will traverse and render the replies if they are local.
-        // The UI will traverse and render the ancestors if they are local.
-
         let eref = EventReference::Id {
             id,
             author,
@@ -2475,7 +2494,15 @@ impl Overlord {
             bonus_relays.dedup();
 
             match ancestors.highest_connected_remote {
-                Some(EventReference::Addr(ea)) => GLOBALS.seeker.seek_event_addr(ea),
+                Some(EventReference::Addr(ea)) => {
+                    let mut eaddr = ea.clone();
+                    eaddr
+                        .relays
+                        .extend(bonus_relays.iter().map(|r| r.to_unchecked_url()));
+                    eaddr.relays.sort();
+                    eaddr.relays.dedup();
+                    self.fetch_event_addr(eaddr).await?;
+                }
                 Some(EventReference::Id {
                     id,
                     author,
@@ -2509,22 +2536,21 @@ impl Overlord {
         });
 
         // Subscribe to replies to root
-        if let Some(EventReference::Id { id, relays, .. }) = ancestors.root {
+        if let Some(ref root_eref) = ancestors.root {
+            let relays = root_eref.copy_relays();
             for url in relays.iter() {
                 // Subscribe root replies
                 let jobs: Vec<RelayJob> = vec![RelayJob {
                     reason: RelayConnectionReason::ReadThread,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeRootReplies(id.into()),
+                        detail: ToMinionPayloadDetail::SubscribeRootReplies(root_eref.clone()),
                     },
                 }];
 
                 self.engage_minion(url.to_owned(), jobs).await?;
             }
         }
-        // FIXME what if root is an EventAddr? minion doesn't have a way to subscribe
-        // to their replies.
 
         // Search for replies
         {
