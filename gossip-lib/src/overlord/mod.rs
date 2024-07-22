@@ -29,7 +29,10 @@ use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc;
 use std::time::Duration;
+#[cfg(unix)]
 use tokio::signal::unix::{signal, SignalKind};
+#[cfg(windows)]
+use tokio::signal::windows::{ctrl_c, ctrl_break, crtl_close};
 use tokio::sync::broadcast::Sender;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::watch::Receiver as WatchReceiver;
@@ -186,9 +189,19 @@ impl Overlord {
             }
         }
 
+        #[cfg(unix)]
         let mut interrupt_signal = signal(SignalKind::interrupt())?;
+        #[cfg(unix)]
         let mut quit_signal = signal(SignalKind::quit())?;
+        #[cfg(unix)]
         let mut terminate_signal = signal(SignalKind::terminate())?;
+
+        #[cfg(windows)]
+        let mut interrupt_signal = ctrl_c()?;
+        #[cfg(windows)]
+        let mut quit_signal = ctrl_break()?;
+        #[cfg(windows)]
+        let mut terminate_signal = ctrl_close()?;
 
         // Start background tasks
         crate::tasks::start_background_tasks();
