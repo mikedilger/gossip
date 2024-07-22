@@ -33,7 +33,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         });
     });
 
-    ui.set_enabled(enabled);
+    if !enabled {
+        ui.disable();
+    }
 
     let mut all_lists = GLOBALS
         .storage

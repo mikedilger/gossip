@@ -16,6 +16,8 @@ use egui::*;
 #[must_use = "You should put this widget in an ui with `ui.add(widget);`"]
 pub struct NavItem {
     text: WidgetText,
+    wrap: Option<bool>,
+    truncate: bool,
     sense: Option<Sense>,
     color: Option<Color32>,
     active_color: Option<Color32>,
@@ -27,6 +29,8 @@ impl NavItem {
     pub fn new(text: impl Into<WidgetText>, active: bool) -> Self {
         Self {
             text: text.into(),
+            wrap: None,
+            truncate: false,
             sense: None,
             color: None,
             active_color: None,
@@ -56,6 +60,42 @@ impl NavItem {
         self
     }
 
+    /// If `true`, the text will wrap to stay within the max width of the [`Ui`].
+    ///
+    /// Calling `wrap` will override [`Self::truncate`].
+    ///
+    /// By default [`Self::wrap`] will be `true` in vertical layouts
+    /// and horizontal layouts with wrapping,
+    /// and `false` on non-wrapping horizontal layouts.
+    ///
+    /// Note that any `\n` in the text will always produce a new line.
+    ///
+    /// You can also use [`crate::Style::wrap`].
+    #[inline]
+    #[allow(unused)]
+    pub fn wrap(mut self, wrap: bool) -> Self {
+        self.wrap = Some(wrap);
+        self.truncate = false;
+        self
+    }
+
+    /// If `true`, the text will stop at the max width of the [`Ui`],
+    /// and what doesn't fit will be elided, replaced with `…`.
+    ///
+    /// If the text is truncated, the full text will be shown on hover as a tool-tip.
+    ///
+    /// Default is `false`, which means the text will expand the parent [`Ui`],
+    /// or wrap if [`Self::wrap`] is set.
+    ///
+    /// Calling `truncate` will override [`Self::wrap`].
+    #[inline]
+    #[allow(unused)]
+    pub fn truncate(mut self, truncate: bool) -> Self {
+        self.wrap = None;
+        self.truncate = truncate;
+        self
+    }
+
     /// Make the label respond to clicks and/or drags.
     ///
     /// By default, a label is inert and does not respond to click or drags.
@@ -79,7 +119,15 @@ impl NavItem {
 impl NavItem {
     /// Do layout and position the galley in the ui, without painting it or adding widget info.
     pub fn layout_in_ui(self, ui: &mut Ui) -> (Pos2, Arc<Galley>, Response) {
-        let sense = self.sense.unwrap_or(Sense::click());
+        let sense = self.sense.unwrap_or_else(|| {
+            if ui.memory(|mem| mem.options.screen_reader) {
+                // We only want to focus labels if the screen reader is on.
+                Sense::focusable_noninteractive()
+            } else {
+                Sense::hover()
+            }
+        });
+
         if let WidgetText::Galley(galley) = self.text {
             // If the user said "use this specific galley", then just use it:
             let (rect, response) = ui.allocate_exact_size(galley.size(), sense);
@@ -92,14 +140,18 @@ impl NavItem {
         }
 
         let valign = ui.layout().vertical_align();
-        let mut job = self
+        let mut layout_job = self
             .text
             .into_layout_job(ui.style(), FontSelection::Default, valign);
 
-        let should_wrap = ui.wrap_text();
+        let truncate = self.truncate;
+        let wrap = !truncate
+            && self
+                .wrap
+                .unwrap_or_else(|| ui.wrap_mode() == TextWrapMode::Wrap);
         let available_width = ui.available_width();
 
-        if should_wrap
+        if wrap
             && ui.layout().main_dir() == Direction::LeftToRight
             && ui.layout().main_wrap()
             && available_width.is_finite()
@@ -111,27 +163,17 @@ impl NavItem {
             let first_row_indentation = available_width - ui.available_size_before_wrap().x;
             debug_assert!(first_row_indentation.is_finite());
 
-            job.wrap.max_width = available_width;
-            job.first_row_min_height = cursor.height();
-            job.halign = Align::Min;
-            job.justify = false;
-            if let Some(first_section) = job.sections.first_mut() {
+            layout_job.wrap.max_width = available_width;
+            layout_job.first_row_min_height = cursor.height();
+            layout_job.halign = Align::Min;
+            layout_job.justify = false;
+            if let Some(first_section) = layout_job.sections.first_mut() {
                 first_section.leading_space = first_row_indentation;
             }
-            let galley = ui.fonts(|f| f.layout_job(job));
+            let galley = ui.fonts(|fonts| fonts.layout_job(layout_job));
 
             let pos = pos2(ui.max_rect().left(), ui.cursor().top());
             assert!(!galley.rows.is_empty(), "Galleys are never empty");
-
-            // set the row height to ensure the cursor advancement is correct. when creating a child ui such as with
-            // ui.horizontal_wrapped, the initial cursor will be set to the height of the child ui. this can lead
-            // to the cursor not advancing to the second row but rather expanding the height of the cursor.
-            //
-            // note that we do not set the row height earlier in this function as we do want to allow populating
-            // `first_row_min_height` above. however it is crucial the placer knows the actual row height by
-            // setting the cursor height before ui.allocate_rect() gets called.
-            ui.set_row_height(galley.rows[0].height());
-
             // collect a response from many rows:
             let rect = galley.rows[0].rect.translate(vec2(pos.x, pos.y));
             let mut response = ui.allocate_rect(rect, sense);
@@ -141,23 +183,27 @@ impl NavItem {
             }
             (pos, galley, response)
         } else {
-            if should_wrap {
-                job.wrap.max_width = available_width;
+            if truncate {
+                layout_job.wrap.max_width = available_width;
+                layout_job.wrap.max_rows = 1;
+                layout_job.wrap.break_anywhere = true;
+            } else if wrap {
+                layout_job.wrap.max_width = available_width;
             } else {
-                job.wrap.max_width = f32::INFINITY;
+                layout_job.wrap.max_width = f32::INFINITY;
             };
 
-            job.halign = ui.layout().horizontal_placement();
-            job.justify = ui.layout().horizontal_justify();
+            layout_job.halign = ui.layout().horizontal_placement();
+            layout_job.justify = ui.layout().horizontal_justify();
 
-            let galley = ui.fonts(|f| f.layout_job(job));
+            let galley = ui.fonts(|fonts| fonts.layout_job(layout_job));
             let (rect, response) = ui.allocate_exact_size(galley.size(), sense);
-            let pos = match galley.job.halign {
+            let galley_pos = match galley.job.halign {
                 Align::LEFT => rect.left_top(),
                 Align::Center => rect.center_top(),
                 Align::RIGHT => rect.right_top(),
             };
-            (pos, galley, response)
+            (galley_pos, galley, response)
         }
     }
 }

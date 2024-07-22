@@ -134,7 +134,9 @@ pub(super) fn update(
         });
     });
 
-    ui.set_enabled(enabled);
+    if !enabled {
+        ui.disable();
+    }
 
     ui.add_space(5.0);
 

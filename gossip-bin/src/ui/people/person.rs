@@ -462,7 +462,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
 
         // Right column, starting with avatar
         ui.allocate_ui_with_layout(
-            vec2(AVATAR_COL_WIDTH, f32::INFINITY),
+            vec2(AVATAR_COL_WIDTH, ui.ctx().available_rect().height()),
             egui::Layout::right_to_left(egui::Align::TOP).with_main_justify(true),
             |ui| {
                 ui.vertical(|ui| {
@@ -705,8 +705,8 @@ fn profile_item_frame(
         .response
     };
 
-    let frame_rect = (prepared.frame.inner_margin + prepared.frame.outer_margin)
-        .expand_rect(prepared.content_ui.min_rect());
+    let frame_rect = prepared.content_ui.min_rect()
+        + (prepared.frame.inner_margin + prepared.frame.outer_margin);
 
     let response = ui
         .interact(frame_rect, ui.auto_id_with(&label), egui::Sense::click())
