@@ -1891,7 +1891,7 @@ impl Overlord {
     }
 
     pub async fn post_again(&mut self, event: Event) -> Result<(), Error> {
-        let relay_urls = relay::relays_for_event(&event)?;
+        let relay_urls = relay::relays_to_post_to(&event)?;
 
         for url in relay_urls {
             // Send it the event to post

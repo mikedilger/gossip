@@ -75,14 +75,16 @@ pub fn relays_for_seeking_replies(event: &Event) -> Result<Vec<RelayUrl>, Error>
 
 // Which relays should an event be posted to (that it hasn't already been
 // seen on)?
-pub fn relays_for_event(event: &Event) -> Result<Vec<RelayUrl>, Error> {
-    let mut relay_urls: Vec<RelayUrl> = Vec::new();
+pub fn relays_to_post_to(event: &Event) -> Result<Vec<RelayUrl>, Error> {
+    let mut relays: Vec<RelayUrl> = Vec::new();
 
-    // Get all of the relays that we write to
-    let write_relay_urls: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
-    relay_urls.extend(write_relay_urls);
+    // All of the author's (my) outboxes
+    relays.extend(get_best_relays_min(event.pubkey, RelayUsage::Outbox, 0)?);
+    // (if we know for sure it is us, we can use the WRITE bits:
+    // let write_relay_urls: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
+    // relays.extend(write_relay_urls);
 
-    // Get 'read' relays for everybody tagged in the event.
+    // Enough of the inboxes for everybody tagged in the event.
     let mut tagged_pubkeys: Vec<PublicKey> = event
         .tags
         .iter()
@@ -96,7 +98,7 @@ pub fn relays_for_event(event: &Event) -> Result<Vec<RelayUrl>, Error> {
         .collect();
     for pubkey in tagged_pubkeys.drain(..) {
         let best_relays: Vec<RelayUrl> = get_best_relays_fixed(pubkey, RelayUsage::Inbox)?;
-        relay_urls.extend(best_relays);
+        relays.extend(best_relays);
     }
 
     // Remove all the 'seen_on' relays for this event
@@ -106,12 +108,12 @@ pub fn relays_for_event(event: &Event) -> Result<Vec<RelayUrl>, Error> {
         .iter()
         .map(|(url, _time)| url.to_owned())
         .collect();
-    relay_urls.retain(|r| !seen_on.contains(r));
+    relays.retain(|r| !seen_on.contains(r));
 
-    relay_urls.sort();
-    relay_urls.dedup();
+    relays.sort();
+    relays.dedup();
 
-    Ok(relay_urls)
+    Ok(relays)
 }
 
 /// Get best relays for a person

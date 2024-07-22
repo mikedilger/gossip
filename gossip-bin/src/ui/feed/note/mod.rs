@@ -1390,7 +1390,7 @@ fn note_actions(
             )));
 
             // Chance to post our note again to relays it missed
-            if let Ok(broadcast_relays) = relay::relays_for_event(&note.event) {
+            if let Ok(broadcast_relays) = relay::relays_to_post_to(&note.event) {
                 if !broadcast_relays.is_empty() {
                     my_items.push(MoreMenuItem::Button(MoreMenuButton::new(
                         format!("Rebroadcast ({})", broadcast_relays.len()),
