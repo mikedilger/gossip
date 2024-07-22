@@ -34,7 +34,8 @@ pub fn general_feed(authors: &[PublicKey], range: FeedRange) -> Vec<Filter> {
 
     let pkp: Vec<PublicKeyHex> = authors.iter().map(|pk| pk.into()).collect();
 
-    let event_kinds = crate::feed::feed_related_event_kinds(false);
+    // Do not load feed related event kinds, or the limit will be wrong
+    let event_kinds = crate::feed::feed_displayable_event_kinds(false);
 
     let (since, until, limit) = range.since_until_limit();
 
@@ -127,6 +128,7 @@ pub fn giftwraps(range: FeedRange) -> Vec<Filter> {
 
 pub fn person_feed(pubkey: PublicKey, range: FeedRange) -> Vec<Filter> {
     // Allow all feed related event kinds (excluding DMs)
+    // Do not load feed related or the limit will be wrong
     let event_kinds = crate::feed::feed_displayable_event_kinds(false);
 
     let (since, until, limit) = range.since_until_limit();
