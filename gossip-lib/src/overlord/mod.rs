@@ -32,7 +32,7 @@ use std::time::Duration;
 #[cfg(unix)]
 use tokio::signal::unix::{signal, SignalKind};
 #[cfg(windows)]
-use tokio::signal::windows::{ctrl_c, ctrl_break, crtl_close};
+use tokio::signal::windows::{ctrl_c, ctrl_break, ctrl_close};
 use tokio::sync::broadcast::Sender;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::watch::Receiver as WatchReceiver;
