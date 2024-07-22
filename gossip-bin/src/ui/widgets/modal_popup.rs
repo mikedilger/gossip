@@ -1,4 +1,4 @@
-use std::{rc::Rc, sync::Arc};
+use std::rc::Rc;
 
 use eframe::{
     egui::{pos2, Context, Vec2},
@@ -14,6 +14,7 @@ const MARGIN_Y: f32 = 40.0;
 pub struct ModalEntry {
     pub min_size: Vec2,
     pub max_size: Vec2,
+    #[allow(clippy::type_complexity)]
     pub content: Rc<dyn Fn(&mut Ui, &mut GossipUi)>,
     pub on_close: Rc<dyn Fn(&mut GossipUi)>,
 }
@@ -95,7 +96,7 @@ pub fn modal_popup_dyn(
     ctx: &Context,
     app: &mut GossipUi,
     closable: bool,
-    entry: Arc<ModalEntry>,
+    entry: Rc<ModalEntry>,
 ) -> InnerResponse<egui::Response> {
     let content = |ui: &mut Ui| {
         ui.set_min_size(entry.min_size);

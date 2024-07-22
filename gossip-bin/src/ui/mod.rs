@@ -73,12 +73,10 @@ use gossip_lib::{
 use nostr_types::ContentSegment;
 use nostr_types::RelayUrl;
 use nostr_types::{Id, Metadata, MilliSatoshi, Profile, PublicKey, UncheckedUrl, Url};
-use std::sync::Arc;
 use widgets::ModalEntry;
 
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
-#[cfg(feature = "video-ffmpeg")]
 use std::rc::Rc;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
@@ -412,7 +410,7 @@ struct GossipUi {
     popups: HashMap<egui::Id, HashMap<egui::Id, Box<dyn widgets::InformationPopup>>>,
 
     // Modal dialogue
-    modal: Option<Arc<ModalEntry>>,
+    modal: Option<Rc<ModalEntry>>,
 
     // QR codes being rendered (in feed or elsewhere)
     // the f32's are the recommended image size

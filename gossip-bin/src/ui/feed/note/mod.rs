@@ -3,7 +3,6 @@ mod content;
 use std::cell::RefCell;
 use std::ops::Add;
 use std::rc::Rc;
-use std::sync::Arc;
 
 use crate::notedata::{EncryptionType, NoteData, RepostType};
 
@@ -272,11 +271,7 @@ pub fn render_note_inner(
     if let Ok(note) = note_ref.try_borrow() {
         let collapsed = app.collapsed.contains(&note.event.id);
 
-        let is_dm_feed = if let Page::Feed(FeedKind::DmChat(_)) = app.page {
-            true
-        } else {
-            false
-        };
+        let is_dm_feed = matches!(app.page, Page::Feed(FeedKind::DmChat(_)));
 
         // Load avatar texture
         let avatar = if note.muted() {
@@ -1333,7 +1328,7 @@ fn note_actions(
                     note.event.id.as_hex_string().as_str(),
                     note.event.content.as_str(),
                 ) {
-                    app.modal = Some(Arc::new(ModalEntry {
+                    app.modal = Some(Rc::new(ModalEntry {
                         min_size: vec2(300.0, 200.0),
                         max_size: vec2(x * 1.2, y * 1.2).min(ui.ctx().screen_rect().size()),
                         content: Rc::new(|ui, app| {
@@ -1533,7 +1528,7 @@ fn note_actions(
             Box::new(|ui, app| {
                 let json = serde_json::to_string_pretty(&note.event).unwrap_or_default();
                 app.render_raw = Some((note.event.id, json));
-                app.modal = Some(Arc::new(ModalEntry {
+                app.modal = Some(Rc::new(ModalEntry {
                     min_size: vec2(300.0, 200.0),
                     max_size: ui.ctx().screen_rect().size() * 0.8,
                     content: Rc::new(|ui, app| {
@@ -1596,7 +1591,7 @@ fn note_actions(
                     note.event.id.as_hex_string().as_str(),
                     serde_json::to_string_pretty(&note.event).unwrap().as_str(),
                 ) {
-                    app.modal = Some(Arc::new(ModalEntry {
+                    app.modal = Some(Rc::new(ModalEntry {
                         min_size: vec2(300.0, 200.0),
                         max_size: vec2(x * 1.2, y * 1.2).min(ui.ctx().screen_rect().size()),
                         content: Rc::new(|ui, app| {

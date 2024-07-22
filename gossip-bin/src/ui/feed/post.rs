@@ -180,11 +180,12 @@ fn dm_posting_area(
     } else {
         let text = "BASIC ENCRYPTION";
         let tt_text = "WARNING: Using older less-secure DM technology (NIP-04; recipient(s) have not signalled the ability to accept the newer method)";
-        if app.theme.dark_mode {
-            (app.theme.amber_400(), app.theme.neutral_50(), text, tt_text)
-        } else {
-            (app.theme.amber_400(), app.theme.neutral_50(), text, tt_text)
-        }
+
+        // if app.theme.dark_mode {
+        (app.theme.amber_400(), app.theme.neutral_50(), text, tt_text)
+        //} else {
+        //    (app.theme.amber_400(), app.theme.neutral_50(), text, tt_text)
+        //}
     };
 
     // Text area

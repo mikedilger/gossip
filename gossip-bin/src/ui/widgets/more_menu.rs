@@ -125,11 +125,8 @@ impl<'a> MoreMenuSubMenu<'a> {
 
         // recurse
         for entry in &self.items {
-            match entry {
-                MoreMenuItem::SubMenu(menu) => {
-                    menu.close(ui);
-                }
-                _ => {}
+            if let MoreMenuItem::SubMenu(menu) = entry {
+                menu.close(ui);
             }
         }
     }
@@ -239,11 +236,8 @@ impl<'a> MoreMenuSubMenu<'a> {
         } else {
             // close all sub-menu's
             for item in self.items {
-                match item {
-                    MoreMenuItem::SubMenu(menu) => {
-                        menu.close(ui);
-                    }
-                    _ => {}
+                if let MoreMenuItem::SubMenu(menu) = item {
+                    menu.close(ui);
                 }
             }
         }
@@ -531,11 +525,8 @@ impl MoreMenu {
         } else {
             // close all sub-menu's
             for item in content {
-                match item {
-                    MoreMenuItem::SubMenu(menu) => {
-                        menu.close(ui);
-                    }
-                    _ => {}
+                if let MoreMenuItem::SubMenu(menu) = item {
+                    menu.close(ui);
                 }
             }
         }
