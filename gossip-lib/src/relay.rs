@@ -38,7 +38,18 @@ pub fn recommended_relay_hint(reply_to: Id) -> Result<Option<RelayUrl>, Error> {
 }
 
 // Which relays are best for a reply to this event (used to find replies to this event)
-pub fn relays_for_reply(event: &Event) -> Result<Vec<RelayUrl>, Error> {
+pub fn relays_for_seeking_replies(event: &Event) -> Result<Vec<RelayUrl>, Error> {
+    let mut relays: Vec<RelayUrl> = Vec::new();
+
+    // Inboxes of the author
+    relays.extend(get_best_relays_fixed(event.pubkey, RelayUsage::Inbox)?);
+
+    // Inboxes of the 'p' tagged people, up to num
+    //for (tagged_pubkey, _opt_relay_url, _opt_marker) in event.people() {
+    //  relays.extend(get_best_relays_fixed(tagged_pubkey, RelayUsage::Inbox)?);
+    //}
+
+    // Seen on relays
     let mut seen_on: Vec<RelayUrl> = GLOBALS
         .storage
         .get_event_seen_on_relay(event.id)?
@@ -46,23 +57,20 @@ pub fn relays_for_reply(event: &Event) -> Result<Vec<RelayUrl>, Error> {
         .map(|(url, _time)| url)
         .collect();
 
-    let inbox: Vec<RelayUrl> = get_best_relays_fixed(event.pubkey, RelayUsage::Inbox)?;
-
     // Take all inbox relays, and up to 2 seen_on relays that aren't inbox relays
-    let mut answer = inbox;
     let mut extra = 2;
     for url in seen_on.drain(..) {
         if extra == 0 {
             break;
         }
-        if answer.contains(&url) {
+        if relays.contains(&url) {
             continue;
         }
-        answer.push(url);
+        relays.push(url);
         extra -= 1;
     }
 
-    Ok(answer)
+    Ok(relays)
 }
 
 // Which relays should an event be posted to (that it hasn't already been

@@ -3198,7 +3198,7 @@ impl Overlord {
         let mut augment_subs: HashMap<RelayUrl, Vec<Id>> = HashMap::new();
         for id in visible.drain(..) {
             if let Some(event) = GLOBALS.storage.read_event(id)? {
-                let relays = relay::relays_for_reply(&event)?;
+                let relays = relay::relays_for_seeking_replies(&event)?;
                 for relay_url in relays {
                     augment_subs
                         .entry(relay_url)
