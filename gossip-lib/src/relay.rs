@@ -4,7 +4,7 @@ pub type Relay = crate::storage::types::Relay3;
 use crate::error::{Error, ErrorKind};
 use crate::person_relay::PersonRelay;
 use crate::GLOBALS;
-use nostr_types::{Event, Id, PublicKey, RelayUrl, RelayUsage, Unixtime};
+use nostr_types::{Event, EventKind, Id, PublicKey, RelayUrl, RelayUsage, Unixtime};
 
 // The functions below are all about choosing relays for some task,
 // each returning `Result<Vec<RelayUrl>, Error>` (or similar)
@@ -74,9 +74,16 @@ pub fn relays_for_seeking_replies(event: &Event) -> Result<Vec<RelayUrl>, Error>
 }
 
 // Which relays should an event be posted to (that it hasn't already been
-// seen on)?
+// seen on)?  DO NOT USE for NIP-17 (we can't tell the recipient)
 pub fn relays_to_post_to(event: &Event) -> Result<Vec<RelayUrl>, Error> {
     let mut relays: Vec<RelayUrl> = Vec::new();
+
+    if event.kind == EventKind::GiftWrap || event.kind == EventKind::DmChat {
+        return Err(ErrorKind::Internal(
+            "DO NOT USE relays_to_post_to() for Giftwrap DMs".to_string(),
+        )
+        .into());
+    }
 
     // All of the author's (my) outboxes
     relays.extend(get_best_relays_min(event.pubkey, RelayUsage::Outbox, 0)?);
@@ -84,21 +91,20 @@ pub fn relays_to_post_to(event: &Event) -> Result<Vec<RelayUrl>, Error> {
     // let write_relay_urls: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
     // relays.extend(write_relay_urls);
 
-    // Enough of the inboxes for everybody tagged in the event.
-    let mut tagged_pubkeys: Vec<PublicKey> = event
-        .tags
-        .iter()
-        .filter_map(|t| {
-            if let Ok((pubkey, _, _)) = t.parse_pubkey() {
-                Some(pubkey)
-            } else {
-                None
-            }
-        })
-        .collect();
+    // Inbox (or DM) relays of tagged people
+    let mut tagged_pubkeys: Vec<PublicKey> = event.people().iter().map(|(pk, _, _)| *pk).collect();
     for pubkey in tagged_pubkeys.drain(..) {
-        let best_relays: Vec<RelayUrl> = get_best_relays_fixed(pubkey, RelayUsage::Inbox)?;
-        relays.extend(best_relays);
+        let user_relays = get_best_relays_fixed(pubkey, RelayUsage::Inbox)?;
+        if event.kind == EventKind::EncryptedDirectMessage {
+            let dm_relays = get_dm_relays(pubkey)?;
+            if dm_relays.is_empty() {
+                relays.extend(user_relays);
+            } else {
+                relays.extend(dm_relays);
+            }
+        } else {
+            relays.extend(user_relays);
+        }
     }
 
     // Remove all the 'seen_on' relays for this event
@@ -278,16 +284,4 @@ pub fn get_dm_relays(pubkey: PublicKey) -> Result<Vec<RelayUrl>, Error> {
         }
     }
     Ok(output)
-}
-
-pub fn get_others_relays(
-    recipients: &[PublicKey],
-    usage: RelayUsage,
-) -> Result<Vec<RelayUrl>, Error> {
-    let mut relay_urls: Vec<RelayUrl> = Vec::new();
-    for pubkey in recipients {
-        let best_relays: Vec<RelayUrl> = get_best_relays_fixed(*pubkey, usage)?;
-        relay_urls.extend(best_relays);
-    }
-    Ok(relay_urls)
 }

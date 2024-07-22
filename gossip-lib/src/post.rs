@@ -5,7 +5,7 @@ use crate::relay;
 use crate::relay::Relay;
 use nostr_types::{
     ContentEncryptionAlgorithm, Event, EventAddr, EventKind, EventReference, Id, NostrBech32,
-    PreEvent, PublicKey, RelayUrl, RelayUsage, Tag, UncheckedUrl, Unixtime,
+    PreEvent, PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime,
 };
 use std::sync::mpsc;
 
@@ -51,18 +51,9 @@ pub fn prepare_post_normal(
         }
     };
 
-    let mut relay_urls: Vec<RelayUrl> = Vec::new();
-    relay_urls.extend({
-        let tagged_pubkeys = get_tagged_pubkeys(&event.tags);
-        relay::get_others_relays(&tagged_pubkeys, RelayUsage::Inbox)?
-    });
-    let our_relays = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
-    relay_urls.extend(our_relays);
+    let relays = relay::relays_to_post_to(&event)?;
 
-    relay_urls.sort();
-    relay_urls.dedup();
-
-    Ok(vec![(event, relay_urls)])
+    Ok(vec![(event, relays)])
 }
 
 pub fn prepare_post_nip04(
@@ -104,20 +95,7 @@ pub fn prepare_post_nip04(
 
     let event = GLOBALS.identity.sign_event(pre_event)?;
 
-    let mut relay_urls: Vec<RelayUrl> = Vec::new();
-    relay_urls.extend({
-        // Try DM relays first
-        let mut relays = relay::get_dm_relays(recipient)?;
-        if relays.is_empty() {
-            // Fallback to their INBOX relays
-            relays = relay::get_others_relays(&[recipient], RelayUsage::Inbox)?;
-        }
-        relays
-    });
-    let our_relays = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
-    relay_urls.extend(our_relays);
-    relay_urls.sort();
-    relay_urls.dedup();
+    let relay_urls = relay::relays_to_post_to(&event)?;
 
     Ok(vec![(event, relay_urls)])
 }
@@ -180,19 +158,6 @@ pub fn prepare_post_nip17(
     }
 
     Ok(output)
-}
-
-fn get_tagged_pubkeys(tags: &[Tag]) -> Vec<PublicKey> {
-    // Copy the tagged pubkeys for determine which relays to send to
-    tags.iter()
-        .filter_map(|t| {
-            if let Ok((pubkey, _, _)) = t.parse_pubkey() {
-                Some(pubkey)
-            } else {
-                None
-            }
-        })
-        .collect()
 }
 
 fn add_gossip_tag(tags: &mut Vec<Tag>) {
