@@ -4,6 +4,7 @@ use crate::ui::widgets::list_entry;
 use crate::ui::widgets::CopyButton;
 use crate::AVATAR_SIZE_F32;
 use eframe::egui::{self, Label};
+use eframe::epaint::PathStroke;
 use egui::{Context, RichText, TextEdit, Ui, Vec2};
 use egui_winit::egui::vec2;
 use egui_winit::egui::InnerResponse;
@@ -618,7 +619,7 @@ fn profile_item(
     content: impl Into<String>,
 ) {
     let content: String = content.into();
-    let symbol = CopyButton::new().stroke(egui::Stroke::new(1.4, app.theme.accent_color()));
+    let symbol = CopyButton::new().stroke(PathStroke::new(1.4, app.theme.accent_color()));
     let response = profile_item_frame(ui, width, label, &content, symbol).response;
 
     if response.clicked() {
