@@ -1305,7 +1305,7 @@ fn note_actions(
         .show(ui);
     let menu = widgets::MoreMenu::simple(ui.auto_id_with(note.event.id))
         .with_min_size(vec2(100.0, 0.0))
-        .with_max_size(vec2(140.0, f32::INFINITY));
+        .with_max_size(vec2(140.0, ui.ctx().available_rect().height()));
     let mut items: Vec<MoreMenuItem> = Vec::new();
 
     // ---- Copy Text ----
