@@ -1656,7 +1656,7 @@ fn draw_seen_on(app: &mut GossipUi, ui: &mut Ui, note: &std::cell::Ref<NoteData>
     let response = ui.add(Label::new(RichText::new("👁").size(12.0)).sense(Sense::hover()));
 
     if response.hovered() {
-        egui::Area::new(ui.next_auto_id())
+        egui::Area::new(ui.next_auto_id().with("seen_on"))
             .movable(false)
             .interactable(false)
             // .pivot(Align2::RIGHT_TOP) // Fails to work as advertised
