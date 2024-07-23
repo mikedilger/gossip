@@ -9,7 +9,7 @@ use crate::relationship::{RelationshipByAddr, RelationshipById};
 use crate::storage::{PersonTable, Table};
 use heed::RwTxn;
 use nostr_types::{
-    Event, EventAddr, EventKind, EventReference, Filter, Id, Metadata, NostrBech32, PublicKey,
+    Event, NAddr, EventKind, EventReference, Filter, Id, Metadata, NostrBech32, PublicKey,
     RelayList, RelayListUsage, RelayUrl, SimpleRelayList, Tag, Unixtime,
 };
 use std::sync::atomic::Ordering;
@@ -134,7 +134,7 @@ pub fn process_new_event(
 
     // Ignore if the event is already deleted (by address)
     if let Some(parameter) = event.parameter() {
-        let ea = EventAddr {
+        let ea = NAddr {
             d: parameter.to_owned(),
             relays: vec![],
             kind: event.kind,
@@ -332,7 +332,7 @@ pub fn process_new_event(
                         if !ea.relays.is_empty() {
                             let _ = GLOBALS
                                 .to_overlord
-                                .send(ToOverlordMessage::FetchEventAddr(ea.clone()));
+                                .send(ToOverlordMessage::FetchNAddr(ea.clone()));
                         }
                     }
                 }
@@ -356,9 +356,9 @@ pub fn process_new_event(
                         }
                     }
                 }
-                NostrBech32::EventPointer(ep) => {
-                    if GLOBALS.storage.read_event(ep.id)?.is_none() {
-                        let relay_urls: Vec<RelayUrl> = ep
+                NostrBech32::NEvent(ne) => {
+                    if GLOBALS.storage.read_event(ne.id)?.is_none() {
+                        let relay_urls: Vec<RelayUrl> = ne
                             .relays
                             .iter()
                             .filter_map(|unchecked| {
@@ -367,10 +367,10 @@ pub fn process_new_event(
                             .collect();
                         let _ = GLOBALS
                             .to_overlord
-                            .send(ToOverlordMessage::FetchEvent(ep.id, relay_urls));
+                            .send(ToOverlordMessage::FetchEvent(ne.id, relay_urls));
                     }
                 }
-                NostrBech32::EventAddr(mut ea) => {
+                NostrBech32::NAddr(mut ea) => {
                     if let Ok(None) = GLOBALS
                         .storage
                         .get_replaceable_event(ea.kind, ea.author, &ea.d)
@@ -385,7 +385,7 @@ pub fn process_new_event(
 
                         let _ = GLOBALS
                             .to_overlord
-                            .send(ToOverlordMessage::FetchEventAddr(ea));
+                            .send(ToOverlordMessage::FetchNAddr(ea));
                     }
                 }
                 NostrBech32::Profile(prof) => {

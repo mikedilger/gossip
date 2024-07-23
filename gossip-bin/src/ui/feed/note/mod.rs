@@ -20,7 +20,7 @@ use egui::{
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{relay, DmChannel, FeedKind, ZapState, GLOBALS};
 use nostr_types::{
-    Event, EventAddr, EventDelegation, EventKind, EventPointer, EventReference, IdHex, NostrUrl,
+    Event, NAddr, EventDelegation, EventKind, NEvent, EventReference, IdHex, NostrUrl,
     UncheckedUrl,
 };
 use serde::Serialize;
@@ -831,21 +831,21 @@ pub fn render_note_inner(
                                                     Some(p) => p,
                                                     None => "".to_owned(),
                                                 };
-                                                let event_addr = EventAddr {
+                                                let naddr = NAddr {
                                                     d: param,
                                                     relays: relays.clone(),
                                                     kind: note.event.kind,
                                                     author: note.event.pubkey,
                                                 };
-                                                event_addr.into()
+                                                naddr.into()
                                             } else {
-                                                let event_pointer = EventPointer {
+                                                let nevent = NEvent {
                                                     id: note.event.id,
                                                     relays: relays.clone(),
                                                     author: None,
                                                     kind: None,
                                                 };
-                                                event_pointer.into()
+                                                nevent.into()
                                             };
                                         app.draft_data.draft.push_str(&format!("{}", nostr_url));
                                         app.draft_data.repost = None;
@@ -1466,13 +1466,13 @@ fn note_actions(
             copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
                 "as naddr",
                 Box::new(|ui, _| {
-                    let event_addr = EventAddr {
+                    let naddr = NAddr {
                         d: param,
                         relays: relays.clone(),
                         kind: note.event.kind,
                         author: note.event.pubkey,
                     };
-                    let nostr_url: NostrUrl = event_addr.into();
+                    let nostr_url: NostrUrl = naddr.into();
                     ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
                 }),
             )));
@@ -1480,13 +1480,13 @@ fn note_actions(
             copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
                 "as nevent1",
                 Box::new(|ui, _| {
-                    let event_pointer = EventPointer {
+                    let nevent = NEvent {
                         id: note.event.id,
                         relays: relays.clone(),
                         author: None,
                         kind: None,
                     };
-                    let nostr_url: NostrUrl = event_pointer.into();
+                    let nostr_url: NostrUrl = nevent.into();
                     ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
                 }),
             )));
@@ -1495,7 +1495,7 @@ fn note_actions(
             copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
                 "as web link",
                 Box::new(|ui, _| {
-                    let event_pointer = EventPointer {
+                    let nevent = NEvent {
                         id: note.event.id,
                         relays: relays.clone(),
                         author: None,
@@ -1503,7 +1503,7 @@ fn note_actions(
                     };
                     ui.output_mut(|o| {
                         o.copied_text =
-                            format!("https://njump.me/{}", event_pointer.as_bech32_string())
+                            format!("https://njump.me/{}", nevent.as_bech32_string())
                     });
                 }),
             )));

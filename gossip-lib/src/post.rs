@@ -4,7 +4,7 @@ use crate::globals::GLOBALS;
 use crate::relay;
 use crate::relay::Relay;
 use nostr_types::{
-    ContentEncryptionAlgorithm, Event, EventAddr, EventKind, EventReference, Id, NostrBech32,
+    ContentEncryptionAlgorithm, Event, NAddr, EventKind, EventReference, Id, NostrBech32,
     PreEvent, PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime,
 };
 use std::sync::mpsc;
@@ -176,12 +176,12 @@ fn add_tags_mirroring_content(content: &str, tags: &mut Vec<Tag>, direct_message
     // and use the new NostrBech32 parsing.
     for bech32 in NostrBech32::find_all_in_string(content).iter() {
         match bech32 {
-            NostrBech32::EventAddr(ea) => {
+            NostrBech32::NAddr(ea) => {
                 nostr_types::add_addr_to_tags(tags, ea, Some("mention".to_string()));
             }
-            NostrBech32::EventPointer(ep) => {
+            NostrBech32::NEvent(ne) => {
                 // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
-                add_event_to_tags(tags, ep.id, ep.relays.first().cloned(), "mention");
+                add_event_to_tags(tags, ne.id, ne.relays.first().cloned(), "mention");
             }
             NostrBech32::Id(id) => {
                 // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
@@ -284,7 +284,7 @@ fn add_thread_based_tags(
         let d = parent.parameter().unwrap_or("".to_owned());
         nostr_types::add_addr_to_tags(
             tags,
-            &EventAddr {
+            &NAddr {
                 d,
                 relays: vec![],
                 kind: parent.kind,

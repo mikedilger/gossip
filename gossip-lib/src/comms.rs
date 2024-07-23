@@ -4,7 +4,7 @@ use crate::nip46::{Approval, ParsedCommand};
 use crate::people::PersonList;
 use crate::relay::Relay;
 use nostr_types::{
-    Event, EventAddr, EventReference, Id, IdHex, Metadata, MilliSatoshi, Profile, PublicKey,
+    Event, NAddr, EventReference, Id, IdHex, Metadata, MilliSatoshi, Profile, PublicKey,
     RelayUrl, Tag, UncheckedUrl, Unixtime,
 };
 use std::fmt;
@@ -77,8 +77,8 @@ pub enum ToOverlordMessage {
     /// Calls [fetch_event](crate::Overlord::fetch_event)
     FetchEvent(Id, Vec<RelayUrl>),
 
-    /// Calls [fetch_event_addr](crate::Overlord::fetch_event_addr)
-    FetchEventAddr(EventAddr),
+    /// Calls [fetch_naddr](crate::Overlord::fetch_naddr)
+    FetchNAddr(NAddr),
 
     /// Calls [follow_pubkey](crate::Overlord::follow_pubkey)
     FollowPubkey(PublicKey, PersonList, Private),
@@ -256,7 +256,7 @@ pub(crate) enum ToMinionPayloadDetail {
     AuthApproved,
     AuthDeclined,
     FetchEvent(Id),
-    FetchEventAddr(EventAddr),
+    FetchNAddr(NAddr),
     PostEvents(Vec<Event>),
     Shutdown,
     SubscribeAugments(Vec<IdHex>),

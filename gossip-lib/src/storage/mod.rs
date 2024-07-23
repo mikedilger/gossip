@@ -62,7 +62,7 @@ use crate::relay::Relay;
 use heed::types::{Bytes, Unit};
 use heed::{Database, Env, EnvFlags, EnvOpenOptions, RoTxn, RwTxn};
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventAddr, EventKind, EventReference, Filter, Id, MilliSatoshi,
+    EncryptedPrivateKey, Event, NAddr, EventKind, EventReference, Filter, Id, MilliSatoshi,
     PublicKey, PublicKeyHex, RelayList, RelayListUsage, RelayUrl, Unixtime,
 };
 use paste::paste;
@@ -1777,11 +1777,11 @@ impl Storage {
         self.find_relationships_by_id2(id)
     }
 
-    /// Write a relationship between an event and an EventAddr (replaceable)
+    /// Write a relationship between an event and an NAddr (replaceable)
     #[inline]
     pub(crate) fn write_relationship_by_addr<'a>(
         &'a self,
-        addr: EventAddr,
+        addr: NAddr,
         related: Id,
         relationship_by_addr: RelationshipByAddr,
         rw_txn: Option<&mut RwTxn<'a>>,
@@ -1793,7 +1793,7 @@ impl Storage {
     #[inline]
     pub fn find_relationships_by_addr(
         &self,
-        addr: &EventAddr,
+        addr: &NAddr,
     ) -> Result<Vec<(Id, RelationshipByAddr)>, Error> {
         self.find_relationships_by_addr2(addr)
     }
@@ -1801,7 +1801,7 @@ impl Storage {
     /// Get replies to the given event
     pub fn get_replies(&self, event: &Event) -> Result<Vec<Id>, Error> {
         let mut output = self.get_non_replaceable_replies(event.id)?;
-        output.extend(self.get_replaceable_replies(&EventAddr {
+        output.extend(self.get_replaceable_replies(&NAddr {
             d: event.parameter().unwrap_or("".to_string()),
             relays: vec![],
             kind: event.kind,
@@ -1845,7 +1845,7 @@ impl Storage {
             .collect())
     }
 
-    pub fn get_replaceable_replies(&self, addr: &EventAddr) -> Result<Vec<Id>, Error> {
+    pub fn get_replaceable_replies(&self, addr: &NAddr) -> Result<Vec<Id>, Error> {
         Ok(self
             .find_relationships_by_addr(addr)?
             .iter()
@@ -1934,7 +1934,7 @@ impl Storage {
 
         // Deletes via 'a tags (entire parameterized groups)
         if let Some(parameter) = maybe_deleted_event.parameter() {
-            let addr = EventAddr {
+            let addr = NAddr {
                 d: parameter,
                 relays: vec![],
                 kind: maybe_deleted_event.kind,

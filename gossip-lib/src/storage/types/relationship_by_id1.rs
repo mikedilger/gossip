@@ -38,7 +38,7 @@ pub enum RelationshipById1 {
     ZapReceipt { by: PublicKey, amount: MilliSatoshi },
 
     // NIP-72 Moderated Communities (Reddit-style)
-    // Approves { in_community: EventAddr },
+    // Approves { in_community: NAddr },
 
     // NIP-90 Data Vending Machines
     JobResult,

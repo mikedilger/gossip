@@ -7,7 +7,7 @@ use egui::{Button, Color32, Pos2, RichText, Stroke, Ui};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::FeedKind;
 use gossip_lib::GLOBALS;
-use nostr_types::{ContentSegment, EventAddr, Id, IdHex, NostrBech32, PublicKey, Span, Url};
+use nostr_types::{ContentSegment, NAddr, Id, IdHex, NostrBech32, PublicKey, Span, Url};
 use std::{
     cell::{Ref, RefCell},
     rc::Rc,
@@ -56,10 +56,10 @@ pub(super) fn render_content(
             match segment {
                 ContentSegment::NostrUrl(nurl) => {
                     match &nurl.0 {
-                        NostrBech32::EventAddr(ea) => {
+                        NostrBech32::NAddr(ea) => {
                             render_parameterized_event_link(app, ui, note.event.id, ea);
                         }
-                        NostrBech32::EventPointer(ep) => {
+                        NostrBech32::NEvent(ne) => {
                             let mut render_link = true;
                             if read_setting!(show_mentions) {
                                 match note.repost {
@@ -67,7 +67,7 @@ pub(super) fn render_content(
                                     | Some(RepostType::CommentMention)
                                     | Some(RepostType::Kind6Mention) => {
                                         if let Some(note_data) =
-                                            app.notecache.try_update_and_get(&ep.id)
+                                            app.notecache.try_update_and_get(&ne.id)
                                         {
                                             // TODO block additional repost recursion
                                             super::render_repost(
@@ -85,7 +85,7 @@ pub(super) fn render_content(
                                 }
                             }
                             if render_link {
-                                render_event_link(app, ui, note.event.id, ep.id);
+                                render_event_link(app, ui, note.event.id, ne.id);
                             }
                         }
                         NostrBech32::Id(id) => {
@@ -295,15 +295,15 @@ pub(super) fn render_parameterized_event_link(
     app: &mut GossipUi,
     ui: &mut Ui,
     referenced_by_id: Id,
-    event_addr: &EventAddr,
+    naddr: &NAddr,
 ) {
-    let name = format!("[{:?}: {}]", event_addr.kind, event_addr.d);
-    // let name = format!("nostr:{}", event_addr.as_bech32_string());
+    let name = format!("[{:?}: {}]", naddr.kind, naddr.d);
+    // let name = format!("nostr:{}", naddr.as_bech32_string());
     if ui.link(&name).clicked() {
         if let Ok(Some(prevent)) =
             GLOBALS
                 .storage
-                .get_replaceable_event(event_addr.kind, event_addr.author, &event_addr.d)
+                .get_replaceable_event(naddr.kind, naddr.author, &naddr.d)
         {
             app.set_page(
                 ui.ctx(),
@@ -323,7 +323,7 @@ pub(super) fn render_parameterized_event_link(
             // Start fetch
             let _ = GLOBALS
                 .to_overlord
-                .send(ToOverlordMessage::FetchEventAddr(event_addr.to_owned()));
+                .send(ToOverlordMessage::FetchNAddr(naddr.to_owned()));
         }
     };
 }

@@ -22,7 +22,7 @@ use heed::RwTxn;
 use http::StatusCode;
 use minion::{Minion, MinionExitReason};
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventAddr, EventKind, EventReference, Filter, Id, IdHex, Metadata,
+    EncryptedPrivateKey, Event, NAddr, EventKind, EventReference, Filter, Id, IdHex, Metadata,
     MilliSatoshi, NostrBech32, PayRequestData, PreEvent, PrivateKey, Profile, PublicKey, RelayUrl,
     RelayUsage, Tag, UncheckedUrl, Unixtime,
 };
@@ -695,8 +695,8 @@ impl Overlord {
             ToOverlordMessage::FetchEvent(id, relay_urls) => {
                 self.fetch_event(id, relay_urls).await?;
             }
-            ToOverlordMessage::FetchEventAddr(ea) => {
-                self.fetch_event_addr(ea).await?;
+            ToOverlordMessage::FetchNAddr(ea) => {
+                self.fetch_naddr(ea).await?;
             }
             ToOverlordMessage::FollowPubkey(pubkey, list, private) => {
                 self.follow_pubkey(pubkey, list, private).await?;
@@ -1251,7 +1251,7 @@ impl Overlord {
         // Generate a deletion event for those events
         let event = {
             // Include an "a" tag for the entire group
-            let ea = EventAddr {
+            let ea = NAddr {
                 d: metadata.dtag.clone(),
                 relays: vec![],
                 kind: EventKind::FollowSets,
@@ -1464,8 +1464,8 @@ impl Overlord {
         Ok(())
     }
 
-    /// Fetch an event based on an `EventAddr`
-    pub async fn fetch_event_addr(&mut self, ea: EventAddr) -> Result<(), Error> {
+    /// Fetch an event based on an `NAddr`
+    pub async fn fetch_naddr(&mut self, ea: NAddr) -> Result<(), Error> {
         for unchecked_url in ea.relays.iter() {
             if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(unchecked_url) {
                 self.engage_minion(
@@ -1474,7 +1474,7 @@ impl Overlord {
                         reason: RelayConnectionReason::FetchEvent,
                         payload: ToMinionPayload {
                             job_id: rand::random::<u64>(),
-                            detail: ToMinionPayloadDetail::FetchEventAddr(ea.clone()),
+                            detail: ToMinionPayloadDetail::FetchNAddr(ea.clone()),
                         },
                     }],
                 )
@@ -2141,7 +2141,7 @@ impl Overlord {
             tags.push(Tag::new_kind(reposted_event.kind));
 
             if reposted_event.kind.is_replaceable() {
-                let ea = EventAddr {
+                let ea = NAddr {
                     d: reposted_event.parameter().unwrap_or("".to_string()),
                     relays: match relay_url {
                         Some(url) => vec![url.clone()],
@@ -2247,7 +2247,7 @@ impl Overlord {
 
         if let Some(nb32) = NostrBech32::try_from_string(&text) {
             match nb32 {
-                NostrBech32::EventAddr(ea) => {
+                NostrBech32::NAddr(ea) => {
                     let mut filter = Filter::new();
                     filter.add_event_kind(ea.kind);
                     filter.add_author(&ea.author.into());
@@ -2270,19 +2270,19 @@ impl Overlord {
                     } else {
                         let _ = GLOBALS
                             .to_overlord
-                            .send(ToOverlordMessage::FetchEventAddr(ea.to_owned()));
+                            .send(ToOverlordMessage::FetchNAddr(ea.to_owned()));
 
                         // FIXME - this requires eventaddr comparison on process.rs
                         // Remember we are searching for this event, so when it comes in
                         // it can get added to GLOBALS.note_search_results
-                        // GLOBALS.event_addrs_being_searched_for.write().push(ea.to_owned());
+                        // GLOBALS.naddrs_being_searched_for.write().push(ea.to_owned());
                     }
                 }
-                NostrBech32::EventPointer(ep) => {
-                    if let Some(event) = GLOBALS.storage.read_event(ep.id)? {
+                NostrBech32::NEvent(ne) => {
+                    if let Some(event) = GLOBALS.storage.read_event(ne.id)? {
                         note_search_results.push(event);
                     } else {
-                        let relays: Vec<RelayUrl> = ep
+                        let relays: Vec<RelayUrl> = ne
                             .relays
                             .iter()
                             .filter_map(|r| RelayUrl::try_from_unchecked_url(r).ok())
@@ -2290,11 +2290,11 @@ impl Overlord {
 
                         let _ = GLOBALS
                             .to_overlord
-                            .send(ToOverlordMessage::FetchEvent(ep.id, relays));
+                            .send(ToOverlordMessage::FetchEvent(ne.id, relays));
 
                         // Remember we are searching for this event, so when it comes in
                         // it can get added to GLOBALS.note_search_results
-                        GLOBALS.events_being_searched_for.write().push(ep.id);
+                        GLOBALS.events_being_searched_for.write().push(ne.id);
                     }
                 }
                 NostrBech32::Id(id) => {
@@ -2513,7 +2513,7 @@ impl Overlord {
                         .extend(bonus_relays.iter().map(|r| r.to_unchecked_url()));
                     eaddr.relays.sort();
                     eaddr.relays.dedup();
-                    self.fetch_event_addr(eaddr).await?;
+                    self.fetch_naddr(eaddr).await?;
                 }
                 Some(EventReference::Id {
                     id,

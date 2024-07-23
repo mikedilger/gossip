@@ -26,8 +26,8 @@ pub fn textarea_highlighter(theme: Theme, text: String, interests: Vec<String>) 
             ContentSegment::NostrUrl(nostr_url) => {
                 let chunk = format!("{}", nostr_url);
                 let highlight = match nostr_url.0 {
-                    NostrBech32::EventAddr(_) => HighlightType::Event,
-                    NostrBech32::EventPointer(_) => HighlightType::Event,
+                    NostrBech32::NAddr(_) => HighlightType::Event,
+                    NostrBech32::NEvent(_) => HighlightType::Event,
                     NostrBech32::Id(_) => HighlightType::Event,
                     NostrBech32::Profile(_) => HighlightType::PublicKey,
                     NostrBech32::Pubkey(_) => HighlightType::PublicKey,
@@ -882,8 +882,8 @@ fn calc_tag_hovers(ui: &mut Ui, app: &mut GossipUi, output: &TextEditOutput) {
                 let maybe_pubkey = match &nostr_url.0 {
                     NostrBech32::Profile(p) => Some(p.pubkey),
                     NostrBech32::Pubkey(pk) => Some(*pk),
-                    NostrBech32::EventAddr(_)
-                    | NostrBech32::EventPointer(_)
+                    NostrBech32::NAddr(_)
+                    | NostrBech32::NEvent(_)
                     | NostrBech32::Id(_)
                     | NostrBech32::Relay(_) => None,
                 };

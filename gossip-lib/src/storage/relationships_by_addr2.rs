@@ -3,7 +3,7 @@ use crate::storage::types::RelationshipByAddr2;
 use crate::storage::{RawDatabase, Storage};
 use heed::RwTxn;
 use heed::{types::Bytes, DatabaseFlags};
-use nostr_types::{EventAddr, Id};
+use nostr_types::{NAddr, Id};
 use speedy::{Readable, Writable};
 use std::sync::Mutex;
 
@@ -46,7 +46,7 @@ impl Storage {
 
     pub(crate) fn write_relationship_by_addr2<'a>(
         &'a self,
-        addr: EventAddr,
+        addr: NAddr,
         related: Id,
         relationship_by_addr: RelationshipByAddr2,
         rw_txn: Option<&mut RwTxn<'a>>,
@@ -63,7 +63,7 @@ impl Storage {
 
     pub(crate) fn find_relationships_by_addr2(
         &self,
-        addr: &EventAddr,
+        addr: &NAddr,
     ) -> Result<Vec<(Id, RelationshipByAddr2)>, Error> {
         let key = relationships_by_addr2_into_key(addr);
         let txn = self.env.read_txn()?;
@@ -84,7 +84,7 @@ impl Storage {
     }
 }
 
-fn relationships_by_addr2_into_key(ea: &EventAddr) -> Vec<u8> {
+fn relationships_by_addr2_into_key(ea: &NAddr) -> Vec<u8> {
     let u: u32 = ea.kind.into();
     let mut key: Vec<u8> = u.to_be_bytes().as_slice().to_owned();
     key.extend(ea.author.as_bytes());
@@ -94,12 +94,12 @@ fn relationships_by_addr2_into_key(ea: &EventAddr) -> Vec<u8> {
 }
 
 /*
-fn relationships_by_addr2_from_key(key: &[u8]) -> Result<EventAddr, Error> {
+fn relationships_by_addr2_from_key(key: &[u8]) -> Result<NAddr, Error> {
     let u = u32::from_be_bytes(key[..4].try_into().unwrap());
     let kind: EventKind = u.into();
     let pubkey: PublicKey = PublicKey::from_bytes(&key[4..4+32], true)?;
     let d: String = String::from_utf8_lossy(&key[4+32..]).to_string();
-    Ok(EventAddr {
+    Ok(NAddr {
         d,
         relays: vec![],
         kind,

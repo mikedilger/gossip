@@ -6,7 +6,7 @@ use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::people::PersonList;
 use dashmap::DashMap;
-use nostr_types::{Event, EventAddr, EventKind, EventReference, Filter, Id, Unixtime};
+use nostr_types::{Event, NAddr, EventKind, EventReference, Filter, Id, Unixtime};
 use parking_lot::RwLock;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
@@ -327,7 +327,7 @@ impl Feed {
                                 // check against. BUT we can check for these cheaply:
                                 matches!(
                                     e.replies_to(),
-                                    Some(EventReference::Addr(EventAddr { author, .. }))
+                                    Some(EventReference::Addr(NAddr { author, .. }))
                                         if author == my_pubkey
                                 ) || (indirect
                                     || e.people_referenced_in_content()

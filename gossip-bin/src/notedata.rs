@@ -3,7 +3,7 @@ use gossip_lib::{Person, PersonList, PersonTable, Private, Table};
 use std::collections::HashMap;
 
 use nostr_types::{
-    ContentSegment, Event, EventAddr, EventDelegation, EventKind, EventReference, Id, MilliSatoshi,
+    ContentSegment, Event, NAddr, EventDelegation, EventKind, EventReference, Id, MilliSatoshi,
     NostrBech32, PublicKey, RelayUrl, ShatteredContent, Unixtime,
 };
 
@@ -214,7 +214,7 @@ impl NoteData {
         for shard in &shattered_content.segments {
             match shard {
                 ContentSegment::NostrUrl(nurl) => match nurl.0 {
-                    NostrBech32::Id(_) | NostrBech32::EventPointer(_) => {
+                    NostrBech32::Id(_) | NostrBech32::NEvent(_) => {
                         has_nostr_event_reference = true;
                     }
                     _ => (),
@@ -344,7 +344,7 @@ impl NoteData {
 
     pub(super) fn event_reference(&self) -> EventReference {
         if self.event.kind.is_replaceable() {
-            EventReference::Addr(EventAddr {
+            EventReference::Addr(NAddr {
                 d: "".to_owned(),
                 relays: vec![],
                 kind: self.event.kind,

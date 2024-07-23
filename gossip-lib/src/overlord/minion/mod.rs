@@ -19,7 +19,7 @@ use http::uri::{Parts, Scheme};
 use http::Uri;
 use mime::Mime;
 use nostr_types::{
-    ClientMessage, EventAddr, EventKind, EventReference, Filter, Id, IdHex, PreEvent, PublicKey,
+    ClientMessage, NAddr, EventKind, EventReference, Filter, Id, IdHex, PreEvent, PublicKey,
     PublicKeyHex, RelayInformationDocument, RelayUrl, Tag, Unixtime,
 };
 use reqwest::Response;
@@ -592,10 +592,10 @@ impl Minion {
                     });
                 // We don't ask the relay immediately. See task_timer.
             }
-            ToMinionPayloadDetail::FetchEventAddr(ea) => {
+            ToMinionPayloadDetail::FetchNAddr(ea) => {
                 // These are rare enough we can ask immediately. We can't store in sought_events
                 // anyways we would have to create a parallel thing.
-                self.get_event_addr(message.job_id, ea).await?;
+                self.get_naddr(message.job_id, ea).await?;
             }
             ToMinionPayloadDetail::PostEvents(mut events) => {
                 self.posting_jobs.insert(
@@ -1112,9 +1112,9 @@ impl Minion {
         Ok(())
     }
 
-    async fn get_event_addr(&mut self, job_id: u64, ea: EventAddr) -> Result<(), Error> {
+    async fn get_naddr(&mut self, job_id: u64, ea: NAddr) -> Result<(), Error> {
         // create a handle for ourselves
-        let handle = format!("temp_event_addr_{}", self.next_events_subscription_id);
+        let handle = format!("temp_naddr_{}", self.next_events_subscription_id);
         self.next_events_subscription_id += 1;
 
         // build the filter

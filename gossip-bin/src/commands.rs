@@ -1,6 +1,6 @@
 use gossip_lib::{Error, ErrorKind, PersonList, PersonListMetadata, PersonTable, Table, GLOBALS};
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventAddr, EventKind, Filter, Id, NostrBech32, NostrUrl, PreEvent,
+    EncryptedPrivateKey, Event, NAddr, EventKind, Filter, Id, NostrBech32, NostrUrl, PreEvent,
     PrivateKey, PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime,
 };
 use std::collections::HashSet;
@@ -47,7 +47,7 @@ const COMMANDS: [Command; 36] = [
         desc: "decode the bech32 string.",
     },
     Command {
-        cmd: "bech32_encode_event_addr",
+        cmd: "bech32_encode_naddr",
         usage_params: "<kind> <pubkeyhex> <d> [<relayurl>, ...]",
         desc: "encode an event address (parameterized replaceable event link).",
     },
@@ -229,7 +229,7 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
         "add_person_list" => add_person_list(command, args)?,
         "backdate_eose" => backdate_eose()?,
         "bech32_decode" => bech32_decode(command, args)?,
-        "bech32_encode_event_addr" => bech32_encode_event_addr(command, args)?,
+        "bech32_encode_naddr" => bech32_encode_naddr(command, args)?,
         "clear_timeouts" => clear_timeouts()?,
         "decrypt" => decrypt(command, args)?,
         "delete_spam_by_content" => delete_spam_by_content(command, args, runtime)?,
@@ -343,7 +343,7 @@ pub fn bech32_decode(cmd: Command, mut args: env::Args) -> Result<(), Error> {
 
     if let Some(nb32) = NostrBech32::try_from_string(&param) {
         match nb32 {
-            NostrBech32::EventAddr(ea) => {
+            NostrBech32::NAddr(ea) => {
                 println!("Event Address:");
                 println!("  d={}", ea.d);
                 println!(
@@ -357,21 +357,21 @@ pub fn bech32_decode(cmd: Command, mut args: env::Args) -> Result<(), Error> {
                 println!("  kind={}", Into::<u32>::into(ea.kind));
                 println!("  author={}", ea.author.as_hex_string());
             }
-            NostrBech32::EventPointer(ep) => {
-                println!("Event Pointer:");
-                println!("  id={}", ep.id.as_hex_string());
+            NostrBech32::NEvent(ne) => {
+                println!("NEvent:");
+                println!("  id={}", ne.id.as_hex_string());
                 println!(
                     "  relays={}",
-                    ep.relays
+                    ne.relays
                         .iter()
                         .map(|r| r.as_str().to_owned())
                         .collect::<Vec<String>>()
                         .join(", ")
                 );
-                if let Some(kind) = ep.kind {
+                if let Some(kind) = ne.kind {
                     println!("  kind={}", Into::<u32>::into(kind));
                 }
-                if let Some(author) = ep.author {
+                if let Some(author) = ne.author {
                     println!("  author={}", author.as_hex_string());
                 }
             }
@@ -409,7 +409,7 @@ pub fn bech32_decode(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn bech32_encode_event_addr(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+pub fn bech32_encode_naddr(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     let kind: EventKind = match args.next() {
         Some(integer) => integer.parse::<u32>()?.into(),
         None => return cmd.usage("Missing kind parameter".to_string()),
@@ -431,7 +431,7 @@ pub fn bech32_encode_event_addr(cmd: Command, mut args: env::Args) -> Result<(),
         urls.push(UncheckedUrl::from_string(s));
     }
 
-    let ea = EventAddr {
+    let ea = NAddr {
         d,
         relays: urls,
         kind,
