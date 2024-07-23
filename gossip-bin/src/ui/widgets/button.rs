@@ -234,7 +234,7 @@ impl Button<'_> {
         let (rect, response) = ui.allocate_at_least(desired_size, Sense::click());
         response.widget_info(|| {
             if let Some(text) = text {
-                WidgetInfo::labeled(WidgetType::Button, text.text())
+                WidgetInfo::labeled(WidgetType::Button, ui.is_enabled(), text.text())
             } else {
                 WidgetInfo::new(WidgetType::Button)
             }

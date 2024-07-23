@@ -160,7 +160,16 @@ pub(super) fn render_note(
             }
 
             // Mark post as viewed if hovered AND we are not scrolling
-            if !viewed && inner_response.response.hovered() && !app.is_scrolling() {
+            if !viewed
+                && ui
+                    .interact(
+                        inner_response.response.rect,
+                        ui.next_auto_id().with("hov"),
+                        egui::Sense::hover(),
+                    )
+                    .hovered()
+                && !app.is_scrolling()
+            {
                 let _ = GLOBALS.storage.mark_event_viewed(id, None);
             }
 
@@ -1305,7 +1314,7 @@ fn note_actions(
         .show(ui);
     let menu = widgets::MoreMenu::simple(ui.auto_id_with(note.event.id))
         .with_min_size(vec2(100.0, 0.0))
-        .with_max_size(vec2(140.0, f32::INFINITY));
+        .with_max_size(vec2(140.0, ui.ctx().available_rect().height()));
     let mut items: Vec<MoreMenuItem> = Vec::new();
 
     // ---- Copy Text ----
@@ -1647,7 +1656,7 @@ fn draw_seen_on(app: &mut GossipUi, ui: &mut Ui, note: &std::cell::Ref<NoteData>
     let response = ui.add(Label::new(RichText::new("👁").size(12.0)).sense(Sense::hover()));
 
     if response.hovered() {
-        egui::Area::new(ui.next_auto_id())
+        egui::Area::new(ui.next_auto_id().with("seen_on"))
             .movable(false)
             .interactable(false)
             // .pivot(Align2::RIGHT_TOP) // Fails to work as advertised

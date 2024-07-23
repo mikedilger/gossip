@@ -4,6 +4,7 @@ use crate::ui::widgets::list_entry;
 use crate::ui::widgets::CopyButton;
 use crate::AVATAR_SIZE_F32;
 use eframe::egui::{self, Label};
+use eframe::epaint::PathStroke;
 use egui::{Context, RichText, TextEdit, Ui, Vec2};
 use egui_winit::egui::vec2;
 use egui_winit::egui::InnerResponse;
@@ -461,7 +462,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
 
         // Right column, starting with avatar
         ui.allocate_ui_with_layout(
-            vec2(AVATAR_COL_WIDTH, f32::INFINITY),
+            vec2(AVATAR_COL_WIDTH, ui.ctx().available_rect().height()),
             egui::Layout::right_to_left(egui::Align::TOP).with_main_justify(true),
             |ui| {
                 ui.vertical(|ui| {
@@ -618,7 +619,7 @@ fn profile_item(
     content: impl Into<String>,
 ) {
     let content: String = content.into();
-    let symbol = CopyButton::new().stroke(egui::Stroke::new(1.4, app.theme.accent_color()));
+    let symbol = CopyButton::new().stroke(PathStroke::new(1.4, app.theme.accent_color()));
     let response = profile_item_frame(ui, width, label, &content, symbol).response;
 
     if response.clicked() {
@@ -704,8 +705,8 @@ fn profile_item_frame(
         .response
     };
 
-    let frame_rect = (prepared.frame.inner_margin + prepared.frame.outer_margin)
-        .expand_rect(prepared.content_ui.min_rect());
+    let frame_rect = prepared.content_ui.min_rect()
+        + (prepared.frame.inner_margin + prepared.frame.outer_margin);
 
     let response = ui
         .interact(frame_rect, ui.auto_id_with(&label), egui::Sense::click())

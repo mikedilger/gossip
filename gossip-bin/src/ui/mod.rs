@@ -137,7 +137,7 @@ pub fn run() -> Result<(), Error> {
     if let Err(e) = eframe::run_native(
         "gossip",
         options,
-        Box::new(|cc| Box::new(GossipUi::new(cc))),
+        Box::new(|cc| Ok(Box::new(GossipUi::new(cc)))),
     ) {
         tracing::error!("Eframe error: {}", e);
     }
@@ -1310,7 +1310,7 @@ impl GossipUi {
                     + Vec2::new(-crate::AVATAR_SIZE_F32 * 2.0, -crate::AVATAR_SIZE_F32 * 2.0)
             };
 
-            egui::Area::new(ui.next_auto_id())
+            egui::Area::new(ui.next_auto_id().with("plus"))
                 .movable(false)
                 .interactable(true)
                 .fixed_pos(pos)
@@ -1656,7 +1656,9 @@ impl GossipUi {
 
     fn begin_ui(&self, ui: &mut Ui) {
         // if a dialog is open, disable the rest of the UI
-        ui.set_enabled(self.enable_ui());
+        if !self.enable_ui() {
+            ui.disable();
+        }
     }
 
     pub fn richtext_from_person_nip05(person: &Person) -> RichText {
@@ -2016,7 +2018,8 @@ impl GossipUi {
 
     fn open_menu(&mut self, ctx: &Context, item: SubMenu) {
         for (submenu, id) in self.submenu_ids.iter() {
-            let mut cstate = egui::CollapsingState::load_with_default_open(ctx, *id, false);
+            let mut cstate =
+                egui::collapsing_header::CollapsingState::load_with_default_open(ctx, *id, false);
             if item == SubMenu::Feeds || *submenu != SubMenu::Feeds {
                 cstate.set_open(*submenu == item);
             }
@@ -2026,7 +2029,8 @@ impl GossipUi {
 
     fn close_all_menus_except_feeds(&mut self, ctx: &Context) {
         for (submenu, id) in self.submenu_ids.iter() {
-            let mut cstate = egui::CollapsingState::load_with_default_open(ctx, *id, false);
+            let mut cstate =
+                egui::collapsing_header::CollapsingState::load_with_default_open(ctx, *id, false);
             if *submenu != SubMenu::Feeds {
                 cstate.set_open(false);
             }
@@ -2039,9 +2043,12 @@ impl GossipUi {
         ui: &mut Ui,
         ctx: &Context,
         submenu: SubMenu,
-    ) -> (egui::CollapsingState, Response) {
-        let mut cstate =
-            egui::CollapsingState::load_with_default_open(ctx, self.submenu_ids[&submenu], false);
+    ) -> (egui::collapsing_header::CollapsingState, Response) {
+        let mut cstate = egui::collapsing_header::CollapsingState::load_with_default_open(
+            ctx,
+            self.submenu_ids[&submenu],
+            false,
+        );
         let open = cstate.is_open();
         let txt = if open {
             submenu.to_string() + " \u{25BE}"
@@ -2072,7 +2079,7 @@ impl GossipUi {
         (cstate, header_res.response)
     }
 
-    fn after_openable_menu(&self, ui: &mut Ui, cstate: &egui::CollapsingState) {
+    fn after_openable_menu(&self, ui: &mut Ui, cstate: &egui::collapsing_header::CollapsingState) {
         if cstate.is_open() {
             ui.add_space(10.0)
         }

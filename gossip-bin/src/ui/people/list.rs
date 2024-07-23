@@ -134,7 +134,9 @@ pub(super) fn update(
         });
     });
 
-    ui.set_enabled(enabled);
+    if !enabled {
+        ui.disable();
+    }
 
     ui.add_space(5.0);
 
@@ -303,7 +305,10 @@ pub(super) fn update(
                                     let menu =
                                         widgets::MoreMenu::bubble(ui.auto_id_with(person.pubkey))
                                             .with_min_size(vec2(100.0, 0.0))
-                                            .with_max_size(vec2(100.0, f32::INFINITY));
+                                            .with_max_size(vec2(
+                                                100.0,
+                                                ctx.available_rect().height(),
+                                            ));
                                     let mut items: Vec<MoreMenuItem> = Vec::new();
 
                                     // actions
@@ -779,7 +784,7 @@ pub(super) fn render_more_list_actions(
 
     let menu = widgets::MoreMenu::bubble(ui.next_auto_id())
         .with_min_size(vec2(100.0, 0.0))
-        .with_max_size(vec2(140.0, f32::INFINITY));
+        .with_max_size(vec2(140.0, ui.ctx().available_rect().height()));
 
     let mut items: Vec<MoreMenuItem> = Vec::new();
     items.push(MoreMenuItem::Button(MoreMenuButton::new(

@@ -1,11 +1,14 @@
-use eframe::{egui, epaint};
+use eframe::{
+    egui,
+    epaint::{self, ColorMode, PathStroke},
+};
 use egui::{Color32, Pos2, Response, Sense, Shape, Ui, Vec2, Widget};
-use epaint::{PathShape, Stroke};
+use epaint::PathShape;
 
 pub const COPY_SYMBOL_SIZE: Vec2 = Vec2::new(12.0, 12.0);
 
 pub struct CopyButton {
-    stroke: Option<Stroke>,
+    stroke: Option<PathStroke>,
 }
 
 impl CopyButton {
@@ -13,7 +16,7 @@ impl CopyButton {
         Self { stroke: None }
     }
 
-    pub(crate) fn stroke(mut self, stroke: Stroke) -> Self {
+    pub(crate) fn stroke(mut self, stroke: PathStroke) -> Self {
         self.stroke = Some(stroke);
         self
     }
@@ -44,10 +47,14 @@ impl CopyButton {
             ],
             closed: false,
             fill: Color32::TRANSPARENT,
-            stroke: self.stroke.unwrap_or(Stroke {
-                width: 1.0,
-                color: Color32::from_rgb(0x8d, 0x7f, 0x73),
-            }),
+            stroke: if let Some(stroke) = &self.stroke {
+                stroke.clone()
+            } else {
+                PathStroke {
+                    width: 1.0,
+                    color: ColorMode::Solid(Color32::from_rgb(0x8d, 0x7f, 0x73)),
+                }
+            },
         }));
 
         ui.painter().add(Shape::Path(PathShape {
@@ -75,10 +82,14 @@ impl CopyButton {
             ],
             closed: true,
             fill: Color32::TRANSPARENT,
-            stroke: self.stroke.unwrap_or(Stroke {
-                width: 1.0,
-                color: Color32::from_rgb(0x8d, 0x7f, 0x73),
-            }),
+            stroke: if let Some(stroke) = &self.stroke {
+                stroke.clone()
+            } else {
+                PathStroke {
+                    width: 1.0,
+                    color: ColorMode::Solid(Color32::from_rgb(0x8d, 0x7f, 0x73)),
+                }
+            },
         }));
     }
 }

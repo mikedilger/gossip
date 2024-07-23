@@ -66,7 +66,9 @@ impl<'a> MoreMenuButton<'a> {
     }
 
     fn show(self, app: &mut GossipUi, ui: &mut Ui) -> Response {
-        ui.set_enabled(self.enabled);
+        if !self.enabled {
+            ui.disable();
+        }
 
         let response = draw_menu_button(ui, &app.theme, self.text, None);
 
@@ -132,7 +134,9 @@ impl<'a> MoreMenuSubMenu<'a> {
     }
 
     fn show(self, app: &mut GossipUi, ui: &mut Ui) -> Response {
-        ui.set_enabled(self.enabled);
+        if !self.enabled {
+            ui.disable();
+        }
 
         let mut open = load_state(ui, &self.id);
 
@@ -717,7 +721,7 @@ fn draw_menu_button(
 
     // interact
     let (rect, response) = ui.allocate_at_least(desired_size, Sense::click());
-    response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, title.text()));
+    response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, ui.is_enabled(), title.text()));
     let state = super::interact_widget_state(ui, &response);
     let state = match state {
         super::WidgetState::Default => {
