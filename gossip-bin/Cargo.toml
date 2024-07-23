@@ -20,10 +20,10 @@ appimage = [ "gossip-lib/appimage" ]
 
 [dependencies]
 bech32 = "0.11"
-eframe = { git = "https://github.com/bu5hm4nn/egui", rev = "145f8e2bad35408ffab2fada91d805774b904011", features = [ "persistence", "wayland", "wgpu" ] }
-egui-winit = { git = "https://github.com/bu5hm4nn/egui", rev = "145f8e2bad35408ffab2fada91d805774b904011", features = [ "default" ] }
-egui_extras = { git = "https://github.com/bu5hm4nn/egui", rev = "145f8e2bad35408ffab2fada91d805774b904011", features = [ "syntect" ] }
-## egui = { git = "https://github.com/bu5hm4nn/egui", rev = "145f8e2bad35408ffab2fada91d805774b904011", features = [ "deadlock_detection" ] }
+eframe = { git = "https://github.com/bu5hm4nn/egui", rev = "521b087269acb6032d5040fa8bad33e84dbadede", features = [ "persistence", "wayland", "wgpu" ] }
+egui-winit = { git = "https://github.com/bu5hm4nn/egui", rev = "521b087269acb6032d5040fa8bad33e84dbadede", features = [ "default" ] }
+egui_extras = { git = "https://github.com/bu5hm4nn/egui", rev = "521b087269acb6032d5040fa8bad33e84dbadede", features = [ "syntect" ] }
+## egui = { git = "https://github.com/bu5hm4nn/egui", rev = "521b087269acb6032d5040fa8bad33e84dbadede", features = [ "deadlock_detection" ] }
 egui-video = { git = "https://github.com/bu5hm4nn/egui-video", rev = "21005df83139d0a7bdc910c66df3bc5a7b7bade2",  features = [ "from_bytes" ], optional = true }
 gossip-relay-picker = { git = "https://github.com/mikedilger/gossip-relay-picker", rev = "3ea9ccfc641cdef1574a3c054a086ac2e24d3c4a" }
 gossip-lib = { path = "../gossip-lib" }
