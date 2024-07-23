@@ -25,13 +25,13 @@ egui-winit = { git = "https://github.com/bu5hm4nn/egui", rev = "521b087269acb603
 egui_extras = { git = "https://github.com/bu5hm4nn/egui", rev = "521b087269acb6032d5040fa8bad33e84dbadede", features = [ "syntect" ] }
 ## egui = { git = "https://github.com/bu5hm4nn/egui", rev = "521b087269acb6032d5040fa8bad33e84dbadede", features = [ "deadlock_detection" ] }
 egui-video = { git = "https://github.com/bu5hm4nn/egui-video", rev = "21005df83139d0a7bdc910c66df3bc5a7b7bade2",  features = [ "from_bytes" ], optional = true }
-gossip-relay-picker = { git = "https://github.com/mikedilger/gossip-relay-picker", rev = "3ea9ccfc641cdef1574a3c054a086ac2e24d3c4a" }
+gossip-relay-picker = { git = "https://github.com/mikedilger/gossip-relay-picker", rev = "adb9bd0ef8c473f9f4c3ea0780acf4350c1015ca" }
 gossip-lib = { path = "../gossip-lib" }
 humansize = "2.1"
 image = { version = "0.24.6", features = [ "png", "jpeg" ] }
 lazy_static = "1.4"
 memoize = "0.4"
-nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "d09019261b6d57722eaeb006dd768bd6207c41d1", features = [ "speedy" ] }
+nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "18ea50d0ca2bf0f79571f05d5db2071f80d67d5c", features = [ "speedy" ] }
 paste = "1.0"
 qrcode = { git = "https://github.com/mikedilger/qrcode-rust", rev = "519b77b3efa3f84961169b47d3de08c5ddd86548" }
 resvg = "0.35.0"
