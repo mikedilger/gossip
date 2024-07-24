@@ -26,7 +26,7 @@ impl Storage {
     }
 
     fn m34_migrate_person_relay_records<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
-        let loop_txn = self.env.read_txn()?;
+        let loop_txn = self.env().read_txn()?;
         let iter = self.db_person_relays1()?.iter(&loop_txn)?;
         for result in iter {
             let (key, val) = result?;

@@ -32,9 +32,9 @@ impl Storage {
 
                 // Create it. We know that nobody else is doing this and that
                 // it cannot happen twice.
-                let mut txn = self.env.write_txn()?;
+                let mut txn = self.env().write_txn()?;
                 let db = self
-                    .env
+                    .env()
                     .database_options()
                     .types::<Bytes, Bytes>()
                     // no .flags needed
@@ -52,7 +52,7 @@ impl Storage {
         pubkey: &PublicKey,
     ) -> Result<HashMap<PersonList1, Private>, Error> {
         let key: Vec<u8> = pubkey.to_bytes();
-        let txn = self.env.read_txn()?;
+        let txn = self.env().read_txn()?;
         Ok(match self.db_person_lists2()?.get(&txn, &key)? {
             None => HashMap::new(),
             Some(bytes) => HashMap::<PersonList1, Private>::read_from_buffer(bytes)?,
@@ -77,7 +77,7 @@ impl Storage {
     }
 
     pub(crate) fn get_people_in_all_followed_lists2(&self) -> Result<Vec<PublicKey>, Error> {
-        let txn = self.env.read_txn()?;
+        let txn = self.env().read_txn()?;
         let mut pubkeys: Vec<PublicKey> = Vec::new();
         for result in self.db_person_lists2()?.iter(&txn)? {
             let (key, val) = result?;
@@ -94,7 +94,7 @@ impl Storage {
         &self,
         list: PersonList1,
     ) -> Result<Vec<(PublicKey, Private)>, Error> {
-        let txn = self.env.read_txn()?;
+        let txn = self.env().read_txn()?;
         let mut output: Vec<(PublicKey, Private)> = Vec::new();
         for result in self.db_person_lists2()?.iter(&txn)? {
             let (key, val) = result?;

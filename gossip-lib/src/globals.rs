@@ -181,10 +181,7 @@ lazy_static! {
         // We start in the Offline state
         let (write_runstate, read_runstate) = tokio::sync::watch::channel(RunState::Initializing);
 
-        let storage = match Storage::new() {
-            Ok(s) => s,
-            Err(e) => panic!("{e}")
-        };
+        let storage = Storage::new();
 
         let filter_engine = Engine::new();
         let filter = crate::filter::load_script(&filter_engine);

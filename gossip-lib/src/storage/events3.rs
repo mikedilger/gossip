@@ -29,9 +29,9 @@ impl Storage {
 
                 // Create it. We know that nobody else is doing this and that
                 // it cannot happen twice.
-                let mut txn = self.env.write_txn()?;
+                let mut txn = self.env().write_txn()?;
                 let db = self
-                    .env
+                    .env()
                     .database_options()
                     .types::<Bytes, Bytes>()
                     // no .flags needed
@@ -92,7 +92,7 @@ impl Storage {
     }
 
     pub(crate) fn read_event3(&self, id: Id) -> Result<Option<EventV3>, Error> {
-        let txn = self.env.read_txn()?;
+        let txn = self.env().read_txn()?;
         match self.db_events3()?.get(&txn, id.as_slice())? {
             None => Ok(None),
             Some(bytes) => Ok(Some(EventV3::read_from_buffer(bytes)?)),
@@ -100,7 +100,7 @@ impl Storage {
     }
 
     pub(crate) fn has_event3(&self, id: Id) -> Result<bool, Error> {
-        let txn = self.env.read_txn()?;
+        let txn = self.env().read_txn()?;
         match self.db_events3()?.get(&txn, id.as_slice())? {
             None => Ok(false),
             Some(_) => Ok(true),

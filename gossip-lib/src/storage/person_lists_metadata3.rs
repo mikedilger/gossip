@@ -28,9 +28,9 @@ impl Storage {
 
                 // Create it. We know that nobody else is doing this and that
                 // it cannot happen twice.
-                let mut txn = self.env.write_txn()?;
+                let mut txn = self.env().write_txn()?;
                 let db = self
-                    .env
+                    .env()
                     .database_options()
                     .types::<Bytes, Bytes>()
                     // no .flags needed
@@ -48,7 +48,7 @@ impl Storage {
         list: PersonList1,
     ) -> Result<Option<PersonListMetadata3>, Error> {
         let key: Vec<u8> = list.write_to_vec()?;
-        let txn = self.env.read_txn()?;
+        let txn = self.env().read_txn()?;
         Ok(match self.db_person_lists_metadata3()?.get(&txn, &key)? {
             None => None,
             Some(bytes) => {
@@ -99,7 +99,7 @@ impl Storage {
     pub(crate) fn get_all_person_list_metadata3(
         &self,
     ) -> Result<Vec<(PersonList1, PersonListMetadata3)>, Error> {
-        let txn = self.env.read_txn()?;
+        let txn = self.env().read_txn()?;
         let mut output: Vec<(PersonList1, PersonListMetadata3)> = Vec::new();
         for result in self.db_person_lists_metadata3()?.iter(&txn)? {
             let (key, val) = result?;
@@ -120,7 +120,7 @@ impl Storage {
         &self,
         dtag: &str,
     ) -> Result<Option<(PersonList1, PersonListMetadata3)>, Error> {
-        let txn = self.env.read_txn()?;
+        let txn = self.env().read_txn()?;
         for result in self.db_person_lists_metadata3()?.iter(&txn)? {
             let (key, val) = result?;
             let list = PersonList1::read_from_buffer(key)?;

@@ -70,6 +70,7 @@ use paste::paste;
 use speedy::{Readable, Writable};
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::ops::Bound;
+use std::sync::OnceLock;
 
 use self::event_kci_index::INDEXED_KINDS;
 use self::event_tag_index1::INDEXED_TAGS;
@@ -81,11 +82,19 @@ type EmptyDatabase = Database<Bytes, Unit>;
 ///
 /// All calls are synchronous but fast so callers can just wait on them.
 pub struct Storage {
-    env: Env,
+    env: OnceLock<Env>,
 }
 
 impl Storage {
-    pub(crate) fn new() -> Result<Storage, Error> {
+    pub(crate) fn new() -> Storage {
+        Storage {
+            env: OnceLock::new(),
+        }
+    }
+
+    /// Run this after GLOBALS lazy static initialisation, so functions within storage can
+    /// access GLOBALS without hanging.
+    pub fn init(&self) -> Result<(), Error> {
         let mut builder = EnvOpenOptions::new();
         unsafe {
             builder.flags(EnvFlags::NO_TLS | EnvFlags::NO_META_SYNC);
@@ -115,12 +124,10 @@ impl Storage {
             }
         };
 
-        Ok(Storage { env })
-    }
+        self.env
+            .set(env)
+            .expect("Unable to setup storage environment");
 
-    /// Run this after GLOBALS lazy static initialisation, so functions within storage can
-    /// access GLOBALS without hanging.
-    pub fn init(&self) -> Result<(), Error> {
         // We have to trigger all of the current-version databases into existence
         // because otherwise there will be MVCC visibility problems later having
         // different transactions in parallel
@@ -153,21 +160,28 @@ impl Storage {
         Ok(())
     }
 
+    pub fn env(&self) -> &Env {
+        match self.env.get() {
+            Some(e) => e,
+            None => panic!("Storage call before initialization"),
+        }
+    }
+
     /// Get a write transaction. With it, you can do multiple writes before you commit it.
     /// Bundling multiple writes together is more efficient.
     pub fn get_write_txn(&self) -> Result<RwTxn<'_>, Error> {
-        Ok(self.env.write_txn()?)
+        Ok(self.env().write_txn()?)
     }
 
     /// Get a read transaction.
     pub fn get_read_txn(&self) -> Result<RoTxn<'_>, Error> {
-        Ok(self.env.read_txn()?)
+        Ok(self.env().read_txn()?)
     }
 
     /// Sync the data to disk. This happens periodically, but sometimes it's useful to force
     /// it.
     pub fn sync(&self) -> Result<(), Error> {
-        self.env.force_sync()?;
+        self.env().force_sync()?;
         Ok(())
     }
 
@@ -242,7 +256,7 @@ impl Storage {
 
     /// The number of records in the general table
     pub fn get_general_len(&self) -> Result<u64, Error> {
-        let txn = self.env.read_txn()?;
+        let txn = self.env().read_txn()?;
         Ok(self.db_general()?.len(&txn)?)
     }
 
@@ -260,13 +274,13 @@ impl Storage {
 
     /// The number of records in the hashtags table
     pub fn get_hashtags_len(&self) -> Result<u64, Error> {
-        let txn = self.env.read_txn()?;
+        let txn = self.env().read_txn()?;
         Ok(self.db_hashtags()?.len(&txn)?)
     }
 
     /// The number of records in the nip46servers table
     pub fn get_nip46servers_len(&self) -> Result<u64, Error> {
-        let txn = self.env.read_txn()?;
+        let txn = self.env().read_txn()?;
         Ok(self.db_nip46servers()?.len(&txn)?)
     }
 
@@ -278,39 +292,39 @@ impl Storage {
 
     /// The number of records in the event table
     pub fn get_event_len(&self) -> Result<u64, Error> {
-        let txn = self.env.read_txn()?;
+        let txn = self.env().read_txn()?;
         Ok(self.db_events()?.len(&txn)?)
     }
 
     /// The number of records in the event_akci_index table
     pub fn get_event_akci_index_len(&self) -> Result<u64, Error> {
-        let txn = self.env.read_txn()?;
+        let txn = self.env().read_txn()?;
         Ok(self.db_event_akci_index()?.len(&txn)?)
     }
 
     /// The number of records in the event_kci_index table
     pub fn get_event_kci_index_len(&self) -> Result<u64, Error> {
-        let txn = self.env.read_txn()?;
+        let txn = self.env().read_txn()?;
         Ok(self.db_event_kci_index()?.len(&txn)?)
     }
 
     /// The number of records in the event_tag index table
     pub fn get_event_tag_index_len(&self) -> Result<u64, Error> {
-        let txn = self.env.read_txn()?;
+        let txn = self.env().read_txn()?;
         Ok(self.db_event_tag_index()?.len(&txn)?)
     }
 
     /// The number of records in the relationships_by_addr table
     #[inline]
     pub fn get_relationships_by_addr_len(&self) -> Result<u64, Error> {
-        let txn = self.env.read_txn()?;
+        let txn = self.env().read_txn()?;
         Ok(self.db_relationships_by_addr()?.len(&txn)?)
     }
 
     /// The number of records in the relationships_by_id table
     #[inline]
     pub fn get_relationships_by_id_len(&self) -> Result<u64, Error> {
-        let txn = self.env.read_txn()?;
+        let txn = self.env().read_txn()?;
         Ok(self.db_relationships_by_id()?.len(&txn)?)
     }
 
@@ -322,7 +336,7 @@ impl Storage {
 
     /// The number of records in the person_lists table
     pub fn get_person_lists_len(&self) -> Result<u64, Error> {
-        let txn = self.env.read_txn()?;
+        let txn = self.env().read_txn()?;
         Ok(self.db_person_lists()?.len(&txn)?)
     }
 
@@ -332,7 +346,7 @@ impl Storage {
     /// and all related indexes.
     pub fn prune(&self, from: Unixtime) -> Result<usize, Error> {
         // Extract the Ids to delete.
-        let txn = self.env.read_txn()?;
+        let txn = self.env().read_txn()?;
         let mut ids: HashSet<Id> = HashSet::new();
         for result in self.db_events()?.iter(&txn)? {
             let (_key, val) = result?;
@@ -350,7 +364,7 @@ impl Storage {
         }
         drop(txn);
 
-        let mut txn = self.env.write_txn()?;
+        let mut txn = self.env().write_txn()?;
 
         // Delete from event_seen_on_relay
         let mut deletions: Vec<Vec<u8>> = Vec::new();
@@ -442,7 +456,7 @@ impl Storage {
     }
 
     pub(crate) fn read_migration_level(&self) -> Result<Option<u32>, Error> {
-        let txn = self.env.read_txn()?;
+        let txn = self.env().read_txn()?;
 
         Ok(self
             .db_general()?
@@ -469,7 +483,7 @@ impl Storage {
 
     /// Read the user's encrypted private key
     pub fn read_encrypted_private_key(&self) -> Result<Option<EncryptedPrivateKey>, Error> {
-        let txn = self.env.read_txn()?;
+        let txn = self.env().read_txn()?;
 
         match self.db_general()?.get(&txn, b"encrypted_private_key")? {
             None => Ok(None),
@@ -501,7 +515,7 @@ impl Storage {
     /// Read NIP-46 unconnected server
     #[allow(dead_code)]
     pub fn read_nip46_unconnected_server(&self) -> Result<Option<Nip46UnconnectedServer>, Error> {
-        let txn = self.env.read_txn()?;
+        let txn = self.env().read_txn()?;
         match self.db_general()?.get(&txn, b"nip46_unconnected_server")? {
             None => Ok(None),
             Some(bytes) => {
@@ -1101,7 +1115,7 @@ impl Storage {
                 f(txn)?;
             }
             None => {
-                let mut txn = self.env.write_txn()?;
+                let mut txn = self.env().write_txn()?;
                 f(&mut txn)?;
                 txn.commit()?;
             }
@@ -1190,7 +1204,7 @@ impl Storage {
                 f(txn)?;
             }
             None => {
-                let mut txn = self.env.write_txn()?;
+                let mut txn = self.env().write_txn()?;
                 f(&mut txn)?;
                 txn.commit()?;
             }
@@ -1405,7 +1419,7 @@ impl Storage {
     where
         F: Fn(&Event) -> bool,
     {
-        let txn = self.env.read_txn()?;
+        let txn = self.env().read_txn()?;
 
         // We insert into a BTreeSet to keep them time-ordered
         let mut output: BTreeSet<Event> = BTreeSet::new();
@@ -1624,7 +1638,7 @@ impl Storage {
             .case_insensitive(true)
             .build()?;
 
-        let txn = self.env.read_txn()?;
+        let txn = self.env().read_txn()?;
         let iter = self.db_events()?.iter(&txn)?;
         let mut events: Vec<Event> = Vec::new();
         for result in iter {
@@ -2228,7 +2242,7 @@ impl Storage {
             self.db_event_tag_index()?.clear(txn)?;
             self.db_hashtags()?.clear(txn)?;
 
-            let loop_txn = self.env.read_txn()?;
+            let loop_txn = self.env().read_txn()?;
             for result in self.db_events()?.iter(&loop_txn)? {
                 let (_key, val) = result?;
                 let event = Event::read_from_buffer(val)?;
@@ -2277,7 +2291,7 @@ impl Storage {
             // Erase the index first
             self.db_event_tag_index()?.clear(txn)?;
 
-            let loop_txn = self.env.read_txn()?;
+            let loop_txn = self.env().read_txn()?;
             for result in self.db_events()?.iter(&loop_txn)? {
                 let (_key, val) = result?;
                 let event = Event::read_from_buffer(val)?;
@@ -2315,7 +2329,7 @@ impl Storage {
         if let Some(mut metadata) = self.get_person_list_metadata(list)? {
             if metadata.len != people.len() {
                 metadata.len = people.len();
-                let mut txn = self.env.write_txn()?;
+                let mut txn = self.env().write_txn()?;
                 self.set_person_list_metadata(list, &metadata, Some(&mut txn))?;
                 txn.commit()?;
             }
@@ -2444,7 +2458,7 @@ impl Storage {
     ) -> Result<(), Error> {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
             // Iterate through all events
-            let loop_txn = self.env.read_txn()?;
+            let loop_txn = self.env().read_txn()?;
             for result in self.db_events()?.iter(&loop_txn)? {
                 let (_key, val) = result?;
                 let event = Event::read_from_buffer(val)?;
