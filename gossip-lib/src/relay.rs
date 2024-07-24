@@ -187,7 +187,7 @@ pub fn get_best_relays_with_score(
     let mut candidates: Vec<(RelayUrl, u64)> = Vec::new();
     for pr in person_relays.drain(..) {
         // Compute how strongly it associates to them
-        let association_rank = pr.association_rank(now, usage == RelayUsage::Outbox);
+        let association_score = (pr.association_score(now, usage) * 20.0) as u64;
 
         // Load the relay so we can get more score-determining data
         let relay = GLOBALS.storage.read_or_create_relay(&pr.url, None)?;
@@ -196,13 +196,13 @@ pub fn get_best_relays_with_score(
             continue;
         }
 
-        let mut score = if association_rank >= 20 {
+        let mut score = if association_score >= 20 {
             // Do not modulate scores of declared relays.
             20
         } else {
-            // Compute a score based on the association_rank and also
+            // Compute a score based on the association_score and also
             // whether or not the relay is any good
-            (association_rank as f32 * relay.score() * 3.0) as u64
+            (association_score as f32 * relay.score() * 3.0) as u64
         };
 
         // Cap scores at 20

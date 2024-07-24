@@ -1,4 +1,4 @@
-use nostr_types::{PublicKey, RelayUrl, Unixtime};
+use nostr_types::{PublicKey, RelayUrl, RelayUsage, Unixtime};
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
 
@@ -45,42 +45,42 @@ impl PersonRelay2 {
         }
     }
 
-    // Includes a value of 20 if in their relay list.
-    // Includes a value of 4 (halflife of 14 days) if their events have been seen there recently
-    // Includes a value of 2 (halflife of 7 days) if a relay hint suggested it
-    pub fn association_rank(&self, now: Unixtime, write: bool) -> u64 {
+    // 1.0 means it is in their relay list
+    // 0.2 (with halflife of 14 days) if we found their events there recently
+    // 0.1 (with halflife of 7 days) if a relay hint suggested it
+    pub fn association_score(&self, now: Unixtime, usage: RelayUsage) -> f32 {
         let now = now.0 as u64;
 
-        let mut score = 0;
+        let mut score = 0.0;
 
-        if write {
+        if usage == RelayUsage::Outbox {
             if self.write {
                 // 'write' is an author-signed explicit claim of where they write
-                score += 20;
+                score += 1.0;
             }
-        } else {
+        } else if usage == RelayUsage::Inbox {
             if self.read {
                 // 'read' is an author-signed explicit claim of where they read
-                score += 20;
+                score += 1.0;
             }
         }
 
         // last_fetched is gossip verified happened-to-work-before
         if let Some(when) = self.last_fetched {
-            let base = 4.0_f32;
+            let base = 0.2_f32;
             let halflife_seconds = 60 * 60 * 24 * 14;
             let elapsed_seconds = now.saturating_sub(when);
             let delta = crate::misc::exponential_decay(base, halflife_seconds, elapsed_seconds);
-            score += delta as u64;
+            score += delta;
         }
 
         // last_suggested is an anybody-signed suggestion
         if let Some(when) = self.last_suggested {
-            let base = 2.0_f32;
+            let base = 0.1_f32;
             let halflife_seconds = 60 * 60 * 24 * 7;
             let elapsed_seconds = now.saturating_sub(when);
             let delta = crate::misc::exponential_decay(base, halflife_seconds, elapsed_seconds);
-            score += delta as u64;
+            score += delta;
         }
 
         score
