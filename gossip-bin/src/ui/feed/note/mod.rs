@@ -20,8 +20,7 @@ use egui::{
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{relay, DmChannel, FeedKind, ZapState, GLOBALS};
 use nostr_types::{
-    Event, NAddr, EventDelegation, EventKind, NEvent, EventReference, IdHex, NostrUrl,
-    UncheckedUrl,
+    Event, EventDelegation, EventKind, EventReference, IdHex, NAddr, NEvent, NostrUrl, UncheckedUrl,
 };
 use serde::Serialize;
 
@@ -1502,8 +1501,7 @@ fn note_actions(
                         kind: None,
                     };
                     ui.output_mut(|o| {
-                        o.copied_text =
-                            format!("https://njump.me/{}", nevent.as_bech32_string())
+                        o.copied_text = format!("https://njump.me/{}", nevent.as_bech32_string())
                     });
                 }),
             )));

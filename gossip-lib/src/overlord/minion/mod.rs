@@ -19,7 +19,7 @@ use http::uri::{Parts, Scheme};
 use http::Uri;
 use mime::Mime;
 use nostr_types::{
-    ClientMessage, NAddr, EventKind, EventReference, Filter, Id, IdHex, PreEvent, PublicKey,
+    ClientMessage, EventKind, EventReference, Filter, Id, IdHex, NAddr, PreEvent, PublicKey,
     PublicKeyHex, RelayInformationDocument, RelayUrl, Tag, Unixtime,
 };
 use reqwest::Response;

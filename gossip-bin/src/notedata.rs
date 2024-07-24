@@ -3,7 +3,7 @@ use gossip_lib::{Person, PersonList, PersonTable, Private, Table};
 use std::collections::HashMap;
 
 use nostr_types::{
-    ContentSegment, Event, NAddr, EventDelegation, EventKind, EventReference, Id, MilliSatoshi,
+    ContentSegment, Event, EventDelegation, EventKind, EventReference, Id, MilliSatoshi, NAddr,
     NostrBech32, PublicKey, RelayUrl, ShatteredContent, Unixtime,
 };
 

@@ -7,7 +7,7 @@ use egui::{Button, Color32, Pos2, RichText, Stroke, Ui};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::FeedKind;
 use gossip_lib::GLOBALS;
-use nostr_types::{ContentSegment, NAddr, Id, IdHex, NostrBech32, PublicKey, Span, Url};
+use nostr_types::{ContentSegment, Id, IdHex, NAddr, NostrBech32, PublicKey, Span, Url};
 use std::{
     cell::{Ref, RefCell},
     rc::Rc,

@@ -3,7 +3,7 @@ use crate::storage::types::RelationshipByAddr2;
 use crate::storage::{RawDatabase, Storage};
 use heed::RwTxn;
 use heed::{types::Bytes, DatabaseFlags};
-use nostr_types::{NAddr, Id};
+use nostr_types::{Id, NAddr};
 use speedy::{Readable, Writable};
 use std::sync::Mutex;
 

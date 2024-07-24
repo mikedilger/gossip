@@ -4,8 +4,8 @@ use crate::globals::GLOBALS;
 use crate::relay;
 use crate::relay::Relay;
 use nostr_types::{
-    ContentEncryptionAlgorithm, Event, NAddr, EventKind, EventReference, Id, NostrBech32,
-    PreEvent, PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime,
+    ContentEncryptionAlgorithm, Event, EventKind, EventReference, Id, NAddr, NostrBech32, PreEvent,
+    PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime,
 };
 use std::sync::mpsc;
 

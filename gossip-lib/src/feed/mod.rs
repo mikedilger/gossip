@@ -6,7 +6,7 @@ use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::people::PersonList;
 use dashmap::DashMap;
-use nostr_types::{Event, NAddr, EventKind, EventReference, Filter, Id, Unixtime};
+use nostr_types::{Event, EventKind, EventReference, Filter, Id, NAddr, Unixtime};
 use parking_lot::RwLock;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};

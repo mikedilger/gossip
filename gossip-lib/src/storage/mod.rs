@@ -62,7 +62,7 @@ use crate::relay::Relay;
 use heed::types::{Bytes, Unit};
 use heed::{Database, Env, EnvFlags, EnvOpenOptions, RoTxn, RwTxn};
 use nostr_types::{
-    EncryptedPrivateKey, Event, NAddr, EventKind, EventReference, Filter, Id, MilliSatoshi,
+    EncryptedPrivateKey, Event, EventKind, EventReference, Filter, Id, MilliSatoshi, NAddr,
     PublicKey, PublicKeyHex, RelayList, RelayListUsage, RelayUrl, Unixtime,
 };
 use paste::paste;

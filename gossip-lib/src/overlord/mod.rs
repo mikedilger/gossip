@@ -22,9 +22,9 @@ use heed::RwTxn;
 use http::StatusCode;
 use minion::{Minion, MinionExitReason};
 use nostr_types::{
-    EncryptedPrivateKey, Event, NAddr, EventKind, EventReference, Filter, Id, IdHex, Metadata,
-    MilliSatoshi, NostrBech32, PayRequestData, PreEvent, PrivateKey, Profile, PublicKey, RelayUrl,
-    RelayUsage, Tag, UncheckedUrl, Unixtime,
+    EncryptedPrivateKey, Event, EventKind, EventReference, Filter, Id, IdHex, Metadata,
+    MilliSatoshi, NAddr, NostrBech32, PayRequestData, PreEvent, PrivateKey, Profile, PublicKey,
+    RelayUrl, RelayUsage, Tag, UncheckedUrl, Unixtime,
 };
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;

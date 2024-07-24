@@ -9,7 +9,7 @@ use crate::relationship::{RelationshipByAddr, RelationshipById};
 use crate::storage::{PersonTable, Table};
 use heed::RwTxn;
 use nostr_types::{
-    Event, NAddr, EventKind, EventReference, Filter, Id, Metadata, NostrBech32, PublicKey,
+    Event, EventKind, EventReference, Filter, Id, Metadata, NAddr, NostrBech32, PublicKey,
     RelayList, RelayListUsage, RelayUrl, SimpleRelayList, Tag, Unixtime,
 };
 use std::sync::atomic::Ordering;
@@ -383,9 +383,7 @@ pub fn process_new_event(
                             }
                         }
 
-                        let _ = GLOBALS
-                            .to_overlord
-                            .send(ToOverlordMessage::FetchNAddr(ea));
+                        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FetchNAddr(ea));
                     }
                 }
                 NostrBech32::Profile(prof) => {

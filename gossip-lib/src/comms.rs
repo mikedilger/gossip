@@ -4,8 +4,8 @@ use crate::nip46::{Approval, ParsedCommand};
 use crate::people::PersonList;
 use crate::relay::Relay;
 use nostr_types::{
-    Event, NAddr, EventReference, Id, IdHex, Metadata, MilliSatoshi, Profile, PublicKey,
-    RelayUrl, Tag, UncheckedUrl, Unixtime,
+    Event, EventReference, Id, IdHex, Metadata, MilliSatoshi, NAddr, Profile, PublicKey, RelayUrl,
+    Tag, UncheckedUrl, Unixtime,
 };
 use std::fmt;
 use std::hash::{Hash, Hasher};

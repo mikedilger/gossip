@@ -1,6 +1,6 @@
 use gossip_lib::{Error, ErrorKind, PersonList, PersonListMetadata, PersonTable, Table, GLOBALS};
 use nostr_types::{
-    EncryptedPrivateKey, Event, NAddr, EventKind, Filter, Id, NostrBech32, NostrUrl, PreEvent,
+    EncryptedPrivateKey, Event, EventKind, Filter, Id, NAddr, NostrBech32, NostrUrl, PreEvent,
     PrivateKey, PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime,
 };
 use std::collections::HashSet;

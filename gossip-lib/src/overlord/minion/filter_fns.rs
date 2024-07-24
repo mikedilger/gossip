@@ -1,6 +1,6 @@
 use crate::dm_channel::DmChannel;
 use crate::globals::GLOBALS;
-use nostr_types::{NAddr, EventKind, Filter, IdHex, PublicKey, PublicKeyHex, Tag, Unixtime};
+use nostr_types::{EventKind, Filter, IdHex, NAddr, PublicKey, PublicKeyHex, Tag, Unixtime};
 
 pub enum FeedRange {
     // Long-term subscription for anything after the given time
