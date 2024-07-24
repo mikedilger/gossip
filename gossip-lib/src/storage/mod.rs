@@ -29,6 +29,7 @@ mod event_tag_index1;
 mod event_viewed1;
 mod events2;
 mod events3;
+mod general;
 mod hashtags1;
 mod nip46servers1;
 mod nip46servers2;
@@ -81,9 +82,6 @@ type EmptyDatabase = Database<Bytes, Unit>;
 /// All calls are synchronous but fast so callers can just wait on them.
 pub struct Storage {
     env: Env,
-
-    // General database (settings, local_settings)
-    general: RawDatabase,
 }
 
 impl Storage {
@@ -117,16 +115,7 @@ impl Storage {
             }
         };
 
-        let mut txn = env.write_txn()?;
-
-        let general = env
-            .database_options()
-            .types::<Bytes, Bytes>()
-            .create(&mut txn)?;
-
-        txn.commit()?;
-
-        Ok(Storage { env, general })
+        Ok(Storage { env })
     }
 
     /// Run this after GLOBALS lazy static initialisation, so functions within storage can
@@ -254,7 +243,7 @@ impl Storage {
     /// The number of records in the general table
     pub fn get_general_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
-        Ok(self.general.len(&txn)?)
+        Ok(self.db_general()?.len(&txn)?)
     }
 
     /// The number of records in the event_seen_on table
@@ -446,7 +435,7 @@ impl Storage {
         let bytes = migration_level.to_be_bytes();
 
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            Ok(self.general.put(txn, b"migration_level", &bytes)?)
+            Ok(self.db_general()?.put(txn, b"migration_level", &bytes)?)
         };
 
         write_transact!(self, rw_txn, f)
@@ -456,7 +445,7 @@ impl Storage {
         let txn = self.env.read_txn()?;
 
         Ok(self
-            .general
+            .db_general()?
             .get(&txn, b"migration_level")?
             .map(|bytes| u32::from_be_bytes(bytes[..4].try_into().unwrap())))
     }
@@ -470,7 +459,8 @@ impl Storage {
         let bytes = epk.map(|e| &e.0).write_to_vec()?;
 
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.general.put(txn, b"encrypted_private_key", &bytes)?;
+            self.db_general()?
+                .put(txn, b"encrypted_private_key", &bytes)?;
             Ok(())
         };
 
@@ -481,7 +471,7 @@ impl Storage {
     pub fn read_encrypted_private_key(&self) -> Result<Option<EncryptedPrivateKey>, Error> {
         let txn = self.env.read_txn()?;
 
-        match self.general.get(&txn, b"encrypted_private_key")? {
+        match self.db_general()?.get(&txn, b"encrypted_private_key")? {
             None => Ok(None),
             Some(bytes) => {
                 let os = Option::<String>::read_from_buffer(bytes)?;
@@ -500,7 +490,8 @@ impl Storage {
         let bytes = server.write_to_vec()?;
 
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.general.put(txn, b"nip46_unconnected_server", &bytes)?;
+            self.db_general()?
+                .put(txn, b"nip46_unconnected_server", &bytes)?;
             Ok(())
         };
 
@@ -511,7 +502,7 @@ impl Storage {
     #[allow(dead_code)]
     pub fn read_nip46_unconnected_server(&self) -> Result<Option<Nip46UnconnectedServer>, Error> {
         let txn = self.env.read_txn()?;
-        match self.general.get(&txn, b"nip46_unconnected_server")? {
+        match self.db_general()?.get(&txn, b"nip46_unconnected_server")? {
             None => Ok(None),
             Some(bytes) => {
                 let server = Nip46UnconnectedServer::read_from_buffer(bytes)?;
@@ -527,7 +518,8 @@ impl Storage {
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.general.delete(txn, b"nip46_unconnected_server")?;
+            self.db_general()?
+                .delete(txn, b"nip46_unconnected_server")?;
             Ok(())
         };
 

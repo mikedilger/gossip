@@ -29,7 +29,7 @@ impl Storage {
     fn m19_populate_person_list_metadata<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         // read custom_person_list_map setting
         let name_map: BTreeMap<u8, String> = {
-            let maybe_map = match self.general.get(txn, b"custom_person_list_map") {
+            let maybe_map = match self.db_general()?.get(txn, b"custom_person_list_map") {
                 Err(_) => None,
                 Ok(None) => None,
                 Ok(Some(bytes)) => match <BTreeMap<u8, String>>::read_from_buffer(bytes) {
@@ -80,8 +80,9 @@ impl Storage {
         }
 
         // Now remove the two maps
-        self.general.delete(txn, b"custom_person_list_map")?;
-        self.general.delete(txn, b"person_lists_last_edit_times")?;
+        self.db_general()?.delete(txn, b"custom_person_list_map")?;
+        self.db_general()?
+            .delete(txn, b"person_lists_last_edit_times")?;
 
         Ok(())
     }
@@ -92,7 +93,10 @@ impl Storage {
     ) -> Result<HashMap<PersonList1, i64>, Error> {
         let txn = self.env.read_txn()?;
 
-        match self.general.get(&txn, b"person_lists_last_edit_times")? {
+        match self
+            .db_general()?
+            .get(&txn, b"person_lists_last_edit_times")?
+        {
             None => Ok(HashMap::new()),
             Some(bytes) => Ok(HashMap::<PersonList1, i64>::read_from_buffer(bytes)?),
         }
