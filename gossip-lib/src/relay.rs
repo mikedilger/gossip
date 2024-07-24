@@ -192,9 +192,6 @@ pub fn get_best_relays_with_score(
         // Load the relay so we can get more score-determining data
         let relay = GLOBALS.storage.read_or_create_relay(&pr.url, None)?;
 
-        if relay.rank == 0 {
-            continue;
-        }
         if relay.should_avoid() {
             continue;
         }
@@ -272,9 +269,7 @@ pub fn get_dm_relays(pubkey: PublicKey) -> Result<Vec<RelayUrl>, Error> {
     let mut output: Vec<RelayUrl> = Vec::new();
     for pr in GLOBALS.storage.get_person_relays(pubkey)?.drain(..) {
         let relay = GLOBALS.storage.read_or_create_relay(&pr.url, None)?;
-        if relay.rank == 0 {
-            continue;
-        }
+
         if relay.should_avoid() {
             continue;
         }

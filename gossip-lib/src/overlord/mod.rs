@@ -397,11 +397,6 @@ impl Overlord {
             return Ok(());
         }
 
-        // don't connect to rank=0 relays
-        if relay.rank == 0 {
-            return Ok(());
-        }
-
         let entry = GLOBALS.connected_relays.entry(url.clone());
 
         if let Entry::Occupied(mut oe) = entry {

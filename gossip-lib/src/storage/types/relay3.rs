@@ -162,7 +162,17 @@ impl Relay3 {
     }
 
     pub fn should_avoid(&self) -> bool {
-        if let Some(when) = self.avoid_until {
+        if self.rank == 0 {
+            true
+        } else if GLOBALS
+            .storage
+            .read_setting_relay_connection_requires_approval()
+            && self.allow_connect == Some(false)
+        {
+            true
+        } else if crate::storage::Storage::url_is_banned(&self.url) {
+            true
+        } else if let Some(when) = self.avoid_until {
             when >= Unixtime::now()
         } else {
             false
@@ -180,13 +190,43 @@ impl Relay3 {
             || (self.rank > 0 && self.success_rate() > 0.50 && self.success_count > 15)
     }
 
+    /// This gives a pure score for the relay outside of context
+    ///
+    /// Output ranges from 0.0 (worst) to 1.0 (best)
+    ///
+    /// Typical good relays still only score about 0.3, simply because rank goes so high.
+    ///
+    /// If `None` is returned, do not use this relay.
+    pub fn score(&self) -> f32 {
+        if self.should_avoid() {
+            return 0.0;
+        }
+
+        let mut score: f32 = 1.0;
+
+        // Adjust by rank:
+        //   1 = 0.11111
+        //   3 = 0.33333
+        //   5 = 0.55555
+        //   9 = 1.0
+        score = score * self.rank as f32 / 9.0;
+
+        // Adjust by success rate (max penalty of cutting in half)
+        score = score * (0.5 + 0.5 * self.success_rate());
+
+        // We don't penalize low-attempt relays even as they are less reliable
+        // because we want to let new relays establish.
+
+        score
+    }
+
     pub fn choose_relays<F>(bits: u64, f: F) -> Result<Vec<Relay3>, Error>
     where
         F: Fn(&Relay3) -> bool,
     {
         GLOBALS
             .storage
-            .filter_relays(|r| r.has_usage_bits(bits) && r.rank != 0 && !r.should_avoid() && f(r))
+            .filter_relays(|r| r.has_usage_bits(bits) && !r.should_avoid() && f(r))
     }
 
     pub fn choose_relay_urls<F>(bits: u64, f: F) -> Result<Vec<RelayUrl>, Error>
@@ -195,7 +235,7 @@ impl Relay3 {
     {
         Ok(GLOBALS
             .storage
-            .filter_relays(|r| r.has_usage_bits(bits) && r.rank != 0 && !r.should_avoid() && f(r))?
+            .filter_relays(|r| r.has_usage_bits(bits) && !r.should_avoid() && f(r))?
             .iter()
             .map(|r| r.url.clone())
             .collect())
