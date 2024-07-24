@@ -16,6 +16,7 @@ pub enum FeedKind {
     },
     Person(PublicKey),
     DmChat(DmChannel),
+    Global,
 }
 
 impl std::fmt::Display for FeedKind {
@@ -34,6 +35,7 @@ impl std::fmt::Display for FeedKind {
             } => write!(f, "Thread {}", crate::names::hex_id_short(&(*id).into())),
             FeedKind::Person(pk) => write!(f, "{}", crate::names::best_name_from_pubkey_lookup(pk)),
             FeedKind::DmChat(channel) => write!(f, "{}", channel.name()),
+            FeedKind::Global => write!(f, "Global"),
         }
     }
 }
@@ -48,6 +50,7 @@ impl FeedKind {
             Self::Thread { .. } => "thread".to_owned(),
             Self::Person(pubkey) => format!("person{}", pubkey.as_hex_string()),
             Self::DmChat(_) => "dmchat".to_owned(),
+            Self::Global => "global".to_owned(),
         }
     }
 
@@ -59,6 +62,7 @@ impl FeedKind {
             Self::Thread { .. } => false, // always full
             Self::Person(_) => true,
             Self::DmChat(_) => false, // always full
+            Self::Global => true,
         }
     }
 }
