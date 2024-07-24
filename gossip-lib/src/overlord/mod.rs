@@ -924,14 +924,7 @@ impl Overlord {
         };
 
         let mut relays = Relay::choose_relays(0, |r| r.is_good_for_advertise())?;
-        relays.sort_by(|a, b| {
-            a.rank.cmp(&b.rank).then(
-                a.success_rate()
-                    .partial_cmp(&b.success_rate())
-                    .unwrap()
-                    .then(a.success_count.cmp(&b.success_count)),
-            )
-        });
+        relays.sort_by(|a, b| a.score().partial_cmp(&b.score()).unwrap());
 
         let _ = GLOBALS
             .advertise_jobs_remaining

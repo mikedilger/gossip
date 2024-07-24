@@ -300,9 +300,7 @@ impl RelayPicker {
                     if relay.should_avoid() {
                         0
                     } else {
-                        let success_rate = relay.success_rate();
-                        let rank = (relay.rank as f32 * (1.3 * success_rate)) as u64;
-                        *score * rank
+                        *score * (relay.score() * 10.0) as u64
                     }
                 }
                 Ok(None) => *score,

@@ -202,9 +202,7 @@ pub fn get_best_relays_with_score(
         } else {
             // Compute a score based on the association_rank and also
             // whether or not the relay is any good
-            (association_rank as f32
-                * (relay.rank as f32 / 3.0)
-                * (0.75 + 0.25 * relay.success_rate())) as u64
+            (association_rank as f32 * relay.score() * 3.0) as u64
         };
 
         // Cap scores at 20
