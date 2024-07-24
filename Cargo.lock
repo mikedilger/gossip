@@ -2161,7 +2161,6 @@ dependencies = [
  "egui-winit",
  "egui_extras",
  "gossip-lib",
- "gossip-relay-picker",
  "humansize",
  "image 0.24.9",
  "lazy_static",
@@ -2199,7 +2198,6 @@ dependencies = [
  "filetime",
  "futures",
  "futures-util",
- "gossip-relay-picker",
  "heed",
  "hex",
  "http 1.1.0",
@@ -2231,19 +2229,6 @@ dependencies = [
  "url",
  "usvg",
  "zeroize",
-]
-
-[[package]]
-name = "gossip-relay-picker"
-version = "0.2.0-unstable"
-source = "git+https://github.com/mikedilger/gossip-relay-picker?rev=adb9bd0ef8c473f9f4c3ea0780acf4350c1015ca#adb9bd0ef8c473f9f4c3ea0780acf4350c1015ca"
-dependencies = [
- "async-trait",
- "dashmap",
- "nostr-types",
- "thiserror",
- "tokio",
- "tracing",
 ]
 
 [[package]]

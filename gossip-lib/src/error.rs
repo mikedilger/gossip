@@ -51,13 +51,15 @@ pub enum ErrorKind {
     ListIsWellKnown,
     ListNotFound,
     LoadMoreFailed,
+    NoRelays,
+    NoPeopleLeft,
+    NoProgress,
     NostrConnectNotSetup,
     Offline,
     ParseInt(std::num::ParseIntError),
     ParseBool(std::str::ParseBoolError),
     RecordIsNotNewable,
     Regex(regex::Error),
-    RelayPickerError(gossip_relay_picker::Error),
     RelayRejectedUs,
     ReqwestHttpError(reqwest::Error),
     SerdeJson(serde_json::Error),
@@ -151,13 +153,15 @@ impl std::fmt::Display for Error {
             ListIsWellKnown => write!(f, "List is well known and cannot be deallocated"),
             ListNotFound => write!(f, "List was not found"),
             LoadMoreFailed => write!(f, "Load more failed"),
+            NoRelays => write!(f, "No relays"),
+            NoPeopleLeft => write!(f, "No people left"),
+            NoProgress => write!(f, "No progress"),
             NostrConnectNotSetup => write!(f, "NostrConnect not setup, cannot connect"),
             Offline => write!(f, "Offline"),
             ParseInt(e) => write!(f, "Bad integer: {e}"),
             ParseBool(e) => write!(f, "Bad bool: {e}"),
             RecordIsNotNewable => write!(f, "Record is not newable"),
             Regex(e) => write!(f, "Regex: {e}"),
-            RelayPickerError(e) => write!(f, "Relay Picker error: {e}"),
             RelayRejectedUs => write!(f, "Relay rejected us."),
             ReqwestHttpError(e) => write!(f, "HTTP (reqwest) error: {e}"),
             SerdeJson(e) => write!(f, "SerdeJson Error: {e}"),
@@ -300,12 +304,6 @@ impl From<std::str::ParseBoolError> for ErrorKind {
 impl From<regex::Error> for ErrorKind {
     fn from(e: regex::Error) -> ErrorKind {
         ErrorKind::Regex(e)
-    }
-}
-
-impl From<gossip_relay_picker::Error> for ErrorKind {
-    fn from(e: gossip_relay_picker::Error) -> ErrorKind {
-        ErrorKind::RelayPickerError(e)
     }
 }
 

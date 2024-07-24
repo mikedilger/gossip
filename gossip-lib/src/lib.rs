@@ -138,8 +138,8 @@ mod relationship;
 pub mod relay;
 pub use relay::Relay;
 
-mod relay_picker_hooks;
-pub use relay_picker_hooks::Hooks;
+pub mod relay_picker;
+pub use relay_picker::RelayPicker;
 
 mod seeker;
 pub use seeker::Seeker;

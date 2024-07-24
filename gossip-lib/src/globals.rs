@@ -9,13 +9,12 @@ use crate::misc::ZapState;
 use crate::pending::Pending;
 use crate::people::{People, Person};
 use crate::relay::Relay;
-use crate::relay_picker_hooks::Hooks;
+use crate::relay_picker::RelayPicker;
 use crate::seeker::Seeker;
 use crate::status::StatusQueue;
 use crate::storage::Storage;
 use crate::RunState;
 use dashmap::DashMap;
-use gossip_relay_picker::RelayPicker;
 use nostr_types::{Event, Id, Profile, PublicKey, RelayUrl};
 use parking_lot::RwLock as PRwLock;
 use regex::Regex;
@@ -63,7 +62,7 @@ pub struct Globals {
     pub connected_relays: DashMap<RelayUrl, Vec<RelayJob>>,
 
     /// The relay picker, used to pick the next relay
-    pub relay_picker: RelayPicker<Hooks>,
+    pub relay_picker: RelayPicker,
 
     /// Wrapped Identity wrapping a Signer
     pub identity: GossipIdentity,
