@@ -944,6 +944,7 @@ impl GossipUi {
                 ui.add_space(4.0);
 
                 self.add_feeds_submenu(ui, ctx);
+                self.add_global_feed(ui, ctx);
                 self.add_personal_notes(ui, ctx);
                 self.add_private_chats(ui, ctx);
                 self.add_search(ui, ctx);
@@ -1024,6 +1025,15 @@ impl GossipUi {
             }
         });
         self.after_openable_menu(ui, &cstate);
+    }
+
+    fn add_global_feed(&mut self, ui: &mut Ui, ctx: &Context) {
+        if self
+            .add_selected_label(ui, self.page == Page::Feed(FeedKind::Global), "Global")
+            .clicked()
+        {
+            self.set_page(ctx, Page::Feed(FeedKind::Global));
+        }
     }
 
     fn add_personal_notes(&mut self, ui: &mut Ui, ctx: &Context) {

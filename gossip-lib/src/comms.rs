@@ -172,6 +172,9 @@ pub enum ToOverlordMessage {
     SetDmChannel(DmChannel),
 
     /// internal
+    SetGlobalFeed(Unixtime),
+
+    /// internal
     SetPersonFeed(PublicKey, Unixtime),
 
     /// internal
@@ -264,6 +267,7 @@ pub(crate) enum ToMinionPayloadDetail {
     SubscribeDiscover(Vec<PublicKey>),
     SubscribeGeneralFeed(Vec<PublicKey>, Unixtime),
     SubscribeGiftwraps(Unixtime),
+    SubscribeGlobalFeed(Unixtime),
     SubscribeInbox(Unixtime),
     SubscribePersonFeed(PublicKey, Unixtime),
     SubscribeReplies(IdHex),
@@ -274,6 +278,7 @@ pub(crate) enum ToMinionPayloadDetail {
     TempSubscribePersonFeedChunk { pubkey: PublicKey, anchor: Unixtime },
     TempSubscribeInboxFeedChunk(Unixtime),
     TempSubscribeMetadata(Vec<PublicKey>),
+    UnsubscribeGlobalFeed,
     UnsubscribePersonFeed,
     UnsubscribeReplies,
 }
@@ -300,6 +305,7 @@ pub enum RelayConnectionReason {
     PostNostrConnect,
     ReadThread,
     SubscribePerson,
+    SubscribeGlobal,
 }
 
 impl fmt::Display for RelayConnectionReason {
@@ -333,6 +339,7 @@ impl RelayConnectionReason {
             PostNostrConnect => "Posting nostrconnect",
             ReadThread => "Reading ancestors to build a thread",
             SubscribePerson => "Subscribe to the events of a person",
+            SubscribeGlobal => "Subscribe to the global feed on a relay",
         }
     }
 
@@ -359,6 +366,7 @@ impl RelayConnectionReason {
             PostNostrConnect => false,
             ReadThread => true,
             SubscribePerson => false,
+            SubscribeGlobal => false,
         }
     }
 }

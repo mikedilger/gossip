@@ -109,6 +109,18 @@ impl Feed {
                 },
             });
         }
+
+        // If not in the Global feed
+        if !matches!(feed_kind, FeedKind::Global) {
+            // Stop listening to Global events
+            let _ = GLOBALS.to_minions.send(ToMinionMessage {
+                target: "all".to_string(),
+                payload: ToMinionPayload {
+                    job_id: 0,
+                    detail: ToMinionPayloadDetail::UnsubscribeGlobalFeed,
+                },
+            });
+        }
     }
 
     pub fn switch_feed(&self, feed_kind: FeedKind) {
@@ -181,6 +193,11 @@ impl Feed {
                 let _ = GLOBALS
                     .to_overlord
                     .send(ToOverlordMessage::SetDmChannel(dm_channel.clone()));
+            }
+            FeedKind::Global => {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::SetGlobalFeed(anchor));
             }
             _ => (),
         }
@@ -369,6 +386,15 @@ impl Feed {
             FeedKind::DmChat(channel) => {
                 let ids = GLOBALS.storage.dm_events(&channel)?;
                 *self.current_feed_events.write() = ids;
+            }
+            FeedKind::Global => {
+                let filter = {
+                    let mut filter = Filter::new();
+                    filter.kinds = feed_displayable_event_kinds(false);
+                    filter
+                };
+                let events = Self::load_event_range(anchor, filter, true, false, |_| true).await?;
+                *self.current_feed_events.write() = events;
             }
         }
 

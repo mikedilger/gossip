@@ -711,6 +711,9 @@ impl Overlord {
             ToOverlordMessage::SetDmChannel(dmchannel) => {
                 self.set_dm_channel(dmchannel).await?;
             }
+            ToOverlordMessage::SetGlobalFeed(anchor) => {
+                self.set_global_feed(anchor).await?;
+            }
             ToOverlordMessage::SetPersonFeed(pubkey, anchor) => {
                 self.set_person_feed(pubkey, anchor).await?;
             }
@@ -2238,6 +2241,25 @@ impl Overlord {
                 },
             }],
         );
+
+        Ok(())
+    }
+
+    async fn set_global_feed(&mut self, anchor: Unixtime) -> Result<(), Error> {
+        let relay_url = RelayUrl::try_from_str("wss://relay.damus.io/")?;
+        if let Some(relay) = GLOBALS.storage.read_relay(&relay_url, None)? {
+            // Subscribe
+            manager::engage_minion(
+                relay.url.clone(),
+                vec![RelayJob {
+                    reason: RelayConnectionReason::SubscribeGlobal,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::SubscribeGlobalFeed(anchor),
+                    },
+                }],
+            );
+        }
 
         Ok(())
     }
