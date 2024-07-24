@@ -198,11 +198,11 @@ impl std::convert::TryFrom<u8> for RunState {
 }
 
 /// Initialize gossip-lib
-pub fn init() -> Result<(), Error> {
+pub fn init(rapid: bool) -> Result<(), Error> {
     use std::sync::atomic::Ordering;
 
     // Initialize storage
-    GLOBALS.storage.init()?;
+    GLOBALS.storage.init(rapid)?;
 
     // Load signer from settings
     GLOBALS.identity.load()?;

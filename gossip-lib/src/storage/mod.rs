@@ -94,13 +94,26 @@ impl Storage {
 
     /// Run this after GLOBALS lazy static initialisation, so functions within storage can
     /// access GLOBALS without hanging.
-    pub fn init(&self) -> Result<(), Error> {
+    pub fn init(&self, rapid: bool) -> Result<(), Error> {
         let mut builder = EnvOpenOptions::new();
+
+        let flags = if rapid {
+            tracing::warn!("Storage using rapid config - data corruption is possible on crash");
+            EnvFlags::NO_TLS
+                | EnvFlags::NO_META_SYNC
+                | EnvFlags::WRITE_MAP
+                | EnvFlags::NO_SYNC
+                | EnvFlags::MAP_ASYNC
+        } else {
+            EnvFlags::NO_TLS | EnvFlags::NO_META_SYNC
+        };
+
         unsafe {
-            builder.flags(EnvFlags::NO_TLS | EnvFlags::NO_META_SYNC);
+            builder.flags(flags);
             // See flats at http://www.lmdb.tech/doc/group__mdb__env.html
             // See flags at http://www.lmdb.tech/doc/group__mdb.html  (more detail)
         }
+
         // builder.max_readers(126); // this is the default
         builder.max_dbs(32);
 

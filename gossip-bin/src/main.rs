@@ -43,8 +43,27 @@ fn main() -> Result<(), Error> {
     let about = about::About::new();
     println!("Gossip {}", about.version);
 
+    // Handle rapid command before initializing the lib
+    let mut rapid: bool = false;
+    {
+        let mut args = env::args();
+        let _ = args.next(); // program name
+        if let Some(cmd) = args.next() {
+            if &*cmd == "rapid" {
+                rapid = true;
+            }
+        }
+    }
+
+    // restart args
+    let mut args = env::args();
+    let _ = args.next(); // program name
+    if rapid {
+        let _ = args.next(); // rapid param
+    }
+
     // Initialize the lib
-    gossip_lib::init()?;
+    gossip_lib::init(rapid)?;
 
     // Setup async
     // We create and enter the runtime on the main thread so that
@@ -54,8 +73,7 @@ fn main() -> Result<(), Error> {
     let _main_rt = rt.enter(); // <-- this allows it.
 
     // If we were handed a command, execute the command and return
-    let args = env::args();
-    if args.len() > 1 {
+    if args.len() > 0 {
         match commands::handle_command(args, &rt) {
             Err(e) => {
                 println!("{}", e);
