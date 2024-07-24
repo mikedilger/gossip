@@ -101,3 +101,9 @@ impl<C: speedy::Context> speedy::Writable<C> for Private {
         self.0.write_to(writer)
     }
 }
+
+pub fn exponential_decay(base: f32, halflife_seconds: u64, elapsed_seconds: u64) -> f32 {
+    use std::f32::consts::E;
+    let decay_constant = 2.0_f32.ln() / halflife_seconds as f32;
+    base * E.powf(-decay_constant * elapsed_seconds as f32)
+}
