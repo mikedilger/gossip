@@ -1,3 +1,39 @@
+0.12.0 (unfinished)
+======
+
+Major
+
+* Bookmarks
+
+Minor
+
+* Egui was upgraded
+* Counter for inbox/chat notifications
+* Deprecate creating useless relationships: Bookmarks, Curates
+* General background task
+* Moved background tasks into a single thread loop: fetcher, seeker, pending, people
+  (downside:  a panic will kill them all now)
+* DM area:
+  * rendering style improved
+  * encryption indicator hover UI fix
+  * avatars in list
+  * encryption standard shows in warning frame
+  * mini avatar and buttons at top
+* Note rendering:
+  * More Menu broken into submenus, rearranged
+  * footer buttons cleaned up, disabled (instead of missing) when signing key unavailable
+  * smaller avatar
+  * QR codes and JSON show in modal popups
+  * Additional reactions shown in a hover UI (instead of running off the end)
+* Thread climbing
+  * Better (but not complete) support for replaceable events
+* Storage
+  * Less disk access without loss of ACID
+* General
+  * Cleaner shutdown by catching shutdown signals
+* Relay Picker was brought back in-crate for refactoring
+* Relay scoring functions are getting updated
+
 0.11.1
 ======
 
