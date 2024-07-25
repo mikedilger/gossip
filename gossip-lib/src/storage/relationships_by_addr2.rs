@@ -29,9 +29,9 @@ impl Storage {
 
                 // Create it. We know that nobody else is doing this and that
                 // it cannot happen twice.
-                let mut txn = self.env.write_txn()?;
+                let mut txn = self.env().write_txn()?;
                 let db = self
-                    .env
+                    .env()
                     .database_options()
                     .types::<Bytes, Bytes>()
                     .flags(DatabaseFlags::DUP_SORT) // NOT FIXED, RelationshipByAddr2 serialized isn't.
@@ -66,7 +66,7 @@ impl Storage {
         addr: &NAddr,
     ) -> Result<Vec<(Id, RelationshipByAddr2)>, Error> {
         let key = relationships_by_addr2_into_key(addr);
-        let txn = self.env.read_txn()?;
+        let txn = self.env().read_txn()?;
         let iter = match self
             .db_relationships_by_addr2()?
             .get_duplicates(&txn, &key)?

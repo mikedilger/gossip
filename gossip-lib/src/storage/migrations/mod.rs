@@ -47,13 +47,13 @@ impl Storage {
 
         for level in necessary.iter() {
             self.trigger(*level)?;
-            let mut txn = self.env.write_txn()?;
+            let mut txn = self.env().write_txn()?;
             self.migrate_inner(*level, &mut txn)?;
             self.write_migration_level(*level, Some(&mut txn))?;
             txn.commit()?;
         }
 
-        let mut txn = self.env.write_txn()?;
+        let mut txn = self.env().write_txn()?;
         self.write_migration_level(Self::MAX_MIGRATION_LEVEL, Some(&mut txn))?;
         txn.commit()?;
 
@@ -92,7 +92,7 @@ impl Storage {
         while level < Self::MAX_MIGRATION_LEVEL {
             level += 1;
             self.trigger(level)?;
-            let mut txn = self.env.write_txn()?;
+            let mut txn = self.env().write_txn()?;
             self.migrate_inner(level, &mut txn)?;
             self.write_migration_level(level, Some(&mut txn))?;
             txn.commit()?;

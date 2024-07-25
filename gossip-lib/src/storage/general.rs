@@ -1,25 +1,22 @@
 use crate::error::Error;
 use crate::storage::{RawDatabase, Storage};
-use heed::{types::Bytes, DatabaseFlags};
+use heed::types::Bytes;
 use std::sync::Mutex;
 
-// Kind:Pubkey:d-tag -> RelationshipByAddr1:Id
-//   (has dups)
-
-static RELATIONSHIPS_BY_ADDR1_DB_CREATE_LOCK: Mutex<()> = Mutex::new(());
-static mut RELATIONSHIPS_BY_ADDR1_DB: Option<RawDatabase> = None;
+static GENERAL_DB_CREATE_LOCK: Mutex<()> = Mutex::new(());
+static mut GENERAL_DB: Option<RawDatabase> = None;
 
 impl Storage {
-    pub(super) fn db_relationships_by_addr1(&self) -> Result<RawDatabase, Error> {
+    pub(super) fn db_general(&self) -> Result<RawDatabase, Error> {
         unsafe {
-            if let Some(db) = RELATIONSHIPS_BY_ADDR1_DB {
+            if let Some(db) = GENERAL_DB {
                 Ok(db)
             } else {
                 // Lock.  This drops when anything returns.
-                let _lock = RELATIONSHIPS_BY_ADDR1_DB_CREATE_LOCK.lock();
+                let _lock = GENERAL_DB_CREATE_LOCK.lock();
 
                 // In case of a race, check again
-                if let Some(db) = RELATIONSHIPS_BY_ADDR1_DB {
+                if let Some(db) = GENERAL_DB {
                     return Ok(db);
                 }
 
@@ -30,11 +27,11 @@ impl Storage {
                     .env()
                     .database_options()
                     .types::<Bytes, Bytes>()
-                    .flags(DatabaseFlags::DUP_SORT) // NOT FIXED, RelationshipByAddr1 serialized isn't.
-                    .name("relationships_by_addr1")
+                    // no .flags needed
+                    // unnamed!
                     .create(&mut txn)?;
                 txn.commit()?;
-                RELATIONSHIPS_BY_ADDR1_DB = Some(db);
+                GENERAL_DB = Some(db);
                 Ok(db)
             }
         }

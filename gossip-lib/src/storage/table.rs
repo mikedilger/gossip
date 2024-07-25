@@ -20,7 +20,7 @@ pub trait Table {
     /// Number of records
     #[allow(dead_code)]
     fn num_records() -> Result<u64, Error> {
-        let txn = GLOBALS.storage.env.read_txn()?;
+        let txn = GLOBALS.storage.env().read_txn()?;
         Ok(Self::db()?.len(&txn)?)
     }
 

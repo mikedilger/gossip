@@ -25,7 +25,7 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 36] = [
+const COMMANDS: [Command; 37] = [
     Command {
         cmd: "oneshot",
         usage_params: "{depends}",
@@ -167,6 +167,11 @@ const COMMANDS: [Command; 36] = [
         desc: "print the relays the event was seen on",
     },
     Command {
+        cmd: "rapid",
+        usage_params: "",
+        desc: "Use much faster disk access. A crash can corrupt your local data, unless your filesystem preserves write ordering",
+    },
+    Command {
         cmd: "rebuild_indices",
         usage_params: "",
         desc: "Rebuild all event-related indices",
@@ -209,7 +214,6 @@ const COMMANDS: [Command; 36] = [
 ];
 
 pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Error> {
-    let _ = args.next(); // program name
     let command_string = args.next().unwrap(); // must be there or we would not have been called
 
     let mut command: Option<Command> = None;
@@ -259,6 +263,7 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
         "print_relay" => print_relay(command, args)?,
         "print_relays" => print_relays(command)?,
         "print_seen_on" => print_seen_on(command, args)?,
+        "rapid" => {} // is handled early in main.rs
         "rebuild_indices" => rebuild_indices()?,
         "rename_person_list" => rename_person_list(command, args)?,
         "reprocess_recent" => reprocess_recent(command, runtime)?,
