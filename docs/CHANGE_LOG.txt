@@ -1,0 +1,256 @@
+0.11.1
+======
+
+* Fixes possible panic in pending
+* Support for ffmpeg 7
+
+0.11.0
+======
+
+This release adds the following major features:
+
+* SECURE DIRECT MESSAGING:  NIP-17 DMs (with NIP-44 encryption and NIP-59
+  Giftwrap) is fully supported, usable only if both parties have published
+  their DM relays in a kind 10050 event. You will get a pending item reminding
+  you to setup your DM relays if you haven't yet. Relays now have DM switches.
+
+* LOAD MORE: now loads a fixed count of events, instead of a time period (which
+  may have been empty or may have been massive).
+
+* ANNOTATIONS: You may now annotate your messages. If you make a typo, your
+  annotation (technically a reply event) will render inside the original message
+  in gossip (but will render as a reply in other clients).
+
+Fixes you may notice:
+
+* Fixed around list synchronization
+* Fixes around the tagging popup UI/UX
+* Improvements in loading thread ancestors, including better feedback
+* Nip46 approvals now persist
+* Nip46 compatibility improvements
+* An event ordering issue was fixed
+
+Additionally:
+
+* Support for wgpu renderer, and new command to set renderer: wgpu_renderer
+* Option to render feed in reverse (with newest at the bottom)
+* Improved local storage performance
+* Fixes around switching feeds and refreshing
+* Vertical scroll bar on relay options
+* fixed deleting lists
+* Thai font is now also supported in the 'lang-cjk' feature
+* Blacklisted relay.nostr.band and filter.nostr.wine relay URLs with proliferating path issues
+* k tag added to deletion events
+* When querying events, we also query their possible deletion events
+* Avoid accidently asking for DMs because some relays reject that subscription
+* Avoid repeated AUTHs to broken relays that keep asking
+* Improvements around which relays we post to
+* Improvements about relay connections
+* New commands: export_encrypted_key, import_encrypted_private_key
+* UI/UX updates to notifications
+* Setting for custom mouse acceleration
+* Allow DPI setting up to 400
+* UI/UX improvements to widgets and styles
+* Updates to dependencies
+* Render unknown event kinds better
+* Lots more, see changelog-0.11.0.txt for all commit messages
+
+
+0.10.1
+======
+
+Changes in this patch release:
+
+* Fixed multiple PersonList syncing bugs
+* nip46 approvals now persist
+* nip46 service works with more implementations
+* Two events with the same timestamp will no longer clobber each other in feeds
+* Broken embedded reposts will show an error (rather than an empty post)
+* About page says "gossip" now instead of "gossip-lib"
+* Relay connection reasons are only shown if Debug Statistics are turned on
+* Some log level changes
+
+
+0.10.0
+======
+
+This rThis release adds the following major features:
+
+* Nostr Connect signer: Gossip can now serve as your private key bunker using NIP-46.
+* Whitelist support for relays: Optionally gossip can refuse to connect or authenticate to
+  relays until you approve (or deny) such connections. For some, this is the privacy they
+  need to accept the outbox model.
+* SpamSafe: When enabled, gossip will not fetch replies from people you don't follow except
+  from relays that you designate as SpamSafe. This helps eliminate spam.
+* Load More: At the bottom of the feed, you can press Load More to load more. Be aware that
+  this is currently based on fixed time windows, not a fixed count of events.
+* Advertising your relay list now automatically selects relays to advertise to.
+* The Onboarding Wizard has many improvements
+* Pending Actions: We now detect and alert you to things you probably should do, like keeping
+  lists in sync.
+
+Additionally:
+* Better handling of relay error conditions and reconnections
+* Better handling of switching between online and offline as well as shutting down
+* Improvements to seeking thread ancestors
+* Improvements to seeking notes by id and author (via the author's relay lists)
+* egui update bringing global cut-and-paste as well as other UX improvements.
+* Option to retry posting an event to relays it failed to post to earlier ('post again').
+* Can start gossip in offline mode now with a checkbox on the login screen
+* Person-list desynchronization detection fixes
+* AppImage and Flatpak releases
+* Security fix: RUSTSEC-2023-0065
+* Privacy fix: images are not shown in DMs until the user approves
+* MANY more fixes and improvements that are too numerious to listelease adds the following major features:
+
+
+0.9.0
+=====
+
+* Person Lists:
+    * Curate your own lists of people
+    * View a feed of just those people
+	* Save to nostr events, synchronize with other nostr clients.
+    * Mark members private to save secretly in encrypted contents.
+* Onboarding wizard: Steps a new user through what is needed to get set up
+* Support for the new nostr CLOSED message.
+* Tagging now works by just typing an '@' and the name and picking from a popup list.
+* Restyle of DM Chat
+* Restyle of Profile pages
+* New login page
+* Improvements to event deletion (multiple issues resolved)
+* "show more" on long notes
+* scrolling improvements
+* name improvements (which name to use)
+* Better tracking of threads and replies (reposts, replies via 'a')
+* Command line commands: reprocess_recent, print_followed, print_muted, bech32_decode, bech32_encode_event_addr, print_relay, add_person_relay, print_person, import_event, print_person_lists, add_person_list, rename_person_list,
+* Relay communications are kinder to relays
+* Documentation reworked
+* TLS now defaults to rust code, but native (operating system provided) root certificates.
+* Restructured as a library and a binary, so that people who want a different UI are free to replace the UI while continuing to use the underlying library.
+* Lots of little things I didn't bother to add to this list. See the git history for the whole truth.
+
+0.8.2
+=====
+
+* Important bug fixes
+
+0.8.1
+=====
+
+* Important bug fixes
+
+0.8.0
+=====
+
+Big Changes
+
+* Lightning Zaps have been implemented
+* Direct Messages have been implemented
+* Petname support (including in ContactList events) has been implemented
+* Relay pages and UX have been completely redone
+* Storage engine changed from SQLite to LMDB
+  * Fixed numerous caching related bugs (stale data, invalidation issues)
+  * Events that seemed to go missing are no longer missing
+* HTTP fetching rework
+  * Verifies older cached files haven't changed, else it downloads the changed file (etag)
+  * Handles many kinds of error conditions more sanely
+  * Not overloading HTTP servers by limiting the number of parallel fetches
+
+Medium Changes
+
+* Status messages are in a queue, allowing you to see the last 3
+* Metadata re-fetched periodically
+* Events that augment others are loaded only when the event they augment is in view
+* Settings rework with many more settings
+* Command mode: pass a command as a parameter to run commands. Try 'help' to get started.
+
+Minor Changes worth mentioning
+
+* Performance analyses inspired multiple changes for better performance.
+* Note rendering more dynamic (some changes were previously not immediately visible)
+* Improvements with links to other nostr objects:
+  * Fixes around proper rendering
+  * Support for nrelay1, naddr1, 'a' tags
+  * Automatically fetching the referenced objects
+* Thread searching now includes author's relays
+* Better shutdown sequence, more likely to shutdown fairly quickly now
+* Status info in left panel (optional)
+* Better relay ranking
+* Keyboard scrolling (PgUp, PgDn)
+* Spam filtering with Rhai script file (optional)
+
+
+0.7.0
+=====
+
+* UI: Side Menu and Theme updates
+* Zap receipts (no zaps yet)
+* Improved subscription for augmenting events (likes, zap receipts, deletions)
+* Better muting
+* Improvements in relay handling, including job persistence, timeouts, disconnection handling,
+* More relay configuration settings
+* Search much more extensive (still local only)
+* Delegation: delegated events show in feed of person delegated from
+* MacOS: cmd+enter submits posts; full size content enabled
+* Multiple profiles (set GOSSIP_PROFILE to any profile you want, each kept separately)
+* Proof-of-work progress logging
+* Various bug fixes
+
+
+0.6.0
+=====
+
+* Images and Videos show as placeholders, right-click to open in browser or trigger other actions.
+* Images can now be shown inline. See the new settings "Fetch Media" and "Render all media inline automatically".
+* Changes to how quoted and reposted events are rendered.
+* Better note content parsing/formatting/rendering
+* Better compliance to NIP-10
+* NIP-27 handling of npub, nevent, note, and nprofile
+* Easy ability to copy an nevent from any note and paste it to mention it (with relays so it can be found by the recipient client)
+* Reposting a note
+* Support for rendering (not creating) long-form content (see setting)
+* Seen-on support (which relays was a note seen on)
+* Contact list synchronization safety improvements (still manual, gives more detail)
+* Lots of other little things
+
+
+0.5.2
+=====
+
+* Revert database changes that caused lock issues.
+* Slightly improve finding of ancestors.
+* Added language info to README
+
+
+0.5.1
+=====
+
+* Schema 31 less likely to fail
+* DMs show up under Inbox > Direct Replies Only
+
+
+0.5.0
+=====
+
+* Lots of goodies, still more work to do.
+
+
+0.4.2
+=====
+
+* scrolling jumps by less
+* warnings on metadata page if you cannot save
+* removed dependency on OpenSSL
+* threads now contain more posts if in local database
+* reposts without content but with mention tags now render as links
+* bugfix in fetching nip-11
+* bugfix in fetching nip-05
+
+
+0.4.0
+=====
+
+This is the first stable and supported release of gossip.
+
+I will support this branch with bug fixes, and also (in the rare case) small or very compelling feature changes.
