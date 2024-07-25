@@ -119,7 +119,7 @@ const COMMANDS: [Command; 37] = [
     Command {
         cmd: "offline",
         usage_params: "",
-        desc: "login on the command line before starting the gossip GUI",
+        desc: "start gossip in offline mode",
     },
     Command {
         cmd: "print_event",

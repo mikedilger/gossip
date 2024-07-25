@@ -132,6 +132,12 @@ Showing relay-global feeds on relays marked SpamSafe is a possibility for the fu
 
 In the future I intend for gossip to support one of the multiple competing standards for labelling and reporting of content (the options currently are NIP-32, NIP-56, and NIP-72), but none of these are defined well enough to be useful yet IMHO. I look forward to a time when you can subscribe to a set of moderators that you trust.
 
+## Command Line Usage
+
+Gossip is a GUI desktop program, but it also outputs a lot of messages to the console as it runs. I recommend you keep the console open and pay some attention to errors or other odd behavior that may become apparent from the console messages.
+
+Gossip has a lot of command line commands for tweaking things or extracting bits of information from its database. See [docs/COMMANDS.md](docs/COMMANDS.md).
+
 ## Building from Source
 
 ### Step 0 - Possible Reset of Master Branch
