@@ -58,10 +58,13 @@ Alternatively, just delete your old gossip directory in your [config dir](https:
 Gossip doesn't work well on physical disk drives. It was designed to work well on NVME and SSD
 drives.
 
-We may add a feature switch to make gossip run faster on disk drives, at the expense of possible
-data corruption. But there is presently no good solution to this.
+If your filesystem preserves write order (or if you are willing to risk data corruption) you can
+run gossip in "rapid" mode where it only periodically syncs data to disk.  This should be **much**
+faster. But your database could become corrupted on a power outage (again unless you use a file
+system that preserves write ordering).  Pass the parameter "rapid" to gossip on startup.  Note
+that you can still call other commands by placing them after the rapid command.
 
-### Gossip still runs slow on an NVME/SSD drive
+### Gossip still runs slow even on an NVME/SSD drive and/or in rapid mode
 
 ### Following too many people
 
