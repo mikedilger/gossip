@@ -345,7 +345,7 @@ impl NoteData {
     pub(super) fn event_reference(&self) -> EventReference {
         if self.event.kind.is_replaceable() {
             EventReference::Addr(NAddr {
-                d: "".to_owned(),
+                d: self.event.parameter().unwrap_or("".to_owned()),
                 relays: vec![],
                 kind: self.event.kind,
                 author: self.event.pubkey,
