@@ -336,6 +336,9 @@ pub struct DraftData {
     pub tagging_search_selected: Option<usize>,
     pub tagging_search_searched: Option<String>,
     pub tagging_search_results: Vec<(String, PublicKey)>,
+
+    // If this is an annotation
+    pub is_annotate: bool,
 }
 
 impl Default for DraftData {
@@ -360,6 +363,8 @@ impl Default for DraftData {
             tagging_search_selected: None,
             tagging_search_searched: None,
             tagging_search_results: Vec::new(),
+
+            is_annotate: false,
         }
     }
 }
@@ -382,6 +387,7 @@ impl DraftData {
         self.tagging_search_selected = None;
         self.tagging_search_searched = None;
         self.tagging_search_results.clear();
+        self.is_annotate = false;
     }
 }
 
@@ -469,7 +475,6 @@ struct GossipUi {
     unlock_needs_focus: bool,
     draft_data: DraftData,
     dm_draft_data: DraftData,
-    draft_is_annotate: bool,
 
     // User entry: metadata
     editing_metadata: bool,
@@ -719,7 +724,6 @@ impl GossipUi {
             unlock_needs_focus: true,
             draft_data: DraftData::default(),
             dm_draft_data: DraftData::default(),
-            draft_is_annotate: false,
             editing_metadata: false,
             metadata: Metadata::new(),
             delegatee_tag_str: "".to_owned(),

@@ -746,7 +746,6 @@ pub fn render_note_inner(
                                         if let Some(channel) =
                                             DmChannel::from_event(&note.event, None)
                                         {
-                                            app.draft_is_annotate = false;
                                             app.draft_needs_focus = true;
                                             app.show_post_area = true;
 
@@ -766,7 +765,6 @@ pub fn render_note_inner(
                                     .on_hover_text("Reply")
                                     .clicked()
                                     {
-                                        app.draft_is_annotate = false;
                                         app.draft_needs_focus = true;
                                         app.show_post_area = true;
 
@@ -1381,10 +1379,10 @@ fn note_actions(
             my_items.push(MoreMenuItem::Button(MoreMenuButton::new(
                 "Annotate",
                 Box::new(|_ui, app| {
-                    app.draft_is_annotate = true;
                     app.draft_needs_focus = true;
                     app.show_post_area = true;
 
+                    app.draft_data.is_annotate = true;
                     app.draft_data.replying_to = Some(note.event.id)
                 }),
             )));
