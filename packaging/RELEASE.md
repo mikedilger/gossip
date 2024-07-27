@@ -98,8 +98,8 @@ You should have six binary artifacts from the build phase, like this:
 - gossip-$VERSION-1_amd64.deb
 - gossip-$VERSION-Darwin-arm64.dmg
 - gossip-$VERSION-Darwin-x86_64.dmg
-- gossip.$VERSION.flatpak
-- gossip.$VERSION.msi
+- gossip-$VERSION.flatpak
+- gossip-$VERSION.msi
 - gossip-$VERSION-x86_64.AppImage.tar.gz
 
 Copy these into the release directory.
@@ -118,7 +118,7 @@ Copy these into the release directory.
 Substituting for $PREV, $CURRENT and $PACKAGINGDIR:
 
 ```bash
-    git log --oneline v$PREV..v$CURRENT > $PACKAGINGDIR/changelog-$CURRENT.txt
+    git log --reverse --oneline v$PREV..v$CURRENT > $PACKAGINGDIR/changelog-$CURRENT.txt
 ```
 
 ### Create a file with the SHA hashes
