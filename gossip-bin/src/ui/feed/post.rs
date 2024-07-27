@@ -317,7 +317,7 @@ fn dm_posting_area(
             content: app.dm_draft_data.draft.clone(),
             tags,
             in_reply_to: None,
-            annotation: app.draft_is_annotate,
+            annotation: app.dm_draft_data.is_annotate,
             dm_channel: Some(dm_channel.to_owned()),
         });
 
@@ -362,7 +362,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
         .max_height(window_height * 0.7)
         .show(ui, |ui| {
             if let Some(id) = app.draft_data.replying_to.or(app.draft_data.repost) {
-                let msg = if app.draft_is_annotate {
+                let msg = if app.draft_data.is_annotate {
                     "Annotating:"
                 } else {
                     "Replying to:"
@@ -668,7 +668,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                     content: replaced,
                     tags,
                     in_reply_to: Some(replying_to_id),
-                    annotation: app.draft_is_annotate,
+                    annotation: app.draft_data.is_annotate,
                     dm_channel: None,
                 });
             }
@@ -682,7 +682,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                         content: replaced,
                         tags,
                         in_reply_to: None,
-                        annotation: app.draft_is_annotate,
+                        annotation: app.draft_data.is_annotate,
                         dm_channel: None,
                     });
                 }

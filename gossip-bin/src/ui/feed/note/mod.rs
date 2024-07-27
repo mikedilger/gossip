@@ -932,7 +932,6 @@ pub fn render_note_inner(
                                     .on_hover_text("Reply")
                                     .clicked()
                                     {
-                                        app.draft_is_annotate = false;
                                         app.draft_needs_focus = true;
                                         app.show_post_area = true;
 
@@ -969,7 +968,6 @@ pub fn render_note_inner(
                                         .on_hover_text("Annotate")
                                         .clicked()
                                         {
-                                            app.draft_is_annotate = true;
                                             app.draft_needs_focus = true;
                                             app.show_post_area = true;
                                             if note.event.kind.is_direct_message_related() {
