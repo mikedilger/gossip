@@ -1441,7 +1441,7 @@ dependencies = [
 [[package]]
 name = "egui-video"
 version = "0.1.0"
-source = "git+https://github.com/bu5hm4nn/egui-video?rev=21005df83139d0a7bdc910c66df3bc5a7b7bade2#21005df83139d0a7bdc910c66df3bc5a7b7bade2"
+source = "git+https://github.com/mikedilger/egui-video?rev=12628f8fb9717380e23538e89e4dd474a0eb9411#12628f8fb9717380e23538e89e4dd474a0eb9411"
 dependencies = [
  "anyhow",
  "chrono",
