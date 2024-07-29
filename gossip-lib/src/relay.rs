@@ -278,3 +278,58 @@ pub fn get_dm_relays(pubkey: PublicKey) -> Result<Vec<RelayUrl>, Error> {
     }
     Ok(output)
 }
+
+pub enum ScoreFactors {
+    None,
+    RelayScore,
+    RelayScorePlusConnected,
+}
+
+/// Only RelayUsage::Outbox and RelayUsage::Inbox are supported.
+///
+/// Output scores range from 0.0 to 1.0
+pub fn get_best_relays_with_score2(
+    pubkey: PublicKey,
+    usage: RelayUsage,
+    score_factors: ScoreFactors,
+) -> Result<Vec<(RelayUrl, f32)>, Error> {
+    if usage != RelayUsage::Outbox && usage != RelayUsage::Inbox {
+        return Err((ErrorKind::UnsupportedRelayUsage, file!(), line!()).into());
+    }
+
+    // Load person relays, filtering out banned URLs
+    let mut person_relays: Vec<PersonRelay> = GLOBALS
+        .storage
+        .get_person_relays(pubkey)?
+        .drain(..)
+        .filter(|pr| !crate::storage::Storage::url_is_banned(&pr.url))
+        .collect();
+
+    let mut output: Vec<(RelayUrl, f32)> = Vec::new();
+
+    let now = Unixtime::now();
+    for pr in person_relays.drain(..) {
+        // Get their association to that relay
+        let association_score = pr.association_score(now, usage);
+
+        let relay = GLOBALS.storage.read_or_create_relay(&pr.url, None)?;
+        if relay.should_avoid() {
+            continue;
+        }
+
+        let multiplier = match score_factors {
+            ScoreFactors::None => 1.0,
+            ScoreFactors::RelayScore => relay.score(),
+            ScoreFactors::RelayScorePlusConnected => relay.score_plus_connected(),
+        };
+
+        // Multiply them (max is the relay score, or the association score)
+        let score = association_score * multiplier;
+
+        output.push((pr.url, score));
+    }
+
+    output.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+
+    Ok(output)
+}
