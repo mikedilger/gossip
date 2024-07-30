@@ -220,6 +220,17 @@ impl Relay3 {
         score
     }
 
+    /// This also checks if we are already connected to a relay and those scores
+    /// are doubled (and normalized to 0.0 to 1.0)
+    pub fn score_plus_connected(&self) -> f32 {
+        let score = self.score();
+        if GLOBALS.connected_relays.contains_key(&self.url) {
+            score
+        } else {
+            score * 0.5
+        }
+    }
+
     pub fn choose_relays<F>(bits: u64, f: F) -> Result<Vec<Relay3>, Error>
     where
         F: Fn(&Relay3) -> bool,
