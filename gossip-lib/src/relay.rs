@@ -5,6 +5,7 @@ use crate::error::{Error, ErrorKind};
 use crate::person_relay::PersonRelay;
 use crate::GLOBALS;
 use nostr_types::{Event, EventKind, Id, PublicKey, RelayUrl, RelayUsage, Unixtime};
+use std::collections::HashMap;
 
 // The functions below are all about choosing relays for some task,
 // each returning `Result<Vec<RelayUrl>, Error>` (or similar)
@@ -332,4 +333,91 @@ pub fn get_best_relays_with_score2(
     output.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
 
     Ok(output)
+}
+
+/// For seeking a KNOWN event (e.g. thread climbing, quoting) that we do not have, but which
+/// may be related to certain relays or certain people, this function determines which relays
+/// to look on in priority order.  The list is not pruned or limited so that the seeker can
+/// keep looking and never give up until it either finds it or it tried all the places
+/// that we thought might be viable.
+pub fn sort_relays(
+    mut hinted: Vec<RelayUrl>,
+    mut related_seen_on: Vec<RelayUrl>,
+    mut inboxes: Vec<PublicKey>,
+    mut outboxes: Vec<PublicKey>,
+) -> Result<Vec<RelayUrl>, Error> {
+    struct RelayData {
+        score: f32,
+        bonus: f32, // fractions of 10
+    }
+
+    // For each URL, keep the relay record and a score
+    let mut map: HashMap<RelayUrl, RelayData> = HashMap::new();
+
+    // Load each hinted relay, gets 1 bonus point
+    for url in hinted.drain(..) {
+        let relay = GLOBALS.storage.read_or_create_relay(&url, None)?;
+        let score = relay.score_plus_connected();
+        let relay_data = RelayData { score, bonus: 1.0 };
+        map.insert(url, relay_data);
+    }
+
+    // Load each seen on relay, gets 2 bonus points
+    for url in related_seen_on.drain(..) {
+        if let Some(data) = map.get_mut(&url) {
+            data.bonus += 2.0;
+        } else {
+            let relay = GLOBALS.storage.read_or_create_relay(&url, None)?;
+            let score = relay.score_plus_connected();
+            let relay_data = RelayData { score, bonus: 2.0 };
+            map.insert(url, relay_data);
+        }
+    }
+
+    // Load inboxes
+    for pk in inboxes.drain(..) {
+        let mut relays: Vec<(RelayUrl, f32)> =
+            get_best_relays_with_score2(pk, RelayUsage::Inbox, ScoreFactors::None)?;
+
+        for (url, pscore) in relays.drain(..) {
+            if let Some(data) = map.get_mut(&url) {
+                data.bonus += 5.0 * pscore;
+            } else {
+                let relay = GLOBALS.storage.read_or_create_relay(&url, None)?;
+                let score = relay.score_plus_connected();
+                let relay_data = RelayData {
+                    score,
+                    bonus: 5.0 * pscore,
+                };
+                map.insert(url, relay_data);
+            }
+        }
+    }
+
+    // Load outboxes
+    for pk in outboxes.drain(..) {
+        let mut relays: Vec<(RelayUrl, f32)> =
+            get_best_relays_with_score2(pk, RelayUsage::Outbox, ScoreFactors::None)?;
+
+        for (url, pscore) in relays.drain(..) {
+            if let Some(data) = map.get_mut(&url) {
+                data.bonus += 5.0 * pscore;
+            } else {
+                let relay = GLOBALS.storage.read_or_create_relay(&url, None)?;
+                let score = relay.score_plus_connected();
+                let relay_data = RelayData {
+                    score,
+                    bonus: 5.0 * pscore,
+                };
+                map.insert(url, relay_data);
+            }
+        }
+    }
+
+    let mut vec: Vec<(RelayUrl, f32)> = map
+        .iter()
+        .map(|(url, data)| (url.to_owned(), data.score * 0.1 * data.bonus))
+        .collect();
+    vec.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+    Ok(vec.iter().map(|(url, _)| url.to_owned()).collect())
 }
