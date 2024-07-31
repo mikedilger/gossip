@@ -7,8 +7,8 @@ use crate::storage::{PersonTable, Table};
 use dashmap::{DashMap, DashSet};
 use image::RgbaImage;
 use nostr_types::{
-    ContentEncryptionAlgorithm, Event, EventKind, Metadata, PreEvent, PublicKey, RelayUrl,
-    RelayUsage, Tag, UncheckedUrl, Unixtime, Url,
+    ContentEncryptionAlgorithm, Event, EventKind, Metadata, PreEvent, PublicKey, RelayUrl, Tag,
+    UncheckedUrl, Unixtime, Url,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -667,7 +667,7 @@ impl People {
             // Only include recommended relay urls in public entries, and not in the mute list
             let recommended_relay_url = {
                 if kind != EventKind::MuteList && !private.0 {
-                    let relays = relay::get_best_relays_min(*pubkey, RelayUsage::Outbox, 1)?;
+                    let relays = relay::get_some_pubkey_outboxes(*pubkey)?;
                     relays.first().map(|u| u.to_unchecked_url())
                 } else {
                     None
@@ -878,7 +878,7 @@ impl People {
         *self.active_person.write().await = Some(pubkey);
 
         // Load their relays
-        let best_relays = relay::get_best_relays_min(pubkey, RelayUsage::Outbox, 1)?;
+        let best_relays = relay::get_all_pubkey_outboxes(pubkey)?;
         *self.active_persons_write_relays.write().await = best_relays;
 
         // Load their DM relays

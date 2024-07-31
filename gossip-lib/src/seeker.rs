@@ -6,7 +6,7 @@ use crate::people::People;
 use crate::relay;
 use crate::relay::Relay;
 use dashmap::DashMap;
-use nostr_types::{Event, EventReference, Id, PublicKey, RelayUrl, RelayUsage, Unixtime};
+use nostr_types::{Event, EventReference, Id, PublicKey, RelayUrl, Unixtime};
 use std::time::Duration;
 
 #[derive(Debug, Clone)]
@@ -134,13 +134,12 @@ impl Seeker {
                 // Seek the relay list because it is stale, but don't let that hold us up
                 // using the stale data
                 Self::minion_seek_relay_list(author);
-
-                let relays = relay::get_best_relays_fixed(author, RelayUsage::Outbox)?;
+                let relays = relay::get_some_pubkey_outboxes(author)?;
                 Self::minion_seek_event_at_relays(id, relays);
                 self.events.insert(id, SeekData::new_event(climb));
             }
             Freshness::Fresh => {
-                let relays = relay::get_best_relays_fixed(author, RelayUsage::Outbox)?;
+                let relays = relay::get_some_pubkey_outboxes(author)?;
                 Self::minion_seek_event_at_relays(id, relays);
                 self.events.insert(id, SeekData::new_event(climb));
             }
@@ -171,7 +170,7 @@ impl Seeker {
             if let SeekState::WaitingRelayList(author) = data.state {
                 if author == pubkey {
                     let id = *refmutmulti.key();
-                    if let Ok(relays) = relay::get_best_relays_fixed(author, RelayUsage::Outbox) {
+                    if let Ok(relays) = relay::get_some_pubkey_outboxes(author) {
                         Self::minion_seek_event_at_relays(id, relays);
                         updates.push((id, SeekData::new_event(data.climb)));
                     }
@@ -236,9 +235,7 @@ impl Seeker {
                     // Check if we have their relays yet
                     match People::person_needs_relay_list(author) {
                         Freshness::Fresh | Freshness::Stale => {
-                            if let Ok(relays) =
-                                relay::get_best_relays_fixed(author, RelayUsage::Outbox)
-                            {
+                            if let Ok(relays) = relay::get_some_pubkey_outboxes(author) {
                                 Self::minion_seek_event_at_relays(id, relays);
                                 updates.push((id, Some(SeekData::new_event(data.climb))));
                                 continue;

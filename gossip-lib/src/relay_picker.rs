@@ -1,6 +1,6 @@
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
-use crate::relay;
+use crate::relay::{self, ScoreFactors};
 use dashmap::DashMap;
 pub use nostr_types::{PublicKey, RelayUrl, RelayUsage, Unixtime};
 
@@ -35,7 +35,7 @@ impl RelayAssignment {
 #[derive(Debug, Default)]
 pub struct RelayPicker {
     /// A ranking of relays per person.
-    person_relay_scores: DashMap<PublicKey, Vec<(RelayUrl, u64)>>,
+    person_relay_scores: DashMap<PublicKey, Vec<(RelayUrl, f32)>>,
 
     /// All of the relays currently connected, with their assignment.
     relay_assignments: DashMap<RelayUrl, RelayAssignment>,
@@ -171,8 +171,11 @@ impl RelayPicker {
 
         // Compute scores for each person_relay pairing
         for pubkey in pubkeys.iter() {
-            let best_relays: Vec<(RelayUrl, u64)> =
-                relay::get_best_relays_with_score(*pubkey, RelayUsage::Outbox, 0)?;
+            let best_relays: Vec<(RelayUrl, f32)> = relay::get_best_relays_with_score2(
+                *pubkey,
+                RelayUsage::Outbox,
+                ScoreFactors::RelayScorePlusConnected,
+            )?;
 
             self.person_relay_scores.insert(*pubkey, best_relays);
 
@@ -241,9 +244,9 @@ impl RelayPicker {
             return Err(ErrorKind::NoRelays.into());
         }
 
-        // Keep score for each relay, start at 0
-        let scoreboard: DashMap<RelayUrl, u64> =
-            all_relays.iter().map(|x| (x.to_owned(), 0)).collect();
+        // Keep score for each relay, start at 0.0
+        let scoreboard: DashMap<RelayUrl, f32> =
+            all_relays.iter().map(|x| (x.to_owned(), 0.0)).collect();
 
         // Assign scores to relays from each pubkey
         for elem in self.person_relay_scores.iter() {
@@ -286,35 +289,14 @@ impl RelayPicker {
             }
         }
 
-        // Adjust all scores based on relay rank and relay success rate
-        // (gossip code elided due to complex data tracking required)
-        // TBD to add this kind of feature back.
-        for mut score_entry in scoreboard.iter_mut() {
-            let url = score_entry.key().to_owned();
-            let score = score_entry.value_mut();
-
-            // adjust score
-            *score = match GLOBALS.storage.read_relay(&url, None) {
-                Err(_) => 0,
-                Ok(Some(relay)) => {
-                    if relay.should_avoid() {
-                        0
-                    } else {
-                        *score * (relay.score() * 10.0) as u64
-                    }
-                }
-                Ok(None) => *score,
-            }
-        }
-
         let winner = scoreboard
             .iter()
-            .max_by(|x, y| x.value().cmp(y.value()))
+            .max_by(|x, y| x.value().partial_cmp(y.value()).unwrap())
             .unwrap();
         let winning_url: RelayUrl = winner.key().to_owned();
-        let winning_score: u64 = *winner.value();
+        let winning_score: f32 = *winner.value();
 
-        if winning_score == 0 {
+        if winning_score < 0.000000000001 {
             return Err(ErrorKind::NoProgress.into());
         }
 
@@ -346,7 +328,8 @@ impl RelayPicker {
                         if *relay == winning_url {
                             // Do not assign to this relay if it's not one of their top
                             // three relays and its score has dropped to 5 or lower.
-                            if *score <= 5 && i >= 3 {
+                            // ******FIXME GINA 5.0 is probably the wrong level now ******
+                            if *score <= 5.0 && i >= 3 {
                                 // in this case we can skip the rest which have lower
                                 // scores and are further down the list
                                 break;
