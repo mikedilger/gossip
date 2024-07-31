@@ -96,11 +96,6 @@ impl Minion {
             }
             RelayMessage::Notice(msg) => {
                 tracing::warn!("{}: NOTICE: {}", &self.url, msg);
-                tracing::warn!(
-                    "{}: last message sent was: {}",
-                    &self.url,
-                    &self.last_message_sent
-                );
             }
             RelayMessage::Eose(subid) => {
                 let handle = self
