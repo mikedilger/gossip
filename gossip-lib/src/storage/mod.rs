@@ -2509,6 +2509,12 @@ impl Storage {
     }
 
     pub fn url_is_banned(url: &RelayUrl) -> bool {
-        url.as_str().contains("relay.nostr.band") || url.as_str().contains("filter.nostr.wine")
+        // Infinite number of subdomain relays being unmanageable
+        url.as_str().contains("relay.nostr.band")
+        // Infinite number of subdomain relays being unmanageable, they disclaim them
+            || url.as_str().contains("filter.nostr.wine")
+        // spamming gossip with NOTICE subscription rejected messages causing an overload condition.
+            // They need to send CLOSED and not NOTICE
+            || url.as_str().contains("at.nostrworks.com")
     }
 }
