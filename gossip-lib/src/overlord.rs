@@ -6,17 +6,16 @@ use crate::dm_channel::DmChannel;
 use crate::error::{Error, ErrorKind};
 use crate::feed::FeedKind;
 use crate::globals::GLOBALS;
-use crate::minion::{Minion, MinionExitReason};
+use crate::manager;
+use crate::minion::MinionExitReason;
 use crate::misc::{Private, ZapState};
 use crate::nip46::{Approval, ParsedCommand};
-use crate::pending::PendingItem;
 use crate::people::{Person, PersonList};
 use crate::relay;
 use crate::relay::Relay;
 use crate::relay_picker::RelayAssignment;
 use crate::storage::{PersonTable, Table};
 use crate::RunState;
-use dashmap::mapref::entry::Entry;
 use heed::RwTxn;
 use http::StatusCode;
 use nostr_types::{
@@ -51,14 +50,7 @@ type MinionResult = Result<MinionExitReason, Error>;
 pub struct Overlord {
     to_minions: Sender<ToMinionMessage>,
     inbox: UnboundedReceiver<ToOverlordMessage>,
-
     read_runstate: WatchReceiver<RunState>,
-
-    // All the minion tasks running.
-    minions: task::JoinSet<Result<MinionExitReason, Error>>,
-
-    // Map from minion task::Id to Url
-    minions_task_url: HashMap<task::Id, RelayUrl>,
 }
 
 impl Overlord {
@@ -105,8 +97,6 @@ impl Overlord {
             to_minions,
             inbox,
             read_runstate: GLOBALS.read_runstate.clone(),
-            minions: task::JoinSet::new(),
-            minions_task_url: HashMap::new(),
         }
     }
 
@@ -128,14 +118,17 @@ impl Overlord {
         tracing::info!("Overlord waiting for minions to all shutdown");
 
         // Listen on self.minions until it is empty
-        while !self.minions.is_empty() {
+        let mut minions = GLOBALS.minions.write();
+        while !minions.is_empty() {
             tokio::select! {
                 _ = tokio::time::sleep(Duration::from_secs(10)) => {
                     tracing::info!("Minions are stuck. Shutting down anyways.");
                     break;
                 },
-                task_nextjoined = self.minions.join_next_with_id() => {
-                    self.handle_task_nextjoined(task_nextjoined).await;
+                opt_task_nextjoined = minions.join_next_with_id() => {
+                    if let Some(task_nextjoined) = opt_task_nextjoined {
+                        self.handle_task_nextjoined(task_nextjoined).await;
+                    }
                 }
             }
         }
@@ -205,11 +198,35 @@ impl Overlord {
         // Start background tasks
         crate::tasks::start_background_tasks();
 
+        // Every 500 milliseconds we check if a minion task has completed
+        let minion_task_interval = tokio::time::interval(Duration::from_millis(500));
+        tokio::pin!(minion_task_interval);
+
         'mainloop: loop {
             tracing::debug!("overlord looping");
 
             // Listen on inbox, runstate, and exiting minions
             tokio::select! {
+                _instant = minion_task_interval.tick() => {
+                    loop {
+                        // We do this only every so often because we cannot hog the
+                        // GLOBALS.minions lock
+                        let x = {
+                            let mut minions = GLOBALS.minions.write();
+                            if !minions.is_empty() {
+                                minions.try_join_next_with_id()
+                            } else {
+                                None
+                            }
+                        };
+                        if let Some(task_nextjoined) = x {
+                            self.handle_task_nextjoined(task_nextjoined).await;
+                            continue;
+                        } else {
+                            break;
+                        }
+                    }
+                },
                 message = self.inbox.recv() => {
                     let message = match message {
                         Some(bm) => bm,
@@ -236,9 +253,6 @@ impl Overlord {
                         _ => { }
                     }
                 },
-                task_nextjoined = self.minions.join_next_with_id(), if !self.minions.is_empty() => {
-                    self.handle_task_nextjoined(task_nextjoined).await;
-                },
                 v = interrupt_signal.recv() => if v.is_some() {
                     tracing::info!("SIGINT");
                     let _ = GLOBALS.write_runstate.send(RunState::ShuttingDown);
@@ -254,7 +268,6 @@ impl Overlord {
                     let _ = GLOBALS.write_runstate.send(RunState::ShuttingDown);
                     break;
                 },
-
             }
         }
 
@@ -345,116 +358,26 @@ impl Overlord {
         }
 
         // Subscribe to the general feed
-        self.engage_minion(assignment.relay_url.clone(), jobs)
-            .await?;
-
-        Ok(())
-    }
-
-    async fn engage_minion(&mut self, url: RelayUrl, jobs: Vec<RelayJob>) -> Result<(), Error> {
-        let relay = GLOBALS.storage.read_or_create_relay(&url, None)?;
-
-        if GLOBALS
-            .storage
-            .read_setting_relay_connection_requires_approval()
-        {
-            match relay.allow_connect {
-                Some(true) => (),             // fall through
-                Some(false) => return Ok(()), // don't connect to this relay
-                None => {
-                    // Save the engage_minion request and Ask the user
-                    GLOBALS.pending.insert(PendingItem::RelayConnectionRequest {
-                        relay: url.clone(),
-                        jobs: jobs.clone(),
-                    });
-                    return Ok(());
-                }
-            }
-        } // else fall through
-
-        self.engage_minion_inner(relay, url, jobs).await
-    }
-
-    async fn engage_minion_inner(
-        &mut self,
-        relay: Relay,
-        url: RelayUrl,
-        mut jobs: Vec<RelayJob>,
-    ) -> Result<(), Error> {
-        // Do not connect if we are offline
-        if GLOBALS.storage.read_setting_offline() {
-            return Ok(());
-        }
-
-        if jobs.is_empty() {
-            return Ok(());
-        }
-
-        // don't connect while avoiding this relay
-        if relay.should_avoid() {
-            return Ok(());
-        }
-
-        let entry = GLOBALS.connected_relays.entry(url.clone());
-
-        if let Entry::Occupied(mut oe) = entry {
-            // We are already connected. Send it the jobs
-            for job in jobs.drain(..) {
-                let _ = self.to_minions.send(ToMinionMessage {
-                    target: url.as_str().to_owned(),
-                    payload: job.payload.clone(),
-                });
-
-                let vec = oe.get_mut();
-
-                // Record the job:
-                // If the relay already has a job of the same RelayConnectionReason
-                // and that reason is not persistent, then this job replaces that
-                // one (e.g. FetchAugments)
-                if !job.reason.persistent() {
-                    if let Some(pos) = vec.iter().position(|e| e.reason == job.reason) {
-                        vec[pos] = job;
-                        return Ok(());
-                    }
-                }
-                vec.push(job);
-            }
-        } else {
-            // Start up the minion
-            let mut minion = Minion::new(url.clone()).await?;
-            let payloads = jobs.iter().map(|job| job.payload.clone()).collect();
-            let abort_handle = self
-                .minions
-                .spawn(async move { minion.handle(payloads).await });
-            let id = abort_handle.id();
-            self.minions_task_url.insert(id, url.clone());
-
-            entry.insert(jobs);
-        }
+        manager::engage_minion(assignment.relay_url.clone(), jobs).await?;
 
         Ok(())
     }
 
     async fn handle_task_nextjoined(
         &mut self,
-        task_nextjoined: Option<Result<(task::Id, MinionResult), task::JoinError>>,
+        join_result: Result<(task::Id, MinionResult), task::JoinError>,
     ) {
-        if task_nextjoined.is_none() {
-            return; // rare but possible
-        }
-
-        let join_result = task_nextjoined.unwrap();
         let id = match join_result {
             Err(ref join_error) => join_error.id(),
             Ok((id, _)) => id,
         };
-        let url = match self.minions_task_url.get(&id).cloned() {
-            Some(url) => url,
+        let url = match GLOBALS.minions_task_url.get(&id) {
+            Some(url) => (*url).to_owned(),
             None => return, // unknown minion!
         };
 
         // Remove from our hashmap
-        self.minions_task_url.remove(&id);
+        GLOBALS.minions_task_url.remove(&id);
 
         // Set to not connected, and take any unfinished jobs
         let mut relayjobs = GLOBALS
@@ -618,12 +541,6 @@ impl Overlord {
         }));
     }
 
-    async fn reengage_minion(&mut self, url: RelayUrl, jobs: Vec<RelayJob>) -> Result<(), Error> {
-        self.engage_minion(url, jobs).await?;
-
-        Ok(())
-    }
-
     fn bump_failure_count(url: &RelayUrl) {
         if let Ok(Some(mut relay)) = GLOBALS.storage.read_relay(url, None) {
             relay.failure_count += 1;
@@ -777,7 +694,7 @@ impl Overlord {
                 Self::rank_relay(relay_url, rank)?;
             }
             ToOverlordMessage::ReengageMinion(url, jobs) => {
-                self.reengage_minion(url, jobs).await?;
+                manager::engage_minion(url, jobs).await?;
             }
             ToOverlordMessage::RefreshSubscribedMetadata => {
                 self.refresh_subscribed_metadata().await?;
@@ -956,18 +873,17 @@ impl Overlord {
 
         // Send it the event to post
         tracing::debug!("Asking {} to advertise relay list", &relay_url);
-        if let Err(e) = self
-            .engage_minion(
-                relay_url,
-                vec![RelayJob {
-                    reason: RelayConnectionReason::Advertising,
-                    payload: ToMinionPayload {
-                        job_id,
-                        detail: ToMinionPayloadDetail::AdvertiseRelayList(event, dmevent),
-                    },
-                }],
-            )
-            .await
+        if let Err(e) = manager::engage_minion(
+            relay_url,
+            vec![RelayJob {
+                reason: RelayConnectionReason::Advertising,
+                payload: ToMinionPayload {
+                    job_id,
+                    detail: ToMinionPayloadDetail::AdvertiseRelayList(event, dmevent),
+                },
+            }],
+        )
+        .await
         {
             tracing::error!("{}", e);
         }
@@ -1056,7 +972,7 @@ impl Overlord {
         let config_relays: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
 
         for relay_url in config_relays.iter() {
-            self.engage_minion(
+            manager::engage_minion(
                 relay_url.to_owned(),
                 vec![RelayJob {
                     reason: RelayConnectionReason::PostEvent,
@@ -1134,7 +1050,7 @@ impl Overlord {
         // Start the job
         if let Some((url, jobs)) = GLOBALS.pending.take_relay_connection_request(&relay_url) {
             let relay = GLOBALS.storage.read_or_create_relay(&url, None)?;
-            self.engage_minion_inner(relay, url, jobs).await?;
+            manager::engage_minion_inner(relay, url, jobs).await?;
         }
 
         Ok(())
@@ -1295,7 +1211,7 @@ impl Overlord {
 
         // Send event to all these relays
         for url in relay_urls {
-            self.engage_minion(
+            manager::engage_minion(
                 url.to_owned(),
                 vec![RelayJob {
                     reason: RelayConnectionReason::PostEvent,
@@ -1368,7 +1284,7 @@ impl Overlord {
             // Send it the event to post
             tracing::debug!("Asking {} to delete", &url);
 
-            self.engage_minion(
+            manager::engage_minion(
                 url.to_owned(),
                 vec![RelayJob {
                     reason: RelayConnectionReason::PostEvent,
@@ -1433,7 +1349,7 @@ impl Overlord {
             //       not to fetch it multiple times.
 
             for url in relay_urls.iter() {
-                self.engage_minion(
+                manager::engage_minion(
                     url.to_owned(),
                     vec![RelayJob {
                         reason: RelayConnectionReason::FetchEvent,
@@ -1454,7 +1370,7 @@ impl Overlord {
     pub async fn fetch_naddr(&mut self, ea: NAddr) -> Result<(), Error> {
         for unchecked_url in ea.relays.iter() {
             if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(unchecked_url) {
-                self.engage_minion(
+                manager::engage_minion(
                     relay_url.to_owned(),
                     vec![RelayJob {
                         reason: RelayConnectionReason::FetchEvent,
@@ -1660,7 +1576,7 @@ impl Overlord {
             // Send it the event to post
             tracing::debug!("Asking {} to post", &relay);
 
-            self.engage_minion(
+            manager::engage_minion(
                 relay.clone(),
                 vec![RelayJob {
                     reason: RelayConnectionReason::PostLike,
@@ -1703,7 +1619,7 @@ impl Overlord {
                 // Subscribe on each of these relays
                 for relay in relays.iter() {
                     // Subscribe
-                    self.engage_minion(
+                    manager::engage_minion(
                         relay.to_owned(),
                         vec![RelayJob {
                             reason: RelayConnectionReason::FetchInbox,
@@ -1722,7 +1638,7 @@ impl Overlord {
                 // Subscribe on each of those write relays
                 for relay in relays.iter() {
                     // Subscribe
-                    self.engage_minion(
+                    manager::engage_minion(
                         relay.to_owned(),
                         vec![RelayJob {
                             reason: RelayConnectionReason::SubscribePerson,
@@ -1857,7 +1773,7 @@ impl Overlord {
                 // Send it the event to post
                 tracing::debug!("Asking {} to post", &url);
 
-                self.engage_minion(
+                manager::engage_minion(
                     url.clone(),
                     vec![RelayJob {
                         reason: RelayConnectionReason::PostEvent,
@@ -1881,7 +1797,7 @@ impl Overlord {
             // Send it the event to post
             tracing::debug!("Asking {} to post", &url);
 
-            self.engage_minion(
+            manager::engage_minion(
                 url.clone(),
                 vec![RelayJob {
                     reason: RelayConnectionReason::PostEvent,
@@ -1906,7 +1822,7 @@ impl Overlord {
             // Send it the event to post
             tracing::debug!("Asking {} to post nostrconnect", &url);
 
-            self.engage_minion(
+            manager::engage_minion(
                 url.clone(),
                 vec![RelayJob {
                     reason: RelayConnectionReason::PostNostrConnect,
@@ -1985,7 +1901,7 @@ impl Overlord {
             // Send it the event to pull our followers
             tracing::debug!("Pushing PersonList={} to {}", metadata.title, &relay.url);
 
-            self.engage_minion(
+            manager::engage_minion(
                 relay.url.clone(),
                 vec![RelayJob {
                     reason: RelayConnectionReason::PostContacts,
@@ -2024,7 +1940,7 @@ impl Overlord {
             // Send it the event to pull our followers
             tracing::debug!("Pushing Metadata to {}", &relay.url);
 
-            self.engage_minion(
+            manager::engage_minion(
                 relay.url.clone(),
                 vec![RelayJob {
                     reason: RelayConnectionReason::PostMetadata,
@@ -2073,7 +1989,7 @@ impl Overlord {
         }
 
         for (url, pubkeys) in map.drain() {
-            self.engage_minion(
+            manager::engage_minion(
                 url.clone(),
                 vec![RelayJob {
                     reason: RelayConnectionReason::FetchMetadata,
@@ -2193,7 +2109,7 @@ impl Overlord {
             // Send it the event to post
             tracing::debug!("Asking {} to (re)post", &url);
 
-            self.engage_minion(
+            manager::engage_minion(
                 url.clone(),
                 vec![RelayJob {
                     reason: RelayConnectionReason::PostEvent,
@@ -2352,7 +2268,7 @@ impl Overlord {
             .filter_relays(|r| r.has_usage_bits(Relay::OUTBOX) || r.has_usage_bits(Relay::INBOX))?;
         for relay in relays.iter() {
             // Subscribe
-            self.engage_minion(
+            manager::engage_minion(
                 relay.url.to_owned(),
                 vec![RelayJob {
                     reason: RelayConnectionReason::FetchDirectMessages,
@@ -2373,7 +2289,7 @@ impl Overlord {
 
         for relay in relays.iter() {
             // Subscribe
-            self.engage_minion(
+            manager::engage_minion(
                 relay.to_owned(),
                 vec![RelayJob {
                     reason: RelayConnectionReason::SubscribePerson,
@@ -2543,7 +2459,7 @@ impl Overlord {
                     },
                 }];
 
-                self.engage_minion(url.to_owned(), jobs).await?;
+                manager::engage_minion(url.to_owned(), jobs).await?;
             }
         }
 
@@ -2588,7 +2504,7 @@ impl Overlord {
                     },
                 }];
 
-                self.engage_minion(url.to_owned(), jobs).await?;
+                manager::engage_minion(url.to_owned(), jobs).await?;
             }
         }
 
@@ -2646,7 +2562,7 @@ impl Overlord {
             None => Relay::choose_relay_urls(Relay::WRITE, |_| true)?,
         };
         for relay_url in config_relays.iter() {
-            self.engage_minion(
+            manager::engage_minion(
                 relay_url.to_owned(),
                 vec![RelayJob {
                     reason: RelayConnectionReason::Config,
@@ -2693,7 +2609,7 @@ impl Overlord {
             None => Relay::choose_relay_urls(Relay::DISCOVER, |_| true)?,
         };
         for relay_url in discover_relay_urls.iter() {
-            self.engage_minion(
+            manager::engage_minion(
                 relay_url.to_owned(),
                 vec![RelayJob {
                     reason: RelayConnectionReason::Discovery,
@@ -2717,7 +2633,7 @@ impl Overlord {
             None => Relay::choose_relay_urls(Relay::READ, |_| true)?,
         };
         for relay_url in mention_relays.iter() {
-            self.engage_minion(
+            manager::engage_minion(
                 relay_url.to_owned(),
                 vec![RelayJob {
                     reason: RelayConnectionReason::FetchInbox,
@@ -2743,7 +2659,7 @@ impl Overlord {
         let after = Unixtime::now() - Duration::new(3600 * 24 * 30, 0);
 
         for relay in relays.iter() {
-            self.engage_minion(
+            manager::engage_minion(
                 relay.url.clone(),
                 vec![RelayJob {
                     reason: RelayConnectionReason::Giftwraps,
@@ -2762,7 +2678,7 @@ impl Overlord {
     /// Subscribe to nip46 nostr connect relays
     pub async fn subscribe_nip46(&mut self, relays: Vec<RelayUrl>) -> Result<(), Error> {
         for relay_url in relays.iter() {
-            self.engage_minion(
+            manager::engage_minion(
                 relay_url.to_owned(),
                 vec![RelayJob {
                     reason: RelayConnectionReason::NostrConnect,
@@ -2811,7 +2727,7 @@ impl Overlord {
         // since metadata is more important and I didn't want to bother with
         // another setting.
         for relay_url in best_relays.iter() {
-            self.engage_minion(
+            manager::engage_minion(
                 relay_url.to_owned(),
                 vec![RelayJob {
                     reason: RelayConnectionReason::FetchMetadata,
@@ -2850,7 +2766,7 @@ impl Overlord {
             }
         }
         for (relay_url, pubkeys) in map.drain() {
-            self.engage_minion(
+            manager::engage_minion(
                 relay_url.clone(),
                 vec![RelayJob {
                     reason: RelayConnectionReason::FetchMetadata,
@@ -3184,7 +3100,7 @@ impl Overlord {
         for (relay_url, ids) in augment_subs.drain() {
             let ids_hex: Vec<IdHex> = ids.iter().map(|i| (*i).into()).collect();
 
-            self.engage_minion(
+            manager::engage_minion(
                 relay_url,
                 vec![RelayJob {
                     reason: RelayConnectionReason::FetchAugments,
