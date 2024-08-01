@@ -96,6 +96,8 @@ pub use globals::{Globals, GLOBALS};
 mod gossip_identity;
 pub use gossip_identity::GossipIdentity;
 
+pub mod manager;
+
 mod media;
 pub use media::Media;
 

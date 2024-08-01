@@ -20,8 +20,7 @@ use crate::RunState;
 use dashmap::mapref::entry::Entry;
 use heed::RwTxn;
 use http::StatusCode;
-use minion::Minion;
-pub use minion::MinionExitReason;
+pub use minion::{Minion, MinionExitReason};
 use nostr_types::{
     EncryptedPrivateKey, Event, EventKind, EventReference, Filter, Id, IdHex, Metadata,
     MilliSatoshi, NAddr, NostrBech32, PayRequestData, PreEvent, PrivateKey, Profile, PublicKey,
