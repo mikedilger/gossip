@@ -1,11 +1,13 @@
 use crate::bookmarks::BookmarkList;
 use crate::comms::{RelayJob, ToMinionMessage, ToOverlordMessage};
 use crate::delegation::Delegation;
+use crate::error::Error;
 use crate::feed::Feed;
 use crate::fetcher::Fetcher;
 use crate::gossip_identity::GossipIdentity;
 use crate::media::Media;
 use crate::misc::ZapState;
+use crate::overlord::MinionExitReason;
 use crate::pending::Pending;
 use crate::people::{People, Person};
 use crate::relay::Relay;
@@ -35,6 +37,12 @@ pub struct Globals {
     /// This is a mpsc channel. The Overlord listens on it.
     /// To create a sender, just clone() it.
     pub to_overlord: mpsc::UnboundedSender<ToOverlordMessage>,
+
+    /// Current minion tasks
+    pub minions: tokio::task::JoinSet<Result<MinionExitReason, Error>>,
+
+    /// Map from minion task id to relay url
+    pub minions_task_url: DashMap<tokio::task::Id, RelayUrl>,
 
     /// This is a watch channel for making changes to the RunState.
     pub write_runstate: WatchSender<RunState>,
@@ -189,6 +197,8 @@ lazy_static! {
         Globals {
             to_minions,
             to_overlord,
+            minions: tokio::task::JoinSet::new(),
+            minions_task_url: DashMap::new(),
             write_runstate,
             read_runstate,
             tmp_overlord_receiver: Mutex::new(Some(tmp_overlord_receiver)),
