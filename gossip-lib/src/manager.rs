@@ -1,7 +1,7 @@
 use crate::comms::{RelayJob, ToMinionMessage};
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
-use crate::overlord::Minion;
+use crate::minion::Minion;
 use crate::pending::PendingItem;
 use crate::relay::Relay;
 use dashmap::mapref::entry::Entry;

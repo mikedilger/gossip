@@ -101,6 +101,8 @@ pub mod manager;
 mod media;
 pub use media::Media;
 
+mod minion;
+
 mod misc;
 pub use misc::{Freshness, Private, ZapState};
 

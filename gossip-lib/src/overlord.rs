@@ -1,5 +1,3 @@
-mod minion;
-
 use crate::comms::{
     RelayConnectionReason, RelayJob, ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail,
     ToOverlordMessage,
@@ -8,6 +6,7 @@ use crate::dm_channel::DmChannel;
 use crate::error::{Error, ErrorKind};
 use crate::feed::FeedKind;
 use crate::globals::GLOBALS;
+use crate::minion::{Minion, MinionExitReason};
 use crate::misc::{Private, ZapState};
 use crate::nip46::{Approval, ParsedCommand};
 use crate::pending::PendingItem;
@@ -20,7 +19,6 @@ use crate::RunState;
 use dashmap::mapref::entry::Entry;
 use heed::RwTxn;
 use http::StatusCode;
-pub use minion::{Minion, MinionExitReason};
 use nostr_types::{
     EncryptedPrivateKey, Event, EventKind, EventReference, Filter, Id, IdHex, Metadata,
     MilliSatoshi, NAddr, NostrBech32, PayRequestData, PreEvent, PrivateKey, Profile, PublicKey,
