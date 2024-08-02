@@ -967,7 +967,7 @@ impl Overlord {
 
         let config_relays: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
 
-        manager::run_job_on_all_relays(
+        manager::run_jobs_on_all_relays(
             config_relays,
             vec![RelayJob {
                 reason: RelayConnectionReason::PostEvent,
@@ -1202,7 +1202,7 @@ impl Overlord {
         }
 
         // Send event to all these relays
-        manager::run_job_on_all_relays(
+        manager::run_jobs_on_all_relays(
             relay_urls,
             vec![RelayJob {
                 reason: RelayConnectionReason::PostEvent,
@@ -1268,7 +1268,7 @@ impl Overlord {
             relay_urls.dedup();
         }
 
-        manager::run_job_on_all_relays(
+        manager::run_jobs_on_all_relays(
             relay_urls,
             vec![RelayJob {
                 reason: RelayConnectionReason::PostEvent,
@@ -1314,7 +1314,7 @@ impl Overlord {
         Ok(())
     }
 
-    /// Fetch an event from a specific relay by event `Id`
+    /// Fetch an event from specific relays by event `Id`
     pub async fn fetch_event(
         &mut self,
         id: Id,
@@ -1333,38 +1333,38 @@ impl Overlord {
         // Note: minions will remember if they get the same id multiple times
         //       not to fetch it multiple times.
 
-        for url in relay_urls.iter() {
-            manager::engage_minion(
-                url.to_owned(),
-                vec![RelayJob {
-                    reason: RelayConnectionReason::FetchEvent,
-                    payload: ToMinionPayload {
-                        job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::FetchEvent(id),
-                    },
-                }],
-            );
-        }
+        manager::run_jobs_on_all_relays(
+            relay_urls,
+            vec![RelayJob {
+                reason: RelayConnectionReason::FetchEvent,
+                payload: ToMinionPayload {
+                    job_id: rand::random::<u64>(),
+                    detail: ToMinionPayloadDetail::FetchEvent(id),
+                },
+            }],
+        );
 
         Ok(())
     }
 
     /// Fetch an event based on an `NAddr`
     pub async fn fetch_naddr(&mut self, ea: NAddr) -> Result<(), Error> {
-        for unchecked_url in ea.relays.iter() {
-            if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(unchecked_url) {
-                manager::engage_minion(
-                    relay_url.to_owned(),
-                    vec![RelayJob {
-                        reason: RelayConnectionReason::FetchEvent,
-                        payload: ToMinionPayload {
-                            job_id: rand::random::<u64>(),
-                            detail: ToMinionPayloadDetail::FetchNAddr(ea.clone()),
-                        },
-                    }],
-                );
-            }
-        }
+        let relays: Vec<RelayUrl> = ea
+            .relays
+            .iter()
+            .filter_map(|uu| RelayUrl::try_from_unchecked_url(uu).ok())
+            .collect();
+
+        manager::run_jobs_on_all_relays(
+            relays,
+            vec![RelayJob {
+                reason: RelayConnectionReason::FetchEvent,
+                payload: ToMinionPayload {
+                    job_id: rand::random::<u64>(),
+                    detail: ToMinionPayloadDetail::FetchNAddr(ea.clone()),
+                },
+            }],
+        );
 
         Ok(())
     }
@@ -1552,23 +1552,21 @@ impl Overlord {
             }
         };
 
-        let relays: Vec<RelayUrl> = relay::relays_to_post_to(&event)?;
-
-        for relay in relays {
-            // Send it the event to post
-            tracing::debug!("Asking {} to post", &relay);
-
-            manager::engage_minion(
-                relay.clone(),
-                vec![RelayJob {
-                    reason: RelayConnectionReason::PostLike,
-                    payload: ToMinionPayload {
-                        job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::PostEvents(vec![event.clone()]),
-                    },
-                }],
-            );
+        let relay_urls: Vec<RelayUrl> = relay::relays_to_post_to(&event)?;
+        for url in &relay_urls {
+            tracing::debug!("Asking {} to post", url);
         }
+
+        manager::run_jobs_on_all_relays(
+            relay_urls,
+            vec![RelayJob {
+                reason: RelayConnectionReason::PostLike,
+                payload: ToMinionPayload {
+                    job_id: rand::random::<u64>(),
+                    detail: ToMinionPayloadDetail::PostEvents(vec![event.clone()]),
+                },
+            }],
+        );
 
         // Process the message for ourself
         crate::process::process_new_event(&event, None, None, false, false)?;
@@ -1597,41 +1595,36 @@ impl Overlord {
             }
             FeedKind::Inbox(_) => {
                 let relays: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::READ, |_| true)?;
-                // Subscribe on each of these relays
-                for relay in relays.iter() {
-                    // Subscribe
-                    manager::engage_minion(
-                        relay.to_owned(),
-                        vec![RelayJob {
-                            reason: RelayConnectionReason::FetchInbox,
-                            payload: ToMinionPayload {
-                                job_id: rand::random::<u64>(),
-                                detail: ToMinionPayloadDetail::TempSubscribeInboxFeedChunk(anchor),
-                            },
-                        }],
-                    );
-                }
+
+                manager::run_jobs_on_all_relays(
+                    relays,
+                    vec![RelayJob {
+                        reason: RelayConnectionReason::FetchInbox,
+                        payload: ToMinionPayload {
+                            job_id: rand::random::<u64>(),
+                            detail: ToMinionPayloadDetail::TempSubscribeInboxFeedChunk(anchor),
+                        },
+                    }],
+                );
             }
             FeedKind::Person(pubkey) => {
                 // Get write relays for the person
-                let relays: Vec<RelayUrl> = relay::get_some_pubkey_outboxes(pubkey)?;
-                // Subscribe on each of those write relays
-                for relay in relays.iter() {
-                    // Subscribe
-                    manager::engage_minion(
-                        relay.to_owned(),
-                        vec![RelayJob {
-                            reason: RelayConnectionReason::SubscribePerson,
-                            payload: ToMinionPayload {
-                                job_id: rand::random::<u64>(),
-                                detail: ToMinionPayloadDetail::TempSubscribePersonFeedChunk {
-                                    pubkey,
-                                    anchor,
-                                },
+                let relays: Vec<RelayUrl> = relay::get_all_pubkey_outboxes(pubkey)?;
+                let num = GLOBALS.storage.read_setting_num_relays_per_person() as usize;
+                manager::run_jobs_on_some_relays(
+                    relays,
+                    num,
+                    vec![RelayJob {
+                        reason: RelayConnectionReason::SubscribePerson,
+                        payload: ToMinionPayload {
+                            job_id: rand::random::<u64>(),
+                            detail: ToMinionPayloadDetail::TempSubscribePersonFeedChunk {
+                                pubkey,
+                                anchor,
                             },
-                        }],
-                    );
-                }
+                        },
+                    }],
+                );
             }
             _ => (), // other feeds can't load more
         }
@@ -1747,36 +1740,12 @@ impl Overlord {
             // Process this event locally (ignore any error)
             let _ = crate::process::process_new_event(&event, None, None, false, false);
 
-            // Engage minions to post
-            for url in relay_urls {
-                // Send it the event to post
-                tracing::debug!("Asking {} to post", &url);
-
-                manager::engage_minion(
-                    url.clone(),
-                    vec![RelayJob {
-                        reason: RelayConnectionReason::PostEvent,
-                        payload: ToMinionPayload {
-                            job_id: rand::random::<u64>(),
-                            detail: ToMinionPayloadDetail::PostEvents(vec![event.clone()]),
-                        },
-                    }],
-                );
+            for url in &relay_urls {
+                tracing::debug!("Asking {} to post", url);
             }
-        }
 
-        Ok(())
-    }
-
-    pub async fn post_again(&mut self, event: Event) -> Result<(), Error> {
-        let relay_urls = relay::relays_to_post_to(&event)?;
-
-        for url in relay_urls {
-            // Send it the event to post
-            tracing::debug!("Asking {} to post", &url);
-
-            manager::engage_minion(
-                url.clone(),
+            manager::run_jobs_on_all_relays(
+                relay_urls,
                 vec![RelayJob {
                     reason: RelayConnectionReason::PostEvent,
                     payload: ToMinionPayload {
@@ -1790,26 +1759,46 @@ impl Overlord {
         Ok(())
     }
 
+    pub async fn post_again(&mut self, event: Event) -> Result<(), Error> {
+        let relay_urls = relay::relays_to_post_to(&event)?;
+
+        for url in &relay_urls {
+            tracing::debug!("Asking {} to post", url);
+        }
+
+        manager::run_jobs_on_all_relays(
+            relay_urls,
+            vec![RelayJob {
+                reason: RelayConnectionReason::PostEvent,
+                payload: ToMinionPayload {
+                    job_id: rand::random::<u64>(),
+                    detail: ToMinionPayloadDetail::PostEvents(vec![event.clone()]),
+                },
+            }],
+        );
+
+        Ok(())
+    }
+
     pub async fn post_nip46_event(
         &mut self,
         event: Event,
         relays: Vec<RelayUrl>,
     ) -> Result<(), Error> {
-        for url in relays {
-            // Send it the event to post
-            tracing::debug!("Asking {} to post nostrconnect", &url);
-
-            manager::engage_minion(
-                url.clone(),
-                vec![RelayJob {
-                    reason: RelayConnectionReason::PostNostrConnect,
-                    payload: ToMinionPayload {
-                        job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::PostEvents(vec![event.clone()]),
-                    },
-                }],
-            );
+        for url in &relays {
+            tracing::debug!("Asking {} to post nostrconnect", url);
         }
+
+        manager::run_jobs_on_all_relays(
+            relays,
+            vec![RelayJob {
+                reason: RelayConnectionReason::PostNostrConnect,
+                payload: ToMinionPayload {
+                    job_id: rand::random::<u64>(),
+                    detail: ToMinionPayloadDetail::PostEvents(vec![event.clone()]),
+                },
+            }],
+        );
 
         Ok(())
     }
@@ -1872,22 +1861,21 @@ impl Overlord {
         crate::process::process_new_event(&event, None, None, false, false)?;
 
         // Push to all of the relays we post to
-        let relays: Vec<Relay> = Relay::choose_relays(Relay::WRITE, |_| true)?;
-        for relay in relays {
-            // Send it the event to pull our followers
-            tracing::debug!("Pushing PersonList={} to {}", metadata.title, &relay.url);
-
-            manager::engage_minion(
-                relay.url.clone(),
-                vec![RelayJob {
-                    reason: RelayConnectionReason::PostContacts,
-                    payload: ToMinionPayload {
-                        job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::PostEvents(vec![event.clone()]),
-                    },
-                }],
-            );
+        // Send it the event to pull our followers
+        let relay_urls: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
+        for url in &relay_urls {
+            tracing::debug!("Pushing PersonList={} to {}", metadata.title, url);
         }
+        manager::run_jobs_on_all_relays(
+            relay_urls,
+            vec![RelayJob {
+                reason: RelayConnectionReason::PostContacts,
+                payload: ToMinionPayload {
+                    job_id: rand::random::<u64>(),
+                    detail: ToMinionPayloadDetail::PostEvents(vec![event.clone()]),
+                },
+            }],
+        );
 
         Ok(())
     }
@@ -1910,22 +1898,21 @@ impl Overlord {
         let event = GLOBALS.identity.sign_event(pre_event)?;
 
         // Push to all of the relays we post to
-        let relays: Vec<Relay> = Relay::choose_relays(Relay::WRITE, |_| true)?;
-        for relay in relays {
-            // Send it the event to pull our followers
-            tracing::debug!("Pushing Metadata to {}", &relay.url);
-
-            manager::engage_minion(
-                relay.url.clone(),
-                vec![RelayJob {
-                    reason: RelayConnectionReason::PostMetadata,
-                    payload: ToMinionPayload {
-                        job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::PostEvents(vec![event.clone()]),
-                    },
-                }],
-            );
+        // Send it the event to pull our followers
+        let relay_urls: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
+        for url in &relay_urls {
+            tracing::debug!("Pushing Metadata to {}", url);
         }
+        manager::run_jobs_on_all_relays(
+            relay_urls,
+            vec![RelayJob {
+                reason: RelayConnectionReason::PostMetadata,
+                payload: ToMinionPayload {
+                    job_id: rand::random::<u64>(),
+                    detail: ToMinionPayloadDetail::PostEvents(vec![event.clone()]),
+                },
+            }],
+        );
 
         Ok(())
     }
@@ -2078,21 +2065,20 @@ impl Overlord {
             relay_urls.dedup();
         }
 
-        for url in relay_urls {
-            // Send it the event to post
-            tracing::debug!("Asking {} to (re)post", &url);
-
-            manager::engage_minion(
-                url.clone(),
-                vec![RelayJob {
-                    reason: RelayConnectionReason::PostEvent,
-                    payload: ToMinionPayload {
-                        job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::PostEvents(vec![event.clone()]),
-                    },
-                }],
-            );
+        // Send it the event to post
+        for url in &relay_urls {
+            tracing::debug!("Asking {} to (re)post", url);
         }
+        manager::run_jobs_on_all_relays(
+            relay_urls,
+            vec![RelayJob {
+                reason: RelayConnectionReason::PostEvent,
+                payload: ToMinionPayload {
+                    job_id: rand::random::<u64>(),
+                    detail: ToMinionPayloadDetail::PostEvents(vec![event.clone()]),
+                },
+            }],
+        );
 
         Ok(())
     }
@@ -2235,42 +2221,36 @@ impl Overlord {
         // subscribe to channel on outbox and inbox relays
         //   outbox: you may have written them there. Other clients may have too.
         //   inbox: they may have put theirs here for you to pick up.
-        let relays: Vec<Relay> = GLOBALS
+        let mut relays: Vec<Relay> = GLOBALS
             .storage
             .filter_relays(|r| r.has_usage_bits(Relay::OUTBOX) || r.has_usage_bits(Relay::INBOX))?;
-        for relay in relays.iter() {
-            // Subscribe
-            manager::engage_minion(
-                relay.url.to_owned(),
-                vec![RelayJob {
-                    reason: RelayConnectionReason::FetchDirectMessages,
-                    payload: ToMinionPayload {
-                        job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeDmChannel(dmchannel.clone()),
-                    },
-                }],
-            );
-        }
+        let relay_urls: Vec<RelayUrl> = relays.drain(..).map(|r| r.url).collect();
+        manager::run_jobs_on_all_relays(
+            relay_urls,
+            vec![RelayJob {
+                reason: RelayConnectionReason::FetchDirectMessages,
+                payload: ToMinionPayload {
+                    job_id: rand::random::<u64>(),
+                    detail: ToMinionPayloadDetail::SubscribeDmChannel(dmchannel.clone()),
+                },
+            }],
+        );
 
         Ok(())
     }
 
     async fn set_person_feed(&mut self, pubkey: PublicKey, anchor: Unixtime) -> Result<(), Error> {
         let relays: Vec<RelayUrl> = relay::get_some_pubkey_outboxes(pubkey)?;
-
-        for relay in relays.iter() {
-            // Subscribe
-            manager::engage_minion(
-                relay.to_owned(),
-                vec![RelayJob {
-                    reason: RelayConnectionReason::SubscribePerson,
-                    payload: ToMinionPayload {
-                        job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribePersonFeed(pubkey, anchor),
-                    },
-                }],
-            );
-        }
+        manager::run_jobs_on_all_relays(
+            relays,
+            vec![RelayJob {
+                reason: RelayConnectionReason::SubscribePerson,
+                payload: ToMinionPayload {
+                    job_id: rand::random::<u64>(),
+                    detail: ToMinionPayloadDetail::SubscribePersonFeed(pubkey, anchor),
+                },
+            }],
+        );
 
         Ok(())
     }
@@ -2531,18 +2511,16 @@ impl Overlord {
             Some(r) => r,
             None => Relay::choose_relay_urls(Relay::WRITE, |_| true)?,
         };
-        for relay_url in config_relays.iter() {
-            manager::engage_minion(
-                relay_url.to_owned(),
-                vec![RelayJob {
-                    reason: RelayConnectionReason::Config,
-                    payload: ToMinionPayload {
-                        job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeConfig,
-                    },
-                }],
-            );
-        }
+        manager::run_jobs_on_all_relays(
+            config_relays,
+            vec![RelayJob {
+                reason: RelayConnectionReason::Config,
+                payload: ToMinionPayload {
+                    job_id: rand::random::<u64>(),
+                    detail: ToMinionPayloadDetail::SubscribeConfig,
+                },
+            }],
+        );
 
         Ok(())
     }
@@ -2577,18 +2555,16 @@ impl Overlord {
             Some(r) => r,
             None => Relay::choose_relay_urls(Relay::DISCOVER, |_| true)?,
         };
-        for relay_url in discover_relay_urls.iter() {
-            manager::engage_minion(
-                relay_url.to_owned(),
-                vec![RelayJob {
-                    reason: RelayConnectionReason::Discovery,
-                    payload: ToMinionPayload {
-                        job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeDiscover(pubkeys.clone()),
-                    },
-                }],
-            );
-        }
+        manager::run_jobs_on_all_relays(
+            discover_relay_urls,
+            vec![RelayJob {
+                reason: RelayConnectionReason::Discovery,
+                payload: ToMinionPayload {
+                    job_id: rand::random::<u64>(),
+                    detail: ToMinionPayloadDetail::SubscribeDiscover(pubkeys.clone()),
+                },
+            }],
+        );
 
         Ok(())
     }
@@ -2600,61 +2576,56 @@ impl Overlord {
             Some(r) => r,
             None => Relay::choose_relay_urls(Relay::READ, |_| true)?,
         };
-        for relay_url in mention_relays.iter() {
-            manager::engage_minion(
-                relay_url.to_owned(),
-                vec![RelayJob {
-                    reason: RelayConnectionReason::FetchInbox,
-                    payload: ToMinionPayload {
-                        job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeInbox(now),
-                    },
-                }],
-            );
-        }
+        manager::run_jobs_on_all_relays(
+            mention_relays,
+            vec![RelayJob {
+                reason: RelayConnectionReason::FetchInbox,
+                payload: ToMinionPayload {
+                    job_id: rand::random::<u64>(),
+                    detail: ToMinionPayloadDetail::SubscribeInbox(now),
+                },
+            }],
+        );
 
         Ok(())
     }
 
     /// Subscribe to the user's giftwrap events on their DM and INBOX relays
     pub async fn subscribe_giftwraps(&mut self) -> Result<(), Error> {
-        let relays: Vec<Relay> = GLOBALS
+        let mut relays: Vec<Relay> = GLOBALS
             .storage
             .filter_relays(|r| r.has_usage_bits(Relay::DM) || r.has_usage_bits(Relay::INBOX))?;
+        let relay_urls: Vec<RelayUrl> = relays.drain(..).map(|r| r.url).collect();
 
         // 30 days worth (FIXME make this a setting?)
         let after = Unixtime::now() - Duration::new(3600 * 24 * 30, 0);
 
-        for relay in relays.iter() {
-            manager::engage_minion(
-                relay.url.clone(),
-                vec![RelayJob {
-                    reason: RelayConnectionReason::Giftwraps,
-                    payload: ToMinionPayload {
-                        job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeGiftwraps(after),
-                    },
-                }],
-            );
-        }
+        manager::run_jobs_on_all_relays(
+            relay_urls,
+            vec![RelayJob {
+                reason: RelayConnectionReason::Giftwraps,
+                payload: ToMinionPayload {
+                    job_id: rand::random::<u64>(),
+                    detail: ToMinionPayloadDetail::SubscribeGiftwraps(after),
+                },
+            }],
+        );
 
         Ok(())
     }
 
     /// Subscribe to nip46 nostr connect relays
     pub async fn subscribe_nip46(&mut self, relays: Vec<RelayUrl>) -> Result<(), Error> {
-        for relay_url in relays.iter() {
-            manager::engage_minion(
-                relay_url.to_owned(),
-                vec![RelayJob {
-                    reason: RelayConnectionReason::NostrConnect,
-                    payload: ToMinionPayload {
-                        job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeNip46,
-                    },
-                }],
-            );
-        }
+        manager::run_jobs_on_all_relays(
+            relays,
+            vec![RelayJob {
+                reason: RelayConnectionReason::NostrConnect,
+                payload: ToMinionPayload {
+                    job_id: rand::random::<u64>(),
+                    detail: ToMinionPayloadDetail::SubscribeNip46,
+                },
+            }],
+        );
 
         Ok(())
     }
@@ -2691,18 +2662,16 @@ impl Overlord {
         // we do 1 more than num_relays_per_person, which is really for main posts,
         // since metadata is more important and I didn't want to bother with
         // another setting.
-        for relay_url in best_relays.iter() {
-            manager::engage_minion(
-                relay_url.to_owned(),
-                vec![RelayJob {
-                    reason: RelayConnectionReason::FetchMetadata,
-                    payload: ToMinionPayload {
-                        job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::TempSubscribeMetadata(vec![pubkey]),
-                    },
-                }],
-            );
-        }
+        manager::run_jobs_on_all_relays(
+            best_relays,
+            vec![RelayJob {
+                reason: RelayConnectionReason::FetchMetadata,
+                payload: ToMinionPayload {
+                    job_id: rand::random::<u64>(),
+                    detail: ToMinionPayloadDetail::TempSubscribeMetadata(vec![pubkey]),
+                },
+            }],
+        );
 
         // Mark in globals that we want to recheck their nip-05 when that metadata
         // comes in
