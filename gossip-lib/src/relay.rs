@@ -7,7 +7,7 @@
 // relay::get_all_pubkey_outboxes(pubkey)?   // informational
 // relay::get_all_pubkey_inboxes(pubkey)?    // for replying to them
 // relay::get_dm_relays(pubkey)?             // for DMs to them
-// relay::get_best_relays_with_score2(pubkey, usage, score_factors) // for relay picker, and internal
+// relay::get_best_relays_with_score(pubkey, usage, score_factors) // for relay picker, and internal
 // relay::recommended_relay_hint(reply_to_id)?    // for a hint
 // relay::relays_for_seeking_replies(&event)?     // to find replies
 // relay::relays_to_post_to(&event)?              // where to post
@@ -24,7 +24,7 @@ use nostr_types::{Event, EventKind, Id, PublicKey, RelayUrl, RelayUsage, Unixtim
 // Get `num_relays_per_prson` outboxes to subscribe to their events
 pub fn get_some_pubkey_outboxes(pubkey: PublicKey) -> Result<Vec<RelayUrl>, Error> {
     let num = GLOBALS.storage.read_setting_num_relays_per_person() as usize;
-    let relays = get_best_relays_with_score2(
+    let relays = get_best_relays_with_score(
         pubkey,
         RelayUsage::Outbox,
         ScoreFactors::RelayScorePlusConnected,
@@ -38,7 +38,7 @@ pub fn get_some_pubkey_outboxes(pubkey: PublicKey) -> Result<Vec<RelayUrl>, Erro
 
 // Get all person outboxes for informational
 pub fn get_all_pubkey_outboxes(pubkey: PublicKey) -> Result<Vec<RelayUrl>, Error> {
-    let relays = get_best_relays_with_score2(
+    let relays = get_best_relays_with_score(
         pubkey,
         RelayUsage::Outbox,
         ScoreFactors::RelayScorePlusConnected,
@@ -59,7 +59,7 @@ pub fn get_all_pubkey_inboxes(pubkey: PublicKey) -> Result<Vec<RelayUrl>, Error>
     //   plus-connected cuts it in half if not connected, so 0.125, and we want to include all
     //   declared relays even that aren't connected down to 50% success rate.
     let mut relays: Vec<(RelayUrl, f32)> =
-        get_best_relays_with_score2(pubkey, RelayUsage::Inbox, ScoreFactors::RelayScore)?
+        get_best_relays_with_score(pubkey, RelayUsage::Inbox, ScoreFactors::RelayScore)?
             .drain(..)
             .filter(|(_, score)| *score > 0.125)
             .collect();
@@ -227,7 +227,7 @@ pub enum ScoreFactors {
 /// Only RelayUsage::Outbox and RelayUsage::Inbox are supported.
 ///
 /// Output scores range from 0.0 to 1.0
-pub fn get_best_relays_with_score2(
+pub fn get_best_relays_with_score(
     pubkey: PublicKey,
     usage: RelayUsage,
     score_factors: ScoreFactors,
@@ -316,7 +316,7 @@ pub fn sort_relays(
     // Load inboxes
     for pk in inboxes.drain(..) {
         let mut relays: Vec<(RelayUrl, f32)> =
-            get_best_relays_with_score2(pk, RelayUsage::Inbox, ScoreFactors::None)?;
+            get_best_relays_with_score(pk, RelayUsage::Inbox, ScoreFactors::None)?;
 
         for (url, pscore) in relays.drain(..) {
             if let Some(data) = map.get_mut(&url) {
@@ -336,7 +336,7 @@ pub fn sort_relays(
     // Load outboxes
     for pk in outboxes.drain(..) {
         let mut relays: Vec<(RelayUrl, f32)> =
-            get_best_relays_with_score2(pk, RelayUsage::Outbox, ScoreFactors::None)?;
+            get_best_relays_with_score(pk, RelayUsage::Outbox, ScoreFactors::None)?;
 
         for (url, pscore) in relays.drain(..) {
             if let Some(data) = map.get_mut(&url) {

@@ -171,7 +171,7 @@ impl RelayPicker {
 
         // Compute scores for each person_relay pairing
         for pubkey in pubkeys.iter() {
-            let best_relays: Vec<(RelayUrl, f32)> = relay::get_best_relays_with_score2(
+            let best_relays: Vec<(RelayUrl, f32)> = relay::get_best_relays_with_score(
                 *pubkey,
                 RelayUsage::Outbox,
                 ScoreFactors::RelayScorePlusConnected,
