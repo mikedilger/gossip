@@ -3,7 +3,6 @@ use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::minion::Minion;
 use crate::pending::PendingItem;
-use crate::relay::Relay;
 use dashmap::mapref::entry::Entry;
 use nostr_types::RelayUrl;
 
@@ -16,13 +15,13 @@ use nostr_types::RelayUrl;
 ///
 /// This function returns quickly, as it spawns a separate task to do the engagement
 /// so you won't get any feedback.
-pub(crate) async fn run_job_on_relays(urls: Vec<RelayUrl>, jobs: Vec<RelayJob>, count: usize) {
+pub(crate) fn run_jobs_on_some_relays(urls: Vec<RelayUrl>, count: usize, jobs: Vec<RelayJob>) {
     // Keep engaging relays until `count` engagements were successful
     // Do from a spawned task so that we don't hold up the overlord
     let _join_handle = tokio::spawn(async move {
         let mut successes: usize = 0;
         for url in urls.iter() {
-            if let Ok(_) = engage_minion(url.to_owned(), jobs.clone()).await {
+            if let Ok(_) = engage_minion_inner(url.to_owned(), jobs.clone()).await {
                 successes += 1;
                 if successes >= count {
                     break;
@@ -32,7 +31,30 @@ pub(crate) async fn run_job_on_relays(urls: Vec<RelayUrl>, jobs: Vec<RelayJob>, 
     });
 }
 
-pub(crate) async fn engage_minion(url: RelayUrl, jobs: Vec<RelayJob>) -> Result<(), Error> {
+/// This runs the job on all relays.
+///
+/// This function returns quickly, as it spawns a separate task to do the engagement
+/// so you won't get any feedback.
+pub(crate) fn run_jobs_on_all_relays(urls: Vec<RelayUrl>, jobs: Vec<RelayJob>) {
+    // Keep engaging relays until `count` engagements were successful
+    // Do from a spawned task so that we don't hold up the overlord
+    let _ = tokio::spawn(async move {
+        let mut futures = Vec::new();
+        for url in urls.iter() {
+            futures.push(engage_minion_inner(url.to_owned(), jobs.clone()));
+        }
+        futures::future::join_all(futures).await;
+    });
+}
+
+/// This will try to engage the minion and give no feedback, returning immediately.
+pub(crate) fn engage_minion(url: RelayUrl, jobs: Vec<RelayJob>) {
+    let _ = tokio::spawn(async move {
+        let _ = engage_minion_inner(url, jobs).await;
+    });
+}
+
+async fn engage_minion_inner(url: RelayUrl, mut jobs: Vec<RelayJob>) -> Result<(), Error> {
     let relay = GLOBALS.storage.read_or_create_relay(&url, None)?;
 
     if GLOBALS
@@ -53,14 +75,6 @@ pub(crate) async fn engage_minion(url: RelayUrl, jobs: Vec<RelayJob>) -> Result<
         }
     } // else fall through
 
-    engage_minion_inner(relay, url, jobs).await
-}
-
-pub(crate) async fn engage_minion_inner(
-    relay: Relay,
-    url: RelayUrl,
-    mut jobs: Vec<RelayJob>,
-) -> Result<(), Error> {
     // Do not connect if we are offline
     if GLOBALS.storage.read_setting_offline() {
         return Err(ErrorKind::Offline.into());
