@@ -926,6 +926,11 @@ pub fn render_note_inner(
                                             },
                                         )
                                         .unwrap_or_default();
+                                    let reaction_count: usize = note
+                                        .reactions
+                                        .iter()
+                                        .filter_map(|(c, s)| if *c == '+' { None } else { Some(s) })
+                                        .sum();
                                     let mut response = widgets::clickable_label(
                                         ui,
                                         can_sign,
@@ -934,7 +939,7 @@ pub fn render_note_inner(
                                     response |= widgets::clickable_label(
                                         ui,
                                         can_sign,
-                                        format!("{}", like_count),
+                                        format!("{}+{}", like_count, reaction_count),
                                     );
                                     let hover_ui = |ui: &mut Ui| {
                                         ui.horizontal_wrapped(|ui| {
