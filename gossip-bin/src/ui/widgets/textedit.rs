@@ -239,7 +239,6 @@ impl<'t> TextEdit<'t> {
 
             // paste button
             if self.with_paste {
-
                 let theme = self.theme;
                 let response = &output.response;
 

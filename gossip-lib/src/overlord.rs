@@ -629,9 +629,6 @@ impl Overlord {
             ToOverlordMessage::ImportPub(pubstr) => {
                 Self::import_pub(pubstr).await?;
             }
-            ToOverlordMessage::Like(id, pubkey) => {
-                self.like(id, pubkey).await?;
-            }
             ToOverlordMessage::LoadMoreCurrentFeed => {
                 self.load_more().await?;
             }
@@ -692,6 +689,9 @@ impl Overlord {
             }
             ToOverlordMessage::RankRelay(relay_url, rank) => {
                 Self::rank_relay(relay_url, rank)?;
+            }
+            ToOverlordMessage::React(id, pubkey, emoji) => {
+                self.react(id, pubkey, emoji).await?;
             }
             ToOverlordMessage::ReengageMinion(url, jobs) => {
                 manager::engage_minion(url, jobs);
@@ -1505,75 +1505,6 @@ impl Overlord {
         Ok(())
     }
 
-    /// Like a post. The backend doesn't read the event, so you have to supply the
-    /// pubkey author too.
-    pub async fn like(&mut self, id: Id, pubkey: PublicKey) -> Result<(), Error> {
-        let event = {
-            let public_key = match GLOBALS.identity.public_key() {
-                Some(pk) => pk,
-                None => {
-                    tracing::warn!("No public key! Not posting");
-                    return Ok(());
-                }
-            };
-
-            let mut tags: Vec<Tag> = vec![
-                Tag::new_event(
-                    id,
-                    relay::recommended_relay_hint(id)?.map(|rr| rr.to_unchecked_url()),
-                    None,
-                ),
-                Tag::new_pubkey(pubkey, None, None),
-            ];
-
-            if GLOBALS.storage.read_setting_set_client_tag() {
-                tags.push(Tag::new(&["client", "gossip"]));
-            }
-
-            let pre_event = PreEvent {
-                pubkey: public_key,
-                created_at: Unixtime::now(),
-                kind: EventKind::Reaction,
-                tags,
-                content: "+".to_owned(),
-            };
-
-            let powint = GLOBALS.storage.read_setting_pow();
-            if powint > 0 {
-                let (work_sender, work_receiver) = mpsc::channel();
-                std::thread::spawn(move || {
-                    work_logger(work_receiver, powint);
-                });
-                GLOBALS
-                    .identity
-                    .sign_event_with_pow(pre_event, powint, Some(work_sender))?
-            } else {
-                GLOBALS.identity.sign_event(pre_event)?
-            }
-        };
-
-        let relay_urls: Vec<RelayUrl> = relay::relays_to_post_to(&event)?;
-        for url in &relay_urls {
-            tracing::debug!("Asking {} to post", url);
-        }
-
-        manager::run_jobs_on_all_relays(
-            relay_urls,
-            vec![RelayJob {
-                reason: RelayConnectionReason::PostLike,
-                payload: ToMinionPayload {
-                    job_id: rand::random::<u64>(),
-                    detail: ToMinionPayloadDetail::PostEvents(vec![event.clone()]),
-                },
-            }],
-        );
-
-        // Process the message for ourself
-        crate::process::process_new_event(&event, None, None, false, false)?;
-
-        Ok(())
-    }
-
     pub async fn load_more(&mut self) -> Result<(), Error> {
         // Change the feed range:
         let anchor = GLOBALS.feed.load_more()?;
@@ -1700,6 +1631,75 @@ impl Overlord {
                 refmut.value_mut().retain(|job| job.reason != reason);
             }
         }
+
+        Ok(())
+    }
+
+    /// React to a post. The backend doesn't read the event, so you have to supply the
+    /// pubkey author too.
+    pub async fn react(&mut self, id: Id, pubkey: PublicKey, reaction: char) -> Result<(), Error> {
+        let event = {
+            let public_key = match GLOBALS.identity.public_key() {
+                Some(pk) => pk,
+                None => {
+                    tracing::warn!("No public key! Not posting");
+                    return Ok(());
+                }
+            };
+
+            let mut tags: Vec<Tag> = vec![
+                Tag::new_event(
+                    id,
+                    relay::recommended_relay_hint(id)?.map(|rr| rr.to_unchecked_url()),
+                    None,
+                ),
+                Tag::new_pubkey(pubkey, None, None),
+            ];
+
+            if GLOBALS.storage.read_setting_set_client_tag() {
+                tags.push(Tag::new(&["client", "gossip"]));
+            }
+
+            let pre_event = PreEvent {
+                pubkey: public_key,
+                created_at: Unixtime::now(),
+                kind: EventKind::Reaction,
+                tags,
+                content: reaction.to_string(),
+            };
+
+            let powint = GLOBALS.storage.read_setting_pow();
+            if powint > 0 {
+                let (work_sender, work_receiver) = mpsc::channel();
+                std::thread::spawn(move || {
+                    work_logger(work_receiver, powint);
+                });
+                GLOBALS
+                    .identity
+                    .sign_event_with_pow(pre_event, powint, Some(work_sender))?
+            } else {
+                GLOBALS.identity.sign_event(pre_event)?
+            }
+        };
+
+        let relay_urls: Vec<RelayUrl> = relay::relays_to_post_to(&event)?;
+        for url in &relay_urls {
+            tracing::debug!("Asking {} to post", url);
+        }
+
+        manager::run_jobs_on_all_relays(
+            relay_urls,
+            vec![RelayJob {
+                reason: RelayConnectionReason::PostLike,
+                payload: ToMinionPayload {
+                    job_id: rand::random::<u64>(),
+                    detail: ToMinionPayloadDetail::PostEvents(vec![event.clone()]),
+                },
+            }],
+        );
+
+        // Process the message for ourself
+        crate::process::process_new_event(&event, None, None, false, false)?;
 
         Ok(())
     }

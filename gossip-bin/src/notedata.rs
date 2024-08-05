@@ -63,7 +63,7 @@ pub(crate) struct NoteData {
     pub reactions: Vec<(char, usize)>,
 
     /// Has the current user reacted to this post?
-    pub self_already_reacted: bool,
+    pub our_reaction: Option<char>,
 
     /// The total amount of MilliSatoshi zapped to this note
     pub zaptotal: MilliSatoshi,
@@ -117,10 +117,10 @@ impl NoteData {
         // This function checks the authors match
         let annotations = GLOBALS.storage.get_annotations(&event).unwrap_or_default();
 
-        let (reactions, self_already_reacted) = GLOBALS
+        let (reactions, our_reaction) = GLOBALS
             .storage
             .get_reactions(event.id)
-            .unwrap_or((vec![], false));
+            .unwrap_or((vec![], None));
 
         let zaptotal = GLOBALS
             .storage
@@ -290,7 +290,7 @@ impl NoteData {
             embedded_event,
             mentions,
             reactions,
-            self_already_reacted,
+            our_reaction,
             zaptotal,
             seen_on,
             shattered_content,
@@ -303,13 +303,13 @@ impl NoteData {
 
     pub(super) fn update(&mut self) {
         // Update reactions
-        let (mut reactions, self_already_reacted) = GLOBALS
+        let (mut reactions, our_reaction) = GLOBALS
             .storage
             .get_reactions(self.event.id)
-            .unwrap_or((vec![], false));
+            .unwrap_or((vec![], None));
         self.reactions.clear();
         self.reactions.append(&mut reactions);
-        self.self_already_reacted = self_already_reacted;
+        self.our_reaction = our_reaction;
 
         // Update seen_on
         let mut seen_on = GLOBALS

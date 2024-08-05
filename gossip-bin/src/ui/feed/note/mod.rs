@@ -909,9 +909,9 @@ pub fn render_note_inner(
 
                                 // Buttons to react and reaction counts
                                 if read_setting!(reactions) && !note.muted() {
-                                    let default_reaction_icon = match note.self_already_reacted {
-                                        true => "♥",
-                                        false => "♡",
+                                    let default_reaction_icon = match note.our_reaction {
+                                        Some(_emoji) => "♥",
+                                        None => "♡",
                                     };
                                     let like_count = note
                                         .reactions
@@ -982,9 +982,10 @@ pub fn render_note_inner(
                                                 .write("Your key is not setup.".to_string());
                                         } else {
                                             let _ =
-                                                GLOBALS.to_overlord.send(ToOverlordMessage::Like(
+                                                GLOBALS.to_overlord.send(ToOverlordMessage::React(
                                                     note.event.id,
                                                     note.event.pubkey,
+                                                    '+',
                                                 ));
                                         }
                                     }

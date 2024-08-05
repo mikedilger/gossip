@@ -105,9 +105,6 @@ pub enum ToOverlordMessage {
     /// Calls [import_pub](crate::Overlord::import_pub)
     ImportPub(String),
 
-    /// Calls [like](crate::Overlord::like)
-    Like(Id, PublicKey),
-
     /// Calls [load_more_current_feed](crate::Overlord::load_more_current_feed)
     LoadMoreCurrentFeed,
 
@@ -149,6 +146,9 @@ pub enum ToOverlordMessage {
 
     /// Calls [rank_relay](crate::Overlord::rank_relay)
     RankRelay(RelayUrl, u8),
+
+    /// Calls [react](crate::Overlord::react)
+    React(Id, PublicKey, char),
 
     /// internal (the overlord sends messages to itself sometimes!)
     ReengageMinion(RelayUrl, Vec<RelayJob>),

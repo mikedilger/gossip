@@ -1879,9 +1879,9 @@ impl Storage {
     }
 
     /// Returns the list of reactions and whether or not this account has already reacted to this event
-    pub fn get_reactions(&self, id: Id) -> Result<(Vec<(char, usize)>, bool), Error> {
+    pub fn get_reactions(&self, id: Id) -> Result<(Vec<(char, usize)>, Option<char>), Error> {
         // Whether or not the Gossip user already reacted to this event
-        let mut self_already_reacted = false;
+        let mut our_reaction: Option<char> = None;
 
         // Get the event (once self-reactions get deleted we can remove this)
         let maybe_target_event = self.read_event(id)?;
@@ -1903,7 +1903,7 @@ impl Storage {
                 };
                 phase1.insert(by, symbol);
                 if Some(by) == GLOBALS.identity.public_key() {
-                    self_already_reacted = true;
+                    our_reaction = Some(symbol);
                 }
             }
         }
@@ -1919,7 +1919,7 @@ impl Storage {
 
         let mut v: Vec<(char, usize)> = output.drain().collect();
         v.sort();
-        Ok((v, self_already_reacted))
+        Ok((v, our_reaction))
     }
 
     /// Get the zap total of a given event
