@@ -1896,10 +1896,12 @@ impl Storage {
                         continue;
                     }
                 }
-                let symbol: char = if let Some(ch) = reaction.chars().next() {
-                    ch
-                } else {
+                let symbol: char = if reaction=="" {
                     '+'
+                } else if reaction.starts_with(":") && reaction.ends_with(":") {
+                    '□' // placeholder for custom reaction that we don't support
+                } else {
+                    reaction.chars().next().unwrap()
                 };
                 phase1.insert(by, symbol);
                 if Some(by) == GLOBALS.identity.public_key() {
@@ -1908,7 +1910,7 @@ impl Storage {
             }
         }
 
-        // Collate by char
+        // Collate by reaction
         let mut output: HashMap<char, usize> = HashMap::new();
         for (_, symbol) in phase1 {
             output
