@@ -25,7 +25,7 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 37] = [
+const COMMANDS: [Command; 38] = [
     Command {
         cmd: "oneshot",
         usage_params: "{depends}",
@@ -172,6 +172,11 @@ const COMMANDS: [Command; 37] = [
         desc: "Use much faster disk access. A crash can corrupt your local data, unless your filesystem preserves write ordering",
     },
     Command {
+        cmd: "reaction_stats",
+        usage_params: "",
+        desc: "Show statistics on reactions",
+    },
+    Command {
         cmd: "rebuild_indices",
         usage_params: "",
         desc: "Rebuild all event-related indices",
@@ -210,7 +215,7 @@ const COMMANDS: [Command; 37] = [
         cmd: "wgpu_renderer",
         usage_params: "true | false",
         desc: "Enable/Disable the WGPU rendering backend",
-    }
+    },
 ];
 
 pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Error> {
@@ -264,6 +269,7 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
         "print_relays" => print_relays(command)?,
         "print_seen_on" => print_seen_on(command, args)?,
         "rapid" => {} // is handled early in main.rs
+        "reaction_stats" => reaction_stats(command, args)?,
         "rebuild_indices" => rebuild_indices()?,
         "rename_person_list" => rename_person_list(command, args)?,
         "reprocess_recent" => reprocess_recent(command, runtime)?,
@@ -911,6 +917,26 @@ pub fn giftwraps(_cmd: Command) -> Result<(), Error> {
         }
     }
 
+    Ok(())
+}
+
+pub fn reaction_stats(_cmd: Command, mut _args: env::Args) -> Result<(), Error> {
+    use std::collections::HashMap;
+    let mut reactions: HashMap<String, usize> = HashMap::new();
+    let mut filter = Filter::new();
+    filter.add_event_kind(EventKind::Reaction);
+    let events = GLOBALS.storage.find_events_by_filter(&filter, |_| true)?;
+    for event in events {
+        reactions
+            .entry(event.content.clone())
+            .and_modify(|count| *count += 1)
+            .or_insert(1);
+    }
+    let mut reactions: Vec<(String, usize)> = reactions.drain().collect();
+    reactions.sort_by(|a, b| b.1.cmp(&a.1));
+    for (reaction, count) in reactions {
+        println!("{} {}", count, reaction);
+    }
     Ok(())
 }
 
