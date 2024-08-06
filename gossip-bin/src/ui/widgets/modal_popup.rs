@@ -46,6 +46,7 @@ pub fn modal_popup(
                 .fixed_pos(rect.left_top())
                 .show(ui.ctx(), |ui| {
                     ui.add_sized(rect.size(), super::NavItem::new("\u{274C}", false))
+                        .interact(egui::Sense::click()) // interacting again is a hack necessary for egui 0.28.1
                 })
                 .inner
         } else {
@@ -114,6 +115,7 @@ pub fn modal_popup_dyn(
                 .fixed_pos(rect.left_top())
                 .show(ui.ctx(), |ui| {
                     ui.add_sized(rect.size(), super::NavItem::new("\u{274C}", false))
+                        .interact(egui::Sense::click()) // interacting again is a hack necessary for egui 0.28.1
                 })
                 .inner;
             if response.clicked() {
