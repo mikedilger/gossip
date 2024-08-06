@@ -900,23 +900,38 @@ pub fn render_note_inner(
 
                                 // Buttons to react and reaction counts
                                 if read_setting!(reactions) && !note.muted() {
-                                    if let Some(reaction) = note.our_reaction {
-                                        ui.label(RichText::new(reaction).size(16.0));
-                                    } else if can_sign {
-                                        ui.menu_button(RichText::new('♡').size(20.0), |ui| {
-                                            if let Some(emoji) = crate::ui::components::emoji_picker(ui) {
-                                                let _ =
-                                                    GLOBALS.to_overlord.send(ToOverlordMessage::React(
-                                                        note.event.id,
-                                                        note.event.pubkey,
-                                                        emoji,
-                                                    ));
-                                            }
-                                        });
-                                    } else {
-                                        ui.label(RichText::new('♡').size(20.0));
-                                    }
-
+                                    let default_reaction_icon = match note.our_reaction {
+                                        Some(_emoji) => "♥",
+                                        None => "♡",
+                                    };
+                                    let like_count = note
+                                        .reactions
+                                        .iter()
+                                        .find_map(
+                                            |(ch, count)| {
+                                                if *ch == '+' {
+                                                    Some(*count)
+                                                } else {
+                                                    None
+                                                }
+                                            },
+                                        )
+                                        .unwrap_or_default();
+                                    let reaction_count: usize = note
+                                        .reactions
+                                        .iter()
+                                        .filter_map(|(c, s)| if *c == '+' { None } else { Some(s) })
+                                        .sum();
+                                    let mut response = widgets::clickable_label(
+                                        ui,
+                                        can_sign,
+                                        RichText::new(default_reaction_icon).size(20.0),
+                                    );
+                                    response |= widgets::clickable_label(
+                                        ui,
+                                        can_sign,
+                                        format!("{}+{}", like_count, reaction_count),
+                                    );
                                     let hover_ui = |ui: &mut Ui| {
                                         ui.horizontal_wrapped(|ui| {
                                             let mut col = 0;
@@ -951,31 +966,25 @@ pub fn render_note_inner(
                                             }
                                         });
                                     };
-                                    let like_count = note
-                                        .reactions
-                                        .iter()
-                                        .find_map(
-                                            |(ch, count)| {
-                                                if *ch == '+' {
-                                                    Some(*count)
-                                                } else {
-                                                    None
-                                                }
-                                            },
-                                        )
-                                        .unwrap_or_default();
-                                    let reaction_count: usize = note
-                                        .reactions
-                                        .iter()
-                                        .filter_map(|(c, s)| if *c == '+' { None } else { Some(s) })
-                                        .sum();
-
-                                    ui.add(
-                                        Label::new(format!("{}+{}", like_count, reaction_count))
-                                            .sense(Sense::hover())
-                                    )
+                                    if response
                                         .on_hover_ui(hover_ui)
-                                        .on_disabled_hover_ui(hover_ui);
+                                        .on_disabled_hover_ui(hover_ui)
+                                        .clicked()
+                                    {
+                                        if !GLOBALS.identity.is_unlocked() {
+                                            GLOBALS
+                                                .status_queue
+                                                .write()
+                                                .write("Your key is not setup.".to_string());
+                                        } else {
+                                            let _ =
+                                                GLOBALS.to_overlord.send(ToOverlordMessage::React(
+                                                    note.event.id,
+                                                    note.event.pubkey,
+                                                    '+',
+                                                ));
+                                        }
+                                    }
                                 }
                             });
 
