@@ -1,3 +1,4 @@
+use eframe::egui::style::TextCursorStyle;
 use egui_winit::egui::{
     self, load::SizedTexture, vec2, Color32, Rect, Rounding, Sense, Stroke, TextBuffer,
     TextureHandle, Widget, WidgetText,
@@ -161,7 +162,7 @@ impl<'t> TextEdit<'t> {
             {
                 let theme = self.theme;
                 let response = &output.response;
-                let frame_rect = response.rect;
+                let frame_rect = response.rect + margin;
 
                 // this is how egui chooses the visual style:
                 #[allow(clippy::if_same_then_else)]
@@ -315,7 +316,10 @@ impl TextEdit<'_> {
         let visuals = ui.visuals_mut();
 
         // cursor (enabled)
-        visuals.text_cursor = Stroke::new(3.0, theme.accent_color());
+        visuals.text_cursor = TextCursorStyle {
+            stroke: Stroke::new(3.0, theme.accent_color()),
+            ..Default::default()
+        };
 
         if visuals.dark_mode {
             // text color (enabled)

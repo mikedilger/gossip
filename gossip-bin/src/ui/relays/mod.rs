@@ -293,7 +293,7 @@ pub(super) fn stop_entry_dialog(app: &mut GossipUi) {
 pub(super) fn entry_dialog(ctx: &Context, app: &mut GossipUi) {
     let dlg_size = vec2(ctx.screen_rect().width() * 0.66, 120.0);
 
-    egui::Area::new("hide-background-area")
+    egui::Area::new(Id::new("hide-background-area"))
         .fixed_pos(ctx.screen_rect().left_top())
         .movable(false)
         .interactable(false)
@@ -313,11 +313,6 @@ pub(super) fn entry_dialog(ctx: &Context, app: &mut GossipUi) {
         .interactable(true)
         .order(egui::Order::Foreground)
         .fixed_pos(ctx.screen_rect().center() - vec2(dlg_size.x / 2.0, dlg_size.y));
-    area.show_open_close_animation(
-        ctx,
-        &frame,
-        app.relays.add_dialog_step != AddRelayDialogStep::Inactive,
-    );
     area.show(ctx, |ui| {
         frame.fill = ui.visuals().extreme_bg_color;
         frame.inner_margin = egui::Margin::symmetric(20.0, 10.0);

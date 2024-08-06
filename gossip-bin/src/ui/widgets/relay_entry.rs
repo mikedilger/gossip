@@ -357,7 +357,7 @@ impl RelayEntry {
         let button_padding = ui.spacing().button_padding;
         let galley = WidgetText::from("Close")
             .color(ui.visuals().extreme_bg_color)
-            .into_galley(ui, Some(false), 0.0, TextStyle::Button);
+            .into_galley(ui, Some(TextWrapMode::Extend), 0.0, TextStyle::Button);
         let mut desired_size = galley.size() + 4.0 * button_padding;
         desired_size.y = desired_size.y.at_least(ui.spacing().interact_size.y);
         let pos = rect.right_bottom() + vec2(-TEXT_RIGHT, -TEXT_BOTTOM) - desired_size;
@@ -365,7 +365,9 @@ impl RelayEntry {
         let response = ui
             .interact(btn_rect, id, Sense::click())
             .on_hover_cursor(egui::CursorIcon::PointingHand);
-        response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, galley.text()));
+        response.widget_info(|| {
+            WidgetInfo::labeled(WidgetType::Button, ui.is_enabled(), galley.text())
+        });
 
         let visuals = ui.style().interact(&response);
         {

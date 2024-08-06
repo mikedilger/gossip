@@ -33,7 +33,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         });
     });
 
-    ui.set_enabled(enabled);
+    if !enabled {
+        ui.disable();
+    }
 
     let mut all_lists = GLOBALS
         .storage
@@ -109,13 +111,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     },
                 );
                 if row_response
-                    .response
+                    .inner
+                    .interact(Sense::click())
                     .on_hover_cursor(egui::CursorIcon::PointingHand)
                     .clicked()
-                    || row_response
-                        .inner
-                        .on_hover_cursor(egui::CursorIcon::PointingHand)
-                        .clicked()
                 {
                     app.set_page(ctx, Page::PeopleList(list));
                 }
