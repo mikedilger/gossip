@@ -159,7 +159,16 @@ pub(super) fn render_note(
             }
 
             // Mark post as viewed if hovered AND we are not scrolling
-            if !viewed && inner_response.response.hovered() && !app.is_scrolling() {
+            if !viewed
+                && ui
+                    .interact(
+                        inner_response.response.rect,
+                        ui.next_auto_id().with("hov"),
+                        egui::Sense::hover(),
+                    )
+                    .hovered()
+                && !app.is_scrolling()
+            {
                 let _ = GLOBALS.storage.mark_event_viewed(id, None);
             }
 
