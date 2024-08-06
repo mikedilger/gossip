@@ -39,7 +39,7 @@ pub(in crate::ui) fn show_contact_search(
     let frame = egui::Frame::popup(ui.style())
         .rounding(egui::Rounding::ZERO)
         .inner_margin(egui::Margin::same(0.0));
-    let area = egui::Area::new(ui.next_auto_id().with("tt"))
+    let area = egui::Area::new(ui.next_auto_id())
         .pivot(pivot)
         .fixed_pos(fixed_pos)
         .movable(false)
