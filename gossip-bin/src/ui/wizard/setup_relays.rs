@@ -177,10 +177,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         ui.label("or");
         ui.menu_button("▼ Pick from Top Relays", |ui| {
             for (url, _relay) in relay_options.iter() {
-                if ui
-                    .add(Button::new(url.as_str()).wrap_mode(egui::TextWrapMode::Extend))
-                    .clicked()
-                {
+                if ui.add(Button::new(url.as_str()).wrap(false)).clicked() {
                     app.wizard_state.relay_url = url.as_str().to_owned();
                 }
             }

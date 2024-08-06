@@ -717,7 +717,7 @@ fn draw_menu_button(
 
     // interact
     let (rect, response) = ui.allocate_at_least(desired_size, Sense::click());
-    response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, ui.is_enabled(), title.text()));
+    response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, title.text()));
     let state = super::interact_widget_state(ui, &response);
     let state = match state {
         super::WidgetState::Default => {

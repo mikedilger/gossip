@@ -75,12 +75,7 @@ impl<'a> Switch<'a> {
     fn allocate(&mut self, ui: &mut Ui) -> (Response, Option<Arc<Galley>>) {
         let (extra_width, galley) = if let Some(text) = self.label.take() {
             let available_width = ui.available_width() - self.size.y - ui.spacing().item_spacing.y;
-            let galley = text.into_galley(
-                ui,
-                Some(egui::TextWrapMode::Truncate),
-                available_width,
-                TextStyle::Body,
-            );
+            let galley = text.into_galley(ui, Some(false), available_width, TextStyle::Body);
             (
                 galley.rect.width() + ui.spacing().item_spacing.y,
                 Some(galley),
@@ -141,9 +136,7 @@ pub fn switch_custom_at(
     } else {
         response
     };
-    response.widget_info(|| {
-        egui::WidgetInfo::selected(egui::WidgetType::Checkbox, ui.is_enabled(), *value, "")
-    });
+    response.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Checkbox, *value, ""));
 
     if ui.is_rect_visible(rect) {
         let how_on = ui.ctx().animate_bool(response.id, *value);
@@ -211,12 +204,7 @@ fn interact(
 
     let text = label.unwrap_or("".into());
     response.widget_info(|| {
-        egui::WidgetInfo::selected(
-            egui::WidgetType::Checkbox,
-            ui.is_enabled(),
-            *value,
-            text.text(),
-        )
+        egui::WidgetInfo::selected(egui::WidgetType::Checkbox, *value, text.text())
     });
 
     (state, response)

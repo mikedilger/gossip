@@ -160,6 +160,8 @@ pub(in crate::ui) fn show_contact_search(
             });
         });
     }
+
+    area.show_open_close_animation(ui.ctx(), &frame, is_open);
 }
 
 pub(in crate::ui) fn capture_keyboard_for_search(

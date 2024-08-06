@@ -1,6 +1,6 @@
 use super::{NoteRenderData, ThemeDef};
 use crate::ui::HighlightType;
-use eframe::egui::style::{Selection, TextCursorStyle, WidgetVisuals, Widgets};
+use eframe::egui::style::{Selection, WidgetVisuals, Widgets};
 use eframe::egui::{
     vec2, FontDefinitions, Margin, Pos2, RichText, Shape, Stroke, Style, TextFormat, TextStyle,
     Vec2, Visuals,
@@ -8,7 +8,6 @@ use eframe::egui::{
 use eframe::epaint::{ecolor, Color32, FontFamily, FontId, Rounding, Shadow};
 use egui_winit::egui::style::{HandleShape, NumericColorSpace};
 use std::collections::BTreeMap;
-use usvg::Text;
 
 #[derive(Default)]
 pub struct DefaultTheme {}
@@ -29,18 +28,14 @@ pub trait ShadowBuilder {
 impl ShadowBuilder for Shadow {
     fn soft_dark() -> Self {
         Self {
-            offset: vec2(6.0, 10.0),
-            blur: 30.0,
-            spread: 0.0,
+            extrusion: 30.0,
             color: Color32::from_black_alpha(40),
         }
     }
 
     fn soft_light() -> Self {
         Self {
-            offset: vec2(6.0, 10.0),
-            blur: 30.0,
-            spread: 0.0,
+            extrusion: 30.0,
             color: Color32::from_black_alpha(10),
         }
     }
@@ -289,8 +284,8 @@ impl ThemeDef for DefaultTheme {
                     stroke: Stroke::new(0.0, Color32::from_gray(220)),
                 },
 
-                window_shadow: Visuals::dark().window_shadow,
-                popup_shadow: Visuals::dark().popup_shadow,
+                window_shadow: Shadow::big_dark(),
+                popup_shadow: Shadow::soft_dark(),
 
                 indent_has_left_vline: false,
                 menu_rounding: Rounding::same(2.0),
@@ -300,12 +295,8 @@ impl ThemeDef for DefaultTheme {
                 window_rounding: Rounding::same(6.0),
                 window_highlight_topmost: false,
                 resize_corner_size: 12.0,
-
-                text_cursor: TextCursorStyle {
-                    stroke: Stroke::new(2.0, Color32::from_rgb(192, 222, 255)),
-                    preview: false,
-                    ..Default::default()
-                },
+                text_cursor: Stroke::new(2.0, Color32::from_rgb(192, 222, 255)),
+                text_cursor_preview: false,
                 clip_rect_margin: 3.0, // should be at least half the size of the widest frame stroke + max WidgetVisuals::expansion
                 button_frame: true,
                 collapsing_header_frame: false,
@@ -381,8 +372,8 @@ impl ThemeDef for DefaultTheme {
                     stroke: Stroke::new(1.0, Color32::from_gray(40)), // DONE
                 },
 
-                window_shadow: Visuals::light().window_shadow,
-                popup_shadow: Visuals::light().popup_shadow,
+                window_shadow: Shadow::big_light(),
+                popup_shadow: Shadow::soft_light(),
 
                 indent_has_left_vline: false,
                 menu_rounding: Rounding::same(2.0),
@@ -392,11 +383,8 @@ impl ThemeDef for DefaultTheme {
                 window_rounding: Rounding::same(6.0),
                 window_highlight_topmost: false,
                 resize_corner_size: 12.0,
-                text_cursor: TextCursorStyle {
-                    stroke: Stroke::new(2.0, Color32::from_rgb(0, 83, 125)),
-                    preview: false,
-                    ..Default::default()
-                },
+                text_cursor: Stroke::new(2.0, Color32::from_rgb(0, 83, 125)),
+                text_cursor_preview: false,
                 clip_rect_margin: 3.0, // should be at least half the size of the widest frame stroke + max WidgetVisuals::expansion
                 button_frame: true,
                 collapsing_header_frame: false,
