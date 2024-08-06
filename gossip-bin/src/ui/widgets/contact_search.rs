@@ -74,8 +74,9 @@ pub(in crate::ui) fn show_contact_search(
                             prepared.content_ui.set_max_width(super::TAGG_WIDTH);
                             prepared.content_ui.set_min_height(27.0);
 
-                            let frame_rect = prepared.content_ui.min_rect()
-                                + (prepared.frame.inner_margin + prepared.frame.outer_margin);
+                            let frame_rect = (prepared.frame.inner_margin
+                                + prepared.frame.outer_margin)
+                                .expand_rect(prepared.content_ui.min_rect());
 
                             let response = ui
                                 .interact(

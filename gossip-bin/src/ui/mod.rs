@@ -1660,9 +1660,7 @@ impl GossipUi {
 
     fn begin_ui(&self, ui: &mut Ui) {
         // if a dialog is open, disable the rest of the UI
-        if !self.enable_ui() {
-            ui.disable();
-        }
+        ui.set_enabled(self.enable_ui());
     }
 
     pub fn richtext_from_person_nip05(person: &Person) -> RichText {
@@ -2022,8 +2020,7 @@ impl GossipUi {
 
     fn open_menu(&mut self, ctx: &Context, item: SubMenu) {
         for (submenu, id) in self.submenu_ids.iter() {
-            let mut cstate =
-                egui::collapsing_header::CollapsingState::load_with_default_open(ctx, *id, false);
+            let mut cstate = egui::collapsing_header::CollapsingState::load_with_default_open(ctx, *id, false);
             if item == SubMenu::Feeds || *submenu != SubMenu::Feeds {
                 cstate.set_open(*submenu == item);
             }
@@ -2033,8 +2030,7 @@ impl GossipUi {
 
     fn close_all_menus_except_feeds(&mut self, ctx: &Context) {
         for (submenu, id) in self.submenu_ids.iter() {
-            let mut cstate =
-                egui::collapsing_header::CollapsingState::load_with_default_open(ctx, *id, false);
+            let mut cstate = egui::collapsing_header::CollapsingState::load_with_default_open(ctx, *id, false);
             if *submenu != SubMenu::Feeds {
                 cstate.set_open(false);
             }
@@ -2048,11 +2044,8 @@ impl GossipUi {
         ctx: &Context,
         submenu: SubMenu,
     ) -> (egui::collapsing_header::CollapsingState, Response) {
-        let mut cstate = egui::collapsing_header::CollapsingState::load_with_default_open(
-            ctx,
-            self.submenu_ids[&submenu],
-            false,
-        );
+        let mut cstate =
+            egui::collapsing_header::CollapsingState::load_with_default_open(ctx, self.submenu_ids[&submenu], false);
         let open = cstate.is_open();
         let txt = if open {
             submenu.to_string() + " \u{25BE}"

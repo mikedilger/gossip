@@ -66,9 +66,7 @@ impl<'a> MoreMenuButton<'a> {
     }
 
     fn show(self, app: &mut GossipUi, ui: &mut Ui) -> Response {
-        if !self.enabled {
-            ui.disable();
-        }
+        ui.set_enabled(self.enabled);
 
         let response = draw_menu_button(ui, &app.theme, self.text, None);
 
@@ -134,9 +132,7 @@ impl<'a> MoreMenuSubMenu<'a> {
     }
 
     fn show(self, app: &mut GossipUi, ui: &mut Ui) -> Response {
-        if !self.enabled {
-            ui.disable();
-        }
+        ui.set_enabled(self.enabled);
 
         let mut open = load_state(ui, &self.id);
 

@@ -414,7 +414,7 @@ fn textedit_test(app: &mut GossipUi, ui: &mut Ui) {
         ui.add_space(20.0);
         ui.horizontal(|ui| {
             ui.add_sized(CSIZE, egui::Label::new("Disabled"));
-            ui.disable();
+            ui.set_enabled(false);
             ui.add_space(20.0);
             ui.vertical(|ui| {
                 widgets::TextEdit::singleline(theme, &mut app.theme_test.textedit_empty)
@@ -477,7 +477,7 @@ fn switch_test(app: &mut GossipUi, ui: &mut Ui) {
         ui.add_space(20.0);
         ui.horizontal(|ui| {
             ui.add_sized(CSIZE, egui::Label::new("Disabled"));
-            ui.disable();
+            ui.set_enabled(false);
             ui.add_space(20.0);
             ui.vertical(|ui| {
                 ui.horizontal(|ui| {

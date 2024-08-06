@@ -8,6 +8,7 @@ use eframe::egui::{
 use eframe::epaint::{ecolor, Color32, FontFamily, FontId, Rounding, Shadow};
 use egui_winit::egui::style::{HandleShape, NumericColorSpace};
 use std::collections::BTreeMap;
+use usvg::Text;
 
 #[derive(Default)]
 pub struct DefaultTheme {}
