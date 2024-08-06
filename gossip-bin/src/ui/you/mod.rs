@@ -1,7 +1,6 @@
 use super::{GossipUi, Page};
 use crate::ui::widgets::CopyButton;
-use eframe::egui;
-use egui::style::Margin;
+use eframe::egui::{self, Margin};
 use egui::{Color32, Context, Frame, Stroke, Ui};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{Globals, GLOBALS};

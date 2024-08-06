@@ -74,9 +74,6 @@ pub fn modal_popup(
         .constrain(true)
         .order(egui::Order::Middle)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0]);
-    area.show_open_close_animation(
-        ctx, &frame, true, // TODO if we never pass false it won't show a close animation
-    );
     area.show(ctx, |ui| {
         if ui.visuals().dark_mode {
             frame.fill = ui.visuals().faint_bg_color;
@@ -149,9 +146,6 @@ pub fn modal_popup_dyn(
         .constrain(true)
         .order(egui::Order::Middle)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0]);
-    area.show_open_close_animation(
-        ctx, &frame, true, // TODO if we never pass false it won't show a close animation
-    );
     let frame_response = area
         .show(ctx, |ui| {
             if ui.visuals().dark_mode {

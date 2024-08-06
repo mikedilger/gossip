@@ -109,7 +109,7 @@ impl NavItem {
 
             let cursor = ui.cursor();
             let first_row_indentation = available_width - ui.available_size_before_wrap().x;
-            egui_assert!(first_row_indentation.is_finite());
+            debug_assert!(first_row_indentation.is_finite());
 
             job.wrap.max_width = available_width;
             job.first_row_min_height = cursor.height();
@@ -169,7 +169,8 @@ impl Widget for NavItem {
         let hover_color = self.hover_color;
         let active_color = self.active_color;
         let (pos, galley, response) = self.layout_in_ui(ui);
-        response.widget_info(|| WidgetInfo::labeled(WidgetType::Label, galley.text()));
+        response
+            .widget_info(|| WidgetInfo::labeled(WidgetType::Label, ui.is_enabled(), galley.text()));
 
         if ui.is_rect_visible(response.rect) {
             let color = if hover_color.is_some() && response.hovered() {

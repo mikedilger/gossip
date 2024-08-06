@@ -43,14 +43,12 @@ pub(crate) fn paint_frame(ui: &mut Ui, rect: &Rect, fill: Option<Color32>) {
         rect.max - vec2(OUTER_MARGIN_RIGHT, OUTER_MARGIN_BOTTOM),
     );
     let fill = fill.unwrap_or(ui.visuals().extreme_bg_color);
-    ui.painter().add(epaint::RectShape {
-        rect: frame_rect,
-        rounding: Rounding::same(5.0),
+    ui.painter().add(epaint::RectShape::new(
+        frame_rect,
+        Rounding::same(5.0),
         fill,
-        stroke: Stroke::NONE,
-        fill_texture_id: Default::default(),
-        uv: Rect::ZERO,
-    });
+        Stroke::NONE,
+    ));
 }
 
 pub(crate) fn make_frame(ui: &Ui, fill: Option<Color32>) -> Frame {
