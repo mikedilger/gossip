@@ -65,7 +65,7 @@ pub fn get_all_pubkey_inboxes(pubkey: PublicKey) -> Result<Vec<RelayUrl>, Error>
             .collect();
 
     let num = GLOBALS.storage.read_setting_num_relays_per_person() as usize;
-    let how_many_more = num - relays.len();
+    let how_many_more = num.saturating_sub(relays.len());
     if how_many_more > 0 {
         // substitute our write relays
         let additional: Vec<(RelayUrl, f32)> = GLOBALS
