@@ -44,6 +44,7 @@ pub fn get_all_pubkey_outboxes(pubkey: PublicKey) -> Result<Vec<RelayUrl>, Error
         ScoreFactors::RelayScorePlusConnected,
     )?
     .iter()
+    .filter(|(_, score)| *score > 0.125)
     .map(|(url, _score)| url.to_owned())
     .collect();
     Ok(relays)
