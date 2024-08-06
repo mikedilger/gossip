@@ -3,7 +3,7 @@ use eframe::{
     epaint::{self, ColorMode, PathStroke},
 };
 use egui::{Color32, Pos2, Response, Sense, Shape, Ui, Vec2, Widget};
-use epaint::{PathShape, Stroke};
+use epaint::PathShape;
 
 pub const COPY_SYMBOL_SIZE: Vec2 = Vec2::new(12.0, 12.0);
 
