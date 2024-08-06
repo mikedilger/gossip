@@ -162,7 +162,7 @@ impl<'t> TextEdit<'t> {
             {
                 let theme = self.theme;
                 let response = &output.response;
-                let frame_rect = response.rect;
+                let frame_rect = response.rect + margin;
 
                 // this is how egui chooses the visual style:
                 #[allow(clippy::if_same_then_else)]
