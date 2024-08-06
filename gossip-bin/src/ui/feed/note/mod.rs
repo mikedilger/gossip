@@ -904,13 +904,16 @@ pub fn render_note_inner(
                                         ui.label(RichText::new(reaction).size(16.0));
                                     } else if can_sign {
                                         ui.menu_button(RichText::new('♡').size(20.0), |ui| {
-                                            if let Some(emoji) = crate::ui::components::emoji_picker(ui) {
-                                                let _ =
-                                                    GLOBALS.to_overlord.send(ToOverlordMessage::React(
+                                            if let Some(emoji) =
+                                                crate::ui::components::emoji_picker(ui)
+                                            {
+                                                let _ = GLOBALS.to_overlord.send(
+                                                    ToOverlordMessage::React(
                                                         note.event.id,
                                                         note.event.pubkey,
                                                         emoji,
-                                                    ));
+                                                    ),
+                                                );
                                             }
                                         });
                                     } else {
@@ -972,10 +975,10 @@ pub fn render_note_inner(
 
                                     ui.add(
                                         Label::new(format!("{}+{}", like_count, reaction_count))
-                                            .sense(Sense::hover())
+                                            .sense(Sense::hover()),
                                     )
-                                        .on_hover_ui(hover_ui)
-                                        .on_disabled_hover_ui(hover_ui);
+                                    .on_hover_ui(hover_ui)
+                                    .on_disabled_hover_ui(hover_ui);
                                 }
                             });
 

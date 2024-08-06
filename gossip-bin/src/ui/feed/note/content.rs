@@ -56,6 +56,9 @@ pub(super) fn render_content(
             match segment {
                 ContentSegment::NostrUrl(nurl) => {
                     match &nurl.0 {
+                        NostrBech32::CryptSec(cs) => {
+                            ui.label(RichText::new(cs.as_bech32_string()).underline());
+                        }
                         NostrBech32::NAddr(ea) => {
                             render_parameterized_event_link(app, ui, note.event.id, ea);
                         }

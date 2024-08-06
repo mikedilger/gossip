@@ -2105,6 +2105,9 @@ impl Overlord {
 
         if let Some(nb32) = NostrBech32::try_from_string(&text) {
             match nb32 {
+                NostrBech32::CryptSec(_) => {
+                    // do nothing
+                }
                 NostrBech32::NAddr(ea) => {
                     let mut filter = Filter::new();
                     filter.add_event_kind(ea.kind);

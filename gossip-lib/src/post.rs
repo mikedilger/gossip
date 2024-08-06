@@ -176,6 +176,9 @@ fn add_tags_mirroring_content(content: &str, tags: &mut Vec<Tag>, direct_message
     // and use the new NostrBech32 parsing.
     for bech32 in NostrBech32::find_all_in_string(content).iter() {
         match bech32 {
+            NostrBech32::CryptSec(_) => {
+                // add nothing
+            }
             NostrBech32::NAddr(ea) => {
                 nostr_types::add_addr_to_tags(tags, ea, Some("mention".to_string()));
             }

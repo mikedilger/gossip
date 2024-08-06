@@ -354,6 +354,10 @@ pub fn bech32_decode(cmd: Command, mut args: env::Args) -> Result<(), Error> {
 
     if let Some(nb32) = NostrBech32::try_from_string(&param) {
         match nb32 {
+            NostrBech32::CryptSec(epk) => {
+                println!("Crypt Sec:");
+                println!("  encrypted private key: {}", epk);
+            }
             NostrBech32::NAddr(ea) => {
                 println!("Event Address:");
                 println!("  d={}", ea.d);

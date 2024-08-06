@@ -346,6 +346,9 @@ pub fn process_new_event(
         // Process the content for references to things we might want
         for bech32 in NostrBech32::find_all_in_string(&event.content) {
             match bech32 {
+                NostrBech32::CryptSec(_) => {
+                    // do nothing here
+                }
                 NostrBech32::Id(id) => {
                     if GLOBALS.storage.read_event(id)?.is_none() {
                         if let Some(relay_url) = seen_on.as_ref() {
