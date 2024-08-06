@@ -1314,7 +1314,7 @@ impl GossipUi {
                     + Vec2::new(-crate::AVATAR_SIZE_F32 * 2.0, -crate::AVATAR_SIZE_F32 * 2.0)
             };
 
-            egui::Area::new(ui.next_auto_id())
+            egui::Area::new(ui.next_auto_id().with("plus"))
                 .movable(false)
                 .interactable(true)
                 .fixed_pos(pos)
