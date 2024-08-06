@@ -111,10 +111,13 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     },
                 );
                 if row_response
-                    .inner
-                    .interact(Sense::click())
+                    .response
                     .on_hover_cursor(egui::CursorIcon::PointingHand)
                     .clicked()
+                    || row_response
+                        .inner
+                        .on_hover_cursor(egui::CursorIcon::PointingHand)
+                        .clicked()
                 {
                     app.set_page(ctx, Page::PeopleList(list));
                 }
