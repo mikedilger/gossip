@@ -1589,7 +1589,7 @@ impl Storage {
             }
         } else if !filter.kinds.is_empty() {
             // kind scrape (can't use kci since kinds include some that are not indexed)
-            tracing::warn!("KINDS SCRAPE OF STORAGE");
+            tracing::debug!("KINDS SCRAPE OF STORAGE");
             let iter = self.db_events()?.iter(&txn)?;
             for result in iter {
                 let (_key, bytes) = result?;
@@ -1605,7 +1605,7 @@ impl Storage {
             }
         } else if !filter.authors.is_empty() {
             // author scrape
-            tracing::warn!("AUTHOR SCRAPE OF STORAGE");
+            tracing::debug!("AUTHOR SCRAPE OF STORAGE");
             let iter = self.db_events()?.iter(&txn)?;
             for result in iter {
                 let (_key, bytes) = result?;
