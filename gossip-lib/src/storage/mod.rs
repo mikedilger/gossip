@@ -1603,10 +1603,9 @@ impl Storage {
         }
 
         Ok(output
-            .iter()
+            .into_iter()
             .rev()
             .take(limit)
-            .cloned() // FIXME when BTreeSet gets a drain() function
             .collect())
     }
 
