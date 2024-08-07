@@ -1,5 +1,5 @@
-use eframe::egui;
-use egui::{Label, Sense, Ui};
+use eframe::egui::{self, vec2, Button};
+use egui::Ui;
 
 pub fn emoji_picker(ui: &mut Ui) -> Option<char> {
     // These were the top 84 in the dataset I collected.
@@ -24,7 +24,11 @@ pub fn emoji_picker(ui: &mut Ui) -> Option<char> {
                 for _ in 0..10 {
                     if let Some(emoji) = emojis.next() {
                         if ui
-                            .add(Label::new(emoji.to_string()).sense(Sense::click()))
+                            .add(
+                                Button::new(emoji.to_string())
+                                    .min_size(vec2(20.0, 20.0))
+                                    .small(),
+                            )
                             .clicked()
                         {
                             output = Some(emoji);

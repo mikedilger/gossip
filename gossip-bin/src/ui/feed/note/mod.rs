@@ -912,7 +912,19 @@ pub fn render_note_inner(
                                     if let Some(reaction) = note.our_reaction {
                                         ui.label(RichText::new(reaction).size(16.0));
                                     } else if can_sign {
-                                        ui.menu_button(RichText::new('♡').size(20.0), |ui| {
+                                        let bar_id = ui.id().with("emoji_picker");
+                                        let mut bar_state =
+                                            egui::menu::BarState::load(ui.ctx(), bar_id);
+
+                                        let button_response = ui
+                                            .add(
+                                                Label::new(RichText::new('♡').size(20.0))
+                                                    .selectable(false)
+                                                    .sense(Sense::click()),
+                                            )
+                                            .on_hover_cursor(egui::CursorIcon::PointingHand);
+
+                                        bar_state.bar_menu(&button_response, |ui| {
                                             if let Some(emoji) =
                                                 crate::ui::components::emoji_picker(ui)
                                             {
@@ -925,6 +937,7 @@ pub fn render_note_inner(
                                                 );
                                             }
                                         });
+                                        bar_state.store(ui.ctx(), bar_id);
                                     } else {
                                         ui.label(RichText::new('♡').size(20.0));
                                     }
