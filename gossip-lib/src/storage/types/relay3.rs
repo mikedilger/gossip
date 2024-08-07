@@ -68,6 +68,7 @@ impl Relay3 {
     pub const DISCOVER: u64 = 1 << 5; // 32
     pub const SPAMSAFE: u64 = 1 << 6; // 64
     pub const DM: u64 = 1 << 7; // 128             this is of kind 10050
+    pub const GLOBAL: u64 = 1 << 8; // 256
 
     pub fn new(url: RelayUrl) -> Self {
         Self {
@@ -141,6 +142,8 @@ impl Relay3 {
         self.usage_bits & bits == bits
     }
 
+    // This only includes main bits that people see in their flags
+    // (excludes retired ADVERTISED, SPAMSAFE and GLOBAL)
     #[inline]
     pub fn has_any_usage_bit(&self) -> bool {
         let all = Self::READ | Self::WRITE | Self::INBOX | Self::OUTBOX | Self::DISCOVER | Self::DM;

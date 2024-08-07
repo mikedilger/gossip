@@ -106,6 +106,7 @@ pub(super) enum RelayFilter {
     Advertise,
     Private,
     Hidden,
+    Global,
     AlwaysAllowConnect,
     NeverAllowConnect,
     AlwaysAllowAuthenticate,
@@ -122,6 +123,7 @@ impl RelayFilter {
             RelayFilter::Advertise => "Advertise",
             RelayFilter::Private => "Private",
             RelayFilter::Hidden => "Hidden",
+            RelayFilter::Global => "Global Feed",
             RelayFilter::AlwaysAllowConnect => "Always allow connect",
             RelayFilter::NeverAllowConnect => "Never allow connect",
             RelayFilter::AlwaysAllowAuthenticate => "Always allow auth",
@@ -579,6 +581,11 @@ pub(super) fn relay_filter_combo(app: &mut GossipUi, ui: &mut Ui) {
             );
             ui.selectable_value(
                 &mut app.relays.filter,
+                RelayFilter::Global,
+                RelayFilter::Global.get_name(),
+            );
+            ui.selectable_value(
+                &mut app.relays.filter,
                 RelayFilter::AlwaysAllowConnect,
                 RelayFilter::AlwaysAllowConnect.get_name(),
             );
@@ -657,6 +664,7 @@ pub(super) fn filter_relay(rui: &RelayUi, ri: &Relay) -> bool {
                 && !ri.has_usage_bits(Relay::OUTBOX)
         }
         RelayFilter::Hidden => ri.hidden,
+        RelayFilter::Global => ri.has_usage_bits(Relay::GLOBAL),
         RelayFilter::AlwaysAllowConnect => ri.allow_connect == Some(true),
         RelayFilter::NeverAllowConnect => ri.allow_connect == Some(false),
         RelayFilter::AlwaysAllowAuthenticate => ri.allow_auth == Some(true),

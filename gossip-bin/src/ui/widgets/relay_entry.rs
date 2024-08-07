@@ -76,6 +76,7 @@ const WRITE_HOVER_TEXT: &str =
 const OUTBOX_HOVER_TEXT: &str = "Where you tell others you write to. You should also check Write. It is recommended to have a few.";
 const SPAMSAFE_HOVER_TEXT: &str = "Relay is trusted to filter spam. If not set, replies and mentions from unfollowed people will not be fetched from the relay (when SpamSafe is enabled in settings).";
 const DM_USE_HOVER_TEXT: &str = "Use Relay to receive and send Direct Messages";
+const GLOBAL_FEED_HOVER_TEXT: &str = "Use Relay for Global feed";
 
 #[derive(Clone, PartialEq)]
 pub enum RelayEntryView {
@@ -131,6 +132,7 @@ struct UsageBits {
     discover: bool,
     spamsafe: bool,
     dm: bool,
+    global_feed: bool,
 }
 
 impl UsageBits {
@@ -144,6 +146,7 @@ impl UsageBits {
             discover: usage_bits & Relay::DISCOVER == Relay::DISCOVER,
             spamsafe: usage_bits & Relay::SPAMSAFE == Relay::SPAMSAFE,
             dm: usage_bits & Relay::DM == Relay::DM,
+            global_feed: usage_bits & Relay::GLOBAL == Relay::GLOBAL,
         }
     }
 
@@ -1044,6 +1047,36 @@ impl RelayEntry {
                 ui,
                 pos + vec2(ui.spacing().item_spacing.x + switch_size.x, 0.0),
                 "Direct Message".into(),
+                Align::LEFT,
+                Some(ui.visuals().text_color()),
+                None,
+            );
+        }
+        {
+            // ---- GLOBAL feed use ----
+            let pos = pos + vec2(USAGE_SWITCH_X_SPACING, 0.0);
+            let id = self.make_id("global_feed_switch");
+            let sw_rect = Rect::from_min_size(pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET), switch_size);
+            let response = widgets::switch_custom_at(
+                ui,
+                true,
+                &mut self.usage.global_feed,
+                sw_rect,
+                id,
+                knob_fill,
+                on_fill,
+                off_fill,
+            );
+            if response.changed() {
+                modify_relay(&self.relay.url, |relay| {
+                    relay.adjust_usage_bit(Relay::GLOBAL, self.usage.global_feed)
+                });
+            }
+            response.on_hover_text(GLOBAL_FEED_HOVER_TEXT);
+            draw_text_at(
+                ui,
+                pos + vec2(ui.spacing().item_spacing.x + switch_size.x, 0.0),
+                "Global feed".into(),
                 Align::LEFT,
                 Some(ui.visuals().text_color()),
                 None,
