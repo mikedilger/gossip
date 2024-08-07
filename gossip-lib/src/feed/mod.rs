@@ -319,14 +319,20 @@ impl Feed {
                     let screen = |e: &Event| {
                         e.pubkey != my_pubkey
                             && (indirect // don't screen further, keep all the 'p' tags
-                                    || (
+                                || (
+                                    // Either it is a direct reply
                                         match e.replies_to() {
                                             None => false,
                                             Some(EventReference::Id { id, .. }) =>
                                                 matches!(GLOBALS.storage.is_my_event(id), Ok(true)),
                                             Some(EventReference::Addr(NAddr { author, .. })) => author == my_pubkey,
                                         }
-                                    ))
+                                    || // or we are referenced in the content
+                                        e.people_referenced_in_content()
+                                        .iter()
+                                        .any(|p| *p == my_pubkey)
+                                )
+                            )
                     };
 
                     let events =
