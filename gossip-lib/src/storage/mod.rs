@@ -1602,11 +1602,7 @@ impl Storage {
             }
         }
 
-        Ok(output
-            .into_iter()
-            .rev()
-            .take(limit)
-            .collect())
+        Ok(output.into_iter().rev().take(limit).collect())
     }
 
     /// Search all events for the text, case insensitive. Both content and tags
@@ -2646,5 +2642,17 @@ impl Storage {
 
     pub fn url_is_banned(url: &RelayUrl) -> bool {
         url.as_str().contains("relay.nostr.band") || url.as_str().contains("filter.nostr.wine")
+    }
+
+    pub fn is_my_event(&self, id: Id) -> Result<bool, Error> {
+        if let Some(my_pubkey) = GLOBALS.identity.public_key() {
+            if let Some(event) = self.read_event(id)? {
+                Ok(event.pubkey == my_pubkey)
+            } else {
+                Ok(false)
+            }
+        } else {
+            Ok(false)
+        }
     }
 }

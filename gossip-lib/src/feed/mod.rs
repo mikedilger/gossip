@@ -297,14 +297,15 @@ impl Feed {
             }
             FeedKind::Inbox(indirect) => {
                 if let Some(my_pubkey) = GLOBALS.identity.public_key() {
-                    // Ideally all replies would 'p' tag me (NIP-10)
+                    // indirect = everything that 'p' tags me
+                    // otherwise, only things that reply to my events
+                    //   (filter on Storage::is_my_event(id))
                     //
-                    // But some don't. To see such replies, we would like to look for any
-                    // event that replies to any of my events. But it is too expensive to
-                    // load all the IDs of all my events and screen for 'e' tags against
-                    // them (we used to do that for the most recent of my events, but I
-                    // have taken it out).
+                    // We also might want to look where I am mentioned in the contents,
+                    // BUT we would have to scan all events which is not cheap so we
+                    // don't do this.
 
+                    // All displayable events that 'p' tag me
                     let filter = {
                         let mut filter = Filter::new();
                         filter.kinds = feed_displayable_event_kinds(false);
@@ -312,25 +313,17 @@ impl Feed {
                         filter
                     };
 
-                    // TODO: If event_tag_index had reverse created_at, we could much more
-                    //       quickly find inbox messages by using a better prefix scan in
-                    //       find_events_by_filter
-
                     let screen = |e: &Event| {
                         e.pubkey != my_pubkey
-                            && (
-                                // We can't check against EventReference::Id because we would
-                                // have to know all the Ids of my events, which is too much to
-                                // check against. BUT we can check for these cheaply:
-                                matches!(
-                                    e.replies_to(),
-                                    Some(EventReference::Addr(EventAddr { author, .. }))
-                                        if author == my_pubkey
-                                ) || (indirect
-                                    || e.people_referenced_in_content()
-                                        .iter()
-                                        .any(|p| *p == my_pubkey))
-                            )
+                            && (indirect // don't screen further, keep all the 'p' tags
+                                    || (
+                                        match e.replies_to() {
+                                            None => false,
+                                            Some(EventReference::Id { id, .. }) =>
+                                                matches!(GLOBALS.storage.is_my_event(id), Ok(true)),
+                                            Some(EventReference::Addr(EventAddr { author, .. })) => author == my_pubkey,
+                                        }
+                                    ))
                     };
 
                     let events =
