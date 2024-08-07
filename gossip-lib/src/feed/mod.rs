@@ -5,6 +5,7 @@ use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOv
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::people::PersonList;
+use crate::relay::Relay;
 use dashmap::DashMap;
 use nostr_types::{Event, EventKind, EventReference, Filter, Id, NAddr, Unixtime};
 use parking_lot::RwLock;
@@ -387,12 +388,21 @@ impl Feed {
                 *self.current_feed_events.write() = ids;
             }
             FeedKind::Global => {
+                let global_relays = Relay::choose_relay_urls(Relay::GLOBAL, |_| true)?;
                 let filter = {
                     let mut filter = Filter::new();
                     filter.kinds = feed_displayable_event_kinds(false);
                     filter
                 };
-                let events = Self::load_event_range(anchor, filter, true, false, |_| true).await?;
+                let events = Self::load_event_range(anchor, filter, true, false, |e| {
+                    if let Ok(vec) = GLOBALS.storage.get_event_seen_on_relay(e.id) {
+                        vec.iter()
+                            .any(|(seen_on_url, _when)| global_relays.contains(seen_on_url))
+                    } else {
+                        false
+                    }
+                })
+                .await?;
                 *self.current_feed_events.write() = events;
             }
         }
