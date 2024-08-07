@@ -1632,11 +1632,7 @@ impl Storage {
             }
         }
 
-        Ok(output
-            .into_iter()
-            .rev()
-            .take(limit)
-            .collect())
+        Ok(output.into_iter().rev().take(limit).collect())
     }
 
     /// Search all events for the text, case insensitive. Both content and tags
@@ -2517,5 +2513,17 @@ impl Storage {
         // spamming gossip with NOTICE subscription rejected messages causing an overload condition.
             // They need to send CLOSED and not NOTICE
             || url.as_str().contains("at.nostrworks.com")
+    }
+
+    pub fn is_my_event(&self, id: Id) -> Result<bool, Error> {
+        if let Some(my_pubkey) = GLOBALS.identity.public_key() {
+            if let Some(event) = self.read_event(id)? {
+                Ok(event.pubkey == my_pubkey)
+            } else {
+                Ok(false)
+            }
+        } else {
+            Ok(false)
+        }
     }
 }
