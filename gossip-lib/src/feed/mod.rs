@@ -348,8 +348,7 @@ impl Feed {
                                         e.people_referenced_in_content()
                                         .iter()
                                         .any(|p| *p == my_pubkey)
-                                )
-                            )
+                                ))
                     };
 
                     let events =
