@@ -25,7 +25,7 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 38] = [
+const COMMANDS: [Command; 39] = [
     Command {
         cmd: "oneshot",
         usage_params: "{depends}",
@@ -197,6 +197,11 @@ const COMMANDS: [Command; 38] = [
         desc: "Reprocess relay lists (including kind 3 contents)",
     },
     Command {
+        cmd: "theme",
+        usage_params: "<dark | light>",
+        desc: "Start gossip with the selected theme",
+    },
+    Command {
         cmd: "ungiftwrap",
         usage_params: "<idhex>",
         desc: "Unwrap the giftwrap event with the given ID and print the rumor (in JSON)",
@@ -274,6 +279,10 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
         "rename_person_list" => rename_person_list(command, args)?,
         "reprocess_recent" => reprocess_recent(command, runtime)?,
         "reprocess_relay_lists" => reprocess_relay_lists()?,
+        "theme" => {
+            set_theme(command, args)?;
+            return Ok(false);
+        }
         "ungiftwrap" => ungiftwrap(command, args)?,
         "verify" => verify(command, args)?,
         "verify_json" => verify_json(command, args)?,
@@ -983,6 +992,27 @@ pub fn reprocess_relay_lists() -> Result<(), Error> {
     let (c1, c2) = gossip_lib::process::reprocess_relay_lists()?;
     println!("Reprocessed {} contact lists", c1);
     println!("Reprocessed {} relay lists", c2);
+    Ok(())
+}
+
+pub fn set_theme(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+    let theme = match args.next() {
+        Some(s) => s,
+        None => return cmd.usage("Missing theme selection".to_string()),
+    };
+
+    match theme.as_str() {
+        "dark" => {
+            GLOBALS.storage.write_setting_dark_mode(&true, None)?;
+            println!("Setting 'dark' theme");
+        }
+        "light" => {
+            GLOBALS.storage.write_setting_dark_mode(&false, None)?;
+            println!("Setting 'light' theme");
+        }
+        _ => return cmd.usage("Invalid theme selection".to_string()),
+    };
+
     Ok(())
 }
 
