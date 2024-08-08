@@ -7,7 +7,7 @@ resolver = "2"
 
 [patch.crates-io]
 # override egui crate for egui_video dependency
-egui = { git =  "https://github.com/bu5hm4nn/egui", rev = "fa7d96dcb7da835fa7d6a38cd2aceffa3db54b4a" }
+egui = { git =  "https://github.com/bu5hm4nn/egui", rev = "f40370c48ae2e07d2bc1d7ec33d094d29dc34e70" }
 # Use the master branch of SDL2 to include a fix related to clang (and XCode after 14.2)
 sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", rev = "f2f1e29a416bcc22f2faf411866db2c8d9536308" }
 
