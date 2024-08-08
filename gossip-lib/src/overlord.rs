@@ -1560,6 +1560,19 @@ impl Overlord {
                     }],
                 );
             }
+            FeedKind::Global => {
+                let relay_urls = Relay::choose_relay_urls(Relay::GLOBAL, |_| true)?;
+                manager::run_jobs_on_all_relays(
+                    relay_urls,
+                    vec![RelayJob {
+                        reason: RelayConnectionReason::SubscribeGlobal,
+                        payload: ToMinionPayload {
+                            job_id: rand::random::<u64>(),
+                            detail: ToMinionPayloadDetail::SubscribeGlobalFeed(anchor),
+                        },
+                    }],
+                );
+            }
             _ => (), // other feeds can't load more
         }
 
