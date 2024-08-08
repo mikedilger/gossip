@@ -13,19 +13,19 @@ lazy_static! {
 }
 
 /// Storage paths
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct Profile {
     /// The base directory for all gossip data
-    pub base_dir: PathBuf,
+    base_dir: PathBuf,
 
     /// The directory for cache
-    pub cache_dir: PathBuf,
+    cache_dir: PathBuf,
 
     /// The profile directory (could be the same as the base_dir if default)
-    pub profile_dir: PathBuf,
+    profile_dir: PathBuf,
 
     /// The LMDB directory (within the profile directory)
-    pub lmdb_dir: PathBuf,
+    lmdb_dir: PathBuf,
 }
 
 impl Profile {
@@ -121,18 +121,45 @@ impl Profile {
         })
     }
 
-    pub fn current() -> Result<Profile, Error> {
-        {
-            // create a new scope to drop the read lock before we try to create a new profile if it doesn't exist
+    fn create_if_missing() -> Result<(), Error> {
+        let exists = {
             let current = CURRENT.read().unwrap();
-            if current.is_some() {
-                return Ok(current.as_ref().unwrap().clone());
-            }
+            current.is_some()
+        };
+
+        if !exists {
+            let profile = Profile::new()?;
+            let mut w = CURRENT.write().unwrap();
+            *w = Some(profile);
         }
-        let created = Profile::new()?;
-        let mut w = CURRENT.write().unwrap();
-        *w = Some(created.clone());
-        Ok(created)
+
+        Ok(())
+    }
+
+    pub fn base_dir() -> Result<PathBuf, Error> {
+        Self::create_if_missing()?;
+        Ok(CURRENT.read().unwrap().as_ref().unwrap().base_dir.clone())
+    }
+
+    pub fn cache_dir() -> Result<PathBuf, Error> {
+        Self::create_if_missing()?;
+        Ok(CURRENT.read().unwrap().as_ref().unwrap().cache_dir.clone())
+    }
+
+    pub fn profile_dir() -> Result<PathBuf, Error> {
+        Self::create_if_missing()?;
+        Ok(CURRENT
+            .read()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .profile_dir
+            .clone())
+    }
+
+    pub fn lmdb_dir() -> Result<PathBuf, Error> {
+        Self::create_if_missing()?;
+        Ok(CURRENT.read().unwrap().as_ref().unwrap().lmdb_dir.clone())
     }
 }
 

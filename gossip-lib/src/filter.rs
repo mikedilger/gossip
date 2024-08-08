@@ -13,15 +13,14 @@ pub enum EventFilterAction {
 }
 
 pub fn load_script(engine: &Engine) -> Option<AST> {
-    let profile = match Profile::current() {
-        Ok(profile) => profile,
+    let mut path = match Profile::profile_dir() {
+        Ok(p) => p,
         Err(e) => {
             tracing::error!("Profile failed: {}", e);
             return None;
         }
     };
 
-    let mut path = profile.profile_dir.clone();
     path.push("filter.rhai");
 
     let script = match fs::read_to_string(&path) {

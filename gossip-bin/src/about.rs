@@ -21,9 +21,9 @@ impl Default for About {
 
 impl About {
     pub fn new() -> About {
-        let data_dir = Profile::current().map_or(
+        let data_dir = Profile::profile_dir().map_or(
             "Cannot find a directory to store application data.".to_owned(),
-            |p| format!("{}/", p.profile_dir.display()),
+            |p| format!("{}/", p.display()),
         );
 
         let mut version = env!("CARGO_PKG_VERSION").to_string();

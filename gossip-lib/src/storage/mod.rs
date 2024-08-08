@@ -126,7 +126,7 @@ impl Storage {
         //       after the database has been launched.
         builder.map_size(1048576 * 1024 * 24); // 24 GB
 
-        let dir = Profile::current()?.lmdb_dir;
+        let dir = Profile::lmdb_dir()?;
         let env = unsafe {
             match builder.open(&dir) {
                 Ok(env) => env,

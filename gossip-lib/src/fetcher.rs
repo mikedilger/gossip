@@ -49,7 +49,7 @@ impl Fetcher {
 
     pub(crate) fn init() -> Result<(), Error> {
         // Setup the cache directory
-        *GLOBALS.fetcher.cache_dir.write().unwrap() = Profile::current()?.cache_dir;
+        *GLOBALS.fetcher.cache_dir.write().unwrap() = Profile::cache_dir()?;
 
         // Create client
         let connect_timeout = std::time::Duration::new(
