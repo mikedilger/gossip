@@ -4,6 +4,7 @@ use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::RwLock;
+use tempdir::TempDir;
 
 #[cfg(windows)]
 use normpath::PathExt;
@@ -13,7 +14,7 @@ lazy_static! {
 }
 
 /// Storage paths
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Profile {
     /// The base directory for all gossip data
     base_dir: PathBuf,
@@ -26,6 +27,9 @@ pub struct Profile {
 
     /// The LMDB directory (within the profile directory)
     lmdb_dir: PathBuf,
+
+    /// Temporary cache directory
+    tmp_cache_dir: TempDir,
 }
 
 impl Profile {
@@ -113,11 +117,14 @@ impl Profile {
         fs::create_dir_all(&profile_dir)?;
         fs::create_dir_all(&lmdb_dir)?;
 
+        let tmp_cache_dir = TempDir::new("cache")?;
+
         Ok(Profile {
             base_dir,
             profile_dir,
             cache_dir,
             lmdb_dir,
+            tmp_cache_dir,
         })
     }
 
@@ -141,9 +148,20 @@ impl Profile {
         Ok(CURRENT.read().unwrap().as_ref().unwrap().base_dir.clone())
     }
 
-    pub fn cache_dir() -> Result<PathBuf, Error> {
+    pub fn cache_dir(tmp: bool) -> Result<PathBuf, Error> {
         Self::create_if_missing()?;
-        Ok(CURRENT.read().unwrap().as_ref().unwrap().cache_dir.clone())
+        if tmp {
+            Ok(CURRENT
+                .read()
+                .unwrap()
+                .as_ref()
+                .unwrap()
+                .tmp_cache_dir
+                .path()
+                .to_owned())
+        } else {
+            Ok(CURRENT.read().unwrap().as_ref().unwrap().cache_dir.clone())
+        }
     }
 
     pub fn profile_dir() -> Result<PathBuf, Error> {
@@ -160,6 +178,11 @@ impl Profile {
     pub fn lmdb_dir() -> Result<PathBuf, Error> {
         Self::create_if_missing()?;
         Ok(CURRENT.read().unwrap().as_ref().unwrap().lmdb_dir.clone())
+    }
+
+    pub fn close() {
+        let mut w = CURRENT.write().unwrap();
+        *w = None;
     }
 }
 

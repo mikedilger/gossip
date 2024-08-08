@@ -295,5 +295,8 @@ pub async fn run() {
         tracing::info!("LMDB synced.");
     }
 
+    // Close profile
+    Profile::close();
+
     tracing::error!("If gossip fails to exit at this point, you can safely kill the process.");
 }
