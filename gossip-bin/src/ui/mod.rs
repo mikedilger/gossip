@@ -1871,7 +1871,7 @@ impl GossipUi {
             return Some(th.to_owned());
         }
 
-        if let Some(rgba_image) = GLOBALS.media.get_image(&url) {
+        if let Some(rgba_image) = GLOBALS.media.get_image(&url, false) {
             let current_size = [rgba_image.width() as usize, rgba_image.height() as usize];
             let pixels = rgba_image.as_flat_samples();
             let color_image = ColorImage::from_rgba_unmultiplied(current_size, pixels.as_slice());

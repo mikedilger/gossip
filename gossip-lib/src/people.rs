@@ -419,6 +419,7 @@ impl People {
             Duration::from_secs(
                 60 * 60 * GLOBALS.storage.read_setting_avatar_becomes_stale_hours(),
             ),
+            false,
         ) {
             // cache expires in 3 days
             Ok(None) => None,
