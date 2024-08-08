@@ -60,6 +60,7 @@ use crate::person_relay::PersonRelay;
 use crate::profile::Profile;
 use crate::relationship::{RelationshipByAddr, RelationshipById};
 use crate::relay::Relay;
+use dashmap::DashMap;
 use heed::types::{Bytes, Unit};
 use heed::{Database, Env, EnvFlags, EnvOpenOptions, RoTxn, RwTxn};
 use nostr_types::{
@@ -83,12 +84,16 @@ type EmptyDatabase = Database<Bytes, Unit>;
 /// All calls are synchronous but fast so callers can just wait on them.
 pub struct Storage {
     env: OnceLock<Env>,
+    volatile_events: DashMap<Id, Event>,
+    volatile_seen_on: DashMap<Id, Vec<(RelayUrl, Unixtime)>>,
 }
 
 impl Storage {
     pub(crate) fn new() -> Storage {
         Storage {
             env: OnceLock::new(),
+            volatile_events: DashMap::new(),
+            volatile_seen_on: DashMap::new(),
         }
     }
 
@@ -196,6 +201,11 @@ impl Storage {
     pub fn sync(&self) -> Result<(), Error> {
         self.env().force_sync()?;
         Ok(())
+    }
+
+    pub fn clear_volatile(&self) {
+        self.volatile_events.clear();
+        self.volatile_seen_on.clear();
     }
 
     // Database getters ---------------------------------
@@ -876,10 +886,26 @@ impl Storage {
         self.add_event_seen_on_relay1(id, url, when, rw_txn)
     }
 
+    pub fn add_event_seen_on_relay_volatile(&self, id: Id, url: RelayUrl, when: Unixtime) {
+        // Don't save banned relay URLs
+        if Self::url_is_banned(&url) {
+            return;
+        }
+
+        self.volatile_seen_on
+            .entry(id)
+            .and_modify(|v| v.push((url.clone(), when)))
+            .or_insert(vec![(url, when)]);
+    }
+
     /// Get event seen on relay
     #[inline]
     pub fn get_event_seen_on_relay(&self, id: Id) -> Result<Vec<(RelayUrl, Unixtime)>, Error> {
-        self.get_event_seen_on_relay1(id)
+        if let Some(r) = self.volatile_seen_on.get(&id) {
+            Ok(r.value().to_owned())
+        } else {
+            self.get_event_seen_on_relay1(id)
+        }
     }
 
     /// Mark event viewed
@@ -1274,13 +1300,42 @@ impl Storage {
         self.write_event3(event, rw_txn)
     }
 
+    #[inline]
+    pub fn write_event_volatile(&self, event: Event) {
+        self.volatile_events.insert(event.id, event);
+    }
+
     /// Read an event
     #[inline]
     pub fn read_event(&self, id: Id) -> Result<Option<Event>, Error> {
-        self.read_event3(id)
+        if let Some(r) = self.volatile_events.get(&id) {
+            Ok(Some(r.value().to_owned()))
+        } else {
+            self.read_event3(id)
+        }
     }
 
-    /// If we have th event
+    /// If the event is volatile
+    #[inline]
+    pub fn event_is_volatile(&self, id: Id) -> bool {
+        self.volatile_events.contains_key(&id)
+    }
+
+    pub fn load_volatile_events<F>(&self, screen: F) -> Vec<Event>
+    where
+        F: Fn(&Event) -> bool,
+    {
+        let mut events: Vec<Event> = self
+            .volatile_events
+            .iter()
+            .filter(|x| screen(x.value()))
+            .map(|x| x.value().to_owned())
+            .collect();
+        events.sort_by(|a, b| b.created_at.cmp(&a.created_at).then(b.id.cmp(&a.id)));
+        events
+    }
+
+    /// If we have the event
     #[inline]
     pub fn has_event(&self, id: Id) -> Result<bool, Error> {
         self.has_event3(id)
