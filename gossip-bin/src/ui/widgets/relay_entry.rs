@@ -1071,6 +1071,8 @@ impl RelayEntry {
                 modify_relay(&self.relay.url, |relay| {
                     relay.adjust_usage_bit(Relay::GLOBAL, self.usage.global_feed)
                 });
+
+                GLOBALS.storage.clear_volatile();
             }
             response.on_hover_text(GLOBAL_FEED_HOVER_TEXT);
             draw_text_at(
