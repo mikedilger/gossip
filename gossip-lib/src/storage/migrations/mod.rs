@@ -62,10 +62,8 @@ impl Storage {
 
     pub(super) fn migrate(&self, mut level: u32) -> Result<(), Error> {
         if level < Self::MIN_MIGRATION_LEVEL {
-            let lmdb_dir = crate::profile::Profile::current()
-                .map_or("<notfound>".to_owned(), |p| {
-                    format!("{}/", p.lmdb_dir.display())
-                });
+            let lmdb_dir = crate::profile::Profile::lmdb_dir()
+                .map_or("<notfound>".to_owned(), |p| format!("{}/", p.display()));
             eprintln!("DATABASE IS TOO OLD");
             eprintln!("-------------------");
             eprintln!(

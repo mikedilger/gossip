@@ -26,6 +26,11 @@ pub fn process_new_event(
 ) -> Result<(), Error> {
     let now = Unixtime::now();
 
+    let global_feed = match subscription {
+        Some(ref s) => s == "global_feed",
+        _ => false,
+    };
+
     // Bump count
     GLOBALS.events_processed.fetch_add(1, Ordering::SeqCst);
 
@@ -48,9 +53,15 @@ pub fn process_new_event(
 
     if let Some(url) = &seen_on {
         // Save seen-on-relay information
-        GLOBALS
-            .storage
-            .add_event_seen_on_relay(event.id, url, now, None)?;
+        if global_feed {
+            GLOBALS
+                .storage
+                .add_event_seen_on_relay_volatile(event.id, url.to_owned(), now);
+        } else {
+            GLOBALS
+                .storage
+                .add_event_seen_on_relay(event.id, url, now, None)?;
+        }
 
         // Create the person if missing in the database
         PersonTable::create_record_if_missing(event.pubkey, None)?;
@@ -158,7 +169,7 @@ pub fn process_new_event(
 
     // Save event
     // Bail if the event is an already-replaced replaceable event
-    if event.kind.is_replaceable() {
+    if event.kind.is_replaceable() && !global_feed {
         if !GLOBALS.storage.replace_event(event, None)? {
             tracing::trace!(
                 "{}: Old Event: {} {:?} @{}",
@@ -169,6 +180,8 @@ pub fn process_new_event(
             );
             return Ok(()); // This did not replace anything.
         }
+    } else if global_feed {
+        GLOBALS.storage.write_event_volatile(event.to_owned());
     } else {
         // This will ignore if it is already there
         GLOBALS.storage.write_event(event, None)?;

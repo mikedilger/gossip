@@ -4,6 +4,7 @@ use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::RwLock;
+use tempdir::TempDir;
 
 #[cfg(windows)]
 use normpath::PathExt;
@@ -13,19 +14,22 @@ lazy_static! {
 }
 
 /// Storage paths
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug)]
 pub struct Profile {
     /// The base directory for all gossip data
-    pub base_dir: PathBuf,
+    base_dir: PathBuf,
 
     /// The directory for cache
-    pub cache_dir: PathBuf,
+    cache_dir: PathBuf,
 
     /// The profile directory (could be the same as the base_dir if default)
-    pub profile_dir: PathBuf,
+    profile_dir: PathBuf,
 
     /// The LMDB directory (within the profile directory)
-    pub lmdb_dir: PathBuf,
+    lmdb_dir: PathBuf,
+
+    /// Temporary cache directory
+    tmp_cache_dir: TempDir,
 }
 
 impl Profile {
@@ -113,26 +117,72 @@ impl Profile {
         fs::create_dir_all(&profile_dir)?;
         fs::create_dir_all(&lmdb_dir)?;
 
+        let tmp_cache_dir = TempDir::new("cache")?;
+
         Ok(Profile {
             base_dir,
             profile_dir,
             cache_dir,
             lmdb_dir,
+            tmp_cache_dir,
         })
     }
 
-    pub fn current() -> Result<Profile, Error> {
-        {
-            // create a new scope to drop the read lock before we try to create a new profile if it doesn't exist
+    fn create_if_missing() -> Result<(), Error> {
+        let exists = {
             let current = CURRENT.read().unwrap();
-            if current.is_some() {
-                return Ok(current.as_ref().unwrap().clone());
-            }
+            current.is_some()
+        };
+
+        if !exists {
+            let profile = Profile::new()?;
+            let mut w = CURRENT.write().unwrap();
+            *w = Some(profile);
         }
-        let created = Profile::new()?;
+
+        Ok(())
+    }
+
+    pub fn base_dir() -> Result<PathBuf, Error> {
+        Self::create_if_missing()?;
+        Ok(CURRENT.read().unwrap().as_ref().unwrap().base_dir.clone())
+    }
+
+    pub fn cache_dir(tmp: bool) -> Result<PathBuf, Error> {
+        Self::create_if_missing()?;
+        if tmp {
+            Ok(CURRENT
+                .read()
+                .unwrap()
+                .as_ref()
+                .unwrap()
+                .tmp_cache_dir
+                .path()
+                .to_owned())
+        } else {
+            Ok(CURRENT.read().unwrap().as_ref().unwrap().cache_dir.clone())
+        }
+    }
+
+    pub fn profile_dir() -> Result<PathBuf, Error> {
+        Self::create_if_missing()?;
+        Ok(CURRENT
+            .read()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .profile_dir
+            .clone())
+    }
+
+    pub fn lmdb_dir() -> Result<PathBuf, Error> {
+        Self::create_if_missing()?;
+        Ok(CURRENT.read().unwrap().as_ref().unwrap().lmdb_dir.clone())
+    }
+
+    pub fn close() {
         let mut w = CURRENT.write().unwrap();
-        *w = Some(created.clone());
-        Ok(created)
+        *w = None;
     }
 }
 

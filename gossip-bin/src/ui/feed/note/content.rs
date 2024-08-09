@@ -210,9 +210,9 @@ pub(super) fn render_hyperlink(
 
     if let (Ok(url), Some(nurl)) = (url::Url::try_from(link), app.try_check_url(link)) {
         if is_image_url(&url) {
-            show_image_toggle(app, ui, nurl, privacy_issue);
+            show_image_toggle(app, ui, nurl, privacy_issue, note.volatile);
         } else if is_video_url(&url) {
-            show_video_toggle(app, ui, nurl, privacy_issue);
+            show_video_toggle(app, ui, nurl, privacy_issue, note.volatile);
         } else {
             crate::ui::widgets::break_anywhere_hyperlink_to(ui, link, link);
         }
@@ -366,7 +366,13 @@ fn is_video_url(url: &url::Url) -> bool {
         || lower.ends_with(".webm")
 }
 
-fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url, privacy_issue: bool) {
+fn show_image_toggle(
+    app: &mut GossipUi,
+    ui: &mut Ui,
+    url: Url,
+    privacy_issue: bool,
+    volatile: bool,
+) {
     let row_height = ui.cursor().height();
     let url_string = url.to_string();
     let mut show_link = true;
@@ -378,7 +384,7 @@ fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url, privacy_issue: b
         || (!read_setting!(show_media) && app.media_show_list.contains(&url));
 
     if show_image {
-        if let Some(response) = try_render_image(app, ui, url.clone()) {
+        if let Some(response) = try_render_image(app, ui, url.clone(), volatile) {
             show_link = false;
 
             // full-width toggle
@@ -438,9 +444,9 @@ fn show_image_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url, privacy_issue: b
 
 /// Try to fetch and render a piece of media
 ///  - return: true if successfully rendered, false otherwise
-fn try_render_image(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Response> {
+fn try_render_image(app: &mut GossipUi, ui: &mut Ui, url: Url, volatile: bool) -> Option<Response> {
     let mut response_return = None;
-    if let Some(media) = app.try_get_media(ui.ctx(), url.clone()) {
+    if let Some(media) = app.try_get_media(ui.ctx(), url.clone(), volatile) {
         let size = media_scale(
             app.media_full_width_list.contains(&url),
             ui,
@@ -480,7 +486,13 @@ fn try_render_image(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Respons
     response_return
 }
 
-fn show_video_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url, privacy_issue: bool) {
+fn show_video_toggle(
+    app: &mut GossipUi,
+    ui: &mut Ui,
+    url: Url,
+    privacy_issue: bool,
+    volatile: bool,
+) {
     let row_height = ui.cursor().height();
     let url_string = url.to_string();
     let mut show_link = true;
@@ -492,7 +504,7 @@ fn show_video_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url, privacy_issue: b
         || (!read_setting!(show_media) && app.media_show_list.contains(&url));
 
     if show_video {
-        if let Some(response) = try_render_video(app, ui, url.clone()) {
+        if let Some(response) = try_render_video(app, ui, url.clone(), volatile) {
             show_link = false;
 
             // full-width toggle
@@ -554,10 +566,10 @@ fn show_video_toggle(app: &mut GossipUi, ui: &mut Ui, url: Url, privacy_issue: b
 }
 
 #[cfg(feature = "video-ffmpeg")]
-fn try_render_video(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Response> {
+fn try_render_video(app: &mut GossipUi, ui: &mut Ui, url: Url, volatile: bool) -> Option<Response> {
     let mut response_return = None;
     let show_full_width = app.media_full_width_list.contains(&url);
-    if let Some(player_ref) = app.try_get_player(ui.ctx(), url.clone()) {
+    if let Some(player_ref) = app.try_get_player(ui.ctx(), url.clone(), volatile) {
         if let Ok(mut player) = player_ref.try_borrow_mut() {
             let size = media_scale(
                 show_full_width,
@@ -595,7 +607,12 @@ fn try_render_video(app: &mut GossipUi, ui: &mut Ui, url: Url) -> Option<Respons
 }
 
 #[cfg(not(feature = "video-ffmpeg"))]
-fn try_render_video(_app: &mut GossipUi, _ui: &mut Ui, _url: Url) -> Option<Response> {
+fn try_render_video(
+    _app: &mut GossipUi,
+    _ui: &mut Ui,
+    _url: Url,
+    _volatile: bool,
+) -> Option<Response> {
     None
 }
 

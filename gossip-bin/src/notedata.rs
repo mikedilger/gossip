@@ -85,6 +85,9 @@ pub(crate) struct NoteData {
 
     /// Bookmarked
     pub bookmarked: bool,
+
+    /// Volatile
+    pub volatile: bool,
 }
 
 impl NoteData {
@@ -279,6 +282,8 @@ impl NoteData {
 
         let bookmarked = GLOBALS.current_bookmarks.read().contains(&event.id);
 
+        let volatile = GLOBALS.storage.event_is_volatile(event.id);
+
         NoteData {
             event,
             delegation,
@@ -298,6 +303,7 @@ impl NoteData {
             direct_message,
             encryption,
             bookmarked,
+            volatile,
         }
     }
 

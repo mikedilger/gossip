@@ -69,7 +69,7 @@ impl Media {
     /// Call it again later to try to pick up the result.
     ///
     /// FIXME: this API doesn't serve async clients well.
-    pub fn get_image(&self, url: &Url) -> Option<RgbaImage> {
+    pub fn get_image(&self, url: &Url, use_temp_cache: bool) -> Option<RgbaImage> {
         // If we have it, hand it over (we won't need a copy anymore)
         if let Some(th) = self.image_temp.remove(url) {
             return Some(th.1);
@@ -80,7 +80,7 @@ impl Media {
             return None; // will recover after processing completes
         }
 
-        match self.get_data(url) {
+        match self.get_data(url, use_temp_cache) {
             Some(bytes) => {
                 // Finish this later (spawn)
                 let aurl = url.to_owned();
@@ -123,7 +123,7 @@ impl Media {
     /// Call it again later to try to pick up the result.
     ///
     /// FIXME: this API doesn't serve async clients well.
-    pub fn get_data(&self, url: &Url) -> Option<Vec<u8>> {
+    pub fn get_data(&self, url: &Url, use_temp_cache: bool) -> Option<Vec<u8>> {
         // If it failed before, error out now
         if self
             .failed_media
@@ -146,6 +146,7 @@ impl Media {
         match GLOBALS.fetcher.try_get(
             url,
             Duration::from_secs(60 * 60 * GLOBALS.storage.read_setting_media_becomes_stale_hours()),
+            use_temp_cache,
         ) {
             Ok(None) => None,
             Ok(Some(bytes)) => {

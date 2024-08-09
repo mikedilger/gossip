@@ -17,17 +17,19 @@ use std::time::{Duration, SystemTime};
 
 #[derive(Copy, Clone, Debug)]
 enum FetchState {
-    Queued,
-    QueuedStale, // Queued, only fetching because cache is stale
-    InFlight,
+    Queued(bool), // Queued, and whether we are using the temporary cache
+    QueuedStale,  // Queued, only fetching because cache is stale (permanent cache)
+    InFlight,     // InFlight, and whether we are using the temporary cache
     Failed,
-    // If it succeeds, it is removed entirely.
+    // If it succeeds, it's fetch state is removed entirely from our url map
 }
 
 /// System that fetches HTTP resources
 #[derive(Debug, Default)]
 pub struct Fetcher {
     cache_dir: RwLock<PathBuf>,
+    tmp_cache_dir: RwLock<PathBuf>,
+
     client: RwLock<Option<Client>>,
 
     // Here is where we store the current state of each URL being fetched
@@ -48,8 +50,10 @@ impl Fetcher {
     }
 
     pub(crate) fn init() -> Result<(), Error> {
-        // Setup the cache directory
-        *GLOBALS.fetcher.cache_dir.write().unwrap() = Profile::current()?.cache_dir;
+        // Copy profile directories so we don't have to deal with the rare
+        // initialization error every time we use them
+        *GLOBALS.fetcher.cache_dir.write().unwrap() = Profile::cache_dir(false)?;
+        *GLOBALS.fetcher.tmp_cache_dir.write().unwrap() = Profile::cache_dir(true)?;
 
         // Create client
         let connect_timeout = std::time::Duration::new(
@@ -80,7 +84,7 @@ impl Fetcher {
             .unwrap()
             .iter()
             .filter(|(_u, r)| {
-                matches!(r, FetchState::Queued) || matches!(r, FetchState::QueuedStale)
+                matches!(r, FetchState::Queued(_)) || matches!(r, FetchState::QueuedStale)
             })
             .count()
     }
@@ -111,7 +115,15 @@ impl Fetcher {
         let mut futures = FuturesUnordered::new();
 
         for (url, state) in self.urls.read().unwrap().iter() {
-            if matches!(state, FetchState::Queued) || matches!(state, FetchState::QueuedStale) {
+            let (doit, use_temp_cache) = if let FetchState::Queued(use_temp_cache) = state {
+                (true, *use_temp_cache)
+            } else if matches!(state, FetchState::QueuedStale) {
+                (true, false)
+            } else {
+                (false, false)
+            };
+
+            if doit {
                 if let Some(host) = self.host(url) {
                     {
                         let mut penalty_box = self.penalty_box.write().unwrap();
@@ -132,7 +144,7 @@ impl Fetcher {
 
                     count += 1;
                     self.increment_host_load(&host);
-                    futures.push(self.fetch(url.clone()));
+                    futures.push(self.fetch(url.clone(), use_temp_cache));
                 }
             }
         }
@@ -160,7 +172,12 @@ impl Fetcher {
     /// If you call it over and over rapidly (e.g. from the UI), it will read from the filesystem
     /// over and over again, which is bad. So the UI caller should have it's own means of
     /// caching the results from this call.
-    pub(crate) fn try_get(&self, url: &Url, max_age: Duration) -> Result<Option<Vec<u8>>, Error> {
+    pub(crate) fn try_get(
+        &self,
+        url: &Url,
+        max_age: Duration,
+        use_temp_cache: bool,
+    ) -> Result<Option<Vec<u8>>, Error> {
         // FIXME - this function is called synchronously, but it makes several
         //         file system calls. This might be pushing the limits of what we should
         //         be blocking on.
@@ -180,7 +197,7 @@ impl Fetcher {
                 )
                 .into());
             }
-            Some(FetchState::Queued) | Some(FetchState::QueuedStale) => {
+            Some(FetchState::Queued(_)) | Some(FetchState::QueuedStale) => {
                 tracing::trace!("FETCH {url}: Already queued.");
                 return Ok(None);
             }
@@ -188,44 +205,54 @@ impl Fetcher {
         }
 
         // Check if a cached file exists and is fresh enough
-        let cache_file = self.cache_file(url);
         let mut stale = false;
-        match fs::metadata(cache_file.as_path()) {
-            Ok(md) => {
-                // We had a bug that put empty cache files in place (maybe we still have it).
-                // In any case, if the file is empty, don't honor it and wipe any etag
-                if md.len() == 0 {
-                    let etag_file = GLOBALS.fetcher.etag_file(url);
-                    let _ = fs::remove_file(etag_file);
-                } else {
-                    if let Ok(modified) = md.modified() {
-                        if let Ok(dur) = modified.elapsed() {
-                            if dur < max_age {
-                                match fs::read(cache_file.as_path()) {
-                                    Ok(contents) => {
-                                        tracing::debug!(
-                                            "FETCH {url}: Cache Hit age={}s",
-                                            dur.as_secs()
-                                        );
-                                        return Ok(Some(contents));
-                                    }
-                                    Err(e) => return Err(e.into()),
+
+        // Look in both permanent and temporary cache paths
+        let mut cache_file = self.cache_file(url, false);
+        let mut md: Result<fs::Metadata, std::io::Error> = fs::metadata(cache_file.as_path());
+        if let Err(e) = md {
+            if e.kind() != std::io::ErrorKind::NotFound {
+                tracing::info!("FETCH {url}: Failed: {e}");
+                return Err(e.into());
+            }
+            cache_file = self.cache_file(url, true);
+            md = fs::metadata(cache_file.as_path());
+            if let Err(ref e) = md {
+                if e.kind() != std::io::ErrorKind::NotFound {
+                    tracing::info!("FETCH {url}: Failed: {e}");
+                    return Err(md.unwrap_err().into());
+                }
+            }
+        }
+
+        // If we found it somewhere
+        if let Ok(metadata) = md {
+            // We had a bug that put empty cache files in place (maybe we still have it).
+            // In any case, if the file is empty, don't honor it and wipe any etag
+            if metadata.len() == 0 {
+                let etag_file = GLOBALS.fetcher.etag_file(url);
+                let _ = fs::remove_file(etag_file);
+            } else {
+                if let Ok(modified) = metadata.modified() {
+                    if let Ok(dur) = modified.elapsed() {
+                        if dur < max_age {
+                            match fs::read(cache_file.as_path()) {
+                                Ok(contents) => {
+                                    tracing::debug!(
+                                        "FETCH {url}: Cache Hit age={}s",
+                                        dur.as_secs()
+                                    );
+                                    return Ok(Some(contents));
                                 }
-                            } else {
-                                stale = true;
+                                Err(e) => return Err(e.into()),
                             }
+                        } else {
+                            stale = true;
                         }
                     }
                 }
-                // fall through
             }
-            Err(e) => {
-                // NotFound falls through
-                if e.kind() != std::io::ErrorKind::NotFound {
-                    tracing::info!("FETCH {url}: Failed: {e}");
-                    return Err(e.into());
-                }
-            }
+            // fall through
         }
 
         // We can't fetch as we are not async and we don't want to block the caller.
@@ -233,7 +260,7 @@ impl Fetcher {
         let state = if stale {
             FetchState::QueuedStale
         } else {
-            FetchState::Queued
+            FetchState::Queued(use_temp_cache)
         };
         self.urls.write().unwrap().insert(url.to_owned(), state);
 
@@ -242,7 +269,7 @@ impl Fetcher {
         Ok(None)
     }
 
-    async fn fetch(&self, url: Url) {
+    async fn fetch(&self, url: Url, use_temp_cache: bool) {
         // Do not fetch if offline
         if GLOBALS.storage.read_setting_offline() {
             tracing::debug!("FETCH {url}: Failed: offline mode");
@@ -251,7 +278,11 @@ impl Fetcher {
         }
 
         let etag_file = GLOBALS.fetcher.etag_file(&url);
-        let cache_file = GLOBALS.fetcher.cache_file(&url);
+        let cache_file = if use_temp_cache {
+            GLOBALS.fetcher.cache_file(&url, true)
+        } else {
+            GLOBALS.fetcher.cache_file(&url, false)
+        };
 
         let etag: Option<Vec<u8>> = match tokio::fs::read(etag_file.as_path()).await {
             Ok(contents) => {
@@ -270,7 +301,7 @@ impl Fetcher {
                 .read()
                 .unwrap()
                 .get(&url)
-                .unwrap_or(&FetchState::Queued),
+                .unwrap_or(&FetchState::Queued(use_temp_cache)),
             FetchState::QueuedStale
         );
 
@@ -345,7 +376,7 @@ impl Fetcher {
                     self.urls
                         .write()
                         .unwrap()
-                        .insert(url.clone(), FetchState::Queued);
+                        .insert(url.clone(), FetchState::Queued(use_temp_cache));
                 }
             }
             if sinbin_secs > 0 {
@@ -497,7 +528,7 @@ impl Fetcher {
         self.urls.write().unwrap().remove(&url);
     }
 
-    fn cache_file(&self, url: &Url) -> PathBuf {
+    fn cache_file(&self, url: &Url, tmp: bool) -> PathBuf {
         // Hash the url into a SHA256 hex string
         let hash = {
             let mut hasher = sha2::Sha256::new();
@@ -506,7 +537,11 @@ impl Fetcher {
             hex::encode(result)
         };
 
-        let mut cache_file = self.cache_dir.read().unwrap().clone();
+        let mut cache_file = if tmp {
+            self.tmp_cache_dir.read().unwrap().clone()
+        } else {
+            self.cache_dir.read().unwrap().clone()
+        };
         cache_file.push(hash);
         cache_file
     }
@@ -540,7 +575,7 @@ impl Fetcher {
     }
 
     fn etag_file(&self, url: &Url) -> PathBuf {
-        self.cache_file(url).with_extension("etag")
+        self.cache_file(url, false).with_extension("etag")
     }
 
     fn fetch_host_load(&self, host: &str) -> usize {
