@@ -1860,7 +1860,12 @@ impl GossipUi {
         GLOBALS.media.has_failed(&unchecked_url)
     }
 
-    pub fn try_get_media(&mut self, ctx: &Context, url: Url) -> Option<TextureHandle> {
+    pub fn try_get_media(
+        &mut self,
+        ctx: &Context,
+        url: Url,
+        volatile: bool,
+    ) -> Option<TextureHandle> {
         // Do not keep retrying if failed
         if GLOBALS.media.has_failed(&url.to_unchecked_url()) {
             return None;
@@ -1871,7 +1876,7 @@ impl GossipUi {
             return Some(th.to_owned());
         }
 
-        if let Some(rgba_image) = GLOBALS.media.get_image(&url, false) {
+        if let Some(rgba_image) = GLOBALS.media.get_image(&url, volatile) {
             let current_size = [rgba_image.width() as usize, rgba_image.height() as usize];
             let pixels = rgba_image.as_flat_samples();
             let color_image = ColorImage::from_rgba_unmultiplied(current_size, pixels.as_slice());
@@ -1892,6 +1897,7 @@ impl GossipUi {
         &mut self,
         ctx: &Context,
         url: Url,
+        volatile: bool,
     ) -> Option<Rc<RefCell<egui_video::Player>>> {
         // Do not keep retrying if failed
         if GLOBALS.media.has_failed(&url.to_unchecked_url()) {
@@ -1903,7 +1909,7 @@ impl GossipUi {
             return Some(player.to_owned());
         }
 
-        if let Some(bytes) = GLOBALS.media.get_data(&url) {
+        if let Some(bytes) = GLOBALS.media.get_data(&url, volatile) {
             if let Ok(player) = Player::new_from_bytes(ctx, &bytes) {
                 if let Some(audio) = &mut self.audio_device {
                     if let Ok(player) = player.with_audio(audio) {
