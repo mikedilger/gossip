@@ -60,7 +60,7 @@ parking_lot = "0.12"
 paste = "1.0"
 rand = "0.8"
 regex = "1.10"
-reqwest = { version = "0.11", default-features=false, features = ["brotli", "deflate", "gzip", "json"] }
+reqwest = { version = "0.12", default-features=false, features = ["brotli", "deflate", "gzip", "json"] }
 resvg = "0.35.0"
 rhai = { version = "1.15", features = [ "std", "sync" ]}
 sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", rev = "f2f1e29a416bcc22f2faf411866db2c8d9536308", features = ["bundled"], optional = true }
