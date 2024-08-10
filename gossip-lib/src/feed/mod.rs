@@ -388,7 +388,7 @@ impl Feed {
             }
             FeedKind::Global => {
                 let dismissed = GLOBALS.dismissed.read().await.clone();
-                let screen = |e: &Event| basic_screen(e, false, false, &dismissed);
+                let screen = |e: &Event| basic_screen(e, true, false, &dismissed);
                 let events = GLOBALS.storage.load_volatile_events(screen);
                 *self.current_feed_events.write() = events.iter().map(|e| e.id).collect();
             }
