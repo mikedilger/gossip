@@ -7231,8 +7231,3 @@ dependencies = [
  "quote",
  "syn 1.0.109",
 ]
-
-[[patch.unused]]
-name = "sdl2"
-version = "0.36.0"
-source = "git+https://github.com/Rust-SDL2/rust-sdl2?rev=f2f1e29a416bcc22f2faf411866db2c8d9536308#f2f1e29a416bcc22f2faf411866db2c8d9536308"
