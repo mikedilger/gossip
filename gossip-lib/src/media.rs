@@ -9,7 +9,6 @@ use std::collections::HashSet;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 use tokio::sync::RwLock;
-use usvg::TreeParsing;
 
 /// System that processes media fetched from the internet
 pub struct Media {
@@ -204,7 +203,7 @@ pub(crate) fn load_image_bytes(
     } else {
         let opt = usvg::Options::default();
         let rtree = usvg::Tree::from_data(image_bytes, &opt)?;
-        let pixmap_size = rtree.size.to_int_size();
+        let pixmap_size = rtree.size().to_int_size();
         let [w, h] = if force_resize
             || pixmap_size.width() > max_image_side
             || pixmap_size.height() > max_image_side
@@ -215,8 +214,7 @@ pub(crate) fn load_image_bytes(
         };
         let mut pixmap = tiny_skia::Pixmap::new(w, h)
             .ok_or::<Error>(ErrorKind::General("Invalid image size".to_owned()).into())?;
-        let tree = resvg::Tree::from_usvg(&rtree);
-        tree.render(Default::default(), &mut pixmap.as_mut());
+        resvg::render(&rtree, Default::default(), &mut pixmap.as_mut());
         let image = RgbaImage::from_raw(w, h, pixmap.take())
             .ok_or::<Error>(ErrorKind::ImageFailure.into())?;
         Ok(image)
