@@ -61,7 +61,7 @@ paste = "1.0"
 rand = "0.8"
 regex = "1.10"
 reqwest = { version = "0.12", default-features=false, features = ["brotli", "deflate", "gzip", "json"] }
-resvg = "0.35.0"
+resvg = "0.43"
 rhai = { version = "1.15", features = [ "std", "sync" ]}
 sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", rev = "f2f1e29a416bcc22f2faf411866db2c8d9536308", features = ["bundled"], optional = true }
 serde = { version = "1.0", features = ["derive"] }
@@ -70,13 +70,13 @@ sha2 = "0.10"
 speedy = "0.8.7"
 tempdir = "0.3"
 textnonce = "1"
-tiny-skia = "0.10.0"
+tiny-skia = "0.11"
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 tokio-tungstenite = { version = "0.21", default-features = false, features = [ "connect", "handshake" ] }
 tungstenite = { version = "0.21", default-features = false }
 url = "2.5"
-usvg = "0.35.0"
+usvg = "0.43"
 zeroize = "1.7"
 
 [target.'cfg(windows)'.dependencies]
