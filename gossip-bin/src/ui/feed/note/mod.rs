@@ -87,10 +87,8 @@ pub(super) fn render_note(
                 return;
             }
 
-            let viewed = match GLOBALS.storage.is_event_viewed(note_data.event.id) {
-                Ok(answer) => answer,
-                _ => false,
-            };
+            let viewed = matches!(app.page, Page::Feed(FeedKind::Global)) ||
+                GLOBALS.storage.is_event_viewed(note_data.event.id).unwrap_or(false);
 
             let is_new = read_setting!(highlight_unread_events) && !viewed;
 
