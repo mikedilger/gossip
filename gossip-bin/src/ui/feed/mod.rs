@@ -2,6 +2,7 @@ use super::{widgets, GossipUi, Page};
 use eframe::egui::{self, Align, Rect};
 use egui::{Context, RichText, Ui, Vec2};
 use gossip_lib::comms::ToOverlordMessage;
+use gossip_lib::relay::Relay;
 use gossip_lib::DmChannel;
 use gossip_lib::FeedKind;
 use gossip_lib::GLOBALS;
@@ -28,6 +29,18 @@ pub(super) struct Feeds {
 }
 
 pub(super) fn enter_feed(app: &mut GossipUi, ctx: &Context, kind: FeedKind) {
+    if matches!(kind, FeedKind::Global) {
+        app.global_relays = Relay::choose_relay_urls(Relay::GLOBAL, |_| true)
+            .unwrap_or(vec![])
+            .into_iter()
+            .map(|u| u.into_string())
+            .collect();
+        if app.global_relays.is_empty() {
+            app.global_relays
+                .push("You haven't configured any global relays".to_string());
+        }
+    }
+
     if let FeedKind::Thread {
         id: _,
         referenced_by: _,
@@ -253,6 +266,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                 ui.heading("GLOBAL");
                 recompute_btn(ui);
             });
+            ui.label(app.global_relays.join(", "));
             ui.add_space(6.0);
 
             let feed = GLOBALS.feed.get_feed_events();

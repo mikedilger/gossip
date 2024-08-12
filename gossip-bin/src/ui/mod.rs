@@ -452,6 +452,7 @@ struct GossipUi {
 
     // Feeds
     feeds: feed::Feeds,
+    global_relays: Vec<String>,
 
     // General Data
     assets: Assets,
@@ -707,6 +708,7 @@ impl GossipUi {
             submenu_ids,
             settings_tab: SettingsTab::Id,
             feeds: feed::Feeds::default(),
+            global_relays: Vec::new(),
             // load Assets, but load again when DPI changes
             assets,
             about: About::new(),
