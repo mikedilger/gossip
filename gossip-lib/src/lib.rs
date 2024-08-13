@@ -90,6 +90,8 @@ pub use fetcher::Fetcher;
 
 mod filter;
 
+mod filter_set;
+
 mod globals;
 pub use globals::{Globals, GLOBALS};
 
