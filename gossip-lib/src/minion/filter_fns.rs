@@ -137,21 +137,6 @@ pub fn global_feed(range: FeedRange) -> Vec<Filter> {
     }]
 }
 
-pub fn augments(ids: &[IdHex]) -> Vec<Filter> {
-    let event_kinds = crate::feed::feed_augment_event_kinds();
-
-    let filter = {
-        let mut filter = Filter {
-            kinds: event_kinds,
-            ..Default::default()
-        };
-        filter.set_tag_values('e', ids.iter().map(|id| id.to_string()).collect());
-        filter
-    };
-
-    vec![filter]
-}
-
 // This FORCES the fetch of relay lists without checking if we need them.
 // See also relay_lists() which checks if they are needed first.
 pub fn discover(pubkeys: &[PublicKey]) -> Vec<Filter> {

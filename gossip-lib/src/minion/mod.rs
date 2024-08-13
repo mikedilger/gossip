@@ -637,9 +637,6 @@ impl Minion {
                     self.unsubscribe(&handle).await?;
                 }
             }
-            ToMinionPayloadDetail::SubscribeAugments(ids) => {
-                self.subscribe_augments(message.job_id, ids).await?;
-            }
             ToMinionPayloadDetail::SubscribeGeneralFeed(pubkeys, anchor) => {
                 self.subscribe_general_feed(message.job_id, pubkeys, anchor)
                     .await?;
@@ -699,14 +696,6 @@ impl Minion {
                 self.unsubscribe("root_replies").await?;
             }
         }
-
-        Ok(())
-    }
-
-    async fn subscribe_augments(&mut self, job_id: u64, ids: Vec<IdHex>) -> Result<(), Error> {
-        let filters = filter_fns::augments(&ids);
-
-        self.subscribe(filters, "temp_augments", job_id).await?;
 
         Ok(())
     }

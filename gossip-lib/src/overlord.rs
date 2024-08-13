@@ -2557,9 +2557,7 @@ impl Overlord {
                 reason: RelayConnectionReason::Config,
                 payload: ToMinionPayload {
                     job_id: rand::random::<u64>(),
-                    detail: ToMinionPayloadDetail::Subscribe(
-                        FilterSet::Config
-                    ),
+                    detail: ToMinionPayloadDetail::Subscribe(FilterSet::Config),
                 },
             }],
         );
@@ -3080,7 +3078,7 @@ impl Overlord {
                     reason: RelayConnectionReason::FetchAugments,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeAugments(ids_hex),
+                        detail: ToMinionPayloadDetail::Subscribe(FilterSet::Augments(ids_hex)),
                     },
                 }],
             );
