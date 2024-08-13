@@ -1,4 +1,5 @@
 use crate::dm_channel::DmChannel;
+use crate::filter_set::FilterSet;
 use crate::misc::Private;
 use crate::nip46::{Approval, ParsedCommand};
 use crate::people::PersonList;
@@ -262,6 +263,8 @@ pub(crate) enum ToMinionPayloadDetail {
     FetchNAddr(NAddr),
     PostEvents(Vec<Event>),
     Shutdown,
+    Subscribe(FilterSet),
+    Unsubscribe(FilterSet),
     SubscribeAugments(Vec<IdHex>),
     SubscribeConfig,
     SubscribeDiscover(Vec<PublicKey>),

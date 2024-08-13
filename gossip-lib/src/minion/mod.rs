@@ -7,7 +7,7 @@ mod subscription_map;
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage};
 use crate::dm_channel::DmChannel;
 use crate::error::{Error, ErrorKind};
-use crate::filter_set::FeedRange;
+use crate::filter_set::{FeedRange, FilterSet};
 use crate::globals::GLOBALS;
 use crate::relay::Relay;
 use crate::{RunState, USER_AGENT};
@@ -617,6 +617,40 @@ impl Minion {
             ToMinionPayloadDetail::Shutdown => {
                 tracing::debug!("{}: Websocket listener shutting down", &self.url);
                 self.exiting = Some(MinionExitReason::GotShutdownMessage);
+            }
+            ToMinionPayloadDetail::Subscribe(filter_set) => {
+                let handle = filter_set.handle(message.job_id);
+
+                // Remember general_feed_keys for chunk updates
+                if let FilterSet::GeneralFeedFuture { pubkeys, .. } = &filter_set {
+                    self.general_feed_keys = pubkeys.clone();
+                }
+
+                // If we aren't running it already, OR if it can have duplicates
+                if !self.subscription_map.has(&handle) || filter_set.can_have_duplicates() {
+                    let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
+                    let filters = filter_set.filters(spamsafe);
+                    if !filters.is_empty() {
+                        self.subscribe(filters, &handle, message.job_id).await?;
+                    }
+                } else {
+                    // It does not allow duplicates and we are already running it,
+                    // but maybe we can save it for later...
+
+                    if let FilterSet::Metadata(pubkeys) = filter_set {
+                        // Save for later
+                        self.subscriptions_waiting_for_metadata
+                            .push((message.job_id, pubkeys));
+                    }
+                }
+            }
+            ToMinionPayloadDetail::Unsubscribe(filter_set) => {
+                let handles = self
+                    .subscription_map
+                    .get_all_handles_matching(filter_set.inner_handle());
+                for handle in handles {
+                    self.unsubscribe(&handle).await?;
+                }
             }
             ToMinionPayloadDetail::SubscribeAugments(ids) => {
                 self.subscribe_augments(message.job_id, ids).await?;
