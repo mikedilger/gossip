@@ -2601,7 +2601,9 @@ impl Overlord {
                 reason: RelayConnectionReason::Discovery,
                 payload: ToMinionPayload {
                     job_id: rand::random::<u64>(),
-                    detail: ToMinionPayloadDetail::SubscribeDiscover(pubkeys.clone()),
+                    detail: ToMinionPayloadDetail::Subscribe(
+                        FilterSet::Discover(pubkeys.clone())
+                    ),
                 },
             }],
         );

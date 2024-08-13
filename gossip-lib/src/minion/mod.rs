@@ -644,9 +644,6 @@ impl Minion {
             ToMinionPayloadDetail::SubscribeInbox(anchor) => {
                 self.subscribe_inbox(message.job_id, anchor).await?;
             }
-            ToMinionPayloadDetail::SubscribeDiscover(pubkeys) => {
-                self.subscribe_discover(message.job_id, pubkeys).await?;
-            }
             ToMinionPayloadDetail::SubscribeGiftwraps(anchor) => {
                 self.subscribe_giftwraps(message.job_id, anchor).await?;
             }
@@ -778,22 +775,6 @@ impl Minion {
         }
 
         self.subscribe(filters, "inbox_feed", job_id).await?;
-
-        Ok(())
-    }
-
-    // Discover relay lists
-    async fn subscribe_discover(
-        &mut self,
-        job_id: u64,
-        pubkeys: Vec<PublicKey>,
-    ) -> Result<(), Error> {
-        if !pubkeys.is_empty() {
-            let filters = filter_fns::discover(&pubkeys);
-
-            self.subscribe(filters, "temp_discover_feed", job_id)
-                .await?;
-        }
 
         Ok(())
     }
