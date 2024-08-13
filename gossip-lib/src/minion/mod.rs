@@ -1,5 +1,4 @@
 mod filter_fns;
-use filter_fns::FeedRange;
 
 mod handle_websocket;
 mod subscription;
@@ -8,6 +7,7 @@ mod subscription_map;
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage};
 use crate::dm_channel::DmChannel;
 use crate::error::{Error, ErrorKind};
+use crate::filter_set::FeedRange;
 use crate::globals::GLOBALS;
 use crate::relay::Relay;
 use crate::{RunState, USER_AGENT};

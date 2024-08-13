@@ -1,29 +1,7 @@
 use crate::dm_channel::DmChannel;
+use crate::filter_set::FeedRange;
 use crate::globals::GLOBALS;
 use nostr_types::{EventKind, Filter, IdHex, NAddr, PublicKey, PublicKeyHex, Tag, Unixtime};
-
-pub enum FeedRange {
-    // Long-term subscription for anything after the given time
-    After {
-        since: Unixtime,
-    },
-
-    // Short-term subscription for up to limit events preceding the until time
-    #[allow(dead_code)]
-    ChunkBefore {
-        until: Unixtime,
-        limit: usize,
-    },
-}
-
-impl FeedRange {
-    pub fn since_until_limit(&self) -> (Option<Unixtime>, Option<Unixtime>, Option<usize>) {
-        match *self {
-            FeedRange::After { since } => (Some(since), None, None),
-            FeedRange::ChunkBefore { until, limit } => (None, Some(until), Some(limit)),
-        }
-    }
-}
 
 pub fn general_feed(authors: &[PublicKey], range: FeedRange) -> Vec<Filter> {
     let mut filters: Vec<Filter> = Vec::new();
