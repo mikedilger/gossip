@@ -266,7 +266,6 @@ pub(crate) enum ToMinionPayloadDetail {
     Subscribe(FilterSet),
     Unsubscribe(FilterSet),
     SubscribeAugments(Vec<IdHex>),
-    SubscribeConfig,
     SubscribeDiscover(Vec<PublicKey>),
     SubscribeGeneralFeed(Vec<PublicKey>, Unixtime),
     SubscribeGiftwraps(Unixtime),

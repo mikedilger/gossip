@@ -152,57 +152,6 @@ pub fn augments(ids: &[IdHex]) -> Vec<Filter> {
     vec![filter]
 }
 
-pub fn config(since: Unixtime) -> Vec<Filter> {
-    let mut filters: Vec<Filter> = Vec::new();
-
-    if let Some(pubkey) = GLOBALS.identity.public_key() {
-        let pkh: PublicKeyHex = pubkey.into();
-
-        if GLOBALS.identity.is_unlocked() {
-            // GiftWraps to me, recent only
-            let giftwrap_since = Unixtime(since.0 - 60 * 60 * 24 * 7);
-            let giftwrap_filter = {
-                let mut f = Filter {
-                    kinds: vec![EventKind::GiftWrap],
-                    since: Some(giftwrap_since),
-                    ..Default::default()
-                };
-                f.set_tag_values('p', vec![pkh.to_string()]);
-                f
-            };
-            filters.push(giftwrap_filter);
-        }
-
-        // Actual config stuff
-        filters.push(Filter {
-            authors: vec![pkh.clone()],
-            kinds: vec![
-                EventKind::Metadata,
-                //EventKind::RecommendRelay,
-                EventKind::ContactList,
-                EventKind::MuteList,
-                EventKind::FollowSets,
-                EventKind::RelayList,
-                EventKind::DmRelayList,
-                EventKind::BookmarkList,
-            ],
-            // these are all replaceable, no since required
-            ..Default::default()
-        });
-
-        // Events I posted recently, including feed_displayable and
-        //  augments (deletions, reactions, timestamp, label,reporting, and zap)
-        filters.push(Filter {
-            authors: vec![pkh],
-            kinds: crate::feed::feed_related_event_kinds(false), // not DMs
-            since: Some(since),
-            ..Default::default()
-        });
-    }
-
-    filters
-}
-
 // This FORCES the fetch of relay lists without checking if we need them.
 // See also relay_lists() which checks if they are needed first.
 pub fn discover(pubkeys: &[PublicKey]) -> Vec<Filter> {

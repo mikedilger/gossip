@@ -5,6 +5,7 @@ use crate::comms::{
 use crate::dm_channel::DmChannel;
 use crate::error::{Error, ErrorKind};
 use crate::feed::FeedKind;
+use crate::filter_set::FilterSet;
 use crate::globals::GLOBALS;
 use crate::manager;
 use crate::minion::MinionExitReason;
@@ -2556,7 +2557,9 @@ impl Overlord {
                 reason: RelayConnectionReason::Config,
                 payload: ToMinionPayload {
                     job_id: rand::random::<u64>(),
-                    detail: ToMinionPayloadDetail::SubscribeConfig,
+                    detail: ToMinionPayloadDetail::Subscribe(
+                        FilterSet::Config
+                    ),
                 },
             }],
         );

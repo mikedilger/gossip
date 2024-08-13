@@ -647,9 +647,6 @@ impl Minion {
             ToMinionPayloadDetail::SubscribeInbox(anchor) => {
                 self.subscribe_inbox(message.job_id, anchor).await?;
             }
-            ToMinionPayloadDetail::SubscribeConfig => {
-                self.subscribe_config(message.job_id).await?;
-            }
             ToMinionPayloadDetail::SubscribeDiscover(pubkeys) => {
                 self.subscribe_discover(message.job_id, pubkeys).await?;
             }
@@ -792,21 +789,6 @@ impl Minion {
         }
 
         self.subscribe(filters, "inbox_feed", job_id).await?;
-
-        Ok(())
-    }
-
-    // Subscribe to the user's config (config, DMs, etc) which is on their own write relays
-    async fn subscribe_config(&mut self, job_id: u64) -> Result<(), Error> {
-        let since = Unixtime::now() - Duration::from_secs(60 * 60 * 24 * 15);
-
-        let filters = filter_fns::config(since);
-
-        if filters.is_empty() {
-            return Ok(());
-        } else {
-            self.subscribe(filters, "config_feed", job_id).await?;
-        }
 
         Ok(())
     }
