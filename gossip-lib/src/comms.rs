@@ -265,7 +265,6 @@ pub(crate) enum ToMinionPayloadDetail {
     Shutdown,
     Subscribe(FilterSet),
     Unsubscribe(FilterSet),
-    SubscribeGiftwraps(Unixtime),
     SubscribeGlobalFeed(Unixtime),
     SubscribeInbox(Unixtime),
     SubscribePersonFeed(PublicKey, Unixtime),

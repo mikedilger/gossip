@@ -1,7 +1,7 @@
 use crate::dm_channel::DmChannel;
 use crate::filter_set::FeedRange;
 use crate::globals::GLOBALS;
-use nostr_types::{EventKind, Filter, IdHex, NAddr, PublicKey, PublicKeyHex, Tag, Unixtime};
+use nostr_types::{EventKind, Filter, IdHex, NAddr, PublicKey, PublicKeyHex, Tag};
 
 pub fn inbox_feed(spamsafe: bool, range: FeedRange) -> Vec<Filter> {
     let mut filters: Vec<Filter> = Vec::new();
@@ -45,35 +45,6 @@ pub fn inbox_feed(spamsafe: bool, range: FeedRange) -> Vec<Filter> {
         filters.push(filter);
     }
 
-    filters
-}
-
-pub fn giftwraps(range: FeedRange) -> Vec<Filter> {
-    let mut filters: Vec<Filter> = Vec::new();
-    let (since, until, limit) = range.since_until_limit();
-    if let Some(pubkey) = GLOBALS.identity.public_key() {
-        let pkh: PublicKeyHex = pubkey.into();
-
-        // Giftwraps cannot be filtered by author so we have to take them regardless
-        // of the spamsafe designation of the relay.
-        //
-        // Sure, the TOTAL number of giftwraps being the limit will be MORE than we need,
-        // but since giftwraps get backdated, this is probably a good thing.
-        let filter = {
-            let mut filter = Filter {
-                kinds: vec![EventKind::GiftWrap],
-                // giftwraps may be dated 1 week in the past:
-                since: since.map(|u| Unixtime(*u - (3600 * 24 * 7))),
-                until,
-                limit,
-                ..Default::default()
-            };
-            let values = vec![pkh.to_string()];
-            filter.set_tag_values('p', values);
-            filter
-        };
-        filters.push(filter);
-    }
     filters
 }
 

@@ -640,9 +640,6 @@ impl Minion {
             ToMinionPayloadDetail::SubscribeInbox(anchor) => {
                 self.subscribe_inbox(message.job_id, anchor).await?;
             }
-            ToMinionPayloadDetail::SubscribeGiftwraps(anchor) => {
-                self.subscribe_giftwraps(message.job_id, anchor).await?;
-            }
             ToMinionPayloadDetail::SubscribeGlobalFeed(anchor) => {
                 self.subscribe_global_feed(message.job_id, anchor).await?;
             }
@@ -685,23 +682,6 @@ impl Minion {
                 self.unsubscribe("root_replies").await?;
             }
         }
-
-        Ok(())
-    }
-
-    async fn subscribe_giftwraps(&mut self, job_id: u64, after: Unixtime) -> Result<(), Error> {
-        // If we have already subscribed to giftwraps, do not resubscribe
-        if self.subscription_map.has("giftwraps") {
-            return Ok(());
-        }
-
-        let filters = filter_fns::giftwraps(FeedRange::After { since: after });
-
-        if filters.is_empty() {
-            return Ok(());
-        }
-
-        self.subscribe(filters, "giftwraps", job_id).await?;
 
         Ok(())
     }
