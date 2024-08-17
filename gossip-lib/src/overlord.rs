@@ -118,7 +118,8 @@ impl Overlord {
         tracing::info!("Overlord waiting for minions to all shutdown");
 
         // Listen on self.minions until it is empty
-        let mut minions = GLOBALS.minions.write();
+        use std::ops::DerefMut;
+        let mut minions = std::mem::take(GLOBALS.minions.write().deref_mut());
         while !minions.is_empty() {
             tokio::select! {
                 _ = tokio::time::sleep(Duration::from_secs(10)) => {

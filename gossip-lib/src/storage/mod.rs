@@ -1946,7 +1946,7 @@ impl Storage {
                         continue;
                     }
                 }
-                let symbol: char = if reaction == "" {
+                let symbol: char = if reaction.is_empty() {
                     '+'
                 } else if reaction.starts_with(":") && reaction.ends_with(":") {
                     '□' // placeholder for custom reaction that we don't support

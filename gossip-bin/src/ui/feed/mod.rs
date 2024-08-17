@@ -31,7 +31,7 @@ pub(super) struct Feeds {
 pub(super) fn enter_feed(app: &mut GossipUi, ctx: &Context, kind: FeedKind) {
     if matches!(kind, FeedKind::Global) {
         app.global_relays = Relay::choose_relay_urls(Relay::GLOBAL, |_| true)
-            .unwrap_or(vec![])
+            .unwrap_or_default()
             .into_iter()
             .map(|u| u.into_string())
             .collect();

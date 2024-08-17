@@ -165,6 +165,7 @@ impl Relay3 {
     }
 
     pub fn should_avoid(&self) -> bool {
+        #[allow(clippy::if_same_then_else)]
         if self.rank == 0 {
             true
         } else if GLOBALS
@@ -212,10 +213,10 @@ impl Relay3 {
         //   3 = 0.33333
         //   5 = 0.55555
         //   9 = 1.0
-        score = score * self.rank as f32 / 9.0;
+        score *= self.rank as f32 / 9.0;
 
         // Adjust by success rate (max penalty of cutting in half)
-        score = score * (0.5 + 0.5 * self.success_rate());
+        score *= 0.5 + 0.5 * self.success_rate();
 
         // We don't penalize low-attempt relays even as they are less reliable
         // because we want to let new relays establish.

@@ -243,6 +243,7 @@ impl<'t> TextEdit<'t> {
                 let response = &output.response;
 
                 let (color, hover) = if ui.visuals().dark_mode {
+                    #[allow(clippy::if_same_then_else)]
                     if !response.sense.interactive() {
                         (theme.neutral_700(), theme.neutral_700())
                     } else if response.is_pointer_button_down_on() || response.has_focus() {
@@ -253,6 +254,7 @@ impl<'t> TextEdit<'t> {
                         (theme.neutral_700(), theme.neutral_700())
                     }
                 } else {
+                    #[allow(clippy::if_same_then_else)]
                     if !response.sense.interactive() {
                         (theme.neutral_300(), theme.neutral_300())
                     } else if response.is_pointer_button_down_on() || response.has_focus() {
