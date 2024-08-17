@@ -18,8 +18,8 @@ use http::uri::{Parts, Scheme};
 use http::Uri;
 use mime::Mime;
 use nostr_types::{
-    ClientMessage, EventKind, EventReference, Filter, Id, IdHex, NAddr, PreEvent, PublicKey,
-    PublicKeyHex, RelayInformationDocument, RelayUrl, Tag, Unixtime,
+    ClientMessage, EventKind, Filter, Id, IdHex, NAddr, PreEvent, PublicKey, PublicKeyHex,
+    RelayInformationDocument, RelayUrl, Tag, Unixtime,
 };
 use reqwest::Response;
 use std::borrow::Cow;
@@ -646,9 +646,6 @@ impl Minion {
             ToMinionPayloadDetail::SubscribeReplies(main) => {
                 self.subscribe_replies(message.job_id, main).await?;
             }
-            ToMinionPayloadDetail::SubscribeRootReplies(main) => {
-                self.subscribe_root_replies(message.job_id, main).await?;
-            }
             ToMinionPayloadDetail::TempSubscribePersonFeedChunk { pubkey, anchor } => {
                 self.temp_subscribe_person_feed_chunk(message.job_id, pubkey, anchor)
                     .await?;
@@ -810,24 +807,6 @@ impl Minion {
         for handle in handles {
             self.unsubscribe(&handle).await?;
         }
-        Ok(())
-    }
-
-    async fn subscribe_root_replies(
-        &mut self,
-        job_id: u64,
-        main: EventReference,
-    ) -> Result<(), Error> {
-        // NOTE we do not unsubscribe to the general feed
-
-        // Replies
-        let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
-        let filters = match main {
-            EventReference::Id { id, .. } => filter_fns::replies(id.into(), spamsafe),
-            EventReference::Addr(ref eaddr) => filter_fns::replies_to_eaddr(eaddr, spamsafe),
-        };
-        self.subscribe(filters, "root_replies", job_id).await?;
-
         Ok(())
     }
 

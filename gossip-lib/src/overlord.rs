@@ -2467,6 +2467,10 @@ impl Overlord {
 
         // Subscribe to replies to root
         if let Some(ref root_eref) = ancestors.root {
+            let filter_set = match root_eref {
+                EventReference::Id { id, .. } => FilterSet::RepliesToId((*id).into()),
+                EventReference::Addr(naddr) => FilterSet::RepliesToAddr(naddr.clone()),
+            };
             let relays = root_eref.copy_relays();
             for url in relays.iter() {
                 // Subscribe root replies
@@ -2474,7 +2478,7 @@ impl Overlord {
                     reason: RelayConnectionReason::ReadThread,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeRootReplies(root_eref.clone()),
+                        detail: ToMinionPayloadDetail::Subscribe(filter_set.clone()),
                     },
                 }];
 
