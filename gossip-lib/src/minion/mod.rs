@@ -5,7 +5,6 @@ mod subscription;
 mod subscription_map;
 
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage};
-use crate::dm_channel::DmChannel;
 use crate::error::{Error, ErrorKind};
 use crate::filter_set::{FeedRange, FilterSet};
 use crate::globals::GLOBALS;
@@ -650,9 +649,6 @@ impl Minion {
             ToMinionPayloadDetail::SubscribeRootReplies(main) => {
                 self.subscribe_root_replies(message.job_id, main).await?;
             }
-            ToMinionPayloadDetail::SubscribeDmChannel(dmchannel) => {
-                self.subscribe_dm_channel(message.job_id, dmchannel).await?;
-            }
             ToMinionPayloadDetail::TempSubscribePersonFeedChunk { pubkey, anchor } => {
                 self.temp_subscribe_person_feed_chunk(message.job_id, pubkey, anchor)
                     .await?;
@@ -842,25 +838,6 @@ impl Minion {
         let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
         let filters = filter_fns::replies(main, spamsafe);
         self.subscribe(filters, "replies", job_id).await?;
-
-        Ok(())
-    }
-
-    async fn subscribe_dm_channel(
-        &mut self,
-        job_id: u64,
-        dmchannel: DmChannel,
-    ) -> Result<(), Error> {
-        // We will need the private key to auth to the relay for this
-        if !GLOBALS.identity.is_unlocked() {
-            return Err(ErrorKind::NoPrivateKey.into());
-        }
-
-        let filters = filter_fns::dm_channel(dmchannel);
-
-        if !filters.is_empty() {
-            self.subscribe(filters, "dm_channel", job_id).await?;
-        }
 
         Ok(())
     }

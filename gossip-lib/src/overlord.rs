@@ -2269,7 +2269,9 @@ impl Overlord {
                 reason: RelayConnectionReason::FetchDirectMessages,
                 payload: ToMinionPayload {
                     job_id: rand::random::<u64>(),
-                    detail: ToMinionPayloadDetail::SubscribeDmChannel(dmchannel.clone()),
+                    detail: ToMinionPayloadDetail::Subscribe(FilterSet::DmChannel(
+                        dmchannel.clone(),
+                    )),
                 },
             }],
         );

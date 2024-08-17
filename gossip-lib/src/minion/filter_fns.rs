@@ -1,4 +1,3 @@
-use crate::dm_channel::DmChannel;
 use crate::filter_set::FeedRange;
 use crate::globals::GLOBALS;
 use nostr_types::{EventKind, Filter, IdHex, NAddr, PublicKey, PublicKeyHex, Tag};
@@ -127,28 +126,4 @@ pub fn replies_to_eaddr(ea: &NAddr, spamsafe: bool) -> Vec<Filter> {
     filters.push(filter);
 
     filters
-}
-
-pub fn dm_channel(dmchannel: DmChannel) -> Vec<Filter> {
-    let pubkey = match GLOBALS.identity.public_key() {
-        Some(pk) => pk,
-        None => return vec![],
-    };
-    let pkh: PublicKeyHex = pubkey.into();
-
-    // note: giftwraps can't be subscribed by channel. they are subscribed more
-    // globally, and have to be limited to recent ones.
-
-    let mut authors: Vec<PublicKeyHex> = dmchannel.keys().iter().map(|k| k.into()).collect();
-    authors.push(pkh.clone());
-
-    let mut filter = Filter {
-        authors: authors.clone(),
-        kinds: vec![EventKind::EncryptedDirectMessage],
-        ..Default::default()
-    };
-    // tagging the user
-    filter.set_tag_values('p', authors.iter().map(|x| x.as_str().to_owned()).collect());
-
-    vec![filter]
 }
