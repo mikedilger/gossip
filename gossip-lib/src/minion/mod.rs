@@ -919,9 +919,10 @@ impl Minion {
 
     // This is run every tick
     async fn try_subscribe_waiting(&mut self) -> Result<(), Error> {
-        // Subscribe to metadata
-        if !self.subscription_map.has("temp_subscribe_metadata")
-            && !self.subscriptions_waiting_for_metadata.is_empty()
+        // Subscribe to metadata that is waiting (unless we already have a
+        // metadata subscription running in which case we just keep waiting)
+        if !self.subscriptions_waiting_for_metadata.is_empty()
+            && !self.subscription_map.has("temp_subscribe_metadata")
         {
             let mut subscriptions_waiting_for_metadata =
                 std::mem::take(&mut self.subscriptions_waiting_for_metadata);
@@ -941,7 +942,11 @@ impl Minion {
                 combined_pubkeys.extend(pubkeys);
             }
 
-            self.temp_subscribe_metadata(combined_job_id.unwrap(), combined_pubkeys)
+            let handle = "temp_subscribe_metadata".to_string();
+            let filter_set = FilterSet::Metadata(combined_pubkeys);
+            let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
+            let filters = filter_set.filters(spamsafe);
+            self.subscribe(filters, &handle, combined_job_id.unwrap())
                 .await?;
         }
 
