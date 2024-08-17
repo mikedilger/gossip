@@ -2523,7 +2523,7 @@ impl Overlord {
                     reason: RelayConnectionReason::ReadThread,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeReplies(id.into()),
+                        detail: ToMinionPayloadDetail::Subscribe(FilterSet::RepliesToId(id.into())),
                     },
                 }];
 

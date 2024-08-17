@@ -643,9 +643,6 @@ impl Minion {
                 self.subscribe_person_feed(message.job_id, pubkey, anchor)
                     .await?;
             }
-            ToMinionPayloadDetail::SubscribeReplies(main) => {
-                self.subscribe_replies(message.job_id, main).await?;
-            }
             ToMinionPayloadDetail::TempSubscribePersonFeedChunk { pubkey, anchor } => {
                 self.temp_subscribe_person_feed_chunk(message.job_id, pubkey, anchor)
                     .await?;
@@ -807,17 +804,6 @@ impl Minion {
         for handle in handles {
             self.unsubscribe(&handle).await?;
         }
-        Ok(())
-    }
-
-    async fn subscribe_replies(&mut self, job_id: u64, main: IdHex) -> Result<(), Error> {
-        // NOTE we do not unsubscribe to the general feed
-
-        // Replies
-        let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
-        let filters = filter_fns::replies(main, spamsafe);
-        self.subscribe(filters, "replies", job_id).await?;
-
         Ok(())
     }
 

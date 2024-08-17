@@ -1,6 +1,6 @@
 use crate::filter_set::FeedRange;
 use crate::globals::GLOBALS;
-use nostr_types::{EventKind, Filter, IdHex, PublicKey, PublicKeyHex};
+use nostr_types::{EventKind, Filter, PublicKey, PublicKeyHex};
 
 pub fn inbox_feed(spamsafe: bool, range: FeedRange) -> Vec<Filter> {
     let mut filters: Vec<Filter> = Vec::new();
@@ -62,36 +62,4 @@ pub fn person_feed(pubkey: PublicKey, range: FeedRange) -> Vec<Filter> {
         limit,
         ..Default::default()
     }]
-}
-
-pub fn replies(main: IdHex, spamsafe: bool) -> Vec<Filter> {
-    let mut filters: Vec<Filter> = Vec::new();
-
-    // Allow all feed related event kinds (excluding DMs)
-    // (related because we want deletion events, and may as well get likes and zaps too)
-    let event_kinds = crate::feed::feed_related_event_kinds(false);
-
-    let filter = {
-        let mut filter = Filter {
-            kinds: event_kinds,
-            ..Default::default()
-        };
-        let values = vec![main.to_string()];
-        filter.set_tag_values('e', values);
-
-        // Spam prevention:
-        if !spamsafe && GLOBALS.storage.read_setting_avoid_spam_on_unsafe_relays() {
-            filter.authors = GLOBALS
-                .people
-                .get_subscribed_pubkeys()
-                .drain(..)
-                .map(|pk| pk.into())
-                .collect();
-        }
-
-        filter
-    };
-    filters.push(filter);
-
-    filters
 }

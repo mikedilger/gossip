@@ -5,8 +5,8 @@ use crate::nip46::{Approval, ParsedCommand};
 use crate::people::PersonList;
 use crate::relay::Relay;
 use nostr_types::{
-    Event, EventReference, Id, IdHex, Metadata, MilliSatoshi, NAddr, Profile, PublicKey, RelayUrl,
-    Tag, UncheckedUrl, Unixtime,
+    Event, EventReference, Id, Metadata, MilliSatoshi, NAddr, Profile, PublicKey, RelayUrl, Tag,
+    UncheckedUrl, Unixtime,
 };
 use std::fmt;
 use std::hash::{Hash, Hasher};
@@ -267,7 +267,6 @@ pub(crate) enum ToMinionPayloadDetail {
     Unsubscribe(FilterSet),
     SubscribeInbox(Unixtime),
     SubscribePersonFeed(PublicKey, Unixtime),
-    SubscribeReplies(IdHex),
     TempSubscribePersonFeedChunk { pubkey: PublicKey, anchor: Unixtime },
     TempSubscribeInboxFeedChunk(Unixtime),
     UnsubscribePersonFeed,
