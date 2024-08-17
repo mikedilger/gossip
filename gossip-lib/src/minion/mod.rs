@@ -190,7 +190,7 @@ impl Minion {
         let websocket_stream = {
             // Fetch NIP-11 data (if not fetched recently)
             if let Some(last_nip11) = self.dbrelay.last_attempt_nip11 {
-                if last_nip11 as i64 + 3600 < Unixtime::now().0 {
+                if (last_nip11 as i64) + 3600 < Unixtime::now().0 {
                     if let Err(e) = self.fetch_nip11(fetcher_timeout).await {
                         if matches!(e.kind, ErrorKind::ShuttingDown) {
                             return Ok(MinionExitReason::GotShutdownMessage);
@@ -1092,6 +1092,7 @@ impl Minion {
         Ok(())
     }
 
+    // This is run every tick
     async fn try_subscribe_waiting(&mut self) -> Result<(), Error> {
         // Subscribe to metadata
         if !self.subscription_map.has("temp_subscribe_metadata")
