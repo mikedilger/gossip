@@ -653,9 +653,6 @@ impl Minion {
             ToMinionPayloadDetail::SubscribeDmChannel(dmchannel) => {
                 self.subscribe_dm_channel(message.job_id, dmchannel).await?;
             }
-            ToMinionPayloadDetail::SubscribeNip46 => {
-                self.subscribe_nip46(message.job_id).await?;
-            }
             ToMinionPayloadDetail::TempSubscribePersonFeedChunk { pubkey, anchor } => {
                 self.temp_subscribe_person_feed_chunk(message.job_id, pubkey, anchor)
                     .await?;
@@ -863,16 +860,6 @@ impl Minion {
 
         if !filters.is_empty() {
             self.subscribe(filters, "dm_channel", job_id).await?;
-        }
-
-        Ok(())
-    }
-
-    async fn subscribe_nip46(&mut self, job_id: u64) -> Result<(), Error> {
-        let filters = filter_fns::nip46();
-
-        if !filters.is_empty() {
-            self.subscribe(filters, "nip46", job_id).await?;
         }
 
         Ok(())

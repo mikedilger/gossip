@@ -2691,7 +2691,7 @@ impl Overlord {
                 reason: RelayConnectionReason::NostrConnect,
                 payload: ToMinionPayload {
                     job_id: rand::random::<u64>(),
-                    detail: ToMinionPayloadDetail::SubscribeNip46,
+                    detail: ToMinionPayloadDetail::Subscribe(FilterSet::Nip46),
                 },
             }],
         );

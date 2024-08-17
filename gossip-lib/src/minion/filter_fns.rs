@@ -152,19 +152,3 @@ pub fn dm_channel(dmchannel: DmChannel) -> Vec<Filter> {
 
     vec![filter]
 }
-
-pub fn nip46() -> Vec<Filter> {
-    let pubkey = match GLOBALS.identity.public_key() {
-        Some(pk) => pk,
-        None => return vec![],
-    };
-    let pkh: PublicKeyHex = pubkey.into();
-
-    let mut filter = Filter {
-        kinds: vec![EventKind::NostrConnect],
-        ..Default::default()
-    };
-    filter.set_tag_values('p', vec![pkh.to_string()]);
-
-    vec![filter]
-}
