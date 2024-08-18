@@ -86,7 +86,6 @@ pub struct Minion {
     subscriptions_waiting_for_auth: HashMap<String, Unixtime>,
     subscriptions_waiting_for_metadata: Vec<(u64, Vec<PublicKey>)>,
     subscriptions_rate_limited: Vec<String>,
-    general_feed_keys: Vec<PublicKey>,
     read_runstate: WatchReceiver<RunState>,
     exiting: Option<MinionExitReason>,
     auth_state: AuthState,
@@ -132,7 +131,6 @@ impl Minion {
             subscriptions_waiting_for_auth: HashMap::new(),
             subscriptions_waiting_for_metadata: Vec::new(),
             subscriptions_rate_limited: Vec::new(),
-            general_feed_keys: Vec::new(),
             read_runstate,
             exiting: None,
             auth_state: AuthState::None,
@@ -621,11 +619,6 @@ impl Minion {
             ToMinionPayloadDetail::Subscribe(filter_set) => {
                 let handle = filter_set.handle(message.job_id);
 
-                // Remember general_feed_keys for chunk updates
-                if let FilterSet::GeneralFeedFuture { pubkeys, .. } = &filter_set {
-                    self.general_feed_keys = pubkeys.clone();
-                }
-
                 // If we aren't running it already, OR if it can have duplicates
                 if !self.subscription_map.has(&handle) || filter_set.can_have_duplicates() {
                     let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
@@ -656,14 +649,8 @@ impl Minion {
                 self.subscribe_augments(message.job_id, ids).await?;
             }
             ToMinionPayloadDetail::SubscribeGeneralFeed(pubkeys, anchor) => {
-                if self.general_feed_keys.is_empty() {
-                    self.general_feed_keys = pubkeys;
-                    self.subscribe_general_feed_initial(message.job_id, anchor)
-                        .await?;
-                } else {
-                    self.subscribe_general_feed_additional_keys(message.job_id, pubkeys, anchor)
-                        .await?;
-                }
+                self.subscribe_general_feed(message.job_id, pubkeys, anchor)
+                    .await?;
             }
             ToMinionPayloadDetail::SubscribeInbox(anchor) => {
                 self.subscribe_inbox(message.job_id, anchor).await?;
@@ -696,8 +683,8 @@ impl Minion {
             ToMinionPayloadDetail::SubscribeNip46 => {
                 self.subscribe_nip46(message.job_id).await?;
             }
-            ToMinionPayloadDetail::TempSubscribeGeneralFeedChunk(anchor) => {
-                self.temp_subscribe_general_feed_chunk(message.job_id, anchor)
+            ToMinionPayloadDetail::TempSubscribeGeneralFeedChunk { pubkeys, anchor } => {
+                self.temp_subscribe_general_feed_chunk(message.job_id, pubkeys, anchor)
                     .await?;
             }
             ToMinionPayloadDetail::TempSubscribePersonFeedChunk { pubkey, anchor } => {
@@ -736,22 +723,18 @@ impl Minion {
     }
 
     // Subscribe to the user's followers on the relays they write to
-    async fn subscribe_general_feed_initial(
+    async fn subscribe_general_feed(
         &mut self,
         job_id: u64,
+        pubkeys: Vec<PublicKey>,
         anchor: Unixtime,
     ) -> Result<(), Error> {
-        tracing::debug!(
-            "Following {} people at {}",
-            self.general_feed_keys.len(),
-            &self.url
-        );
+        tracing::debug!("Following {} people at {}", pubkeys.len(), &self.url);
 
         let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
-        let mut filters =
-            filter_fns::general_feed(&self.general_feed_keys, FeedRange::After { since: anchor });
+        let mut filters = filter_fns::general_feed(&pubkeys, FeedRange::After { since: anchor });
         let filters2 = filter_fns::general_feed(
-            &self.general_feed_keys,
+            &pubkeys,
             FeedRange::ChunkBefore {
                 until: anchor,
                 limit,
@@ -768,40 +751,6 @@ impl Minion {
         } else {
             self.subscribe(filters, "general_feed", job_id).await?;
         }
-
-        Ok(())
-    }
-
-    /// Subscribe to general feed with change of pubkeys
-    async fn subscribe_general_feed_additional_keys(
-        &mut self,
-        job_id: u64,
-        pubkeys: Vec<PublicKey>,
-        anchor: Unixtime,
-    ) -> Result<(), Error> {
-        // Figure out who the new people are (if any)
-        let mut new_keys = pubkeys.clone();
-        new_keys.retain(|key| !self.general_feed_keys.contains(key));
-        if !new_keys.is_empty() {
-            let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
-            let mut filters =
-                filter_fns::general_feed(&new_keys, FeedRange::After { since: anchor });
-            let filters2 = filter_fns::general_feed(
-                &new_keys,
-                FeedRange::ChunkBefore {
-                    until: anchor,
-                    limit,
-                },
-            );
-            filters.extend(filters2);
-
-            if !filters.is_empty() {
-                self.subscribe(filters, "temp_general_feed_update", job_id)
-                    .await?;
-            }
-        }
-
-        self.general_feed_keys = pubkeys;
 
         Ok(())
     }
@@ -1207,11 +1156,12 @@ impl Minion {
     async fn temp_subscribe_general_feed_chunk(
         &mut self,
         job_id: u64,
+        pubkeys: Vec<PublicKey>,
         anchor: Unixtime,
     ) -> Result<(), Error> {
         let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
         let filters = filter_fns::general_feed(
-            &self.general_feed_keys,
+            &pubkeys,
             FeedRange::ChunkBefore {
                 until: anchor,
                 limit,
