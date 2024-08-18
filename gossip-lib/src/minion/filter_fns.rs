@@ -1,51 +1,5 @@
 use crate::filter_set::FeedRange;
-use crate::globals::GLOBALS;
-use nostr_types::{EventKind, Filter, PublicKey, PublicKeyHex};
-
-pub fn inbox_feed(spamsafe: bool, range: FeedRange) -> Vec<Filter> {
-    let mut filters: Vec<Filter> = Vec::new();
-
-    // Allow all feed displayable event kinds (including DMs)
-    let mut event_kinds = crate::feed::feed_displayable_event_kinds(true);
-    event_kinds.retain(|f| *f != EventKind::GiftWrap); // gift wrap is not included here
-
-    let (since, until, limit) = range.since_until_limit();
-
-    if let Some(pubkey) = GLOBALS.identity.public_key() {
-        // Any mentions of me
-        // (but not in peoples contact lists, for example)
-
-        let pkh: PublicKeyHex = pubkey.into();
-
-        let filter = {
-            let mut filter = Filter {
-                kinds: event_kinds,
-                since,
-                until,
-                limit,
-                ..Default::default()
-            };
-            let values = vec![pkh.to_string()];
-            filter.set_tag_values('p', values);
-
-            // Spam prevention:
-            if !spamsafe && GLOBALS.storage.read_setting_avoid_spam_on_unsafe_relays() {
-                // As the relay is not spam safe, only take mentions from followers
-                filter.authors = GLOBALS
-                    .people
-                    .get_subscribed_pubkeys()
-                    .drain(..)
-                    .map(|pk| pk.into())
-                    .collect();
-            }
-
-            filter
-        };
-        filters.push(filter);
-    }
-
-    filters
-}
+use nostr_types::{Filter, PublicKey};
 
 pub fn person_feed(pubkey: PublicKey, range: FeedRange) -> Vec<Filter> {
     // Allow all feed related event kinds (excluding DMs)

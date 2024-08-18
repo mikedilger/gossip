@@ -636,19 +636,12 @@ impl Minion {
                     self.unsubscribe(&handle).await?;
                 }
             }
-            ToMinionPayloadDetail::SubscribeInbox(anchor) => {
-                self.subscribe_inbox(message.job_id, anchor).await?;
-            }
             ToMinionPayloadDetail::SubscribePersonFeed(pubkey, anchor) => {
                 self.subscribe_person_feed(message.job_id, pubkey, anchor)
                     .await?;
             }
             ToMinionPayloadDetail::TempSubscribePersonFeedChunk { pubkey, anchor } => {
                 self.temp_subscribe_person_feed_chunk(message.job_id, pubkey, anchor)
-                    .await?;
-            }
-            ToMinionPayloadDetail::TempSubscribeInboxFeedChunk(anchor) => {
-                self.temp_subscribe_inbox_feed_chunk(message.job_id, anchor)
                     .await?;
             }
             ToMinionPayloadDetail::UnsubscribePersonFeed => {
@@ -659,38 +652,6 @@ impl Minion {
                 self.unsubscribe("root_replies").await?;
             }
         }
-
-        Ok(())
-    }
-
-    // Subscribe to anybody mentioning the user on the relays the user reads from
-    // (and any other relay for the time being until nip65 is in widespread use)
-    async fn subscribe_inbox(&mut self, job_id: u64, anchor: Unixtime) -> Result<(), Error> {
-        // If we have already subscribed to inbox, do not resubscribe
-        if self.subscription_map.has("inbox_feed") {
-            return Ok(());
-        }
-
-        let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
-
-        let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
-        let mut filters = filter_fns::inbox_feed(
-            spamsafe,
-            FeedRange::ChunkBefore {
-                until: anchor,
-                limit,
-            },
-        );
-        filters.extend(filter_fns::inbox_feed(
-            spamsafe,
-            FeedRange::After { since: anchor },
-        ));
-
-        if filters.is_empty() {
-            return Ok(());
-        }
-
-        self.subscribe(filters, "inbox_feed", job_id).await?;
 
         Ok(())
     }
@@ -757,41 +718,6 @@ impl Minion {
             }
             self.subscribe(filters, &sub_name, job_id).await?;
         }
-
-        Ok(())
-    }
-
-    async fn temp_subscribe_inbox_feed_chunk(
-        &mut self,
-        job_id: u64,
-        anchor: Unixtime,
-    ) -> Result<(), Error> {
-        let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
-
-        let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
-
-        let filters = filter_fns::inbox_feed(
-            spamsafe,
-            FeedRange::ChunkBefore {
-                until: anchor,
-                limit,
-            },
-        );
-
-        if filters.is_empty() {
-            self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
-                self.url.clone(),
-                job_id,
-            ))?;
-            return Ok(());
-        }
-
-        let sub_name = format!("temp_inbox_feed_chunk_{}", job_id);
-        if !self.initial_handling {
-            self.loading_more += 1;
-            let _ = GLOBALS.loading_more.fetch_add(1, Ordering::SeqCst);
-        }
-        self.subscribe(filters, &sub_name, job_id).await?;
 
         Ok(())
     }

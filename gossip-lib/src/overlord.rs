@@ -366,7 +366,14 @@ impl Overlord {
                 reason: RelayConnectionReason::FetchInbox,
                 payload: ToMinionPayload {
                     job_id: rand::random::<u64>(),
-                    detail: ToMinionPayloadDetail::SubscribeInbox(anchor),
+                    detail: ToMinionPayloadDetail::Subscribe(FilterSet::InboxFeedFuture(anchor)),
+                },
+            });
+            jobs.push(RelayJob {
+                reason: RelayConnectionReason::FetchInbox,
+                payload: ToMinionPayload {
+                    job_id: rand::random::<u64>(),
+                    detail: ToMinionPayloadDetail::Subscribe(FilterSet::InboxFeedChunk(anchor)),
                 },
             });
         }
@@ -1553,7 +1560,9 @@ impl Overlord {
                         reason: RelayConnectionReason::FetchInbox,
                         payload: ToMinionPayload {
                             job_id: rand::random::<u64>(),
-                            detail: ToMinionPayloadDetail::TempSubscribeInboxFeedChunk(anchor),
+                            detail: ToMinionPayloadDetail::Subscribe(FilterSet::InboxFeedChunk(
+                                anchor,
+                            )),
                         },
                     }],
                 );
@@ -2651,13 +2660,22 @@ impl Overlord {
         };
         manager::run_jobs_on_all_relays(
             mention_relays,
-            vec![RelayJob {
-                reason: RelayConnectionReason::FetchInbox,
-                payload: ToMinionPayload {
-                    job_id: rand::random::<u64>(),
-                    detail: ToMinionPayloadDetail::SubscribeInbox(now),
+            vec![
+                RelayJob {
+                    reason: RelayConnectionReason::FetchInbox,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::Subscribe(FilterSet::InboxFeedFuture(now)),
+                    },
                 },
-            }],
+                RelayJob {
+                    reason: RelayConnectionReason::FetchInbox,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::Subscribe(FilterSet::InboxFeedChunk(now)),
+                    },
+                },
+            ],
         );
 
         Ok(())
