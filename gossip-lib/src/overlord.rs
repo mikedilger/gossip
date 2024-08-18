@@ -1991,7 +1991,7 @@ impl Overlord {
                     reason: RelayConnectionReason::FetchMetadata,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::TempSubscribeMetadata(pubkeys),
+                        detail: ToMinionPayloadDetail::Subscribe(FilterSet::Metadata(pubkeys)),
                     },
                 }],
             );
@@ -2737,7 +2737,7 @@ impl Overlord {
                 reason: RelayConnectionReason::FetchMetadata,
                 payload: ToMinionPayload {
                     job_id: rand::random::<u64>(),
-                    detail: ToMinionPayloadDetail::TempSubscribeMetadata(vec![pubkey]),
+                    detail: ToMinionPayloadDetail::Subscribe(FilterSet::Metadata(vec![pubkey])),
                 },
             }],
         );
@@ -2774,7 +2774,7 @@ impl Overlord {
                     reason: RelayConnectionReason::FetchMetadata,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::TempSubscribeMetadata(pubkeys),
+                        detail: ToMinionPayloadDetail::Subscribe(FilterSet::Metadata(pubkeys)),
                     },
                 }],
             );

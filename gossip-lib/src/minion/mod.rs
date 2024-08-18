@@ -664,10 +664,6 @@ impl Minion {
                 self.temp_subscribe_inbox_feed_chunk(message.job_id, anchor)
                     .await?;
             }
-            ToMinionPayloadDetail::TempSubscribeMetadata(pubkeys) => {
-                self.temp_subscribe_metadata(message.job_id, pubkeys)
-                    .await?;
-            }
             ToMinionPayloadDetail::UnsubscribePersonFeed => {
                 self.unsubscribe("person_feed").await?;
             }
@@ -997,27 +993,6 @@ impl Minion {
         filter.set_tag_values('d', vec![ea.d]);
 
         self.subscribe(vec![filter], &handle, job_id).await
-    }
-
-    async fn temp_subscribe_metadata(
-        &mut self,
-        job_id: u64,
-        pubkeys: Vec<PublicKey>,
-    ) -> Result<(), Error> {
-        if self.subscription_map.has("temp_subscribe_metadata") {
-            // Save for later
-            self.subscriptions_waiting_for_metadata
-                .push((job_id, pubkeys));
-            return Ok(());
-        }
-
-        tracing::trace!("Temporarily subscribing to metadata on {}", &self.url);
-
-        let handle = "temp_subscribe_metadata".to_string();
-
-        let filters = filter_fns::metadata(&pubkeys);
-
-        self.subscribe(filters, &handle, job_id).await
     }
 
     async fn subscribe(

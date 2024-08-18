@@ -273,7 +273,6 @@ pub(crate) enum ToMinionPayloadDetail {
     SubscribeNip46,
     TempSubscribePersonFeedChunk { pubkey: PublicKey, anchor: Unixtime },
     TempSubscribeInboxFeedChunk(Unixtime),
-    TempSubscribeMetadata(Vec<PublicKey>),
     UnsubscribePersonFeed,
     UnsubscribeReplies,
 }

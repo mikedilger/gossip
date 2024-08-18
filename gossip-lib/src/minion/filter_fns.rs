@@ -168,19 +168,3 @@ pub fn nip46() -> Vec<Filter> {
 
     vec![filter]
 }
-
-pub fn metadata(pubkeys: &[PublicKey]) -> Vec<Filter> {
-    let pkhp: Vec<PublicKeyHex> = pubkeys.iter().map(|pk| pk.into()).collect();
-
-    vec![Filter {
-        authors: pkhp,
-        kinds: vec![
-            EventKind::Metadata,
-            EventKind::RelayList,
-            EventKind::DmRelayList,
-        ],
-        // FIXME: we could probably get a since-last-fetched-their-metadata here.
-        //        but relays should just return the latest of these.
-        ..Default::default()
-    }]
-}
