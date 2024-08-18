@@ -3,6 +3,7 @@ pub use feed_kind::FeedKind;
 
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage};
 use crate::error::{Error, ErrorKind};
+use crate::filter_set::FilterSet;
 use crate::globals::GLOBALS;
 use crate::people::PersonList;
 use dashmap::DashMap;
@@ -117,7 +118,9 @@ impl Feed {
                 target: "all".to_string(),
                 payload: ToMinionPayload {
                     job_id: 0,
-                    detail: ToMinionPayloadDetail::UnsubscribeGlobalFeed,
+                    detail: ToMinionPayloadDetail::Unsubscribe(FilterSet::GlobalFeedFuture(
+                        Unixtime::now(),
+                    )),
                 },
             });
         }

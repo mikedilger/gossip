@@ -640,9 +640,6 @@ impl Minion {
             ToMinionPayloadDetail::SubscribeInbox(anchor) => {
                 self.subscribe_inbox(message.job_id, anchor).await?;
             }
-            ToMinionPayloadDetail::SubscribeGlobalFeed(anchor) => {
-                self.subscribe_global_feed(message.job_id, anchor).await?;
-            }
             ToMinionPayloadDetail::SubscribePersonFeed(pubkey, anchor) => {
                 self.subscribe_person_feed(message.job_id, pubkey, anchor)
                     .await?;
@@ -670,9 +667,6 @@ impl Minion {
             ToMinionPayloadDetail::TempSubscribeMetadata(pubkeys) => {
                 self.temp_subscribe_metadata(message.job_id, pubkeys)
                     .await?;
-            }
-            ToMinionPayloadDetail::UnsubscribeGlobalFeed => {
-                self.unsubscribe("global_feed").await?;
             }
             ToMinionPayloadDetail::UnsubscribePersonFeed => {
                 self.unsubscribe("person_feed").await?;
@@ -751,30 +745,6 @@ impl Minion {
         Ok(())
     }
 
-    async fn subscribe_global_feed(&mut self, job_id: u64, anchor: Unixtime) -> Result<(), Error> {
-        // NOTE we do not unsubscribe to the general feed
-
-        let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
-        let mut filters = filter_fns::global_feed(FeedRange::After { since: anchor });
-        let filters2 = filter_fns::global_feed(FeedRange::ChunkBefore {
-            until: anchor,
-            limit,
-        });
-        filters.extend(filters2);
-
-        if filters.is_empty() {
-            self.unsubscribe_global_feed().await?;
-            self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
-                self.url.clone(),
-                job_id,
-            ))?;
-        } else {
-            self.subscribe(filters, "global_feed", job_id).await?;
-        }
-
-        Ok(())
-    }
-
     async fn temp_subscribe_person_feed_chunk(
         &mut self,
         job_id: u64,
@@ -840,17 +810,6 @@ impl Minion {
         }
         self.subscribe(filters, &sub_name, job_id).await?;
 
-        Ok(())
-    }
-
-    async fn unsubscribe_global_feed(&mut self) -> Result<(), Error> {
-        // Unsubscribe global_feed and all person feed chunks
-        let handles = self
-            .subscription_map
-            .get_all_handles_matching("global_feed");
-        for handle in handles {
-            self.unsubscribe(&handle).await?;
-        }
         Ok(())
     }
 

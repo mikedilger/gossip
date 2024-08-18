@@ -1585,7 +1585,9 @@ impl Overlord {
                         reason: RelayConnectionReason::SubscribeGlobal,
                         payload: ToMinionPayload {
                             job_id: rand::random::<u64>(),
-                            detail: ToMinionPayloadDetail::SubscribeGlobalFeed(anchor),
+                            detail: ToMinionPayloadDetail::Subscribe(FilterSet::GlobalFeedChunk(
+                                anchor,
+                            )),
                         },
                     }],
                 );
@@ -2279,13 +2281,26 @@ impl Overlord {
         let relay_urls = Relay::choose_relay_urls(Relay::GLOBAL, |_| true)?;
         manager::run_jobs_on_all_relays(
             relay_urls,
-            vec![RelayJob {
-                reason: RelayConnectionReason::SubscribeGlobal,
-                payload: ToMinionPayload {
-                    job_id: rand::random::<u64>(),
-                    detail: ToMinionPayloadDetail::SubscribeGlobalFeed(anchor),
+            vec![
+                RelayJob {
+                    reason: RelayConnectionReason::SubscribeGlobal,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::Subscribe(FilterSet::GlobalFeedFuture(
+                            anchor,
+                        )),
+                    },
                 },
-            }],
+                RelayJob {
+                    reason: RelayConnectionReason::SubscribeGlobal,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::Subscribe(FilterSet::GlobalFeedChunk(
+                            anchor,
+                        )),
+                    },
+                },
+            ],
         );
 
         Ok(())
