@@ -265,7 +265,6 @@ pub(crate) enum ToMinionPayloadDetail {
     Shutdown,
     Subscribe(FilterSet),
     Unsubscribe(FilterSet),
-    SubscribeGeneralFeed(Vec<PublicKey>, Unixtime),
     SubscribeGiftwraps(Unixtime),
     SubscribeGlobalFeed(Unixtime),
     SubscribeInbox(Unixtime),
@@ -274,14 +273,7 @@ pub(crate) enum ToMinionPayloadDetail {
     SubscribeRootReplies(EventReference),
     SubscribeDmChannel(DmChannel),
     SubscribeNip46,
-    TempSubscribeGeneralFeedChunk {
-        pubkeys: Vec<PublicKey>,
-        anchor: Unixtime,
-    },
-    TempSubscribePersonFeedChunk {
-        pubkey: PublicKey,
-        anchor: Unixtime,
-    },
+    TempSubscribePersonFeedChunk { pubkey: PublicKey, anchor: Unixtime },
     TempSubscribeInboxFeedChunk(Unixtime),
     TempSubscribeMetadata(Vec<PublicKey>),
     UnsubscribeGlobalFeed,

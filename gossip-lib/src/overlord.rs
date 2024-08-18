@@ -326,16 +326,28 @@ impl Overlord {
     async fn apply_relay_assignment(&mut self, assignment: RelayAssignment) -> Result<(), Error> {
         let anchor = GLOBALS.feed.current_anchor();
 
-        let mut jobs = vec![RelayJob {
-            reason: RelayConnectionReason::Follow,
-            payload: ToMinionPayload {
-                job_id: rand::random::<u64>(),
-                detail: ToMinionPayloadDetail::SubscribeGeneralFeed(
-                    assignment.pubkeys.clone(),
-                    anchor,
-                ),
+        let mut jobs = vec![
+            RelayJob {
+                reason: RelayConnectionReason::Follow,
+                payload: ToMinionPayload {
+                    job_id: rand::random::<u64>(),
+                    detail: ToMinionPayloadDetail::Subscribe(FilterSet::GeneralFeedFuture {
+                        pubkeys: assignment.pubkeys.clone(),
+                        anchor,
+                    }),
+                },
             },
-        }];
+            RelayJob {
+                reason: RelayConnectionReason::Follow,
+                payload: ToMinionPayload {
+                    job_id: rand::random::<u64>(),
+                    detail: ToMinionPayloadDetail::Subscribe(FilterSet::GeneralFeedChunk {
+                        pubkeys: assignment.pubkeys.clone(),
+                        anchor,
+                    }),
+                },
+            },
+        ];
 
         // Until NIP-65 is in widespread use, we should listen to inbox
         // of us on all these relays too
@@ -1524,10 +1536,10 @@ impl Overlord {
                         target: relay_assignment.relay_url.as_str().to_owned(),
                         payload: ToMinionPayload {
                             job_id: 0,
-                            detail: ToMinionPayloadDetail::TempSubscribeGeneralFeedChunk {
+                            detail: ToMinionPayloadDetail::Subscribe(FilterSet::GeneralFeedChunk {
                                 pubkeys: relay_assignment.pubkeys.clone(),
                                 anchor,
-                            },
+                            }),
                         },
                     });
                 }
@@ -2601,9 +2613,7 @@ impl Overlord {
                 reason: RelayConnectionReason::Discovery,
                 payload: ToMinionPayload {
                     job_id: rand::random::<u64>(),
-                    detail: ToMinionPayloadDetail::Subscribe(
-                        FilterSet::Discover(pubkeys.clone())
-                    ),
+                    detail: ToMinionPayloadDetail::Subscribe(FilterSet::Discover(pubkeys.clone())),
                 },
             }],
         );

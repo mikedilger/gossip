@@ -637,10 +637,6 @@ impl Minion {
                     self.unsubscribe(&handle).await?;
                 }
             }
-            ToMinionPayloadDetail::SubscribeGeneralFeed(pubkeys, anchor) => {
-                self.subscribe_general_feed(message.job_id, pubkeys, anchor)
-                    .await?;
-            }
             ToMinionPayloadDetail::SubscribeInbox(anchor) => {
                 self.subscribe_inbox(message.job_id, anchor).await?;
             }
@@ -666,10 +662,6 @@ impl Minion {
             ToMinionPayloadDetail::SubscribeNip46 => {
                 self.subscribe_nip46(message.job_id).await?;
             }
-            ToMinionPayloadDetail::TempSubscribeGeneralFeedChunk { pubkeys, anchor } => {
-                self.temp_subscribe_general_feed_chunk(message.job_id, pubkeys, anchor)
-                    .await?;
-            }
             ToMinionPayloadDetail::TempSubscribePersonFeedChunk { pubkey, anchor } => {
                 self.temp_subscribe_person_feed_chunk(message.job_id, pubkey, anchor)
                     .await?;
@@ -692,39 +684,6 @@ impl Minion {
                 self.unsubscribe("replies").await?;
                 self.unsubscribe("root_replies").await?;
             }
-        }
-
-        Ok(())
-    }
-
-    // Subscribe to the user's followers on the relays they write to
-    async fn subscribe_general_feed(
-        &mut self,
-        job_id: u64,
-        pubkeys: Vec<PublicKey>,
-        anchor: Unixtime,
-    ) -> Result<(), Error> {
-        tracing::debug!("Following {} people at {}", pubkeys.len(), &self.url);
-
-        let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
-        let mut filters = filter_fns::general_feed(&pubkeys, FeedRange::After { since: anchor });
-        let filters2 = filter_fns::general_feed(
-            &pubkeys,
-            FeedRange::ChunkBefore {
-                until: anchor,
-                limit,
-            },
-        );
-        filters.extend(filters2);
-
-        if filters.is_empty() {
-            self.unsubscribe("general_feed").await?;
-            self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
-                self.url.clone(),
-                job_id,
-            ))?;
-        } else {
-            self.subscribe(filters, "general_feed", job_id).await?;
         }
 
         Ok(())
@@ -1094,37 +1053,6 @@ impl Minion {
         filter.set_tag_values('d', vec![ea.d]);
 
         self.subscribe(vec![filter], &handle, job_id).await
-    }
-
-    // Load more, one more chunk back
-    async fn temp_subscribe_general_feed_chunk(
-        &mut self,
-        job_id: u64,
-        pubkeys: Vec<PublicKey>,
-        anchor: Unixtime,
-    ) -> Result<(), Error> {
-        let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
-        let filters = filter_fns::general_feed(
-            &pubkeys,
-            FeedRange::ChunkBefore {
-                until: anchor,
-                limit,
-            },
-        );
-
-        if !filters.is_empty() {
-            // We include the job_id so that if the user presses "load more" yet again,
-            // the new chunk subscription doesn't clobber this subscription which might
-            // not have run to completion yet.
-            let sub_name = format!("temp_general_feed_chunk_{}", job_id);
-            if !self.initial_handling {
-                self.loading_more += 1;
-                let _ = GLOBALS.loading_more.fetch_add(1, Ordering::SeqCst);
-            }
-            self.subscribe(filters, &sub_name, job_id).await?;
-        }
-
-        Ok(())
     }
 
     async fn temp_subscribe_metadata(

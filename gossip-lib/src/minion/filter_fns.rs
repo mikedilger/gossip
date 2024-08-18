@@ -3,33 +3,6 @@ use crate::filter_set::FeedRange;
 use crate::globals::GLOBALS;
 use nostr_types::{EventKind, Filter, IdHex, NAddr, PublicKey, PublicKeyHex, Tag, Unixtime};
 
-pub fn general_feed(authors: &[PublicKey], range: FeedRange) -> Vec<Filter> {
-    let mut filters: Vec<Filter> = Vec::new();
-
-    if authors.is_empty() {
-        return vec![];
-    }
-
-    let pkp: Vec<PublicKeyHex> = authors.iter().map(|pk| pk.into()).collect();
-
-    // Do not load feed related event kinds, or the limit will be wrong
-    let event_kinds = crate::feed::feed_displayable_event_kinds(false);
-
-    let (since, until, limit) = range.since_until_limit();
-
-    // feed related by people followed
-    filters.push(Filter {
-        authors: pkp,
-        kinds: event_kinds.clone(),
-        since,
-        until,
-        limit,
-        ..Default::default()
-    });
-
-    filters
-}
-
 pub fn inbox_feed(spamsafe: bool, range: FeedRange) -> Vec<Filter> {
     let mut filters: Vec<Filter> = Vec::new();
 
