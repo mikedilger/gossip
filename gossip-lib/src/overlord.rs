@@ -1578,10 +1578,10 @@ impl Overlord {
                         reason: RelayConnectionReason::SubscribePerson,
                         payload: ToMinionPayload {
                             job_id: rand::random::<u64>(),
-                            detail: ToMinionPayloadDetail::TempSubscribePersonFeedChunk {
+                            detail: ToMinionPayloadDetail::Subscribe(FilterSet::PersonFeedChunk {
                                 pubkey,
                                 anchor,
-                            },
+                            }),
                         },
                     }],
                 );
@@ -2321,13 +2321,28 @@ impl Overlord {
         let relays: Vec<RelayUrl> = relay::get_some_pubkey_outboxes(pubkey)?;
         manager::run_jobs_on_all_relays(
             relays,
-            vec![RelayJob {
-                reason: RelayConnectionReason::SubscribePerson,
-                payload: ToMinionPayload {
-                    job_id: rand::random::<u64>(),
-                    detail: ToMinionPayloadDetail::SubscribePersonFeed(pubkey, anchor),
+            vec![
+                RelayJob {
+                    reason: RelayConnectionReason::SubscribePerson,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::Subscribe(FilterSet::PersonFeedFuture {
+                            pubkey,
+                            anchor,
+                        }),
+                    },
                 },
-            }],
+                RelayJob {
+                    reason: RelayConnectionReason::SubscribePerson,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::Subscribe(FilterSet::PersonFeedChunk {
+                            pubkey,
+                            anchor,
+                        }),
+                    },
+                },
+            ],
         );
 
         Ok(())

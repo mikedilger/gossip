@@ -265,9 +265,6 @@ pub(crate) enum ToMinionPayloadDetail {
     Shutdown,
     Subscribe(FilterSet),
     Unsubscribe(FilterSet),
-    SubscribePersonFeed(PublicKey, Unixtime),
-    TempSubscribePersonFeedChunk { pubkey: PublicKey, anchor: Unixtime },
-    UnsubscribePersonFeed,
     UnsubscribeReplies,
 }
 

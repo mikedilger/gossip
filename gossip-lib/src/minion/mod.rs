@@ -1,12 +1,10 @@
-mod filter_fns;
-
 mod handle_websocket;
 mod subscription;
 mod subscription_map;
 
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage};
 use crate::error::{Error, ErrorKind};
-use crate::filter_set::{FeedRange, FilterSet};
+use crate::filter_set::FilterSet;
 use crate::globals::GLOBALS;
 use crate::relay::Relay;
 use crate::{RunState, USER_AGENT};
@@ -636,100 +634,12 @@ impl Minion {
                     self.unsubscribe(&handle).await?;
                 }
             }
-            ToMinionPayloadDetail::SubscribePersonFeed(pubkey, anchor) => {
-                self.subscribe_person_feed(message.job_id, pubkey, anchor)
-                    .await?;
-            }
-            ToMinionPayloadDetail::TempSubscribePersonFeedChunk { pubkey, anchor } => {
-                self.temp_subscribe_person_feed_chunk(message.job_id, pubkey, anchor)
-                    .await?;
-            }
-            ToMinionPayloadDetail::UnsubscribePersonFeed => {
-                self.unsubscribe("person_feed").await?;
-            }
             ToMinionPayloadDetail::UnsubscribeReplies => {
                 self.unsubscribe("replies").await?;
                 self.unsubscribe("root_replies").await?;
             }
         }
 
-        Ok(())
-    }
-
-    // Subscribe to the posts a person generates on the relays they write to
-    async fn subscribe_person_feed(
-        &mut self,
-        job_id: u64,
-        pubkey: PublicKey,
-        anchor: Unixtime,
-    ) -> Result<(), Error> {
-        // NOTE we do not unsubscribe to the general feed
-
-        let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
-        let mut filters = filter_fns::person_feed(pubkey, FeedRange::After { since: anchor });
-        let filters2 = filter_fns::person_feed(
-            pubkey,
-            FeedRange::ChunkBefore {
-                until: anchor,
-                limit,
-            },
-        );
-        filters.extend(filters2);
-
-        if filters.is_empty() {
-            self.unsubscribe_person_feed().await?;
-            self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
-                self.url.clone(),
-                job_id,
-            ))?;
-        } else {
-            self.subscribe(filters, "person_feed", job_id).await?;
-        }
-
-        Ok(())
-    }
-
-    async fn temp_subscribe_person_feed_chunk(
-        &mut self,
-        job_id: u64,
-        pubkey: PublicKey,
-        anchor: Unixtime,
-    ) -> Result<(), Error> {
-        let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
-        let filters = filter_fns::person_feed(
-            pubkey,
-            FeedRange::ChunkBefore {
-                until: anchor,
-                limit,
-            },
-        );
-
-        if filters.is_empty() {
-            self.unsubscribe_person_feed().await?;
-            self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
-                self.url.clone(),
-                job_id,
-            ))?;
-        } else {
-            let sub_name = format!("temp_person_feed_chunk_{}", job_id);
-            if !self.initial_handling {
-                self.loading_more += 1;
-                let _ = GLOBALS.loading_more.fetch_add(1, Ordering::SeqCst);
-            }
-            self.subscribe(filters, &sub_name, job_id).await?;
-        }
-
-        Ok(())
-    }
-
-    async fn unsubscribe_person_feed(&mut self) -> Result<(), Error> {
-        // Unsubscribe person_feed and all person feed chunks
-        let handles = self
-            .subscription_map
-            .get_all_handles_matching("person_feed");
-        for handle in handles {
-            self.unsubscribe(&handle).await?;
-        }
         Ok(())
     }
 

@@ -7,11 +7,19 @@ use crate::filter_set::FilterSet;
 use crate::globals::GLOBALS;
 use crate::people::PersonList;
 use dashmap::DashMap;
-use nostr_types::{Event, EventKind, EventReference, Filter, Id, NAddr, Unixtime};
+use nostr_types::{Event, EventKind, EventReference, Filter, Id, NAddr, PublicKey, Unixtime};
 use parking_lot::RwLock;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 use tokio::task;
+
+lazy_static! {
+    static ref DUMMY_PUBKEY: PublicKey = PublicKey::try_from_hex_string(
+        "ce4e68468c717280aa2fdd9db282897c969c172ba06fd7096b785c3c3ce79903",
+        false
+    )
+    .unwrap();
+}
 
 /// The system that computes feeds as an ordered list of event Ids.
 pub struct Feed {
@@ -106,7 +114,10 @@ impl Feed {
                 target: "all".to_string(),
                 payload: ToMinionPayload {
                     job_id: 0,
-                    detail: ToMinionPayloadDetail::UnsubscribePersonFeed,
+                    detail: ToMinionPayloadDetail::Unsubscribe(FilterSet::PersonFeedFuture {
+                        pubkey: *DUMMY_PUBKEY,
+                        anchor: Unixtime::now(), // does not matter
+                    }),
                 },
             });
         }
