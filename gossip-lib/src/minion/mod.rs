@@ -1,13 +1,10 @@
-mod filter_fns;
-use filter_fns::FeedRange;
-
 mod handle_websocket;
 mod subscription;
 mod subscription_map;
 
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage};
-use crate::dm_channel::DmChannel;
 use crate::error::{Error, ErrorKind};
+use crate::filter_set::FilterSet;
 use crate::globals::GLOBALS;
 use crate::relay::Relay;
 use crate::{RunState, USER_AGENT};
@@ -19,8 +16,8 @@ use http::uri::{Parts, Scheme};
 use http::Uri;
 use mime::Mime;
 use nostr_types::{
-    ClientMessage, EventKind, EventReference, Filter, Id, IdHex, NAddr, PreEvent, PublicKey,
-    PublicKeyHex, RelayInformationDocument, RelayUrl, Tag, Unixtime,
+    ClientMessage, EventKind, Filter, Id, IdHex, NAddr, PreEvent, PublicKey, PublicKeyHex,
+    RelayInformationDocument, RelayUrl, Tag, Unixtime,
 };
 use reqwest::Response;
 use std::borrow::Cow;
@@ -86,7 +83,6 @@ pub struct Minion {
     subscriptions_waiting_for_auth: HashMap<String, Unixtime>,
     subscriptions_waiting_for_metadata: Vec<(u64, Vec<PublicKey>)>,
     subscriptions_rate_limited: Vec<String>,
-    general_feed_keys: Vec<PublicKey>,
     read_runstate: WatchReceiver<RunState>,
     exiting: Option<MinionExitReason>,
     auth_state: AuthState,
@@ -132,7 +128,6 @@ impl Minion {
             subscriptions_waiting_for_auth: HashMap::new(),
             subscriptions_waiting_for_metadata: Vec::new(),
             subscriptions_rate_limited: Vec::new(),
-            general_feed_keys: Vec::new(),
             read_runstate,
             exiting: None,
             auth_state: AuthState::None,
@@ -164,19 +159,11 @@ impl Minion {
         // Optimization:  before connecting to the relay, handle any 'loading_more' bumps
         // that would happen after connecting to the relay.
         for message in &messages {
-            let loading_more = matches!(
-                message.detail,
-                ToMinionPayloadDetail::TempSubscribeGeneralFeedChunk(_)
-            ) || matches!(
-                message.detail,
-                ToMinionPayloadDetail::TempSubscribePersonFeedChunk { .. }
-            ) || matches!(
-                message.detail,
-                ToMinionPayloadDetail::TempSubscribeInboxFeedChunk(_)
-            );
-            if loading_more {
-                self.loading_more += 1;
-                let _ = GLOBALS.loading_more.fetch_add(1, Ordering::SeqCst);
+            if let ToMinionPayloadDetail::Subscribe(filter_set) = &message.detail {
+                if filter_set.is_loading_more() {
+                    self.loading_more += 1;
+                    let _ = GLOBALS.loading_more.fetch_add(1, Ordering::SeqCst);
+                }
             }
         }
 
@@ -618,440 +605,39 @@ impl Minion {
                 tracing::debug!("{}: Websocket listener shutting down", &self.url);
                 self.exiting = Some(MinionExitReason::GotShutdownMessage);
             }
-            ToMinionPayloadDetail::SubscribeAugments(ids) => {
-                self.subscribe_augments(message.job_id, ids).await?;
-            }
-            ToMinionPayloadDetail::SubscribeGeneralFeed(pubkeys, anchor) => {
-                if self.general_feed_keys.is_empty() {
-                    self.general_feed_keys = pubkeys;
-                    self.subscribe_general_feed_initial(message.job_id, anchor)
-                        .await?;
+            ToMinionPayloadDetail::Subscribe(filter_set) => {
+                let handle = filter_set.handle(message.job_id);
+
+                // If we aren't running it already, OR if it can have duplicates
+                if !self.subscription_map.has(&handle) || filter_set.can_have_duplicates() {
+                    let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
+                    let filters = filter_set.filters(spamsafe);
+                    if !filters.is_empty() {
+                        self.subscribe(filters, &handle, message.job_id).await?;
+                    }
                 } else {
-                    self.subscribe_general_feed_additional_keys(message.job_id, pubkeys, anchor)
-                        .await?;
+                    // It does not allow duplicates and we are already running it,
+                    // but maybe we can save it for later...
+
+                    if let FilterSet::Metadata(pubkeys) = filter_set {
+                        // Save for later
+                        self.subscriptions_waiting_for_metadata
+                            .push((message.job_id, pubkeys));
+                    }
                 }
             }
-            ToMinionPayloadDetail::SubscribeInbox(anchor) => {
-                self.subscribe_inbox(message.job_id, anchor).await?;
-            }
-            ToMinionPayloadDetail::SubscribeConfig => {
-                self.subscribe_config(message.job_id).await?;
-            }
-            ToMinionPayloadDetail::SubscribeDiscover(pubkeys) => {
-                self.subscribe_discover(message.job_id, pubkeys).await?;
-            }
-            ToMinionPayloadDetail::SubscribeGiftwraps(anchor) => {
-                self.subscribe_giftwraps(message.job_id, anchor).await?;
-            }
-            ToMinionPayloadDetail::SubscribeGlobalFeed(anchor) => {
-                self.subscribe_global_feed(message.job_id, anchor).await?;
-            }
-            ToMinionPayloadDetail::SubscribePersonFeed(pubkey, anchor) => {
-                self.subscribe_person_feed(message.job_id, pubkey, anchor)
-                    .await?;
-            }
-            ToMinionPayloadDetail::SubscribeReplies(main) => {
-                self.subscribe_replies(message.job_id, main).await?;
-            }
-            ToMinionPayloadDetail::SubscribeRootReplies(main) => {
-                self.subscribe_root_replies(message.job_id, main).await?;
-            }
-            ToMinionPayloadDetail::SubscribeDmChannel(dmchannel) => {
-                self.subscribe_dm_channel(message.job_id, dmchannel).await?;
-            }
-            ToMinionPayloadDetail::SubscribeNip46 => {
-                self.subscribe_nip46(message.job_id).await?;
-            }
-            ToMinionPayloadDetail::TempSubscribeGeneralFeedChunk(anchor) => {
-                self.temp_subscribe_general_feed_chunk(message.job_id, anchor)
-                    .await?;
-            }
-            ToMinionPayloadDetail::TempSubscribePersonFeedChunk { pubkey, anchor } => {
-                self.temp_subscribe_person_feed_chunk(message.job_id, pubkey, anchor)
-                    .await?;
-            }
-            ToMinionPayloadDetail::TempSubscribeInboxFeedChunk(anchor) => {
-                self.temp_subscribe_inbox_feed_chunk(message.job_id, anchor)
-                    .await?;
-            }
-            ToMinionPayloadDetail::TempSubscribeMetadata(pubkeys) => {
-                self.temp_subscribe_metadata(message.job_id, pubkeys)
-                    .await?;
-            }
-            ToMinionPayloadDetail::UnsubscribeGlobalFeed => {
-                self.unsubscribe("global_feed").await?;
-            }
-            ToMinionPayloadDetail::UnsubscribePersonFeed => {
-                self.unsubscribe("person_feed").await?;
+            ToMinionPayloadDetail::Unsubscribe(filter_set) => {
+                let handles = self
+                    .subscription_map
+                    .get_all_handles_matching(filter_set.inner_handle());
+                for handle in handles {
+                    self.unsubscribe(&handle).await?;
+                }
             }
             ToMinionPayloadDetail::UnsubscribeReplies => {
                 self.unsubscribe("replies").await?;
                 self.unsubscribe("root_replies").await?;
             }
-        }
-
-        Ok(())
-    }
-
-    async fn subscribe_augments(&mut self, job_id: u64, ids: Vec<IdHex>) -> Result<(), Error> {
-        let filters = filter_fns::augments(&ids);
-
-        self.subscribe(filters, "temp_augments", job_id).await?;
-
-        Ok(())
-    }
-
-    // Subscribe to the user's followers on the relays they write to
-    async fn subscribe_general_feed_initial(
-        &mut self,
-        job_id: u64,
-        anchor: Unixtime,
-    ) -> Result<(), Error> {
-        tracing::debug!(
-            "Following {} people at {}",
-            self.general_feed_keys.len(),
-            &self.url
-        );
-
-        let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
-        let mut filters =
-            filter_fns::general_feed(&self.general_feed_keys, FeedRange::After { since: anchor });
-        let filters2 = filter_fns::general_feed(
-            &self.general_feed_keys,
-            FeedRange::ChunkBefore {
-                until: anchor,
-                limit,
-            },
-        );
-        filters.extend(filters2);
-
-        if filters.is_empty() {
-            self.unsubscribe("general_feed").await?;
-            self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
-                self.url.clone(),
-                job_id,
-            ))?;
-        } else {
-            self.subscribe(filters, "general_feed", job_id).await?;
-        }
-
-        Ok(())
-    }
-
-    /// Subscribe to general feed with change of pubkeys
-    async fn subscribe_general_feed_additional_keys(
-        &mut self,
-        job_id: u64,
-        pubkeys: Vec<PublicKey>,
-        anchor: Unixtime,
-    ) -> Result<(), Error> {
-        // Figure out who the new people are (if any)
-        let mut new_keys = pubkeys.clone();
-        new_keys.retain(|key| !self.general_feed_keys.contains(key));
-        if !new_keys.is_empty() {
-            let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
-            let mut filters =
-                filter_fns::general_feed(&new_keys, FeedRange::After { since: anchor });
-            let filters2 = filter_fns::general_feed(
-                &new_keys,
-                FeedRange::ChunkBefore {
-                    until: anchor,
-                    limit,
-                },
-            );
-            filters.extend(filters2);
-
-            if !filters.is_empty() {
-                self.subscribe(filters, "temp_general_feed_update", job_id)
-                    .await?;
-            }
-        }
-
-        self.general_feed_keys = pubkeys;
-
-        Ok(())
-    }
-
-    async fn subscribe_giftwraps(&mut self, job_id: u64, after: Unixtime) -> Result<(), Error> {
-        // If we have already subscribed to giftwraps, do not resubscribe
-        if self.subscription_map.has("giftwraps") {
-            return Ok(());
-        }
-
-        let filters = filter_fns::giftwraps(FeedRange::After { since: after });
-
-        if filters.is_empty() {
-            return Ok(());
-        }
-
-        self.subscribe(filters, "giftwraps", job_id).await?;
-
-        Ok(())
-    }
-
-    // Subscribe to anybody mentioning the user on the relays the user reads from
-    // (and any other relay for the time being until nip65 is in widespread use)
-    async fn subscribe_inbox(&mut self, job_id: u64, anchor: Unixtime) -> Result<(), Error> {
-        // If we have already subscribed to inbox, do not resubscribe
-        if self.subscription_map.has("inbox_feed") {
-            return Ok(());
-        }
-
-        let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
-
-        let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
-        let mut filters = filter_fns::inbox_feed(
-            spamsafe,
-            FeedRange::ChunkBefore {
-                until: anchor,
-                limit,
-            },
-        );
-        filters.extend(filter_fns::inbox_feed(
-            spamsafe,
-            FeedRange::After { since: anchor },
-        ));
-
-        if filters.is_empty() {
-            return Ok(());
-        }
-
-        self.subscribe(filters, "inbox_feed", job_id).await?;
-
-        Ok(())
-    }
-
-    // Subscribe to the user's config (config, DMs, etc) which is on their own write relays
-    async fn subscribe_config(&mut self, job_id: u64) -> Result<(), Error> {
-        let since = Unixtime::now() - Duration::from_secs(60 * 60 * 24 * 15);
-
-        let filters = filter_fns::config(since);
-
-        if filters.is_empty() {
-            return Ok(());
-        } else {
-            self.subscribe(filters, "config_feed", job_id).await?;
-        }
-
-        Ok(())
-    }
-
-    // Discover relay lists
-    async fn subscribe_discover(
-        &mut self,
-        job_id: u64,
-        pubkeys: Vec<PublicKey>,
-    ) -> Result<(), Error> {
-        if !pubkeys.is_empty() {
-            let filters = filter_fns::discover(&pubkeys);
-
-            self.subscribe(filters, "temp_discover_feed", job_id)
-                .await?;
-        }
-
-        Ok(())
-    }
-
-    // Subscribe to the posts a person generates on the relays they write to
-    async fn subscribe_person_feed(
-        &mut self,
-        job_id: u64,
-        pubkey: PublicKey,
-        anchor: Unixtime,
-    ) -> Result<(), Error> {
-        // NOTE we do not unsubscribe to the general feed
-
-        let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
-        let mut filters = filter_fns::person_feed(pubkey, FeedRange::After { since: anchor });
-        let filters2 = filter_fns::person_feed(
-            pubkey,
-            FeedRange::ChunkBefore {
-                until: anchor,
-                limit,
-            },
-        );
-        filters.extend(filters2);
-
-        if filters.is_empty() {
-            self.unsubscribe_person_feed().await?;
-            self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
-                self.url.clone(),
-                job_id,
-            ))?;
-        } else {
-            self.subscribe(filters, "person_feed", job_id).await?;
-        }
-
-        Ok(())
-    }
-
-    async fn subscribe_global_feed(&mut self, job_id: u64, anchor: Unixtime) -> Result<(), Error> {
-        // NOTE we do not unsubscribe to the general feed
-
-        let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
-        let mut filters = filter_fns::global_feed(FeedRange::After { since: anchor });
-        let filters2 = filter_fns::global_feed(FeedRange::ChunkBefore {
-            until: anchor,
-            limit,
-        });
-        filters.extend(filters2);
-
-        if filters.is_empty() {
-            self.unsubscribe_global_feed().await?;
-            self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
-                self.url.clone(),
-                job_id,
-            ))?;
-        } else {
-            self.subscribe(filters, "global_feed", job_id).await?;
-        }
-
-        Ok(())
-    }
-
-    async fn temp_subscribe_person_feed_chunk(
-        &mut self,
-        job_id: u64,
-        pubkey: PublicKey,
-        anchor: Unixtime,
-    ) -> Result<(), Error> {
-        let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
-        let filters = filter_fns::person_feed(
-            pubkey,
-            FeedRange::ChunkBefore {
-                until: anchor,
-                limit,
-            },
-        );
-
-        if filters.is_empty() {
-            self.unsubscribe_person_feed().await?;
-            self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
-                self.url.clone(),
-                job_id,
-            ))?;
-        } else {
-            let sub_name = format!("temp_person_feed_chunk_{}", job_id);
-            if !self.initial_handling {
-                self.loading_more += 1;
-                let _ = GLOBALS.loading_more.fetch_add(1, Ordering::SeqCst);
-            }
-            self.subscribe(filters, &sub_name, job_id).await?;
-        }
-
-        Ok(())
-    }
-
-    async fn temp_subscribe_inbox_feed_chunk(
-        &mut self,
-        job_id: u64,
-        anchor: Unixtime,
-    ) -> Result<(), Error> {
-        let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
-
-        let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
-
-        let filters = filter_fns::inbox_feed(
-            spamsafe,
-            FeedRange::ChunkBefore {
-                until: anchor,
-                limit,
-            },
-        );
-
-        if filters.is_empty() {
-            self.to_overlord.send(ToOverlordMessage::MinionJobComplete(
-                self.url.clone(),
-                job_id,
-            ))?;
-            return Ok(());
-        }
-
-        let sub_name = format!("temp_inbox_feed_chunk_{}", job_id);
-        if !self.initial_handling {
-            self.loading_more += 1;
-            let _ = GLOBALS.loading_more.fetch_add(1, Ordering::SeqCst);
-        }
-        self.subscribe(filters, &sub_name, job_id).await?;
-
-        Ok(())
-    }
-
-    async fn unsubscribe_global_feed(&mut self) -> Result<(), Error> {
-        // Unsubscribe global_feed and all person feed chunks
-        let handles = self
-            .subscription_map
-            .get_all_handles_matching("global_feed");
-        for handle in handles {
-            self.unsubscribe(&handle).await?;
-        }
-        Ok(())
-    }
-
-    async fn unsubscribe_person_feed(&mut self) -> Result<(), Error> {
-        // Unsubscribe person_feed and all person feed chunks
-        let handles = self
-            .subscription_map
-            .get_all_handles_matching("person_feed");
-        for handle in handles {
-            self.unsubscribe(&handle).await?;
-        }
-        Ok(())
-    }
-
-    async fn subscribe_root_replies(
-        &mut self,
-        job_id: u64,
-        main: EventReference,
-    ) -> Result<(), Error> {
-        // NOTE we do not unsubscribe to the general feed
-
-        // Replies
-        let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
-        let filters = match main {
-            EventReference::Id { id, .. } => filter_fns::replies(id.into(), spamsafe),
-            EventReference::Addr(ref eaddr) => filter_fns::replies_to_eaddr(eaddr, spamsafe),
-        };
-        self.subscribe(filters, "root_replies", job_id).await?;
-
-        Ok(())
-    }
-
-    async fn subscribe_replies(&mut self, job_id: u64, main: IdHex) -> Result<(), Error> {
-        // NOTE we do not unsubscribe to the general feed
-
-        // Replies
-        let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
-        let filters = filter_fns::replies(main, spamsafe);
-        self.subscribe(filters, "replies", job_id).await?;
-
-        Ok(())
-    }
-
-    async fn subscribe_dm_channel(
-        &mut self,
-        job_id: u64,
-        dmchannel: DmChannel,
-    ) -> Result<(), Error> {
-        // We will need the private key to auth to the relay for this
-        if !GLOBALS.identity.is_unlocked() {
-            return Err(ErrorKind::NoPrivateKey.into());
-        }
-
-        let filters = filter_fns::dm_channel(dmchannel);
-
-        if !filters.is_empty() {
-            self.subscribe(filters, "dm_channel", job_id).await?;
-        }
-
-        Ok(())
-    }
-
-    async fn subscribe_nip46(&mut self, job_id: u64) -> Result<(), Error> {
-        let filters = filter_fns::nip46();
-
-        if !filters.is_empty() {
-            self.subscribe(filters, "nip46", job_id).await?;
         }
 
         Ok(())
@@ -1094,9 +680,10 @@ impl Minion {
 
     // This is run every tick
     async fn try_subscribe_waiting(&mut self) -> Result<(), Error> {
-        // Subscribe to metadata
-        if !self.subscription_map.has("temp_subscribe_metadata")
-            && !self.subscriptions_waiting_for_metadata.is_empty()
+        // Subscribe to metadata that is waiting (unless we already have a
+        // metadata subscription running in which case we just keep waiting)
+        if !self.subscriptions_waiting_for_metadata.is_empty()
+            && !self.subscription_map.has("temp_subscribe_metadata")
         {
             let mut subscriptions_waiting_for_metadata =
                 std::mem::take(&mut self.subscriptions_waiting_for_metadata);
@@ -1116,7 +703,11 @@ impl Minion {
                 combined_pubkeys.extend(pubkeys);
             }
 
-            self.temp_subscribe_metadata(combined_job_id.unwrap(), combined_pubkeys)
+            let handle = "temp_subscribe_metadata".to_string();
+            let filter_set = FilterSet::Metadata(combined_pubkeys);
+            let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
+            let filters = filter_set.filters(spamsafe);
+            self.subscribe(filters, &handle, combined_job_id.unwrap())
                 .await?;
         }
 
@@ -1167,57 +758,6 @@ impl Minion {
         filter.set_tag_values('d', vec![ea.d]);
 
         self.subscribe(vec![filter], &handle, job_id).await
-    }
-
-    // Load more, one more chunk back
-    async fn temp_subscribe_general_feed_chunk(
-        &mut self,
-        job_id: u64,
-        anchor: Unixtime,
-    ) -> Result<(), Error> {
-        let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
-        let filters = filter_fns::general_feed(
-            &self.general_feed_keys,
-            FeedRange::ChunkBefore {
-                until: anchor,
-                limit,
-            },
-        );
-
-        if !filters.is_empty() {
-            // We include the job_id so that if the user presses "load more" yet again,
-            // the new chunk subscription doesn't clobber this subscription which might
-            // not have run to completion yet.
-            let sub_name = format!("temp_general_feed_chunk_{}", job_id);
-            if !self.initial_handling {
-                self.loading_more += 1;
-                let _ = GLOBALS.loading_more.fetch_add(1, Ordering::SeqCst);
-            }
-            self.subscribe(filters, &sub_name, job_id).await?;
-        }
-
-        Ok(())
-    }
-
-    async fn temp_subscribe_metadata(
-        &mut self,
-        job_id: u64,
-        pubkeys: Vec<PublicKey>,
-    ) -> Result<(), Error> {
-        if self.subscription_map.has("temp_subscribe_metadata") {
-            // Save for later
-            self.subscriptions_waiting_for_metadata
-                .push((job_id, pubkeys));
-            return Ok(());
-        }
-
-        tracing::trace!("Temporarily subscribing to metadata on {}", &self.url);
-
-        let handle = "temp_subscribe_metadata".to_string();
-
-        let filters = filter_fns::metadata(&pubkeys);
-
-        self.subscribe(filters, &handle, job_id).await
     }
 
     async fn subscribe(

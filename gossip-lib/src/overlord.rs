@@ -5,6 +5,7 @@ use crate::comms::{
 use crate::dm_channel::DmChannel;
 use crate::error::{Error, ErrorKind};
 use crate::feed::FeedKind;
+use crate::filter_set::{FeedRange, FilterSet};
 use crate::globals::GLOBALS;
 use crate::manager;
 use crate::minion::MinionExitReason;
@@ -325,16 +326,28 @@ impl Overlord {
     async fn apply_relay_assignment(&mut self, assignment: RelayAssignment) -> Result<(), Error> {
         let anchor = GLOBALS.feed.current_anchor();
 
-        let mut jobs = vec![RelayJob {
-            reason: RelayConnectionReason::Follow,
-            payload: ToMinionPayload {
-                job_id: rand::random::<u64>(),
-                detail: ToMinionPayloadDetail::SubscribeGeneralFeed(
-                    assignment.pubkeys.clone(),
-                    anchor,
-                ),
+        let mut jobs = vec![
+            RelayJob {
+                reason: RelayConnectionReason::Follow,
+                payload: ToMinionPayload {
+                    job_id: rand::random::<u64>(),
+                    detail: ToMinionPayloadDetail::Subscribe(FilterSet::GeneralFeedFuture {
+                        pubkeys: assignment.pubkeys.clone(),
+                        anchor,
+                    }),
+                },
             },
-        }];
+            RelayJob {
+                reason: RelayConnectionReason::Follow,
+                payload: ToMinionPayload {
+                    job_id: rand::random::<u64>(),
+                    detail: ToMinionPayloadDetail::Subscribe(FilterSet::GeneralFeedChunk {
+                        pubkeys: assignment.pubkeys.clone(),
+                        anchor,
+                    }),
+                },
+            },
+        ];
 
         // Until NIP-65 is in widespread use, we should listen to inbox
         // of us on all these relays too
@@ -353,7 +366,14 @@ impl Overlord {
                 reason: RelayConnectionReason::FetchInbox,
                 payload: ToMinionPayload {
                     job_id: rand::random::<u64>(),
-                    detail: ToMinionPayloadDetail::SubscribeInbox(anchor),
+                    detail: ToMinionPayloadDetail::Subscribe(FilterSet::InboxFeedFuture(anchor)),
+                },
+            });
+            jobs.push(RelayJob {
+                reason: RelayConnectionReason::FetchInbox,
+                payload: ToMinionPayload {
+                    job_id: rand::random::<u64>(),
+                    detail: ToMinionPayloadDetail::Subscribe(FilterSet::InboxFeedChunk(anchor)),
                 },
             });
         }
@@ -1523,7 +1543,10 @@ impl Overlord {
                         target: relay_assignment.relay_url.as_str().to_owned(),
                         payload: ToMinionPayload {
                             job_id: 0,
-                            detail: ToMinionPayloadDetail::TempSubscribeGeneralFeedChunk(anchor),
+                            detail: ToMinionPayloadDetail::Subscribe(FilterSet::GeneralFeedChunk {
+                                pubkeys: relay_assignment.pubkeys.clone(),
+                                anchor,
+                            }),
                         },
                     });
                 }
@@ -1537,7 +1560,9 @@ impl Overlord {
                         reason: RelayConnectionReason::FetchInbox,
                         payload: ToMinionPayload {
                             job_id: rand::random::<u64>(),
-                            detail: ToMinionPayloadDetail::TempSubscribeInboxFeedChunk(anchor),
+                            detail: ToMinionPayloadDetail::Subscribe(FilterSet::InboxFeedChunk(
+                                anchor,
+                            )),
                         },
                     }],
                 );
@@ -1553,10 +1578,10 @@ impl Overlord {
                         reason: RelayConnectionReason::SubscribePerson,
                         payload: ToMinionPayload {
                             job_id: rand::random::<u64>(),
-                            detail: ToMinionPayloadDetail::TempSubscribePersonFeedChunk {
+                            detail: ToMinionPayloadDetail::Subscribe(FilterSet::PersonFeedChunk {
                                 pubkey,
                                 anchor,
-                            },
+                            }),
                         },
                     }],
                 );
@@ -1569,7 +1594,9 @@ impl Overlord {
                         reason: RelayConnectionReason::SubscribeGlobal,
                         payload: ToMinionPayload {
                             job_id: rand::random::<u64>(),
-                            detail: ToMinionPayloadDetail::SubscribeGlobalFeed(anchor),
+                            detail: ToMinionPayloadDetail::Subscribe(FilterSet::GlobalFeedChunk(
+                                anchor,
+                            )),
                         },
                     }],
                 );
@@ -1973,7 +2000,7 @@ impl Overlord {
                     reason: RelayConnectionReason::FetchMetadata,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::TempSubscribeMetadata(pubkeys),
+                        detail: ToMinionPayloadDetail::Subscribe(FilterSet::Metadata(pubkeys)),
                     },
                 }],
             );
@@ -2251,7 +2278,9 @@ impl Overlord {
                 reason: RelayConnectionReason::FetchDirectMessages,
                 payload: ToMinionPayload {
                     job_id: rand::random::<u64>(),
-                    detail: ToMinionPayloadDetail::SubscribeDmChannel(dmchannel.clone()),
+                    detail: ToMinionPayloadDetail::Subscribe(FilterSet::DmChannel(
+                        dmchannel.clone(),
+                    )),
                 },
             }],
         );
@@ -2263,13 +2292,26 @@ impl Overlord {
         let relay_urls = Relay::choose_relay_urls(Relay::GLOBAL, |_| true)?;
         manager::run_jobs_on_all_relays(
             relay_urls,
-            vec![RelayJob {
-                reason: RelayConnectionReason::SubscribeGlobal,
-                payload: ToMinionPayload {
-                    job_id: rand::random::<u64>(),
-                    detail: ToMinionPayloadDetail::SubscribeGlobalFeed(anchor),
+            vec![
+                RelayJob {
+                    reason: RelayConnectionReason::SubscribeGlobal,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::Subscribe(FilterSet::GlobalFeedFuture(
+                            anchor,
+                        )),
+                    },
                 },
-            }],
+                RelayJob {
+                    reason: RelayConnectionReason::SubscribeGlobal,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::Subscribe(FilterSet::GlobalFeedChunk(
+                            anchor,
+                        )),
+                    },
+                },
+            ],
         );
 
         Ok(())
@@ -2279,13 +2321,28 @@ impl Overlord {
         let relays: Vec<RelayUrl> = relay::get_some_pubkey_outboxes(pubkey)?;
         manager::run_jobs_on_all_relays(
             relays,
-            vec![RelayJob {
-                reason: RelayConnectionReason::SubscribePerson,
-                payload: ToMinionPayload {
-                    job_id: rand::random::<u64>(),
-                    detail: ToMinionPayloadDetail::SubscribePersonFeed(pubkey, anchor),
+            vec![
+                RelayJob {
+                    reason: RelayConnectionReason::SubscribePerson,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::Subscribe(FilterSet::PersonFeedFuture {
+                            pubkey,
+                            anchor,
+                        }),
+                    },
                 },
-            }],
+                RelayJob {
+                    reason: RelayConnectionReason::SubscribePerson,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::Subscribe(FilterSet::PersonFeedChunk {
+                            pubkey,
+                            anchor,
+                        }),
+                    },
+                },
+            ],
         );
 
         Ok(())
@@ -2434,6 +2491,10 @@ impl Overlord {
 
         // Subscribe to replies to root
         if let Some(ref root_eref) = ancestors.root {
+            let filter_set = match root_eref {
+                EventReference::Id { id, .. } => FilterSet::RepliesToId((*id).into()),
+                EventReference::Addr(naddr) => FilterSet::RepliesToAddr(naddr.clone()),
+            };
             let relays = root_eref.copy_relays();
             for url in relays.iter() {
                 // Subscribe root replies
@@ -2441,7 +2502,7 @@ impl Overlord {
                     reason: RelayConnectionReason::ReadThread,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeRootReplies(root_eref.clone()),
+                        detail: ToMinionPayloadDetail::Subscribe(filter_set.clone()),
                     },
                 }];
 
@@ -2486,7 +2547,7 @@ impl Overlord {
                     reason: RelayConnectionReason::ReadThread,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeReplies(id.into()),
+                        detail: ToMinionPayloadDetail::Subscribe(FilterSet::RepliesToId(id.into())),
                     },
                 }];
 
@@ -2553,7 +2614,7 @@ impl Overlord {
                 reason: RelayConnectionReason::Config,
                 payload: ToMinionPayload {
                     job_id: rand::random::<u64>(),
-                    detail: ToMinionPayloadDetail::SubscribeConfig,
+                    detail: ToMinionPayloadDetail::Subscribe(FilterSet::Config),
                 },
             }],
         );
@@ -2597,7 +2658,7 @@ impl Overlord {
                 reason: RelayConnectionReason::Discovery,
                 payload: ToMinionPayload {
                     job_id: rand::random::<u64>(),
-                    detail: ToMinionPayloadDetail::SubscribeDiscover(pubkeys.clone()),
+                    detail: ToMinionPayloadDetail::Subscribe(FilterSet::Discover(pubkeys.clone())),
                 },
             }],
         );
@@ -2614,13 +2675,22 @@ impl Overlord {
         };
         manager::run_jobs_on_all_relays(
             mention_relays,
-            vec![RelayJob {
-                reason: RelayConnectionReason::FetchInbox,
-                payload: ToMinionPayload {
-                    job_id: rand::random::<u64>(),
-                    detail: ToMinionPayloadDetail::SubscribeInbox(now),
+            vec![
+                RelayJob {
+                    reason: RelayConnectionReason::FetchInbox,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::Subscribe(FilterSet::InboxFeedFuture(now)),
+                    },
                 },
-            }],
+                RelayJob {
+                    reason: RelayConnectionReason::FetchInbox,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::Subscribe(FilterSet::InboxFeedChunk(now)),
+                    },
+                },
+            ],
         );
 
         Ok(())
@@ -2642,7 +2712,9 @@ impl Overlord {
                 reason: RelayConnectionReason::Giftwraps,
                 payload: ToMinionPayload {
                     job_id: rand::random::<u64>(),
-                    detail: ToMinionPayloadDetail::SubscribeGiftwraps(after),
+                    detail: ToMinionPayloadDetail::Subscribe(FilterSet::Giftwraps(
+                        FeedRange::After { since: after },
+                    )),
                 },
             }],
         );
@@ -2658,7 +2730,7 @@ impl Overlord {
                 reason: RelayConnectionReason::NostrConnect,
                 payload: ToMinionPayload {
                     job_id: rand::random::<u64>(),
-                    detail: ToMinionPayloadDetail::SubscribeNip46,
+                    detail: ToMinionPayloadDetail::Subscribe(FilterSet::Nip46),
                 },
             }],
         );
@@ -2704,7 +2776,7 @@ impl Overlord {
                 reason: RelayConnectionReason::FetchMetadata,
                 payload: ToMinionPayload {
                     job_id: rand::random::<u64>(),
-                    detail: ToMinionPayloadDetail::TempSubscribeMetadata(vec![pubkey]),
+                    detail: ToMinionPayloadDetail::Subscribe(FilterSet::Metadata(vec![pubkey])),
                 },
             }],
         );
@@ -2741,7 +2813,7 @@ impl Overlord {
                     reason: RelayConnectionReason::FetchMetadata,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::TempSubscribeMetadata(pubkeys),
+                        detail: ToMinionPayloadDetail::Subscribe(FilterSet::Metadata(pubkeys)),
                     },
                 }],
             );
@@ -3074,7 +3146,7 @@ impl Overlord {
                     reason: RelayConnectionReason::FetchAugments,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::SubscribeAugments(ids_hex),
+                        detail: ToMinionPayloadDetail::Subscribe(FilterSet::Augments(ids_hex)),
                     },
                 }],
             );

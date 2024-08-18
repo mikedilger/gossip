@@ -1,11 +1,12 @@
 use crate::dm_channel::DmChannel;
+use crate::filter_set::FilterSet;
 use crate::misc::Private;
 use crate::nip46::{Approval, ParsedCommand};
 use crate::people::PersonList;
 use crate::relay::Relay;
 use nostr_types::{
-    Event, EventReference, Id, IdHex, Metadata, MilliSatoshi, NAddr, Profile, PublicKey, RelayUrl,
-    Tag, UncheckedUrl, Unixtime,
+    Event, EventReference, Id, Metadata, MilliSatoshi, NAddr, Profile, PublicKey, RelayUrl, Tag,
+    UncheckedUrl, Unixtime,
 };
 use std::fmt;
 use std::hash::{Hash, Hasher};
@@ -262,24 +263,8 @@ pub(crate) enum ToMinionPayloadDetail {
     FetchNAddr(NAddr),
     PostEvents(Vec<Event>),
     Shutdown,
-    SubscribeAugments(Vec<IdHex>),
-    SubscribeConfig,
-    SubscribeDiscover(Vec<PublicKey>),
-    SubscribeGeneralFeed(Vec<PublicKey>, Unixtime),
-    SubscribeGiftwraps(Unixtime),
-    SubscribeGlobalFeed(Unixtime),
-    SubscribeInbox(Unixtime),
-    SubscribePersonFeed(PublicKey, Unixtime),
-    SubscribeReplies(IdHex),
-    SubscribeRootReplies(EventReference),
-    SubscribeDmChannel(DmChannel),
-    SubscribeNip46,
-    TempSubscribeGeneralFeedChunk(Unixtime),
-    TempSubscribePersonFeedChunk { pubkey: PublicKey, anchor: Unixtime },
-    TempSubscribeInboxFeedChunk(Unixtime),
-    TempSubscribeMetadata(Vec<PublicKey>),
-    UnsubscribeGlobalFeed,
-    UnsubscribePersonFeed,
+    Subscribe(FilterSet),
+    Unsubscribe(FilterSet),
     UnsubscribeReplies,
 }
 
