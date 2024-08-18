@@ -87,6 +87,16 @@ impl FilterSet {
         }
     }
 
+    pub fn is_loading_more(&self) -> bool {
+        match self {
+            FilterSet::GeneralFeedChunk { .. } => true,
+            FilterSet::GlobalFeedChunk(_) => true,
+            FilterSet::InboxFeedChunk(_) => true,
+            FilterSet::PersonFeedChunk { .. } => true,
+            _ => false,
+        }
+    }
+
     pub fn inner_handle(&self) -> &'static str {
         match self {
             FilterSet::Augments(_) => "augments",

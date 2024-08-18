@@ -162,19 +162,11 @@ impl Minion {
         // Optimization:  before connecting to the relay, handle any 'loading_more' bumps
         // that would happen after connecting to the relay.
         for message in &messages {
-            let loading_more = matches!(
-                message.detail,
-                ToMinionPayloadDetail::TempSubscribeGeneralFeedChunk(_)
-            ) || matches!(
-                message.detail,
-                ToMinionPayloadDetail::TempSubscribePersonFeedChunk { .. }
-            ) || matches!(
-                message.detail,
-                ToMinionPayloadDetail::TempSubscribeInboxFeedChunk(_)
-            );
-            if loading_more {
-                self.loading_more += 1;
-                let _ = GLOBALS.loading_more.fetch_add(1, Ordering::SeqCst);
+            if let ToMinionPayloadDetail::Subscribe(filter_set) = &message.detail {
+                if filter_set.is_loading_more() {
+                    self.loading_more += 1;
+                    let _ = GLOBALS.loading_more.fetch_add(1, Ordering::SeqCst);
+                }
             }
         }
 
