@@ -608,6 +608,12 @@ impl Minion {
             ToMinionPayloadDetail::Subscribe(filter_set) => {
                 let handle = filter_set.handle(message.job_id);
 
+                // Bump loading more count
+                if !self.initial_handling && filter_set.is_loading_more() {
+                    self.loading_more += 1;
+                    let _ = GLOBALS.loading_more.fetch_add(1, Ordering::SeqCst);
+                }
+
                 // If we aren't running it already, OR if it can have duplicates
                 if !self.subscription_map.has(&handle) || filter_set.can_have_duplicates() {
                     let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
