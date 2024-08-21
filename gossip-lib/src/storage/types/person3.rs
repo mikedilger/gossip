@@ -210,8 +210,8 @@ impl Record for Person3 {
     type Key = PublicKey;
 
     /// Create a new record
-    fn new(k: Self::Key) -> Self {
-        Person3::new(k)
+    fn new(k: Self::Key) -> Option<Self> {
+        Some(Person3::new(k))
     }
 
     /// Get the key of a record

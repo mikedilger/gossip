@@ -12,11 +12,6 @@ pub trait Table {
     /// Get the heed database
     fn db() -> Result<Database<Bytes, Bytes>, Error>;
 
-    /// Whether or not 'new' is implemented
-    /// (some tables can't do 'new', such as Event, and any calls that need it
-    /// will return an error)
-    fn newable() -> bool;
-
     /// Number of records
     #[allow(dead_code)]
     fn num_records() -> Result<u64, Error> {
@@ -53,14 +48,13 @@ pub trait Table {
         key: <Self::Item as Record>::Key,
         wtxn: Option<&mut RwTxn<'_>>,
     ) -> Result<(), Error> {
-        if !Self::newable() {
-            return Err(ErrorKind::RecordIsNotNewable.into());
-        }
-
         let keybytes = key.to_bytes()?;
         let f = |txn: &mut RwTxn<'_>| -> Result<(), Error> {
             if Self::db()?.get(txn, &keybytes)?.is_none() {
-                let mut record = <Self::Item as Record>::new(key);
+                let mut record = match <Self::Item as Record>::new(key) {
+                    Some(r) => r,
+                    None => return Err(ErrorKind::RecordIsNotNewable.into()),
+                };
                 record.stabilize();
                 let valbytes = record.to_bytes()?;
                 Self::db()?.put(txn, &keybytes, &valbytes)?;
@@ -131,16 +125,15 @@ pub trait Table {
         key: <Self::Item as Record>::Key,
         wtxn: Option<&mut RwTxn<'_>>,
     ) -> Result<Self::Item, Error> {
-        if !Self::newable() {
-            return Err(ErrorKind::RecordIsNotNewable.into());
-        }
-
         let keybytes = key.to_bytes()?;
         let f = |txn: &mut RwTxn<'_>| -> Result<Self::Item, Error> {
             let valbytes = Self::db()?.get(txn, &keybytes)?;
             Ok(match valbytes {
                 None => {
-                    let mut record = <Self::Item as Record>::new(key);
+                    let mut record = match <Self::Item as Record>::new(key) {
+                        Some(r) => r,
+                        None => return Err(ErrorKind::RecordIsNotNewable.into()),
+                    };
                     record.stabilize();
                     let valbytes = record.to_bytes()?;
                     Self::db()?.put(txn, &keybytes, &valbytes)?;
@@ -235,16 +228,15 @@ pub trait Table {
     where
         M: FnMut(&mut Self::Item),
     {
-        if !Self::newable() {
-            return Err(ErrorKind::RecordIsNotNewable.into());
-        }
-
-        let mut f = |txn: &mut RwTxn<'_>| -> Result<(), Error> {
+        let f = |txn: &mut RwTxn<'_>| -> Result<(), Error> {
             let keybytes = key.to_bytes()?;
             let valbytes = Self::db()?.get(txn, &keybytes)?;
             let mut record = match valbytes {
                 Some(valbytes) => Self::Item::from_bytes(valbytes)?,
-                None => Self::Item::new(key),
+                None => match Self::Item::new(key) {
+                    Some(r) => r,
+                    None => return Err(ErrorKind::RecordIsNotNewable.into()),
+                },
             };
             modify(&mut record);
             record.stabilize();

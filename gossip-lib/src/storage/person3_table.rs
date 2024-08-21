@@ -47,8 +47,4 @@ impl Table for Person3Table {
             }
         }
     }
-
-    fn newable() -> bool {
-        true
-    }
 }

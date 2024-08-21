@@ -74,11 +74,21 @@ impl ByteRep for PublicKey {
     }
 }
 
-pub trait Record: ByteRep {
-    type Key: Copy + ByteRep;
+impl ByteRep for String {
+    fn to_bytes(&self) -> Result<Vec<u8>, Error> {
+        Ok(self.as_bytes().to_vec())
+    }
 
-    /// Create a new record
-    fn new(k: Self::Key) -> Self;
+    fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        Ok(String::from_utf8(bytes.to_owned())?)
+    }
+}
+
+pub trait Record: ByteRep {
+    type Key: ByteRep;
+
+    /// Create a new default record, if possible
+    fn new(k: Self::Key) -> Option<Self>;
 
     /// Get the key of a record
     fn key(&self) -> Self::Key;
