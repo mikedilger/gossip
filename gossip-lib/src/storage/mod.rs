@@ -54,7 +54,7 @@ use crate::dm_channel::{DmChannel, DmChannelData};
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::misc::Private;
-use crate::nip46::{Nip46Server, Nip46UnconnectedServer};
+use crate::nostr_connect_server::{Nip46Server, Nip46UnconnectedServer};
 use crate::people::{PersonList, PersonListMetadata};
 use crate::person_relay::PersonRelay;
 use crate::profile::Profile;

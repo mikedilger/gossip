@@ -1,7 +1,7 @@
 use crate::comms::RelayJob;
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use crate::nip46::ParsedCommand;
+use crate::nostr_connect_server::ParsedCommand;
 use crate::people::PersonList;
 use crate::relay::Relay;
 use crate::storage::Storage;
@@ -29,7 +29,7 @@ pub enum PendingItem {
     Nip46Request {
         client_name: String,
         account: PublicKey,
-        command: crate::nip46::ParsedCommand,
+        command: crate::nostr_connect_server::ParsedCommand,
     },
 
     // Your relay list has changed since last advertisement, or your last advertisement

@@ -4,7 +4,7 @@ use eframe::egui::{self, Align, Color32, Layout, RichText, Ui};
 use egui_extras::{Size, StripBuilder};
 use gossip_lib::{
     comms::ToOverlordMessage,
-    nip46::{Approval, ParsedCommand},
+    nostr_connect_server::{Approval, ParsedCommand},
     PendingItem, GLOBALS,
 };
 use nostr_types::PublicKey;

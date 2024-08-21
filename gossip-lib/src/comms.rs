@@ -1,7 +1,7 @@
 use crate::dm_channel::DmChannel;
 use crate::filter_set::FilterSet;
 use crate::misc::Private;
-use crate::nip46::{Approval, ParsedCommand};
+use crate::nostr_connect_server::{Approval, ParsedCommand};
 use crate::people::PersonList;
 use crate::relay::Relay;
 use nostr_types::{

@@ -1,5 +1,5 @@
 use crate::error::Error;
-use crate::nip46::Nip46Server;
+use crate::nostr_connect_server::Nip46Server;
 use crate::storage::{RawDatabase, Storage};
 use heed::types::Bytes;
 use heed::RwTxn;

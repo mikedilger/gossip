@@ -10,7 +10,7 @@ use crate::globals::GLOBALS;
 use crate::manager;
 use crate::minion::MinionExitReason;
 use crate::misc::{Private, ZapState};
-use crate::nip46::{Approval, ParsedCommand};
+use crate::nostr_connect_server::{Approval, ParsedCommand};
 use crate::people::{Person, PersonList};
 use crate::relay;
 use crate::relay::Relay;
