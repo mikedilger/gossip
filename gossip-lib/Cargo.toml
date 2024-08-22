@@ -55,7 +55,7 @@ kamadak-exif = "0.5"
 lazy_static = "1.5"
 linkify = "0.10"
 mime = "0.3"
-nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "92b70b83acc7699c687df4b4975c8c281e218512", features = [ "speedy" ] }
+nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "19a79309ab656fe36ad8080118d3924ef8980364", features = [ "speedy" ] }
 parking_lot = "0.12"
 paste = "1.0"
 rand = "0.8"
