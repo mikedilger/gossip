@@ -24,12 +24,16 @@ use rhai::{Engine, AST};
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize};
 use std::sync::Arc;
+use tokio::runtime::Runtime;
 use tokio::sync::watch::Receiver as WatchReceiver;
 use tokio::sync::watch::Sender as WatchSender;
 use tokio::sync::{broadcast, mpsc, Mutex, Notify, RwLock};
 
 /// Global data shared between threads. Access via the static ref `GLOBALS`.
 pub struct Globals {
+    /// The tokio runtime
+    pub runtime: Arc<Runtime>,
+
     /// This is a broadcast channel. All Minions should listen on it.
     /// To create a receiver, just run .subscribe() on it.
     pub(crate) to_minions: broadcast::Sender<ToMinionMessage>,
@@ -178,6 +182,7 @@ pub struct Globals {
 lazy_static! {
     /// A static reference to global data shared between threads.
     pub static ref GLOBALS: Globals = {
+        let runtime = tokio::runtime::Runtime::new().unwrap();
 
         // Setup a communications channel from the Overlord to the Minions.
         let (to_minions, _) = broadcast::channel(2048);
@@ -195,6 +200,7 @@ lazy_static! {
         let filter = crate::filter::load_script(&filter_engine);
 
         Globals {
+            runtime: Arc::new(runtime),
             to_minions,
             to_overlord,
             minions: PRwLock::new(tokio::task::JoinSet::new()),

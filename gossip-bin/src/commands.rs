@@ -5,7 +5,6 @@ use nostr_types::{
 };
 use std::collections::HashSet;
 use std::env;
-use tokio::runtime::Runtime;
 use zeroize::Zeroize;
 
 #[derive(Debug, Clone)]
@@ -223,7 +222,7 @@ const COMMANDS: [Command; 39] = [
     },
 ];
 
-pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Error> {
+pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
     let command_string = args.next().unwrap(); // must be there or we would not have been called
 
     let mut command: Option<Command> = None;
@@ -246,7 +245,7 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
         "bech32_encode_naddr" => bech32_encode_naddr(command, args)?,
         "clear_timeouts" => clear_timeouts()?,
         "decrypt" => decrypt(command, args)?,
-        "delete_spam_by_content" => delete_spam_by_content(command, args, runtime)?,
+        "delete_spam_by_content" => delete_spam_by_content(command, args)?,
         "delete_relay" => delete_relay(command, args)?,
         "dpi" => override_dpi(command, args)?,
         "events_of_kind" => events_of_kind(command, args)?,
@@ -255,7 +254,7 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
         "giftwraps" => giftwraps(command)?,
         "help" => help(command, args)?,
         "import_encrypted_private_key" => import_encrypted_private_key(command, args)?,
-        "import_event" => import_event(command, args, runtime)?,
+        "import_event" => import_event(command, args)?,
         "login" => {
             login()?;
             return Ok(false);
@@ -277,7 +276,7 @@ pub fn handle_command(mut args: env::Args, runtime: &Runtime) -> Result<bool, Er
         "reaction_stats" => reaction_stats(command, args)?,
         "rebuild_indices" => rebuild_indices()?,
         "rename_person_list" => rename_person_list(command, args)?,
-        "reprocess_recent" => reprocess_recent(command, runtime)?,
+        "reprocess_recent" => reprocess_recent(command)?,
         "reprocess_relay_lists" => reprocess_relay_lists()?,
         "theme" => {
             set_theme(command, args)?;
@@ -492,11 +491,7 @@ pub fn decrypt(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn delete_spam_by_content(
-    cmd: Command,
-    mut args: env::Args,
-    runtime: &Runtime,
-) -> Result<(), Error> {
+pub fn delete_spam_by_content(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     let mut kind: EventKind = match args.next() {
         Some(integer) => integer.parse::<u32>()?.into(),
         None => return cmd.usage("Missing kind parameter".to_string()),
@@ -621,7 +616,7 @@ pub fn delete_spam_by_content(
         }
     });
 
-    runtime.block_on(job)?;
+    GLOBALS.runtime.block_on(job)?;
 
     println!("Ok.");
     Ok(())
@@ -674,7 +669,7 @@ pub fn import_encrypted_private_key(cmd: Command, mut args: env::Args) -> Result
     Ok(())
 }
 
-pub fn import_event(cmd: Command, mut args: env::Args, runtime: &Runtime) -> Result<(), Error> {
+pub fn import_event(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     let event = match args.next() {
         Some(json) => {
             let e: Event = serde_json::from_str(&json)?;
@@ -691,7 +686,7 @@ pub fn import_event(cmd: Command, mut args: env::Args, runtime: &Runtime) -> Res
         }
     });
 
-    runtime.block_on(job)?;
+    GLOBALS.runtime.block_on(job)?;
 
     println!("Ok.");
     Ok(())
@@ -953,7 +948,7 @@ pub fn reaction_stats(_cmd: Command, mut _args: env::Args) -> Result<(), Error> 
     Ok(())
 }
 
-pub fn reprocess_recent(_cmd: Command, runtime: &Runtime) -> Result<(), Error> {
+pub fn reprocess_recent(_cmd: Command) -> Result<(), Error> {
     login()?;
 
     let job = tokio::task::spawn(async move {
@@ -985,7 +980,7 @@ pub fn reprocess_recent(_cmd: Command, runtime: &Runtime) -> Result<(), Error> {
         println!("Done.");
     });
 
-    Ok(runtime.block_on(job)?)
+    Ok(GLOBALS.runtime.block_on(job)?)
 }
 
 pub fn reprocess_relay_lists() -> Result<(), Error> {

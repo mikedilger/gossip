@@ -65,16 +65,12 @@ fn main() -> Result<(), Error> {
     // Initialize the lib
     gossip_lib::init(rapid)?;
 
-    // Setup async
-    // We create and enter the runtime on the main thread so that
-    // non-async code can have a runtime context within which to spawn
-    // async tasks.
-    let rt = tokio::runtime::Runtime::new()?;
-    let _main_rt = rt.enter(); // <-- this allows it.
+    // Setup async, and allow non-async code the context to spawn tasks
+    let _main_rt = GLOBALS.runtime.enter(); // <-- this allows it.
 
     // If we were handed a command, execute the command and return
     if args.len() > 0 {
-        match commands::handle_command(args, &rt) {
+        match commands::handle_command(args) {
             Err(e) => {
                 println!("{}", e);
                 return Ok(());
@@ -91,7 +87,7 @@ fn main() -> Result<(), Error> {
     // separate task. This leave the main thread for UI work only.
     // egui is most portable when it is on the main thread.
     let async_thread = thread::spawn(move || {
-        rt.block_on(gossip_lib::run());
+        GLOBALS.runtime.block_on(gossip_lib::run());
     });
 
     // Run the UI
