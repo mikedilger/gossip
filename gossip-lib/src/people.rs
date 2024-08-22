@@ -889,6 +889,7 @@ impl People {
         Ok(())
     }
 
+    /// DO NOT CALL FROM LIB, ONLY FROM UI
     pub fn get_active_person(&self) -> Option<PublicKey> {
         *self.active_person.blocking_read()
     }
@@ -897,10 +898,12 @@ impl People {
         *self.active_person.read().await
     }
 
+    /// DO NOT CALL FROM LIB, ONLY FROM UI
     pub fn get_active_person_write_relays(&self) -> Vec<RelayUrl> {
         self.active_persons_write_relays.blocking_read().clone()
     }
 
+    /// DO NOT CALL FROM LIB, ONLY FROM UI
     pub fn get_active_person_dm_relays(&self) -> Vec<RelayUrl> {
         self.active_persons_dm_relays.blocking_read().clone()
     }
