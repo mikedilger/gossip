@@ -9,7 +9,7 @@ use nostr_types::{
 };
 use std::sync::mpsc;
 
-pub fn prepare_post_normal(
+pub async fn prepare_post_normal(
     author: PublicKey,
     content: String,
     mut tags: Vec<Tag>,
@@ -45,9 +45,9 @@ pub fn prepare_post_normal(
             });
             GLOBALS
                 .identity
-                .sign_event_with_pow(pre_event, powint, Some(work_sender))?
+                .sign_event_with_pow(pre_event, powint, Some(work_sender)).await?
         } else {
-            GLOBALS.identity.sign_event(pre_event)?
+            GLOBALS.identity.sign_event(pre_event).await?
         }
     };
 
@@ -56,7 +56,7 @@ pub fn prepare_post_normal(
     Ok(vec![(event, relays)])
 }
 
-pub fn prepare_post_nip04(
+pub async fn prepare_post_nip04(
     author: PublicKey,
     content: String,
     dm_channel: DmChannel,
@@ -75,7 +75,7 @@ pub fn prepare_post_nip04(
     let content =
         GLOBALS
             .identity
-            .encrypt(&recipient, &content, ContentEncryptionAlgorithm::Nip04)?;
+            .encrypt(&recipient, &content, ContentEncryptionAlgorithm::Nip04).await?;
 
     let mut tags = vec![Tag::new_pubkey(
         recipient, None, // FIXME
@@ -93,14 +93,14 @@ pub fn prepare_post_nip04(
         content,
     };
 
-    let event = GLOBALS.identity.sign_event(pre_event)?;
+    let event = GLOBALS.identity.sign_event(pre_event).await?;
 
     let relay_urls = relay::relays_to_post_to(&event)?;
 
     Ok(vec![(event, relay_urls)])
 }
 
-pub fn prepare_post_nip17(
+pub async fn prepare_post_nip17(
     author: PublicKey,
     content: String,
     mut tags: Vec<Tag>,
@@ -145,14 +145,14 @@ pub fn prepare_post_nip17(
 
     // To all recipients
     for pk in dm_channel.keys() {
-        let event = GLOBALS.identity.giftwrap(pre_event.clone(), *pk)?;
+        let event = GLOBALS.identity.giftwrap(pre_event.clone(), *pk).await?;
         let relays = relay::get_dm_relays(*pk)?;
         output.push((event, relays));
     }
 
     // And a copy to us
     {
-        let event = GLOBALS.identity.giftwrap(pre_event.clone(), our_pk)?;
+        let event = GLOBALS.identity.giftwrap(pre_event.clone(), our_pk).await?;
         let relays = Relay::choose_relay_urls(Relay::DM, |_| true)?;
         output.push((event, relays));
     }

@@ -81,7 +81,7 @@ impl DmChannel {
         self.1
     }
 
-    pub fn from_event(event: &Event, my_pubkey: Option<PublicKey>) -> Option<DmChannel> {
+    pub async fn from_event(event: &Event, my_pubkey: Option<PublicKey>) -> Option<DmChannel> {
         let my_pubkey = match my_pubkey {
             Some(pk) => pk,
             None => match GLOBALS.identity.public_key() {
@@ -100,7 +100,7 @@ impl DmChannel {
                 Some(Self::new(&people))
             }
         } else if event.kind == EventKind::GiftWrap {
-            if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(event) {
+            if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(event).await {
                 let rumor_event = rumor.into_event_with_bad_signature();
                 let mut people: Vec<PublicKey> =
                     rumor_event.people().iter().map(|(pk, _, _)| *pk).collect();

@@ -7,6 +7,7 @@ use crate::misc::{Freshness, Private};
 use crate::people::{People, PersonList, PersonListMetadata};
 use crate::relationship::{RelationshipByAddr, RelationshipById};
 use crate::storage::{PersonTable, Table};
+use async_recursion::async_recursion;
 use heed::RwTxn;
 use nostr_types::{
     Event, EventKind, EventReference, Filter, Id, Metadata, NAddr, NostrBech32, PublicKey,
@@ -17,7 +18,8 @@ use std::sync::atomic::Ordering;
 /// This is mainly used internally to gossip-lib, but you can use it to stuff events
 /// into gossip from other sources. This processes a new event, saving the results into
 /// the database and also populating the GLOBALS maps.
-pub fn process_new_event(
+#[async_recursion]
+pub async fn process_new_event(
     event: &Event,
     seen_on: Option<RelayUrl>,
     subscription: Option<String>,
@@ -83,7 +85,7 @@ pub fn process_new_event(
     {
         let filter_result = {
             if event.kind == EventKind::GiftWrap {
-                if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(event) {
+                if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(event).await {
                     let author = PersonTable::read_record(rumor.pubkey, None)?;
                     Some(crate::filter::filter_rumor(rumor, author, event.id))
                 } else {
@@ -211,7 +213,7 @@ pub fn process_new_event(
     let mut event: &Event = event; // take ownership of this reference
     let mut rumor_event: Event;
     if event.kind == EventKind::GiftWrap {
-        if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(event) {
+        if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(event).await {
             rumor_event = rumor.into_event_with_bad_signature();
             rumor_event.id = event.id; // Lie so it's handled with the giftwrap's id
             event = &rumor_event;
@@ -251,7 +253,7 @@ pub fn process_new_event(
     }
 
     // Save event relationships (whether from a relay or not)
-    let invalid_ids = process_relationships_of_event(event, None)?;
+    let invalid_ids = process_relationships_of_event(event, None).await?;
 
     // Invalidate UI events indicated by those relationships
     GLOBALS.ui_notes_to_invalidate.write().extend(&invalid_ids);
@@ -273,7 +275,7 @@ pub fn process_new_event(
             if event.pubkey == pubkey {
                 // Updates stamps and counts, does NOT change membership
                 let (_personlist, _metadata) =
-                    update_or_allocate_person_list_from_event(event, pubkey)?;
+                    update_or_allocate_person_list_from_event(event, pubkey).await?;
             } else {
                 process_somebody_elses_contact_list(event, false)?;
             }
@@ -286,7 +288,7 @@ pub fn process_new_event(
             if event.pubkey == pubkey {
                 // Updates stamps and counts, does NOT change membership
                 let (_personlist, _metadata) =
-                    update_or_allocate_person_list_from_event(event, pubkey)?;
+                    update_or_allocate_person_list_from_event(event, pubkey).await?;
             }
         }
     } else if event.kind == EventKind::RelayList {
@@ -320,7 +322,7 @@ pub fn process_new_event(
             }
 
             // process the inner event
-            process_new_event(&inner_event, None, None, verify, false)?;
+            process_new_event(&inner_event, None, None, verify, false).await?;
 
             // Seek additional info for this event by id and author
             GLOBALS
@@ -352,7 +354,7 @@ pub fn process_new_event(
             }
         }
     } else if event.kind == EventKind::NostrConnect {
-        crate::nostr_connect_server::handle_command(event, seen_on.clone())?
+        crate::nostr_connect_server::handle_command(event, seen_on.clone()).await?
     }
 
     if event.kind.is_feed_displayable() {
@@ -537,375 +539,377 @@ pub fn reprocess_relay_lists() -> Result<(usize, usize), Error> {
 
 /// Process relationships of an event.
 /// This returns IDs that should be UI invalidated (must be redrawn)
-pub(crate) fn process_relationships_of_event<'a>(
+pub(crate) async fn process_relationships_of_event<'a>(
     event: &Event,
     rw_txn: Option<&mut RwTxn<'a>>,
 ) -> Result<Vec<Id>, Error> {
+    match rw_txn {
+        Some(txn) => Ok(process_relationships_of_event_inner(event, txn).await?),
+        None => {
+            let mut txn = GLOBALS.db().get_write_txn()?;
+            let invalidate = process_relationships_of_event_inner(event, &mut txn).await?;
+            txn.commit()?;
+            Ok(invalidate)
+        }
+    }
+}
+
+async fn process_relationships_of_event_inner<'a>(
+    event: &Event,
+    txn: &mut RwTxn<'a>,
+) -> Result<Vec<Id>, Error> {
     let mut invalidate: Vec<Id> = Vec::new();
 
-    let mut f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-        // timestamps
-        if event.kind == EventKind::Timestamp {
-            for tag in &event.tags {
-                if let Ok((id, _, _)) = tag.parse_event() {
-                    GLOBALS.db().write_relationship_by_id(
-                        id,
-                        event.id,
-                        RelationshipById::Timestamps,
-                        Some(txn),
-                    )?;
-                }
-            }
-        }
-
-        // deletes
-        if let Some((vec, reason)) = event.deletes() {
-            for er in vec.iter() {
-                match er {
-                    EventReference::Id { id, .. } => {
-                        // If we have the event,
-                        // Actually delete at this point in some cases
-                        if let Some(deleted_event) = GLOBALS.db().read_event(*id)? {
-                            if !deleted_event.delete_author_allowed(event.pubkey) {
-                                // No further processing if not a valid delete
-                                continue;
-                            }
-                            invalidate.push(deleted_event.id);
-                            if !deleted_event.kind.is_feed_displayable() {
-                                // Otherwise actually delete (PITA to do otherwise)
-                                GLOBALS.db().delete_event(deleted_event.id, Some(txn))?;
-                            }
-                        }
-
-                        // Store the delete (we either don't have the target to verify,
-                        // or we just verified above. In the former case, it is okay because
-                        // we verify on usage)
-                        GLOBALS.db().write_relationship_by_id(
-                            *id,
-                            event.id,
-                            RelationshipById::Deletes {
-                                by: event.pubkey,
-                                reason: reason.clone(),
-                            },
-                            Some(txn),
-                        )?;
-                    }
-                    EventReference::Addr(ea) => {
-                        // If we have the event,
-                        // Actually delete at this point in some cases
-                        if let Some(deleted_event) = GLOBALS
-                            .db()
-                            .get_replaceable_event(ea.kind, ea.author, &ea.d)?
-                        {
-                            if !deleted_event.delete_author_allowed(event.pubkey) {
-                                // No further processing if not a valid delete
-                                continue;
-                            }
-                            invalidate.push(deleted_event.id);
-                            if !deleted_event.kind.is_feed_displayable() {
-                                // Otherwise actually delete (PITA to do otherwise)
-                                GLOBALS.db().delete_event(deleted_event.id, Some(txn))?;
-                            }
-                        }
-
-                        // Store the delete (we either don't have the target to verify,
-                        // or we just verified above. In the former case, it is okay because
-                        // we verify on usage)
-                        GLOBALS.db().write_relationship_by_addr(
-                            ea.clone(),
-                            event.id,
-                            RelationshipByAddr::Deletes {
-                                by: event.pubkey,
-                                reason: reason.clone(),
-                            },
-                            Some(txn),
-                        )?;
-                    }
-                }
-            }
-        }
-
-        // reacts to
-        if let Some((reacted_to_id, reaction, _maybe_url)) = event.reacts_to() {
-            // NOTE: reactions may precede the event they react to. So we cannot validate here.
-            GLOBALS.db().write_relationship_by_id(
-                reacted_to_id, // event reacted to
-                event.id,      // the reaction event id
-                RelationshipById::ReactsTo {
-                    by: event.pubkey,
-                    reaction,
-                },
-                Some(txn),
-            )?;
-            invalidate.push(reacted_to_id);
-        }
-
-        // labels
-        if event.kind == EventKind::Label {
-            // Get the label from the "l" tag
-            let mut label = "";
-            let mut namespace = "";
-            for t in &event.tags {
-                if t.tagname() == "l" {
-                    if t.value() != "" {
-                        label = t.value();
-                        if t.get_index(2) != "" {
-                            namespace = t.get_index(2);
-                        }
-                    }
-                }
-            }
-
-            for tag in &event.tags {
-                if let Ok((id, _, _)) = tag.parse_event() {
-                    GLOBALS.db().write_relationship_by_id(
-                        id,
-                        event.id,
-                        RelationshipById::Labels {
-                            label: label.to_owned(),
-                            namespace: namespace.to_owned(),
-                        },
-                        Some(txn),
-                    )?;
-                } else if let Ok((ea, _marker)) = tag.parse_address() {
-                    GLOBALS.db().write_relationship_by_addr(
-                        ea,
-                        event.id,
-                        RelationshipByAddr::Labels {
-                            label: label.to_owned(),
-                            namespace: namespace.to_owned(),
-                        },
-                        Some(txn),
-                    )?;
-                }
-            }
-        }
-
-        // ListMutesThread
-        if event.kind == EventKind::MuteList {
-            for tag in &event.tags {
-                if let Ok((id, _, _)) = tag.parse_event() {
-                    GLOBALS.db().write_relationship_by_id(
-                        id,
-                        event.id,
-                        RelationshipById::Mutes,
-                        Some(txn),
-                    )?;
-                }
-            }
-        }
-
-        // ListPins
-        if event.kind == EventKind::PinList {
-            for tag in &event.tags {
-                if let Ok((id, _, _)) = tag.parse_event() {
-                    GLOBALS.db().write_relationship_by_id(
-                        id,
-                        event.id,
-                        RelationshipById::Pins,
-                        Some(txn),
-                    )?;
-                }
-            }
-        }
-
-        // Maybe update global's cache of bookmarks
-        if event.kind == EventKind::BookmarkList {
-            // Only if it is ours
-            if let Some(pk) = GLOBALS.identity.public_key() {
-                if pk == event.pubkey {
-                    // Only if this event is the latest (it is already stored so we can do this check)
-                    if let Some(newest_event) =
-                        GLOBALS
-                            .db()
-                            .get_replaceable_event(EventKind::BookmarkList, pk, "")?
-                    {
-                        if newest_event == *event {
-                            *GLOBALS.bookmarks.write() = BookmarkList::from_event(event)?;
-                            GLOBALS.recompute_current_bookmarks.notify_one();
-                        }
-                    }
-                }
-            }
-        }
-
-        // NOTE: we do not store Bookmarks or Curates relationships anymore.
-
-        if event.kind == EventKind::LiveChatMessage {
-            for tag in &event.tags {
-                if let Ok((ea, _marker)) = tag.parse_address() {
-                    GLOBALS.db().write_relationship_by_addr(
-                        ea,
-                        event.id,
-                        RelationshipByAddr::ChatsWithin,
-                        Some(txn),
-                    )?;
-                }
-            }
-        }
-
-        if event.kind == EventKind::BadgeAward {
-            for tag in &event.tags {
-                if let Ok((ea, _marker)) = tag.parse_address() {
-                    GLOBALS.db().write_relationship_by_addr(
-                        ea,
-                        event.id,
-                        RelationshipByAddr::AwardsBadge,
-                        Some(txn),
-                    )?;
-                }
-            }
-        }
-
-        if event.kind == EventKind::HandlerRecommendation {
-            for tag in &event.tags {
-                if let Ok((ea, _marker)) = tag.parse_address() {
-                    GLOBALS.db().write_relationship_by_addr(
-                        ea,
-                        event.id,
-                        RelationshipByAddr::RecommendsHandler,
-                        Some(txn),
-                    )?;
-                }
-            }
-        }
-
-        if event.kind == EventKind::Reporting {
-            for tag in &event.tags {
-                if let Ok((id, Some(rurl), _)) = tag.parse_event() {
-                    let report = &rurl.0;
-                    GLOBALS.db().write_relationship_by_id(
-                        id,
-                        event.id,
-                        RelationshipById::Reports(report.to_owned()),
-                        Some(txn),
-                    )?;
-                }
-            }
-        }
-
-        // zaps
-        if let Ok(Some(zapdata)) = event.zaps() {
-            GLOBALS.db().write_relationship_by_id(
-                zapdata.id,
-                event.id,
-                RelationshipById::Zaps {
-                    by: event.pubkey,
-                    amount: zapdata.amount,
-                },
-                Some(txn),
-            )?;
-
-            invalidate.push(zapdata.id);
-        }
-
-        // JobResult
-        if event.kind.is_job_result() {
-            for tag in &event.tags {
-                if let Ok((id, _, _)) = tag.parse_event() {
-                    GLOBALS.db().write_relationship_by_id(
-                        id,
-                        event.id,
-                        RelationshipById::SuppliesJobResult,
-                        Some(txn),
-                    )?;
-                }
-            }
-        }
-
-        // Reposts
-        if event.kind == EventKind::Repost {
-            if let Ok(inner_event) = serde_json::from_str::<Event>(&event.content) {
+    // timestamps
+    if event.kind == EventKind::Timestamp {
+        for tag in &event.tags {
+            if let Ok((id, _, _)) = tag.parse_event() {
                 GLOBALS.db().write_relationship_by_id(
-                    inner_event.id,
+                    id,
                     event.id,
-                    RelationshipById::Reposts,
+                    RelationshipById::Timestamps,
+                    Some(txn),
+                )?;
+            }
+        }
+    }
+
+    // deletes
+    if let Some((vec, reason)) = event.deletes() {
+        for er in vec.iter() {
+            match er {
+                EventReference::Id { id, .. } => {
+                    // If we have the event,
+                    // Actually delete at this point in some cases
+                    if let Some(deleted_event) = GLOBALS.db().read_event(*id)? {
+                        if !deleted_event.delete_author_allowed(event.pubkey) {
+                            // No further processing if not a valid delete
+                            continue;
+                        }
+                        invalidate.push(deleted_event.id);
+                        if !deleted_event.kind.is_feed_displayable() {
+                            // Otherwise actually delete (PITA to do otherwise)
+                            GLOBALS.db().delete_event(deleted_event.id, Some(txn))?;
+                        }
+                    }
+
+                    // Store the delete (we either don't have the target to verify,
+                    // or we just verified above. In the former case, it is okay because
+                    // we verify on usage)
+                    GLOBALS.db().write_relationship_by_id(
+                        *id,
+                        event.id,
+                        RelationshipById::Deletes {
+                            by: event.pubkey,
+                            reason: reason.clone(),
+                        },
+                        Some(txn),
+                    )?;
+                }
+                EventReference::Addr(ea) => {
+                    // If we have the event,
+                    // Actually delete at this point in some cases
+                    if let Some(deleted_event) = GLOBALS
+                        .db()
+                        .get_replaceable_event(ea.kind, ea.author, &ea.d)?
+                    {
+                        if !deleted_event.delete_author_allowed(event.pubkey) {
+                            // No further processing if not a valid delete
+                            continue;
+                        }
+                        invalidate.push(deleted_event.id);
+                        if !deleted_event.kind.is_feed_displayable() {
+                            // Otherwise actually delete (PITA to do otherwise)
+                            GLOBALS.db().delete_event(deleted_event.id, Some(txn))?;
+                        }
+                    }
+
+                    // Store the delete (we either don't have the target to verify,
+                    // or we just verified above. In the former case, it is okay because
+                    // we verify on usage)
+                    GLOBALS.db().write_relationship_by_addr(
+                        ea.clone(),
+                        event.id,
+                        RelationshipByAddr::Deletes {
+                            by: event.pubkey,
+                            reason: reason.clone(),
+                        },
+                        Some(txn),
+                    )?;
+                }
+            }
+        }
+    }
+
+    // reacts to
+    if let Some((reacted_to_id, reaction, _maybe_url)) = event.reacts_to() {
+        // NOTE: reactions may precede the event they react to. So we cannot validate here.
+        GLOBALS.db().write_relationship_by_id(
+            reacted_to_id, // event reacted to
+            event.id,      // the reaction event id
+            RelationshipById::ReactsTo {
+                by: event.pubkey,
+                reaction,
+            },
+            Some(txn),
+        )?;
+        invalidate.push(reacted_to_id);
+    }
+
+    // labels
+    if event.kind == EventKind::Label {
+        // Get the label from the "l" tag
+        let mut label = "";
+        let mut namespace = "";
+        for t in &event.tags {
+            if t.tagname() == "l" {
+                if t.value() != "" {
+                    label = t.value();
+                    if t.get_index(2) != "" {
+                        namespace = t.get_index(2);
+                    }
+                }
+            }
+        }
+
+        for tag in &event.tags {
+            if let Ok((id, _, _)) = tag.parse_event() {
+                GLOBALS.db().write_relationship_by_id(
+                    id,
+                    event.id,
+                    RelationshipById::Labels {
+                        label: label.to_owned(),
+                        namespace: namespace.to_owned(),
+                    },
+                    Some(txn),
+                )?;
+            } else if let Ok((ea, _marker)) = tag.parse_address() {
+                GLOBALS.db().write_relationship_by_addr(
+                    ea,
+                    event.id,
+                    RelationshipByAddr::Labels {
+                        label: label.to_owned(),
+                        namespace: namespace.to_owned(),
+                    },
+                    Some(txn),
+                )?;
+            }
+        }
+    }
+
+    // ListMutesThread
+    if event.kind == EventKind::MuteList {
+        for tag in &event.tags {
+            if let Ok((id, _, _)) = tag.parse_event() {
+                GLOBALS.db().write_relationship_by_id(
+                    id,
+                    event.id,
+                    RelationshipById::Mutes,
+                    Some(txn),
+                )?;
+            }
+        }
+    }
+
+    // ListPins
+    if event.kind == EventKind::PinList {
+        for tag in &event.tags {
+            if let Ok((id, _, _)) = tag.parse_event() {
+                GLOBALS.db().write_relationship_by_id(
+                    id,
+                    event.id,
+                    RelationshipById::Pins,
+                    Some(txn),
+                )?;
+            }
+        }
+    }
+
+    // Maybe update global's cache of bookmarks
+    if event.kind == EventKind::BookmarkList {
+        // Only if it is ours
+        if let Some(pk) = GLOBALS.identity.public_key() {
+            if pk == event.pubkey {
+                // Only if this event is the latest (it is already stored so we can do this check)
+                if let Some(newest_event) =
+                    GLOBALS
+                    .db()
+                    .get_replaceable_event(EventKind::BookmarkList, pk, "")?
+                {
+                    if newest_event == *event {
+                        *GLOBALS.bookmarks.write() = BookmarkList::from_event(event).await?;
+                        GLOBALS.recompute_current_bookmarks.notify_one();
+                    }
+                }
+            }
+        }
+    }
+
+    // NOTE: we do not store Bookmarks or Curates relationships anymore.
+
+    if event.kind == EventKind::LiveChatMessage {
+        for tag in &event.tags {
+            if let Ok((ea, _marker)) = tag.parse_address() {
+                GLOBALS.db().write_relationship_by_addr(
+                    ea,
+                    event.id,
+                    RelationshipByAddr::ChatsWithin,
+                    Some(txn),
+                )?;
+            }
+        }
+    }
+
+    if event.kind == EventKind::BadgeAward {
+        for tag in &event.tags {
+            if let Ok((ea, _marker)) = tag.parse_address() {
+                GLOBALS.db().write_relationship_by_addr(
+                    ea,
+                    event.id,
+                    RelationshipByAddr::AwardsBadge,
+                    Some(txn),
+                )?;
+            }
+        }
+    }
+
+    if event.kind == EventKind::HandlerRecommendation {
+        for tag in &event.tags {
+            if let Ok((ea, _marker)) = tag.parse_address() {
+                GLOBALS.db().write_relationship_by_addr(
+                    ea,
+                    event.id,
+                    RelationshipByAddr::RecommendsHandler,
+                    Some(txn),
+                )?;
+            }
+        }
+    }
+
+    if event.kind == EventKind::Reporting {
+        for tag in &event.tags {
+            if let Ok((id, Some(rurl), _)) = tag.parse_event() {
+                let report = &rurl.0;
+                GLOBALS.db().write_relationship_by_id(
+                    id,
+                    event.id,
+                    RelationshipById::Reports(report.to_owned()),
+                    Some(txn),
+                )?;
+            }
+        }
+    }
+
+    // zaps
+    if let Ok(Some(zapdata)) = event.zaps() {
+        GLOBALS.db().write_relationship_by_id(
+            zapdata.id,
+            event.id,
+            RelationshipById::Zaps {
+                by: event.pubkey,
+                amount: zapdata.amount,
+            },
+            Some(txn),
+        )?;
+
+        invalidate.push(zapdata.id);
+    }
+
+    // JobResult
+    if event.kind.is_job_result() {
+        for tag in &event.tags {
+            if let Ok((id, _, _)) = tag.parse_event() {
+                GLOBALS.db().write_relationship_by_id(
+                    id,
+                    event.id,
+                    RelationshipById::SuppliesJobResult,
+                    Some(txn),
+                )?;
+            }
+        }
+    }
+
+    // Reposts
+    if event.kind == EventKind::Repost {
+        if let Ok(inner_event) = serde_json::from_str::<Event>(&event.content) {
+            GLOBALS.db().write_relationship_by_id(
+                inner_event.id,
+                event.id,
+                RelationshipById::Reposts,
+                Some(txn),
+            )?;
+        } else {
+            for eref in event.mentions().iter() {
+                if let EventReference::Id { id, .. } = eref {
+                    GLOBALS.db().write_relationship_by_id(
+                        *id,
+                        event.id,
+                        RelationshipById::Reposts,
+                        Some(txn),
+                    )?;
+                }
+            }
+        }
+    }
+
+    // Quotes
+    for eref in event.quotes().iter() {
+        if let EventReference::Id { id, .. } = eref {
+            GLOBALS.db().write_relationship_by_id(
+                *id,
+                event.id,
+                RelationshipById::Quotes,
+                Some(txn),
+            )?;
+        }
+    }
+
+    // RepliesTo (or Annotation)
+    match event.replies_to() {
+        Some(EventReference::Id { id, .. }) => {
+            if event.is_annotation() {
+                GLOBALS.db().write_relationship_by_id(
+                    id,
+                    event.id,
+                    RelationshipById::Annotates,
+                    Some(txn),
+                )?;
+                invalidate.push(id);
+            } else {
+                GLOBALS.db().write_relationship_by_id(
+                    id,
+                    event.id,
+                    RelationshipById::RepliesTo,
+                    Some(txn),
+                )?;
+            }
+        }
+        Some(EventReference::Addr(ea)) => {
+            if event.is_annotation() {
+                GLOBALS.db().write_relationship_by_addr(
+                    ea,
+                    event.id,
+                    RelationshipByAddr::Annotates,
                     Some(txn),
                 )?;
             } else {
-                for eref in event.mentions().iter() {
-                    if let EventReference::Id { id, .. } = eref {
-                        GLOBALS.db().write_relationship_by_id(
-                            *id,
-                            event.id,
-                            RelationshipById::Reposts,
-                            Some(txn),
-                        )?;
-                    }
-                }
-            }
-        }
-
-        // Quotes
-        for eref in event.quotes().iter() {
-            if let EventReference::Id { id, .. } = eref {
-                GLOBALS.db().write_relationship_by_id(
-                    *id,
+                GLOBALS.db().write_relationship_by_addr(
+                    ea,
                     event.id,
-                    RelationshipById::Quotes,
+                    RelationshipByAddr::RepliesTo,
                     Some(txn),
                 )?;
             }
         }
-
-        // RepliesTo (or Annotation)
-        match event.replies_to() {
-            Some(EventReference::Id { id, .. }) => {
-                if event.is_annotation() {
-                    GLOBALS.db().write_relationship_by_id(
-                        id,
-                        event.id,
-                        RelationshipById::Annotates,
-                        Some(txn),
-                    )?;
-                    invalidate.push(id);
-                } else {
-                    GLOBALS.db().write_relationship_by_id(
-                        id,
-                        event.id,
-                        RelationshipById::RepliesTo,
-                        Some(txn),
-                    )?;
-                }
-            }
-            Some(EventReference::Addr(ea)) => {
-                if event.is_annotation() {
-                    GLOBALS.db().write_relationship_by_addr(
-                        ea,
-                        event.id,
-                        RelationshipByAddr::Annotates,
-                        Some(txn),
-                    )?;
-                } else {
-                    GLOBALS.db().write_relationship_by_addr(
-                        ea,
-                        event.id,
-                        RelationshipByAddr::RepliesTo,
-                        Some(txn),
-                    )?;
-                }
-            }
-            None => (),
-        }
-
-        Ok(())
-    };
-
-    match rw_txn {
-        Some(txn) => f(txn)?,
-        None => {
-            let mut txn = GLOBALS.db().get_write_txn()?;
-            f(&mut txn)?;
-            txn.commit()?;
-        }
-    };
+        None => (),
+    }
 
     Ok(invalidate)
 }
 
 // This updates the event data and maybe the title, but it does NOT update the list
 // (that happens only when the user overwrites/merges)
-fn update_or_allocate_person_list_from_event(
+async fn update_or_allocate_person_list_from_event(
     event: &Event,
     pubkey: PublicKey,
 ) -> Result<(PersonList, PersonListMetadata), Error> {
@@ -922,7 +926,7 @@ fn update_or_allocate_person_list_from_event(
             metadata.event_private_len = None;
         } else if GLOBALS.identity.is_unlocked() {
             let mut private_len: Option<usize> = None;
-            if let Ok(bytes) = GLOBALS.identity.decrypt(&pubkey, &event.content) {
+            if let Ok(bytes) = GLOBALS.identity.decrypt(&pubkey, &event.content).await {
                 if let Ok(vectags) = serde_json::from_str::<Vec<Tag>>(&bytes) {
                     private_len = Some(vectags.iter().filter(|t| t.tagname() == "p").count());
                 }

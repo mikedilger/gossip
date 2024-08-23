@@ -61,7 +61,7 @@ async fn do_online_tasks(tick: usize) {
 
     // Update pending every 12 seconds
     if tick % 12 == 0 {
-        if let Err(e) = GLOBALS.pending.compute_pending() {
+        if let Err(e) = GLOBALS.pending.compute_pending().await {
             if !matches!(e.kind, ErrorKind::NoPrivateKey) {
                 tracing::error!("{:?}", e);
             }

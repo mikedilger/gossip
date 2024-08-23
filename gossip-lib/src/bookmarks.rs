@@ -69,7 +69,7 @@ impl BookmarkList {
         }
     }
 
-    pub fn from_event(event: &Event) -> Result<Self, Error> {
+    pub async fn from_event(event: &Event) -> Result<Self, Error> {
         let public_key = match GLOBALS.identity.public_key() {
             None => return Err(ErrorKind::NoPublicKey.into()),
             Some(pk) => pk,
@@ -85,7 +85,7 @@ impl BookmarkList {
 
         let mut bml = Self::empty();
         bml.add_tags(event.tags.as_ref(), false)?;
-        if let Ok(json_string) = GLOBALS.identity.decrypt(&public_key, &event.content) {
+        if let Ok(json_string) = GLOBALS.identity.decrypt(&public_key, &event.content).await {
             if let Ok(vectags) = serde_json::from_str::<Vec<Tag>>(&json_string) {
                 bml.add_tags(vectags.as_ref(), true)?;
             }
@@ -94,7 +94,7 @@ impl BookmarkList {
         Ok(bml)
     }
 
-    pub fn into_event(&self) -> Result<Event, Error> {
+    pub async fn into_event(&self) -> Result<Event, Error> {
         let public_key = match GLOBALS.identity.public_key() {
             None => return Err(ErrorKind::NoPublicKey.into()),
             Some(pk) => pk,
@@ -142,7 +142,7 @@ impl BookmarkList {
                 &public_key,
                 &private_json,
                 ContentEncryptionAlgorithm::Nip04,
-            )?
+            ).await?
         };
 
         let pre_event = PreEvent {
@@ -153,7 +153,7 @@ impl BookmarkList {
             content,
         };
 
-        GLOBALS.identity.sign_event(pre_event)
+        GLOBALS.identity.sign_event(pre_event).await
     }
 
     pub fn get_bookmark_feed(&self) -> Result<Vec<Id>, Error> {
