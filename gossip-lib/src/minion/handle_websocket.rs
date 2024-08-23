@@ -97,6 +97,11 @@ impl Minion {
             RelayMessage::Notice(msg) => {
                 tracing::warn!("{}: NOTICE: {}", &self.url, msg);
             }
+            RelayMessage::Notify(msg) => {
+                // We currently don't support this as a user-facing UI element, but we
+                // can at least log it:
+                tracing::warn!("{}: NOTIFY: {}", &self.url, msg);
+            }
             RelayMessage::Eose(subid) => {
                 let handle = self
                     .subscription_map
