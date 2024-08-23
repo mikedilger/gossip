@@ -50,6 +50,7 @@ pub fn fetch(url: &str, filters: Vec<Filter>) -> Result<Vec<Event>, Error> {
                 match relay_message {
                     RelayMessage::Event(_, e) => events.push(*e),
                     RelayMessage::Notice(s) => tracing::info!("NOTICE: {}", s),
+                    RelayMessage::Notify(s) => tracing::info!("NOTIFY: {}", s),
                     RelayMessage::Eose(_) => {
                         let message = ClientMessage::Close(SubscriptionId("111".to_owned()));
                         let wire = match serde_json::to_string(&message) {
@@ -145,6 +146,7 @@ pub fn post(url: &str, event: Event) -> Result<(), Error> {
                     tracing::info!("EVENT: {}", event);
                 }
                 RelayMessage::Notice(s) => tracing::info!("NOTICE: {}", s),
+                RelayMessage::Notify(s) => tracing::info!("NOTIFY: {}", s),
                 RelayMessage::Eose(_) => tracing::info!("EOSE"),
                 RelayMessage::Ok(_id, ok, reason) => {
                     tracing::info!("OK: ok={} reason={}", ok, reason)
