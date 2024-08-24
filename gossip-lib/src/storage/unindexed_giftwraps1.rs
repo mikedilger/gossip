@@ -28,9 +28,9 @@ impl Storage {
 
                 // Create it. We know that nobody else is doing this and that
                 // it cannot happen twice.
-                let mut txn = self.env().write_txn()?;
+                let mut txn = self.env.write_txn()?;
                 let db = self
-                    .env()
+                    .env
                     .database_options()
                     .types::<Bytes, Bytes>()
                     // no .flags needed
@@ -49,7 +49,7 @@ impl Storage {
         }
 
         let mut ids: Vec<Id> = Vec::new();
-        let txn = self.env().read_txn()?;
+        let txn = self.env.read_txn()?;
         let iter = self.db_unindexed_giftwraps1()?.iter(&txn)?;
         for result in iter {
             let (key, _val) = result?;
@@ -58,7 +58,7 @@ impl Storage {
             ids.push(id);
         }
 
-        let mut txn = self.env().write_txn()?;
+        let mut txn = self.env.write_txn()?;
         for id in ids {
             if let Some(event) = self.read_event(id)? {
                 self.write_event_akci_index(

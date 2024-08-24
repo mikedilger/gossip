@@ -30,9 +30,9 @@ impl Storage {
 
                 // Create it. We know that nobody else is doing this and that
                 // it cannot happen twice.
-                let mut txn = self.env().write_txn()?;
+                let mut txn = self.env.write_txn()?;
                 let db = self
-                    .env()
+                    .env
                     .database_options()
                     .types::<Bytes, Bytes>()
                     // no .flags needed
@@ -46,7 +46,7 @@ impl Storage {
     }
 
     pub(crate) fn get_person_relays2_len(&self) -> Result<u64, Error> {
-        let txn = self.env().read_txn()?;
+        let txn = self.env.read_txn()?;
         Ok(self.db_person_relays2()?.len(&txn)?)
     }
 
@@ -77,7 +77,7 @@ impl Storage {
         let mut key = pubkey.to_bytes();
         key.extend(url.as_str().as_bytes());
         key.truncate(MAX_LMDB_KEY);
-        let txn = self.env().read_txn()?;
+        let txn = self.env.read_txn()?;
         Ok(match self.db_person_relays2()?.get(&txn, &key)? {
             Some(bytes) => Some(PersonRelay2::read_from_buffer(bytes)?),
             None => None,
@@ -86,7 +86,7 @@ impl Storage {
 
     pub(crate) fn get_person_relays2(&self, pubkey: PublicKey) -> Result<Vec<PersonRelay2>, Error> {
         let start_key = pubkey.to_bytes();
-        let txn = self.env().read_txn()?;
+        let txn = self.env.read_txn()?;
         let iter = self.db_person_relays2()?.prefix_iter(&txn, &start_key)?;
         let mut output: Vec<PersonRelay2> = Vec::new();
         for result in iter {
@@ -99,7 +99,7 @@ impl Storage {
 
     pub(crate) fn have_persons_relays2(&self, pubkey: PublicKey) -> Result<bool, Error> {
         let start_key = pubkey.to_bytes();
-        let txn = self.env().read_txn()?;
+        let txn = self.env.read_txn()?;
         let iter = self.db_person_relays2()?.prefix_iter(&txn, &start_key)?;
         for result in iter {
             let (_key, val) = result?;

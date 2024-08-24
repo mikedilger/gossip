@@ -13,7 +13,7 @@ macro_rules! write_transact {
         match $opttxn {
             Some(txn) => $f(txn),
             None => {
-                let mut txn = $storage.env().write_txn()?;
+                let mut txn = $storage.env.write_txn()?;
                 let result = $f(&mut txn);
                 txn.commit()?;
                 result
@@ -27,7 +27,7 @@ macro_rules! read_transact {
         match $opttxn {
             Some(txn) => $f(txn),
             None => {
-                let txn = $storage.env().read_txn()?;
+                let txn = $storage.env.read_txn()?;
                 $f(&txn)
             }
         }
@@ -56,7 +56,7 @@ macro_rules! def_setting {
 
             #[allow(dead_code)]
             pub fn [<read_setting_ $field>](&self) -> $type {
-                let txn = match self.env().read_txn() {
+                let txn = match self.env.read_txn() {
                     Ok(txn) => txn,
                     Err(_) => return $default,
                 };
@@ -105,7 +105,7 @@ macro_rules! def_flag {
             }
 
             pub fn [<get_flag_ $field>](&self) -> bool {
-                let txn = match self.env().read_txn() {
+                let txn = match self.env.read_txn() {
                     Ok(txn) => txn,
                     Err(_) => return $default,
                 };

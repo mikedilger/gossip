@@ -26,7 +26,7 @@ impl Storage {
     }
 
     fn m25_migrate_to_events3<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
-        let loop_txn = self.env().read_txn()?;
+        let loop_txn = self.env.read_txn()?;
         let mut count: usize = 0;
         for result in self.db_events2()?.iter(&loop_txn)? {
             let (_key, val) = result?;

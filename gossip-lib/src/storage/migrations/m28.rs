@@ -24,7 +24,7 @@ impl Storage {
     }
 
     fn m28_fix_empty_petnames<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
-        let loop_txn = self.env().read_txn()?;
+        let loop_txn = self.env.read_txn()?;
         for result in self.db_people2()?.iter(&loop_txn)? {
             let (key, val) = result?;
             let mut person: Person2 = serde_json::from_slice(val)?;

@@ -33,10 +33,10 @@ impl Table for Person3Table {
 
                 // Create it. We know that nobody else is doing this and that
                 // it cannot happen twice.
-                let mut txn = GLOBALS.db().env().write_txn()?;
+                let mut txn = GLOBALS.db().env.write_txn()?;
                 let db = GLOBALS
                     .db()
-                    .env()
+                    .env
                     .database_options()
                     .types::<Bytes, Bytes>()
                     .name(Self::lmdb_name())

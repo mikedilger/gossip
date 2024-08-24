@@ -30,9 +30,9 @@ impl Storage {
 
                 // Create it. We know that nobody else is doing this and that
                 // it cannot happen twice.
-                let mut txn = self.env().write_txn()?;
+                let mut txn = self.env.write_txn()?;
                 let db = self
-                    .env()
+                    .env
                     .database_options()
                     .types::<Bytes, Bytes>()
                     // no .flags needed
@@ -47,7 +47,7 @@ impl Storage {
 
     #[allow(dead_code)]
     pub(crate) fn get_relays1_len(&self) -> Result<u64, Error> {
-        let txn = self.env().read_txn()?;
+        let txn = self.env.read_txn()?;
         Ok(self.db_relays1()?.len(&txn)?)
     }
 
@@ -167,7 +167,7 @@ impl Storage {
         if key.is_empty() {
             return Err(ErrorKind::Empty("relay url".to_owned()).into());
         }
-        let txn = self.env().read_txn()?;
+        let txn = self.env.read_txn()?;
         match self.db_relays1()?.get(&txn, key)? {
             Some(bytes) => Ok(Some(serde_json::from_slice(bytes)?)),
             None => Ok(None),
@@ -178,7 +178,7 @@ impl Storage {
     where
         F: Fn(&Relay1) -> bool,
     {
-        let txn = self.env().read_txn()?;
+        let txn = self.env.read_txn()?;
         let mut output: Vec<Relay1> = Vec::new();
         let iter = self.db_relays1()?.iter(&txn)?;
         for result in iter {

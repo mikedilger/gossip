@@ -91,7 +91,7 @@ impl Storage {
     pub fn m19_read_person_lists_last_edit_times(
         &self,
     ) -> Result<HashMap<PersonList1, i64>, Error> {
-        let txn = self.env().read_txn()?;
+        let txn = self.env.read_txn()?;
 
         match self
             .db_general()?

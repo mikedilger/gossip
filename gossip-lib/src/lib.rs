@@ -208,12 +208,12 @@ pub fn init(rapid: bool) -> Result<(), Error> {
     use std::sync::atomic::Ordering;
 
     // Initialize storage
-    let storage = Storage::new();
+    let storage = Storage::new(rapid)?;
     GLOBALS
         .storage
         .set(storage)
         .expect("Storage attempted to be setup twice!");
-    GLOBALS.db().init(rapid)?;
+    GLOBALS.db().init()?;
 
     // Load signer from settings
     GLOBALS.identity.load()?;

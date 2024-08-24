@@ -27,9 +27,9 @@ impl Storage {
 
                 // Create it. We know that nobody else is doing this and that
                 // it cannot happen twice.
-                let mut txn = self.env().write_txn()?;
+                let mut txn = self.env.write_txn()?;
                 let db = self
-                    .env()
+                    .env
                     .database_options()
                     .types::<Bytes, Bytes>()
                     // no .flags needed
@@ -76,7 +76,7 @@ impl Storage {
     pub(crate) fn get_all_person_list_metadata1(
         &self,
     ) -> Result<Vec<(PersonList1, PersonListMetadata1)>, Error> {
-        let txn = self.env().read_txn()?;
+        let txn = self.env.read_txn()?;
         let mut output: Vec<(PersonList1, PersonListMetadata1)> = Vec::new();
         for result in self.db_person_lists_metadata1()?.iter(&txn)? {
             let (key, val) = result?;

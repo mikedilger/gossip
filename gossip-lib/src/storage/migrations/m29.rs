@@ -24,7 +24,7 @@ impl Storage {
     }
 
     fn m29_build_new_event_indexes<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
-        let loop_txn = self.env().read_txn()?;
+        let loop_txn = self.env.read_txn()?;
         for result in self.db_events()?.iter(&loop_txn)? {
             let (_, bytes) = result?;
             let event = Event::read_from_buffer(bytes)?;

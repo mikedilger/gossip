@@ -29,9 +29,9 @@ impl Storage {
 
                 // Create it. We know that nobody else is doing this and that
                 // it cannot happen twice.
-                let mut txn = self.env().write_txn()?;
+                let mut txn = self.env.write_txn()?;
                 let db = self
-                    .env()
+                    .env
                     .database_options()
                     .types::<Bytes, Bytes>()
                     // no .flags needed
@@ -45,7 +45,7 @@ impl Storage {
     }
 
     pub(crate) fn get_relays3_len(&self) -> Result<u64, Error> {
-        let txn = self.env().read_txn()?;
+        let txn = self.env.read_txn()?;
         Ok(self.db_relays3()?.len(&txn)?)
     }
 
@@ -179,7 +179,7 @@ impl Storage {
     where
         F: Fn(&Relay3) -> bool,
     {
-        let txn = self.env().read_txn()?;
+        let txn = self.env.read_txn()?;
         let mut output: Vec<Relay3> = Vec::new();
         let iter = self.db_relays3()?.iter(&txn)?;
         for result in iter {

@@ -73,7 +73,7 @@ impl Storage {
         let ids = self.m20_find_event_ids(kinds, pubkeys, since)?;
 
         // Now that we have that Ids, fetch the events
-        let txn = self.env().read_txn()?;
+        let txn = self.env.read_txn()?;
         let mut events: Vec<EventV2> = Vec::new();
         for id in ids {
             // this is like self.read_event(), but we supply our existing transaction
@@ -173,7 +173,7 @@ impl Storage {
         }
 
         let mut ids: HashSet<Id> = HashSet::new();
-        let txn = self.env().read_txn()?;
+        let txn = self.env.read_txn()?;
 
         for kind in kinds {
             let ek: u32 = (*kind).into();
@@ -223,7 +223,7 @@ impl Storage {
 
         let now = Unixtime::now();
         let mut ids: HashSet<Id> = HashSet::new();
-        let txn = self.env().read_txn()?;
+        let txn = self.env.read_txn()?;
 
         for kind in kinds {
             let ek: u32 = (*kind).into();

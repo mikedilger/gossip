@@ -28,7 +28,7 @@ impl Storage {
     }
 
     fn m13_migrate_lists<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
-        let loop_txn = self.env().read_txn()?;
+        let loop_txn = self.env.read_txn()?;
         for result in self.db_person_lists1()?.iter(&loop_txn)? {
             let (key, val) = result?;
             let pubkey = PublicKey::from_bytes(key, true)?;

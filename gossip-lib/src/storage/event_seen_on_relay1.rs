@@ -28,9 +28,9 @@ impl Storage {
 
                 // Create it. We know that nobody else is doing this and that
                 // it cannot happen twice.
-                let mut txn = self.env().write_txn()?;
+                let mut txn = self.env.write_txn()?;
                 let db = self
-                    .env()
+                    .env
                     .database_options()
                     .types::<Bytes, Bytes>()
                     // no .flags needed
@@ -44,7 +44,7 @@ impl Storage {
     }
 
     pub(crate) fn get_event_seen_on_relay1_len(&self) -> Result<u64, Error> {
-        let txn = self.env().read_txn()?;
+        let txn = self.env.read_txn()?;
         Ok(self.db_event_seen_on_relay1()?.len(&txn)?)
     }
 
@@ -73,7 +73,7 @@ impl Storage {
         id: Id,
     ) -> Result<Vec<(RelayUrl, Unixtime)>, Error> {
         let start_key: Vec<u8> = id.as_slice().to_owned();
-        let txn = self.env().read_txn()?;
+        let txn = self.env.read_txn()?;
         let mut output: Vec<(RelayUrl, Unixtime)> = Vec::new();
         for result in self
             .db_event_seen_on_relay1()?

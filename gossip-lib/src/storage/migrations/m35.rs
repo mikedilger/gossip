@@ -22,7 +22,7 @@ impl Storage {
     }
 
     fn m35_migrate_person_records(&self, txn: &mut RwTxn<'_>) -> Result<(), Error> {
-        let loop_txn = self.env().read_txn()?;
+        let loop_txn = self.env.read_txn()?;
         let iter = self.db_people2()?.iter(&loop_txn)?;
         for result in iter {
             let (_key, val) = result?;
