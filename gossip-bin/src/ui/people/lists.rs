@@ -38,7 +38,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     }
 
     let mut all_lists = GLOBALS
-        .storage
+        .db()
         .get_all_person_list_metadata()
         .unwrap_or_default();
     all_lists.sort_by(sort_lists);

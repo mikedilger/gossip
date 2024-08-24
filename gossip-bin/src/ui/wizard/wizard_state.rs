@@ -84,7 +84,7 @@ impl WizardState {
     }
 
     pub fn update(&mut self) {
-        self.follow_only = GLOBALS.storage.get_flag_following_only();
+        self.follow_only = GLOBALS.db().get_flag_following_only();
 
         self.pubkey = GLOBALS.identity.public_key();
         self.has_private_key = GLOBALS.identity.is_unlocked();
@@ -96,30 +96,30 @@ impl WizardState {
 
             filter.kinds = vec![EventKind::Metadata];
             self.metadata_events = GLOBALS
-                .storage
+                .db()
                 .find_events_by_filter(&filter, |_| true)
                 .unwrap_or_default();
 
             filter.kinds = vec![EventKind::ContactList];
             self.contact_list_events = GLOBALS
-                .storage
+                .db()
                 .find_events_by_filter(&filter, |_| true)
                 .unwrap_or_default();
 
             filter.kinds = vec![EventKind::RelayList];
             self.relay_list_events = GLOBALS
-                .storage
+                .db()
                 .find_events_by_filter(&filter, |_| true)
                 .unwrap_or_default();
 
             self.relays = GLOBALS
-                .storage
+                .db()
                 .filter_relays(|relay| relay.has_any_usage_bit())
                 .unwrap_or_default();
         }
 
         self.followed = GLOBALS
-            .storage
+            .db()
             .get_people_in_list(PersonList::Followed)
             .unwrap_or_default()
             .drain(..)

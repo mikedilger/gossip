@@ -7,7 +7,7 @@ use std::sync::atomic::Ordering;
 
 // This updates the people map and the database with the result
 pub async fn validate_nip05(person: Person) -> Result<(), Error> {
-    if !GLOBALS.storage.read_setting_check_nip05() {
+    if !GLOBALS.db().read_setting_check_nip05() {
         return Ok(());
     }
 
@@ -139,10 +139,10 @@ fn update_relays(nip05: &str, nip05file: Nip05, pubkey: &PublicKey) -> Result<()
     for relay in relays.iter() {
         // Save relay
         if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(relay) {
-            GLOBALS.storage.write_relay_if_missing(&relay_url, None)?;
+            GLOBALS.db().write_relay_if_missing(&relay_url, None)?;
 
             // Update person_relay
-            GLOBALS.storage.modify_person_relay(
+            GLOBALS.db().modify_person_relay(
                 *pubkey,
                 &relay_url,
                 |pr| {

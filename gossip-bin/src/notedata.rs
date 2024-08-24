@@ -115,18 +115,18 @@ impl NoteData {
         let delegation = event.delegation();
 
         // This function checks that the deletion author is allowed
-        let deletions = GLOBALS.storage.get_deletions(&event).unwrap_or_default();
+        let deletions = GLOBALS.db().get_deletions(&event).unwrap_or_default();
 
         // This function checks the authors match
-        let annotations = GLOBALS.storage.get_annotations(&event).unwrap_or_default();
+        let annotations = GLOBALS.db().get_annotations(&event).unwrap_or_default();
 
         let (reactions, our_reaction) = GLOBALS
-            .storage
+            .db()
             .get_reactions(event.id)
             .unwrap_or((vec![], None));
 
         let zaptotal = GLOBALS
-            .storage
+            .db()
             .get_zap_total(event.id)
             .unwrap_or(MilliSatoshi(0));
 
@@ -270,19 +270,19 @@ impl NoteData {
             _ => Person::new(author_pubkey),
         };
 
-        let lists = match GLOBALS.storage.read_person_lists(&author_pubkey) {
+        let lists = match GLOBALS.db().read_person_lists(&author_pubkey) {
             Ok(lists) => lists,
             _ => HashMap::new(),
         };
 
         let seen_on = GLOBALS
-            .storage
+            .db()
             .get_event_seen_on_relay(event.id)
             .unwrap_or_default();
 
         let bookmarked = GLOBALS.current_bookmarks.read().contains(&event.id);
 
-        let volatile = GLOBALS.storage.event_is_volatile(event.id);
+        let volatile = GLOBALS.db().event_is_volatile(event.id);
 
         NoteData {
             event,
@@ -310,7 +310,7 @@ impl NoteData {
     pub(super) fn update(&mut self) {
         // Update reactions
         let (mut reactions, our_reaction) = GLOBALS
-            .storage
+            .db()
             .get_reactions(self.event.id)
             .unwrap_or((vec![], None));
         self.reactions.clear();
@@ -319,7 +319,7 @@ impl NoteData {
 
         // Update seen_on
         let mut seen_on = GLOBALS
-            .storage
+            .db()
             .get_event_seen_on_relay(self.event.id)
             .unwrap_or_default();
 
@@ -328,13 +328,13 @@ impl NoteData {
 
         // Update annotations
         self.annotations = GLOBALS
-            .storage
+            .db()
             .get_annotations(&self.event)
             .unwrap_or_default();
 
         // Update zaptotal
         self.zaptotal = GLOBALS
-            .storage
+            .db()
             .get_zap_total(self.event.id)
             .unwrap_or(MilliSatoshi(0));
     }

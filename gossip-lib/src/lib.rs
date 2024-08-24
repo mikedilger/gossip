@@ -62,7 +62,7 @@
 //!
 //! Besides talking to the `Overlord`, the most common thing a front-end needs to do is interact
 //! with the storage engine. In some cases, the `Overlord` has more complex code for doing this,
-//! but in many cases, you can interact with `GLOBALS.storage` directly.
+//! but in many cases, you can interact with `GLOBALS.db()` directly.
 
 pub mod bookmarks;
 pub use bookmarks::BookmarkList;
@@ -208,7 +208,12 @@ pub fn init(rapid: bool) -> Result<(), Error> {
     use std::sync::atomic::Ordering;
 
     // Initialize storage
-    GLOBALS.storage.init(rapid)?;
+    let storage = Storage::new();
+    GLOBALS
+        .storage
+        .set(storage)
+        .expect("Storage attempted to be setup twice!");
+    GLOBALS.db().init(rapid)?;
 
     // Load signer from settings
     GLOBALS.identity.load()?;
@@ -219,14 +224,14 @@ pub fn init(rapid: bool) -> Result<(), Error> {
     // If we have a key but have not unlocked it
     if GLOBALS.identity.has_private_key() && !GLOBALS.identity.is_unlocked() {
         // If we need to rebuild relationships
-        if GLOBALS.storage.get_flag_rebuild_relationships_needed()
-            || GLOBALS.storage.get_flag_rebuild_indexes_needed()
+        if GLOBALS.db().get_flag_rebuild_relationships_needed()
+            || GLOBALS.db().get_flag_rebuild_indexes_needed()
         {
             GLOBALS.wait_for_login.store(true, Ordering::Relaxed);
             GLOBALS
                 .wait_for_data_migration
                 .store(true, Ordering::Relaxed);
-        } else if GLOBALS.storage.read_setting_login_at_startup() {
+        } else if GLOBALS.db().read_setting_login_at_startup() {
             GLOBALS.wait_for_login.store(true, Ordering::Relaxed);
         }
     }
@@ -235,7 +240,7 @@ pub fn init(rapid: bool) -> Result<(), Error> {
     if let Some(pubkey) = GLOBALS.identity.public_key() {
         if let Some(event) =
             GLOBALS
-                .storage
+                .db()
                 .get_replaceable_event(EventKind::BookmarkList, pubkey, "")?
         {
             *GLOBALS.bookmarks.write() = BookmarkList::from_event(&event)?;
@@ -291,7 +296,7 @@ pub async fn run() {
     overlord.run().await;
 
     // Sync storage
-    if let Err(e) = GLOBALS.storage.sync() {
+    if let Err(e) = GLOBALS.db().sync() {
         tracing::error!("{}", e);
     } else {
         tracing::info!("LMDB synced.");

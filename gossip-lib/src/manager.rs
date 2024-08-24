@@ -58,10 +58,10 @@ pub(crate) fn engage_minion(url: RelayUrl, jobs: Vec<RelayJob>) {
 }
 
 async fn engage_minion_inner(url: RelayUrl, mut jobs: Vec<RelayJob>) -> Result<(), Error> {
-    let relay = GLOBALS.storage.read_or_create_relay(&url, None)?;
+    let relay = GLOBALS.db().read_or_create_relay(&url, None)?;
 
     if GLOBALS
-        .storage
+        .db()
         .read_setting_relay_connection_requires_approval()
     {
         match relay.allow_connect {
@@ -79,7 +79,7 @@ async fn engage_minion_inner(url: RelayUrl, mut jobs: Vec<RelayJob>) -> Result<(
     } // else fall through
 
     // Do not connect if we are offline
-    if GLOBALS.storage.read_setting_offline() {
+    if GLOBALS.db().read_setting_offline() {
         return Err(ErrorKind::Offline.into());
     }
 

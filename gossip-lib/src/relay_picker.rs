@@ -93,7 +93,7 @@ impl RelayPicker {
         // Add that the need relays
         self.pubkey_counts.insert(
             pubkey,
-            GLOBALS.storage.read_setting_num_relays_per_person() as usize,
+            GLOBALS.db().read_setting_num_relays_per_person() as usize,
         );
 
         Ok(())
@@ -182,7 +182,7 @@ impl RelayPicker {
             if initialize_counts {
                 self.pubkey_counts.insert(
                     *pubkey,
-                    GLOBALS.storage.read_setting_num_relays_per_person() as usize,
+                    GLOBALS.db().read_setting_num_relays_per_person() as usize,
                 );
             }
         }
@@ -225,7 +225,7 @@ impl RelayPicker {
         // If we are at max relays, only consider relays we are already
         // connected to
         let at_max_relays =
-            self.relay_assignments.len() >= GLOBALS.storage.read_setting_max_relays() as usize;
+            self.relay_assignments.len() >= GLOBALS.db().read_setting_max_relays() as usize;
 
         // Maybe include excluded relays
         let now = Unixtime::now().0;
@@ -235,7 +235,7 @@ impl RelayPicker {
             return Err(ErrorKind::NoPeopleLeft.into());
         }
 
-        let all_relays = match GLOBALS.storage.filter_relays(|_| true) {
+        let all_relays = match GLOBALS.db().filter_relays(|_| true) {
             Err(_) => vec![],
             Ok(vec) => vec.iter().map(|elem| elem.url.to_owned()).collect(),
         };

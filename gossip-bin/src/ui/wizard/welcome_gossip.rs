@@ -50,7 +50,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     WizardPath::FollowOnlyNoKeys => {
                         app.wizard_state.new_user = false;
                         app.wizard_state.follow_only = true;
-                        let _ = GLOBALS.storage.set_flag_following_only(true, None);
+                        let _ = GLOBALS.db().set_flag_following_only(true, None);
                         app.set_page(ctx, Page::Wizard(WizardPage::FollowPeople));
                     }
                 }

@@ -56,13 +56,10 @@ impl Fetcher {
         *GLOBALS.fetcher.tmp_cache_dir.write().unwrap() = Profile::cache_dir(true)?;
 
         // Create client
-        let connect_timeout = std::time::Duration::new(
-            GLOBALS.storage.read_setting_fetcher_connect_timeout_sec(),
-            0,
-        );
+        let connect_timeout =
+            std::time::Duration::new(GLOBALS.db().read_setting_fetcher_connect_timeout_sec(), 0);
 
-        let timeout =
-            std::time::Duration::new(GLOBALS.storage.read_setting_fetcher_timeout_sec(), 0);
+        let timeout = std::time::Duration::new(GLOBALS.db().read_setting_fetcher_timeout_sec(), 0);
 
         *GLOBALS.fetcher.client.write().unwrap() = Some(
             Client::builder()
@@ -138,7 +135,7 @@ impl Fetcher {
                     }
 
                     let load = self.fetch_host_load(&host);
-                    if load >= GLOBALS.storage.read_setting_fetcher_max_requests_per_host() {
+                    if load >= GLOBALS.db().read_setting_fetcher_max_requests_per_host() {
                         continue; // We cannot overload any given host
                     }
 
@@ -271,7 +268,7 @@ impl Fetcher {
 
     async fn fetch(&self, url: Url, use_temp_cache: bool) {
         // Do not fetch if offline
-        if GLOBALS.storage.read_setting_offline() {
+        if GLOBALS.db().read_setting_offline() {
             tracing::debug!("FETCH {url}: Failed: offline mode");
             self.urls.write().unwrap().insert(url, FetchState::Failed);
             return;
@@ -321,7 +318,7 @@ impl Fetcher {
         if let Some(ref etag) = etag {
             req = req.header("if-none-match", etag.to_owned());
         }
-        if GLOBALS.storage.read_setting_set_user_agent() {
+        if GLOBALS.db().read_setting_set_user_agent() {
             req = req.header("User-Agent", USER_AGENT);
         };
 
@@ -398,13 +395,13 @@ impl Fetcher {
         }
 
         let low_exclusion = GLOBALS
-            .storage
+            .db()
             .read_setting_fetcher_host_exclusion_on_low_error_secs();
         let med_exclusion = GLOBALS
-            .storage
+            .db()
             .read_setting_fetcher_host_exclusion_on_med_error_secs();
         let high_exclusion = GLOBALS
-            .storage
+            .db()
             .read_setting_fetcher_host_exclusion_on_high_error_secs();
 
         // Deal with response errors

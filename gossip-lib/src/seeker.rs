@@ -195,7 +195,7 @@ impl Seeker {
                     relays: vec![],
                     marker: None,
                 };
-                while let Some(event) = GLOBALS.storage.read_event_reference(&eref)? {
+                while let Some(event) = GLOBALS.db().read_event_reference(&eref)? {
                     if let Some(parent_eref) = event.replies_to() {
                         eref = parent_eref;
                         continue;

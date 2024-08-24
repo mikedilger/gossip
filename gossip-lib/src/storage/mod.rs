@@ -82,6 +82,7 @@ type EmptyDatabase = Database<Bytes, Unit>;
 /// The LMDB storage engine.
 ///
 /// All calls are synchronous but fast so callers can just wait on them.
+#[derive(Debug)]
 pub struct Storage {
     env: OnceLock<Env>,
     volatile_events: DashMap<Id, Event>,

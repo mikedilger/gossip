@@ -108,7 +108,7 @@ impl Overlord {
             tracing::error!("{}", e);
         }
 
-        if let Err(e) = GLOBALS.storage.sync() {
+        if let Err(e) = GLOBALS.db().sync() {
             tracing::error!("{}", e);
         } else {
             tracing::info!("LMDB synced.");
@@ -151,19 +151,19 @@ impl Overlord {
 
         {
             // If we need to rebuild relationships, do so now
-            if GLOBALS.storage.get_flag_rebuild_relationships_needed() {
+            if GLOBALS.db().get_flag_rebuild_relationships_needed() {
                 tracing::info!("Rebuilding relationships...");
-                GLOBALS.storage.rebuild_relationships(None)?;
+                GLOBALS.db().rebuild_relationships(None)?;
             }
 
             // If we need to rebuild indexes, do so now
-            if GLOBALS.storage.get_flag_rebuild_indexes_needed() {
+            if GLOBALS.db().get_flag_rebuild_indexes_needed() {
                 tracing::info!("Rebuilding event indices...");
-                GLOBALS.storage.rebuild_event_indices(None)?;
+                GLOBALS.db().rebuild_event_indices(None)?;
             }
 
             // If we need to reapply relay lists, do so now
-            if GLOBALS.storage.get_flag_reprocess_relay_lists_needed() {
+            if GLOBALS.db().get_flag_reprocess_relay_lists_needed() {
                 tracing::info!("Reprocessing relay lists...");
                 crate::process::reprocess_relay_lists()?;
             }
@@ -175,7 +175,7 @@ impl Overlord {
         }
 
         // Switch out of initializing RunState
-        if GLOBALS.storage.read_setting_offline() {
+        if GLOBALS.db().read_setting_offline() {
             let _ = GLOBALS.write_runstate.send(RunState::Offline);
         } else {
             if *GLOBALS.read_runstate.borrow() != RunState::ShuttingDown {
@@ -531,10 +531,10 @@ impl Overlord {
         }
 
         // Record the exclusion in the relay record
-        if let Ok(Some(mut relay)) = GLOBALS.storage.read_relay(&url, None) {
+        if let Ok(Some(mut relay)) = GLOBALS.db().read_relay(&url, None) {
             let until = Unixtime::now() + Duration::from_secs(exclusion);
             relay.avoid_until = Some(until);
-            let _ = GLOBALS.storage.write_relay(&relay, None);
+            let _ = GLOBALS.db().write_relay(&relay, None);
         }
 
         // If none of the jobs were persistent, we are done
@@ -563,9 +563,9 @@ impl Overlord {
     }
 
     fn bump_failure_count(url: &RelayUrl) {
-        if let Ok(Some(mut relay)) = GLOBALS.storage.read_relay(url, None) {
+        if let Ok(Some(mut relay)) = GLOBALS.db().read_relay(url, None) {
             relay.failure_count += 1;
-            let _ = GLOBALS.storage.write_relay(&relay, None);
+            let _ = GLOBALS.db().write_relay(&relay, None);
         }
     }
 
@@ -792,7 +792,7 @@ impl Overlord {
     /// Add a new relay to gossip
     pub async fn add_relay(&mut self, relay_url: RelayUrl) -> Result<(), Error> {
         // Create relay if missing
-        GLOBALS.storage.write_relay_if_missing(&relay_url, None)?;
+        GLOBALS.db().write_relay_if_missing(&relay_url, None)?;
 
         // Then pick relays again (possibly including the one added)
         GLOBALS.relay_picker.refresh_person_relay_scores().await?;
@@ -812,7 +812,7 @@ impl Overlord {
         };
 
         let event = {
-            let inbox_or_outbox_relays: Vec<Relay> = GLOBALS.storage.filter_relays(|r| {
+            let inbox_or_outbox_relays: Vec<Relay> = GLOBALS.db().filter_relays(|r| {
                 r.has_usage_bits(Relay::INBOX) || r.has_usage_bits(Relay::OUTBOX)
             })?;
             let mut tags: Vec<Tag> = Vec::new();
@@ -844,7 +844,7 @@ impl Overlord {
 
         let dmevent = {
             let dm_relays: Vec<Relay> = GLOBALS
-                .storage
+                .db()
                 .filter_relays(|r| r.has_usage_bits(Relay::DM))?;
             let mut tags: Vec<Tag> = Vec::new();
             for relay in dm_relays.iter() {
@@ -920,7 +920,7 @@ impl Overlord {
     pub fn auth_approved(&mut self, relay_url: RelayUrl, permanent: bool) -> Result<(), Error> {
         if permanent {
             // Save the answer in the relay record
-            GLOBALS.storage.modify_relay(
+            GLOBALS.db().modify_relay(
                 &relay_url,
                 |r| {
                     r.allow_auth = Some(true);
@@ -955,7 +955,7 @@ impl Overlord {
     pub fn auth_declined(&mut self, relay_url: RelayUrl, permanent: bool) -> Result<(), Error> {
         if permanent {
             // Save the answer in the relay record
-            GLOBALS.storage.modify_relay(
+            GLOBALS.db().modify_relay(
                 &relay_url,
                 |r| {
                     r.allow_auth = Some(false);
@@ -1055,7 +1055,7 @@ impl Overlord {
     ) -> Result<(), Error> {
         if permanent {
             // Save the answer in the relay record
-            GLOBALS.storage.modify_relay(
+            GLOBALS.db().modify_relay(
                 &relay_url,
                 |r| {
                     r.allow_connect = Some(true);
@@ -1081,7 +1081,7 @@ impl Overlord {
     ) -> Result<(), Error> {
         if permanent {
             // Save the answer in the relay record
-            GLOBALS.storage.modify_relay(
+            GLOBALS.db().modify_relay(
                 &relay_url,
                 |r| {
                     r.allow_connect = Some(false);
@@ -1112,21 +1112,19 @@ impl Overlord {
     /// Delete a person list
     pub async fn delete_person_list(&mut self, list: PersonList) -> Result<(), Error> {
         // Get the metadata first, we need it to delete events
-        let metadata = match GLOBALS.storage.get_person_list_metadata(list)? {
+        let metadata = match GLOBALS.db().get_person_list_metadata(list)? {
             Some(m) => m,
             None => return Ok(()),
         };
 
         // Delete the list locally
-        let mut txn = GLOBALS.storage.get_write_txn()?;
-        GLOBALS.storage.clear_person_list(list, Some(&mut txn))?;
-        GLOBALS
-            .storage
-            .deallocate_person_list(list, Some(&mut txn))?;
+        let mut txn = GLOBALS.db().get_write_txn()?;
+        GLOBALS.db().clear_person_list(list, Some(&mut txn))?;
+        GLOBALS.db().deallocate_person_list(list, Some(&mut txn))?;
         txn.commit()?;
 
         // If we are only following, nothing else needed
-        if GLOBALS.storage.get_flag_following_only() {
+        if GLOBALS.db().get_flag_following_only() {
             return Ok(());
         }
 
@@ -1143,7 +1141,7 @@ impl Overlord {
         filter.add_author(&public_key.into());
 
         // Find all local-storage events that define the list
-        let bad_events = GLOBALS.storage.find_events_by_filter(&filter, |event| {
+        let bad_events = GLOBALS.db().find_events_by_filter(&filter, |event| {
             event.parameter().as_ref() == Some(&metadata.dtag)
         })?;
 
@@ -1154,7 +1152,7 @@ impl Overlord {
 
         // Delete those events locally
         for bad_event in &bad_events {
-            GLOBALS.storage.delete_event(bad_event.id, None)?;
+            GLOBALS.db().delete_event(bad_event.id, None)?;
         }
 
         // Require sign in to delete further
@@ -1207,7 +1205,7 @@ impl Overlord {
             // Get all of the relays this events were seen on
             for bad_event in &bad_events {
                 let seen_on: Vec<RelayUrl> = GLOBALS
-                    .storage
+                    .db()
                     .get_event_seen_on_relay(bad_event.id)?
                     .iter()
                     .take(6) // Doesn't have to be everywhere
@@ -1244,7 +1242,7 @@ impl Overlord {
     pub async fn delete_post(&mut self, id: Id) -> Result<(), Error> {
         let mut tags: Vec<Tag> = vec![Tag::new_event(id, None, None)];
 
-        if let Some(target_event) = GLOBALS.storage.read_event(id)? {
+        if let Some(target_event) = GLOBALS.db().read_event(id)? {
             tags.push(Tag::new_kind(target_event.kind));
         }
 
@@ -1281,7 +1279,7 @@ impl Overlord {
 
             // Get all of the relays this event was seen on
             let seen_on: Vec<RelayUrl> = GLOBALS
-                .storage
+                .db()
                 .get_event_seen_on_relay(id)?
                 .iter()
                 .map(|(url, _time)| url.to_owned())
@@ -1350,7 +1348,7 @@ impl Overlord {
         }
 
         // Don't do this if we already have the event
-        if GLOBALS.storage.has_event(id)? {
+        if GLOBALS.db().has_event(id)? {
             return Ok(());
         }
 
@@ -1430,10 +1428,10 @@ impl Overlord {
         for relay in nprofile.relays.iter() {
             if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(relay) {
                 // Create relay if missing
-                GLOBALS.storage.write_relay_if_missing(&relay_url, None)?;
+                GLOBALS.db().write_relay_if_missing(&relay_url, None)?;
 
                 // Save person_relay
-                GLOBALS.storage.modify_person_relay(
+                GLOBALS.db().modify_person_relay(
                     nprofile.pubkey,
                     &relay_url,
                     |pr| {
@@ -1465,11 +1463,11 @@ impl Overlord {
     }
 
     /// Hide or Show a relay. This adjusts the `hidden` a flag on the `Relay` record
-    /// (You could easily do this yourself by talking to GLOBALS.storage directly too)
+    /// (You could easily do this yourself by talking to GLOBALS.db() directly too)
     pub fn hide_or_show_relay(relay_url: RelayUrl, hidden: bool) -> Result<(), Error> {
-        if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url, None)? {
+        if let Some(mut relay) = GLOBALS.db().read_relay(&relay_url, None)? {
             relay.hidden = hidden;
-            GLOBALS.storage.write_relay(&relay, None)?;
+            GLOBALS.db().write_relay(&relay, None)?;
         }
 
         Ok(())
@@ -1570,7 +1568,7 @@ impl Overlord {
             FeedKind::Person(pubkey) => {
                 // Get write relays for the person
                 let relays: Vec<RelayUrl> = relay::get_all_pubkey_outboxes(pubkey)?;
-                let num = GLOBALS.storage.read_setting_num_relays_per_person() as usize;
+                let num = GLOBALS.db().read_setting_num_relays_per_person() as usize;
                 manager::run_jobs_on_some_relays(
                     relays,
                     num,
@@ -1618,7 +1616,7 @@ impl Overlord {
         GLOBALS.pending.take_nip46_request(&pubkey, &parsed_command);
 
         // Handle the request
-        if let Some(mut server) = GLOBALS.storage.read_nip46server(pubkey)? {
+        if let Some(mut server) = GLOBALS.db().read_nip46server(pubkey)? {
             match parsed_command.method.as_str() {
                 "sign_event" => server.sign_approval = approval,
                 "nip04_encrypt" | "nip44_encrypt" => server.encrypt_approval = approval,
@@ -1631,7 +1629,7 @@ impl Overlord {
             }
 
             // Save back
-            GLOBALS.storage.write_nip46server(&server, None)?;
+            GLOBALS.db().write_nip46server(&server, None)?;
 
             // Handle it
             server.handle(&parsed_command)?;
@@ -1700,7 +1698,7 @@ impl Overlord {
                 Tag::new_pubkey(pubkey, None, None),
             ];
 
-            if GLOBALS.storage.read_setting_set_client_tag() {
+            if GLOBALS.db().read_setting_set_client_tag() {
                 tags.push(Tag::new(&["client", "gossip"]));
             }
 
@@ -1712,7 +1710,7 @@ impl Overlord {
                 content: reaction.to_string(),
             };
 
-            let powint = GLOBALS.storage.read_setting_pow();
+            let powint = GLOBALS.db().read_setting_pow();
             if powint > 0 {
                 let (work_sender, work_receiver) = mpsc::channel();
                 std::thread::spawn(move || {
@@ -1855,7 +1853,7 @@ impl Overlord {
             .write("Pruning cache, please be patient..".to_owned());
 
         let age = Duration::new(
-            GLOBALS.storage.read_setting_cache_prune_period_days() * 60 * 60 * 24,
+            GLOBALS.db().read_setting_cache_prune_period_days() * 60 * 60 * 24,
             0,
         );
 
@@ -1879,10 +1877,10 @@ impl Overlord {
         let now = Unixtime::now();
         let then = now
             - Duration::new(
-                GLOBALS.storage.read_setting_prune_period_days() * 60 * 60 * 24,
+                GLOBALS.db().read_setting_prune_period_days() * 60 * 60 * 24,
                 0,
             );
-        let count = GLOBALS.storage.prune(then)?;
+        let count = GLOBALS.db().prune(then)?;
 
         GLOBALS.status_queue.write().write(format!(
             "Database has been pruned. {} events removed.",
@@ -1894,7 +1892,7 @@ impl Overlord {
 
     /// Publish the user's specified PersonList
     pub async fn push_person_list(&mut self, list: PersonList) -> Result<(), Error> {
-        let metadata = match GLOBALS.storage.get_person_list_metadata(list)? {
+        let metadata = match GLOBALS.db().get_person_list_metadata(list)? {
             Some(m) => m,
             None => return Ok(()),
         };
@@ -1965,9 +1963,9 @@ impl Overlord {
     /// This represent a user's judgement, and is factored into how suitable a relay is for various
     /// purposes.
     pub fn rank_relay(relay_url: RelayUrl, rank: u8) -> Result<(), Error> {
-        if let Some(mut relay) = GLOBALS.storage.read_relay(&relay_url, None)? {
+        if let Some(mut relay) = GLOBALS.db().read_relay(&relay_url, None)? {
             relay.rank = rank as u64;
-            GLOBALS.storage.write_relay(&relay, None)?;
+            GLOBALS.db().write_relay(&relay, None)?;
         }
         Ok(())
     }
@@ -2011,7 +2009,7 @@ impl Overlord {
 
     /// Repost a post by `Id`
     pub async fn repost(&mut self, id: Id) -> Result<(), Error> {
-        let reposted_event = match GLOBALS.storage.read_event(id)? {
+        let reposted_event = match GLOBALS.db().read_event(id)? {
             Some(event) => event,
             None => {
                 GLOBALS
@@ -2023,7 +2021,7 @@ impl Overlord {
         };
 
         let relay_url = {
-            let seen_on = GLOBALS.storage.get_event_seen_on_relay(reposted_event.id)?;
+            let seen_on = GLOBALS.db().get_event_seen_on_relay(reposted_event.id)?;
             if seen_on.is_empty() {
                 // FIXME: is this the right way to pick this relay?
                 relay::recommended_relay_hint(id)?.map(|rr| rr.to_unchecked_url())
@@ -2070,7 +2068,7 @@ impl Overlord {
                 }
             };
 
-            if GLOBALS.storage.read_setting_set_client_tag() {
+            if GLOBALS.db().read_setting_set_client_tag() {
                 tags.push(Tag::new(&["client", "gossip"]));
             }
 
@@ -2082,7 +2080,7 @@ impl Overlord {
                 content: serde_json::to_string(&reposted_event)?,
             };
 
-            let powint = GLOBALS.storage.read_setting_pow();
+            let powint = GLOBALS.db().read_setting_pow();
             if powint > 0 {
                 let (work_sender, work_receiver) = mpsc::channel();
                 std::thread::spawn(move || {
@@ -2158,7 +2156,7 @@ impl Overlord {
                     filter.add_author(&ea.author.into());
 
                     if let Some(event) = GLOBALS
-                        .storage
+                        .db()
                         .find_events_by_filter(&filter, |event| {
                             event.tags.iter().any(|tag| {
                                 if let Ok(d) = tag.parse_identifier() {
@@ -2184,7 +2182,7 @@ impl Overlord {
                     }
                 }
                 NostrBech32::NEvent(ne) => {
-                    if let Some(event) = GLOBALS.storage.read_event(ne.id)? {
+                    if let Some(event) = GLOBALS.db().read_event(ne.id)? {
                         note_search_results.push(event);
                     } else {
                         let relays: Vec<RelayUrl> = ne
@@ -2203,7 +2201,7 @@ impl Overlord {
                     }
                 }
                 NostrBech32::Id(id) => {
-                    if let Some(event) = GLOBALS.storage.read_event(id)? {
+                    if let Some(event) = GLOBALS.db().read_event(id)? {
                         note_search_results.push(event);
                     }
                     // else we can't go find it, we don't know which relays to ask.
@@ -2249,7 +2247,7 @@ impl Overlord {
             None,
         )?);
 
-        note_search_results.extend(GLOBALS.storage.search_events(&text)?);
+        note_search_results.extend(GLOBALS.db().search_events(&text)?);
 
         *GLOBALS.people_search_results.write() = people_search_results;
         *GLOBALS.note_search_results.write() = note_search_results;
@@ -2269,7 +2267,7 @@ impl Overlord {
         //   outbox: you may have written them there. Other clients may have too.
         //   inbox: they may have put theirs here for you to pick up.
         let mut relays: Vec<Relay> = GLOBALS
-            .storage
+            .db()
             .filter_relays(|r| r.has_usage_bits(Relay::OUTBOX) || r.has_usage_bits(Relay::INBOX))?;
         let relay_urls: Vec<RelayUrl> = relays.drain(..).map(|r| r.url).collect();
         manager::run_jobs_on_all_relays(
@@ -2379,7 +2377,7 @@ impl Overlord {
             GLOBALS.feed.set_thread_parent(id);
         }
 
-        let num_relays_per_person = GLOBALS.storage.read_setting_num_relays_per_person();
+        let num_relays_per_person = GLOBALS.db().read_setting_num_relays_per_person();
 
         // If we don't have it all, seek the next higher ancestor
         if ancestors.highest_connected_remote.is_some() {
@@ -2393,7 +2391,7 @@ impl Overlord {
                 // Include the relays where the event was seen
                 bonus_relays.extend(
                     GLOBALS
-                        .storage
+                        .db()
                         .get_event_seen_on_relay(id)?
                         .drain(..)
                         .take(num_relays_per_person as usize + 1)
@@ -2429,7 +2427,7 @@ impl Overlord {
                 // Include the relays where the referencing event was seen.
                 bonus_relays.extend(
                     GLOBALS
-                        .storage
+                        .db()
                         .get_event_seen_on_relay(referenced_by)?
                         .drain(..)
                         .take(num_relays_per_person as usize + 1)
@@ -2515,7 +2513,7 @@ impl Overlord {
             // Let's collect relays where replies might show up
             let mut bonus_relays: Vec<RelayUrl> = Vec::new();
 
-            if let Some(event) = GLOBALS.storage.read_event(id)? {
+            if let Some(event) = GLOBALS.db().read_event(id)? {
                 bonus_relays.extend(relay::relays_for_seeking_replies(&event)?);
             } else {
                 // We don't have the event itself yet.
@@ -2523,7 +2521,7 @@ impl Overlord {
                 // Include the relays where the referencing event was seen.
                 bonus_relays.extend(
                     GLOBALS
-                        .storage
+                        .db()
                         .get_event_seen_on_relay(referenced_by)?
                         .drain(..)
                         .take(num_relays_per_person as usize + 1)
@@ -2565,7 +2563,7 @@ impl Overlord {
         GLOBALS.connected_relays.clear();
 
         // Pick Relays and start Minions
-        if !GLOBALS.storage.read_setting_offline() {
+        if !GLOBALS.db().read_setting_offline() {
             self.pick_relays().await;
         }
 
@@ -2587,12 +2585,12 @@ impl Overlord {
 
         // Separately subscribe to nostr-connect channels
         let mut relays: Vec<RelayUrl> = Vec::new();
-        let servers = GLOBALS.storage.read_all_nip46servers()?;
+        let servers = GLOBALS.db().read_all_nip46servers()?;
         for server in &servers {
             relays.extend(server.relays.clone());
         }
         // Also subscribe to any unconnected nostr-connect channel
-        if let Some(nip46unconnected) = GLOBALS.storage.read_nip46_unconnected_server()? {
+        if let Some(nip46unconnected) = GLOBALS.db().read_nip46_unconnected_server()? {
             relays.extend(nip46unconnected.relays);
         }
         relays.sort();
@@ -2641,7 +2639,7 @@ impl Overlord {
         // Mark for each person that we are seeking their relay list
         // so that we don't repeat this for a while
         let now = Unixtime::now();
-        let mut txn = GLOBALS.storage.get_write_txn()?;
+        let mut txn = GLOBALS.db().get_write_txn()?;
         for pk in pubkeys.iter() {
             PersonTable::modify(*pk, |p| p.relay_list_last_sought = now.0, Some(&mut txn))?;
         }
@@ -2699,7 +2697,7 @@ impl Overlord {
     /// Subscribe to the user's giftwrap events on their DM and INBOX relays
     pub async fn subscribe_giftwraps(&mut self) -> Result<(), Error> {
         let mut relays: Vec<Relay> = GLOBALS
-            .storage
+            .db()
             .filter_relays(|r| r.has_usage_bits(Relay::DM) || r.has_usage_bits(Relay::INBOX))?;
         let relay_urls: Vec<RelayUrl> = relays.drain(..).map(|r| r.url).collect();
 
@@ -2753,7 +2751,7 @@ impl Overlord {
         // Update public key from private key
         let public_key = GLOBALS.identity.public_key().unwrap();
         GLOBALS
-            .storage
+            .db()
             .write_setting_public_key(&Some(public_key), None)?;
 
         Ok(())
@@ -2825,7 +2823,7 @@ impl Overlord {
     /// Update the local person list from the last event received.
     pub async fn update_person_list(&mut self, list: PersonList, merge: bool) -> Result<(), Error> {
         // we cannot do anything without an identity setup first
-        let my_pubkey = match GLOBALS.storage.read_setting_public_key() {
+        let my_pubkey = match GLOBALS.db().read_setting_public_key() {
             Some(pk) => pk,
             None => {
                 GLOBALS
@@ -2837,18 +2835,18 @@ impl Overlord {
         };
 
         // Get the metadata first
-        let mut metadata = match GLOBALS.storage.get_person_list_metadata(list)? {
+        let mut metadata = match GLOBALS.db().get_person_list_metadata(list)? {
             Some(m) => m,
             None => return Ok(()),
         };
 
         // Load the latest PersonList event from the database
         let event = {
-            if let Some(event) = GLOBALS.storage.get_replaceable_event(
-                list.event_kind(),
-                my_pubkey,
-                &metadata.dtag,
-            )? {
+            if let Some(event) =
+                GLOBALS
+                    .db()
+                    .get_replaceable_event(list.event_kind(), my_pubkey, &metadata.dtag)?
+            {
                 event.clone()
             } else {
                 GLOBALS
@@ -2861,7 +2859,7 @@ impl Overlord {
 
         let now = Unixtime::now();
 
-        let mut txn = GLOBALS.storage.get_write_txn()?;
+        let mut txn = GLOBALS.db().get_write_txn()?;
 
         let mut entries: Vec<(PublicKey, Private)> = Vec::new();
 
@@ -2912,12 +2910,12 @@ impl Overlord {
         }
 
         if !merge {
-            GLOBALS.storage.clear_person_list(list, Some(&mut txn))?;
+            GLOBALS.db().clear_person_list(list, Some(&mut txn))?;
         }
 
         for (pubkey, private) in &entries {
             GLOBALS
-                .storage
+                .db()
                 .add_person_to_list(pubkey, list, *private, Some(&mut txn))?;
             GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
         }
@@ -2926,13 +2924,13 @@ impl Overlord {
 
         metadata.last_edit_time = last_edit;
         metadata.len = if merge {
-            GLOBALS.storage.get_people_in_list(list)?.len()
+            GLOBALS.db().get_people_in_list(list)?.len()
         } else {
             entries.len()
         };
 
         GLOBALS
-            .storage
+            .db()
             .set_person_list_metadata(list, &metadata, Some(&mut txn))?;
 
         txn.commit()?;
@@ -2963,10 +2961,10 @@ impl Overlord {
             .and_then(|rru| RelayUrl::try_from_unchecked_url(rru).ok())
         {
             // Save relay if missing
-            GLOBALS.storage.write_relay_if_missing(&url, Some(txn))?;
+            GLOBALS.db().write_relay_if_missing(&url, Some(txn))?;
 
             // Modify person_relay
-            GLOBALS.storage.modify_person_relay(
+            GLOBALS.db().modify_person_relay(
                 *pubkey,
                 &url,
                 |pr| pr.last_suggested = Some(now.0 as u64),
@@ -3007,10 +3005,10 @@ impl Overlord {
         }
 
         // Write new
-        GLOBALS.storage.write_relay(&new, None)?;
+        GLOBALS.db().write_relay(&new, None)?;
 
         // No minion action if we are offline
-        if GLOBALS.storage.read_setting_offline() {
+        if GLOBALS.db().read_setting_offline() {
             return Ok(());
         }
 
@@ -3066,7 +3064,7 @@ impl Overlord {
             1 => {
                 if let Some(pubkey) = GLOBALS.identity.public_key() {
                     // Modify self person_relay
-                    GLOBALS.storage.modify_person_relay(
+                    GLOBALS.db().modify_person_relay(
                         pubkey,
                         &new.url,
                         |pr| pr.read = true,
@@ -3085,7 +3083,7 @@ impl Overlord {
             1 => {
                 if let Some(pubkey) = GLOBALS.identity.public_key() {
                     // Modify self person_relay
-                    GLOBALS.storage.modify_person_relay(
+                    GLOBALS.db().modify_person_relay(
                         pubkey,
                         &new.url,
                         |pr| pr.write = true,
@@ -3121,7 +3119,7 @@ impl Overlord {
         // Work out which relays to use to find augments for which ids
         let mut augment_subs: HashMap<RelayUrl, Vec<Id>> = HashMap::new();
         for id in visible.drain(..) {
-            if let Some(event) = GLOBALS.storage.read_event(id)? {
+            if let Some(event) = GLOBALS.db().read_event(id)? {
                 let relays = relay::relays_for_seeking_replies(&event)?;
                 for relay_url in relays {
                     augment_subs
@@ -3298,7 +3296,7 @@ impl Overlord {
         let relays = {
             // Start with the relays the event was seen on
             let mut relays: Vec<RelayUrl> = GLOBALS
-                .storage
+                .db()
                 .get_event_seen_on_relay(id)?
                 .drain(..)
                 .map(|(url, _)| url)

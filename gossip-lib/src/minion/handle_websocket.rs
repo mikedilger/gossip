@@ -64,7 +64,7 @@ impl Minion {
                                 Some(old) => old.max(event.created_at.0 as u64),
                                 None => event.created_at.0 as u64,
                             });
-                        GLOBALS.storage.modify_relay(
+                        GLOBALS.db().modify_relay(
                             &self.dbrelay.url,
                             |relay| {
                                 relay.last_general_eose_at = self.dbrelay.last_general_eose_at;
@@ -123,7 +123,7 @@ impl Minion {
                                     Some(old) => old.max(now),
                                     None => now,
                                 });
-                            GLOBALS.storage.modify_relay(
+                            GLOBALS.db().modify_relay(
                                 &self.dbrelay.url,
                                 |relay| {
                                     relay.last_general_eose_at = self.dbrelay.last_general_eose_at;
@@ -171,7 +171,7 @@ impl Minion {
                         // Save seen_on data
                         // (it was already processed by the overlord before the minion got it,
                         //  but with None for seen_on.)
-                        GLOBALS.storage.add_event_seen_on_relay(
+                        GLOBALS.db().add_event_seen_on_relay(
                             id,
                             &self.url,
                             Unixtime::now(),
@@ -220,7 +220,7 @@ impl Minion {
                 }
 
                 self.auth_challenge = challenge.to_owned();
-                if GLOBALS.storage.read_setting_relay_auth_requires_approval() {
+                if GLOBALS.db().read_setting_relay_auth_requires_approval() {
                     match self.dbrelay.allow_auth {
                         Some(true) => self.authenticate().await?,
                         Some(false) => (),

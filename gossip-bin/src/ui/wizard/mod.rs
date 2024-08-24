@@ -328,11 +328,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
 }
 
 fn complete_wizard(app: &mut GossipUi, ctx: &Context) {
-    let _ = GLOBALS.storage.set_flag_wizard_complete(true, None);
+    let _ = GLOBALS.db().set_flag_wizard_complete(true, None);
     app.set_page(ctx, Page::Feed(FeedKind::List(PersonList::Followed, false)));
 
     // Go offline and then back online to reset things
-    if !GLOBALS.storage.read_setting_offline() {
+    if !GLOBALS.db().read_setting_offline() {
         let _ = GLOBALS.write_runstate.send(RunState::Offline);
 
         // Pause to make sure all the state transitions complete
@@ -350,10 +350,7 @@ where
     M: FnMut(&mut Relay),
 {
     // Load relay record
-    let mut relay = GLOBALS
-        .storage
-        .read_or_create_relay(relay_url, None)
-        .unwrap();
+    let mut relay = GLOBALS.db().read_or_create_relay(relay_url, None).unwrap();
     let old = relay.clone();
 
     // Run modification

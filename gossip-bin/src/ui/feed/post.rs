@@ -125,7 +125,7 @@ pub(in crate::ui) fn posting_area(
                 }
             });
         } else if GLOBALS
-            .storage
+            .db()
             .filter_relays(|r| r.has_usage_bits(Relay::WRITE))
             .unwrap_or_default()
             .is_empty()
@@ -780,8 +780,8 @@ fn calc_tagging_search(app: &mut GossipUi) {
                 .search_people_to_tag(search)
                 .unwrap_or_default();
             pairs.sort_by(|(_, ak), (_, bk)| {
-                let af = GLOBALS.storage.is_person_subscribed_to(ak).unwrap_or(false);
-                let bf = GLOBALS.storage.is_person_subscribed_to(bk).unwrap_or(false);
+                let af = GLOBALS.db().is_person_subscribed_to(ak).unwrap_or(false);
+                let bf = GLOBALS.db().is_person_subscribed_to(bk).unwrap_or(false);
                 bf.cmp(&af).then(std::cmp::Ordering::Greater)
             });
             app.draft_data.tagging_search_searched = Some(search.clone());

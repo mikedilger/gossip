@@ -67,7 +67,7 @@ impl Feed {
         let anchor_key = self.current_feed_kind.read().anchor_key();
         // Load the timestamp of the earliest event in the feed so far
         if let Some(earliest_id) = self.current_feed_events.read().iter().next_back() {
-            let earliest_event = GLOBALS.storage.read_event(*earliest_id)?;
+            let earliest_event = GLOBALS.db().read_event(*earliest_id)?;
             if let Some(event) = earliest_event {
                 // Move the anchor back to the earliest event we have so far
                 self.feed_anchors.insert(anchor_key, event.created_at);
@@ -229,7 +229,7 @@ impl Feed {
     }
 
     /// Get the parent of the current thread feed.
-    /// The children should be recursively found via `GLOBALS.storage.get_replies(id)`
+    /// The children should be recursively found via `GLOBALS.db().get_replies(id)`
     pub fn get_thread_parent(&self) -> Option<Id> {
         self.sync_maybe_periodic_recompute();
         *self.thread_parent.read()
@@ -257,7 +257,7 @@ impl Feed {
     /// at least one period since the last (for any reason) recomputation.
     pub(crate) fn sync_maybe_periodic_recompute(&self) {
         // Only if we recompute periodically
-        if !GLOBALS.storage.read_setting_recompute_feed_periodically() {
+        if !GLOBALS.db().read_setting_recompute_feed_periodically() {
             return;
         }
 
@@ -294,7 +294,7 @@ impl Feed {
         }
 
         // Copy some values from settings
-        let feed_recompute_interval_ms = GLOBALS.storage.read_setting_feed_recompute_interval_ms();
+        let feed_recompute_interval_ms = GLOBALS.db().read_setting_feed_recompute_interval_ms();
 
         // We only need to set this the first time, but has to be after
         // settings is loaded (can't be in new()).  Doing it every time is
@@ -309,7 +309,7 @@ impl Feed {
                 let filter = {
                     let mut filter = Filter::new();
                     filter.authors = GLOBALS
-                        .storage
+                        .db()
                         .get_people_in_list(list)?
                         .drain(..)
                         .map(|(pk, _)| pk.into())
@@ -355,7 +355,7 @@ impl Feed {
                                         match e.replies_to() {
                                             None => false,
                                             Some(EventReference::Id { id, .. }) =>
-                                                matches!(GLOBALS.storage.is_my_event(id), Ok(true)),
+                                                matches!(GLOBALS.db().is_my_event(id), Ok(true)),
                                             Some(EventReference::Addr(NAddr { author, .. })) => author == my_pubkey,
                                         }
                                     || // or we are referenced in the content
@@ -374,7 +374,7 @@ impl Feed {
                 // Potentially update thread parent to a higher parent
                 let maybe_tp = *self.thread_parent.read();
                 if let Some(tp) = maybe_tp {
-                    if let Some(new_tp) = GLOBALS.storage.get_highest_local_parent_event_id(tp)? {
+                    if let Some(new_tp) = GLOBALS.db().get_highest_local_parent_event_id(tp)? {
                         if new_tp != tp {
                             *self.thread_parent.write() = Some(new_tp);
                         }
@@ -397,13 +397,13 @@ impl Feed {
                 *self.current_feed_events.write() = events;
             }
             FeedKind::DmChat(channel) => {
-                let ids = GLOBALS.storage.dm_events(&channel)?;
+                let ids = GLOBALS.db().dm_events(&channel)?;
                 *self.current_feed_events.write() = ids;
             }
             FeedKind::Global => {
                 let dismissed = GLOBALS.dismissed.read().await.clone();
                 let screen = |e: &Event| basic_screen(e, true, false, &dismissed);
-                let events = GLOBALS.storage.load_volatile_events(screen);
+                let events = GLOBALS.db().load_volatile_events(screen);
                 *self.current_feed_events.write() = events.iter().map(|e| e.id).collect();
             }
         }
@@ -426,7 +426,7 @@ impl Feed {
         F: Fn(&Event) -> bool,
     {
         let now = Unixtime::now();
-        let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
+        let limit = GLOBALS.db().read_setting_load_more_count() as usize;
         let dismissed = GLOBALS.dismissed.read().await.clone();
 
         let outer_screen =
@@ -442,13 +442,13 @@ impl Feed {
         after_filter.until = Some(now);
 
         Ok(GLOBALS
-            .storage
+            .db()
             .find_events_by_filter(&after_filter, outer_screen)?
             .iter()
             .map(|e| e.id)
             .chain(
                 GLOBALS
-                    .storage
+                    .db()
                     .find_events_by_filter(&before_filter, outer_screen)?
                     .iter()
                     .map(|e| e.id),
@@ -472,11 +472,11 @@ fn basic_screen(e: &Event, include_replies: bool, include_dms: bool, dismissed: 
 }
 
 pub fn enabled_event_kinds() -> Vec<EventKind> {
-    let reactions = GLOBALS.storage.read_setting_reactions();
-    let reposts = GLOBALS.storage.read_setting_reposts();
-    let show_long_form = GLOBALS.storage.read_setting_show_long_form();
-    let direct_messages = GLOBALS.storage.read_setting_direct_messages();
-    let enable_zap_receipts = GLOBALS.storage.read_setting_enable_zap_receipts();
+    let reactions = GLOBALS.db().read_setting_reactions();
+    let reposts = GLOBALS.db().read_setting_reposts();
+    let show_long_form = GLOBALS.db().read_setting_show_long_form();
+    let direct_messages = GLOBALS.db().read_setting_direct_messages();
+    let enable_zap_receipts = GLOBALS.db().read_setting_enable_zap_receipts();
 
     EventKind::iter()
         .filter(|k| {

@@ -15,7 +15,7 @@ pub trait Table {
     /// Number of records
     #[allow(dead_code)]
     fn num_records() -> Result<u64, Error> {
-        let txn = GLOBALS.storage.env().read_txn()?;
+        let txn = GLOBALS.db().env().read_txn()?;
         Ok(Self::db()?.len(&txn)?)
     }
 
@@ -34,7 +34,7 @@ pub trait Table {
         match wtxn {
             Some(txn) => f(txn),
             None => {
-                let mut txn = GLOBALS.storage.get_write_txn()?;
+                let mut txn = GLOBALS.db().get_write_txn()?;
                 let result = f(&mut txn);
                 txn.commit()?;
                 result
@@ -65,7 +65,7 @@ pub trait Table {
         match wtxn {
             Some(txn) => f(txn),
             None => {
-                let mut txn = GLOBALS.storage.get_write_txn()?;
+                let mut txn = GLOBALS.db().get_write_txn()?;
                 let result = f(&mut txn);
                 txn.commit()?;
                 result
@@ -87,7 +87,7 @@ pub trait Table {
         match rtxn {
             Some(txn) => f(txn),
             None => {
-                let txn = GLOBALS.storage.get_read_txn()?;
+                let txn = GLOBALS.db().get_read_txn()?;
                 f(&txn)
             }
         }
@@ -111,7 +111,7 @@ pub trait Table {
         match rtxn {
             Some(txn) => f(txn),
             None => {
-                let txn = GLOBALS.storage.get_read_txn()?;
+                let txn = GLOBALS.db().get_read_txn()?;
                 f(&txn)
             }
         }
@@ -146,7 +146,7 @@ pub trait Table {
         match wtxn {
             Some(txn) => f(txn),
             None => {
-                let mut txn = GLOBALS.storage.get_write_txn()?;
+                let mut txn = GLOBALS.db().get_write_txn()?;
                 let result = f(&mut txn);
                 txn.commit()?;
                 result
@@ -175,7 +175,7 @@ pub trait Table {
         match rtxn {
             Some(txn) => f(txn),
             None => {
-                let txn = GLOBALS.storage.get_read_txn()?;
+                let txn = GLOBALS.db().get_read_txn()?;
                 f(&txn)
             }
         }
@@ -208,7 +208,7 @@ pub trait Table {
         match wtxn {
             Some(txn) => f(txn),
             None => {
-                let mut txn = GLOBALS.storage.get_write_txn()?;
+                let mut txn = GLOBALS.db().get_write_txn()?;
                 let result = f(&mut txn);
                 txn.commit()?;
                 result
@@ -248,7 +248,7 @@ pub trait Table {
         match wtxn {
             Some(txn) => f(txn),
             None => {
-                let mut txn = GLOBALS.storage.get_write_txn()?;
+                let mut txn = GLOBALS.db().get_write_txn()?;
                 let result = f(&mut txn);
                 txn.commit()?;
                 result
@@ -284,7 +284,7 @@ pub trait Table {
         match wtxn {
             Some(txn) => f(txn),
             None => {
-                let mut txn = GLOBALS.storage.get_write_txn()?;
+                let mut txn = GLOBALS.db().get_write_txn()?;
                 let result = f(&mut txn);
                 txn.commit()?;
                 result

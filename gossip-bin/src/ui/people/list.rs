@@ -81,7 +81,7 @@ pub(super) fn update(
     }
 
     let metadata = GLOBALS
-        .storage
+        .db()
         .get_person_list_metadata(list)
         .unwrap_or_default()
         .unwrap_or_default();
@@ -315,7 +315,7 @@ pub(super) fn update(
                                     items.push(MoreMenuItem::Button(MoreMenuButton::new(
                                         "Remove",
                                         Box::new(|_, _| {
-                                            let _ = GLOBALS.storage.remove_person_from_list(
+                                            let _ = GLOBALS.db().remove_person_from_list(
                                                 &person.pubkey,
                                                 list,
                                                 None,
@@ -332,7 +332,7 @@ pub(super) fn update(
                                             .add(widgets::Switch::small(&app.theme, &mut private.0))
                                             .clicked()
                                         {
-                                            let _ = GLOBALS.storage.add_person_to_list(
+                                            let _ = GLOBALS.db().add_person_to_list(
                                                 &person.pubkey,
                                                 list,
                                                 *private,
@@ -577,7 +577,7 @@ fn render_add_contact_popup(
 
 pub(super) fn render_delete_list_dialog(ui: &mut Ui, app: &mut GossipUi, list: PersonList) {
     let metadata = GLOBALS
-        .storage
+        .db()
         .get_person_list_metadata(list)
         .unwrap_or_default()
         .unwrap_or_default();
@@ -667,9 +667,7 @@ pub(super) fn render_create_list_dialog(ui: &mut Ui, app: &mut GossipUi) {
                                     ..Default::default()
                                 };
 
-                                if let Err(e) =
-                                    GLOBALS.storage.allocate_person_list(&metadata, None)
-                                {
+                                if let Err(e) = GLOBALS.db().allocate_person_list(&metadata, None) {
                                     app.editing_list_error = Some(e.to_string());
                                     app.list_name_field_needs_focus = true;
                                 } else {
@@ -699,7 +697,7 @@ pub(super) fn render_create_list_dialog(ui: &mut Ui, app: &mut GossipUi) {
 
 pub(super) fn render_rename_list_dialog(ui: &mut Ui, app: &mut GossipUi, list: PersonList) {
     let metadata = GLOBALS
-        .storage
+        .db()
         .get_person_list_metadata(list)
         .unwrap_or_default()
         .unwrap_or_default();
@@ -734,7 +732,7 @@ pub(super) fn render_rename_list_dialog(ui: &mut Ui, app: &mut GossipUi, list: P
                         {
                             app.new_list_name = app.new_list_name.trim().into();
                             if !app.new_list_name.is_empty() {
-                                if let Err(e) = GLOBALS.storage.rename_person_list(
+                                if let Err(e) = GLOBALS.db().rename_person_list(
                                     list,
                                     app.new_list_name.clone(),
                                     None,
@@ -801,9 +799,7 @@ pub(super) fn render_more_list_actions(
             Box::new(|_, _| {
                 let mut metadata = metadata.clone();
                 metadata.favorite = false;
-                let _ = GLOBALS
-                    .storage
-                    .set_person_list_metadata(list, &metadata, None);
+                let _ = GLOBALS.db().set_person_list_metadata(list, &metadata, None);
             }),
         )));
     } else {
@@ -812,9 +808,7 @@ pub(super) fn render_more_list_actions(
             Box::new(|_, _| {
                 let mut metadata = metadata.clone();
                 metadata.favorite = true;
-                let _ = GLOBALS
-                    .storage
-                    .set_person_list_metadata(list, &metadata, None);
+                let _ = GLOBALS.db().set_person_list_metadata(list, &metadata, None);
             }),
         )));
     }
@@ -826,9 +820,7 @@ pub(super) fn render_more_list_actions(
                 Box::new(|_, _| {
                     let mut metadata = metadata.clone();
                     metadata.private = Private(false);
-                    let _ = GLOBALS
-                        .storage
-                        .set_person_list_metadata(list, &metadata, None);
+                    let _ = GLOBALS.db().set_person_list_metadata(list, &metadata, None);
                 }),
             )));
         } else {
@@ -837,12 +829,8 @@ pub(super) fn render_more_list_actions(
                 Box::new(|_, _| {
                     let mut metadata = metadata.clone();
                     metadata.private = Private(true);
-                    let _ = GLOBALS
-                        .storage
-                        .set_person_list_metadata(list, &metadata, None);
-                    let _ = GLOBALS
-                        .storage
-                        .set_all_people_in_list_to_private(list, None);
+                    let _ = GLOBALS.db().set_person_list_metadata(list, &metadata, None);
+                    let _ = GLOBALS.db().set_all_people_in_list_to_private(list, None);
                 }),
             )));
         }
@@ -881,11 +869,11 @@ fn recalc_add_contact_search(app: &mut GossipUi, output: &mut TextEditOutput) {
             // followed contacts first
             pairs.sort_by(|(_, ak), (_, bk)| {
                 let af = GLOBALS
-                    .storage
+                    .db()
                     .is_person_in_list(ak, gossip_lib::PersonList::Followed)
                     .unwrap_or(false);
                 let bf = GLOBALS
-                    .storage
+                    .db()
                     .is_person_in_list(bk, gossip_lib::PersonList::Followed)
                     .unwrap_or(false);
                 bf.cmp(&af).then(std::cmp::Ordering::Greater)
@@ -942,7 +930,7 @@ fn mark_refresh(app: &mut GossipUi) {
 fn refresh_list_data(app: &mut GossipUi, list: PersonList) {
     // prepare data
     app.people_list.cache_people = {
-        let members = GLOBALS.storage.get_people_in_list(list).unwrap_or_default();
+        let members = GLOBALS.db().get_people_in_list(list).unwrap_or_default();
 
         let mut people: Vec<(Person, Private)> = Vec::new();
 
@@ -963,7 +951,7 @@ fn refresh_list_data(app: &mut GossipUi, list: PersonList) {
     };
 
     let metadata = GLOBALS
-        .storage
+        .db()
         .get_person_list_metadata(list)
         .unwrap_or_default()
         .unwrap_or_default();
@@ -1015,7 +1003,7 @@ fn refresh_list_data(app: &mut GossipUi, list: PersonList) {
     }
     let publen = app.people_list.cache_people.len() - prvlen;
 
-    app.people_list.cache_local_hash = GLOBALS.storage.hash_person_list(list).unwrap_or(2);
+    app.people_list.cache_local_hash = GLOBALS.db().hash_person_list(list).unwrap_or(2);
 
     if list == PersonList::Followed {
         app.people_list.cache_local_tag = format!("LOCAL: date={} (public={})", ledit, publen);

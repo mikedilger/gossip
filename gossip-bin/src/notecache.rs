@@ -50,7 +50,7 @@ impl NoteCache {
             return self._try_get_and_borrow(id);
         } else {
             // otherwise try to create new and add to cache
-            if let Ok(Some(event)) = GLOBALS.storage.read_event(*id) {
+            if let Ok(Some(event)) = GLOBALS.db().read_event(*id) {
                 let note = NoteData::new(event);
                 // add to cache
                 let ref_note = Rc::new(RefCell::new(note));

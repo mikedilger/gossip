@@ -22,7 +22,7 @@ pub enum FeedKind {
 impl std::fmt::Display for FeedKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            FeedKind::List(pl, _) => match GLOBALS.storage.get_person_list_metadata(*pl) {
+            FeedKind::List(pl, _) => match GLOBALS.db().get_person_list_metadata(*pl) {
                 Ok(Some(md)) => write!(f, "{}", md.title),
                 _ => write!(f, "UNKNOWN"),
             },

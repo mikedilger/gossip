@@ -24,8 +24,8 @@ impl Default for GossipIdentity {
 
 impl GossipIdentity {
     pub(crate) fn load(&self) -> Result<(), Error> {
-        let pk = GLOBALS.storage.read_setting_public_key();
-        let epk = GLOBALS.storage.read_encrypted_private_key()?;
+        let pk = GLOBALS.db().read_setting_public_key();
+        let epk = GLOBALS.db().read_encrypted_private_key()?;
         match (pk, epk) {
             (Some(pk), Some(epk)) => *self.inner.write() = Identity::from_locked_parts(pk, epk),
             (Some(pk), None) => *self.inner.write() = Identity::Public(pk),
@@ -42,8 +42,8 @@ impl GossipIdentity {
             Identity::Public(pk) => (Some(pk), None),
             Identity::Signer(ref bs) => (Some(bs.public_key()), bs.encrypted_private_key()),
         };
-        GLOBALS.storage.write_setting_public_key(&pk, None)?;
-        GLOBALS.storage.write_encrypted_private_key(epk, None)?;
+        GLOBALS.db().write_setting_public_key(&pk, None)?;
+        GLOBALS.db().write_encrypted_private_key(epk, None)?;
         Ok(())
     }
 
@@ -54,7 +54,7 @@ impl GossipIdentity {
             // Rebuild the event tag index if the identity changes
             // since the 'p' tags it needs to index just changed.
             task::spawn(async move {
-                if let Err(e) = GLOBALS.storage.rebuild_event_tags_index(None) {
+                if let Err(e) = GLOBALS.db().rebuild_event_tags_index(None) {
                     tracing::error!("{}", e);
                 }
             });
@@ -70,7 +70,7 @@ impl GossipIdentity {
 
         // Invalidate DMs so they rerender decrypted
         let dms: Vec<Id> = GLOBALS
-            .storage
+            .db()
             .find_events_by_filter(&filter, |_| true)?
             .iter()
             .map(|e| e.id)
@@ -82,7 +82,7 @@ impl GossipIdentity {
         if let Some(pk) = self.public_key() {
             if let Some(event) =
                 GLOBALS
-                    .storage
+                    .db()
                     .get_replaceable_event(EventKind::BookmarkList, pk, "")?
             {
                 *GLOBALS.bookmarks.write() = BookmarkList::from_event(&event)?;
@@ -91,7 +91,7 @@ impl GossipIdentity {
         }
 
         // Index any waiting GiftWraps
-        GLOBALS.storage.index_unindexed_giftwraps()?;
+        GLOBALS.db().index_unindexed_giftwraps()?;
 
         // Update wait for login condition
         GLOBALS
@@ -125,14 +125,14 @@ impl GossipIdentity {
     }
 
     pub(crate) async fn change_passphrase(&self, old: &str, new: &str) -> Result<(), Error> {
-        let log_n = GLOBALS.storage.read_setting_log_n();
+        let log_n = GLOBALS.db().read_setting_log_n();
         self.inner.write().change_passphrase(old, new, log_n)?;
         self.on_keychange()?;
         Ok(())
     }
 
     pub(crate) fn set_private_key(&self, pk: PrivateKey, pass: &str) -> Result<(), Error> {
-        let log_n = GLOBALS.storage.read_setting_log_n();
+        let log_n = GLOBALS.db().read_setting_log_n();
         let identity = Identity::from_private_key(pk, pass, log_n)?;
         *self.inner.write() = identity;
         self.on_keychange()?;
@@ -145,7 +145,7 @@ impl GossipIdentity {
         // If older version, re-encrypt with new version at default 2^18 rounds
         if let Some(epk) = self.encrypted_private_key() {
             if epk.version()? < 2 {
-                let log_n = GLOBALS.storage.read_setting_log_n();
+                let log_n = GLOBALS.db().read_setting_log_n();
                 self.inner.write().upgrade(pass, log_n)?;
                 self.on_change()?;
             }
@@ -157,7 +157,7 @@ impl GossipIdentity {
     }
 
     pub(crate) fn generate_private_key(&self, pass: &str) -> Result<(), Error> {
-        let log_n = GLOBALS.storage.read_setting_log_n();
+        let log_n = GLOBALS.db().read_setting_log_n();
         *self.inner.write() = Identity::generate(pass, log_n)?;
         self.on_keychange()?;
         Ok(())
@@ -206,7 +206,7 @@ impl GossipIdentity {
     }
 
     pub fn export_private_key_bech32(&self, pass: &str) -> Result<(String, bool), Error> {
-        let log_n = GLOBALS.storage.read_setting_log_n();
+        let log_n = GLOBALS.db().read_setting_log_n();
         Ok(self
             .inner
             .write()
@@ -214,7 +214,7 @@ impl GossipIdentity {
     }
 
     pub fn export_private_key_hex(&self, pass: &str) -> Result<(String, bool), Error> {
-        let log_n = GLOBALS.storage.read_setting_log_n();
+        let log_n = GLOBALS.db().read_setting_log_n();
         Ok(self.inner.write().export_private_key_in_hex(pass, log_n)?)
     }
 

@@ -20,7 +20,7 @@ macro_rules! btn_h_space {
 macro_rules! read_setting {
     ($field:ident) => {
         paste::paste! {
-            gossip_lib::GLOBALS.storage.[<read_setting_ $field>]()
+            gossip_lib::GLOBALS.db().[<read_setting_ $field>]()
         }
     };
 }
@@ -28,7 +28,7 @@ macro_rules! read_setting {
 macro_rules! write_setting {
     ($field:ident, $val:expr) => {
         paste::paste! {
-            let _ = gossip_lib::GLOBALS.storage.[<write_setting_ $field>](&$val, None);
+            let _ = gossip_lib::GLOBALS.db().[<write_setting_ $field>](&$val, None);
         }
     };
 }
@@ -191,7 +191,7 @@ impl Page {
             Page::PeopleLists => ("Lists", "Lists".into()),
             Page::PeopleList(list) => {
                 let metadata = GLOBALS
-                    .storage
+                    .db()
                     .get_person_list_metadata(*list)
                     .unwrap_or_default()
                     .unwrap_or_default();
@@ -637,7 +637,7 @@ impl GossipUi {
 
         // Possibly enter the wizard instead
         let mut wizard_state: WizardState = Default::default();
-        let wizard_complete = GLOBALS.storage.get_flag_wizard_complete();
+        let wizard_complete = GLOBALS.db().get_flag_wizard_complete();
         if !wizard_complete {
             wizard_state.init();
             if let Some(wp) = wizard::start_wizard_page(&mut wizard_state) {
@@ -995,7 +995,7 @@ impl GossipUi {
         let (mut cstate, header_response) = self.get_openable_menu(ui, ctx, SubMenu::Feeds);
         cstate.show_body_indented(&header_response, ui, |ui| {
             let mut all_lists = GLOBALS
-                .storage
+                .db()
                 .get_all_person_list_metadata()
                 .unwrap_or_default();
             all_lists.sort_by(people::sort_lists);
@@ -1295,7 +1295,7 @@ impl GossipUi {
                     RichText::new(m).color(self.theme.notice_marker_text_color()),
                 ));
 
-                let events = GLOBALS.storage.get_event_len().unwrap_or(0);
+                let events = GLOBALS.db().get_event_len().unwrap_or(0);
                 let m = format!("EVENTS STOR {}", events);
                 ui.add(Label::new(
                     RichText::new(m).color(self.theme.notice_marker_text_color()),
@@ -1316,7 +1316,7 @@ impl GossipUi {
 
     fn add_plus_icon(&mut self, ui: &mut Ui, ctx: &Context) {
         if !self.show_post_area_fn() && self.page.show_post_icon() {
-            let feed_newest_at_bottom = GLOBALS.storage.read_setting_feed_newest_at_bottom();
+            let feed_newest_at_bottom = GLOBALS.db().read_setting_feed_newest_at_bottom();
             let pos = if feed_newest_at_bottom {
                 let top_right = ui.ctx().screen_rect().right_top();
                 top_right + Vec2::new(-crate::AVATAR_SIZE_F32 * 2.0, crate::AVATAR_SIZE_F32 * 2.0)

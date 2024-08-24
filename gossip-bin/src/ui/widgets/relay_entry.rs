@@ -1072,7 +1072,7 @@ impl RelayEntry {
                     relay.adjust_usage_bit(Relay::GLOBAL, self.usage.global_feed)
                 });
 
-                GLOBALS.storage.clear_volatile();
+                GLOBALS.db().clear_volatile();
             }
             response.on_hover_text(GLOBAL_FEED_HOVER_TEXT);
             draw_text_at(
@@ -1318,10 +1318,7 @@ where
     M: FnMut(&mut Relay),
 {
     // Load relay record
-    let mut relay = GLOBALS
-        .storage
-        .read_or_create_relay(relay_url, None)
-        .unwrap();
+    let mut relay = GLOBALS.db().read_or_create_relay(relay_url, None).unwrap();
     let old = relay.clone();
 
     // Run modification

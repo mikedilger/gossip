@@ -23,7 +23,7 @@ use nostr_types::{Event, EventKind, Id, PublicKey, RelayUrl, RelayUsage, Unixtim
 
 // Get `num_relays_per_prson` outboxes to subscribe to their events
 pub fn get_some_pubkey_outboxes(pubkey: PublicKey) -> Result<Vec<RelayUrl>, Error> {
-    let num = GLOBALS.storage.read_setting_num_relays_per_person() as usize;
+    let num = GLOBALS.db().read_setting_num_relays_per_person() as usize;
     let relays = get_best_relays_with_score(
         pubkey,
         RelayUsage::Outbox,
@@ -65,12 +65,12 @@ pub fn get_all_pubkey_inboxes(pubkey: PublicKey) -> Result<Vec<RelayUrl>, Error>
             .filter(|(_, score)| *score > 0.125)
             .collect();
 
-    let num = GLOBALS.storage.read_setting_num_relays_per_person() as usize;
+    let num = GLOBALS.db().read_setting_num_relays_per_person() as usize;
     let how_many_more = num.saturating_sub(relays.len());
     if how_many_more > 0 {
         // substitute our write relays
         let additional: Vec<(RelayUrl, f32)> = GLOBALS
-            .storage
+            .db()
             .filter_relays(|r| {
                 // not already in their list
                 !relays.iter().any(|(url, _)| *url == r.url) && r.has_usage_bits(Relay::WRITE)
@@ -91,8 +91,8 @@ pub fn get_all_pubkey_inboxes(pubkey: PublicKey) -> Result<Vec<RelayUrl>, Error>
 /// the caller should fallback to write relays and NIP-04.
 pub fn get_dm_relays(pubkey: PublicKey) -> Result<Vec<RelayUrl>, Error> {
     let mut output: Vec<RelayUrl> = Vec::new();
-    for pr in GLOBALS.storage.get_person_relays(pubkey)?.drain(..) {
-        let relay = GLOBALS.storage.read_or_create_relay(&pr.url, None)?;
+    for pr in GLOBALS.db().get_person_relays(pubkey)?.drain(..) {
+        let relay = GLOBALS.db().read_or_create_relay(&pr.url, None)?;
 
         if relay.should_avoid() {
             continue;
@@ -111,9 +111,9 @@ pub fn get_dm_relays(pubkey: PublicKey) -> Result<Vec<RelayUrl>, Error> {
 /// This tries to generate a single RelayUrl to use for an 'e' or 'a' tag hint
 pub fn recommended_relay_hint(reply_to: Id) -> Result<Option<RelayUrl>, Error> {
     let seen_on_relays: Vec<(RelayUrl, Unixtime)> =
-        GLOBALS.storage.get_event_seen_on_relay(reply_to)?;
+        GLOBALS.db().get_event_seen_on_relay(reply_to)?;
 
-    let maybepubkey = GLOBALS.storage.read_setting_public_key();
+    let maybepubkey = GLOBALS.db().read_setting_public_key();
     if let Some(pubkey) = maybepubkey {
         let my_inbox_relays: Vec<RelayUrl> = get_all_pubkey_inboxes(pubkey)?;
 
@@ -151,7 +151,7 @@ pub fn relays_for_seeking_replies(event: &Event) -> Result<Vec<RelayUrl>, Error>
 
     // Seen on relays
     let mut seen_on: Vec<RelayUrl> = GLOBALS
-        .storage
+        .db()
         .get_event_seen_on_relay(event.id)?
         .drain(..)
         .map(|(url, _time)| url)
@@ -206,7 +206,7 @@ pub fn relays_to_post_to(event: &Event) -> Result<Vec<RelayUrl>, Error> {
 
     // Remove all the 'seen_on' relays for this event
     let seen_on: Vec<RelayUrl> = GLOBALS
-        .storage
+        .db()
         .get_event_seen_on_relay(event.id)?
         .iter()
         .map(|(url, _time)| url.to_owned())
@@ -239,7 +239,7 @@ pub fn get_best_relays_with_score(
 
     // Load person relays, filtering out banned URLs
     let mut person_relays: Vec<PersonRelay> = GLOBALS
-        .storage
+        .db()
         .get_person_relays(pubkey)?
         .drain(..)
         .filter(|pr| !crate::storage::Storage::url_is_banned(&pr.url))
@@ -252,7 +252,7 @@ pub fn get_best_relays_with_score(
         // Get their association to that relay
         let association_score = pr.association_score(now, usage);
 
-        let relay = GLOBALS.storage.read_or_create_relay(&pr.url, None)?;
+        let relay = GLOBALS.db().read_or_create_relay(&pr.url, None)?;
         if relay.should_avoid() {
             continue;
         }
@@ -296,7 +296,7 @@ pub fn sort_relays(
 
     // Load each hinted relay, gets 1 bonus point
     for url in hinted.drain(..) {
-        let relay = GLOBALS.storage.read_or_create_relay(&url, None)?;
+        let relay = GLOBALS.db().read_or_create_relay(&url, None)?;
         let score = relay.score_plus_connected();
         let relay_data = RelayData { score, bonus: 1.0 };
         map.insert(url, relay_data);
@@ -307,7 +307,7 @@ pub fn sort_relays(
         if let Some(data) = map.get_mut(&url) {
             data.bonus += 2.0;
         } else {
-            let relay = GLOBALS.storage.read_or_create_relay(&url, None)?;
+            let relay = GLOBALS.db().read_or_create_relay(&url, None)?;
             let score = relay.score_plus_connected();
             let relay_data = RelayData { score, bonus: 2.0 };
             map.insert(url, relay_data);
@@ -323,7 +323,7 @@ pub fn sort_relays(
             if let Some(data) = map.get_mut(&url) {
                 data.bonus += 5.0 * pscore;
             } else {
-                let relay = GLOBALS.storage.read_or_create_relay(&url, None)?;
+                let relay = GLOBALS.db().read_or_create_relay(&url, None)?;
                 let score = relay.score_plus_connected();
                 let relay_data = RelayData {
                     score,
@@ -343,7 +343,7 @@ pub fn sort_relays(
             if let Some(data) = map.get_mut(&url) {
                 data.bonus += 5.0 * pscore;
             } else {
-                let relay = GLOBALS.storage.read_or_create_relay(&url, None)?;
+                let relay = GLOBALS.db().read_or_create_relay(&url, None)?;
                 let score = relay.score_plus_connected();
                 let relay_data = RelayData {
                     score,

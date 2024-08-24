@@ -47,7 +47,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
 fn get_relays(app: &mut GossipUi) -> Vec<Relay> {
     let mut relays: Vec<Relay> = GLOBALS
-        .storage
+        .db()
         .filter_relays(|relay| {
             app.relays.show_hidden || !relay.hidden && super::filter_relay(&app.relays, relay)
         })

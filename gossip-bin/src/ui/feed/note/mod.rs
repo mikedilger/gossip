@@ -89,7 +89,7 @@ pub(super) fn render_note(
 
             let viewed = matches!(app.page, Page::Feed(FeedKind::Global))
                 || GLOBALS
-                    .storage
+                    .db()
                     .is_event_viewed(note_data.event.id)
                     .unwrap_or(false);
 
@@ -170,7 +170,7 @@ pub(super) fn render_note(
                     .hovered()
                 && !app.is_scrolling()
             {
-                let _ = GLOBALS.storage.mark_event_viewed(id, None);
+                let _ = GLOBALS.db().mark_event_viewed(id, None);
             }
 
             // Record if the rendered note was visible
@@ -188,7 +188,7 @@ pub(super) fn render_note(
             // Load replies variable for next section, while we have note_data borrowed
             if threaded && !as_reply_to && !app.collapsed.contains(&id) {
                 replies = GLOBALS
-                    .storage
+                    .db()
                     .get_replies(&note_data.event)
                     .unwrap_or_default();
             }
@@ -224,7 +224,7 @@ pub fn render_dm_note(app: &mut GossipUi, ui: &mut Ui, feed_note_params: FeedNot
 
     if let Some(note_ref) = app.notecache.try_update_and_get(&id) {
         if let Ok(note_data) = note_ref.try_borrow() {
-            let viewed = match GLOBALS.storage.is_event_viewed(note_data.event.id) {
+            let viewed = match GLOBALS.db().is_event_viewed(note_data.event.id) {
                 Ok(answer) => answer,
                 _ => false,
             };
@@ -258,7 +258,7 @@ pub fn render_dm_note(app: &mut GossipUi, ui: &mut Ui, feed_note_params: FeedNot
 
             // Mark post as viewed if hovered AND we are not scrolling
             if !viewed && inner_response.response.hovered() && !app.is_scrolling() {
-                let _ = GLOBALS.storage.mark_event_viewed(id, None);
+                let _ = GLOBALS.db().mark_event_viewed(id, None);
             }
         }
     }
@@ -456,7 +456,7 @@ pub fn render_note_inner(
                             Some(EventReference::Addr(ea)) => {
                                 // Link to this parent only if we can get that event
                                 if let Ok(Some(e)) = GLOBALS
-                                    .storage
+                                    .db()
                                     .get_replaceable_event(ea.kind, ea.author, &ea.d)
                                 {
                                     let muted = if let Some(note_ref) =

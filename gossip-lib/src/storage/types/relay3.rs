@@ -169,7 +169,7 @@ impl Relay3 {
         if self.rank == 0 {
             true
         } else if GLOBALS
-            .storage
+            .db()
             .read_setting_relay_connection_requires_approval()
             && self.allow_connect == Some(false)
         {
@@ -240,7 +240,7 @@ impl Relay3 {
         F: Fn(&Relay3) -> bool,
     {
         GLOBALS
-            .storage
+            .db()
             .filter_relays(|r| r.has_usage_bits(bits) && !r.should_avoid() && f(r))
     }
 
@@ -249,7 +249,7 @@ impl Relay3 {
         F: Fn(&Relay3) -> bool,
     {
         Ok(GLOBALS
-            .storage
+            .db()
             .filter_relays(|r| r.has_usage_bits(bits) && !r.should_avoid() && f(r))?
             .iter()
             .map(|r| r.url.clone())

@@ -5,7 +5,7 @@ use paste::paste;
 macro_rules! load_setting {
     ($field:ident) => {
         paste! {
-            GLOBALS.storage.[<read_setting_ $field>]()
+            GLOBALS.db().[<read_setting_ $field>]()
         }
     };
 }
@@ -21,16 +21,16 @@ macro_rules! default_setting {
 macro_rules! save_setting {
     ($field:ident, $slf:ident, $txn:ident) => {
         paste! {
-            GLOBALS.storage.[<write_setting_ $field>](&$slf.$field, Some(&mut $txn))?;
+            GLOBALS.db().[<write_setting_ $field>](&$slf.$field, Some(&mut $txn))?;
         }
     };
 }
 
-/// Settings are stored in GLOBALS.storage individually. Usually we don't need them together
+/// Settings are stored in GLOBALS.db() individually. Usually we don't need them together
 /// as an object. But the UI uses this to cache changes before committing them.
 ///
 /// NOTE: It is recommended to NOT use this structure. Instead, just interact with each
-/// setting key individually via `GLOBALS.storage`
+/// setting key individually via `GLOBALS.db()`
 #[derive(Clone, Debug, PartialEq)]
 pub struct UnsavedSettings {
     // ID settings
@@ -287,7 +287,7 @@ impl UnsavedSettings {
     }
 
     pub fn save(&self) -> Result<(), Error> {
-        let mut txn = GLOBALS.storage.get_write_txn()?;
+        let mut txn = GLOBALS.db().get_write_txn()?;
         save_setting!(public_key, self, txn);
         save_setting!(log_n, self, txn);
         save_setting!(login_at_startup, self, txn);

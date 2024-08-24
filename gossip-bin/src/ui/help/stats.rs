@@ -39,7 +39,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
         ui.label(format!(
             "Number of known relays: {}",
-            match GLOBALS.storage.filter_relays(|_| true) {
+            match GLOBALS.db().filter_relays(|_| true) {
                 Err(e) => {
                     tracing::error!("{}", e);
                     0
@@ -54,55 +54,55 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
         ui.label(format!(
             "General: {} records",
-            GLOBALS.storage.get_general_len().unwrap_or(0)
+            GLOBALS.db().get_general_len().unwrap_or(0)
         ));
         ui.add_space(6.0);
 
         ui.label(format!(
             "Events: {} records",
-            GLOBALS.storage.get_event_len().unwrap_or(0)
+            GLOBALS.db().get_event_len().unwrap_or(0)
         ));
         ui.add_space(6.0);
 
         ui.label(format!(
             "Event Index (Author + Kind): {} records",
-            GLOBALS.storage.get_event_akci_index_len().unwrap_or(0)
+            GLOBALS.db().get_event_akci_index_len().unwrap_or(0)
         ));
         ui.add_space(6.0);
 
         ui.label(format!(
             "Event Index (Kind): {} records",
-            GLOBALS.storage.get_event_kci_index_len().unwrap_or(0)
+            GLOBALS.db().get_event_kci_index_len().unwrap_or(0)
         ));
         ui.add_space(6.0);
 
         ui.label(format!(
             "Event Index (Tags): {} records",
-            GLOBALS.storage.get_event_tag_index_len().unwrap_or(0)
+            GLOBALS.db().get_event_tag_index_len().unwrap_or(0)
         ));
         ui.add_space(6.0);
 
         ui.label(format!(
             "Event Seen on Relay: {} records",
-            GLOBALS.storage.get_event_seen_on_relay_len().unwrap_or(0)
+            GLOBALS.db().get_event_seen_on_relay_len().unwrap_or(0)
         ));
         ui.add_space(6.0);
 
         ui.label(format!(
             "Event Viewed: {} records",
-            GLOBALS.storage.get_event_viewed_len().unwrap_or(0)
+            GLOBALS.db().get_event_viewed_len().unwrap_or(0)
         ));
         ui.add_space(6.0);
 
         ui.label(format!(
             "Hashtags: {} records",
-            GLOBALS.storage.get_hashtags_len().unwrap_or(0)
+            GLOBALS.db().get_hashtags_len().unwrap_or(0)
         ));
         ui.add_space(6.0);
 
         ui.label(format!(
             "Relays: {} records",
-            GLOBALS.storage.get_relays_len().unwrap_or(0)
+            GLOBALS.db().get_relays_len().unwrap_or(0)
         ));
         ui.add_space(6.0);
 
@@ -114,31 +114,31 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
         ui.label(format!(
             "Person-Relays: {} records",
-            GLOBALS.storage.get_person_relays_len().unwrap_or(0)
+            GLOBALS.db().get_person_relays_len().unwrap_or(0)
         ));
         ui.add_space(6.0);
 
         ui.label(format!(
             "Person-Lists: {} records",
-            GLOBALS.storage.get_person_lists_len().unwrap_or(0)
+            GLOBALS.db().get_person_lists_len().unwrap_or(0)
         ));
         ui.add_space(6.0);
 
         ui.label(format!(
             "Event Relationships By Id: {} records",
-            GLOBALS.storage.get_relationships_by_id_len().unwrap_or(0)
+            GLOBALS.db().get_relationships_by_id_len().unwrap_or(0)
         ));
         ui.add_space(6.0);
 
         ui.label(format!(
             "Event Relationships By Addr: {} records",
-            GLOBALS.storage.get_relationships_by_addr_len().unwrap_or(0)
+            GLOBALS.db().get_relationships_by_addr_len().unwrap_or(0)
         ));
         ui.add_space(6.0);
 
         ui.label(format!(
             "Nip46 Servers: {} records",
-            GLOBALS.storage.get_nip46servers_len().unwrap_or(0)
+            GLOBALS.db().get_nip46servers_len().unwrap_or(0)
         ));
         ui.add_space(6.0);
     });

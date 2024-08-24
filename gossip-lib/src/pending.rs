@@ -232,16 +232,16 @@ impl Pending {
         let mut filter = Filter::new();
         filter.add_author(&pkh);
         filter.kinds = vec![EventKind::RelayList];
-        let relay_lists = GLOBALS.storage.find_events_by_filter(&filter, |_| true)?;
+        let relay_lists = GLOBALS.db().find_events_by_filter(&filter, |_| true)?;
         filter.kinds = vec![EventKind::DmRelayList];
-        let dm_relay_lists = GLOBALS.storage.find_events_by_filter(&filter, |_| true)?;
+        let dm_relay_lists = GLOBALS.db().find_events_by_filter(&filter, |_| true)?;
 
         if relay_lists.is_empty() && dm_relay_lists.is_empty() {
             self.insert(PendingItem::RelayListNeverAdvertised);
         } else {
             self.remove(&PendingItem::RelayListNeverAdvertised); // remove if present
 
-            let stored_relay_list = GLOBALS.storage.load_effective_public_relay_list()?;
+            let stored_relay_list = GLOBALS.db().load_effective_public_relay_list()?;
             let event_relay_list = RelayList::from_event(&relay_lists[0]);
 
             let stored_dm_relays = {
@@ -284,7 +284,7 @@ impl Pending {
         }
 
         // Check each person list (if out of sync or more than 30 days ago)
-        for (list, metadata) in GLOBALS.storage.get_all_person_list_metadata()?.iter() {
+        for (list, metadata) in GLOBALS.db().get_all_person_list_metadata()?.iter() {
             // if never published
             if metadata.event_created_at.0 == 0 {
                 self.insert(PendingItem::PersonListNeverPublished(*list));
@@ -294,7 +294,7 @@ impl Pending {
             }
 
             // If mismatched, should be re-synced
-            let stored_hash = GLOBALS.storage.hash_person_list(*list)?;
+            let stored_hash = GLOBALS.db().hash_person_list(*list)?;
             let last_event_hash = crate::people::hash_person_list_event(*list)?;
             if stored_hash != last_event_hash {
                 self.insert(PendingItem::PersonListOutOfSync(*list));

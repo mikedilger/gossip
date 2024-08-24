@@ -145,12 +145,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                                             |ui, is_open| {
                                                 // actions
                                                 if ui.button("Remove").clicked() {
-                                                    let _ =
-                                                        GLOBALS.storage.remove_person_from_list(
-                                                            &pubkey,
-                                                            PersonList::Followed,
-                                                            None,
-                                                        );
+                                                    let _ = GLOBALS.db().remove_person_from_list(
+                                                        &pubkey,
+                                                        PersonList::Followed,
+                                                        None,
+                                                    );
                                                     *is_open = false;
                                                 }
                                             },

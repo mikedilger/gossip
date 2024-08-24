@@ -197,10 +197,10 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
 
             make_frame().show(ui, |ui| {
                 let all_lists = GLOBALS
-                    .storage
+                    .db()
                     .get_all_person_list_metadata()
                     .unwrap_or_default();
-                if let Ok(membership_map) = GLOBALS.storage.read_person_lists(&pubkey) {
+                if let Ok(membership_map) = GLOBALS.db().read_person_lists(&pubkey) {
                     for (list, metadata) in all_lists {
                         ui.horizontal(|ui| {
                             let membership = membership_map.get(&list);
@@ -212,10 +212,10 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                             {
                                 if !inlist {
                                     let _ = GLOBALS
-                                        .storage
+                                        .db()
                                         .remove_person_from_list(&pubkey, list, None);
                                 } else {
-                                    let _ = GLOBALS.storage.add_person_to_list(
+                                    let _ = GLOBALS.db().add_person_to_list(
                                         &pubkey,
                                         list,
                                         metadata.private,
@@ -238,7 +238,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                 let switch_response =
                                     ui.add(widgets::Switch::small(&app.theme, &mut is_private));
                                 if switch_response.clicked() {
-                                    let _ = GLOBALS.storage.add_person_to_list(
+                                    let _ = GLOBALS.db().add_person_to_list(
                                         &pubkey,
                                         list,
                                         Private(is_private),
@@ -508,7 +508,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                             ui.add_space(BTN_SPACING);
 
                             let inlist = GLOBALS
-                                .storage
+                                .db()
                                 .is_person_in_list(&pubkey, gossip_lib::PersonList::Followed)
                                 .unwrap_or_default();
                             if inlist {
@@ -518,7 +518,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                         .show(ui)
                                         .clicked()
                                     {
-                                        let _ = GLOBALS.storage.remove_person_from_list(
+                                        let _ = GLOBALS.db().remove_person_from_list(
                                             &pubkey,
                                             gossip_lib::PersonList::Followed,
                                             None,
@@ -530,7 +530,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                     .show(ui)
                                     .clicked()
                                 {
-                                    let _ = GLOBALS.storage.add_person_to_list(
+                                    let _ = GLOBALS.db().add_person_to_list(
                                         &pubkey,
                                         gossip_lib::PersonList::Followed,
                                         Private(false),

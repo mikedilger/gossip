@@ -16,7 +16,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.label("NOTE: Gossip currently only acts as a signing service, using the key you have configured in gossip.");
 
     // Show status of unconnected server
-    if let Ok(Some(unconnected_server)) = GLOBALS.storage.read_nip46_unconnected_server() {
+    if let Ok(Some(unconnected_server)) = GLOBALS.db().read_nip46_unconnected_server() {
         ui.separator();
         ui.add_space(10.0);
         ui.heading("Service is Waiting for Client to Connect");
@@ -42,14 +42,14 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
         // Allow delete
         if ui.button("Delete this unconnected service").clicked() {
-            let _ = GLOBALS.storage.delete_nip46_unconnected_server(None);
+            let _ = GLOBALS.db().delete_nip46_unconnected_server(None);
         }
     } else {
         setup_unconnected_service(app, ui);
     }
 
     // Connected servers
-    if let Ok(servers) = GLOBALS.storage.read_all_nip46servers() {
+    if let Ok(servers) = GLOBALS.db().read_all_nip46servers() {
         if !servers.is_empty() {
             ui.separator();
             ui.add_space(10.0);
@@ -60,7 +60,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             let peer = server.peer_pubkey.as_bech32_string();
             ui.label(format!("name={}, Peer={}", server.name, peer));
             if ui.button("Disconnect").clicked() {
-                let _ = GLOBALS.storage.delete_nip46server(server.peer_pubkey, None);
+                let _ = GLOBALS.db().delete_nip46server(server.peer_pubkey, None);
             }
         }
     }
@@ -139,9 +139,7 @@ fn create_service(name: String, relays: Vec<RelayUrl>) {
     let server = Nip46UnconnectedServer::new(name, relays.clone());
 
     // Store it
-    let _ = GLOBALS
-        .storage
-        .write_nip46_unconnected_server(&server, None);
+    let _ = GLOBALS.db().write_nip46_unconnected_server(&server, None);
 
     // Tell the overlord to subscribe
     let _ = GLOBALS

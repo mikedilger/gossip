@@ -56,12 +56,12 @@ impl Delegation {
     }
 
     pub fn load(&self) -> Result<(), Error> {
-        self.set(&GLOBALS.storage.read_setting_delegatee_tag())
+        self.set(&GLOBALS.db().read_setting_delegatee_tag())
     }
 
     pub async fn save(&self) -> Result<(), Error> {
         GLOBALS
-            .storage
+            .db()
             .write_setting_delegatee_tag(&self.get_delegatee_tag_as_str(), None)?;
         Ok(())
     }

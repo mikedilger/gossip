@@ -82,7 +82,7 @@ impl People {
     pub fn get_subscribed_pubkeys(&self) -> Vec<PublicKey> {
         // We subscribe to all people in all lists.
         // This is no longer synonymous with the ContactList list
-        match GLOBALS.storage.get_people_in_all_followed_lists() {
+        match GLOBALS.db().get_people_in_all_followed_lists() {
             Ok(mut people) => {
                 if let Some(pk) = GLOBALS.identity.public_key() {
                     if !people.contains(&pk) {
@@ -102,7 +102,7 @@ impl People {
     #[inline]
     pub fn is_person_in_list(&self, pubkey: &PublicKey, list: PersonList) -> bool {
         GLOBALS
-            .storage
+            .db()
             .is_person_in_list(pubkey, list)
             .unwrap_or(false)
     }
@@ -110,9 +110,7 @@ impl People {
     /// Get all the pubkeys that need relay lists (from the given set)
     pub fn get_subscribed_pubkeys_needing_relay_lists(&self) -> Vec<PublicKey> {
         let stale = Unixtime::now().0
-            - 60 * GLOBALS
-                .storage
-                .read_setting_relay_list_becomes_stale_minutes() as i64;
+            - 60 * GLOBALS.db().read_setting_relay_list_becomes_stale_minutes() as i64;
 
         if let Ok(vec) = PersonTable::filter_records(
             |p| p.is_subscribed_to() && p.relay_list_last_sought < stale,
@@ -127,9 +125,7 @@ impl People {
     /// Get if a person needs a relay list
     pub fn person_needs_relay_list(pubkey: PublicKey) -> Freshness {
         let staletime = Unixtime::now().0
-            - 60 * GLOBALS
-                .storage
-                .read_setting_relay_list_becomes_stale_minutes() as i64;
+            - 60 * GLOBALS.db().read_setting_relay_list_becomes_stale_minutes() as i64;
 
         match PersonTable::read_record(pubkey, None) {
             Err(_) => Freshness::NeverSought,
@@ -166,7 +162,7 @@ impl People {
     /// maybe_fetch_metadata() will do the processing later on.
     pub fn person_of_interest(&self, pubkey: PublicKey) {
         // Don't set if metadata if disabled
-        if !GLOBALS.storage.read_setting_automatically_fetch_metadata() {
+        if !GLOBALS.db().read_setting_automatically_fetch_metadata() {
             return;
         }
 
@@ -201,11 +197,8 @@ impl People {
         }
 
         let now = Unixtime::now();
-        let stale = Duration::from_secs(
-            60 * GLOBALS
-                .storage
-                .read_setting_metadata_becomes_stale_minutes(),
-        );
+        let stale =
+            Duration::from_secs(60 * GLOBALS.db().read_setting_metadata_becomes_stale_minutes());
 
         let mut verified_need: Vec<PublicKey> = Vec::new();
 
@@ -326,13 +319,13 @@ impl People {
                         Duration::from_secs(
                             60 * 60
                                 * GLOBALS
-                                    .storage
+                                    .db()
                                     .read_setting_nip05_becomes_stale_if_valid_hours(),
                         )
                     } else {
                         Duration::from_secs(
                             60 * GLOBALS
-                                .storage
+                                .db()
                                 .read_setting_nip05_becomes_stale_if_invalid_minutes(),
                         )
                     };
@@ -384,7 +377,7 @@ impl People {
         }
 
         // Do not fetch if disabled
-        if !GLOBALS.storage.read_setting_load_avatars() {
+        if !GLOBALS.db().read_setting_load_avatars() {
             return None; // can recover if the setting is switched
         }
 
@@ -416,9 +409,7 @@ impl People {
 
         match GLOBALS.fetcher.try_get(
             &url,
-            Duration::from_secs(
-                60 * 60 * GLOBALS.storage.read_setting_avatar_becomes_stale_hours(),
-            ),
+            Duration::from_secs(60 * 60 * GLOBALS.db().read_setting_avatar_becomes_stale_hours()),
             false,
         ) {
             // cache expires in 3 days
@@ -543,7 +534,7 @@ impl People {
         }
 
         // Get the personlist metadata (dtag, etc)
-        let metadata = match GLOBALS.storage.get_person_list_metadata(person_list)? {
+        let metadata = match GLOBALS.db().get_person_list_metadata(person_list)? {
             Some(m) => m,
             None => return Err(ErrorKind::ListNotFound.into()),
         };
@@ -551,7 +542,7 @@ impl People {
         let my_pubkey = GLOBALS.identity.public_key().unwrap();
 
         // Read the person list
-        let people = GLOBALS.storage.get_people_in_list(person_list)?;
+        let people = GLOBALS.db().get_people_in_list(person_list)?;
 
         // Determine the event kind
         let kind = match person_list {
@@ -565,12 +556,12 @@ impl People {
             EventKind::ContactList | EventKind::MuteList => {
                 // We fetch for ContactList to preserve the contents
                 // We fetch for MuteList to preserve 't', 'e', and "word" tags
-                GLOBALS.storage.get_replaceable_event(kind, my_pubkey, "")?
+                GLOBALS.db().get_replaceable_event(kind, my_pubkey, "")?
             }
             EventKind::FollowSets => {
                 // We fetch for FollowSets to preserve various tags we don't use
                 GLOBALS
-                    .storage
+                    .db()
                     .get_replaceable_event(kind, my_pubkey, &metadata.dtag)?
             }
             _ => None,
@@ -722,7 +713,7 @@ impl People {
     ) -> Result<(), Error> {
         if follow {
             GLOBALS
-                .storage
+                .db()
                 .add_person_to_list(pubkey, list, private, None)?;
 
             // Add to the relay picker. If they are already there, it will be ok.
@@ -740,9 +731,7 @@ impl People {
                     .send(ToOverlordMessage::SubscribeDiscover(vec![*pubkey], None));
             };
         } else {
-            GLOBALS
-                .storage
-                .remove_person_from_list(pubkey, list, None)?;
+            GLOBALS.db().remove_person_from_list(pubkey, list, None)?;
 
             // Don't remove from relay picker here. They might still be on other
             // lists. Garbage collection will eventually clean it up.
@@ -759,14 +748,14 @@ impl People {
 
     /// Clear a person list
     pub(crate) fn clear_person_list(&self, list: PersonList) -> Result<(), Error> {
-        GLOBALS.storage.clear_person_list(list, None)?;
+        GLOBALS.db().clear_person_list(list, None)?;
         GLOBALS.ui_invalidate_all.store(false, Ordering::Relaxed);
         Ok(())
     }
 
     /// Mute (or unmute) a public key
     pub fn mute(&self, pubkey: &PublicKey, mute: bool, private: Private) -> Result<(), Error> {
-        let mut txn = GLOBALS.storage.get_write_txn()?;
+        let mut txn = GLOBALS.db().get_write_txn()?;
 
         if mute {
             if let Some(pk) = GLOBALS.identity.public_key() {
@@ -775,28 +764,20 @@ impl People {
                 }
             }
 
-            GLOBALS.storage.add_person_to_list(
-                pubkey,
-                PersonList::Muted,
-                private,
-                Some(&mut txn),
-            )?;
+            GLOBALS
+                .db()
+                .add_person_to_list(pubkey, PersonList::Muted, private, Some(&mut txn))?;
         } else {
             GLOBALS
-                .storage
+                .db()
                 .remove_person_from_list(pubkey, PersonList::Muted, Some(&mut txn))?;
         }
 
-        if let Some(mut metadata) = GLOBALS
-            .storage
-            .get_person_list_metadata(PersonList::Muted)?
-        {
+        if let Some(mut metadata) = GLOBALS.db().get_person_list_metadata(PersonList::Muted)? {
             metadata.last_edit_time = Unixtime::now();
-            GLOBALS.storage.set_person_list_metadata(
-                PersonList::Muted,
-                &metadata,
-                Some(&mut txn),
-            )?;
+            GLOBALS
+                .db()
+                .set_person_list_metadata(PersonList::Muted, &metadata, Some(&mut txn))?;
         }
 
         txn.commit()?;
@@ -923,14 +904,14 @@ pub(crate) fn fetch_current_personlist_matching_event(
     let (list, metadata, new) = match event.kind {
         EventKind::ContactList => {
             let list = PersonList::Followed;
-            match GLOBALS.storage.get_person_list_metadata(list)? {
+            match GLOBALS.db().get_person_list_metadata(list)? {
                 Some(md) => (list, md, false),
                 None => (list, Default::default(), true),
             }
         }
         EventKind::MuteList => {
             let list = PersonList::Muted;
-            match GLOBALS.storage.get_person_list_metadata(list)? {
+            match GLOBALS.db().get_person_list_metadata(list)? {
                 Some(md) => (list, md, false),
                 None => (list, Default::default(), true),
             }
@@ -940,7 +921,7 @@ pub(crate) fn fetch_current_personlist_matching_event(
                 Some(dtag) => dtag,
                 None => return Err(ErrorKind::ListEventMissingDtag.into()),
             };
-            if let Some((found_list, metadata)) = GLOBALS.storage.find_person_list_by_dtag(&dtag)? {
+            if let Some((found_list, metadata)) = GLOBALS.db().find_person_list_by_dtag(&dtag)? {
                 (found_list, metadata, false)
             } else {
                 // Allocate new
@@ -951,7 +932,7 @@ pub(crate) fn fetch_current_personlist_matching_event(
                 };
 
                 // This is slim metadata.. The caller will fix it.
-                let list = GLOBALS.storage.allocate_person_list(&metadata, None)?;
+                let list = GLOBALS.db().allocate_person_list(&metadata, None)?;
 
                 (list, metadata, true)
             }
@@ -965,16 +946,16 @@ pub(crate) fn fetch_current_personlist_matching_event(
     Ok((list, metadata, new))
 }
 
-// as opposed to GLOBALS.storage.hash_person_list(list)
+// as opposed to GLOBALS.db().hash_person_list(list)
 pub fn hash_person_list_event(list: PersonList) -> Result<u64, Error> {
     // we cannot do anything without an identity setup first
-    let my_pubkey = match GLOBALS.storage.read_setting_public_key() {
+    let my_pubkey = match GLOBALS.db().read_setting_public_key() {
         Some(pk) => pk,
         None => return Err(ErrorKind::NoPublicKey.into()),
     };
 
     // Get the metadata of the list, which affects force-private logic
-    let metadata = match GLOBALS.storage.get_person_list_metadata(list)? {
+    let metadata = match GLOBALS.db().get_person_list_metadata(list)? {
         Some(m) => m,
         None => return Err(ErrorKind::ListNotFound.into()), // list event not found
     };
@@ -982,7 +963,7 @@ pub fn hash_person_list_event(list: PersonList) -> Result<u64, Error> {
     // Load the latest PersonList event from the database
     let maybe_event =
         GLOBALS
-            .storage
+            .db()
             .get_replaceable_event(list.event_kind(), my_pubkey, &metadata.dtag)?;
 
     if let Some(event) = maybe_event {

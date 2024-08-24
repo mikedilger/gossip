@@ -72,10 +72,7 @@ pub(crate) fn paint_avatar(
     let muted = person.is_in_list(PersonList::Muted);
     let on_list = person.is_in_list(PersonList::Custom(2)); // TODO: change to any list
     let size = avatar_size.get_size();
-    let has_dm_relays = GLOBALS
-        .storage
-        .has_dm_relays(person.pubkey)
-        .unwrap_or(false);
+    let has_dm_relays = GLOBALS.db().has_dm_relays(person.pubkey).unwrap_or(false);
     const UNICODE_CIRCLED_17: &str = "\u{2470}";
 
     let avatar_response = paint_avatar_only(ui, avatar, avatar_size.get_size());

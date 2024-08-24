@@ -23,7 +23,7 @@ use regex::Regex;
 use rhai::{Engine, AST};
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use tokio::runtime::Runtime;
 use tokio::sync::watch::Receiver as WatchReceiver;
 use tokio::sync::watch::Sender as WatchSender;
@@ -146,7 +146,7 @@ pub struct Globals {
     pub tagging_regex: Regex,
 
     /// LMDB storage
-    pub storage: Storage,
+    pub storage: OnceLock<Storage>,
 
     /// Events Processed
     pub events_processed: AtomicU32,
@@ -194,8 +194,6 @@ lazy_static! {
         // We start in the Offline state
         let (write_runstate, read_runstate) = tokio::sync::watch::channel(RunState::Initializing);
 
-        let storage = Storage::new();
-
         let filter_engine = Engine::new();
         let filter = crate::filter::load_script(&filter_engine);
 
@@ -237,7 +235,7 @@ lazy_static! {
             current_zap: PRwLock::new(ZapState::None),
             hashtag_regex: Regex::new(r"(?:^|\W)(#[\w\p{Extended_Pictographic}]+)(?:$|\W)").unwrap(),
             tagging_regex: Regex::new(r"(?:^|\s+)@([\w\p{Extended_Pictographic}]+)(?:$|\W)").unwrap(),
-            storage,
+            storage: OnceLock::new(),
             events_processed: AtomicU32::new(0),
             filter_engine,
             filter,
@@ -255,6 +253,13 @@ lazy_static! {
 }
 
 impl Globals {
+    pub fn db(&self) -> &Storage {
+        match self.storage.get() {
+            Some(s) => s,
+            None => panic!("Storage call before initialization"),
+        }
+    }
+
     pub fn get_your_nprofile() -> Option<Profile> {
         let public_key = match GLOBALS.identity.public_key() {
             Some(pk) => pk,
@@ -267,7 +272,7 @@ impl Globals {
         };
 
         match GLOBALS
-            .storage
+            .db()
             .filter_relays(|ri| ri.has_usage_bits(Relay::OUTBOX))
         {
             Err(e) => {

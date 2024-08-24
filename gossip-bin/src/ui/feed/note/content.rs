@@ -305,7 +305,7 @@ pub(super) fn render_parameterized_event_link(
     if ui.link(&name).clicked() {
         if let Ok(Some(prevent)) =
             GLOBALS
-                .storage
+                .db()
                 .get_replaceable_event(naddr.kind, naddr.author, &naddr.d)
         {
             app.set_page(

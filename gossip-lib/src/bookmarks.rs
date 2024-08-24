@@ -163,7 +163,7 @@ impl BookmarkList {
                 EventReference::Id { id, .. } => feed.push(*id),
                 EventReference::Addr(ea) => {
                     if let Some(event) = GLOBALS
-                        .storage
+                        .db()
                         .get_replaceable_event(ea.kind, ea.author, &ea.d)?
                     {
                         feed.push(event.id);

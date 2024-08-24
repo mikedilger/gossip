@@ -116,7 +116,7 @@ impl Pending {
         list: gossip_lib::PersonList1,
     ) -> Option<Page> {
         let metadata = GLOBALS
-            .storage
+            .db()
             .get_person_list_metadata(list)
             .unwrap_or_default()
             .unwrap_or_default();
@@ -160,7 +160,7 @@ impl Pending {
         list: PersonList,
     ) -> Option<Page> {
         let metadata = GLOBALS
-            .storage
+            .db()
             .get_person_list_metadata(list)
             .unwrap_or_default()
             .unwrap_or_default();
@@ -204,7 +204,7 @@ impl Pending {
         list: PersonList,
     ) -> Option<Page> {
         let metadata = GLOBALS
-            .storage
+            .db()
             .get_person_list_metadata(list)
             .unwrap_or_default()
             .unwrap_or_default();

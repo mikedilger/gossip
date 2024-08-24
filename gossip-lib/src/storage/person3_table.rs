@@ -33,9 +33,9 @@ impl Table for Person3Table {
 
                 // Create it. We know that nobody else is doing this and that
                 // it cannot happen twice.
-                let mut txn = GLOBALS.storage.env().write_txn()?;
+                let mut txn = GLOBALS.db().env().write_txn()?;
                 let db = GLOBALS
-                    .storage
+                    .db()
                     .env()
                     .database_options()
                     .types::<Bytes, Bytes>()

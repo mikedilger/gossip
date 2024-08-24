@@ -37,7 +37,7 @@ pub fn prepare_post_normal(
     };
 
     let event = {
-        let powint = GLOBALS.storage.read_setting_pow();
+        let powint = GLOBALS.db().read_setting_pow();
         if powint > 0 {
             let (work_sender, work_receiver) = mpsc::channel();
             std::thread::spawn(move || {
@@ -111,7 +111,7 @@ pub fn prepare_post_nip17(
         return Err(ErrorKind::UsersCantUseNip17.into());
     }
 
-    let our_pk = match GLOBALS.storage.read_setting_public_key() {
+    let our_pk = match GLOBALS.db().read_setting_public_key() {
         Some(pk) => pk,
         None => return Err(ErrorKind::NoPublicKey.into()),
     };
@@ -161,7 +161,7 @@ pub fn prepare_post_nip17(
 }
 
 fn add_gossip_tag(tags: &mut Vec<Tag>) {
-    if GLOBALS.storage.read_setting_set_client_tag() {
+    if GLOBALS.db().read_setting_set_client_tag() {
         tags.push(Tag::new(&["client", "gossip"]));
     }
 }
@@ -223,7 +223,7 @@ fn add_thread_based_tags(
     parent_id: Id,
 ) -> Result<(), Error> {
     // Get the event we are replying to
-    let parent = match GLOBALS.storage.read_event(parent_id)? {
+    let parent = match GLOBALS.db().read_event(parent_id)? {
         Some(e) => e,
         None => return Err("Cannot find event we are replying to.".into()),
     };

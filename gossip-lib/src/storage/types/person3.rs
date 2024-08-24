@@ -164,14 +164,14 @@ impl Person3 {
 
     pub fn is_in_list(&self, list: PersonList) -> bool {
         GLOBALS
-            .storage
+            .db()
             .is_person_in_list(&self.pubkey, list)
             .unwrap_or(false)
     }
 
     pub fn is_subscribed_to(&self) -> bool {
         GLOBALS
-            .storage
+            .db()
             .is_person_subscribed_to(&self.pubkey)
             .unwrap_or(false)
     }

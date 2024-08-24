@@ -327,7 +327,7 @@ pub fn add_person_list(cmd: Command, mut args: env::Args) -> Result<(), Error> {
         ..Default::default()
     };
 
-    let _list = GLOBALS.storage.allocate_person_list(&metadata, None)?;
+    let _list = GLOBALS.db().allocate_person_list(&metadata, None)?;
     Ok(())
 }
 
@@ -335,7 +335,7 @@ pub fn backdate_eose() -> Result<(), Error> {
     let now = Unixtime::now();
     let ago = (now.0 - 60 * 60 * 24) as u64;
 
-    GLOBALS.storage.modify_all_relays(
+    GLOBALS.db().modify_all_relays(
         |relay| {
             if let Some(eose) = relay.last_general_eose_at {
                 if eose > ago {
@@ -468,7 +468,7 @@ pub fn bech32_encode_naddr(cmd: Command, mut args: env::Args) -> Result<(), Erro
 
 pub fn clear_timeouts() -> Result<(), Error> {
     GLOBALS
-        .storage
+        .db()
         .modify_all_relays(|r| r.avoid_until = None, None)
 }
 
@@ -521,7 +521,7 @@ pub fn delete_spam_by_content(cmd: Command, mut args: env::Args) -> Result<(), E
     let mut filter = Filter::new();
     filter.add_event_kind(kind);
     filter.since = Some(since);
-    let events = GLOBALS.storage.find_events_by_filter(&filter, |_| true)?;
+    let events = GLOBALS.db().find_events_by_filter(&filter, |_| true)?;
 
     println!("Searching through {} events...", events.len());
 
@@ -553,10 +553,10 @@ pub fn delete_spam_by_content(cmd: Command, mut args: env::Args) -> Result<(), E
     println!("Deleting {} events...", target_ids.len());
 
     // Delete locally
-    let mut txn = GLOBALS.storage.get_write_txn()?;
+    let mut txn = GLOBALS.db().get_write_txn()?;
     for id in &target_ids {
         // Delete locally
-        GLOBALS.storage.delete_event(*id, Some(&mut txn))?;
+        GLOBALS.db().delete_event(*id, Some(&mut txn))?;
 
         // NOTE: we cannot add a delete relationship; we can't delete
         // other people's events.
@@ -576,7 +576,7 @@ pub fn delete_spam_by_content(cmd: Command, mut args: env::Args) -> Result<(), E
     let mut relays: HashSet<RelayUrl> = HashSet::new();
     for id in &target_ids {
         // Get seen on relays
-        if let Ok(seen_on) = GLOBALS.storage.get_event_seen_on_relay(*id) {
+        if let Ok(seen_on) = GLOBALS.db().get_event_seen_on_relay(*id) {
             for (relay, _when) in seen_on {
                 relays.insert(relay);
             }
@@ -628,7 +628,7 @@ pub fn delete_relay(cmd: Command, mut args: env::Args) -> Result<(), Error> {
         None => return cmd.usage("Missing relay url parameter".to_string()),
     };
 
-    GLOBALS.storage.delete_relay(&rurl, None)?;
+    GLOBALS.db().delete_relay(&rurl, None)?;
 
     Ok(())
 }
@@ -639,9 +639,7 @@ pub fn override_dpi(cmd: Command, mut args: env::Args) -> Result<(), Error> {
         None => return cmd.usage("Missing DPI value".to_string()),
     };
 
-    GLOBALS
-        .storage
-        .write_setting_override_dpi(&Some(dpi), None)?;
+    GLOBALS.db().write_setting_override_dpi(&Some(dpi), None)?;
 
     println!("DPI override setting set to {}", dpi);
 
@@ -661,9 +659,7 @@ pub fn import_encrypted_private_key(cmd: Command, mut args: env::Args) -> Result
     let _private_key = epk.decrypt(&password)?;
     password.zeroize();
 
-    GLOBALS
-        .storage
-        .write_encrypted_private_key(Some(&epk), None)?;
+    GLOBALS.db().write_encrypted_private_key(Some(&epk), None)?;
 
     println!("Saved.");
     Ok(())
@@ -700,7 +696,7 @@ pub fn print_event(cmd: Command, mut args: env::Args) -> Result<(), Error> {
 
     let id = Id::try_from_hex_string(&idstr)?;
 
-    match GLOBALS.storage.read_event(id)? {
+    match GLOBALS.db().read_event(id)? {
         Some(event) => println!("{}", serde_json::to_string(&event)?),
         None => return Err(ErrorKind::EventNotFound.into()),
     }
@@ -711,7 +707,7 @@ pub fn print_event(cmd: Command, mut args: env::Args) -> Result<(), Error> {
 pub fn print_relay(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     if let Some(url) = args.next() {
         let rurl = RelayUrl::try_from_str(&url)?;
-        if let Some(relay) = GLOBALS.storage.read_relay(&rurl, None)? {
+        if let Some(relay) = GLOBALS.db().read_relay(&rurl, None)? {
             println!("{}", serde_json::to_string_pretty(&relay)?);
         } else {
             println!("Relay not found.");
@@ -723,7 +719,7 @@ pub fn print_relay(cmd: Command, mut args: env::Args) -> Result<(), Error> {
 }
 
 pub fn print_relays(_cmd: Command) -> Result<(), Error> {
-    let relays = GLOBALS.storage.filter_relays(|_| true)?;
+    let relays = GLOBALS.db().filter_relays(|_| true)?;
     for relay in &relays {
         println!("{}", serde_json::to_string(relay)?);
     }
@@ -736,14 +732,14 @@ pub fn print_seen_on(cmd: Command, mut args: env::Args) -> Result<(), Error> {
         None => return cmd.usage("Missing idhex parameter".to_string()),
     };
     let id = Id::try_from_hex_string(&idstr)?;
-    for (url, when) in GLOBALS.storage.get_event_seen_on_relay(id)? {
+    for (url, when) in GLOBALS.db().get_event_seen_on_relay(id)? {
         println!("{} at {}", url, when);
     }
     Ok(())
 }
 
 pub fn print_followed(_cmd: Command) -> Result<(), Error> {
-    let members = GLOBALS.storage.get_people_in_list(PersonList::Followed)?;
+    let members = GLOBALS.db().get_people_in_list(PersonList::Followed)?;
     for (pk, private) in &members {
         if let Some(person) = PersonTable::read_record(*pk, None)? {
             println!(
@@ -764,7 +760,7 @@ pub fn print_followed(_cmd: Command) -> Result<(), Error> {
 }
 
 pub fn print_muted(_cmd: Command) -> Result<(), Error> {
-    let members = GLOBALS.storage.get_people_in_list(PersonList::Muted)?;
+    let members = GLOBALS.db().get_people_in_list(PersonList::Muted)?;
     for (pk, private) in &members {
         println!(
             "{} {}",
@@ -776,10 +772,10 @@ pub fn print_muted(_cmd: Command) -> Result<(), Error> {
 }
 
 pub fn print_person_lists(_cmd: Command) -> Result<(), Error> {
-    let all = GLOBALS.storage.get_all_person_list_metadata()?;
+    let all = GLOBALS.db().get_all_person_list_metadata()?;
     for (list, metadata) in all.iter() {
         println!("LIST {}: {}", u8::from(*list), metadata.title);
-        let members = GLOBALS.storage.get_people_in_list(*list)?;
+        let members = GLOBALS.db().get_people_in_list(*list)?;
         for (pk, private) in &members {
             if let Some(person) = PersonTable::read_record(*pk, None)? {
                 println!(
@@ -821,7 +817,7 @@ pub fn print_person_relays(cmd: Command, mut args: env::Args) -> Result<(), Erro
         None => return cmd.usage("Missing pubkeyhex parameter".to_string()),
     };
 
-    let person_relays = GLOBALS.storage.get_person_relays(pubkey)?;
+    let person_relays = GLOBALS.db().get_person_relays(pubkey)?;
     for record in &person_relays {
         println!("{}", serde_json::to_string(record)?);
     }
@@ -836,7 +832,7 @@ pub fn events_of_kind(cmd: Command, mut args: env::Args) -> Result<(), Error> {
 
     let mut filter = Filter::new();
     filter.add_event_kind(kind);
-    let events = GLOBALS.storage.find_events_by_filter(&filter, |_| true)?;
+    let events = GLOBALS.db().find_events_by_filter(&filter, |_| true)?;
     for event in events {
         println!("{}", event.id.as_hex_string());
     }
@@ -858,7 +854,7 @@ pub fn events_of_pubkey_and_kind(cmd: Command, mut args: env::Args) -> Result<()
     let mut filter = Filter::new();
     filter.add_event_kind(kind);
     filter.add_author(&pubkey.into());
-    let events = GLOBALS.storage.find_events_by_filter(&filter, |_| true)?;
+    let events = GLOBALS.db().find_events_by_filter(&filter, |_| true)?;
 
     for event in events {
         println!("{}", event.id.as_hex_string());
@@ -868,7 +864,7 @@ pub fn events_of_pubkey_and_kind(cmd: Command, mut args: env::Args) -> Result<()
 }
 
 pub fn export_encrypted_key() -> Result<(), Error> {
-    let epk = match GLOBALS.storage.read_encrypted_private_key()? {
+    let epk = match GLOBALS.db().read_encrypted_private_key()? {
         Some(epk) => epk,
         None => return Err(ErrorKind::NoPrivateKey.into()),
     };
@@ -886,7 +882,7 @@ pub fn ungiftwrap(cmd: Command, mut args: env::Args) -> Result<(), Error> {
 
     let id = Id::try_from_hex_string(&idstr)?;
 
-    let event = match GLOBALS.storage.read_event(id)? {
+    let event = match GLOBALS.db().read_event(id)? {
         Some(event) => {
             if event.kind != EventKind::GiftWrap {
                 return Err(ErrorKind::WrongEventKind.into());
@@ -911,7 +907,7 @@ pub fn giftwraps(_cmd: Command) -> Result<(), Error> {
 
     let mut filter = Filter::new();
     filter.add_event_kind(EventKind::GiftWrap);
-    let events = GLOBALS.storage.find_events_by_filter(&filter, |_| true)?;
+    let events = GLOBALS.db().find_events_by_filter(&filter, |_| true)?;
 
     for event in &events {
         println!(
@@ -933,7 +929,7 @@ pub fn reaction_stats(_cmd: Command, mut _args: env::Args) -> Result<(), Error> 
     let mut reactions: HashMap<String, usize> = HashMap::new();
     let mut filter = Filter::new();
     filter.add_event_kind(EventKind::Reaction);
-    let events = GLOBALS.storage.find_events_by_filter(&filter, |_| true)?;
+    let events = GLOBALS.db().find_events_by_filter(&filter, |_| true)?;
     for event in events {
         reactions
             .entry(event.content.clone())
@@ -958,7 +954,7 @@ pub fn reprocess_recent(_cmd: Command) -> Result<(), Error> {
         let mut filter = Filter::new();
         filter.kinds = EventKind::iter().collect(); // all kinds
         filter.since = Some(ago);
-        let events = match GLOBALS.storage.find_events_by_filter(&filter, |_| true) {
+        let events = match GLOBALS.db().find_events_by_filter(&filter, |_| true) {
             Ok(e) => e,
             Err(e) => {
                 println!("ERROR: {}", e);
@@ -998,11 +994,11 @@ pub fn set_theme(cmd: Command, mut args: env::Args) -> Result<(), Error> {
 
     match theme.as_str() {
         "dark" => {
-            GLOBALS.storage.write_setting_dark_mode(&true, None)?;
+            GLOBALS.db().write_setting_dark_mode(&true, None)?;
             println!("Setting 'dark' theme");
         }
         "light" => {
-            GLOBALS.storage.write_setting_dark_mode(&false, None)?;
+            GLOBALS.db().write_setting_dark_mode(&false, None)?;
             println!("Setting 'light' theme");
         }
         _ => return cmd.usage("Invalid theme selection".to_string()),
@@ -1019,7 +1015,7 @@ pub fn verify(cmd: Command, mut args: env::Args) -> Result<(), Error> {
 
     let id = Id::try_from_hex_string(&idstr)?;
 
-    match GLOBALS.storage.read_event(id)? {
+    match GLOBALS.db().read_event(id)? {
         Some(event) => {
             event.verify(None)?;
             println!("Valid event");
@@ -1046,7 +1042,7 @@ pub fn verify_json(cmd: Command, mut args: env::Args) -> Result<(), Error> {
 pub fn rebuild_indices() -> Result<(), Error> {
     println!("Login required in order to reindex DMs and GiftWraps");
     login()?;
-    GLOBALS.storage.rebuild_event_indices(None)?;
+    GLOBALS.db().rebuild_event_indices(None)?;
 
     Ok(())
 }
@@ -1070,7 +1066,7 @@ pub fn rename_person_list(cmd: Command, mut args: env::Args) -> Result<(), Error
         }
     };
 
-    GLOBALS.storage.rename_person_list(list, newname, None)?;
+    GLOBALS.db().rename_person_list(list, newname, None)?;
 
     Ok(())
 }
@@ -1079,7 +1075,7 @@ pub fn login() -> Result<(), Error> {
     if !GLOBALS.identity.is_unlocked() {
         let mut password = rpassword::prompt_password("Password: ").unwrap();
         if !GLOBALS.identity.has_private_key() {
-            let epk = match GLOBALS.storage.read_encrypted_private_key()? {
+            let epk = match GLOBALS.db().read_encrypted_private_key()? {
                 Some(epk) => epk,
                 None => return Err(ErrorKind::NoPrivateKey.into()),
             };
@@ -1095,7 +1091,7 @@ pub fn login() -> Result<(), Error> {
 }
 
 pub fn offline() -> Result<(), Error> {
-    GLOBALS.storage.write_setting_offline(&true, None)?;
+    GLOBALS.db().write_setting_offline(&true, None)?;
     Ok(())
 }
 
@@ -1105,7 +1101,7 @@ pub fn wgpu_renderer(cmd: Command, mut args: env::Args) -> Result<(), Error> {
         None => return cmd.usage("Missing true|false value".to_string()),
     };
 
-    GLOBALS.storage.write_setting_wgpu_renderer(&enable, None)?;
+    GLOBALS.db().write_setting_wgpu_renderer(&enable, None)?;
 
     println!("wgpu_renderer set to '{}'", enable);
 

@@ -104,7 +104,7 @@ impl Minion {
     pub async fn new(url: RelayUrl) -> Result<Minion, Error> {
         let to_overlord = GLOBALS.to_overlord.clone();
         let from_overlord = GLOBALS.to_minions.subscribe();
-        let dbrelay = GLOBALS.storage.read_or_create_relay(&url, None)?;
+        let dbrelay = GLOBALS.db().read_or_create_relay(&url, None)?;
 
         let mut read_runstate = GLOBALS.read_runstate.clone();
         if *read_runstate.borrow_and_update() != RunState::Online {
@@ -170,7 +170,7 @@ impl Minion {
         let fetcher_timeout = if short_timeout {
             std::time::Duration::new(5, 0)
         } else {
-            std::time::Duration::new(GLOBALS.storage.read_setting_fetcher_timeout_sec(), 0)
+            std::time::Duration::new(GLOBALS.db().read_setting_fetcher_timeout_sec(), 0)
         };
 
         // Connect to the relay
@@ -192,7 +192,7 @@ impl Minion {
 
             let req = http::request::Request::builder().method("GET");
 
-            let req = if GLOBALS.storage.read_setting_set_user_agent() {
+            let req = if GLOBALS.db().read_setting_set_user_agent() {
                 req.header("User-Agent", USER_AGENT)
             } else {
                 req
@@ -230,13 +230,13 @@ impl Minion {
                 // Based on my current database of 7356 events, the longest was 11,121 bytes.
                 // Cameri said people with >2k followers were losing data at 128kb cutoff.
                 max_message_size: Some(
-                    GLOBALS.storage.read_setting_max_websocket_message_size_kb() * 1024,
+                    GLOBALS.db().read_setting_max_websocket_message_size_kb() * 1024,
                 ),
                 max_frame_size: Some(
-                    GLOBALS.storage.read_setting_max_websocket_frame_size_kb() * 1024,
+                    GLOBALS.db().read_setting_max_websocket_frame_size_kb() * 1024,
                 ),
                 accept_unmasked_frames: GLOBALS
-                    .storage
+                    .db()
                     .read_setting_websocket_accept_unmasked_frames(),
                 ..Default::default()
             };
@@ -244,7 +244,7 @@ impl Minion {
             let connect_timeout_secs = if short_timeout {
                 5
             } else {
-                GLOBALS.storage.read_setting_websocket_connect_timeout_sec()
+                GLOBALS.db().read_setting_websocket_connect_timeout_sec()
             };
 
             let connect_future = tokio::time::timeout(
@@ -287,7 +287,7 @@ impl Minion {
 
         // Ping timer
         let mut ping_timer = tokio::time::interval(std::time::Duration::new(
-            GLOBALS.storage.read_setting_websocket_ping_frequency_sec(),
+            GLOBALS.db().read_setting_websocket_ping_frequency_sec(),
             0,
         ));
         ping_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -400,9 +400,7 @@ impl Minion {
                                 e,
                                 text.lines()
                                     .take(
-                                        GLOBALS
-                                            .storage
-                                            .read_setting_nip11_lines_to_output_on_error()
+                                        GLOBALS.db().read_setting_nip11_lines_to_output_on_error()
                                     )
                                     .collect::<Vec<_>>()
                                     .join("\n")
@@ -417,7 +415,7 @@ impl Minion {
         }
 
         // Save updated NIP-11 data (even if it failed)
-        GLOBALS.storage.write_relay(&self.dbrelay, None)?;
+        GLOBALS.db().write_relay(&self.dbrelay, None)?;
 
         Ok(())
     }
@@ -961,7 +959,7 @@ impl Minion {
         self.dbrelay.failure_count += 1;
 
         // Save to storage
-        if let Err(e) = GLOBALS.storage.write_relay(&self.dbrelay, None) {
+        if let Err(e) = GLOBALS.db().write_relay(&self.dbrelay, None) {
             tracing::error!("{}: ERROR bumping relay failure count: {}", &self.url, e);
         }
     }
@@ -976,7 +974,7 @@ impl Minion {
         }
 
         // Save to storage
-        if let Err(e) = GLOBALS.storage.write_relay(&self.dbrelay, None) {
+        if let Err(e) = GLOBALS.db().write_relay(&self.dbrelay, None) {
             tracing::error!("{}: ERROR bumping relay success count: {}", &self.url, e);
         }
     }

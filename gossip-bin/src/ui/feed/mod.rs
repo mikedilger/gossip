@@ -86,7 +86,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
     match feed_kind {
         FeedKind::List(list, with_replies) => {
             let metadata = GLOBALS
-                .storage
+                .db()
                 .get_person_list_metadata(list)
                 .unwrap_or_default()
                 .unwrap_or_default();
@@ -358,7 +358,7 @@ fn render_a_feed(
     scroll_area_id: &str,
     offer_load_more: bool,
 ) {
-    let feed_newest_at_bottom = GLOBALS.storage.read_setting_feed_newest_at_bottom();
+    let feed_newest_at_bottom = GLOBALS.db().read_setting_feed_newest_at_bottom();
 
     // Do not render feed while switching or we will lose our scroll offset.
     // Give us the spinner while we wait
@@ -439,7 +439,7 @@ fn render_a_feed(
 
 fn render_dm_feed(app: &mut GossipUi, ui: &mut Ui, feed: Vec<Id>, channel: DmChannel) {
     let scroll_area_id = channel.name();
-    let feed_newest_at_bottom = GLOBALS.storage.read_setting_feed_newest_at_bottom();
+    let feed_newest_at_bottom = GLOBALS.db().read_setting_feed_newest_at_bottom();
     let iterator: Box<dyn Iterator<Item = &Id>> = if feed_newest_at_bottom {
         Box::new(feed.iter().rev())
     } else {
@@ -571,7 +571,7 @@ fn render_note_maybe_fake(
             if let Some(note_ref) = app.notecache.try_update_and_get(&id) {
                 if let Ok(note_data) = note_ref.try_borrow() {
                     replies = GLOBALS
-                        .storage
+                        .db()
                         .get_replies(&note_data.event)
                         .unwrap_or_default();
                 }

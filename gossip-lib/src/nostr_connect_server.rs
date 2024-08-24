@@ -34,7 +34,7 @@ impl Nip46UnconnectedServer {
     }
 
     pub fn connection_token(&self) -> Result<String, Error> {
-        let public_key = match GLOBALS.storage.read_setting_public_key() {
+        let public_key = match GLOBALS.db().read_setting_public_key() {
             Some(pk) => pk,
             None => return Err(ErrorKind::NoPublicKey.into()),
         };
@@ -207,7 +207,7 @@ impl Nip46Server {
             return Err("sign_event: requires a parameter".into());
         }
 
-        let public_key = match GLOBALS.storage.read_setting_public_key() {
+        let public_key = match GLOBALS.db().read_setting_public_key() {
             Some(pk) => pk,
             None => return Err(ErrorKind::NoPublicKey.into()),
         };
@@ -387,7 +387,7 @@ fn send_response(
 ) -> Result<(), Error> {
     use serde_json::json;
 
-    let public_key = match GLOBALS.storage.read_setting_public_key() {
+    let public_key = match GLOBALS.db().read_setting_public_key() {
         Some(pk) => pk,
         None => return Err(ErrorKind::NoPublicKey.into()),
     };
@@ -422,7 +422,7 @@ fn send_response(
 
 pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Error> {
     // If we have a server for that pubkey
-    if let Some(mut server) = GLOBALS.storage.read_nip46server(event.pubkey)? {
+    if let Some(mut server) = GLOBALS.db().read_nip46server(event.pubkey)? {
         // Parse the command
         let parsed_command = match parse_command(event.pubkey, &event.content) {
             Ok(pc) => pc,
@@ -492,7 +492,7 @@ pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Er
     let ParsedCommand { id, method, params } = parsed_command;
 
     // Do we have a waiiting unconnected server?
-    let userver = match GLOBALS.storage.read_nip46_unconnected_server()? {
+    let userver = match GLOBALS.db().read_nip46_unconnected_server()? {
         Some(userver) => userver,
         None => {
             // We aren't setup to receive a connection
@@ -535,7 +535,7 @@ pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Er
         return Ok(()); // no need to pass back error
     }
 
-    let public_key = match GLOBALS.storage.read_setting_public_key() {
+    let public_key = match GLOBALS.db().read_setting_public_key() {
         Some(pk) => pk,
         None => {
             send_response(
@@ -583,10 +583,10 @@ pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Er
     };
 
     // Save the server, and delete the unconnected server
-    let mut txn = GLOBALS.storage.get_write_txn()?;
-    GLOBALS.storage.write_nip46server(&server, Some(&mut txn))?;
+    let mut txn = GLOBALS.db().get_write_txn()?;
+    GLOBALS.db().write_nip46server(&server, Some(&mut txn))?;
     GLOBALS
-        .storage
+        .db()
         .delete_nip46_unconnected_server(Some(&mut txn))?;
     txn.commit()?;
 

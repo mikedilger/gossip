@@ -255,7 +255,7 @@ impl FilterSet {
                 // Do not load feed related event kinds, or the limit will be wrong
                 let event_kinds = crate::feed::feed_displayable_event_kinds(false);
 
-                let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
+                let limit = GLOBALS.db().read_setting_load_more_count() as usize;
                 let range = FeedRange::ChunkBefore {
                     until: *anchor,
                     limit,
@@ -316,7 +316,7 @@ impl FilterSet {
                 // Do not load feed related or the limit will be wrong
                 let event_kinds = crate::feed::feed_displayable_event_kinds(false);
 
-                let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
+                let limit = GLOBALS.db().read_setting_load_more_count() as usize;
                 let range = FeedRange::ChunkBefore {
                     until: *anchor,
                     limit,
@@ -346,7 +346,7 @@ impl FilterSet {
                 if let Some(pubkey) = GLOBALS.identity.public_key() {
                     let mut filter = Self::inbox_base_filter(pubkey, spamsafe);
 
-                    let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
+                    let limit = GLOBALS.db().read_setting_load_more_count() as usize;
                     let range = FeedRange::ChunkBefore {
                         until: *anchor,
                         limit,
@@ -407,7 +407,7 @@ impl FilterSet {
                 // Do not load feed related or the limit will be wrong
                 let event_kinds = crate::feed::feed_displayable_event_kinds(false);
 
-                let limit = GLOBALS.storage.read_setting_load_more_count() as usize;
+                let limit = GLOBALS.db().read_setting_load_more_count() as usize;
                 let range = FeedRange::ChunkBefore {
                     until: *anchor,
                     limit,
@@ -436,7 +436,7 @@ impl FilterSet {
                     filter.set_tag_values('e', values);
 
                     // Spam prevention:
-                    if !spamsafe && GLOBALS.storage.read_setting_avoid_spam_on_unsafe_relays() {
+                    if !spamsafe && GLOBALS.db().read_setting_avoid_spam_on_unsafe_relays() {
                         filter.authors = GLOBALS
                             .people
                             .get_subscribed_pubkeys()
@@ -462,7 +462,7 @@ impl FilterSet {
                     filter.set_tag_values('a', vec![a_tag.value().to_owned()]);
 
                     // Spam prevention:
-                    if !spamsafe && GLOBALS.storage.read_setting_avoid_spam_on_unsafe_relays() {
+                    if !spamsafe && GLOBALS.db().read_setting_avoid_spam_on_unsafe_relays() {
                         filter.authors = GLOBALS
                             .people
                             .get_subscribed_pubkeys()
@@ -497,7 +497,7 @@ impl FilterSet {
         filter.set_tag_values('p', values);
 
         // Spam prevention:
-        if !spamsafe && GLOBALS.storage.read_setting_avoid_spam_on_unsafe_relays() {
+        if !spamsafe && GLOBALS.db().read_setting_avoid_spam_on_unsafe_relays() {
             // As the relay is not spam safe, only take mentions from followers
             filter.authors = GLOBALS
                 .people

@@ -39,7 +39,7 @@ impl PersonList1 {
     pub fn from_number(number: u8) -> Option<Self> {
         let list = Self::from_u8(number);
         if matches!(list, PersonList1::Custom(_)) {
-            match GLOBALS.storage.get_person_list_metadata(list) {
+            match GLOBALS.db().get_person_list_metadata(list) {
                 Ok(Some(_)) => Some(list),
                 _ => None,
             }

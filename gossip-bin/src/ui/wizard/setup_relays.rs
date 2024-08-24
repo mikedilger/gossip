@@ -17,7 +17,7 @@ const MIN_INBOX: usize = 2;
 const MIN_DISCOVERY: usize = 4;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
-    let read_relay = |url: &RelayUrl| GLOBALS.storage.read_or_create_relay(url, None).unwrap();
+    let read_relay = |url: &RelayUrl| GLOBALS.db().read_or_create_relay(url, None).unwrap();
 
     // Convert our default relay strings into Relays
     // fetching from storage so we don't overwrite any critical values when saving them later.
@@ -31,7 +31,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
     // Get their relays
     let relays: Vec<Relay> = GLOBALS
-        .storage
+        .db()
         .filter_relays(|relay| relay.has_any_usage_bit())
         .unwrap_or_default();
 

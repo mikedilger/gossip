@@ -68,7 +68,7 @@ fn get_relays(app: &mut GossipUi) -> Vec<Relay> {
         .collect();
 
     let mut relays: Vec<Relay> = GLOBALS
-        .storage
+        .db()
         .filter_relays(|relay| {
             (connected_relays.contains(&relay.url) || timeout_relays.contains(&relay.url))
                 && super::filter_relay(&app.relays, relay)

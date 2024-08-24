@@ -21,13 +21,13 @@ impl DmChannel {
         vec.dedup();
 
         let can_use_nip17 = {
-            if let Some(pk) = GLOBALS.storage.read_setting_public_key() {
-                if !matches!(GLOBALS.storage.has_dm_relays(pk), Ok(true)) {
+            if let Some(pk) = GLOBALS.db().read_setting_public_key() {
+                if !matches!(GLOBALS.db().has_dm_relays(pk), Ok(true)) {
                     false
                 } else {
                     let mut others_can_use_nip17 = true;
                     for pk in &vec {
-                        if !matches!(GLOBALS.storage.has_dm_relays(*pk), Ok(true)) {
+                        if !matches!(GLOBALS.db().has_dm_relays(*pk), Ok(true)) {
                             others_can_use_nip17 = false;
                             break;
                         }
