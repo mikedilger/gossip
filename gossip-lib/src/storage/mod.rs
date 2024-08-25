@@ -100,7 +100,7 @@ impl Storage {
                 | EnvFlags::NO_SYNC
                 | EnvFlags::MAP_ASYNC
         } else {
-            EnvFlags::NO_TLS | EnvFlags::NO_META_SYNC
+            EnvFlags::NO_TLS | EnvFlags::NO_SYNC | EnvFlags::NO_META_SYNC
         };
 
         unsafe {
