@@ -22,18 +22,6 @@ macro_rules! write_transact {
     };
 }
 
-macro_rules! read_transact {
-    ($storage:ident, $opttxn:ident, $f:ident) => {
-        match $opttxn {
-            Some(txn) => $f(txn),
-            None => {
-                let txn = $storage.env.read_txn()?;
-                $f(&txn)
-            }
-        }
-    };
-}
-
 // Macro to define read-and-write into "general" database, largely for settings
 // The type must implemented Speedy Readable and Writable
 macro_rules! def_setting {

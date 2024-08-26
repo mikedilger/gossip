@@ -531,7 +531,7 @@ impl Overlord {
         }
 
         // Record the exclusion in the relay record
-        if let Ok(Some(mut relay)) = GLOBALS.db().read_relay(&url, None) {
+        if let Ok(Some(mut relay)) = GLOBALS.db().read_relay(&url) {
             let until = Unixtime::now() + Duration::from_secs(exclusion);
             relay.avoid_until = Some(until);
             let _ = GLOBALS.db().write_relay(&relay, None);
@@ -563,7 +563,7 @@ impl Overlord {
     }
 
     fn bump_failure_count(url: &RelayUrl) {
-        if let Ok(Some(mut relay)) = GLOBALS.db().read_relay(url, None) {
+        if let Ok(Some(mut relay)) = GLOBALS.db().read_relay(url) {
             relay.failure_count += 1;
             let _ = GLOBALS.db().write_relay(&relay, None);
         }
@@ -1465,7 +1465,7 @@ impl Overlord {
     /// Hide or Show a relay. This adjusts the `hidden` a flag on the `Relay` record
     /// (You could easily do this yourself by talking to GLOBALS.db() directly too)
     pub fn hide_or_show_relay(relay_url: RelayUrl, hidden: bool) -> Result<(), Error> {
-        if let Some(mut relay) = GLOBALS.db().read_relay(&relay_url, None)? {
+        if let Some(mut relay) = GLOBALS.db().read_relay(&relay_url)? {
             relay.hidden = hidden;
             GLOBALS.db().write_relay(&relay, None)?;
         }
@@ -1963,7 +1963,7 @@ impl Overlord {
     /// This represent a user's judgement, and is factored into how suitable a relay is for various
     /// purposes.
     pub fn rank_relay(relay_url: RelayUrl, rank: u8) -> Result<(), Error> {
-        if let Some(mut relay) = GLOBALS.db().read_relay(&relay_url, None)? {
+        if let Some(mut relay) = GLOBALS.db().read_relay(&relay_url)? {
             relay.rank = rank as u64;
             GLOBALS.db().write_relay(&relay, None)?;
         }

@@ -966,8 +966,7 @@ impl Storage {
         }
 
         let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let rtxn = &**txn;
-            if self.read_relay(url, Some(rtxn))?.is_none() {
+            if self.read_relay(url)?.is_none() {
                 let dbrelay = Relay::new(url.to_owned());
                 self.write_relay(&dbrelay, Some(txn))?;
             }
@@ -1006,12 +1005,8 @@ impl Storage {
 
     /// Read a relay record
     #[inline]
-    pub fn read_relay<'a>(
-        &'a self,
-        url: &RelayUrl,
-        txn: Option<&RoTxn<'a>>,
-    ) -> Result<Option<Relay>, Error> {
-        self.read_relay3(url, txn)
+    pub fn read_relay<'a>(&'a self, url: &RelayUrl) -> Result<Option<Relay>, Error> {
+        self.read_relay3(url)
     }
 
     /// Read or create relay
@@ -1026,8 +1021,7 @@ impl Storage {
         }
 
         let f = |txn: &mut RwTxn<'a>| -> Result<Relay, Error> {
-            let rtxn = &**txn;
-            match self.read_relay(url, Some(rtxn))? {
+            match self.read_relay(url)? {
                 Some(relay) => Ok(relay),
                 None => {
                     let relay = Relay::new(url.to_owned());
@@ -1210,7 +1204,7 @@ impl Storage {
                         }
                     };
 
-                    if let Some(mut dbrelay) = self.read_relay(relay_url, Some(txn))? {
+                    if let Some(mut dbrelay) = self.read_relay(relay_url)? {
                         dbrelay.set_usage_bits(bits);
                         self.write_relay(&dbrelay, Some(txn))?;
                     } else {

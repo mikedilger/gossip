@@ -2,7 +2,7 @@ use crate::error::{Error, ErrorKind};
 use crate::storage::types::Relay3;
 use crate::storage::{RawDatabase, Storage};
 use heed::types::Bytes;
-use heed::{RoTxn, RwTxn};
+use heed::RwTxn;
 use nostr_types::RelayUrl;
 use std::sync::Mutex;
 
@@ -153,26 +153,20 @@ impl Storage {
         write_transact!(self, rw_txn, f)
     }
 
-    pub(crate) fn read_relay3<'a>(
-        &'a self,
-        url: &RelayUrl,
-        txn: Option<&RoTxn<'a>>,
-    ) -> Result<Option<Relay3>, Error> {
-        let f = |txn: &RoTxn<'a>| -> Result<Option<Relay3>, Error> {
-            // Note that we use serde instead of speedy because the complexity of the
-            // serde_json::Value type makes it difficult. Any other serde serialization
-            // should work though: Consider bincode.
-            let key = key!(url.as_str().as_bytes());
-            if key.is_empty() {
-                return Err(ErrorKind::Empty("relay url".to_owned()).into());
-            }
-            match self.db_relays3()?.get(txn, key)? {
-                Some(bytes) => Ok(Some(serde_json::from_slice(bytes)?)),
-                None => Ok(None),
-            }
-        };
+    pub(crate) fn read_relay3<'a>(&'a self, url: &RelayUrl) -> Result<Option<Relay3>, Error> {
+        let txn = self.get_read_txn()?;
 
-        read_transact!(self, txn, f)
+        // Note that we use serde instead of speedy because the complexity of the
+        // serde_json::Value type makes it difficult. Any other serde serialization
+        // should work though: Consider bincode.
+        let key = key!(url.as_str().as_bytes());
+        if key.is_empty() {
+            return Err(ErrorKind::Empty("relay url".to_owned()).into());
+        }
+        match self.db_relays3()?.get(&txn, key)? {
+            Some(bytes) => Ok(Some(serde_json::from_slice(bytes)?)),
+            None => Ok(None),
+        }
     }
 
     pub(crate) fn filter_relays3<F>(&self, f: F) -> Result<Vec<Relay3>, Error>
