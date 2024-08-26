@@ -204,7 +204,7 @@ impl std::convert::TryFrom<u8> for RunState {
 }
 
 /// Initialize gossip-lib
-pub fn init(rapid: bool) -> Result<(), Error> {
+pub async fn init(rapid: bool) -> Result<(), Error> {
     use std::sync::atomic::Ordering;
 
     // Initialize storage
@@ -213,7 +213,7 @@ pub fn init(rapid: bool) -> Result<(), Error> {
         .storage
         .set(storage)
         .expect("Storage attempted to be setup twice!");
-    GLOBALS.db().init()?;
+    GLOBALS.db().init().await?;
 
     // Load signer from settings
     GLOBALS.identity.load()?;
@@ -243,7 +243,7 @@ pub fn init(rapid: bool) -> Result<(), Error> {
                 .db()
                 .get_replaceable_event(EventKind::BookmarkList, pubkey, "")?
         {
-            *GLOBALS.bookmarks.write() = BookmarkList::from_event(&event)?;
+            *GLOBALS.bookmarks.write() = BookmarkList::from_event(&event).await?;
             GLOBALS.recompute_current_bookmarks.notify_one();
         }
     }

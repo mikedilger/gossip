@@ -140,7 +140,7 @@ impl Storage {
     }
 
     /// Initialize and migrate the database
-    pub fn init(&self) -> Result<(), Error> {
+    pub async fn init(&self) -> Result<(), Error> {
         // We have to trigger all of the current-version databases into existence
         // because otherwise there will be MVCC visibility problems later having
         // different transactions in parallel
@@ -166,8 +166,8 @@ impl Storage {
 
         // Do migrations
         match self.read_migration_level()? {
-            Some(level) => self.migrate(level)?,
-            None => self.init_from_empty()?,
+            Some(level) => self.migrate(level).await?,
+            None => self.init_from_empty().await?,
         }
 
         Ok(())

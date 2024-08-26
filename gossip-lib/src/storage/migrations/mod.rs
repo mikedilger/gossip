@@ -33,7 +33,7 @@ impl Storage {
     const MAX_MIGRATION_LEVEL: u32 = 39;
 
     /// Initialize the database from empty
-    pub(super) fn init_from_empty(&self) -> Result<(), Error> {
+    pub(super) async fn init_from_empty(&self) -> Result<(), Error> {
         // Migrations that modify old data are not necessary here if we don't
         // have any old data.  These are migrations that create data or subsequently
         // modify that created data
@@ -48,7 +48,7 @@ impl Storage {
         for level in necessary.iter() {
             self.trigger(*level)?;
             let mut txn = self.env.write_txn()?;
-            self.migrate_inner(*level, &mut txn)?;
+            self.migrate_inner(*level, &mut txn).await?;
             self.write_migration_level(*level, Some(&mut txn))?;
             txn.commit()?;
         }
@@ -60,7 +60,7 @@ impl Storage {
         Ok(())
     }
 
-    pub(super) fn migrate(&self, mut level: u32) -> Result<(), Error> {
+    pub(super) async fn migrate(&self, mut level: u32) -> Result<(), Error> {
         if level < Self::MIN_MIGRATION_LEVEL {
             let lmdb_dir = crate::profile::Profile::lmdb_dir()
                 .map_or("<notfound>".to_owned(), |p| format!("{}/", p.display()));
@@ -91,7 +91,7 @@ impl Storage {
             level += 1;
             self.trigger(level)?;
             let mut txn = self.env.write_txn()?;
-            self.migrate_inner(level, &mut txn)?;
+            self.migrate_inner(level, &mut txn).await?;
             self.write_migration_level(level, Some(&mut txn))?;
             txn.commit()?;
         }
@@ -128,11 +128,11 @@ impl Storage {
         Ok(())
     }
 
-    fn migrate_inner<'a>(&'a self, level: u32, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+    async fn migrate_inner<'a>(&'a self, level: u32, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         let prefix = format!("LMDB Migration {}", level);
         match level {
             19 => self.m19_migrate(&prefix, txn)?,
-            20 => self.m20_migrate(&prefix, txn)?,
+            20 => self.m20_migrate(&prefix, txn).await?,
             21 => self.m21_migrate(&prefix, txn)?,
             22 => self.m22_migrate(&prefix, txn)?,
             23 => self.m23_migrate(&prefix, txn)?,

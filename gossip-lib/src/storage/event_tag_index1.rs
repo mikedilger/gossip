@@ -47,7 +47,7 @@ impl Storage {
         }
     }
 
-    pub fn write_event2_tag_index1<'a>(
+    pub async fn write_event2_tag_index1<'a>(
         &'a self,
         event: &EventV2,
         rw_txn: Option<&mut RwTxn<'a>>,
@@ -59,7 +59,7 @@ impl Storage {
 
         // If giftwrap, index the inner rumor instead
         let rumor_event: EventV2;
-        if let Some(rumor) = self.switch_to_rumor2(event, txn)? {
+        if let Some(rumor) = self.switch_to_rumor2(event, txn).await? {
             rumor_event = rumor;
             event = &rumor_event;
         }
@@ -104,7 +104,7 @@ impl Storage {
         Ok(())
     }
 
-    pub fn write_event3_tag_index1<'a>(
+    pub async fn write_event3_tag_index1<'a>(
         &'a self,
         event: &EventV3,
         rw_txn: Option<&mut RwTxn<'a>>,
@@ -117,7 +117,7 @@ impl Storage {
         //   Use the pubkey and created_at of the rumor
         let mut innerevent: &EventV3 = event;
         let rumor: EventV3;
-        if let Some(r) = self.switch_to_rumor3(event, txn)? {
+        if let Some(r) = self.switch_to_rumor3(event, txn).await? {
             rumor = r;
             innerevent = &rumor;
         }
