@@ -55,12 +55,14 @@ impl Storage {
     ) -> Result<(), Error> {
         let bytes = vec![];
 
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.db_event_viewed1()?.put(txn, id.as_slice(), &bytes)?;
-            Ok(())
-        };
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-        write_transact!(self, rw_txn, f)
+        self.db_event_viewed1()?.put(txn, id.as_slice(), &bytes)?;
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 
     pub(crate) fn is_event_viewed1(&self, id: Id) -> Result<bool, Error> {

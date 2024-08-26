@@ -68,12 +68,14 @@ impl Storage {
         let key: Vec<u8> = pubkey.to_bytes();
         let bytes: Vec<u8> = map.write_to_vec()?;
 
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.db_person_lists2()?.put(txn, &key, &bytes)?;
-            Ok(())
-        };
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-        write_transact!(self, rw_txn, f)
+        self.db_person_lists2()?.put(txn, &key, &bytes)?;
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 
     pub(crate) fn get_people_in_all_followed_lists2(&self) -> Result<Vec<PublicKey>, Error> {
@@ -112,7 +114,10 @@ impl Storage {
         list: PersonList1,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
+
+        {
             let mut fixed: Vec<(PublicKey, HashMap<PersonList1, Private>)> = Vec::new();
 
             // Collect records that require changing
@@ -137,11 +142,11 @@ impl Storage {
                     self.db_person_lists2()?.put(txn, &key, &bytes)?;
                 }
             }
+        }
 
-            Ok(())
-        };
+        maybe_local_txn_commit!(local_txn);
 
-        write_transact!(self, rw_txn, f)
+        Ok(())
     }
 
     pub(crate) fn hash_person_list2(&self, list: PersonList1) -> Result<u64, Error> {

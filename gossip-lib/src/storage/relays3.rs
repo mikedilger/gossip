@@ -64,12 +64,14 @@ impl Storage {
         }
         let bytes = serde_json::to_vec(relay)?;
 
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.db_relays3()?.put(txn, key, &bytes)?;
-            Ok(())
-        };
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-        write_transact!(self, rw_txn, f)
+        self.db_relays3()?.put(txn, key, &bytes)?;
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 
     pub(crate) fn delete_relay3<'a>(
@@ -85,16 +87,18 @@ impl Storage {
             return Err(ErrorKind::Empty("relay url".to_owned()).into());
         }
 
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            // Delete any PersonRelay with this url
-            self.delete_person_relays(|f| f.url == *url, Some(txn))?;
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-            // Delete the relay
-            self.db_relays3()?.delete(txn, key)?;
-            Ok(())
-        };
+        // Delete any PersonRelay with this url
+        self.delete_person_relays(|f| f.url == *url, Some(txn))?;
 
-        write_transact!(self, rw_txn, f)
+        // Delete the relay
+        self.db_relays3()?.delete(txn, key)?;
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 
     pub(crate) fn modify_relay3<'a, M>(
@@ -111,19 +115,21 @@ impl Storage {
             return Err(ErrorKind::Empty("relay url".to_owned()).into());
         }
 
-        let mut f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let bytes = self.db_relays3()?.get(txn, key)?;
-            let mut relay = match bytes {
-                Some(bytes) => serde_json::from_slice(bytes)?,
-                None => Relay3::new(url.to_owned()),
-            };
-            modify(&mut relay);
-            let bytes = serde_json::to_vec(&relay)?;
-            self.db_relays3()?.put(txn, key, &bytes)?;
-            Ok(())
-        };
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-        write_transact!(self, rw_txn, f)
+        let bytes = self.db_relays3()?.get(txn, key)?;
+        let mut relay = match bytes {
+            Some(bytes) => serde_json::from_slice(bytes)?,
+            None => Relay3::new(url.to_owned()),
+        };
+        modify(&mut relay);
+        let bytes = serde_json::to_vec(&relay)?;
+        self.db_relays3()?.put(txn, key, &bytes)?;
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 
     pub(crate) fn modify_all_relays3<'a, M>(
@@ -134,7 +140,10 @@ impl Storage {
     where
         M: FnMut(&mut Relay3),
     {
-        let mut f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
+
+        {
             let mut iter = self.db_relays3()?.iter_mut(txn)?;
             while let Some(result) = iter.next() {
                 let (key, val) = result?;
@@ -147,10 +156,11 @@ impl Storage {
                     iter.put_current(&key, &bytes)?;
                 }
             }
-            Ok(())
-        };
+        }
 
-        write_transact!(self, rw_txn, f)
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 
     pub(crate) fn read_relay3<'a>(&'a self, url: &RelayUrl) -> Result<Option<Relay3>, Error> {

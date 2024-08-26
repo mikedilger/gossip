@@ -8,18 +8,24 @@ macro_rules! key {
     };
 }
 
-macro_rules! write_transact {
-    ($storage:ident, $opttxn:ident, $f:ident) => {
-        match $opttxn {
-            Some(txn) => $f(txn),
+macro_rules! maybe_local_txn {
+    ($storage:expr, $rw_txn:ident, $local_txn: ident) => {
+       match $rw_txn {
+            Some(x) => x,
             None => {
-                let mut txn = $storage.env.write_txn()?;
-                let result = $f(&mut txn);
-                txn.commit()?;
-                result
+                $local_txn = Some($storage.get_write_txn()?);
+                $local_txn.as_mut().unwrap()
             }
         }
     };
+}
+
+macro_rules! maybe_local_txn_commit {
+    ($local_txn: ident) => {
+        if let Some(txn) = $local_txn {
+            txn.commit()?;
+        }
+    }
 }
 
 // Macro to define read-and-write into "general" database, largely for settings
@@ -35,11 +41,14 @@ macro_rules! def_setting {
             ) -> Result<(), Error> {
                 let bytes = $field.write_to_vec()?;
 
-                let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-                    Ok(self.db_general()?.put(txn, $string, &bytes)?)
-                };
+                let mut local_txn = None;
+                let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-                write_transact!(self, rw_txn, f)
+                let rval = self.db_general()?.put(txn, $string, &bytes)?;
+
+                maybe_local_txn_commit!(local_txn);
+
+                Ok(rval)
             }
 
             #[allow(dead_code)]
@@ -85,11 +94,14 @@ macro_rules! def_flag {
             ) -> Result<(), Error> {
                 let bytes = $field.write_to_vec()?;
 
-                let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-                    Ok(self.db_general()?.put(txn, $string, &bytes)?)
-                };
+                let mut local_txn = None;
+                let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-                write_transact!(self, rw_txn, f)
+                let rval = self.db_general()?.put(txn, $string, &bytes)?;
+
+                maybe_local_txn_commit!(local_txn);
+
+                Ok(rval)
             }
 
             pub fn [<get_flag_ $field>](&self) -> bool {

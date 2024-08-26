@@ -60,12 +60,14 @@ impl Storage {
         key.truncate(MAX_LMDB_KEY);
         let bytes = when.0.to_be_bytes();
 
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.db_event_seen_on_relay1()?.put(txn, &key, &bytes)?;
-            Ok(())
-        };
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-        write_transact!(self, rw_txn, f)
+        self.db_event_seen_on_relay1()?.put(txn, &key, &bytes)?;
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 
     pub(crate) fn get_event_seen_on_relay1(

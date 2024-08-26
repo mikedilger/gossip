@@ -55,11 +55,13 @@ impl Storage {
         let key: Vec<u8> = person.pubkey.to_bytes();
         let bytes = serde_json::to_vec(person)?;
 
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.db_people2()?.put(txn, &key, &bytes)?;
-            Ok(())
-        };
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-        write_transact!(self, rw_txn, f)
+        self.db_people2()?.put(txn, &key, &bytes)?;
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 }

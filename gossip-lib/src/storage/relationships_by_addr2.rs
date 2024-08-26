@@ -53,12 +53,15 @@ impl Storage {
     ) -> Result<(), Error> {
         let key = relationships_by_addr2_into_key(&addr);
         let value = relationships_by_addr2_into_value(relationship_by_addr, related)?;
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.db_relationships_by_addr2()?.put(txn, &key, &value)?;
-            Ok(())
-        };
 
-        write_transact!(self, rw_txn, f)
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
+
+        self.db_relationships_by_addr2()?.put(txn, &key, &value)?;
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 
     pub(crate) fn find_relationships_by_addr2(

@@ -61,12 +61,14 @@ impl Storage {
         key.truncate(MAX_LMDB_KEY);
         let bytes = person_relay.write_to_vec()?;
 
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.db_person_relays2()?.put(txn, &key, &bytes)?;
-            Ok(())
-        };
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-        write_transact!(self, rw_txn, f)
+        self.db_person_relays2()?.put(txn, &key, &bytes)?;
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 
     pub(crate) fn read_person_relay2(
@@ -119,27 +121,28 @@ impl Storage {
     where
         F: Fn(&PersonRelay2) -> bool,
     {
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            // Delete any person_relay with this relay
-            let mut deletions: Vec<Vec<u8>> = Vec::new();
-            {
-                for result in self.db_person_relays2()?.iter(txn)? {
-                    let (key, val) = result?;
-                    if let Ok(person_relay) = PersonRelay2::read_from_buffer(val) {
-                        if filter(&person_relay) {
-                            deletions.push(key.to_owned());
-                        }
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
+
+        // Delete any person_relay with this relay
+        let mut deletions: Vec<Vec<u8>> = Vec::new();
+        {
+            for result in self.db_person_relays2()?.iter(txn)? {
+                let (key, val) = result?;
+                if let Ok(person_relay) = PersonRelay2::read_from_buffer(val) {
+                    if filter(&person_relay) {
+                        deletions.push(key.to_owned());
                     }
                 }
             }
-            for deletion in deletions.drain(..) {
-                self.db_person_relays2()?.delete(txn, &deletion)?;
-            }
+        }
+        for deletion in deletions.drain(..) {
+            self.db_person_relays2()?.delete(txn, &deletion)?;
+        }
 
-            Ok(())
-        };
+        maybe_local_txn_commit!(local_txn);
 
-        write_transact!(self, rw_txn, f)
+        Ok(())
     }
 
     pub(crate) fn modify_person_relay2<'a, M>(
@@ -159,19 +162,21 @@ impl Storage {
             key
         };
 
-        let mut f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let bytes = self.db_person_relays2()?.get(txn, &key)?;
-            let mut person_relay = match bytes {
-                Some(bytes) => PersonRelay2::read_from_buffer(bytes)?,
-                None => PersonRelay2::new(pubkey, url.to_owned()),
-            };
-            modify(&mut person_relay);
-            let bytes = person_relay.write_to_vec()?;
-            self.db_person_relays2()?.put(txn, &key, &bytes)?;
-            Ok(())
-        };
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-        write_transact!(self, rw_txn, f)
+        let bytes = self.db_person_relays2()?.get(txn, &key)?;
+        let mut person_relay = match bytes {
+            Some(bytes) => PersonRelay2::read_from_buffer(bytes)?,
+            None => PersonRelay2::new(pubkey, url.to_owned()),
+        };
+        modify(&mut person_relay);
+        let bytes = person_relay.write_to_vec()?;
+        self.db_person_relays2()?.put(txn, &key, &bytes)?;
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 
     pub(crate) fn modify_all_persons_relays2<'a, M>(
@@ -183,7 +188,10 @@ impl Storage {
     where
         M: FnMut(&mut PersonRelay2),
     {
-        let mut f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
+
+        {
             let prefix = pubkey.to_bytes();
             let mut iter = self.db_person_relays2()?.prefix_iter_mut(txn, &prefix)?;
             while let Some(result) = iter.next() {
@@ -196,9 +204,10 @@ impl Storage {
                     iter.put_current(&key, &bytes)?;
                 }
             }
-            Ok(())
-        };
+        }
 
-        write_transact!(self, rw_txn, f)
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 }

@@ -2226,26 +2226,23 @@ impl Overlord {
             }
         }
 
-        people_search_results.extend(PersonTable::filter_records(
-            |p| {
-                if let Some(metadata) = p.metadata() {
-                    if let Ok(s) = serde_json::to_string(&metadata) {
-                        if s.to_lowercase().contains(&text) {
-                            return true;
-                        }
-                    }
-                }
-
-                if let Some(petname) = &p.petname {
-                    if petname.to_lowercase().contains(&text) {
+        people_search_results.extend(PersonTable::filter_records(|p| {
+            if let Some(metadata) = p.metadata() {
+                if let Ok(s) = serde_json::to_string(&metadata) {
+                    if s.to_lowercase().contains(&text) {
                         return true;
                     }
                 }
+            }
 
-                false
-            },
-            None,
-        )?);
+            if let Some(petname) = &p.petname {
+                if petname.to_lowercase().contains(&text) {
+                    return true;
+                }
+            }
+
+            false
+        })?);
 
         note_search_results.extend(GLOBALS.db().search_events(&text)?);
 

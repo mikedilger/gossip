@@ -459,11 +459,14 @@ impl Storage {
     ) -> Result<(), Error> {
         let bytes = migration_level.to_be_bytes();
 
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            Ok(self.db_general()?.put(txn, b"migration_level", &bytes)?)
-        };
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-        write_transact!(self, rw_txn, f)
+        let output = self.db_general()?.put(txn, b"migration_level", &bytes)?;
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(output)
     }
 
     pub(crate) fn read_migration_level(&self) -> Result<Option<u32>, Error> {
@@ -483,13 +486,15 @@ impl Storage {
     ) -> Result<(), Error> {
         let bytes = epk.map(|e| &e.0).write_to_vec()?;
 
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.db_general()?
-                .put(txn, b"encrypted_private_key", &bytes)?;
-            Ok(())
-        };
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-        write_transact!(self, rw_txn, f)
+        self.db_general()?
+            .put(txn, b"encrypted_private_key", &bytes)?;
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 
     /// Read the user's encrypted private key
@@ -514,13 +519,15 @@ impl Storage {
     ) -> Result<(), Error> {
         let bytes = server.write_to_vec()?;
 
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.db_general()?
-                .put(txn, b"nip46_unconnected_server", &bytes)?;
-            Ok(())
-        };
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-        write_transact!(self, rw_txn, f)
+        self.db_general()?
+            .put(txn, b"nip46_unconnected_server", &bytes)?;
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 
     /// Read NIP-46 unconnected server
@@ -542,13 +549,15 @@ impl Storage {
         &'a self,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.db_general()?
-                .delete(txn, b"nip46_unconnected_server")?;
-            Ok(())
-        };
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-        write_transact!(self, rw_txn, f)
+        self.db_general()?
+            .delete(txn, b"nip46_unconnected_server")?;
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 
     // Flags ------------------------------------------------------------
@@ -965,15 +974,17 @@ impl Storage {
             return Ok(());
         }
 
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            if self.read_relay(url)?.is_none() {
-                let dbrelay = Relay::new(url.to_owned());
-                self.write_relay(&dbrelay, Some(txn))?;
-            }
-            Ok(())
-        };
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-        write_transact!(self, rw_txn, f)
+        if self.read_relay(url)?.is_none() {
+            let dbrelay = Relay::new(url.to_owned());
+            self.write_relay(&dbrelay, Some(txn))?;
+        }
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 
     /// Modify a relay record
@@ -1020,18 +1031,21 @@ impl Storage {
             return Ok(Relay::new(url.to_owned()));
         }
 
-        let f = |txn: &mut RwTxn<'a>| -> Result<Relay, Error> {
-            match self.read_relay(url)? {
-                Some(relay) => Ok(relay),
-                None => {
-                    let relay = Relay::new(url.to_owned());
-                    self.write_relay(&relay, Some(txn))?;
-                    Ok(relay)
-                }
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
+
+        let relay = match self.read_relay(url)? {
+            Some(relay) => relay,
+            None => {
+                let relay = Relay::new(url.to_owned());
+                self.write_relay(&relay, Some(txn))?;
+                relay
             }
         };
 
-        write_transact!(self, rw_txn, f)
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(relay)
     }
 
     /// Read matching relay records
@@ -1065,82 +1079,72 @@ impl Storage {
         event: &Event,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            // Determine if this is our own DM relay list
-            let mut ours = false;
-            if let Some(pubkey) = self.read_setting_public_key() {
-                if event.pubkey == pubkey {
-                    tracing::info!("Processing our own dm relay list");
-                    ours = true;
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
+
+        // Determine if this is our own DM relay list
+        let mut ours = false;
+        if let Some(pubkey) = self.read_setting_public_key() {
+            if event.pubkey == pubkey {
+                tracing::info!("Processing our own dm relay list");
+                ours = true;
+            }
+        }
+
+        // Update the person.dm_relay_list_created_at field
+        {
+            let mut person = PersonTable::read_or_create_record(event.pubkey, Some(txn))?;
+
+            // Bail out if this list wasn't newer than the last one we processed
+            if let Some(prior_created_at) = person.dm_relay_list_created_at {
+                if prior_created_at >= *event.created_at {
+                    return Ok(());
                 }
             }
 
-            // Update the person.dm_relay_list_created_at field
-            {
-                let mut person = PersonTable::read_or_create_record(event.pubkey, Some(txn))?;
+            person.dm_relay_list_created_at = Some(*event.created_at);
 
-                // Bail out if this list wasn't newer than the last one we processed
-                if let Some(prior_created_at) = person.dm_relay_list_created_at {
-                    if prior_created_at >= *event.created_at {
-                        return Ok(());
+            PersonTable::write_record(&mut person, Some(txn))?;
+        }
+
+        // Clear all current 'dm' flags in all matching person_relays
+        {
+            self.modify_all_persons_relays(event.pubkey, |pr| pr.dm = false, Some(txn))?;
+        }
+
+        // Extract relays from event
+        let mut relays: Vec<RelayUrl> = Vec::new();
+        for tag in event.tags.iter() {
+            if tag.tagname() == "relay" {
+                if let Ok(relay_url) = RelayUrl::try_from_str(tag.value()) {
+                    // Don't use banned relay URLs
+                    if !Self::url_is_banned(&relay_url) {
+                        relays.push(relay_url);
                     }
                 }
-
-                person.dm_relay_list_created_at = Some(*event.created_at);
-
-                PersonTable::write_record(&mut person, Some(txn))?;
             }
+        }
 
-            // Clear all current 'dm' flags in all matching person_relays
-            {
-                self.modify_all_persons_relays(event.pubkey, |pr| pr.dm = false, Some(txn))?;
-            }
+        // Set 'dm' flags in person_relay record
+        for relay_url in relays.iter() {
+            self.modify_person_relay(event.pubkey, relay_url, |pr| pr.dm = true, Some(txn))?;
+        }
 
-            // Extract relays from event
-            let mut relays: Vec<RelayUrl> = Vec::new();
-            for tag in event.tags.iter() {
-                if tag.tagname() == "relay" {
-                    if let Ok(relay_url) = RelayUrl::try_from_str(tag.value()) {
-                        // Don't use banned relay URLs
-                        if !Self::url_is_banned(&relay_url) {
-                            relays.push(relay_url);
-                        }
-                    }
-                }
-            }
+        if ours {
+            // Clear all relay DM flags
+            self.modify_all_relays(|relay| relay.clear_usage_bits(Relay::DM), Some(txn))?;
 
-            // Set 'dm' flags in person_relay record
             for relay_url in relays.iter() {
-                self.modify_person_relay(event.pubkey, relay_url, |pr| pr.dm = true, Some(txn))?;
+                // Set DM flag in relay
+                self.modify_relay(
+                    relay_url,
+                    |relay| relay.set_usage_bits(Relay::DM),
+                    Some(txn),
+                )?;
             }
+        }
 
-            if ours {
-                // Clear all relay DM flags
-                self.modify_all_relays(|relay| relay.clear_usage_bits(Relay::DM), Some(txn))?;
-
-                for relay_url in relays.iter() {
-                    // Set DM flag in relay
-                    self.modify_relay(
-                        relay_url,
-                        |relay| relay.set_usage_bits(Relay::DM),
-                        Some(txn),
-                    )?;
-                }
-            }
-
-            Ok(())
-        };
-
-        match rw_txn {
-            Some(txn) => {
-                f(txn)?;
-            }
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
-            }
-        };
+        maybe_local_txn_commit!(local_txn);
 
         Ok(())
     }
@@ -1152,84 +1156,74 @@ impl Storage {
         force: bool,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            if let Some(mut person) = PersonTable::read_record(event.pubkey, Some(txn))? {
-                if !force {
-                    // Check if this relay list is newer than the stamp we have for its author
-                    if let Some(previous_at) = person.relay_list_created_at {
-                        if event.created_at.0 <= previous_at {
-                            // This list is old.
-                            return Ok(());
-                        }
-                    }
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-                    // If we got here, the list is new
-                    // Mark when it was created
-                    person.relay_list_created_at = Some(event.created_at.0);
-
-                    // And save those marks in the Person record
-                    PersonTable::write_record(&mut person, Some(txn))?;
-                }
-            }
-
-            let mut ours = false;
-            if let Some(pubkey) = self.read_setting_public_key() {
-                if event.pubkey == pubkey {
-                    tracing::info!("Processing our own relay list");
-                    ours = true;
-                }
-            }
-
-            let relay_list = RelayList::from_event(event);
-
-            if ours {
-                // If INBOX or OUTBOX is set, we also must turn on READ and WRITE
-                // or they won't actually get used.  However, we don't turn OFF
-                // these bits automatically.
-
-                // Clear all current read/write bits (within the transaction)
-                // note: inbox is kind10002 'read', outbox is kind10002 'write'
-                self.modify_all_relays(
-                    |relay| relay.clear_usage_bits(Relay::INBOX | Relay::OUTBOX),
-                    Some(txn),
-                )?;
-
-                // Set or create read relays
-                for (relay_url, usage) in relay_list.0.iter() {
-                    let bits = match usage {
-                        RelayListUsage::Inbox => Relay::INBOX | Relay::READ,
-                        RelayListUsage::Outbox => Relay::OUTBOX | Relay::WRITE,
-                        RelayListUsage::Both => {
-                            Relay::INBOX | Relay::OUTBOX | Relay::READ | Relay::WRITE
-                        }
-                    };
-
-                    if let Some(mut dbrelay) = self.read_relay(relay_url)? {
-                        dbrelay.set_usage_bits(bits);
-                        self.write_relay(&dbrelay, Some(txn))?;
-                    } else {
-                        let mut dbrelay = Relay::new(relay_url.to_owned());
-                        dbrelay.set_usage_bits(bits);
-                        self.write_relay(&dbrelay, Some(txn))?;
+        if let Some(mut person) = PersonTable::read_record(event.pubkey, Some(txn))? {
+            if !force {
+                // Check if this relay list is newer than the stamp we have for its author
+                if let Some(previous_at) = person.relay_list_created_at {
+                    if event.created_at.0 <= previous_at {
+                        // This list is old.
+                        return Ok(());
                     }
                 }
-            }
 
-            self.set_relay_list(event.pubkey, relay_list, Some(txn))?;
+                // If we got here, the list is new
+                // Mark when it was created
+                person.relay_list_created_at = Some(event.created_at.0);
 
-            Ok(())
-        };
+                // And save those marks in the Person record
+                PersonTable::write_record(&mut person, Some(txn))?;
+            }
+        }
 
-        match rw_txn {
-            Some(txn) => {
-                f(txn)?;
+        let mut ours = false;
+        if let Some(pubkey) = self.read_setting_public_key() {
+            if event.pubkey == pubkey {
+                tracing::info!("Processing our own relay list");
+                ours = true;
             }
-            None => {
-                let mut txn = self.env.write_txn()?;
-                f(&mut txn)?;
-                txn.commit()?;
+        }
+
+        let relay_list = RelayList::from_event(event);
+
+        if ours {
+            // If INBOX or OUTBOX is set, we also must turn on READ and WRITE
+            // or they won't actually get used.  However, we don't turn OFF
+            // these bits automatically.
+
+            // Clear all current read/write bits (within the transaction)
+            // note: inbox is kind10002 'read', outbox is kind10002 'write'
+            self.modify_all_relays(
+                |relay| relay.clear_usage_bits(Relay::INBOX | Relay::OUTBOX),
+                Some(txn),
+            )?;
+
+            // Set or create read relays
+            for (relay_url, usage) in relay_list.0.iter() {
+                let bits = match usage {
+                    RelayListUsage::Inbox => Relay::INBOX | Relay::READ,
+                    RelayListUsage::Outbox => Relay::OUTBOX | Relay::WRITE,
+                    RelayListUsage::Both => {
+                        Relay::INBOX | Relay::OUTBOX | Relay::READ | Relay::WRITE
+                    }
+                };
+
+                if let Some(mut dbrelay) = self.read_relay(relay_url)? {
+                    dbrelay.set_usage_bits(bits);
+                    self.write_relay(&dbrelay, Some(txn))?;
+                } else {
+                    let mut dbrelay = Relay::new(relay_url.to_owned());
+                    dbrelay.set_usage_bits(bits);
+                    self.write_relay(&dbrelay, Some(txn))?;
+                }
             }
-        };
+        }
+
+        self.set_relay_list(event.pubkey, relay_list, Some(txn))?;
+
+        maybe_local_txn_commit!(local_txn);
 
         Ok(())
     }
@@ -1241,35 +1235,35 @@ impl Storage {
         relay_list: RelayList,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            // Clear all current relay settings for this person
-            self.modify_all_persons_relays(
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
+
+        // Clear all current relay settings for this person
+        self.modify_all_persons_relays(
+            pubkey,
+            |pr| {
+                pr.read = false;
+                pr.write = false;
+            },
+            Some(txn),
+        )?;
+
+        // Apply relay list
+        for (relay_url, usage) in relay_list.0.iter() {
+            self.modify_person_relay(
                 pubkey,
+                relay_url,
                 |pr| {
-                    pr.read = false;
-                    pr.write = false;
+                    pr.read = *usage == RelayListUsage::Inbox || *usage == RelayListUsage::Both;
+                    pr.write = *usage == RelayListUsage::Outbox || *usage == RelayListUsage::Both;
                 },
                 Some(txn),
             )?;
+        }
 
-            // Apply relay list
-            for (relay_url, usage) in relay_list.0.iter() {
-                self.modify_person_relay(
-                    pubkey,
-                    relay_url,
-                    |pr| {
-                        pr.read = *usage == RelayListUsage::Inbox || *usage == RelayListUsage::Both;
-                        pr.write =
-                            *usage == RelayListUsage::Outbox || *usage == RelayListUsage::Both;
-                    },
-                    Some(txn),
-                )?;
-            }
+        maybe_local_txn_commit!(local_txn);
 
-            Ok(())
-        };
-
-        write_transact!(self, rw_txn, f)
+        Ok(())
     }
 
     /// Write an event
@@ -1333,52 +1327,53 @@ impl Storage {
 
     /// Delete the event
     pub fn delete_event<'a>(&'a self, id: Id, rw_txn: Option<&mut RwTxn<'a>>) -> Result<(), Error> {
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            // Delete from the events table
-            self.delete_event3(id, Some(txn))?;
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-            // Delete from event_seen_on_relay
-            {
-                // save the actual keys to delete
-                let mut deletions: Vec<Vec<u8>> = Vec::new();
+        // Delete from the events table
+        self.delete_event3(id, Some(txn))?;
 
-                let start_key: &[u8] = id.as_slice();
+        // Delete from event_seen_on_relay
+        {
+            // save the actual keys to delete
+            let mut deletions: Vec<Vec<u8>> = Vec::new();
 
-                for result in self.db_event_seen_on_relay()?.prefix_iter(txn, start_key)? {
-                    let (_key, val) = result?;
-                    deletions.push(val.to_owned());
-                }
+            let start_key: &[u8] = id.as_slice();
 
-                // actual deletion done in second pass
-                // (deleting during iteration does not work in LMDB)
-                for deletion in deletions.drain(..) {
-                    self.db_event_seen_on_relay()?.delete(txn, &deletion)?;
-                }
+            for result in self.db_event_seen_on_relay()?.prefix_iter(txn, start_key)? {
+                let (_key, val) = result?;
+                deletions.push(val.to_owned());
             }
 
-            // Delete from event_viewed
-            self.db_event_viewed()?.delete(txn, id.as_slice())?;
+            // actual deletion done in second pass
+            // (deleting during iteration does not work in LMDB)
+            for deletion in deletions.drain(..) {
+                self.db_event_seen_on_relay()?.delete(txn, &deletion)?;
+            }
+        }
 
-            // DO NOT delete from relationships. The related event still applies in case
-            // this event comes back, ESPECIALLY deletion relationships!
+        // Delete from event_viewed
+        self.db_event_viewed()?.delete(txn, id.as_slice())?;
 
-            // We cannot delete from numerous indexes because the ID
-            // is in the value, not in the key.
-            //
-            // These invalid entries will be deleted next time we
-            // rebuild indexes.
-            //
-            // These include
-            //   db_event_hashtags()
-            //   db_relationships(), where the ID is the 2nd half of the key
-            //   db_reprel()
-            //   db_event_akci_index()
-            //   db_event_kci_index()
+        // DO NOT delete from relationships. The related event still applies in case
+        // this event comes back, ESPECIALLY deletion relationships!
 
-            Ok(())
-        };
+        // We cannot delete from numerous indexes because the ID
+        // is in the value, not in the key.
+        //
+        // These invalid entries will be deleted next time we
+        // rebuild indexes.
+        //
+        // These include
+        //   db_event_hashtags()
+        //   db_relationships(), where the ID is the 2nd half of the key
+        //   db_reprel()
+        //   db_event_akci_index()
+        //   db_event_kci_index()
 
-        write_transact!(self, rw_txn, f)
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 
     /// Replace any existing event with the passed in event, if it is of a replaceable kind
@@ -1737,14 +1732,15 @@ impl Storage {
         id: Id,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let key = AkciKey::from_parts(pubkey, kind, created_at, id);
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-            self.db_event_akci_index()?.put(txn, key.as_slice(), &())?;
-            Ok(())
-        };
+        let key = AkciKey::from_parts(pubkey, kind, created_at, id);
+        self.db_event_akci_index()?.put(txn, key.as_slice(), &())?;
 
-        write_transact!(self, rw_txn, f)
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 
     // We don't call this externally. Whenever we write an event, we do this
@@ -1760,14 +1756,15 @@ impl Storage {
             return Ok(());
         }
 
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let key = KciKey::from_parts(kind, created_at, id);
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-            self.db_event_kci_index()?.put(txn, key.as_slice(), &())?;
-            Ok(())
-        };
+        let key = KciKey::from_parts(kind, created_at, id);
+        self.db_event_kci_index()?.put(txn, key.as_slice(), &())?;
 
-        write_transact!(self, rw_txn, f)
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 
     // This should be called with the outer giftwrap
@@ -2282,72 +2279,76 @@ impl Storage {
         &'a self,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            // Erase all indices first
-            self.db_event_akci_index()?.clear(txn)?;
-            self.db_event_kci_index()?.clear(txn)?;
-            self.db_event_tag_index()?.clear(txn)?;
-            self.db_hashtags()?.clear(txn)?;
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-            let loop_txn = self.env.read_txn()?;
-            for result in self.db_events()?.iter(&loop_txn)? {
-                let (_key, val) = result?;
-                let event = Event::read_from_buffer(val)?;
+        // Erase all indices first
+        self.db_event_akci_index()?.clear(txn)?;
+        self.db_event_kci_index()?.clear(txn)?;
+        self.db_event_tag_index()?.clear(txn)?;
+        self.db_hashtags()?.clear(txn)?;
 
-                // If giftwrap:
-                //   Use the id and kind of the giftwrap,
-                //   Use the pubkey and created_at of the rumor
-                let mut innerevent: &Event = &event;
-                let rumor: Event;
-                if let Some(r) = self.switch_to_rumor(&event, txn)? {
-                    rumor = r;
-                    innerevent = &rumor;
-                }
+        let loop_txn = self.env.read_txn()?;
+        for result in self.db_events()?.iter(&loop_txn)? {
+            let (_key, val) = result?;
+            let event = Event::read_from_buffer(val)?;
 
-                self.write_event_akci_index(
-                    innerevent.pubkey,
-                    event.kind,
-                    innerevent.created_at,
-                    event.id,
-                    Some(txn),
-                )?;
-                self.write_event_kci_index(event.kind, innerevent.created_at, event.id, Some(txn))?;
-                self.write_event_tag_index(
-                    &event, // this handles giftwrap internally
-                    Some(txn),
-                )?;
-                for hashtag in event.hashtags() {
-                    if hashtag.is_empty() {
-                        continue;
-                    } // upstream bug
-                    self.add_hashtag(&hashtag, event.id, Some(txn))?;
-                }
+            // If giftwrap:
+            //   Use the id and kind of the giftwrap,
+            //   Use the pubkey and created_at of the rumor
+            let mut innerevent: &Event = &event;
+            let rumor: Event;
+            if let Some(r) = self.switch_to_rumor(&event, txn)? {
+                rumor = r;
+                innerevent = &rumor;
             }
-            self.set_flag_rebuild_indexes_needed(false, Some(txn))?;
-            Ok(())
-        };
 
-        write_transact!(self, rw_txn, f)
+            self.write_event_akci_index(
+                innerevent.pubkey,
+                event.kind,
+                innerevent.created_at,
+                event.id,
+                Some(txn),
+            )?;
+            self.write_event_kci_index(event.kind, innerevent.created_at, event.id, Some(txn))?;
+            self.write_event_tag_index(
+                &event, // this handles giftwrap internally
+                Some(txn),
+            )?;
+            for hashtag in event.hashtags() {
+                if hashtag.is_empty() {
+                    continue;
+                } // upstream bug
+                self.add_hashtag(&hashtag, event.id, Some(txn))?;
+            }
+        }
+        self.set_flag_rebuild_indexes_needed(false, Some(txn))?;
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 
     pub fn rebuild_event_tags_index<'a>(
         &'a self,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            // Erase the index first
-            self.db_event_tag_index()?.clear(txn)?;
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-            let loop_txn = self.env.read_txn()?;
-            for result in self.db_events()?.iter(&loop_txn)? {
-                let (_key, val) = result?;
-                let event = Event::read_from_buffer(val)?;
-                self.write_event_tag_index(&event, Some(txn))?;
-            }
-            Ok(())
-        };
+        // Erase the index first
+        self.db_event_tag_index()?.clear(txn)?;
 
-        write_transact!(self, rw_txn, f)
+        let loop_txn = self.env.read_txn()?;
+        for result in self.db_events()?.iter(&loop_txn)? {
+            let (_key, val) = result?;
+            let event = Event::read_from_buffer(val)?;
+            self.write_event_tag_index(&event, Some(txn))?;
+        }
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 
     /// Read person lists
@@ -2401,18 +2402,20 @@ impl Storage {
         list: PersonList,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.clear_person_list2(list, Some(txn))?;
-            let now = Unixtime::now();
-            if let Some(mut metadata) = self.get_person_list_metadata(list)? {
-                metadata.last_edit_time = now;
-                metadata.len = 0;
-                self.set_person_list_metadata(list, &metadata, Some(txn))?;
-            }
-            Ok(())
-        };
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-        write_transact!(self, rw_txn, f)
+        self.clear_person_list2(list, Some(txn))?;
+        let now = Unixtime::now();
+        if let Some(mut metadata) = self.get_person_list_metadata(list)? {
+            metadata.last_edit_time = now;
+            metadata.len = 0;
+            self.set_person_list_metadata(list, &metadata, Some(txn))?;
+        }
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 
     /// Mark everybody in a list as private
@@ -2421,15 +2424,17 @@ impl Storage {
         list: PersonList,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let people = self.get_people_in_list(list)?;
-            for (pk, _) in &people {
-                self.add_person_to_list(pk, list, Private(true), Some(txn))?
-            }
-            Ok(())
-        };
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-        write_transact!(self, rw_txn, f)
+        let people = self.get_people_in_list(list)?;
+        for (pk, _) in &people {
+            self.add_person_to_list(pk, list, Private(true), Some(txn))?
+        }
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 
     /// Is a person in a list?
@@ -2452,24 +2457,25 @@ impl Storage {
         private: Private,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let mut map = self.read_person_lists(pubkey)?;
-            let had = map.contains_key(&list);
-            map.insert(list, private);
-            self.write_person_lists(pubkey, map, Some(txn))?;
-            let now = Unixtime::now();
-            if let Some(mut metadata) = self.get_person_list_metadata(list)? {
-                if !had {
-                    metadata.len += 1;
-                }
-                metadata.last_edit_time = now;
-                self.set_person_list_metadata(list, &metadata, Some(txn))?;
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
+
+        let mut map = self.read_person_lists(pubkey)?;
+        let had = map.contains_key(&list);
+        map.insert(list, private);
+        self.write_person_lists(pubkey, map, Some(txn))?;
+        let now = Unixtime::now();
+        if let Some(mut metadata) = self.get_person_list_metadata(list)? {
+            if !had {
+                metadata.len += 1;
             }
+            metadata.last_edit_time = now;
+            self.set_person_list_metadata(list, &metadata, Some(txn))?;
+        }
 
-            Ok(())
-        };
+        maybe_local_txn_commit!(local_txn);
 
-        write_transact!(self, rw_txn, f)
+        Ok(())
     }
 
     /// Remove a person from a list
@@ -2479,23 +2485,25 @@ impl Storage {
         list: PersonList,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let mut map = self.read_person_lists(pubkey)?;
-            let had = map.contains_key(&list);
-            map.remove(&list);
-            self.write_person_lists(pubkey, map, Some(txn))?;
-            let now = Unixtime::now();
-            if let Some(mut metadata) = self.get_person_list_metadata(list)? {
-                if had && metadata.len > 0 {
-                    metadata.len -= 1;
-                }
-                metadata.last_edit_time = now;
-                self.set_person_list_metadata(list, &metadata, Some(txn))?;
-            }
-            Ok(())
-        };
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-        write_transact!(self, rw_txn, f)
+        let mut map = self.read_person_lists(pubkey)?;
+        let had = map.contains_key(&list);
+        map.remove(&list);
+        self.write_person_lists(pubkey, map, Some(txn))?;
+        let now = Unixtime::now();
+        if let Some(mut metadata) = self.get_person_list_metadata(list)? {
+            if had && metadata.len > 0 {
+                metadata.len -= 1;
+            }
+            metadata.last_edit_time = now;
+            self.set_person_list_metadata(list, &metadata, Some(txn))?;
+        }
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 
     /// Rebuild relationships
@@ -2503,19 +2511,22 @@ impl Storage {
         &'a self,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            // Iterate through all events
-            let loop_txn = self.env.read_txn()?;
-            for result in self.db_events()?.iter(&loop_txn)? {
-                let (_key, val) = result?;
-                let event = Event::read_from_buffer(val)?;
-                crate::process::process_relationships_of_event(&event, Some(txn))?;
-            }
-            self.set_flag_rebuild_relationships_needed(false, Some(txn))?;
-            Ok(())
-        };
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-        write_transact!(self, rw_txn, f)
+        // Iterate through all events
+        let loop_txn = self.env.read_txn()?;
+        for result in self.db_events()?.iter(&loop_txn)? {
+            let (_key, val) = result?;
+            let event = Event::read_from_buffer(val)?;
+            crate::process::process_relationships_of_event(&event, Some(txn))?;
+        }
+
+        self.set_flag_rebuild_relationships_needed(false, Some(txn))?;
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 
     pub fn write_nip46server<'a>(

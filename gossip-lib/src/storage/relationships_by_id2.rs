@@ -62,12 +62,14 @@ impl Storage {
         key.extend(related.as_ref());
         let value = relationship_by_id.write_to_vec()?;
 
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.db_relationships_by_id2()?.put(txn, &key, &value)?;
-            Ok(())
-        };
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-        write_transact!(self, rw_txn, f)
+        self.db_relationships_by_id2()?.put(txn, &key, &value)?;
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 
     pub(crate) fn find_relationships_by_id2(

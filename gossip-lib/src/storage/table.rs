@@ -22,99 +22,85 @@ pub trait Table {
     /// Write a record
     /// (it needs to be mutable for possible stabilization)
     #[allow(dead_code)]
-    fn write_record(record: &mut Self::Item, wtxn: Option<&mut RwTxn<'_>>) -> Result<(), Error> {
+    fn write_record(record: &mut Self::Item, rw_txn: Option<&mut RwTxn<'_>>) -> Result<(), Error> {
         record.stabilize();
         let keybytes = record.key().to_bytes()?;
         let valbytes = record.to_bytes()?;
-        let f = |txn: &mut RwTxn<'_>| -> Result<(), Error> {
-            Self::db()?.put(txn, &keybytes, &valbytes)?;
-            Ok(())
-        };
 
-        match wtxn {
-            Some(txn) => f(txn),
-            None => {
-                let mut txn = GLOBALS.db().get_write_txn()?;
-                let result = f(&mut txn);
-                txn.commit()?;
-                result
-            }
-        }
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(GLOBALS.db(), rw_txn, local_txn);
+
+        Self::db()?.put(txn, &keybytes, &valbytes)?;
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 
     /// Write a default record if missing
     #[allow(dead_code)]
     fn create_record_if_missing(
         key: <Self::Item as Record>::Key,
-        wtxn: Option<&mut RwTxn<'_>>,
+        rw_txn: Option<&mut RwTxn<'_>>,
     ) -> Result<(), Error> {
         let keybytes = key.to_bytes()?;
-        let f = |txn: &mut RwTxn<'_>| -> Result<(), Error> {
-            if Self::db()?.get(txn, &keybytes)?.is_none() {
-                let mut record = match <Self::Item as Record>::new(key) {
-                    Some(r) => r,
-                    None => return Err(ErrorKind::RecordIsNotNewable.into()),
-                };
-                record.stabilize();
-                let valbytes = record.to_bytes()?;
-                Self::db()?.put(txn, &keybytes, &valbytes)?;
-            }
-            Ok(())
-        };
 
-        match wtxn {
-            Some(txn) => f(txn),
-            None => {
-                let mut txn = GLOBALS.db().get_write_txn()?;
-                let result = f(&mut txn);
-                txn.commit()?;
-                result
-            }
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(GLOBALS.db(), rw_txn, local_txn);
+
+        if Self::db()?.get(txn, &keybytes)?.is_none() {
+            let mut record = match <Self::Item as Record>::new(key) {
+                Some(r) => r,
+                None => return Err(ErrorKind::RecordIsNotNewable.into()),
+            };
+            record.stabilize();
+            let valbytes = record.to_bytes()?;
+            Self::db()?.put(txn, &keybytes, &valbytes)?;
         }
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 
     /// Check if a record exists
     #[allow(dead_code)]
     fn has_record(
         key: <Self::Item as Record>::Key,
-        rtxn: Option<&RoTxn<'_>>,
+        rw_txn: Option<&RoTxn<'_>>,
     ) -> Result<bool, Error> {
         let keybytes = key.to_bytes()?;
-        let f = |txn: &RoTxn<'_>| -> Result<bool, Error> {
-            Ok(Self::db()?.get(txn, &keybytes)?.is_some())
-        };
 
-        match rtxn {
-            Some(txn) => f(txn),
-            None => {
-                let txn = GLOBALS.db().get_read_txn()?;
-                f(&txn)
-            }
-        }
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(GLOBALS.db(), rw_txn, local_txn);
+
+        let rval = Self::db()?.get(txn, &keybytes)?.is_some();
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(rval)
     }
 
     /// Read a record
     #[allow(dead_code)]
     fn read_record(
         key: <Self::Item as Record>::Key,
-        rtxn: Option<&RoTxn<'_>>,
+        rw_txn: Option<&RoTxn<'_>>,
     ) -> Result<Option<Self::Item>, Error> {
         let keybytes = key.to_bytes()?;
-        let f = |txn: &RoTxn<'_>| -> Result<Option<Self::Item>, Error> {
-            let valbytes = Self::db()?.get(txn, &keybytes)?;
-            Ok(match valbytes {
-                None => None,
-                Some(valbytes) => Some(<Self::Item>::from_bytes(valbytes)?),
-            })
+
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(GLOBALS.db(), rw_txn, local_txn);
+
+        let valbytes = Self::db()?.get(txn, &keybytes)?;
+        let rval = match valbytes {
+            None => None,
+            Some(valbytes) => Some(<Self::Item>::from_bytes(valbytes)?),
         };
 
-        match rtxn {
-            Some(txn) => f(txn),
-            None => {
-                let txn = GLOBALS.db().get_read_txn()?;
-                f(&txn)
-            }
-        }
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(rval)
     }
 
     /// Read a record or create a new one (and store it)
@@ -123,12 +109,16 @@ pub trait Table {
     #[allow(dead_code)]
     fn read_or_create_record(
         key: <Self::Item as Record>::Key,
-        wtxn: Option<&mut RwTxn<'_>>,
+        rw_txn: Option<&mut RwTxn<'_>>,
     ) -> Result<Self::Item, Error> {
         let keybytes = key.to_bytes()?;
-        let f = |txn: &mut RwTxn<'_>| -> Result<Self::Item, Error> {
+
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(GLOBALS.db(), rw_txn, local_txn);
+
+        let rval = {
             let valbytes = Self::db()?.get(txn, &keybytes)?;
-            Ok(match valbytes {
+            match valbytes {
                 None => {
                     let mut record = match <Self::Item as Record>::new(key) {
                         Some(r) => r,
@@ -140,45 +130,32 @@ pub trait Table {
                     record
                 }
                 Some(valbytes) => <Self::Item>::from_bytes(valbytes)?,
-            })
+            }
         };
 
-        match wtxn {
-            Some(txn) => f(txn),
-            None => {
-                let mut txn = GLOBALS.db().get_write_txn()?;
-                let result = f(&mut txn);
-                txn.commit()?;
-                result
-            }
-        }
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(rval)
     }
 
     /// filter_records
-    fn filter_records<F>(f: F, rtxn: Option<&RoTxn<'_>>) -> Result<Vec<Self::Item>, Error>
+    fn filter_records<F>(f: F) -> Result<Vec<Self::Item>, Error>
     where
         F: Fn(&Self::Item) -> bool,
     {
-        let f = |txn: &RoTxn<'_>| -> Result<Vec<Self::Item>, Error> {
-            let iter = Self::db()?.iter(txn)?;
-            let mut output: Vec<Self::Item> = Vec::new();
-            for result in iter {
-                let (_keybytes, valbytes) = result?;
-                let record = <Self::Item>::from_bytes(valbytes)?;
-                if f(&record) {
-                    output.push(record);
-                }
-            }
-            Ok(output)
-        };
+        let txn = GLOBALS.db().get_read_txn()?;
 
-        match rtxn {
-            Some(txn) => f(txn),
-            None => {
-                let txn = GLOBALS.db().get_read_txn()?;
-                f(&txn)
+        let iter = Self::db()?.iter(&txn)?;
+        let mut output: Vec<Self::Item> = Vec::new();
+        for result in iter {
+            let (_keybytes, valbytes) = result?;
+            let record = <Self::Item>::from_bytes(valbytes)?;
+            if f(&record) {
+                output.push(record);
             }
         }
+
+        Ok(output)
     }
 
     /// Modify a record in the database if it exists; returns false if not found
@@ -186,34 +163,28 @@ pub trait Table {
     fn modify_if_exists<M>(
         key: <Self::Item as Record>::Key,
         mut modify: M,
-        wtxn: Option<&mut RwTxn<'_>>,
+        rw_txn: Option<&mut RwTxn<'_>>,
     ) -> Result<bool, Error>
     where
         M: FnMut(&mut Self::Item),
     {
-        let mut f = |txn: &mut RwTxn<'_>| -> Result<bool, Error> {
-            let keybytes = key.to_bytes()?;
-            let valbytes = Self::db()?.get(txn, &keybytes)?;
-            let mut record = match valbytes {
-                Some(valbytes) => Self::Item::from_bytes(valbytes)?,
-                None => return Ok(false),
-            };
-            modify(&mut record);
-            record.stabilize();
-            let valbytes = record.to_bytes()?;
-            Self::db()?.put(txn, &keybytes, &valbytes)?;
-            Ok(true)
-        };
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(GLOBALS.db(), rw_txn, local_txn);
 
-        match wtxn {
-            Some(txn) => f(txn),
-            None => {
-                let mut txn = GLOBALS.db().get_write_txn()?;
-                let result = f(&mut txn);
-                txn.commit()?;
-                result
-            }
-        }
+        let keybytes = key.to_bytes()?;
+        let valbytes = Self::db()?.get(txn, &keybytes)?;
+        let mut record = match valbytes {
+            Some(valbytes) => Self::Item::from_bytes(valbytes)?,
+            None => return Ok(false),
+        };
+        modify(&mut record);
+        record.stabilize();
+        let valbytes = record.to_bytes()?;
+        Self::db()?.put(txn, &keybytes, &valbytes)?;
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(true)
     }
 
     /// Modify a record in the database; create first if missing
@@ -223,12 +194,15 @@ pub trait Table {
     fn modify<M>(
         key: <Self::Item as Record>::Key,
         mut modify: M,
-        wtxn: Option<&mut RwTxn<'_>>,
+        rw_txn: Option<&mut RwTxn<'_>>,
     ) -> Result<(), Error>
     where
         M: FnMut(&mut Self::Item),
     {
-        let f = |txn: &mut RwTxn<'_>| -> Result<(), Error> {
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(GLOBALS.db(), rw_txn, local_txn);
+
+        {
             let keybytes = key.to_bytes()?;
             let valbytes = Self::db()?.get(txn, &keybytes)?;
             let mut record = match valbytes {
@@ -242,28 +216,24 @@ pub trait Table {
             record.stabilize();
             let valbytes = record.to_bytes()?;
             Self::db()?.put(txn, &keybytes, &valbytes)?;
-            Ok(())
-        };
-
-        match wtxn {
-            Some(txn) => f(txn),
-            None => {
-                let mut txn = GLOBALS.db().get_write_txn()?;
-                let result = f(&mut txn);
-                txn.commit()?;
-                result
-            }
         }
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 
     /// Modify all matching records in the database
     #[allow(dead_code)]
-    fn filter_modify<F, M>(f: F, mut modify: M, wtxn: Option<&mut RwTxn<'_>>) -> Result<(), Error>
+    fn filter_modify<F, M>(f: F, mut modify: M, rw_txn: Option<&mut RwTxn<'_>>) -> Result<(), Error>
     where
         F: Fn(&Self::Item) -> bool,
         M: FnMut(&mut Self::Item),
     {
-        let mut f = |txn: &mut RwTxn<'_>| -> Result<(), Error> {
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(GLOBALS.db(), rw_txn, local_txn);
+
+        {
             let mut iter = Self::db()?.iter_mut(txn)?;
             while let Some(result) = iter.next() {
                 let (keybytes, valbytes) = result?;
@@ -278,17 +248,10 @@ pub trait Table {
                     }
                 }
             }
-            Ok(())
-        };
-
-        match wtxn {
-            Some(txn) => f(txn),
-            None => {
-                let mut txn = GLOBALS.db().get_write_txn()?;
-                let result = f(&mut txn);
-                txn.commit()?;
-                result
-            }
         }
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 }

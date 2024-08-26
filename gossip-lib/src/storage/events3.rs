@@ -52,7 +52,10 @@ impl Storage {
         // write to lmdb 'events'
         let bytes = event.write_to_vec()?;
 
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
+
+        {
             self.db_events3()?.put(txn, event.id.as_slice(), &bytes)?;
 
             // If giftwrap:
@@ -85,10 +88,11 @@ impl Storage {
                 } // upstream bug
                 self.add_hashtag(&hashtag, event.id, Some(txn))?;
             }
-            Ok(())
-        };
+        }
 
-        write_transact!(self, rw_txn, f)
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 
     pub(crate) fn read_event3(&self, id: Id) -> Result<Option<EventV3>, Error> {
@@ -112,11 +116,13 @@ impl Storage {
         id: Id,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let _ = self.db_events3()?.delete(txn, id.as_slice());
-            Ok(())
-        };
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-        write_transact!(self, rw_txn, f)
+        let _ = self.db_events3()?.delete(txn, id.as_slice());
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 }

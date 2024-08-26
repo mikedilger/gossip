@@ -54,12 +54,14 @@ impl Storage {
         let key = server.peer_pubkey.as_bytes();
         let bytes = server.write_to_vec()?;
 
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.db_nip46servers2()?.put(txn, key, &bytes)?;
-            Ok(())
-        };
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-        write_transact!(self, rw_txn, f)
+        self.db_nip46servers2()?.put(txn, key, &bytes)?;
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 
     pub(crate) fn read_nip46server2(
@@ -92,11 +94,13 @@ impl Storage {
     ) -> Result<(), Error> {
         let key = pubkey.as_bytes();
 
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let _ = self.db_nip46servers2()?.delete(txn, key);
-            Ok(())
-        };
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-        write_transact!(self, rw_txn, f)
+        let _ = self.db_nip46servers2()?.delete(txn, key);
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 }

@@ -88,12 +88,14 @@ impl Storage {
             metadata.write_to_vec()?
         };
 
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.db_person_lists_metadata3()?.put(txn, &key, &bytes)?;
-            Ok(())
-        };
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-        write_transact!(self, rw_txn, f)
+        self.db_person_lists_metadata3()?.put(txn, &key, &bytes)?;
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 
     pub(crate) fn get_all_person_list_metadata3(
@@ -157,30 +159,31 @@ impl Storage {
             return Err(ErrorKind::ListAlreadyExists(found_list).into());
         }
 
-        let f = |txn: &mut RwTxn<'a>| -> Result<PersonList1, Error> {
-            let mut slot: u8 = 0;
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-            for i in 2..=255 {
-                let key: Vec<u8> = PersonList1::Custom(i).write_to_vec()?;
-                if self.db_person_lists_metadata3()?.get(txn, &key)?.is_none() {
-                    slot = i;
-                    break;
-                }
+        let mut slot: u8 = 0;
+
+        for i in 2..=255 {
+            let key: Vec<u8> = PersonList1::Custom(i).write_to_vec()?;
+            if self.db_person_lists_metadata3()?.get(txn, &key)?.is_none() {
+                slot = i;
+                break;
             }
+        }
 
-            if slot < 2 {
-                return Err(ErrorKind::ListAllocationFailed.into());
-            }
+        if slot < 2 {
+            return Err(ErrorKind::ListAllocationFailed.into());
+        }
 
-            let list = PersonList1::Custom(slot);
-            let key: Vec<u8> = list.write_to_vec()?;
-            let val: Vec<u8> = metadata.write_to_vec()?;
-            self.db_person_lists_metadata3()?.put(txn, &key, &val)?;
+        let list = PersonList1::Custom(slot);
+        let key: Vec<u8> = list.write_to_vec()?;
+        let val: Vec<u8> = metadata.write_to_vec()?;
+        self.db_person_lists_metadata3()?.put(txn, &key, &val)?;
 
-            Ok(list)
-        };
+        maybe_local_txn_commit!(local_txn);
 
-        write_transact!(self, rw_txn, f)
+        Ok(list)
     }
 
     /// Deallocate this PersonList1
@@ -193,17 +196,19 @@ impl Storage {
             return Err(ErrorKind::ListIsWellKnown.into());
         }
 
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.clear_person_list(list, Some(txn))?;
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-            // note: we dont have to delete the list of people because those
-            //       lists are keyed by pubkey, and we already checked that
-            //       this list is not referenced.
-            let key: Vec<u8> = list.write_to_vec()?;
-            self.db_person_lists_metadata3()?.delete(txn, &key)?;
-            Ok(())
-        };
+        self.clear_person_list(list, Some(txn))?;
 
-        write_transact!(self, rw_txn, f)
+        // note: we dont have to delete the list of people because those
+        //       lists are keyed by pubkey, and we already checked that
+        //       this list is not referenced.
+        let key: Vec<u8> = list.write_to_vec()?;
+        self.db_person_lists_metadata3()?.delete(txn, &key)?;
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 }

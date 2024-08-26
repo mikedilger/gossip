@@ -58,12 +58,14 @@ impl Storage {
         }
         let bytes = serde_json::to_vec(relay)?;
 
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            self.db_relays2()?.put(txn, key, &bytes)?;
-            Ok(())
-        };
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-        write_transact!(self, rw_txn, f)
+        self.db_relays2()?.put(txn, key, &bytes)?;
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 
     pub(crate) fn filter_relays2<F>(&self, f: F) -> Result<Vec<Relay2>, Error>

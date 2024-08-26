@@ -112,10 +112,9 @@ impl People {
         let stale = Unixtime::now().0
             - 60 * GLOBALS.db().read_setting_relay_list_becomes_stale_minutes() as i64;
 
-        if let Ok(vec) = PersonTable::filter_records(
-            |p| p.is_subscribed_to() && p.relay_list_last_sought < stale,
-            None,
-        ) {
+        if let Ok(vec) = PersonTable::filter_records(|p| {
+            p.is_subscribed_to() && p.relay_list_last_sought < stale
+        }) {
             vec.iter().map(|p| p.pubkey).collect()
         } else {
             vec![]
@@ -462,55 +461,54 @@ impl People {
         let search = String::from(text).to_lowercase();
 
         // grab all results then sort by score
-        let mut results: Vec<(u16, String, PublicKey)> =
-            PersonTable::filter_records(|_| true, None)?
-                .iter()
-                .filter_map(|person| {
-                    let mut score = 0u16;
-                    let mut result_name = String::from("");
+        let mut results: Vec<(u16, String, PublicKey)> = PersonTable::filter_records(|_| true)?
+            .iter()
+            .filter_map(|person| {
+                let mut score = 0u16;
+                let mut result_name = String::from("");
 
-                    // search for users by name
-                    let name = person.best_name();
-                    let matchable = name.to_lowercase();
-                    if matchable.starts_with(&search) {
-                        score = 300;
-                        result_name = name.to_string();
-                    }
-                    if matchable.contains(&search) {
-                        score = 200;
-                        result_name = name.to_string();
-                    }
+                // search for users by name
+                let name = person.best_name();
+                let matchable = name.to_lowercase();
+                if matchable.starts_with(&search) {
+                    score = 300;
+                    result_name = name.to_string();
+                }
+                if matchable.contains(&search) {
+                    score = 200;
+                    result_name = name.to_string();
+                }
 
-                    // search for users by nip05 id
-                    if score == 0 && person.nip05_valid {
-                        if let Some(nip05) = &person.nip05().map(|n| n.to_lowercase()) {
-                            if nip05.starts_with(&search) {
-                                score = 400;
-                                result_name = nip05.to_string();
-                            }
-                            if nip05.contains(&search) {
-                                score = 100;
-                                result_name = nip05.to_string();
-                            }
+                // search for users by nip05 id
+                if score == 0 && person.nip05_valid {
+                    if let Some(nip05) = &person.nip05().map(|n| n.to_lowercase()) {
+                        if nip05.starts_with(&search) {
+                            score = 400;
+                            result_name = nip05.to_string();
+                        }
+                        if nip05.contains(&search) {
+                            score = 100;
+                            result_name = nip05.to_string();
                         }
                     }
+                }
 
-                    if score > 0 {
-                        // if there is not a name, fallback to showing the initial chars of the pubkey,
-                        // but this is probably unnecessary and will never happen
-                        if result_name.is_empty() {
-                            result_name = person.pubkey.as_hex_string();
-                        }
-
-                        // bigger names have a higher match chance, but they should be scored lower
-                        score -= result_name.len() as u16;
-
-                        return Some((score, result_name, person.pubkey));
+                if score > 0 {
+                    // if there is not a name, fallback to showing the initial chars of the pubkey,
+                    // but this is probably unnecessary and will never happen
+                    if result_name.is_empty() {
+                        result_name = person.pubkey.as_hex_string();
                     }
 
-                    None
-                })
-                .collect();
+                    // bigger names have a higher match chance, but they should be scored lower
+                    score -= result_name.len() as u16;
+
+                    return Some((score, result_name, person.pubkey));
+                }
+
+                None
+            })
+            .collect();
 
         results.sort_by(|a, b| a.0.cmp(&b.0).reverse());
         let max = if results.len() > 10 {

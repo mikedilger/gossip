@@ -52,55 +52,56 @@ impl Storage {
         event: &EventV2,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            let mut event = event;
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-            // If giftwrap, index the inner rumor instead
-            let rumor_event: EventV2;
-            if let Some(rumor) = self.switch_to_rumor2(event, txn)? {
-                rumor_event = rumor;
-                event = &rumor_event;
+        let mut event = event;
+
+        // If giftwrap, index the inner rumor instead
+        let rumor_event: EventV2;
+        if let Some(rumor) = self.switch_to_rumor2(event, txn)? {
+            rumor_event = rumor;
+            event = &rumor_event;
+        }
+
+        // our user's public key
+        let pk: Option<PublicKeyHex> = self.read_setting_public_key().map(|p| p.into());
+
+        for tag in &event.tags {
+            let tagname = tag.tagname();
+            let value = match tag.value(1) {
+                Ok(v) => v,
+                Err(_) => continue, // no tag value, not indexable.
+            };
+
+            // Only index tags we intend to lookup later by tag.
+            // If that set changes, (1) add to this code and (2) do a reindex migration
+            if !INDEXED_TAGS.contains(&&*tagname) {
+                continue;
             }
-
-            // our user's public key
-            let pk: Option<PublicKeyHex> = self.read_setting_public_key().map(|p| p.into());
-
-            for tag in &event.tags {
-                let tagname = tag.tagname();
-                let value = match tag.value(1) {
-                    Ok(v) => v,
-                    Err(_) => continue, // no tag value, not indexable.
-                };
-
-                // Only index tags we intend to lookup later by tag.
-                // If that set changes, (1) add to this code and (2) do a reindex migration
-                if !INDEXED_TAGS.contains(&&*tagname) {
-                    continue;
-                }
-                // For 'p' tags, only index them if 'p' is our user
-                if tagname == "p" {
-                    match &pk {
-                        None => continue,
-                        Some(pk) => {
-                            if value != pk.as_str() {
-                                continue;
-                            }
+            // For 'p' tags, only index them if 'p' is our user
+            if tagname == "p" {
+                match &pk {
+                    None => continue,
+                    Some(pk) => {
+                        if value != pk.as_str() {
+                            continue;
                         }
                     }
                 }
-
-                let mut key: Vec<u8> = tagname.as_bytes().to_owned();
-                key.push(b'\"'); // double quote separator, unlikely to be inside of a tagname
-                key.extend(value.as_bytes());
-                let key = key!(&key); // limit the size
-                let bytes = event.id.as_slice();
-                self.db_event_tag_index()?.put(txn, key, bytes)?;
             }
 
-            Ok(())
-        };
+            let mut key: Vec<u8> = tagname.as_bytes().to_owned();
+            key.push(b'\"'); // double quote separator, unlikely to be inside of a tagname
+            key.extend(value.as_bytes());
+            let key = key!(&key); // limit the size
+            let bytes = event.id.as_slice();
+            self.db_event_tag_index()?.put(txn, key, bytes)?;
+        }
 
-        write_transact!(self, rw_txn, f)
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 
     pub fn write_event3_tag_index1<'a>(
@@ -108,61 +109,62 @@ impl Storage {
         event: &EventV3,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let f = |txn: &mut RwTxn<'a>| -> Result<(), Error> {
-            // If giftwrap:
-            //   Use the id and kind of the giftwrap,
-            //   Use the pubkey and created_at of the rumor
-            let mut innerevent: &EventV3 = event;
-            let rumor: EventV3;
-            if let Some(r) = self.switch_to_rumor3(event, txn)? {
-                rumor = r;
-                innerevent = &rumor;
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
+
+        // If giftwrap:
+        //   Use the id and kind of the giftwrap,
+        //   Use the pubkey and created_at of the rumor
+        let mut innerevent: &EventV3 = event;
+        let rumor: EventV3;
+        if let Some(r) = self.switch_to_rumor3(event, txn)? {
+            rumor = r;
+            innerevent = &rumor;
+        }
+
+        // our user's public key
+        let pk: Option<PublicKeyHex> = self.read_setting_public_key().map(|p| p.into());
+
+        // Index tags from giftwrap and rumor
+        let mut tags: Vec<TagV3> = event.tags.clone();
+        if innerevent != event {
+            tags.append(&mut innerevent.tags.clone());
+        }
+
+        for tag in &tags {
+            let tagname = tag.tagname();
+            let value = tag.value();
+            if value.is_empty() {
+                continue; // no tag value, not indexable.
             }
 
-            // our user's public key
-            let pk: Option<PublicKeyHex> = self.read_setting_public_key().map(|p| p.into());
-
-            // Index tags from giftwrap and rumor
-            let mut tags: Vec<TagV3> = event.tags.clone();
-            if innerevent != event {
-                tags.append(&mut innerevent.tags.clone());
+            // Only index tags we intend to lookup later by tag.
+            // If that set changes, (1) add to this code and (2) do a reindex migration
+            if !INDEXED_TAGS.contains(&tagname) {
+                continue;
             }
-
-            for tag in &tags {
-                let tagname = tag.tagname();
-                let value = tag.value();
-                if value.is_empty() {
-                    continue; // no tag value, not indexable.
-                }
-
-                // Only index tags we intend to lookup later by tag.
-                // If that set changes, (1) add to this code and (2) do a reindex migration
-                if !INDEXED_TAGS.contains(&tagname) {
-                    continue;
-                }
-                // For 'p' tags, only index them if 'p' is our user
-                if tagname == "p" {
-                    match &pk {
-                        None => continue,
-                        Some(pk) => {
-                            if value != pk.as_str() {
-                                continue;
-                            }
+            // For 'p' tags, only index them if 'p' is our user
+            if tagname == "p" {
+                match &pk {
+                    None => continue,
+                    Some(pk) => {
+                        if value != pk.as_str() {
+                            continue;
                         }
                     }
                 }
-
-                let mut key: Vec<u8> = tagname.as_bytes().to_owned();
-                key.push(b'\"'); // double quote separator, unlikely to be inside of a tagname
-                key.extend(value.as_bytes());
-                let key = key!(&key); // limit the size
-                let bytes = event.id.as_slice();
-                self.db_event_tag_index()?.put(txn, key, bytes)?;
             }
 
-            Ok(())
-        };
+            let mut key: Vec<u8> = tagname.as_bytes().to_owned();
+            key.push(b'\"'); // double quote separator, unlikely to be inside of a tagname
+            key.extend(value.as_bytes());
+            let key = key!(&key); // limit the size
+            let bytes = event.id.as_slice();
+            self.db_event_tag_index()?.put(txn, key, bytes)?;
+        }
 
-        write_transact!(self, rw_txn, f)
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
     }
 }
