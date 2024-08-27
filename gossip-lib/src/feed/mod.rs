@@ -430,7 +430,7 @@ impl Feed {
         let dismissed = GLOBALS.dismissed.read().await.clone();
 
         let outer_screen =
-            |e: &Event| basic_screen(e, include_replies, include_dms, &dismissed) && screen(e);
+            async |e: &Event| basic_screen(e, include_replies, include_dms, &dismissed) && screen(e);
 
         let mut before_filter = filter;
         let mut after_filter = before_filter.clone();

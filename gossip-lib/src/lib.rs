@@ -5,6 +5,8 @@
 #![allow(clippy::uninlined_format_args)]
 #![allow(clippy::assigning_clones)]
 
+#![feature(async_closure)]
+
 //! Gossip lib is the core of the gossip nostr client.  The canonical binary crate is
 //! `gossip_bin`.
 //!

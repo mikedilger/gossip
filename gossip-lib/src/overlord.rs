@@ -1141,7 +1141,7 @@ impl Overlord {
         filter.add_author(&public_key.into());
 
         // Find all local-storage events that define the list
-        let bad_events = GLOBALS.db().find_events_by_filter(&filter, |event| {
+        let bad_events = GLOBALS.db().find_events_by_filter(&filter, async |event| {
             event.parameter().as_ref() == Some(&metadata.dtag)
         })?;
 
@@ -2157,7 +2157,7 @@ impl Overlord {
 
                     if let Some(event) = GLOBALS
                         .db()
-                        .find_events_by_filter(&filter, |event| {
+                        .find_events_by_filter(&filter, async |event| {
                             event.tags.iter().any(|tag| {
                                 if let Ok(d) = tag.parse_identifier() {
                                     if d == ea.d {

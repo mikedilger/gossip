@@ -71,7 +71,7 @@ impl GossipIdentity {
         // Invalidate DMs so they rerender decrypted
         let dms: Vec<Id> = GLOBALS
             .db()
-            .find_events_by_filter(&filter, |_| true)?
+            .find_events_by_filter(&filter, async |_| true)?
             .iter()
             .map(|e| e.id)
             .collect();

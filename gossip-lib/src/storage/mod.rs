@@ -1390,7 +1390,7 @@ impl Storage {
         let mut filter = Filter::new();
         filter.add_event_kind(event.kind);
         filter.add_author(&event.pubkey.into());
-        let existing = self.find_events_by_filter(&filter, |e| {
+        let existing = self.find_events_by_filter(&filter, async |e| {
             if event.kind.is_parameterized_replaceable() {
                 e.parameter() == event.parameter()
             } else {
@@ -1438,7 +1438,7 @@ impl Storage {
         filter.add_author(&pubkey.into());
 
         Ok(self
-            .find_events_by_filter(&filter, |e| {
+            .find_events_by_filter(&filter, async |e| {
                 if kind.is_parameterized_replaceable() {
                     e.parameter().as_deref() == Some(parameter)
                 } else {
@@ -1462,7 +1462,7 @@ impl Storage {
     /// The output will be sorted in reverse time order.
     pub fn find_events_by_filter<F>(&self, filter: &Filter, screen: F) -> Result<Vec<Event>, Error>
     where
-        F: Fn(&Event) -> bool,
+        F: async Fn(&Event) -> bool,
     {
         let txn = self.env.read_txn()?;
 
@@ -2146,7 +2146,7 @@ impl Storage {
         let mut filter = Filter::new();
         filter.kinds = vec![EventKind::EncryptedDirectMessage, EventKind::GiftWrap];
 
-        let events = self.find_events_by_filter(&filter, |event| {
+        let events = self.find_events_by_filter(&filter, async |event| {
             if event.kind == EventKind::EncryptedDirectMessage {
                 event.pubkey == my_pubkey || event.is_tagged(&my_pubkey)
                 // Make sure if it has tags, only author and my_pubkey
@@ -2246,7 +2246,7 @@ impl Storage {
         let mut filter = Filter::new();
         filter.kinds = vec![EventKind::EncryptedDirectMessage, EventKind::GiftWrap];
 
-        let mut output: Vec<Event> = self.find_events_by_filter(&filter, |event| {
+        let mut output: Vec<Event> = self.find_events_by_filter(&filter, async |event| {
             if let Some(event_dm_channel) = DmChannel::from_event(event, Some(my_pubkey)).await {
                 event_dm_channel == *channel
             } else {
@@ -2257,7 +2257,7 @@ impl Storage {
         // Sort by rumor's time, not giftwrap's time
         let mut sortable: Vec<(Unixtime, Event)> = output
             .drain(..)
-            .map(|e| {
+            .map(async |e| {
                 if e.kind == EventKind::GiftWrap {
                     if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(&e).await {
                         (rumor.created_at, e)
