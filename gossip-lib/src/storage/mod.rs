@@ -1268,12 +1268,12 @@ impl Storage {
 
     /// Write an event
     #[inline]
-    pub fn write_event<'a>(
+    pub async fn write_event<'a>(
         &'a self,
         event: &Event,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.write_event3(event, rw_txn)
+        self.write_event3(event, rw_txn).await
     }
 
     #[inline]
@@ -1378,7 +1378,7 @@ impl Storage {
 
     /// Replace any existing event with the passed in event, if it is of a replaceable kind
     /// and is newer.
-    pub fn replace_event<'a>(
+    pub async fn replace_event<'a>(
         &'a self,
         event: &Event,
         rw_txn: Option<&mut RwTxn<'a>>,
@@ -1416,7 +1416,7 @@ impl Storage {
             return Ok(false); // this event is not the latest one.
         }
 
-        self.write_event(event, rw_txn)?;
+        self.write_event(event, rw_txn).await?;
 
         Ok(true)
     }

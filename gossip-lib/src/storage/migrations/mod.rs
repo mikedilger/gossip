@@ -137,7 +137,7 @@ impl Storage {
             22 => self.m22_migrate(&prefix, txn)?,
             23 => self.m23_migrate(&prefix, txn)?,
             24 => self.m24_migrate(&prefix, txn)?,
-            25 => self.m25_migrate(&prefix, txn)?,
+            25 => self.m25_migrate(&prefix, txn).await?,
             26 => self.m26_migrate(&prefix, txn)?,
             27 => self.m27_migrate(&prefix, txn)?,
             28 => self.m28_migrate(&prefix, txn)?,

@@ -11,7 +11,7 @@ impl Storage {
         Ok(())
     }
 
-    pub(super) fn m25_migrate<'a>(
+    pub(super) async fn m25_migrate<'a>(
         &'a self,
         prefix: &str,
         txn: &mut RwTxn<'a>,
@@ -20,12 +20,12 @@ impl Storage {
         tracing::info!("{prefix}: migrating events...");
 
         // Migrate
-        self.m25_migrate_to_events3(txn)?;
+        self.m25_migrate_to_events3(txn).await?;
 
         Ok(())
     }
 
-    fn m25_migrate_to_events3<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
+    async fn m25_migrate_to_events3<'a>(&'a self, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         let loop_txn = self.env.read_txn()?;
         let mut count: usize = 0;
         for result in self.db_events2()?.iter(&loop_txn)? {
@@ -42,7 +42,7 @@ impl Storage {
                 content: event2.content,
                 tags: tags3,
             };
-            self.write_event3(&event3, Some(txn))?;
+            self.write_event3(&event3, Some(txn)).await?;
             count += 1;
         }
 

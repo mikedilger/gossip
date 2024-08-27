@@ -172,7 +172,7 @@ pub async fn process_new_event(
     // Save event
     // Bail if the event is an already-replaced replaceable event
     if event.kind.is_replaceable() && !global_feed {
-        if !GLOBALS.db().replace_event(event, None)? {
+        if !GLOBALS.db().replace_event(event, None).await? {
             tracing::trace!(
                 "{}: Old Event: {} {:?} @{}",
                 seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
@@ -186,7 +186,7 @@ pub async fn process_new_event(
         GLOBALS.db().write_event_volatile(event.to_owned());
     } else {
         // This will ignore if it is already there
-        GLOBALS.db().write_event(event, None)?;
+        GLOBALS.db().write_event(event, None).await?;
     }
 
     // Log
