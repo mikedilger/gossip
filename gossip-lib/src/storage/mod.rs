@@ -2255,20 +2255,19 @@ impl Storage {
         })?;
 
         // Sort by rumor's time, not giftwrap's time
-        let mut sortable: Vec<(Unixtime, Event)> = output
-            .drain(..)
-            .map(async |e| {
-                if e.kind == EventKind::GiftWrap {
-                    if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(&e).await {
-                        (rumor.created_at, e)
-                    } else {
-                        (e.created_at, e)
-                    }
+        let mut sortable: Vec<(Unixtime, Event)> = Vec::new();
+        for e in output.drain(..) {
+            let (time, ev) = if e.kind == EventKind::GiftWrap {
+                if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(&e).await {
+                    (rumor.created_at, e)
                 } else {
                     (e.created_at, e)
                 }
-            })
-            .collect();
+            } else {
+                (e.created_at, e)
+            };
+            sortable.push((time, ev));
+        }
 
         sortable.sort();
 

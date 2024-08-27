@@ -48,13 +48,13 @@ impl GossipIdentity {
     }
 
     // Any function that changes GossipIdentity and changes the key should run this instead
-    fn on_keychange(&self) -> Result<(), Error> {
+    async fn on_keychange(&self) -> Result<(), Error> {
         self.on_change()?;
         if !matches!(*self.inner.read(), Identity::None) {
             // Rebuild the event tag index if the identity changes
             // since the 'p' tags it needs to index just changed.
             task::spawn(async move {
-                if let Err(e) = GLOBALS.db().rebuild_event_tags_index(None) {
+                if let Err(e) = GLOBALS.db().rebuild_event_tags_index(None).await {
                     tracing::error!("{}", e);
                 }
             });
@@ -102,15 +102,15 @@ impl GossipIdentity {
         Ok(())
     }
 
-    pub(crate) fn set_public_key(&self, public_key: PublicKey) -> Result<(), Error> {
+    pub(crate) async fn set_public_key(&self, public_key: PublicKey) -> Result<(), Error> {
         *self.inner.write() = Identity::Public(public_key);
-        self.on_keychange()?;
+        self.on_keychange().await?;
         Ok(())
     }
 
-    pub(crate) fn clear_public_key(&self) -> Result<(), Error> {
+    pub(crate) async fn clear_public_key(&self) -> Result<(), Error> {
         *self.inner.write() = Identity::None;
-        self.on_keychange()?;
+        self.on_keychange().await?;
         Ok(())
     }
 
@@ -120,14 +120,14 @@ impl GossipIdentity {
         pass: &str,
     ) -> Result<(), Error> {
         *self.inner.write() = Identity::from_encrypted_private_key(epk, pass).await?;
-        self.on_keychange()?;
+        self.on_keychange().await?;
         Ok(())
     }
 
     pub(crate) async fn change_passphrase(&self, old: &str, new: &str) -> Result<(), Error> {
         let log_n = GLOBALS.db().read_setting_log_n();
         self.inner.write().change_passphrase(old, new, log_n).await?;
-        self.on_keychange()?;
+        self.on_keychange().await?;
         Ok(())
     }
 
@@ -135,7 +135,7 @@ impl GossipIdentity {
         let log_n = GLOBALS.db().read_setting_log_n();
         let identity = Identity::from_private_key(pk, pass, log_n).await?;
         *self.inner.write() = identity;
-        self.on_keychange()?;
+        self.on_keychange().await?;
         Ok(())
     }
 
@@ -159,13 +159,13 @@ impl GossipIdentity {
     pub(crate) async fn generate_private_key(&self, pass: &str) -> Result<(), Error> {
         let log_n = GLOBALS.db().read_setting_log_n();
         *self.inner.write() = Identity::generate(pass, log_n).await?;
-        self.on_keychange()?;
+        self.on_keychange().await?;
         Ok(())
     }
 
-    pub(crate) fn delete_identity(&self) -> Result<(), Error> {
+    pub(crate) async fn delete_identity(&self) -> Result<(), Error> {
         *self.inner.write() = Identity::None;
-        self.on_keychange()?;
+        self.on_keychange().await?;
         Ok(())
     }
 

@@ -232,9 +232,9 @@ impl Pending {
         let mut filter = Filter::new();
         filter.add_author(&pkh);
         filter.kinds = vec![EventKind::RelayList];
-        let relay_lists = GLOBALS.db().find_events_by_filter(&filter, |_| true)?;
+        let relay_lists = GLOBALS.db().find_events_by_filter(&filter, async |_| true)?;
         filter.kinds = vec![EventKind::DmRelayList];
-        let dm_relay_lists = GLOBALS.db().find_events_by_filter(&filter, |_| true)?;
+        let dm_relay_lists = GLOBALS.db().find_events_by_filter(&filter, async |_| true)?;
 
         if relay_lists.is_empty() && dm_relay_lists.is_empty() {
             self.insert(PendingItem::RelayListNeverAdvertised);

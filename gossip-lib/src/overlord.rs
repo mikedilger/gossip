@@ -1306,7 +1306,7 @@ impl Overlord {
 
     /// Delete private key and any delegation setup
     pub async fn delete_priv() -> Result<(), Error> {
-        GLOBALS.identity.delete_identity()?;
+        GLOBALS.identity.delete_identity().await?;
         Self::delegation_reset().await?;
         GLOBALS
             .status_queue
@@ -1317,7 +1317,7 @@ impl Overlord {
 
     /// Delete public key (only if no private key exists) and any delegation setup
     pub async fn delete_pub() -> Result<(), Error> {
-        GLOBALS.identity.clear_public_key()?;
+        GLOBALS.identity.clear_public_key().await?;
         Self::delegation_reset().await?;
         Ok(())
     }
@@ -1521,7 +1521,7 @@ impl Overlord {
                 .write("Public key not recognized.".to_owned());
         } else {
             let pubkey = maybe_pk1.unwrap_or_else(|_| maybe_pk2.unwrap());
-            GLOBALS.identity.set_public_key(pubkey)?;
+            GLOBALS.identity.set_public_key(pubkey).await?;
         }
 
         Ok(())
