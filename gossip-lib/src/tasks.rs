@@ -78,7 +78,7 @@ async fn do_general_tasks(tick: usize) {
     // Update GLOBALS.unread_dms count (every 3 seconds)
     if tick % 3 == 0 {
         // Update unread dm channels, whether or not we are in that feed
-        if let Ok(channels) = GLOBALS.db().dm_channels() {
+        if let Ok(channels) = GLOBALS.db().dm_channels().await {
             let unread = channels.iter().map(|c| c.unread_message_count).sum();
             GLOBALS.unread_dms.store(unread, Ordering::Relaxed);
         }

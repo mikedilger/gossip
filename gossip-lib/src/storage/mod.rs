@@ -1715,12 +1715,12 @@ impl Storage {
         Ok(events)
     }
 
-    fn switch_to_rumor<'a>(
+    async fn switch_to_rumor<'a>(
         &'a self,
         event: &Event,
         txn: &mut RwTxn<'a>,
     ) -> Result<Option<Event>, Error> {
-        self.switch_to_rumor3(event, txn)
+        self.switch_to_rumor3(event, txn).await
     }
 
     // We don't call this externally. Whenever we write an event, we do this
@@ -1768,17 +1768,17 @@ impl Storage {
     }
 
     // This should be called with the outer giftwrap
-    fn write_event_tag_index<'a>(
+    async fn write_event_tag_index<'a>(
         &'a self,
         event: &Event,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.write_event3_tag_index1(event, rw_txn)
+        self.write_event3_tag_index1(event, rw_txn).await
     }
 
     #[inline]
-    pub(crate) fn index_unindexed_giftwraps(&self) -> Result<(), Error> {
-        self.index_unindexed_giftwraps1()
+    pub(crate) async fn index_unindexed_giftwraps(&self) -> Result<(), Error> {
+        self.index_unindexed_giftwraps1().await
     }
 
     pub(crate) fn get_highest_local_parent_event_id(&self, id: Id) -> Result<Option<Id>, Error> {
@@ -2137,7 +2137,7 @@ impl Storage {
     }
 
     /// Get all the DM channels with associated data
-    pub fn dm_channels(&self) -> Result<Vec<DmChannelData>, Error> {
+    pub async fn dm_channels(&self) -> Result<Vec<DmChannelData>, Error> {
         let my_pubkey = match GLOBALS.identity.public_key() {
             Some(pk) => pk,
             None => return Ok(Vec::new()),
@@ -2168,7 +2168,7 @@ impl Storage {
             };
             if event.kind == EventKind::EncryptedDirectMessage {
                 let time = event.created_at;
-                let dmchannel = match DmChannel::from_event(event, Some(my_pubkey)) {
+                let dmchannel = match DmChannel::from_event(event, Some(my_pubkey)).await {
                     Some(dmc) => dmc,
                     None => continue,
                 };
@@ -2176,7 +2176,7 @@ impl Storage {
                     if time > dmcdata.latest_message_created_at {
                         dmcdata.latest_message_created_at = time;
                         dmcdata.latest_message_content =
-                            GLOBALS.identity.decrypt_event_contents(event).ok();
+                            GLOBALS.identity.decrypt_event_contents(event).await.ok();
                     }
                     dmcdata.message_count += 1;
                     dmcdata.unread_message_count += unread;
@@ -2189,6 +2189,7 @@ impl Storage {
                             latest_message_content: GLOBALS
                                 .identity
                                 .decrypt_event_contents(event)
+                                .await
                                 .ok(),
                             message_count: 1,
                             unread_message_count: unread,
@@ -2196,10 +2197,10 @@ impl Storage {
                     );
                 }
             } else if event.kind == EventKind::GiftWrap {
-                if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(event) {
+                if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(event).await {
                     let rumor_event = rumor.into_event_with_bad_signature();
                     let time = rumor_event.created_at;
-                    let dmchannel = match DmChannel::from_event(&rumor_event, Some(my_pubkey)) {
+                    let dmchannel = match DmChannel::from_event(&rumor_event, Some(my_pubkey)).await {
                         Some(dmc) => dmc,
                         None => continue,
                     };
@@ -2236,7 +2237,7 @@ impl Storage {
     }
 
     /// Get DM events (by id) in a channel
-    pub fn dm_events(&self, channel: &DmChannel) -> Result<Vec<Id>, Error> {
+    pub async fn dm_events(&self, channel: &DmChannel) -> Result<Vec<Id>, Error> {
         let my_pubkey = match GLOBALS.identity.public_key() {
             Some(pk) => pk,
             None => return Ok(Vec::new()),
@@ -2246,7 +2247,7 @@ impl Storage {
         filter.kinds = vec![EventKind::EncryptedDirectMessage, EventKind::GiftWrap];
 
         let mut output: Vec<Event> = self.find_events_by_filter(&filter, |event| {
-            if let Some(event_dm_channel) = DmChannel::from_event(event, Some(my_pubkey)) {
+            if let Some(event_dm_channel) = DmChannel::from_event(event, Some(my_pubkey)).await {
                 event_dm_channel == *channel
             } else {
                 false
@@ -2258,7 +2259,7 @@ impl Storage {
             .drain(..)
             .map(|e| {
                 if e.kind == EventKind::GiftWrap {
-                    if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(&e) {
+                    if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(&e).await {
                         (rumor.created_at, e)
                     } else {
                         (e.created_at, e)
@@ -2275,7 +2276,7 @@ impl Storage {
     }
 
     /// Rebuild all the event indices.
-    pub fn rebuild_event_indices<'a>(
+    pub async fn rebuild_event_indices<'a>(
         &'a self,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
@@ -2298,7 +2299,7 @@ impl Storage {
             //   Use the pubkey and created_at of the rumor
             let mut innerevent: &Event = &event;
             let rumor: Event;
-            if let Some(r) = self.switch_to_rumor(&event, txn)? {
+            if let Some(r) = self.switch_to_rumor(&event, txn).await? {
                 rumor = r;
                 innerevent = &rumor;
             }
@@ -2314,7 +2315,7 @@ impl Storage {
             self.write_event_tag_index(
                 &event, // this handles giftwrap internally
                 Some(txn),
-            )?;
+            ).await?;
             for hashtag in event.hashtags() {
                 if hashtag.is_empty() {
                     continue;
@@ -2329,7 +2330,7 @@ impl Storage {
         Ok(())
     }
 
-    pub fn rebuild_event_tags_index<'a>(
+    pub async fn rebuild_event_tags_index<'a>(
         &'a self,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
@@ -2343,7 +2344,7 @@ impl Storage {
         for result in self.db_events()?.iter(&loop_txn)? {
             let (_key, val) = result?;
             let event = Event::read_from_buffer(val)?;
-            self.write_event_tag_index(&event, Some(txn))?;
+            self.write_event_tag_index(&event, Some(txn)).await?;
         }
 
         maybe_local_txn_commit!(local_txn);
@@ -2507,7 +2508,7 @@ impl Storage {
     }
 
     /// Rebuild relationships
-    pub fn rebuild_relationships<'a>(
+    pub async fn rebuild_relationships<'a>(
         &'a self,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
@@ -2519,7 +2520,7 @@ impl Storage {
         for result in self.db_events()?.iter(&loop_txn)? {
             let (_key, val) = result?;
             let event = Event::read_from_buffer(val)?;
-            crate::process::process_relationships_of_event(&event, Some(txn))?;
+            crate::process::process_relationships_of_event(&event, Some(txn)).await?;
         }
 
         self.set_flag_rebuild_relationships_needed(false, Some(txn))?;

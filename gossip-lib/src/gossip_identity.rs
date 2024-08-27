@@ -91,7 +91,7 @@ impl GossipIdentity {
         }
 
         // Index any waiting GiftWraps
-        GLOBALS.db().index_unindexed_giftwraps()?;
+        GLOBALS.db().index_unindexed_giftwraps().await?;
 
         // Update wait for login condition
         GLOBALS

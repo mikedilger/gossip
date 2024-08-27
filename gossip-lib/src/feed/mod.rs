@@ -397,7 +397,7 @@ impl Feed {
                 *self.current_feed_events.write() = events;
             }
             FeedKind::DmChat(channel) => {
-                let ids = GLOBALS.db().dm_events(&channel)?;
+                let ids = GLOBALS.db().dm_events(&channel).await?;
                 *self.current_feed_events.write() = ids;
             }
             FeedKind::Global => {

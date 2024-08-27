@@ -153,13 +153,13 @@ impl Overlord {
             // If we need to rebuild relationships, do so now
             if GLOBALS.db().get_flag_rebuild_relationships_needed() {
                 tracing::info!("Rebuilding relationships...");
-                GLOBALS.db().rebuild_relationships(None)?;
+                GLOBALS.db().rebuild_relationships(None).await?;
             }
 
             // If we need to rebuild indexes, do so now
             if GLOBALS.db().get_flag_rebuild_indexes_needed() {
                 tracing::info!("Rebuilding event indices...");
-                GLOBALS.db().rebuild_event_indices(None)?;
+                GLOBALS.db().rebuild_event_indices(None).await?;
             }
 
             // If we need to reapply relay lists, do so now
