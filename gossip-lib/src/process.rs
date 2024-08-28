@@ -269,7 +269,7 @@ pub async fn process_new_event(
     }
 
     if event.kind == EventKind::ContactList {
-        if let Some(pubkey) = GLOBALS.identity.public_key() {
+        if let Some(pubkey) = GLOBALS.identity.public_key().await {
             if event.pubkey == pubkey {
                 // Updates stamps and counts, does NOT change membership
                 let (_personlist, _metadata) =
@@ -282,7 +282,7 @@ pub async fn process_new_event(
         }
     } else if event.kind == EventKind::MuteList || event.kind == EventKind::FollowSets {
         // Only our own
-        if let Some(pubkey) = GLOBALS.identity.public_key() {
+        if let Some(pubkey) = GLOBALS.identity.public_key().await {
             if event.pubkey == pubkey {
                 // Updates stamps and counts, does NOT change membership
                 let (_personlist, _metadata) =
@@ -726,7 +726,7 @@ async fn process_relationships_of_event_inner<'a>(
     // Maybe update global's cache of bookmarks
     if event.kind == EventKind::BookmarkList {
         // Only if it is ours
-        if let Some(pk) = GLOBALS.identity.public_key() {
+        if let Some(pk) = GLOBALS.identity.public_key().await {
             if pk == event.pubkey {
                 // Only if this event is the latest (it is already stored so we can do this check)
                 if let Some(newest_event) =
@@ -922,7 +922,7 @@ async fn update_or_allocate_person_list_from_event(
 
         if event.kind == EventKind::ContactList {
             metadata.event_private_len = None;
-        } else if GLOBALS.identity.is_unlocked() {
+        } else if GLOBALS.identity.is_unlocked().await {
             let mut private_len: Option<usize> = None;
             if let Ok(bytes) = GLOBALS.identity.decrypt(&pubkey, &event.content).await {
                 if let Ok(vectags) = serde_json::from_str::<Vec<Tag>>(&bytes) {

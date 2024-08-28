@@ -230,7 +230,7 @@ impl Minion {
                         Some(true) => self.authenticate().await?,
                         Some(false) => (),
                         None => {
-                            if let Some(pubkey) = GLOBALS.identity.public_key() {
+                            if let Some(pubkey) = GLOBALS.identity.public_key().await {
                                 GLOBALS.pending.insert(
                                     crate::pending::PendingItem::RelayAuthenticationRequest {
                                         account: pubkey,

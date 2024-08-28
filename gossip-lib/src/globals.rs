@@ -43,7 +43,7 @@ pub struct Globals {
     pub to_overlord: mpsc::UnboundedSender<ToOverlordMessage>,
 
     /// Current minion tasks
-    pub minions: PRwLock<tokio::task::JoinSet<Result<MinionExitReason, Error>>>,
+    pub minions: RwLock<tokio::task::JoinSet<Result<MinionExitReason, Error>>>,
 
     /// Map from minion task id to relay url
     pub minions_task_url: DashMap<tokio::task::Id, RelayUrl>,
@@ -201,7 +201,7 @@ lazy_static! {
             runtime: Arc::new(runtime),
             to_minions,
             to_overlord,
-            minions: PRwLock::new(tokio::task::JoinSet::new()),
+            minions: RwLock::new(tokio::task::JoinSet::new()),
             minions_task_url: DashMap::new(),
             write_runstate,
             read_runstate,

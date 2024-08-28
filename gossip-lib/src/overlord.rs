@@ -120,7 +120,7 @@ impl Overlord {
 
         // Listen on self.minions until it is empty
         use std::ops::DerefMut;
-        let mut minions = std::mem::take(GLOBALS.minions.write().deref_mut());
+        let mut minions = std::mem::take(GLOBALS.minions.write().await.deref_mut());
         while !minions.is_empty() {
             tokio::select! {
                 _ = tokio::time::sleep(Duration::from_secs(10)) => {
@@ -214,7 +214,7 @@ impl Overlord {
                         // We do this only every so often because we cannot hog the
                         // GLOBALS.minions lock
                         let x = {
-                            let mut minions = GLOBALS.minions.write();
+                            let mut minions = GLOBALS.minions.write().await;
                             if !minions.is_empty() {
                                 minions.try_join_next_with_id()
                             } else {
@@ -803,7 +803,7 @@ impl Overlord {
 
     /// Advertise the user's current relay list
     pub async fn advertise_relay_list(&mut self) -> Result<(), Error> {
-        let public_key = match GLOBALS.identity.public_key() {
+        let public_key = match GLOBALS.identity.public_key().await {
             Some(pk) => pk,
             None => {
                 tracing::warn!("No public key! Not posting");

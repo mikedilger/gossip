@@ -123,6 +123,7 @@ async fn engage_minion_inner(url: RelayUrl, mut jobs: Vec<RelayJob>) -> Result<(
         let abort_handle = GLOBALS
             .minions
             .write()
+            .await
             .spawn(async move { minion.handle(payloads).await });
         let id = abort_handle.id();
         GLOBALS.minions_task_url.insert(id, url.clone());

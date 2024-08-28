@@ -218,13 +218,13 @@ pub async fn init(rapid: bool) -> Result<(), Error> {
     GLOBALS.db().init().await?;
 
     // Load signer from settings
-    GLOBALS.identity.load()?;
+    GLOBALS.identity.load().await?;
 
     // Load delegation tag
     GLOBALS.delegation.load()?;
 
     // If we have a key but have not unlocked it
-    if GLOBALS.identity.has_private_key() && !GLOBALS.identity.is_unlocked() {
+    if GLOBALS.identity.has_private_key().await && !GLOBALS.identity.is_unlocked().await {
         // If we need to rebuild relationships
         if GLOBALS.db().get_flag_rebuild_relationships_needed()
             || GLOBALS.db().get_flag_rebuild_indexes_needed()
@@ -239,7 +239,7 @@ pub async fn init(rapid: bool) -> Result<(), Error> {
     }
 
     // Populate global bookmarks
-    if let Some(pubkey) = GLOBALS.identity.public_key() {
+    if let Some(pubkey) = GLOBALS.identity.public_key().await {
         if let Some(event) =
             GLOBALS
                 .db()

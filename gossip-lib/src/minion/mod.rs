@@ -547,7 +547,7 @@ impl Minion {
             ToMinionPayloadDetail::AuthApproved => {
                 self.dbrelay.allow_auth = Some(true); // save in our memory copy of the relay
                 self.authenticate().await?;
-                if let Some(pubkey) = GLOBALS.identity.public_key() {
+                if let Some(pubkey) = GLOBALS.identity.public_key().await {
                     GLOBALS.pending.remove(
                         &crate::pending::PendingItem::RelayAuthenticationRequest {
                             account: pubkey,
@@ -558,7 +558,7 @@ impl Minion {
             }
             ToMinionPayloadDetail::AuthDeclined => {
                 self.dbrelay.allow_auth = Some(false); // save in our memory copy of the relay
-                if let Some(pubkey) = GLOBALS.identity.public_key() {
+                if let Some(pubkey) = GLOBALS.identity.public_key().await {
                     GLOBALS.pending.remove(
                         &crate::pending::PendingItem::RelayAuthenticationRequest {
                             account: pubkey,
@@ -893,10 +893,10 @@ impl Minion {
             _ => (),
         }
 
-        if !GLOBALS.identity.is_unlocked() {
+        if !GLOBALS.identity.is_unlocked().await {
             return Err(ErrorKind::NoPrivateKeyForAuth(self.url.clone()).into());
         }
-        let pubkey = match GLOBALS.identity.public_key() {
+        let pubkey = match GLOBALS.identity.public_key().await {
             Some(pk) => pk,
             None => {
                 return Err(ErrorKind::NoPrivateKeyForAuth(self.url.clone()).into());

@@ -84,7 +84,7 @@ impl DmChannel {
     pub async fn from_event(event: &Event, my_pubkey: Option<PublicKey>) -> Option<DmChannel> {
         let my_pubkey = match my_pubkey {
             Some(pk) => pk,
-            None => match GLOBALS.identity.public_key() {
+            None => match GLOBALS.identity.public_key().await {
                 Some(pk) => pk,
                 None => return None,
             },

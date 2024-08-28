@@ -44,7 +44,7 @@ impl Storage {
     }
 
     pub(crate) async fn index_unindexed_giftwraps1(&self) -> Result<(), Error> {
-        if !GLOBALS.identity.is_unlocked() {
+        if !GLOBALS.identity.is_unlocked().await {
             return Err(ErrorKind::NoPrivateKey.into());
         }
 

@@ -331,7 +331,7 @@ impl Feed {
                 *self.current_feed_events.write() = GLOBALS.current_bookmarks.read().clone();
             }
             FeedKind::Inbox(indirect) => {
-                if let Some(my_pubkey) = GLOBALS.identity.public_key() {
+                if let Some(my_pubkey) = GLOBALS.identity.public_key().await {
                     // indirect = everything that 'p' tags me
                     // otherwise, only things that reply to my events
                     //   (filter on Storage::is_my_event(id))

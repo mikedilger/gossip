@@ -70,7 +70,7 @@ impl BookmarkList {
     }
 
     pub async fn from_event(event: &Event) -> Result<Self, Error> {
-        let public_key = match GLOBALS.identity.public_key() {
+        let public_key = match GLOBALS.identity.public_key().await {
             None => return Err(ErrorKind::NoPublicKey.into()),
             Some(pk) => pk,
         };
@@ -95,7 +95,7 @@ impl BookmarkList {
     }
 
     pub async fn into_event(&self) -> Result<Event, Error> {
-        let public_key = match GLOBALS.identity.public_key() {
+        let public_key = match GLOBALS.identity.public_key().await {
             None => return Err(ErrorKind::NoPublicKey.into()),
             Some(pk) => pk,
         };
