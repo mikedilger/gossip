@@ -12,8 +12,8 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
-use std::sync::RwLock;
 use std::time::{Duration, SystemTime};
+use tokio::sync::RwLock;
 
 #[derive(Copy, Clone, Debug)]
 enum FetchState {
@@ -49,11 +49,11 @@ impl Fetcher {
         }
     }
 
-    pub(crate) fn init() -> Result<(), Error> {
+    pub(crate) async fn init() -> Result<(), Error> {
         // Copy profile directories so we don't have to deal with the rare
         // initialization error every time we use them
-        *GLOBALS.fetcher.cache_dir.write().unwrap() = Profile::cache_dir(false)?;
-        *GLOBALS.fetcher.tmp_cache_dir.write().unwrap() = Profile::cache_dir(true)?;
+        *GLOBALS.fetcher.cache_dir.write().await = Profile::cache_dir(false)?;
+        *GLOBALS.fetcher.tmp_cache_dir.write().await = Profile::cache_dir(true)?;
 
         // Create client
         let connect_timeout =
@@ -61,7 +61,7 @@ impl Fetcher {
 
         let timeout = std::time::Duration::new(GLOBALS.db().read_setting_fetcher_timeout_sec(), 0);
 
-        *GLOBALS.fetcher.client.write().unwrap() = Some(
+        *GLOBALS.fetcher.client.write().await = Some(
             Client::builder()
                 .gzip(true)
                 .brotli(true)
@@ -75,10 +75,10 @@ impl Fetcher {
     }
 
     /// Count of HTTP requests queued for future fetching
-    pub fn requests_queued(&self) -> usize {
+    pub async fn requests_queued(&self) -> usize {
         self.urls
             .read()
-            .unwrap()
+            .await
             .iter()
             .filter(|(_u, r)| {
                 matches!(r, FetchState::Queued(_)) || matches!(r, FetchState::QueuedStale)
@@ -87,10 +87,10 @@ impl Fetcher {
     }
 
     /// Count of HTTP requests currently being serviced
-    pub fn requests_in_flight(&self) -> usize {
+    pub async fn requests_in_flight(&self) -> usize {
         self.urls
             .read()
-            .unwrap()
+            .await
             .iter()
             .filter(|(_u, r)| matches!(r, FetchState::InFlight))
             .count()
@@ -98,8 +98,8 @@ impl Fetcher {
 
     pub(crate) async fn process_queue(&self) {
         // Initialize if not already
-        if GLOBALS.fetcher.client.read().unwrap().is_none() {
-            if let Err(e) = Self::init() {
+        if GLOBALS.fetcher.client.read().await.is_none() {
+            if let Err(e) = Self::init().await {
                 tracing::error!("Fetcher failed to initialize: {e}");
                 return;
             }
@@ -111,7 +111,7 @@ impl Fetcher {
 
         let mut futures = FuturesUnordered::new();
 
-        for (url, state) in self.urls.read().unwrap().iter() {
+        for (url, state) in self.urls.read().await.iter() {
             let (doit, use_temp_cache) = if let FetchState::Queued(use_temp_cache) = state {
                 (true, *use_temp_cache)
             } else if matches!(state, FetchState::QueuedStale) {
@@ -123,7 +123,7 @@ impl Fetcher {
             if doit {
                 if let Some(host) = self.host(url) {
                     {
-                        let mut penalty_box = self.penalty_box.write().unwrap();
+                        let mut penalty_box = self.penalty_box.write().await;
                         if let Some(time) = penalty_box.get(&*host) {
                             if time < &now {
                                 // Remove from penalty box
@@ -134,7 +134,7 @@ impl Fetcher {
                         }
                     }
 
-                    let load = self.fetch_host_load(&host);
+                    let load = self.fetch_host_load(&host).await;
                     if load >= GLOBALS.db().read_setting_fetcher_max_requests_per_host() {
                         continue; // We cannot overload any given host
                     }
@@ -169,7 +169,7 @@ impl Fetcher {
     /// If you call it over and over rapidly (e.g. from the UI), it will read from the filesystem
     /// over and over again, which is bad. So the UI caller should have it's own means of
     /// caching the results from this call.
-    pub(crate) fn try_get(
+    pub(crate) async fn try_get(
         &self,
         url: &Url,
         max_age: Duration,
@@ -180,7 +180,7 @@ impl Fetcher {
         //         be blocking on.
 
         // Get state
-        let fetch_result: Option<FetchState> = self.urls.read().unwrap().get(url).copied();
+        let fetch_result: Option<FetchState> = self.urls.read().await.get(url).copied();
 
         match fetch_result {
             Some(FetchState::InFlight) => {
@@ -205,14 +205,14 @@ impl Fetcher {
         let mut stale = false;
 
         // Look in both permanent and temporary cache paths
-        let mut cache_file = self.cache_file(url, false);
+        let mut cache_file = self.cache_file(url, false).await;
         let mut md: Result<fs::Metadata, std::io::Error> = fs::metadata(cache_file.as_path());
         if let Err(e) = md {
             if e.kind() != std::io::ErrorKind::NotFound {
                 tracing::info!("FETCH {url}: Failed: {e}");
                 return Err(e.into());
             }
-            cache_file = self.cache_file(url, true);
+            cache_file = self.cache_file(url, true).await;
             md = fs::metadata(cache_file.as_path());
             if let Err(ref e) = md {
                 if e.kind() != std::io::ErrorKind::NotFound {
@@ -227,7 +227,7 @@ impl Fetcher {
             // We had a bug that put empty cache files in place (maybe we still have it).
             // In any case, if the file is empty, don't honor it and wipe any etag
             if metadata.len() == 0 {
-                let etag_file = GLOBALS.fetcher.etag_file(url);
+                let etag_file = GLOBALS.fetcher.etag_file(url).await;
                 let _ = fs::remove_file(etag_file);
             } else {
                 if let Ok(modified) = metadata.modified() {
@@ -259,7 +259,7 @@ impl Fetcher {
         } else {
             FetchState::Queued(use_temp_cache)
         };
-        self.urls.write().unwrap().insert(url.to_owned(), state);
+        self.urls.write().await.insert(url.to_owned(), state);
 
         tracing::debug!("FETCH {url}: Queued");
 
@@ -270,15 +270,15 @@ impl Fetcher {
         // Do not fetch if offline
         if GLOBALS.db().read_setting_offline() {
             tracing::debug!("FETCH {url}: Failed: offline mode");
-            self.urls.write().unwrap().insert(url, FetchState::Failed);
+            self.urls.write().await.insert(url, FetchState::Failed);
             return;
         }
 
-        let etag_file = GLOBALS.fetcher.etag_file(&url);
+        let etag_file = GLOBALS.fetcher.etag_file(&url).await;
         let cache_file = if use_temp_cache {
-            GLOBALS.fetcher.cache_file(&url, true)
+            GLOBALS.fetcher.cache_file(&url, true).await
         } else {
-            GLOBALS.fetcher.cache_file(&url, false)
+            GLOBALS.fetcher.cache_file(&url, false).await
         };
 
         let etag: Option<Vec<u8>> = match tokio::fs::read(etag_file.as_path()).await {
@@ -296,7 +296,7 @@ impl Fetcher {
         let stale = matches!(
             self.urls
                 .read()
-                .unwrap()
+                .await
                 .get(&url)
                 .unwrap_or(&FetchState::Queued(use_temp_cache)),
             FetchState::QueuedStale
@@ -307,12 +307,12 @@ impl Fetcher {
         // Mark url as in-flight
         self.urls
             .write()
-            .unwrap()
+            .await
             .insert(url.clone(), FetchState::InFlight);
 
         // Fetch the resource
         // it is an Arc internally
-        let client = GLOBALS.fetcher.client.read().unwrap().clone().unwrap();
+        let client = GLOBALS.fetcher.client.read().await.clone().unwrap();
 
         let mut req = client.get(url.as_str());
         if let Some(ref etag) = etag {
@@ -329,7 +329,7 @@ impl Fetcher {
         }
 
         // closure to run when finished (if we didn't succeed)
-        let finish = |outcome, message, err: Option<Error>, sinbin_secs| {
+        let finish = async |outcome, message, err: Option<Error>, sinbin_secs| {
             match outcome {
                 FailOutcome::Fail => {
                     if stale {
@@ -345,7 +345,7 @@ impl Fetcher {
                             cache_file.as_path(),
                             filetime::FileTime::now(),
                         );
-                        self.urls.write().unwrap().remove(&url);
+                        self.urls.write().await.remove(&url);
                     } else {
                         if let Some(e) = err {
                             tracing::warn!("FETCH {url}: Failed: {message}: {e}");
@@ -354,7 +354,7 @@ impl Fetcher {
                         }
                         self.urls
                             .write()
-                            .unwrap()
+                            .await
                             .insert(url.clone(), FetchState::Failed);
                     }
                 }
@@ -362,7 +362,7 @@ impl Fetcher {
                     tracing::debug!("FETCH {url}: Succeeded: {message}");
                     let _ =
                         filetime::set_file_mtime(cache_file.as_path(), filetime::FileTime::now());
-                    self.urls.write().unwrap().remove(&url);
+                    self.urls.write().await.remove(&url);
                 }
                 FailOutcome::Requeue => {
                     if let Some(e) = err {
@@ -372,7 +372,7 @@ impl Fetcher {
                     }
                     self.urls
                         .write()
-                        .unwrap()
+                        .await
                         .insert(url.clone(), FetchState::Queued(use_temp_cache));
                 }
             }
@@ -522,10 +522,10 @@ impl Fetcher {
             let _ = tokio::fs::write(etag_file, etag).await;
         }
 
-        self.urls.write().unwrap().remove(&url);
+        self.urls.write().await.remove(&url);
     }
 
-    fn cache_file(&self, url: &Url, tmp: bool) -> PathBuf {
+    async fn cache_file(&self, url: &Url, tmp: bool) -> PathBuf {
         // Hash the url into a SHA256 hex string
         let hash = {
             let mut hasher = sha2::Sha256::new();
@@ -535,15 +535,15 @@ impl Fetcher {
         };
 
         let mut cache_file = if tmp {
-            self.tmp_cache_dir.read().unwrap().clone()
+            self.tmp_cache_dir.read().await.clone()
         } else {
-            self.cache_dir.read().unwrap().clone()
+            self.cache_dir.read().await.clone()
         };
         cache_file.push(hash);
         cache_file
     }
 
-    fn sinbin(&self, url: &Url, duration: Duration) {
+    async fn sinbin(&self, url: &Url, duration: Duration) {
         let now = Unixtime::now();
         let later = now + duration;
         let host = match self.host(url) {
@@ -552,7 +552,7 @@ impl Fetcher {
         };
 
         // lock penalty box
-        let mut penalty_box = self.penalty_box.write().unwrap();
+        let mut penalty_box = self.penalty_box.write().await;
 
         if let Some(time) = penalty_box.get_mut(&*host) {
             if *time < later {
@@ -571,12 +571,12 @@ impl Fetcher {
         u.host_str().map(|s| s.to_owned())
     }
 
-    fn etag_file(&self, url: &Url) -> PathBuf {
-        self.cache_file(url, false).with_extension("etag")
+    async fn etag_file(&self, url: &Url) -> PathBuf {
+        self.cache_file(url, false).await.with_extension("etag")
     }
 
-    fn fetch_host_load(&self, host: &str) -> usize {
-        let hashmap = self.host_load.read().unwrap();
+    async fn fetch_host_load(&self, host: &str) -> usize {
+        let hashmap = self.host_load.read().await;
         if let Some(load) = hashmap.get(host) {
             *load
         } else {
@@ -584,8 +584,8 @@ impl Fetcher {
         }
     }
 
-    fn increment_host_load(&self, host: &str) {
-        let mut hashmap = self.host_load.write().unwrap();
+    async fn increment_host_load(&self, host: &str) {
+        let mut hashmap = self.host_load.write().await;
         if let Some(load) = hashmap.get_mut(host) {
             *load += 1;
         } else {
@@ -593,8 +593,8 @@ impl Fetcher {
         }
     }
 
-    fn decrement_host_load(&self, host: &str) {
-        let mut hashmap = self.host_load.write().unwrap();
+    async fn decrement_host_load(&self, host: &str) {
+        let mut hashmap = self.host_load.write().await;
         if let Some(load) = hashmap.get_mut(host) {
             if *load == 1 {
                 hashmap.remove(host);
@@ -606,7 +606,7 @@ impl Fetcher {
 
     pub(crate) async fn prune(&self, age: Duration) -> Result<usize, Error> {
         let mut count: usize = 0;
-        let cache_path = self.cache_dir.read().unwrap().to_owned();
+        let cache_path = self.cache_dir.read().await.to_owned();
         let mut entries = tokio::fs::read_dir(cache_path.as_path()).await?;
         while let Some(entry) = entries.next_entry().await? {
             if let Ok(metadata) = entry.metadata().await {

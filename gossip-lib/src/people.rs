@@ -354,7 +354,7 @@ impl People {
     /// moved, not copied.
     ///
     /// FIXME this API is not good for async front ends.
-    pub fn get_avatar(
+    pub async fn get_avatar(
         &self,
         pubkey: &PublicKey,
         rounded: bool,
@@ -410,7 +410,7 @@ impl People {
             &url,
             Duration::from_secs(60 * 60 * GLOBALS.db().read_setting_avatar_becomes_stale_hours()),
             false,
-        ) {
+        ).await {
             // cache expires in 3 days
             Ok(None) => None,
             Ok(Some(bytes)) => {
