@@ -1463,6 +1463,24 @@ fn note_actions(
         )));
     } // end Bookmark
 
+    // ---- Share ----
+    if !note.event.kind.is_direct_message_related() {
+        items.push(MoreMenuItem::Button(MoreMenuButton::new(
+            "Share via web",
+            Box::new(|ui, _| {
+                let nevent = NEvent {
+                    id: note.event.id,
+                    relays: relays.clone(),
+                    author: None,
+                    kind: None,
+                };
+                ui.output_mut(|o| {
+                    o.copied_text = format!("https://njump.me/{}", nevent.as_bech32_string())
+                });
+            }),
+        )));
+    } // end Share
+
     // ---- Copy ID SubMenu ----
     {
         // put all copy buttons in a submenu
@@ -1502,22 +1520,6 @@ fn note_actions(
                 }),
             )));
         }
-        if !note.event.kind.is_direct_message_related() {
-            copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
-                "as web link",
-                Box::new(|ui, _| {
-                    let nevent = NEvent {
-                        id: note.event.id,
-                        relays: relays.clone(),
-                        author: None,
-                        kind: None,
-                    };
-                    ui.output_mut(|o| {
-                        o.copied_text = format!("https://njump.me/{}", nevent.as_bech32_string())
-                    });
-                }),
-            )));
-        }
         copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
             "as note1",
             Box::new(|ui, _| {
@@ -1533,7 +1535,7 @@ fn note_actions(
         )));
 
         items.push(MoreMenuItem::SubMenu(MoreMenuSubMenu::new(
-            "Copy ID", copy_items, &menu,
+            "Copy event ID", copy_items, &menu,
         )));
     } // end Copy ID SubMenu
 
