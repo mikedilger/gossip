@@ -188,7 +188,7 @@ impl<'t> TextEdit<'t> {
                     }
                 };
 
-                let rounding = Rounding::same(6.0);
+                let rounding = Rounding::same(4.0);
 
                 let shape =
                     egui::epaint::RectShape::new(frame_rect, rounding, bg_color, frame_stroke);
