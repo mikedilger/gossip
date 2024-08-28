@@ -554,13 +554,13 @@ impl People {
             EventKind::ContactList | EventKind::MuteList => {
                 // We fetch for ContactList to preserve the contents
                 // We fetch for MuteList to preserve 't', 'e', and "word" tags
-                GLOBALS.db().get_replaceable_event(kind, my_pubkey, "")?
+                GLOBALS.db().get_replaceable_event(kind, my_pubkey, "").await?
             }
             EventKind::FollowSets => {
                 // We fetch for FollowSets to preserve various tags we don't use
                 GLOBALS
                     .db()
-                    .get_replaceable_event(kind, my_pubkey, &metadata.dtag)?
+                    .get_replaceable_event(kind, my_pubkey, &metadata.dtag).await?
             }
             _ => None,
         };
@@ -962,7 +962,7 @@ pub async fn hash_person_list_event(list: PersonList) -> Result<u64, Error> {
     let maybe_event =
         GLOBALS
             .db()
-            .get_replaceable_event(list.event_kind(), my_pubkey, &metadata.dtag)?;
+            .get_replaceable_event(list.event_kind(), my_pubkey, &metadata.dtag).await?;
 
     if let Some(event) = maybe_event {
         // Collect the data in an ordered map

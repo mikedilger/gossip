@@ -2842,7 +2842,7 @@ impl Overlord {
             if let Some(event) =
                 GLOBALS
                     .db()
-                    .get_replaceable_event(list.event_kind(), my_pubkey, &metadata.dtag)?
+                    .get_replaceable_event(list.event_kind(), my_pubkey, &metadata.dtag).await?
             {
                 event.clone()
             } else {

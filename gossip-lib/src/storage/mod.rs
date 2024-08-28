@@ -1318,10 +1318,10 @@ impl Storage {
     }
 
     #[inline]
-    pub fn read_event_reference(&self, eref: &EventReference) -> Result<Option<Event>, Error> {
+    pub async fn read_event_reference(&self, eref: &EventReference) -> Result<Option<Event>, Error> {
         match eref {
             EventReference::Id { id, .. } => self.read_event(*id),
-            EventReference::Addr(ea) => self.get_replaceable_event(ea.kind, ea.author, &ea.d),
+            EventReference::Addr(ea) => self.get_replaceable_event(ea.kind, ea.author, &ea.d).await,
         }
     }
 
@@ -1396,7 +1396,7 @@ impl Storage {
             } else {
                 true
             }
-        })?;
+        }).await?;
 
         let mut found_newer = false;
         for old in existing {
@@ -1423,7 +1423,7 @@ impl Storage {
 
     /// Get the matching replaceable event (possibly parameterized)
     /// TBD: optimize this by storing better event indexes
-    pub fn get_replaceable_event(
+    pub async fn get_replaceable_event(
         &self,
         kind: EventKind,
         pubkey: PublicKey,
@@ -1444,7 +1444,7 @@ impl Storage {
                 } else {
                     true
                 }
-            })?
+            }).await?
             .first()
             .cloned())
     }
@@ -2154,7 +2154,7 @@ impl Storage {
             } else {
                 event.kind == EventKind::GiftWrap
             }
-        })?;
+        }).await?;
 
         // Map from channel to latest-message-time and unread-count
         let mut map: HashMap<DmChannel, DmChannelData> = HashMap::new();

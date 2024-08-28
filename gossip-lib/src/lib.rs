@@ -243,7 +243,7 @@ pub async fn init(rapid: bool) -> Result<(), Error> {
         if let Some(event) =
             GLOBALS
                 .db()
-                .get_replaceable_event(EventKind::BookmarkList, pubkey, "")?
+                .get_replaceable_event(EventKind::BookmarkList, pubkey, "").await?
         {
             *GLOBALS.bookmarks.write() = BookmarkList::from_event(&event).await?;
             GLOBALS.recompute_current_bookmarks.notify_one();

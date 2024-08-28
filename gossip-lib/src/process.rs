@@ -391,7 +391,7 @@ pub async fn process_new_event(
                 NostrBech32::NAddr(mut ea) => {
                     if let Ok(None) = GLOBALS
                         .db()
-                        .get_replaceable_event(ea.kind, ea.author, &ea.d)
+                        .get_replaceable_event(ea.kind, ea.author, &ea.d).await
                     {
                         // Add the seen_on relay
                         if let Some(seen_on_url) = seen_on.as_ref() {
@@ -611,7 +611,7 @@ async fn process_relationships_of_event_inner<'a>(
                     // Actually delete at this point in some cases
                     if let Some(deleted_event) = GLOBALS
                         .db()
-                        .get_replaceable_event(ea.kind, ea.author, &ea.d)?
+                        .get_replaceable_event(ea.kind, ea.author, &ea.d).await?
                     {
                         if !deleted_event.delete_author_allowed(event.pubkey) {
                             // No further processing if not a valid delete
@@ -734,7 +734,7 @@ async fn process_relationships_of_event_inner<'a>(
                 if let Some(newest_event) =
                     GLOBALS
                     .db()
-                    .get_replaceable_event(EventKind::BookmarkList, pk, "")?
+                    .get_replaceable_event(EventKind::BookmarkList, pk, "").await?
                 {
                     if newest_event == *event {
                         *GLOBALS.bookmarks.write() = BookmarkList::from_event(event).await?;
