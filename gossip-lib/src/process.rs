@@ -7,7 +7,6 @@ use crate::misc::{Freshness, Private};
 use crate::people::{People, PersonList, PersonListMetadata};
 use crate::relationship::{RelationshipByAddr, RelationshipById};
 use crate::storage::{PersonTable, Table};
-use async_recursion::async_recursion;
 use heed::RwTxn;
 use nostr_types::{
     Event, EventKind, EventReference, Filter, Id, Metadata, NAddr, NostrBech32, PublicKey,
@@ -18,7 +17,6 @@ use std::sync::atomic::Ordering;
 /// This is mainly used internally to gossip-lib, but you can use it to stuff events
 /// into gossip from other sources. This processes a new event, saving the results into
 /// the database and also populating the GLOBALS maps.
-#[async_recursion]
 pub async fn process_new_event(
     event: &Event,
     seen_on: Option<RelayUrl>,
@@ -259,7 +257,7 @@ pub async fn process_new_event(
     GLOBALS.ui_notes_to_invalidate.write().extend(&invalid_ids);
 
     // Let seeker know about this event id (in case it was sought)
-    GLOBALS.seeker.found(event)?;
+    GLOBALS.seeker.found(event).await?;
 
     // If metadata, update person
     if event.kind == EventKind::Metadata {
@@ -322,7 +320,7 @@ pub async fn process_new_event(
             }
 
             // process the inner event
-            process_new_event(&inner_event, None, None, verify, false).await?;
+            Box::pin(process_new_event(&inner_event, None, None, verify, false)).await?;
 
             // Seek additional info for this event by id and author
             GLOBALS

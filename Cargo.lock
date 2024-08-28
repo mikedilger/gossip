@@ -2279,7 +2279,6 @@ dependencies = [
 name = "gossip-lib"
 version = "0.12.0-unstable"
 dependencies = [
- "async-recursion",
  "base64 0.22.1",
  "bech32 0.11.0",
  "dashmap",

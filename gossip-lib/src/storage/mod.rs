@@ -1781,19 +1781,19 @@ impl Storage {
         self.index_unindexed_giftwraps1().await
     }
 
-    pub(crate) fn get_highest_local_parent_event_id(&self, id: Id) -> Result<Option<Id>, Error> {
-        let event = match self.read_event(id)? {
+    pub(crate) async fn get_highest_local_parent_event_id(id: Id) -> Result<Option<Id>, Error> {
+        let event = match GLOBALS.db().read_event(id)? {
             Some(event) => event,
             None => return Ok(None),
         };
 
         match event.replies_to() {
             Some(EventReference::Id { id: parent_id, .. }) => {
-                self.get_highest_local_parent_event_id(parent_id)
+                Box::pin(Storage::get_highest_local_parent_event_id(parent_id)).await
             }
             Some(EventReference::Addr(ea)) => {
-                match self.get_replaceable_event(ea.kind, ea.author, &ea.d)? {
-                    Some(event) => self.get_highest_local_parent_event_id(event.id),
+                match GLOBALS.db().get_replaceable_event(ea.kind, ea.author, &ea.d).await? {
+                    Some(event) => Box::pin(Storage::get_highest_local_parent_event_id(event.id)).await,
                     None => Ok(Some(event.id)),
                 }
             }

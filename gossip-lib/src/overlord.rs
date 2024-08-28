@@ -2363,7 +2363,7 @@ impl Overlord {
             marker: None,
         };
 
-        let ancestors = crate::misc::get_event_ancestors(eref)?;
+        let ancestors = crate::misc::get_event_ancestors(eref).await?;
 
         // Set thread parent
         if let Some(ref event) = ancestors.highest_connected_local {

@@ -39,7 +39,6 @@ rustls-tls-native = [
 appimage = []
 
 [dependencies]
-async-recursion = "1.1"
 base64 = "0.22"
 bech32 = "0.11"
 dashmap = "6.0"

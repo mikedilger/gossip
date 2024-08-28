@@ -6,6 +6,7 @@ use crate::error::{Error, ErrorKind};
 use crate::filter_set::FilterSet;
 use crate::globals::GLOBALS;
 use crate::people::PersonList;
+use crate::storage::Storage;
 use dashmap::DashMap;
 use nostr_types::{Event, EventKind, EventReference, Filter, Id, NAddr, PublicKey, Unixtime};
 use parking_lot::RwLock;
@@ -374,7 +375,7 @@ impl Feed {
                 // Potentially update thread parent to a higher parent
                 let maybe_tp = *self.thread_parent.read();
                 if let Some(tp) = maybe_tp {
-                    if let Some(new_tp) = GLOBALS.db().get_highest_local_parent_event_id(tp)? {
+                    if let Some(new_tp) = Storage::get_highest_local_parent_event_id(tp).await? {
                         if new_tp != tp {
                             *self.thread_parent.write() = Some(new_tp);
                         }
