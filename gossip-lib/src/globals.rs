@@ -172,7 +172,7 @@ pub struct Globals {
     pub loading_more: AtomicUsize,
 
     /// Bookmarks
-    pub bookmarks: PRwLock<BookmarkList>,
+    pub bookmarks: RwLock<BookmarkList>,
 
     /// Current bookmarks, resolved into a Vec<Id> (updated by tasks)
     pub current_bookmarks: PRwLock<Vec<Id>>,
@@ -245,7 +245,7 @@ lazy_static! {
             advertise_jobs_remaining: AtomicUsize::new(0),
             pending: Pending::new(),
             loading_more: AtomicUsize::new(0),
-            bookmarks: PRwLock::new(BookmarkList::empty()),
+            bookmarks: RwLock::new(BookmarkList::empty()),
             current_bookmarks: PRwLock::new(Vec::new()),
             recompute_current_bookmarks: Arc::new(Notify::new()),
         }

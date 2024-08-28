@@ -85,7 +85,7 @@ impl GossipIdentity {
                     .db()
                     .get_replaceable_event(EventKind::BookmarkList, pk, "").await?
             {
-                *GLOBALS.bookmarks.write() = BookmarkList::from_event(&event).await?;
+                *GLOBALS.bookmarks.write().await = BookmarkList::from_event(&event).await?;
                 GLOBALS.recompute_current_bookmarks.notify_one();
             }
         }

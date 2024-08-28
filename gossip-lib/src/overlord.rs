@@ -1007,11 +1007,11 @@ impl Overlord {
 
     /// Adds or removes a bookmark, and publishes new bookmarks list
     pub async fn bookmark_add(&mut self, er: EventReference, private: bool) -> Result<(), Error> {
-        let added = GLOBALS.bookmarks.write().add(er, private)?;
+        let added = GLOBALS.bookmarks.write().await.add(er, private)?;
 
         if added {
             GLOBALS.recompute_current_bookmarks.notify_one();
-            let event = GLOBALS.bookmarks.read().into_event().await?;
+            let event = GLOBALS.bookmarks.read().await.into_event().await?;
             self.post_bookmarks(event).await?;
         }
 
@@ -1020,11 +1020,11 @@ impl Overlord {
 
     /// Adds or removes a bookmark, and publishes new bookmarks list
     pub async fn bookmark_rm(&mut self, er: EventReference) -> Result<(), Error> {
-        let removed = GLOBALS.bookmarks.write().remove(er)?;
+        let removed = GLOBALS.bookmarks.write().await.remove(er)?;
 
         if removed {
             GLOBALS.recompute_current_bookmarks.notify_one();
-            let event = GLOBALS.bookmarks.read().into_event().await?;
+            let event = GLOBALS.bookmarks.read().await.into_event().await?;
             self.post_bookmarks(event).await?;
         }
 

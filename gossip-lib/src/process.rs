@@ -735,7 +735,7 @@ async fn process_relationships_of_event_inner<'a>(
                     .get_replaceable_event(EventKind::BookmarkList, pk, "").await?
                 {
                     if newest_event == *event {
-                        *GLOBALS.bookmarks.write() = BookmarkList::from_event(event).await?;
+                        *GLOBALS.bookmarks.write().await = BookmarkList::from_event(event).await?;
                         GLOBALS.recompute_current_bookmarks.notify_one();
                     }
                 }

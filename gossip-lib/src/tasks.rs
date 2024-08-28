@@ -30,7 +30,7 @@ pub(crate) fn start_background_tasks() {
                 },
                 _ = read_runstate.wait_for(|runstate| *runstate == RunState::ShuttingDown) => break,
                 _ = recompute_bookmarks_future => {
-                    match GLOBALS.bookmarks.read().get_bookmark_feed().await {
+                    match GLOBALS.bookmarks.read().await.get_bookmark_feed().await {
                         Ok(feed) => *GLOBALS.current_bookmarks.write() = feed,
                         Err(e) => tracing::error!("{:?}", e),
                     }
