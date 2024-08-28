@@ -165,7 +165,7 @@ impl Overlord {
             // If we need to reapply relay lists, do so now
             if GLOBALS.db().get_flag_reprocess_relay_lists_needed() {
                 tracing::info!("Reprocessing relay lists...");
-                crate::process::reprocess_relay_lists()?;
+                crate::process::reprocess_relay_lists().await?;
             }
 
             // Data migrations complete
@@ -1143,7 +1143,7 @@ impl Overlord {
         // Find all local-storage events that define the list
         let bad_events = GLOBALS.db().find_events_by_filter(&filter, async |event| {
             event.parameter().as_ref() == Some(&metadata.dtag)
-        })?;
+        }).await?;
 
         // If no list events, we are done
         if bad_events.is_empty() {
@@ -2166,7 +2166,7 @@ impl Overlord {
                                 }
                                 false
                             })
-                        })?
+                        }).await?
                         .first()
                     {
                         note_search_results.push(event.clone());

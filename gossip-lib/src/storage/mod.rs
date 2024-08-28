@@ -1460,7 +1460,7 @@ impl Storage {
     /// 4. Supply some kinds, all of which are INDEXED_KINDS,
     ///
     /// The output will be sorted in reverse time order.
-    pub fn find_events_by_filter<F>(&self, filter: &Filter, screen: F) -> Result<Vec<Event>, Error>
+    pub async fn find_events_by_filter<F>(&self, filter: &Filter, screen: F) -> Result<Vec<Event>, Error>
     where
         F: async Fn(&Event) -> bool,
     {
@@ -1483,7 +1483,7 @@ impl Storage {
                 }
                 if let Some(bytes) = self.db_events()?.get(&txn, id.as_slice())? {
                     let event = Event::read_from_buffer(bytes)?;
-                    if filter.event_matches(&event) && screen(&event) {
+                    if filter.event_matches(&event) && screen(&event).await {
                         output.insert(event);
                     }
                 }
@@ -1509,7 +1509,7 @@ impl Storage {
                     let id = Id(val[0..32].try_into()?);
                     if let Some(bytes) = self.db_events()?.get(&txn, id.as_slice())? {
                         let event = Event::read_from_buffer(bytes)?;
-                        if filter.event_matches(&event) && screen(&event) {
+                        if filter.event_matches(&event) && screen(&event).await {
                             output.insert(event);
                         }
                     }
@@ -1548,7 +1548,7 @@ impl Storage {
                             }
 
                             // check against the rest of the filter
-                            if filter.event_matches(&event) && screen(&event) {
+                            if filter.event_matches(&event) && screen(&event).await {
                                 output.insert(event);
                                 paircount += 1;
 
@@ -1604,7 +1604,7 @@ impl Storage {
                         }
 
                         // check against the rest of the filter
-                        if filter.event_matches(&event) && screen(&event) {
+                        if filter.event_matches(&event) && screen(&event).await {
                             output.insert(event);
                             kindcount += 1;
 
@@ -1628,7 +1628,7 @@ impl Storage {
                 if let Some(kind) = Event::get_kind_from_speedy_bytes(bytes) {
                     if filter.kinds.contains(&kind) {
                         let event = Event::read_from_buffer(bytes)?;
-                        if filter.event_matches(&event) && screen(&event) {
+                        if filter.event_matches(&event) && screen(&event).await {
                             output.insert(event);
                             // We can't stop at a limit because our data is unsorted
                         }
@@ -1645,7 +1645,7 @@ impl Storage {
                     let pkh: PublicKeyHex = author.into();
                     if filter.authors.contains(&pkh) {
                         let event = Event::read_from_buffer(bytes)?;
-                        if filter.event_matches(&event) && screen(&event) {
+                        if filter.event_matches(&event) && screen(&event).await {
                             output.insert(event);
                         }
                     }
@@ -1658,7 +1658,7 @@ impl Storage {
             for result in iter {
                 let (_key, bytes) = result?;
                 let event = Event::read_from_buffer(bytes)?;
-                if filter.event_matches(&event) && screen(&event) {
+                if filter.event_matches(&event) && screen(&event).await {
                     output.insert(event);
                 }
             }
@@ -2252,7 +2252,7 @@ impl Storage {
             } else {
                 false
             }
-        })?;
+        }).await?;
 
         // Sort by rumor's time, not giftwrap's time
         let mut sortable: Vec<(Unixtime, Event)> = Vec::new();

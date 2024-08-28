@@ -500,13 +500,13 @@ fn process_somebody_elses_contact_list(event: &Event, force: bool) -> Result<(),
     Ok(())
 }
 
-pub fn reprocess_relay_lists() -> Result<(usize, usize), Error> {
+pub async fn reprocess_relay_lists() -> Result<(usize, usize), Error> {
     let mut counts: (usize, usize) = (0, 0);
 
     // Reprocess all contact lists
     let mut filter = Filter::new();
     filter.add_event_kind(EventKind::ContactList);
-    let events = GLOBALS.db().find_events_by_filter(&filter, |_e| true)?;
+    let events = GLOBALS.db().find_events_by_filter(&filter, async |_e| true).await?;
     for event in &events {
         process_somebody_elses_contact_list(event, true)?;
     }
@@ -517,7 +517,7 @@ pub fn reprocess_relay_lists() -> Result<(usize, usize), Error> {
     filter.add_event_kind(EventKind::RelayList);
 
     let mut txn = GLOBALS.db().get_write_txn()?;
-    let relay_lists = GLOBALS.db().find_events_by_filter(&filter, |_| true)?;
+    let relay_lists = GLOBALS.db().find_events_by_filter(&filter, async |_| true).await?;
 
     // Process all RelayLists
     for event in relay_lists.iter() {

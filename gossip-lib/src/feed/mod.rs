@@ -443,13 +443,13 @@ impl Feed {
 
         Ok(GLOBALS
             .db()
-            .find_events_by_filter(&after_filter, outer_screen)?
+            .find_events_by_filter(&after_filter, outer_screen).await?
             .iter()
             .map(|e| e.id)
             .chain(
                 GLOBALS
                     .db()
-                    .find_events_by_filter(&before_filter, outer_screen)?
+                    .find_events_by_filter(&before_filter, outer_screen).await?
                     .iter()
                     .map(|e| e.id),
             )
