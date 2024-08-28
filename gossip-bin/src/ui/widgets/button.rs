@@ -199,7 +199,7 @@ impl Button<'_> {
 
         let button_padding = if frame {
             match variant {
-                ButtonVariant::Normal => Vec2::new(14.0, 5.0),
+                ButtonVariant::Normal => Vec2::new(14.0, 3.0),
                 ButtonVariant::Small => Vec2::new(4.0, 1.0),
                 // ButtonVariant::Wide => {
                 //     button_padding.x *= 3.0;
