@@ -571,7 +571,8 @@ impl People {
         let old_tags = {
             if let Some(ref event) = existing_event {
                 if !event.content.is_empty() && kind != EventKind::ContactList {
-                    let decrypted_content = GLOBALS.identity.decrypt(&my_pubkey, &event.content)?;
+                    let decrypted_content =
+                        GLOBALS.identity.decrypt(&my_pubkey, &event.content).await?;
                     let mut tags: Vec<Tag> = serde_json::from_str(&decrypted_content)?;
                     tags.extend(event.tags.clone());
                     tags
@@ -682,11 +683,14 @@ impl People {
                 }
             } else {
                 let private_tags_string = serde_json::to_string(&private_tags)?;
-                GLOBALS.identity.encrypt(
-                    &my_pubkey,
-                    &private_tags_string,
-                    ContentEncryptionAlgorithm::Nip04,
-                )?
+                GLOBALS
+                    .identity
+                    .encrypt(
+                        &my_pubkey,
+                        &private_tags_string,
+                        ContentEncryptionAlgorithm::Nip04,
+                    )
+                    .await?
             }
         };
 
@@ -698,7 +702,7 @@ impl People {
             content,
         };
 
-        GLOBALS.identity.sign_event(pre_event)
+        GLOBALS.identity.sign_event(pre_event).await
     }
 
     /// Follow (or unfollow) the public key
@@ -945,7 +949,7 @@ pub(crate) fn fetch_current_personlist_matching_event(
 }
 
 // as opposed to GLOBALS.db().hash_person_list(list)
-pub fn hash_person_list_event(list: PersonList) -> Result<u64, Error> {
+pub async fn hash_person_list_event(list: PersonList) -> Result<u64, Error> {
     // we cannot do anything without an identity setup first
     let my_pubkey = match GLOBALS.db().read_setting_public_key() {
         Some(pk) => pk,
@@ -978,7 +982,8 @@ pub fn hash_person_list_event(list: PersonList) -> Result<u64, Error> {
         // Collect private entries
         if event.kind != EventKind::ContactList && !event.content.is_empty() {
             if GLOBALS.identity.is_unlocked() {
-                let decrypted_content = GLOBALS.identity.decrypt(&my_pubkey, &event.content)?;
+                let decrypted_content =
+                    GLOBALS.identity.decrypt(&my_pubkey, &event.content).await?;
                 let tags: Vec<Tag> = serde_json::from_str(&decrypted_content)?;
                 for tag in &tags {
                     if let Ok((pubkey, _, _)) = tag.parse_pubkey() {

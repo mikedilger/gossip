@@ -17,7 +17,7 @@ use std::sync::atomic::Ordering;
 /// This is mainly used internally to gossip-lib, but you can use it to stuff events
 /// into gossip from other sources. This processes a new event, saving the results into
 /// the database and also populating the GLOBALS maps.
-pub fn process_new_event(
+pub async fn process_new_event(
     event: &Event,
     seen_on: Option<RelayUrl>,
     subscription: Option<String>,
@@ -84,7 +84,7 @@ pub fn process_new_event(
     {
         let filter_result = {
             if event.kind == EventKind::GiftWrap {
-                if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(event) {
+                if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(event).await {
                     let author = PersonTable::read_record(rumor.pubkey, None)?;
                     Some(crate::filter::filter_rumor(rumor, author, event.id))
                 } else {
@@ -171,7 +171,7 @@ pub fn process_new_event(
     // Save event
     // Bail if the event is an already-replaced replaceable event
     if event.kind.is_replaceable() && !global_feed {
-        if !GLOBALS.db().replace_event(event, None)? {
+        if !GLOBALS.db().replace_event(event, None).await? {
             tracing::trace!(
                 "{}: Old Event: {} {:?} @{}",
                 seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
@@ -185,7 +185,7 @@ pub fn process_new_event(
         GLOBALS.db().write_event_volatile(event.to_owned());
     } else {
         // This will ignore if it is already there
-        GLOBALS.db().write_event(event, None)?;
+        GLOBALS.db().write_event(event, None).await?;
     }
 
     // Log
@@ -212,7 +212,7 @@ pub fn process_new_event(
     let mut event: &Event = event; // take ownership of this reference
     let mut rumor_event: Event;
     if event.kind == EventKind::GiftWrap {
-        if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(event) {
+        if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(event).await {
             rumor_event = rumor.into_event_with_bad_signature();
             rumor_event.id = event.id; // Lie so it's handled with the giftwrap's id
             event = &rumor_event;
@@ -252,7 +252,7 @@ pub fn process_new_event(
     }
 
     // Save event relationships (whether from a relay or not)
-    let invalid_ids = process_relationships_of_event(event, None)?;
+    let invalid_ids = process_relationships_of_event(event, None).await?;
 
     // Invalidate UI events indicated by those relationships
     GLOBALS.ui_notes_to_invalidate.write().extend(&invalid_ids);
@@ -274,7 +274,7 @@ pub fn process_new_event(
             if event.pubkey == pubkey {
                 // Updates stamps and counts, does NOT change membership
                 let (_personlist, _metadata) =
-                    update_or_allocate_person_list_from_event(event, pubkey)?;
+                    update_or_allocate_person_list_from_event(event, pubkey).await?;
             } else {
                 process_somebody_elses_contact_list(event, false)?;
             }
@@ -287,7 +287,7 @@ pub fn process_new_event(
             if event.pubkey == pubkey {
                 // Updates stamps and counts, does NOT change membership
                 let (_personlist, _metadata) =
-                    update_or_allocate_person_list_from_event(event, pubkey)?;
+                    update_or_allocate_person_list_from_event(event, pubkey).await?;
             }
         }
     } else if event.kind == EventKind::RelayList {
@@ -321,7 +321,7 @@ pub fn process_new_event(
             }
 
             // process the inner event
-            process_new_event(&inner_event, None, None, verify, false)?;
+            Box::pin(process_new_event(&inner_event, None, None, verify, false)).await?;
 
             // Seek additional info for this event by id and author
             GLOBALS
@@ -353,7 +353,7 @@ pub fn process_new_event(
             }
         }
     } else if event.kind == EventKind::NostrConnect {
-        crate::nostr_connect_server::handle_command(event, seen_on.clone())?
+        crate::nostr_connect_server::handle_command(event, seen_on.clone()).await?
     }
 
     if event.kind.is_feed_displayable() {
@@ -538,7 +538,7 @@ pub fn reprocess_relay_lists() -> Result<(usize, usize), Error> {
 
 /// Process relationships of an event.
 /// This returns IDs that should be UI invalidated (must be redrawn)
-pub(crate) fn process_relationships_of_event<'a>(
+pub(crate) async fn process_relationships_of_event<'a>(
     event: &Event,
     rw_txn: Option<&mut RwTxn<'a>>,
 ) -> Result<Vec<Id>, Error> {
@@ -730,7 +730,7 @@ pub(crate) fn process_relationships_of_event<'a>(
                         .get_replaceable_event(EventKind::BookmarkList, pk, "")?
                 {
                     if newest_event == *event {
-                        *GLOBALS.bookmarks.write_arc() = BookmarkList::from_event(event)?;
+                        *GLOBALS.bookmarks.write_arc() = BookmarkList::from_event(event).await?;
                         GLOBALS.recompute_current_bookmarks.notify_one();
                     }
                 }
@@ -906,7 +906,7 @@ pub(crate) fn process_relationships_of_event<'a>(
 
 // This updates the event data and maybe the title, but it does NOT update the list
 // (that happens only when the user overwrites/merges)
-fn update_or_allocate_person_list_from_event(
+async fn update_or_allocate_person_list_from_event(
     event: &Event,
     pubkey: PublicKey,
 ) -> Result<(PersonList, PersonListMetadata), Error> {
@@ -923,7 +923,7 @@ fn update_or_allocate_person_list_from_event(
             metadata.event_private_len = None;
         } else if GLOBALS.identity.is_unlocked() {
             let mut private_len: Option<usize> = None;
-            if let Ok(bytes) = GLOBALS.identity.decrypt(&pubkey, &event.content) {
+            if let Ok(bytes) = GLOBALS.identity.decrypt(&pubkey, &event.content).await {
                 if let Ok(vectags) = serde_json::from_str::<Vec<Tag>>(&bytes) {
                     private_len = Some(vectags.iter().filter(|t| t.tagname() == "p").count());
                 }

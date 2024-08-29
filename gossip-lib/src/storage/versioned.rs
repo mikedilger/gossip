@@ -5,13 +5,13 @@ use heed::RwTxn;
 use nostr_types::{EventKind, EventV2, EventV3};
 
 impl Storage {
-    pub(super) fn switch_to_rumor2<'a>(
+    pub(super) async fn switch_to_rumor2<'a>(
         &'a self,
         event: &EventV2,
         txn: &mut RwTxn<'a>,
     ) -> Result<Option<EventV2>, Error> {
         if event.kind == EventKind::GiftWrap {
-            match GLOBALS.identity.unwrap_giftwrap2(event) {
+            match GLOBALS.identity.unwrap_giftwrap2(event).await {
                 Ok(rumor) => {
                     let mut rumor_event = rumor.into_event_with_bad_signature();
                     rumor_event.id = event.id; // lie, so it indexes it under the giftwrap
@@ -31,13 +31,13 @@ impl Storage {
         }
     }
 
-    pub(super) fn switch_to_rumor3<'a>(
+    pub(super) async fn switch_to_rumor3<'a>(
         &'a self,
         event: &EventV3,
         txn: &mut RwTxn<'a>,
     ) -> Result<Option<EventV3>, Error> {
         if event.kind == EventKind::GiftWrap {
-            match GLOBALS.identity.unwrap_giftwrap(event) {
+            match GLOBALS.identity.unwrap_giftwrap(event).await {
                 Ok(rumor) => {
                     let mut rumor_event = rumor.into_event_with_bad_signature();
                     rumor_event.id = event.id; // lie, so it indexes it under the giftwrap

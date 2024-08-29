@@ -153,13 +153,13 @@ impl Overlord {
             // If we need to rebuild relationships, do so now
             if GLOBALS.db().get_flag_rebuild_relationships_needed() {
                 tracing::info!("Rebuilding relationships...");
-                GLOBALS.db().rebuild_relationships(None)?;
+                GLOBALS.db().rebuild_relationships(None).await?;
             }
 
             // If we need to rebuild indexes, do so now
             if GLOBALS.db().get_flag_rebuild_indexes_needed() {
                 tracing::info!("Rebuilding event indices...");
-                GLOBALS.db().rebuild_event_indices(None)?;
+                GLOBALS.db().rebuild_event_indices(None).await?;
             }
 
             // If we need to reapply relay lists, do so now
@@ -761,7 +761,7 @@ impl Overlord {
                 self.subscribe_nip46(relays).await?;
             }
             ToOverlordMessage::UnlockKey(password) => {
-                Self::unlock_key(password)?;
+                Self::unlock_key(password).await?;
             }
             ToOverlordMessage::UpdateMetadata(pubkey) => {
                 self.update_metadata(pubkey).await?;
@@ -839,7 +839,7 @@ impl Overlord {
                 content: "".to_string(),
             };
 
-            GLOBALS.identity.sign_event(pre_event)?
+            GLOBALS.identity.sign_event(pre_event).await?
         };
 
         let dmevent = {
@@ -859,7 +859,7 @@ impl Overlord {
                 content: "".to_string(),
             };
 
-            GLOBALS.identity.sign_event(pre_event)?
+            GLOBALS.identity.sign_event(pre_event).await?
         };
 
         let mut relays = Relay::choose_relays(0, |r| r.is_good_for_advertise())?;
@@ -987,7 +987,7 @@ impl Overlord {
 
     async fn post_bookmarks(&mut self, event: Event) -> Result<(), Error> {
         // Process this event locally (ignore any error)
-        let _ = crate::process::process_new_event(&event, None, None, false, false);
+        let _ = crate::process::process_new_event(&event, None, None, false, false).await;
 
         let config_relays: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
 
@@ -1011,7 +1011,7 @@ impl Overlord {
 
         if added {
             GLOBALS.recompute_current_bookmarks.notify_one();
-            let event = GLOBALS.bookmarks.read_arc().into_event()?;
+            let event = GLOBALS.bookmarks.read_arc().into_event().await?;
             self.post_bookmarks(event).await?;
         }
 
@@ -1024,7 +1024,7 @@ impl Overlord {
 
         if removed {
             GLOBALS.recompute_current_bookmarks.notify_one();
-            let event = GLOBALS.bookmarks.read_arc().into_event()?;
+            let event = GLOBALS.bookmarks.read_arc().into_event().await?;
             self.post_bookmarks(event).await?;
         }
 
@@ -1189,11 +1189,11 @@ impl Overlord {
             };
 
             // Should we add a pow? Maybe the relay needs it.
-            GLOBALS.identity.sign_event(pre_event)?
+            GLOBALS.identity.sign_event(pre_event).await?
         };
 
         // Process this event locally
-        crate::process::process_new_event(&event, None, None, false, false)?;
+        crate::process::process_new_event(&event, None, None, false, false).await?;
 
         // Determine which relays to post this to
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
@@ -1264,11 +1264,11 @@ impl Overlord {
             };
 
             // Should we add a pow? Maybe the relay needs it.
-            GLOBALS.identity.sign_event(pre_event)?
+            GLOBALS.identity.sign_event(pre_event).await?
         };
 
         // Process this event locally
-        crate::process::process_new_event(&event, None, None, false, false)?;
+        crate::process::process_new_event(&event, None, None, false, false).await?;
 
         // Determine which relays to post this to
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
@@ -1306,7 +1306,7 @@ impl Overlord {
 
     /// Delete private key and any delegation setup
     pub async fn delete_priv() -> Result<(), Error> {
-        GLOBALS.identity.delete_identity()?;
+        GLOBALS.identity.delete_identity().await?;
         Self::delegation_reset().await?;
         GLOBALS
             .status_queue
@@ -1317,7 +1317,7 @@ impl Overlord {
 
     /// Delete public key (only if no private key exists) and any delegation setup
     pub async fn delete_pub() -> Result<(), Error> {
-        GLOBALS.identity.clear_public_key()?;
+        GLOBALS.identity.clear_public_key().await?;
         Self::delegation_reset().await?;
         Ok(())
     }
@@ -1457,7 +1457,7 @@ impl Overlord {
 
     /// Generate an identity (private key) and keep encrypted under the given passphrase
     pub async fn generate_private_key(mut password: String) -> Result<(), Error> {
-        GLOBALS.identity.generate_private_key(&password)?;
+        GLOBALS.identity.generate_private_key(&password).await?;
         password.zeroize();
         Ok(())
     }
@@ -1477,9 +1477,13 @@ impl Overlord {
     pub async fn import_priv(mut privkey: String, mut password: String) -> Result<(), Error> {
         if privkey.starts_with("ncryptsec") {
             let epk = EncryptedPrivateKey(privkey);
-            match GLOBALS.identity.set_encrypted_private_key(epk, &password) {
+            match GLOBALS
+                .identity
+                .set_encrypted_private_key(epk, &password)
+                .await
+            {
                 Ok(_) => {
-                    GLOBALS.identity.unlock(&password)?;
+                    GLOBALS.identity.unlock(&password).await?;
                     password.zeroize();
                 }
                 Err(err) => {
@@ -1502,7 +1506,7 @@ impl Overlord {
                     .write("Private key not recognized.".to_owned());
             } else {
                 let privkey = maybe_pk1.unwrap_or_else(|_| maybe_pk2.unwrap());
-                GLOBALS.identity.set_private_key(privkey, &password)?;
+                GLOBALS.identity.set_private_key(privkey, &password).await?;
                 password.zeroize();
             }
         }
@@ -1521,7 +1525,7 @@ impl Overlord {
                 .write("Public key not recognized.".to_owned());
         } else {
             let pubkey = maybe_pk1.unwrap_or_else(|_| maybe_pk2.unwrap());
-            GLOBALS.identity.set_public_key(pubkey)?;
+            GLOBALS.identity.set_public_key(pubkey).await?;
         }
 
         Ok(())
@@ -1632,7 +1636,7 @@ impl Overlord {
             GLOBALS.db().write_nip46server(&server, None)?;
 
             // Handle it
-            server.handle(&parsed_command)?;
+            server.handle(&parsed_command).await?;
         }
 
         Ok(())
@@ -1718,9 +1722,10 @@ impl Overlord {
                 });
                 GLOBALS
                     .identity
-                    .sign_event_with_pow(pre_event, powint, Some(work_sender))?
+                    .sign_event_with_pow(pre_event, powint, Some(work_sender))
+                    .await?
             } else {
-                GLOBALS.identity.sign_event(pre_event)?
+                GLOBALS.identity.sign_event(pre_event).await?
             }
         };
 
@@ -1741,7 +1746,7 @@ impl Overlord {
         );
 
         // Process the message for ourself
-        crate::process::process_new_event(&event, None, None, false, false)?;
+        crate::process::process_new_event(&event, None, None, false, false).await?;
 
         Ok(())
     }
@@ -1767,13 +1772,15 @@ impl Overlord {
         let mut prepared_events = match dm_channel {
             Some(channel) => {
                 if channel.can_use_nip17() {
-                    crate::post::prepare_post_nip17(author, content, tags, channel, annotation)?
+                    crate::post::prepare_post_nip17(author, content, tags, channel, annotation)
+                        .await?
                 } else {
-                    crate::post::prepare_post_nip04(author, content, channel, annotation)?
+                    crate::post::prepare_post_nip04(author, content, channel, annotation).await?
                 }
             }
             None => {
-                crate::post::prepare_post_normal(author, content, tags, in_reply_to, annotation)?
+                crate::post::prepare_post_normal(author, content, tags, in_reply_to, annotation)
+                    .await?
             }
         };
 
@@ -1900,7 +1907,7 @@ impl Overlord {
         let event = GLOBALS.people.generate_person_list_event(list).await?;
 
         // process event locally
-        crate::process::process_new_event(&event, None, None, false, false)?;
+        crate::process::process_new_event(&event, None, None, false, false).await?;
 
         // Push to all of the relays we post to
         // Send it the event to pull our followers
@@ -1937,7 +1944,7 @@ impl Overlord {
             content: serde_json::to_string(&metadata)?,
         };
 
-        let event = GLOBALS.identity.sign_event(pre_event)?;
+        let event = GLOBALS.identity.sign_event(pre_event).await?;
 
         // Push to all of the relays we post to
         // Send it the event to pull our followers
@@ -2088,14 +2095,15 @@ impl Overlord {
                 });
                 GLOBALS
                     .identity
-                    .sign_event_with_pow(pre_event, powint, Some(work_sender))?
+                    .sign_event_with_pow(pre_event, powint, Some(work_sender))
+                    .await?
             } else {
-                GLOBALS.identity.sign_event(pre_event)?
+                GLOBALS.identity.sign_event(pre_event).await?
             }
         };
 
         // Process this event locally
-        crate::process::process_new_event(&event, None, None, false, false)?;
+        crate::process::process_new_event(&event, None, None, false, false).await?;
 
         // Determine which relays to post this to
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
@@ -2735,8 +2743,8 @@ impl Overlord {
 
     /// Unlock the private key with the given passphrase so that gossip can use it.
     /// This is akin to logging in.
-    pub fn unlock_key(mut password: String) -> Result<(), Error> {
-        if let Err(e) = GLOBALS.identity.unlock(&password) {
+    pub async fn unlock_key(mut password: String) -> Result<(), Error> {
+        if let Err(e) = GLOBALS.identity.unlock(&password).await {
             tracing::error!("{}", e);
             GLOBALS
                 .status_queue
@@ -2885,7 +2893,8 @@ impl Overlord {
         if list != PersonList::Followed && !event.content.is_empty() {
             if GLOBALS.identity.is_unlocked() {
                 // Private entries
-                let decrypted_content = GLOBALS.identity.decrypt(&my_pubkey, &event.content)?;
+                let decrypted_content =
+                    GLOBALS.identity.decrypt(&my_pubkey, &event.content).await?;
 
                 let tags: Vec<Tag> = serde_json::from_str(&decrypted_content)?;
 
@@ -3339,7 +3348,7 @@ impl Overlord {
             content: comment,
         };
 
-        let event = GLOBALS.identity.sign_event(pre_event)?;
+        let event = GLOBALS.identity.sign_event(pre_event).await?;
 
         let serialized_event = serde_json::to_string(&event)?;
 
