@@ -114,7 +114,9 @@ impl Storage {
                     .count();
                 metadata.event_private_len = {
                     let mut private_len: Option<usize> = None;
-                    if !matches!(list, PersonList1::Followed) && GLOBALS.identity.is_unlocked().await {
+                    if !matches!(list, PersonList1::Followed)
+                        && GLOBALS.identity.is_unlocked().await
+                    {
                         if let Ok(bytes) = GLOBALS.identity.decrypt(&pk, &event.content).await {
                             if let Ok(vectags) = serde_json::from_str::<Vec<TagV2>>(&bytes) {
                                 private_len = Some(vectags.len());

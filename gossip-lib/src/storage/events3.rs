@@ -80,7 +80,8 @@ impl Storage {
             self.write_event3_tag_index1(
                 event, // use the outer giftwrap event
                 Some(txn),
-            ).await?;
+            )
+            .await?;
 
             for hashtag in event.hashtags() {
                 if hashtag.is_empty() {

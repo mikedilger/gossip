@@ -260,8 +260,8 @@ impl Globals {
         }
     }
 
-    pub fn get_your_nprofile() -> Option<Profile> {
-        let public_key = match GLOBALS.identity.public_key() {
+    pub async fn get_your_nprofile() -> Option<Profile> {
+        let public_key = match GLOBALS.identity.public_key().await {
             Some(pk) => pk,
             None => return None,
         };

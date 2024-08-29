@@ -45,7 +45,8 @@ pub async fn prepare_post_normal(
             });
             GLOBALS
                 .identity
-                .sign_event_with_pow(pre_event, powint, Some(work_sender)).await?
+                .sign_event_with_pow(pre_event, powint, Some(work_sender))
+                .await?
         } else {
             GLOBALS.identity.sign_event(pre_event).await?
         }
@@ -72,10 +73,10 @@ pub async fn prepare_post_nip04(
         dm_channel.keys()[0]
     };
 
-    let content =
-        GLOBALS
-            .identity
-            .encrypt(&recipient, &content, ContentEncryptionAlgorithm::Nip04).await?;
+    let content = GLOBALS
+        .identity
+        .encrypt(&recipient, &content, ContentEncryptionAlgorithm::Nip04)
+        .await?;
 
     let mut tags = vec![Tag::new_pubkey(
         recipient, None, // FIXME

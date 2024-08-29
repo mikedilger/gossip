@@ -108,7 +108,7 @@ impl Nip46Server {
 
         let result: Result<String, Error> = match method.as_str() {
             "connect" => Ok("ack".into()),
-            "get_public_key" => self.get_public_key(),
+            "get_public_key" => self.get_public_key().await,
             "sign_event" => {
                 if self.sign_approval.is_approved() {
                     self.sign_event(params).await
@@ -169,13 +169,16 @@ impl Nip46Server {
         };
 
         match result {
-            Ok(answer) => send_response(
-                id.to_owned(),
-                answer,
-                "".to_owned(),
-                self.peer_pubkey,
-                self.relays.clone(),
-            ).await?,
+            Ok(answer) => {
+                send_response(
+                    id.to_owned(),
+                    answer,
+                    "".to_owned(),
+                    self.peer_pubkey,
+                    self.relays.clone(),
+                )
+                .await?
+            }
             Err(e) => {
                 if matches!(e.kind, ErrorKind::Nip46NeedApproval) {
                     return Err(e);
@@ -186,7 +189,8 @@ impl Nip46Server {
                         format!("{}", e),
                         self.peer_pubkey,
                         self.relays.clone(),
-                    ).await?;
+                    )
+                    .await?;
                 }
             }
         }
@@ -194,8 +198,8 @@ impl Nip46Server {
         Ok(())
     }
 
-    fn get_public_key(&self) -> Result<String, Error> {
-        if let Some(pk) = GLOBALS.identity.public_key() {
+    async fn get_public_key(&self) -> Result<String, Error> {
+        if let Some(pk) = GLOBALS.identity.public_key().await {
             Ok(pk.as_hex_string())
         } else {
             Err("No public key configured".into())
@@ -244,11 +248,10 @@ impl Nip46Server {
             return Err("nip04_encrypt: requires two parameters".into());
         }
         let other_pubkey = PublicKey::try_from_hex_string(&params[0], true)?;
-        let ciphertext = GLOBALS.identity.encrypt(
-            &other_pubkey,
-            &params[1],
-            ContentEncryptionAlgorithm::Nip04,
-        ).await?;
+        let ciphertext = GLOBALS
+            .identity
+            .encrypt(&other_pubkey, &params[1], ContentEncryptionAlgorithm::Nip04)
+            .await?;
         Ok(ciphertext)
     }
 
@@ -265,7 +268,10 @@ impl Nip46Server {
             return Err("nip44_get_key: requires a parameter".into());
         }
         let other_pubkey = PublicKey::try_from_hex_string(&params[0], true)?;
-        let ck = GLOBALS.identity.nip44_conversation_key(&other_pubkey).await?;
+        let ck = GLOBALS
+            .identity
+            .nip44_conversation_key(&other_pubkey)
+            .await?;
         let ckhex = hex::encode(ck);
         Ok(ckhex)
     }
@@ -275,11 +281,14 @@ impl Nip46Server {
             return Err("nip44_encrypt: requires two parameters".into());
         }
         let other_pubkey = PublicKey::try_from_hex_string(&params[0], true)?;
-        let ciphertext = GLOBALS.identity.encrypt(
-            &other_pubkey,
-            &params[1],
-            ContentEncryptionAlgorithm::Nip44v2,
-        ).await?;
+        let ciphertext = GLOBALS
+            .identity
+            .encrypt(
+                &other_pubkey,
+                &params[1],
+                ContentEncryptionAlgorithm::Nip44v2,
+            )
+            .await?;
         Ok(ciphertext)
     }
 
@@ -401,7 +410,8 @@ async fn send_response(
 
     let e = GLOBALS
         .identity
-        .encrypt(&peer_pubkey, &s, ContentEncryptionAlgorithm::Nip04).await?;
+        .encrypt(&peer_pubkey, &s, ContentEncryptionAlgorithm::Nip04)
+        .await?;
 
     let pre_event = PreEvent {
         pubkey: public_key,
@@ -435,7 +445,8 @@ pub async fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<
                         msg.clone(),
                         event.pubkey,
                         server.relays.clone(),
-                    ).await?;
+                    )
+                    .await?;
                 }
 
                 // Return the error
@@ -481,7 +492,8 @@ pub async fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<
                     msg.clone(),
                     event.pubkey,
                     vec![seen_on_relay],
-                ).await?;
+                )
+                .await?;
             }
 
             // And return the error
@@ -502,7 +514,8 @@ pub async fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<
                 "Gossip is not configured to receive a connection".to_string(),
                 event.pubkey,
                 vec![seen_on_relay],
-            ).await?;
+            )
+            .await?;
             return Ok(()); // no need to pass back error
         }
     };
@@ -520,7 +533,8 @@ pub async fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<
             "Your pubkey is not configured for nostr connect here.".to_string(),
             event.pubkey,
             reply_relays,
-        ).await?;
+        )
+        .await?;
         return Ok(()); // no need to pass back error
     }
 
@@ -531,7 +545,8 @@ pub async fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<
             "connect requires two parameters".to_string(),
             event.pubkey,
             reply_relays,
-        ).await?;
+        )
+        .await?;
         return Ok(()); // no need to pass back error
     }
 
@@ -544,7 +559,8 @@ pub async fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<
                 "No public key".to_string(),
                 event.pubkey,
                 reply_relays,
-            ).await?;
+            )
+            .await?;
             return Err(ErrorKind::NoPublicKey.into());
         }
     };
@@ -557,7 +573,8 @@ pub async fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<
             "Gossip is not configured to sign with the requested public key".to_string(),
             event.pubkey,
             reply_relays,
-        ).await?;
+        )
+        .await?;
         return Ok(()); // no need to pass back error
     }
 
@@ -568,7 +585,8 @@ pub async fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<
             "Incorrect secret.".to_string(),
             event.pubkey,
             reply_relays,
-        ).await?;
+        )
+        .await?;
         return Ok(()); // no need to pass back error
     }
 
@@ -597,7 +615,8 @@ pub async fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<
         "".to_owned(),
         event.pubkey,
         reply_relays,
-    ).await?;
+    )
+    .await?;
 
     Ok(())
 }

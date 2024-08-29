@@ -1318,7 +1318,10 @@ impl Storage {
     }
 
     #[inline]
-    pub async fn read_event_reference(&self, eref: &EventReference) -> Result<Option<Event>, Error> {
+    pub async fn read_event_reference(
+        &self,
+        eref: &EventReference,
+    ) -> Result<Option<Event>, Error> {
         match eref {
             EventReference::Id { id, .. } => self.read_event(*id),
             EventReference::Addr(ea) => self.get_replaceable_event(ea.kind, ea.author, &ea.d).await,
@@ -1390,13 +1393,15 @@ impl Storage {
         let mut filter = Filter::new();
         filter.add_event_kind(event.kind);
         filter.add_author(&event.pubkey.into());
-        let existing = self.find_events_by_filter(&filter, async |e| {
-            if event.kind.is_parameterized_replaceable() {
-                e.parameter() == event.parameter()
-            } else {
-                true
-            }
-        }).await?;
+        let existing = self
+            .find_events_by_filter(&filter, async |e| {
+                if event.kind.is_parameterized_replaceable() {
+                    e.parameter() == event.parameter()
+                } else {
+                    true
+                }
+            })
+            .await?;
 
         let mut found_newer = false;
         for old in existing {
@@ -1444,7 +1449,8 @@ impl Storage {
                 } else {
                     true
                 }
-            }).await?
+            })
+            .await?
             .first()
             .cloned())
     }
@@ -1460,7 +1466,11 @@ impl Storage {
     /// 4. Supply some kinds, all of which are INDEXED_KINDS,
     ///
     /// The output will be sorted in reverse time order.
-    pub async fn find_events_by_filter<F>(&self, filter: &Filter, screen: F) -> Result<Vec<Event>, Error>
+    pub async fn find_events_by_filter<F>(
+        &self,
+        filter: &Filter,
+        screen: F,
+    ) -> Result<Vec<Event>, Error>
     where
         F: async Fn(&Event) -> bool,
     {
@@ -1792,8 +1802,14 @@ impl Storage {
                 Box::pin(Storage::get_highest_local_parent_event_id(parent_id)).await
             }
             Some(EventReference::Addr(ea)) => {
-                match GLOBALS.db().get_replaceable_event(ea.kind, ea.author, &ea.d).await? {
-                    Some(event) => Box::pin(Storage::get_highest_local_parent_event_id(event.id)).await,
+                match GLOBALS
+                    .db()
+                    .get_replaceable_event(ea.kind, ea.author, &ea.d)
+                    .await?
+                {
+                    Some(event) => {
+                        Box::pin(Storage::get_highest_local_parent_event_id(event.id)).await
+                    }
                     None => Ok(Some(event.id)),
                 }
             }
@@ -1908,7 +1924,7 @@ impl Storage {
     }
 
     /// Returns the list of reactions and whether or not this account has already reacted to this event
-    pub fn get_reactions(&self, id: Id) -> Result<(Vec<(char, usize)>, Option<char>), Error> {
+    pub async fn get_reactions(&self, id: Id) -> Result<(Vec<(char, usize)>, Option<char>), Error> {
         // Whether or not the Gossip user already reacted to this event
         let mut our_reaction: Option<char> = None;
 
@@ -1933,7 +1949,7 @@ impl Storage {
                     reaction.chars().next().unwrap()
                 };
                 phase1.insert(by, symbol);
-                if Some(by) == GLOBALS.identity.public_key() {
+                if Some(by) == GLOBALS.identity.public_key().await {
                     our_reaction = Some(symbol);
                 }
             }
@@ -2146,15 +2162,17 @@ impl Storage {
         let mut filter = Filter::new();
         filter.kinds = vec![EventKind::EncryptedDirectMessage, EventKind::GiftWrap];
 
-        let events = self.find_events_by_filter(&filter, async |event| {
-            if event.kind == EventKind::EncryptedDirectMessage {
-                event.pubkey == my_pubkey || event.is_tagged(&my_pubkey)
-                // Make sure if it has tags, only author and my_pubkey
-                // TBD
-            } else {
-                event.kind == EventKind::GiftWrap
-            }
-        }).await?;
+        let events = self
+            .find_events_by_filter(&filter, async |event| {
+                if event.kind == EventKind::EncryptedDirectMessage {
+                    event.pubkey == my_pubkey || event.is_tagged(&my_pubkey)
+                    // Make sure if it has tags, only author and my_pubkey
+                    // TBD
+                } else {
+                    event.kind == EventKind::GiftWrap
+                }
+            })
+            .await?;
 
         // Map from channel to latest-message-time and unread-count
         let mut map: HashMap<DmChannel, DmChannelData> = HashMap::new();
@@ -2200,7 +2218,8 @@ impl Storage {
                 if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(event).await {
                     let rumor_event = rumor.into_event_with_bad_signature();
                     let time = rumor_event.created_at;
-                    let dmchannel = match DmChannel::from_event(&rumor_event, Some(my_pubkey)).await {
+                    let dmchannel = match DmChannel::from_event(&rumor_event, Some(my_pubkey)).await
+                    {
                         Some(dmc) => dmc,
                         None => continue,
                     };
@@ -2246,13 +2265,16 @@ impl Storage {
         let mut filter = Filter::new();
         filter.kinds = vec![EventKind::EncryptedDirectMessage, EventKind::GiftWrap];
 
-        let mut output: Vec<Event> = self.find_events_by_filter(&filter, async |event| {
-            if let Some(event_dm_channel) = DmChannel::from_event(event, Some(my_pubkey)).await {
-                event_dm_channel == *channel
-            } else {
-                false
-            }
-        }).await?;
+        let mut output: Vec<Event> = self
+            .find_events_by_filter(&filter, async |event| {
+                if let Some(event_dm_channel) = DmChannel::from_event(event, Some(my_pubkey)).await
+                {
+                    event_dm_channel == *channel
+                } else {
+                    false
+                }
+            })
+            .await?;
 
         // Sort by rumor's time, not giftwrap's time
         let mut sortable: Vec<(Unixtime, Event)> = Vec::new();
@@ -2314,7 +2336,8 @@ impl Storage {
             self.write_event_tag_index(
                 &event, // this handles giftwrap internally
                 Some(txn),
-            ).await?;
+            )
+            .await?;
             for hashtag in event.hashtags() {
                 if hashtag.is_empty() {
                     continue;
@@ -2563,8 +2586,8 @@ impl Storage {
             || url.as_str().contains("at.nostrworks.com")
     }
 
-    pub fn is_my_event(&self, id: Id) -> Result<bool, Error> {
-        if let Some(my_pubkey) = GLOBALS.identity.public_key() {
+    pub async fn is_my_event(&self, id: Id) -> Result<bool, Error> {
+        if let Some(my_pubkey) = GLOBALS.identity.public_key().await {
             if let Some(event) = self.read_event(id)? {
                 Ok(event.pubkey == my_pubkey)
             } else {

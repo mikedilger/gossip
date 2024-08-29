@@ -582,10 +582,10 @@ impl Overlord {
                     .await?;
             }
             ToOverlordMessage::AuthApproved(relay_url, permanent) => {
-                self.auth_approved(relay_url, permanent)?;
+                self.auth_approved(relay_url, permanent).await?;
             }
             ToOverlordMessage::AuthDeclined(relay_url, permanent) => {
-                self.auth_declined(relay_url, permanent)?;
+                self.auth_declined(relay_url, permanent).await?;
             }
             ToOverlordMessage::BookmarkAdd(er, private) => {
                 self.bookmark_add(er, private).await?;
@@ -917,7 +917,11 @@ impl Overlord {
 
     /// User has approved authentication on this relay. Save this result for later
     /// and inform the minion.
-    pub fn auth_approved(&mut self, relay_url: RelayUrl, permanent: bool) -> Result<(), Error> {
+    pub async fn auth_approved(
+        &mut self,
+        relay_url: RelayUrl,
+        permanent: bool,
+    ) -> Result<(), Error> {
         if permanent {
             // Save the answer in the relay record
             GLOBALS.db().modify_relay(
@@ -940,7 +944,7 @@ impl Overlord {
             });
         } else {
             // Clear the auth request, we are no longer connected
-            if let Some(pubkey) = GLOBALS.identity.public_key() {
+            if let Some(pubkey) = GLOBALS.identity.public_key().await {
                 GLOBALS
                     .pending
                     .take_relay_authentication_request(&pubkey, &relay_url);
@@ -952,7 +956,11 @@ impl Overlord {
 
     /// User has declined authentication on this relay. Save this result for later
     /// and inform the minion.
-    pub fn auth_declined(&mut self, relay_url: RelayUrl, permanent: bool) -> Result<(), Error> {
+    pub async fn auth_declined(
+        &mut self,
+        relay_url: RelayUrl,
+        permanent: bool,
+    ) -> Result<(), Error> {
         if permanent {
             // Save the answer in the relay record
             GLOBALS.db().modify_relay(
@@ -975,7 +983,7 @@ impl Overlord {
             });
         } else {
             // Clear the auth request, we are no longer connected
-            if let Some(pubkey) = GLOBALS.identity.public_key() {
+            if let Some(pubkey) = GLOBALS.identity.public_key().await {
                 GLOBALS
                     .pending
                     .take_relay_authentication_request(&pubkey, &relay_url);
@@ -1128,7 +1136,7 @@ impl Overlord {
             return Ok(());
         }
 
-        let public_key = match GLOBALS.identity.public_key() {
+        let public_key = match GLOBALS.identity.public_key().await {
             Some(pk) => pk,
             None => {
                 // Odd. how do they have a list if they have no pubkey?
@@ -1141,9 +1149,12 @@ impl Overlord {
         filter.add_author(&public_key.into());
 
         // Find all local-storage events that define the list
-        let bad_events = GLOBALS.db().find_events_by_filter(&filter, async |event| {
-            event.parameter().as_ref() == Some(&metadata.dtag)
-        }).await?;
+        let bad_events = GLOBALS
+            .db()
+            .find_events_by_filter(&filter, async |event| {
+                event.parameter().as_ref() == Some(&metadata.dtag)
+            })
+            .await?;
 
         // If no list events, we are done
         if bad_events.is_empty() {
@@ -1477,7 +1488,11 @@ impl Overlord {
     pub async fn import_priv(mut privkey: String, mut password: String) -> Result<(), Error> {
         if privkey.starts_with("ncryptsec") {
             let epk = EncryptedPrivateKey(privkey);
-            match GLOBALS.identity.set_encrypted_private_key(epk, &password).await {
+            match GLOBALS
+                .identity
+                .set_encrypted_private_key(epk, &password)
+                .await
+            {
                 Ok(_) => {
                     GLOBALS.identity.unlock(&password).await?;
                     password.zeroize();
@@ -1718,7 +1733,8 @@ impl Overlord {
                 });
                 GLOBALS
                     .identity
-                    .sign_event_with_pow(pre_event, powint, Some(work_sender)).await?
+                    .sign_event_with_pow(pre_event, powint, Some(work_sender))
+                    .await?
             } else {
                 GLOBALS.identity.sign_event(pre_event).await?
             }
@@ -1767,13 +1783,15 @@ impl Overlord {
         let mut prepared_events = match dm_channel {
             Some(channel) => {
                 if channel.can_use_nip17() {
-                    crate::post::prepare_post_nip17(author, content, tags, channel, annotation).await?
+                    crate::post::prepare_post_nip17(author, content, tags, channel, annotation)
+                        .await?
                 } else {
                     crate::post::prepare_post_nip04(author, content, channel, annotation).await?
                 }
             }
             None => {
-                crate::post::prepare_post_normal(author, content, tags, in_reply_to, annotation).await?
+                crate::post::prepare_post_normal(author, content, tags, in_reply_to, annotation)
+                    .await?
             }
         };
 
@@ -2088,7 +2106,8 @@ impl Overlord {
                 });
                 GLOBALS
                     .identity
-                    .sign_event_with_pow(pre_event, powint, Some(work_sender)).await?
+                    .sign_event_with_pow(pre_event, powint, Some(work_sender))
+                    .await?
             } else {
                 GLOBALS.identity.sign_event(pre_event).await?
             }
@@ -2166,7 +2185,8 @@ impl Overlord {
                                 }
                                 false
                             })
-                        }).await?
+                        })
+                        .await?
                         .first()
                     {
                         note_search_results.push(event.clone());
@@ -2839,10 +2859,10 @@ impl Overlord {
 
         // Load the latest PersonList event from the database
         let event = {
-            if let Some(event) =
-                GLOBALS
-                    .db()
-                    .get_replaceable_event(list.event_kind(), my_pubkey, &metadata.dtag).await?
+            if let Some(event) = GLOBALS
+                .db()
+                .get_replaceable_event(list.event_kind(), my_pubkey, &metadata.dtag)
+                .await?
             {
                 event.clone()
             } else {
@@ -2885,7 +2905,8 @@ impl Overlord {
         if list != PersonList::Followed && !event.content.is_empty() {
             if GLOBALS.identity.is_unlocked() {
                 // Private entries
-                let decrypted_content = GLOBALS.identity.decrypt(&my_pubkey, &event.content).await?;
+                let decrypted_content =
+                    GLOBALS.identity.decrypt(&my_pubkey, &event.content).await?;
 
                 let tags: Vec<Tag> = serde_json::from_str(&decrypted_content)?;
 

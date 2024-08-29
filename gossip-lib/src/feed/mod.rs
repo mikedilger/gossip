@@ -322,7 +322,8 @@ impl Feed {
                 let events = if filter.authors.is_empty() {
                     Default::default()
                 } else {
-                    Self::load_event_range(anchor, filter, with_replies, false, |_| true).await?
+                    Self::load_event_range(anchor, filter, with_replies, false, async |_| true)
+                        .await?
                 };
 
                 *self.current_feed_events.write() = events;
@@ -348,7 +349,7 @@ impl Feed {
                         filter
                     };
 
-                    let screen = |e: &Event| {
+                    let screen = async |e: &Event| {
                         e.pubkey != my_pubkey
                             && (indirect // don't screen further, keep all the 'p' tags
                                 || (
@@ -356,7 +357,7 @@ impl Feed {
                                         match e.replies_to() {
                                             None => false,
                                             Some(EventReference::Id { id, .. }) =>
-                                                matches!(GLOBALS.db().is_my_event(id), Ok(true)),
+                                                matches!(GLOBALS.db().is_my_event(id).await, Ok(true)),
                                             Some(EventReference::Addr(NAddr { author, .. })) => author == my_pubkey,
                                         }
                                     || // or we are referenced in the content
@@ -393,7 +394,8 @@ impl Feed {
                     filter
                 };
 
-                let events = Self::load_event_range(anchor, filter, true, false, |_| true).await?;
+                let events =
+                    Self::load_event_range(anchor, filter, true, false, async |_| true).await?;
 
                 *self.current_feed_events.write() = events;
             }
@@ -424,14 +426,15 @@ impl Feed {
         screen: F,
     ) -> Result<Vec<Id>, Error>
     where
-        F: Fn(&Event) -> bool,
+        F: async Fn(&Event) -> bool,
     {
         let now = Unixtime::now();
         let limit = GLOBALS.db().read_setting_load_more_count() as usize;
         let dismissed = GLOBALS.dismissed.read().await.clone();
 
-        let outer_screen =
-            async |e: &Event| basic_screen(e, include_replies, include_dms, &dismissed) && screen(e);
+        let outer_screen = async |e: &Event| {
+            basic_screen(e, include_replies, include_dms, &dismissed) && screen(e)
+        };
 
         let mut before_filter = filter;
         let mut after_filter = before_filter.clone();
@@ -444,13 +447,15 @@ impl Feed {
 
         Ok(GLOBALS
             .db()
-            .find_events_by_filter(&after_filter, outer_screen).await?
+            .find_events_by_filter(&after_filter, outer_screen)
+            .await?
             .iter()
             .map(|e| e.id)
             .chain(
                 GLOBALS
                     .db()
-                    .find_events_by_filter(&before_filter, outer_screen).await?
+                    .find_events_by_filter(&before_filter, outer_screen)
+                    .await?
                     .iter()
                     .map(|e| e.id),
             )

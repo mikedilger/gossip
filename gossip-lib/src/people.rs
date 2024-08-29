@@ -406,11 +406,17 @@ impl People {
             }
         };
 
-        match GLOBALS.fetcher.try_get(
-            &url,
-            Duration::from_secs(60 * 60 * GLOBALS.db().read_setting_avatar_becomes_stale_hours()),
-            false,
-        ).await {
+        match GLOBALS
+            .fetcher
+            .try_get(
+                &url,
+                Duration::from_secs(
+                    60 * 60 * GLOBALS.db().read_setting_avatar_becomes_stale_hours(),
+                ),
+                false,
+            )
+            .await
+        {
             // cache expires in 3 days
             Ok(None) => None,
             Ok(Some(bytes)) => {
@@ -554,13 +560,17 @@ impl People {
             EventKind::ContactList | EventKind::MuteList => {
                 // We fetch for ContactList to preserve the contents
                 // We fetch for MuteList to preserve 't', 'e', and "word" tags
-                GLOBALS.db().get_replaceable_event(kind, my_pubkey, "").await?
+                GLOBALS
+                    .db()
+                    .get_replaceable_event(kind, my_pubkey, "")
+                    .await?
             }
             EventKind::FollowSets => {
                 // We fetch for FollowSets to preserve various tags we don't use
                 GLOBALS
                     .db()
-                    .get_replaceable_event(kind, my_pubkey, &metadata.dtag).await?
+                    .get_replaceable_event(kind, my_pubkey, &metadata.dtag)
+                    .await?
             }
             _ => None,
         };
@@ -571,7 +581,8 @@ impl People {
         let old_tags = {
             if let Some(ref event) = existing_event {
                 if !event.content.is_empty() && kind != EventKind::ContactList {
-                    let decrypted_content = GLOBALS.identity.decrypt(&my_pubkey, &event.content).await?;
+                    let decrypted_content =
+                        GLOBALS.identity.decrypt(&my_pubkey, &event.content).await?;
                     let mut tags: Vec<Tag> = serde_json::from_str(&decrypted_content)?;
                     tags.extend(event.tags.clone());
                     tags
@@ -682,11 +693,14 @@ impl People {
                 }
             } else {
                 let private_tags_string = serde_json::to_string(&private_tags)?;
-                GLOBALS.identity.encrypt(
-                    &my_pubkey,
-                    &private_tags_string,
-                    ContentEncryptionAlgorithm::Nip04,
-                ).await?
+                GLOBALS
+                    .identity
+                    .encrypt(
+                        &my_pubkey,
+                        &private_tags_string,
+                        ContentEncryptionAlgorithm::Nip04,
+                    )
+                    .await?
             }
         };
 
@@ -752,11 +766,16 @@ impl People {
     }
 
     /// Mute (or unmute) a public key
-    pub fn mute(&self, pubkey: &PublicKey, mute: bool, private: Private) -> Result<(), Error> {
+    pub async fn mute(
+        &self,
+        pubkey: &PublicKey,
+        mute: bool,
+        private: Private,
+    ) -> Result<(), Error> {
         let mut txn = GLOBALS.db().get_write_txn()?;
 
         if mute {
-            if let Some(pk) = GLOBALS.identity.public_key() {
+            if let Some(pk) = GLOBALS.identity.public_key().await {
                 if pk == *pubkey {
                     return Err(ErrorKind::General("You cannot mute yourself".to_owned()).into());
                 }
@@ -959,10 +978,10 @@ pub async fn hash_person_list_event(list: PersonList) -> Result<u64, Error> {
     };
 
     // Load the latest PersonList event from the database
-    let maybe_event =
-        GLOBALS
-            .db()
-            .get_replaceable_event(list.event_kind(), my_pubkey, &metadata.dtag).await?;
+    let maybe_event = GLOBALS
+        .db()
+        .get_replaceable_event(list.event_kind(), my_pubkey, &metadata.dtag)
+        .await?;
 
     if let Some(event) = maybe_event {
         // Collect the data in an ordered map
@@ -978,7 +997,8 @@ pub async fn hash_person_list_event(list: PersonList) -> Result<u64, Error> {
         // Collect private entries
         if event.kind != EventKind::ContactList && !event.content.is_empty() {
             if GLOBALS.identity.is_unlocked() {
-                let decrypted_content = GLOBALS.identity.decrypt(&my_pubkey, &event.content).await?;
+                let decrypted_content =
+                    GLOBALS.identity.decrypt(&my_pubkey, &event.content).await?;
                 let tags: Vec<Tag> = serde_json::from_str(&decrypted_content)?;
                 for tag in &tags {
                     if let Ok((pubkey, _, _)) = tag.parse_pubkey() {

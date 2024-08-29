@@ -61,7 +61,8 @@ pub(crate) async fn get_event_ancestors(main: EventReference) -> Result<EventAnc
 
                 // Set root data if we now have it
                 if let Some(root) = event.replies_to_root() {
-                    ancestors.root_is_local = GLOBALS.db().read_event_reference(&root).await?.is_some();
+                    ancestors.root_is_local =
+                        GLOBALS.db().read_event_reference(&root).await?.is_some();
                     ancestors.root = Some(root);
                 }
             } else {

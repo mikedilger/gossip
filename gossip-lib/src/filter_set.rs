@@ -130,7 +130,7 @@ impl FilterSet {
         handle
     }
 
-    pub fn filters(&self, spamsafe: bool) -> Vec<Filter> {
+    pub async fn filters(&self, spamsafe: bool) -> Vec<Filter> {
         let mut filters: Vec<Filter> = Vec::new();
 
         match self {
@@ -148,9 +148,9 @@ impl FilterSet {
             }
             FilterSet::Config => {
                 let since = Unixtime::now() - Duration::from_secs(60 * 60 * 24 * 15);
-                if let Some(pubkey) = GLOBALS.identity.public_key() {
+                if let Some(pubkey) = GLOBALS.identity.public_key().await {
                     let pkh: PublicKeyHex = pubkey.into();
-                    if GLOBALS.identity.is_unlocked() {
+                    if GLOBALS.identity.is_unlocked().await {
                         // GiftWraps to me, recent only
                         let giftwrap_since = Unixtime(since.0 - 60 * 60 * 24 * 7);
                         let giftwrap_filter = {
@@ -202,7 +202,7 @@ impl FilterSet {
                 });
             }
             FilterSet::DmChannel(channel) => {
-                let pubkey = match GLOBALS.identity.public_key() {
+                let pubkey = match GLOBALS.identity.public_key().await {
                     Some(pk) => pk,
                     None => return vec![],
                 };
@@ -272,7 +272,7 @@ impl FilterSet {
             }
             FilterSet::Giftwraps(range) => {
                 let (since, until, limit) = range.since_until_limit();
-                if let Some(pubkey) = GLOBALS.identity.public_key() {
+                if let Some(pubkey) = GLOBALS.identity.public_key().await {
                     let pkh: PublicKeyHex = pubkey.into();
 
                     // Giftwraps cannot be filtered by author so we have to take them regardless
@@ -331,7 +331,7 @@ impl FilterSet {
                 });
             }
             FilterSet::InboxFeedFuture(anchor) => {
-                if let Some(pubkey) = GLOBALS.identity.public_key() {
+                if let Some(pubkey) = GLOBALS.identity.public_key().await {
                     let mut filter = Self::inbox_base_filter(pubkey, spamsafe);
 
                     let range = FeedRange::After { since: *anchor };
@@ -343,7 +343,7 @@ impl FilterSet {
                 }
             }
             FilterSet::InboxFeedChunk(anchor) => {
-                if let Some(pubkey) = GLOBALS.identity.public_key() {
+                if let Some(pubkey) = GLOBALS.identity.public_key().await {
                     let mut filter = Self::inbox_base_filter(pubkey, spamsafe);
 
                     let limit = GLOBALS.db().read_setting_load_more_count() as usize;
@@ -373,7 +373,7 @@ impl FilterSet {
                 });
             }
             FilterSet::Nip46 => {
-                let pubkey = match GLOBALS.identity.public_key() {
+                let pubkey = match GLOBALS.identity.public_key().await {
                     Some(pk) => pk,
                     None => return vec![],
                 };

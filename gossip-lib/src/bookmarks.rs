@@ -138,11 +138,14 @@ impl BookmarkList {
                 )
                 .collect();
             let private_json = serde_json::to_string(&private)?;
-            GLOBALS.identity.encrypt(
-                &public_key,
-                &private_json,
-                ContentEncryptionAlgorithm::Nip04,
-            ).await?
+            GLOBALS
+                .identity
+                .encrypt(
+                    &public_key,
+                    &private_json,
+                    ContentEncryptionAlgorithm::Nip04,
+                )
+                .await?
         };
 
         let pre_event = PreEvent {
@@ -164,7 +167,8 @@ impl BookmarkList {
                 EventReference::Addr(ea) => {
                     if let Some(event) = GLOBALS
                         .db()
-                        .get_replaceable_event(ea.kind, ea.author, &ea.d).await?
+                        .get_replaceable_event(ea.kind, ea.author, &ea.d)
+                        .await?
                     {
                         feed.push(event.id);
                     }

@@ -106,7 +106,10 @@ pub async fn process_new_event(
                 return Ok(());
             }
             Some(EventFilterAction::MuteAuthor) => {
-                GLOBALS.people.mute(&event.pubkey, true, Private(false))?;
+                GLOBALS
+                    .people
+                    .mute(&event.pubkey, true, Private(false))
+                    .await?;
                 return Ok(());
             }
         }
@@ -389,7 +392,8 @@ pub async fn process_new_event(
                 NostrBech32::NAddr(mut ea) => {
                     if let Ok(None) = GLOBALS
                         .db()
-                        .get_replaceable_event(ea.kind, ea.author, &ea.d).await
+                        .get_replaceable_event(ea.kind, ea.author, &ea.d)
+                        .await
                     {
                         // Add the seen_on relay
                         if let Some(seen_on_url) = seen_on.as_ref() {
@@ -504,7 +508,10 @@ pub async fn reprocess_relay_lists() -> Result<(usize, usize), Error> {
     // Reprocess all contact lists
     let mut filter = Filter::new();
     filter.add_event_kind(EventKind::ContactList);
-    let events = GLOBALS.db().find_events_by_filter(&filter, async |_e| true).await?;
+    let events = GLOBALS
+        .db()
+        .find_events_by_filter(&filter, async |_e| true)
+        .await?;
     for event in &events {
         process_somebody_elses_contact_list(event, true)?;
     }
@@ -515,7 +522,10 @@ pub async fn reprocess_relay_lists() -> Result<(usize, usize), Error> {
     filter.add_event_kind(EventKind::RelayList);
 
     let mut txn = GLOBALS.db().get_write_txn()?;
-    let relay_lists = GLOBALS.db().find_events_by_filter(&filter, async |_| true).await?;
+    let relay_lists = GLOBALS
+        .db()
+        .find_events_by_filter(&filter, async |_| true)
+        .await?;
 
     // Process all RelayLists
     for event in relay_lists.iter() {
@@ -609,7 +619,8 @@ async fn process_relationships_of_event_inner<'a>(
                     // Actually delete at this point in some cases
                     if let Some(deleted_event) = GLOBALS
                         .db()
-                        .get_replaceable_event(ea.kind, ea.author, &ea.d).await?
+                        .get_replaceable_event(ea.kind, ea.author, &ea.d)
+                        .await?
                     {
                         if !deleted_event.delete_author_allowed(event.pubkey) {
                             // No further processing if not a valid delete
@@ -729,10 +740,10 @@ async fn process_relationships_of_event_inner<'a>(
         if let Some(pk) = GLOBALS.identity.public_key().await {
             if pk == event.pubkey {
                 // Only if this event is the latest (it is already stored so we can do this check)
-                if let Some(newest_event) =
-                    GLOBALS
+                if let Some(newest_event) = GLOBALS
                     .db()
-                    .get_replaceable_event(EventKind::BookmarkList, pk, "").await?
+                    .get_replaceable_event(EventKind::BookmarkList, pk, "")
+                    .await?
                 {
                     if newest_event == *event {
                         *GLOBALS.bookmarks.write().await = BookmarkList::from_event(event).await?;

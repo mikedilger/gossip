@@ -150,11 +150,17 @@ impl Media {
             return None; // can recover if the setting is switched
         }
 
-        match GLOBALS.fetcher.try_get(
-            url,
-            Duration::from_secs(60 * 60 * GLOBALS.db().read_setting_media_becomes_stale_hours()),
-            use_temp_cache,
-        ).await {
+        match GLOBALS
+            .fetcher
+            .try_get(
+                url,
+                Duration::from_secs(
+                    60 * 60 * GLOBALS.db().read_setting_media_becomes_stale_hours(),
+                ),
+                use_temp_cache,
+            )
+            .await
+        {
             Ok(None) => None,
             Ok(Some(bytes)) => {
                 self.data_temp.insert(url.clone(), bytes);
