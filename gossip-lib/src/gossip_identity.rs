@@ -115,39 +115,42 @@ impl GossipIdentity {
         Ok(())
     }
 
-    pub fn set_encrypted_private_key(
+    pub async fn set_encrypted_private_key(
         &self,
         epk: EncryptedPrivateKey,
         pass: &str,
     ) -> Result<(), Error> {
-        *self.inner.write_arc() = Identity::from_encrypted_private_key(epk, pass)?;
+        *self.inner.write_arc() = Identity::from_encrypted_private_key(epk, pass).await?;
         self.on_keychange()?;
         Ok(())
     }
 
     pub(crate) async fn change_passphrase(&self, old: &str, new: &str) -> Result<(), Error> {
         let log_n = GLOBALS.db().read_setting_log_n();
-        self.inner.write_arc().change_passphrase(old, new, log_n)?;
+        self.inner
+            .write_arc()
+            .change_passphrase(old, new, log_n)
+            .await?;
         self.on_keychange()?;
         Ok(())
     }
 
-    pub(crate) fn set_private_key(&self, pk: PrivateKey, pass: &str) -> Result<(), Error> {
+    pub(crate) async fn set_private_key(&self, pk: PrivateKey, pass: &str) -> Result<(), Error> {
         let log_n = GLOBALS.db().read_setting_log_n();
-        let identity = Identity::from_private_key(pk, pass, log_n)?;
+        let identity = Identity::from_private_key(pk, pass, log_n).await?;
         *self.inner.write_arc() = identity;
         self.on_keychange()?;
         Ok(())
     }
 
-    pub fn unlock(&self, pass: &str) -> Result<(), Error> {
-        self.inner.write_arc().unlock(pass)?;
+    pub async fn unlock(&self, pass: &str) -> Result<(), Error> {
+        self.inner.write_arc().unlock(pass).await?;
 
         // If older version, re-encrypt with new version at default 2^18 rounds
         if let Some(epk) = self.encrypted_private_key() {
             if epk.version()? < 2 {
                 let log_n = GLOBALS.db().read_setting_log_n();
-                self.inner.write_arc().upgrade(pass, log_n)?;
+                self.inner.write_arc().upgrade(pass, log_n).await?;
                 self.on_change()?;
             }
         }
@@ -157,9 +160,9 @@ impl GossipIdentity {
         Ok(())
     }
 
-    pub(crate) fn generate_private_key(&self, pass: &str) -> Result<(), Error> {
+    pub(crate) async fn generate_private_key(&self, pass: &str) -> Result<(), Error> {
         let log_n = GLOBALS.db().read_setting_log_n();
-        *self.inner.write_arc() = Identity::generate(pass, log_n)?;
+        *self.inner.write_arc() = Identity::generate(pass, log_n).await?;
         self.on_keychange()?;
         Ok(())
     }
@@ -190,11 +193,11 @@ impl GossipIdentity {
         Ok(self.inner.read_arc().key_security()?)
     }
 
-    pub fn sign_event(&self, input: PreEvent) -> Result<Event, Error> {
-        Ok(self.inner.read_arc().sign_event(input)?)
+    pub async fn sign_event(&self, input: PreEvent) -> Result<Event, Error> {
+        Ok(self.inner.read_arc().sign_event(input).await?)
     }
 
-    pub fn sign_event_with_pow(
+    pub async fn sign_event_with_pow(
         &self,
         input: PreEvent,
         zero_bits: u8,
@@ -203,61 +206,68 @@ impl GossipIdentity {
         Ok(self
             .inner
             .read_arc()
-            .sign_event_with_pow(input, zero_bits, work_sender)?)
+            .sign_event_with_pow(input, zero_bits, work_sender)
+            .await?)
     }
 
-    pub fn export_private_key_bech32(&self, pass: &str) -> Result<(String, bool), Error> {
+    pub async fn export_private_key_bech32(&self, pass: &str) -> Result<(String, bool), Error> {
         let log_n = GLOBALS.db().read_setting_log_n();
         Ok(self
             .inner
             .write_arc()
-            .export_private_key_in_bech32(pass, log_n)?)
+            .export_private_key_in_bech32(pass, log_n)
+            .await?)
     }
 
-    pub fn export_private_key_hex(&self, pass: &str) -> Result<(String, bool), Error> {
+    pub async fn export_private_key_hex(&self, pass: &str) -> Result<(String, bool), Error> {
         let log_n = GLOBALS.db().read_setting_log_n();
         Ok(self
             .inner
             .write_arc()
-            .export_private_key_in_hex(pass, log_n)?)
+            .export_private_key_in_hex(pass, log_n)
+            .await?)
     }
 
-    pub fn unwrap_giftwrap(&self, event: &Event) -> Result<Rumor, Error> {
-        Ok(self.inner.read_arc().unwrap_giftwrap(event)?)
-    }
-
-    /// @deprecated for migrations only
-    pub fn unwrap_giftwrap1(&self, event: &EventV1) -> Result<RumorV1, Error> {
-        Ok(self.inner.read_arc().unwrap_giftwrap1(event)?)
+    pub async fn unwrap_giftwrap(&self, event: &Event) -> Result<Rumor, Error> {
+        Ok(self.inner.read_arc().unwrap_giftwrap(event).await?)
     }
 
     /// @deprecated for migrations only
-    pub fn unwrap_giftwrap2(&self, event: &EventV2) -> Result<RumorV2, Error> {
-        Ok(self.inner.read_arc().unwrap_giftwrap2(event)?)
+    pub async fn unwrap_giftwrap1(&self, event: &EventV1) -> Result<RumorV1, Error> {
+        Ok(self.inner.read_arc().unwrap_giftwrap1(event).await?)
     }
 
-    pub fn decrypt_event_contents(&self, event: &Event) -> Result<String, Error> {
-        Ok(self.inner.read_arc().decrypt_event_contents(event)?)
+    /// @deprecated for migrations only
+    pub async fn unwrap_giftwrap2(&self, event: &EventV2) -> Result<RumorV2, Error> {
+        Ok(self.inner.read_arc().unwrap_giftwrap2(event).await?)
     }
 
-    pub fn decrypt(&self, other: &PublicKey, ciphertext: &str) -> Result<String, Error> {
-        Ok(self.inner.read_arc().decrypt(other, ciphertext)?)
+    pub async fn decrypt_event_contents(&self, event: &Event) -> Result<String, Error> {
+        Ok(self.inner.read_arc().decrypt_event_contents(event).await?)
     }
 
-    pub fn nip44_conversation_key(&self, other: &PublicKey) -> Result<[u8; 32], Error> {
-        Ok(self.inner.read_arc().nip44_conversation_key(other)?)
+    pub async fn decrypt(&self, other: &PublicKey, ciphertext: &str) -> Result<String, Error> {
+        Ok(self.inner.read_arc().decrypt(other, ciphertext).await?)
     }
 
-    pub fn encrypt(
+    pub async fn nip44_conversation_key(&self, other: &PublicKey) -> Result<[u8; 32], Error> {
+        Ok(self.inner.read_arc().nip44_conversation_key(other).await?)
+    }
+
+    pub async fn encrypt(
         &self,
         other: &PublicKey,
         plaintext: &str,
         algo: ContentEncryptionAlgorithm,
     ) -> Result<String, Error> {
-        Ok(self.inner.read_arc().encrypt(other, plaintext, algo)?)
+        Ok(self
+            .inner
+            .read_arc()
+            .encrypt(other, plaintext, algo)
+            .await?)
     }
 
-    pub fn create_metadata_event(
+    pub async fn create_metadata_event(
         &self,
         input: PreEvent,
         metadata: Metadata,
@@ -265,10 +275,11 @@ impl GossipIdentity {
         Ok(self
             .inner
             .read_arc()
-            .create_metadata_event(input, metadata)?)
+            .create_metadata_event(input, metadata)
+            .await?)
     }
 
-    pub fn create_zap_request_event(
+    pub async fn create_zap_request_event(
         &self,
         recipient_pubkey: PublicKey,
         zapped_event: Option<Id>,
@@ -276,16 +287,20 @@ impl GossipIdentity {
         relays: Vec<String>,
         content: String,
     ) -> Result<Event, Error> {
-        Ok(self.inner.read_arc().create_zap_request_event(
-            recipient_pubkey,
-            zapped_event,
-            millisatoshis,
-            relays,
-            content,
-        )?)
+        Ok(self
+            .inner
+            .read_arc()
+            .create_zap_request_event(
+                recipient_pubkey,
+                zapped_event,
+                millisatoshis,
+                relays,
+                content,
+            )
+            .await?)
     }
 
-    pub fn generate_delegation_signature(
+    pub async fn generate_delegation_signature(
         &self,
         delegated_pubkey: PublicKey,
         delegation_conditions: &DelegationConditions,
@@ -293,11 +308,12 @@ impl GossipIdentity {
         Ok(self
             .inner
             .read_arc()
-            .generate_delegation_signature(delegated_pubkey, delegation_conditions)?)
+            .generate_delegation_signature(delegated_pubkey, delegation_conditions)
+            .await?)
     }
 
-    pub fn giftwrap(&self, input: PreEvent, pubkey: PublicKey) -> Result<Event, Error> {
-        Ok(self.inner.read_arc().giftwrap(input, pubkey)?)
+    pub async fn giftwrap(&self, input: PreEvent, pubkey: PublicKey) -> Result<Event, Error> {
+        Ok(self.inner.read_arc().giftwrap(input, pubkey).await?)
     }
 
     pub fn verify_delegation_signature(
