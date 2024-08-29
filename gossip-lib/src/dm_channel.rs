@@ -46,9 +46,9 @@ impl DmChannel {
         &self.0
     }
 
-    pub fn name(&self) -> String {
+    pub async fn name(&self) -> String {
         if self.0.is_empty() {
-            return match GLOBALS.identity.public_key() {
+            return match GLOBALS.identity.public_key().await {
                 Some(pk) => crate::names::best_name_from_pubkey_lookup(&pk),
                 None => "[NOBODY]".to_string(),
             };

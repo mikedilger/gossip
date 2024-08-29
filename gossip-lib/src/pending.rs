@@ -218,7 +218,7 @@ impl Pending {
     }
 
     pub async fn compute_pending(&self) -> Result<(), Error> {
-        let mypubkey = match GLOBALS.identity.public_key() {
+        let mypubkey = match GLOBALS.identity.public_key().await {
             Some(pk) => pk,
             None => return Ok(()), // nothing pending if no identity
         };

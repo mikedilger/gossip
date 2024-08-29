@@ -433,7 +433,7 @@ impl Feed {
         let dismissed = GLOBALS.dismissed.read().await.clone();
 
         let outer_screen = async |e: &Event| {
-            basic_screen(e, include_replies, include_dms, &dismissed) && screen(e)
+            basic_screen(e, include_replies, include_dms, &dismissed) && screen(e).await
         };
 
         let mut before_filter = filter;
@@ -578,9 +578,9 @@ pub fn enabled_event_kinds() -> Vec<EventKind> {
         .collect()
 }
 
-pub fn feed_related_event_kinds(mut dms: bool) -> Vec<EventKind> {
+pub async fn feed_related_event_kinds(mut dms: bool) -> Vec<EventKind> {
     // Do not include DM kinds if identity is not unlocked
-    if !GLOBALS.identity.is_unlocked() {
+    if !GLOBALS.identity.is_unlocked().await {
         dms = false;
     }
 
@@ -596,9 +596,9 @@ pub fn feed_related_event_kinds(mut dms: bool) -> Vec<EventKind> {
         .collect()
 }
 
-pub fn feed_displayable_event_kinds(mut dms: bool) -> Vec<EventKind> {
+pub async fn feed_displayable_event_kinds(mut dms: bool) -> Vec<EventKind> {
     // Do not include DM kinds if identity is not unlocked
-    if !GLOBALS.identity.is_unlocked() {
+    if !GLOBALS.identity.is_unlocked().await {
         dms = false;
     }
     enabled_event_kinds()

@@ -615,7 +615,7 @@ impl Minion {
                 // If we aren't running it already, OR if it can have duplicates
                 if !self.subscription_map.has(&handle) || filter_set.can_have_duplicates() {
                     let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
-                    let filters = filter_set.filters(spamsafe);
+                    let filters = filter_set.filters(spamsafe).await;
                     if !filters.is_empty() {
                         self.subscribe(filters, &handle, message.job_id).await?;
                     }
@@ -710,7 +710,7 @@ impl Minion {
             let handle = "temp_subscribe_metadata".to_string();
             let filter_set = FilterSet::Metadata(combined_pubkeys);
             let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
-            let filters = filter_set.filters(spamsafe);
+            let filters = filter_set.filters(spamsafe).await;
             self.subscribe(filters, &handle, combined_job_id.unwrap())
                 .await?;
         }

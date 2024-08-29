@@ -533,7 +533,7 @@ impl People {
         &self,
         person_list: PersonList,
     ) -> Result<Event, Error> {
-        if !GLOBALS.identity.is_unlocked() {
+        if !GLOBALS.identity.is_unlocked().await {
             return Err((ErrorKind::NoPrivateKey, file!(), line!()).into());
         }
 
@@ -543,7 +543,7 @@ impl People {
             None => return Err(ErrorKind::ListNotFound.into()),
         };
 
-        let my_pubkey = GLOBALS.identity.public_key().unwrap();
+        let my_pubkey = GLOBALS.identity.public_key().await.unwrap();
 
         // Read the person list
         let people = GLOBALS.db().get_people_in_list(person_list)?;
@@ -996,7 +996,7 @@ pub async fn hash_person_list_event(list: PersonList) -> Result<u64, Error> {
 
         // Collect private entries
         if event.kind != EventKind::ContactList && !event.content.is_empty() {
-            if GLOBALS.identity.is_unlocked() {
+            if GLOBALS.identity.is_unlocked().await {
                 let decrypted_content =
                     GLOBALS.identity.decrypt(&my_pubkey, &event.content).await?;
                 let tags: Vec<Tag> = serde_json::from_str(&decrypted_content)?;

@@ -2154,7 +2154,7 @@ impl Storage {
 
     /// Get all the DM channels with associated data
     pub async fn dm_channels(&self) -> Result<Vec<DmChannelData>, Error> {
-        let my_pubkey = match GLOBALS.identity.public_key() {
+        let my_pubkey = match GLOBALS.identity.public_key().await {
             Some(pk) => pk,
             None => return Ok(Vec::new()),
         };
@@ -2257,7 +2257,7 @@ impl Storage {
 
     /// Get DM events (by id) in a channel
     pub async fn dm_events(&self, channel: &DmChannel) -> Result<Vec<Id>, Error> {
-        let my_pubkey = match GLOBALS.identity.public_key() {
+        let my_pubkey = match GLOBALS.identity.public_key().await {
             Some(pk) => pk,
             None => return Ok(Vec::new()),
         };

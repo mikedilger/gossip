@@ -1167,7 +1167,7 @@ impl Overlord {
         }
 
         // Require sign in to delete further
-        if !GLOBALS.identity.is_unlocked() {
+        if !GLOBALS.identity.is_unlocked().await {
             GLOBALS
                 .status_queue
                 .write()
@@ -1258,7 +1258,7 @@ impl Overlord {
         }
 
         let event = {
-            let public_key = match GLOBALS.identity.public_key() {
+            let public_key = match GLOBALS.identity.public_key().await {
                 Some(pk) => pk,
                 None => {
                     tracing::warn!("No public key! Not posting");
@@ -1696,7 +1696,7 @@ impl Overlord {
     /// pubkey author too.
     pub async fn react(&mut self, id: Id, pubkey: PublicKey, reaction: char) -> Result<(), Error> {
         let event = {
-            let public_key = match GLOBALS.identity.public_key() {
+            let public_key = match GLOBALS.identity.public_key().await {
                 Some(pk) => pk,
                 None => {
                     tracing::warn!("No public key! Not posting");
@@ -1771,7 +1771,7 @@ impl Overlord {
         annotation: bool,
         dm_channel: Option<DmChannel>,
     ) -> Result<(), Error> {
-        let author = match GLOBALS.identity.public_key() {
+        let author = match GLOBALS.identity.public_key().await {
             Some(pk) => pk,
             None => {
                 tracing::warn!("No public key! Not posting");
@@ -1942,7 +1942,7 @@ impl Overlord {
 
     /// Publish the user's metadata
     pub async fn push_metadata(&mut self, metadata: Metadata) -> Result<(), Error> {
-        let public_key = match GLOBALS.identity.public_key() {
+        let public_key = match GLOBALS.identity.public_key().await {
             Some(pk) => pk,
             None => return Err((ErrorKind::NoPrivateKey, file!(), line!()).into()), // not even a public key
         };
@@ -1994,7 +1994,7 @@ impl Overlord {
         let mut pubkeys = GLOBALS.people.get_subscribed_pubkeys();
 
         // add own pubkey as well
-        if let Some(pubkey) = GLOBALS.identity.public_key() {
+        if let Some(pubkey) = GLOBALS.identity.public_key().await {
             pubkeys.push(pubkey)
         }
 
@@ -2078,7 +2078,7 @@ impl Overlord {
         }
 
         let event = {
-            let public_key = match GLOBALS.identity.public_key() {
+            let public_key = match GLOBALS.identity.public_key().await {
                 Some(pk) => pk,
                 None => {
                     tracing::warn!("No public key! Not posting");
@@ -2766,7 +2766,7 @@ impl Overlord {
         password.zeroize();
 
         // Update public key from private key
-        let public_key = GLOBALS.identity.public_key().unwrap();
+        let public_key = GLOBALS.identity.public_key().await.unwrap();
         GLOBALS
             .db()
             .write_setting_public_key(&Some(public_key), None)?;
@@ -2903,7 +2903,7 @@ impl Overlord {
         }
 
         if list != PersonList::Followed && !event.content.is_empty() {
-            if GLOBALS.identity.is_unlocked() {
+            if GLOBALS.identity.is_unlocked().await {
                 // Private entries
                 let decrypted_content =
                     GLOBALS.identity.decrypt(&my_pubkey, &event.content).await?;
@@ -3080,7 +3080,7 @@ impl Overlord {
         match inbox {
             -1 => (), // TBD unsubscribe_inbox
             1 => {
-                if let Some(pubkey) = GLOBALS.identity.public_key() {
+                if let Some(pubkey) = GLOBALS.identity.public_key().await {
                     // Modify self person_relay
                     GLOBALS.db().modify_person_relay(
                         pubkey,
@@ -3099,7 +3099,7 @@ impl Overlord {
         match config {
             -1 => (), // TBD unsubscribe_config
             1 => {
-                if let Some(pubkey) = GLOBALS.identity.public_key() {
+                if let Some(pubkey) = GLOBALS.identity.public_key().await {
                     // Modify self person_relay
                     GLOBALS.db().modify_person_relay(
                         pubkey,
@@ -3180,7 +3180,7 @@ impl Overlord {
         target_pubkey: PublicKey,
         lnurl: UncheckedUrl,
     ) -> Result<(), Error> {
-        if GLOBALS.identity.public_key().is_none() {
+        if GLOBALS.identity.public_key().await.is_none() {
             tracing::warn!("You need to setup your private-key to zap.");
             GLOBALS
                 .status_queue
@@ -3242,7 +3242,7 @@ impl Overlord {
     ) -> Result<(), Error> {
         use serde_json::Value;
 
-        let user_pubkey = match GLOBALS.identity.public_key() {
+        let user_pubkey = match GLOBALS.identity.public_key().await {
             Some(pk) => pk,
             None => {
                 tracing::warn!("You need to setup your private-key to zap.");
