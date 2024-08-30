@@ -565,16 +565,18 @@ impl Minion {
                 // anyways we would have to create a parallel thing.
                 self.get_naddr(message.job_id, ea).await?;
             }
-            ToMinionPayloadDetail::PostEvents(mut events) => {
+            ToMinionPayloadDetail::PostEvents(events) => {
                 self.posting_jobs.insert(
                     message.job_id,
                     events.iter().map(|e| e.id).collect::<Vec<Id>>(),
                 );
 
-                for event in events.drain(..) {
+                // We can't use events.drain(..) because it holds a borrow across the await point
+                // so we have to clone the events
+                for event in events {
                     let id = event.id;
                     self.posting_ids.insert(id, message.job_id);
-                    let msg = ClientMessage::Event(Box::new(event));
+                    let msg = ClientMessage::Event(Box::new(event.clone()));
                     let wire = serde_json::to_string(&msg)?;
                     let ws_stream = self.stream.as_mut().unwrap();
                     self.last_message_sent = wire.clone();
