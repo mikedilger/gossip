@@ -1,16 +1,17 @@
 use crate::error::Error;
+use parking_lot::RwLock;
 use std::env;
 use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::RwLock;
+use std::sync::Arc;
 use tempdir::TempDir;
 
 #[cfg(windows)]
 use normpath::PathExt;
 
 lazy_static! {
-    static ref CURRENT: RwLock<Option<Profile>> = RwLock::new(None);
+    static ref CURRENT: Arc<RwLock<Option<Profile>>> = Arc::new(RwLock::new(None));
 }
 
 /// Storage paths
@@ -130,13 +131,13 @@ impl Profile {
 
     fn create_if_missing() -> Result<(), Error> {
         let exists = {
-            let current = CURRENT.read().unwrap();
+            let current = CURRENT.read_arc();
             current.is_some()
         };
 
         if !exists {
             let profile = Profile::new()?;
-            let mut w = CURRENT.write().unwrap();
+            let mut w = CURRENT.write_arc();
             *w = Some(profile);
         }
 
@@ -145,30 +146,28 @@ impl Profile {
 
     pub fn base_dir() -> Result<PathBuf, Error> {
         Self::create_if_missing()?;
-        Ok(CURRENT.read().unwrap().as_ref().unwrap().base_dir.clone())
+        Ok(CURRENT.read_arc().as_ref().unwrap().base_dir.clone())
     }
 
     pub fn cache_dir(tmp: bool) -> Result<PathBuf, Error> {
         Self::create_if_missing()?;
         if tmp {
             Ok(CURRENT
-                .read()
-                .unwrap()
+                .read_arc()
                 .as_ref()
                 .unwrap()
                 .tmp_cache_dir
                 .path()
                 .to_owned())
         } else {
-            Ok(CURRENT.read().unwrap().as_ref().unwrap().cache_dir.clone())
+            Ok(CURRENT.read_arc().as_ref().unwrap().cache_dir.clone())
         }
     }
 
     pub fn profile_dir() -> Result<PathBuf, Error> {
         Self::create_if_missing()?;
         Ok(CURRENT
-            .read()
-            .unwrap()
+            .read_arc()
             .as_ref()
             .unwrap()
             .profile_dir
@@ -177,11 +176,11 @@ impl Profile {
 
     pub fn lmdb_dir() -> Result<PathBuf, Error> {
         Self::create_if_missing()?;
-        Ok(CURRENT.read().unwrap().as_ref().unwrap().lmdb_dir.clone())
+        Ok(CURRENT.read_arc().as_ref().unwrap().lmdb_dir.clone())
     }
 
     pub fn close() {
-        let mut w = CURRENT.write().unwrap();
+        let mut w = CURRENT.write_arc();
         *w = None;
     }
 }
