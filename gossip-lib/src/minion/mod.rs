@@ -28,9 +28,9 @@ use subscription_map::SubscriptionMap;
 use tokio::net::TcpStream;
 use tokio::sync::broadcast::Receiver;
 use tokio::sync::mpsc::UnboundedSender;
-use tokio::sync::watch::Receiver as WatchReceiver;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tungstenite::protocol::{Message as WsMessage, WebSocketConfig};
+use watcher::Receiver as WatchReceiver;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AuthState {

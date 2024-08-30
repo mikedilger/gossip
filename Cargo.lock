@@ -2318,6 +2318,7 @@ dependencies = [
  "tungstenite",
  "url",
  "usvg 0.43.0",
+ "watcher",
  "zeroize",
 ]
 
@@ -6309,6 +6310,15 @@ name = "wasm-bindgen-shared"
 version = "0.2.92"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af190c94f2773fdb3729c55b007a722abb5384da03bc0986df4c289bf5567e96"
+
+[[package]]
+name = "watcher"
+version = "0.1.0"
+source = "git+https://github.com/mikedilger/watcher?rev=a4e7e70c396bca4630aa0ba0a15d54ea103cb0e9#a4e7e70c396bca4630aa0ba0a15d54ea103cb0e9"
+dependencies = [
+ "parking_lot",
+ "tokio",
+]
 
 [[package]]
 name = "wayland-backend"

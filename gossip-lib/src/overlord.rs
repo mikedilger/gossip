@@ -34,8 +34,8 @@ use tokio::signal::unix::{signal, SignalKind};
 use tokio::signal::windows::{ctrl_break, ctrl_c, ctrl_close};
 use tokio::sync::broadcast::Sender;
 use tokio::sync::mpsc::UnboundedReceiver;
-use tokio::sync::watch::Receiver as WatchReceiver;
 use tokio::task;
+use watcher::Receiver as WatchReceiver;
 use zeroize::Zeroize;
 
 type MinionResult = Result<MinionExitReason, Error>;

@@ -77,6 +77,7 @@ tokio-tungstenite = { version = "0.23", default-features = false, features = [ "
 tungstenite = { version = "0.23", default-features = false }
 url = "2.5"
 usvg = "0.43"
+watcher = { git = "https://github.com/mikedilger/watcher", rev = "a4e7e70c396bca4630aa0ba0a15d54ea103cb0e9" }
 zeroize = "1.8"
 
 [target.'cfg(windows)'.dependencies]

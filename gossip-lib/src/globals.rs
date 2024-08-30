@@ -25,8 +25,8 @@ use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize};
 use std::sync::{Arc, OnceLock};
 use tokio::runtime::Runtime;
-use tokio::sync::watch::Receiver as WatchReceiver;
-use tokio::sync::watch::Sender as WatchSender;
+use watcher::Receiver as WatchReceiver;
+use watcher::Sender as WatchSender;
 use tokio::sync::{broadcast, mpsc, Mutex, Notify, RwLock};
 
 /// Global data shared between threads. Access via the static ref `GLOBALS`.
@@ -192,7 +192,7 @@ lazy_static! {
 
         // Setup a watch channel for going offline state change
         // We start in the Offline state
-        let (write_runstate, read_runstate) = tokio::sync::watch::channel(RunState::Initializing);
+        let (write_runstate, read_runstate) = watcher::channel(RunState::Initializing);
 
         let filter_engine = Engine::new();
         let filter = crate::filter::load_script(&filter_engine);
