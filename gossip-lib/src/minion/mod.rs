@@ -140,32 +140,12 @@ impl Minion {
 }
 
 impl Minion {
-    pub(crate) async fn handle(
+    pub(crate) async fn connect(
         &mut self,
-        mut messages: Vec<ToMinionPayload>,
-    ) -> Result<MinionExitReason, Error> {
+        short_timeout: bool
+    ) -> Result<(), Error> {
         // minion will log when it connects
-        tracing::trace!("{}: Minion handling started", &self.url);
-
-        // Possibly use a short timeout
-        let mut short_timeout = false;
-        for m in &messages {
-            // When advertising relay lists, use a short timeout
-            if matches!(m.detail, ToMinionPayloadDetail::AdvertiseRelayList(_, _)) {
-                short_timeout = true;
-            }
-        }
-
-        // Optimization:  before connecting to the relay, handle any 'loading_more' bumps
-        // that would happen after connecting to the relay.
-        for message in &messages {
-            if let ToMinionPayloadDetail::Subscribe(filter_set) = &message.detail {
-                if filter_set.is_loading_more() {
-                    self.loading_more += 1;
-                    let _ = GLOBALS.loading_more.fetch_add(1, Ordering::SeqCst);
-                }
-            }
-        }
+        tracing::trace!("{}: Minion connecting", &self.url);
 
         let fetcher_timeout = if short_timeout {
             std::time::Duration::new(5, 0)
@@ -178,13 +158,7 @@ impl Minion {
             // Fetch NIP-11 data (if not fetched recently)
             if let Some(last_nip11) = self.dbrelay.last_attempt_nip11 {
                 if (last_nip11 as i64) + 3600 < Unixtime::now().0 {
-                    if let Err(e) = self.fetch_nip11(fetcher_timeout).await {
-                        if matches!(e.kind, ErrorKind::ShuttingDown) {
-                            return Ok(MinionExitReason::GotShutdownMessage);
-                        } else {
-                            return Err(e);
-                        }
-                    }
+                    self.fetch_nip11(fetcher_timeout).await?;
                 }
             }
 
@@ -256,7 +230,7 @@ impl Minion {
             let response;
             tokio::select! {
                 _ = self.read_runstate.wait_for(|runstate| !runstate.going_online()) => {
-                    return Ok(MinionExitReason::GotShutdownMessage);
+                    return Err(ErrorKind::ShuttingDown.into());
                 },
                 connect_result = connect_future => {
                     (websocket_stream, response) = connect_result??;
@@ -277,6 +251,45 @@ impl Minion {
 
         // Bump the success count for the relay
         self.bump_success_count(true).await;
+
+        Ok(())
+    }
+
+    pub(crate) async fn handle(
+        &mut self,
+        mut messages: Vec<ToMinionPayload>,
+    ) -> Result<MinionExitReason, Error> {
+        // minion will log when it connects
+        tracing::trace!("{}: Minion handling started", &self.url);
+
+        // Possibly use a short timeout
+        let mut short_timeout = false;
+        for m in &messages {
+            // When advertising relay lists, use a short timeout
+            if matches!(m.detail, ToMinionPayloadDetail::AdvertiseRelayList(_, _)) {
+                short_timeout = true;
+            }
+        }
+
+        // Optimization:  before connecting to the relay, handle any 'loading_more' bumps
+        // that would happen after connecting to the relay.
+        for message in &messages {
+            if let ToMinionPayloadDetail::Subscribe(filter_set) = &message.detail {
+                if filter_set.is_loading_more() {
+                    self.loading_more += 1;
+                    let _ = GLOBALS.loading_more.fetch_add(1, Ordering::SeqCst);
+                }
+            }
+        }
+
+        // Connect to the relay
+        if let Err(e) = self.connect(short_timeout).await {
+            if matches!(e.kind, ErrorKind::ShuttingDown) {
+                return Ok(MinionExitReason::GotShutdownMessage);
+            } else {
+                return Err(e);
+            }
+        }
 
         // Handle initial messages
         for message in messages.drain(..) {
