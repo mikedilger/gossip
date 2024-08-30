@@ -38,7 +38,7 @@ pub struct EventAncestors {
 }
 
 /// Get the ancestors of an event
-pub(crate) fn get_event_ancestors(main: EventReference) -> Result<EventAncestors, Error> {
+pub(crate) async fn get_event_ancestors(main: EventReference) -> Result<EventAncestors, Error> {
     let mut ancestors = EventAncestors {
         root: None,
         root_is_local: false,
@@ -49,7 +49,7 @@ pub(crate) fn get_event_ancestors(main: EventReference) -> Result<EventAncestors
     loop {
         if let Some(ref remote) = ancestors.highest_connected_remote {
             // See if the remote is local
-            if let Some(event) = GLOBALS.db().read_event_reference(remote)? {
+            if let Some(event) = GLOBALS.db().read_event_reference(remote).await? {
                 // It is!
                 ancestors.highest_connected_local = Some(event.clone());
 
@@ -61,7 +61,8 @@ pub(crate) fn get_event_ancestors(main: EventReference) -> Result<EventAncestors
 
                 // Set root data if we now have it
                 if let Some(root) = event.replies_to_root() {
-                    ancestors.root_is_local = GLOBALS.db().read_event_reference(&root)?.is_some();
+                    ancestors.root_is_local =
+                        GLOBALS.db().read_event_reference(&root).await?.is_some();
                     ancestors.root = Some(root);
                 }
             } else {

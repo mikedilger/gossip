@@ -72,7 +72,8 @@ impl GossipIdentity {
         // Invalidate DMs so they rerender decrypted
         let dms: Vec<Id> = GLOBALS
             .db()
-            .find_events_by_filter(&filter, |_| true)?
+            .find_events_by_filter(&filter, async |_| true)
+            .await?
             .iter()
             .map(|e| e.id)
             .collect();
@@ -81,10 +82,10 @@ impl GossipIdentity {
 
         // Recompute bookmarks (including the private part)
         if let Some(pk) = self.public_key() {
-            if let Some(event) =
-                GLOBALS
-                    .db()
-                    .get_replaceable_event(EventKind::BookmarkList, pk, "")?
+            if let Some(event) = GLOBALS
+                .db()
+                .get_replaceable_event(EventKind::BookmarkList, pk, "")
+                .await?
             {
                 *GLOBALS.bookmarks.write_arc() = BookmarkList::from_event(&event).await?;
                 GLOBALS.recompute_current_bookmarks.notify_one();

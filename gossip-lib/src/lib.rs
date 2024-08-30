@@ -4,7 +4,6 @@
 // TEMPORARILY
 #![allow(clippy::uninlined_format_args)]
 #![allow(clippy::assigning_clones)]
-
 #![feature(async_closure)]
 
 //! Gossip lib is the core of the gossip nostr client.  The canonical binary crate is
@@ -240,10 +239,10 @@ pub async fn init(rapid: bool) -> Result<(), Error> {
 
     // Populate global bookmarks
     if let Some(pubkey) = GLOBALS.identity.public_key() {
-        if let Some(event) =
-            GLOBALS
-                .db()
-                .get_replaceable_event(EventKind::BookmarkList, pubkey, "")?
+        if let Some(event) = GLOBALS
+            .db()
+            .get_replaceable_event(EventKind::BookmarkList, pubkey, "")
+            .await?
         {
             *GLOBALS.bookmarks.write_arc() = BookmarkList::from_event(&event).await?;
             GLOBALS.recompute_current_bookmarks.notify_one();

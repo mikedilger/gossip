@@ -184,7 +184,7 @@ impl Seeker {
     }
 
     /// An event was found (you can call this even if the seeker wasn't seeking it)
-    pub(crate) fn found(&self, event: &Event) -> Result<(), Error> {
+    pub(crate) async fn found(&self, event: &Event) -> Result<(), Error> {
         // Remove the event
         if let Some((_, data)) = self.events.remove(&event.id) {
             // Possibly seek it's parent
@@ -195,7 +195,7 @@ impl Seeker {
                     relays: vec![],
                     marker: None,
                 };
-                while let Some(event) = GLOBALS.db().read_event_reference(&eref)? {
+                while let Some(event) = GLOBALS.db().read_event_reference(&eref).await? {
                     if let Some(parent_eref) = event.replies_to() {
                         eref = parent_eref;
                         continue;

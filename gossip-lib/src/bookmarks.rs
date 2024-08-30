@@ -159,7 +159,7 @@ impl BookmarkList {
         GLOBALS.identity.sign_event(pre_event).await
     }
 
-    pub fn get_bookmark_feed(&self) -> Result<Vec<Id>, Error> {
+    pub async fn get_bookmark_feed(&self) -> Result<Vec<Id>, Error> {
         let mut feed: Vec<Id> = Vec::new();
         for (eref, _) in &self.0 {
             match eref {
@@ -167,7 +167,8 @@ impl BookmarkList {
                 EventReference::Addr(ea) => {
                     if let Some(event) = GLOBALS
                         .db()
-                        .get_replaceable_event(ea.kind, ea.author, &ea.d)?
+                        .get_replaceable_event(ea.kind, ea.author, &ea.d)
+                        .await?
                     {
                         feed.push(event.id);
                     }

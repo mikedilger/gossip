@@ -165,7 +165,7 @@ impl Overlord {
             // If we need to reapply relay lists, do so now
             if GLOBALS.db().get_flag_reprocess_relay_lists_needed() {
                 tracing::info!("Reprocessing relay lists...");
-                crate::process::reprocess_relay_lists()?;
+                crate::process::reprocess_relay_lists().await?;
             }
 
             // Data migrations complete
@@ -1141,9 +1141,12 @@ impl Overlord {
         filter.add_author(&public_key.into());
 
         // Find all local-storage events that define the list
-        let bad_events = GLOBALS.db().find_events_by_filter(&filter, |event| {
-            event.parameter().as_ref() == Some(&metadata.dtag)
-        })?;
+        let bad_events = GLOBALS
+            .db()
+            .find_events_by_filter(&filter, async |event: &Event| {
+                event.parameter().as_ref() == Some(&metadata.dtag)
+            })
+            .await?;
 
         // If no list events, we are done
         if bad_events.is_empty() {
@@ -2165,7 +2168,7 @@ impl Overlord {
 
                     if let Some(event) = GLOBALS
                         .db()
-                        .find_events_by_filter(&filter, |event| {
+                        .find_events_by_filter(&filter, async |event: &Event| {
                             event.tags.iter().any(|tag| {
                                 if let Ok(d) = tag.parse_identifier() {
                                     if d == ea.d {
@@ -2174,7 +2177,8 @@ impl Overlord {
                                 }
                                 false
                             })
-                        })?
+                        })
+                        .await?
                         .first()
                     {
                         note_search_results.push(event.clone());
@@ -2371,7 +2375,7 @@ impl Overlord {
             marker: None,
         };
 
-        let ancestors = crate::misc::get_event_ancestors(eref)?;
+        let ancestors = crate::misc::get_event_ancestors(eref).await?;
 
         // Set thread parent
         if let Some(ref event) = ancestors.highest_connected_local {
@@ -2847,10 +2851,10 @@ impl Overlord {
 
         // Load the latest PersonList event from the database
         let event = {
-            if let Some(event) =
-                GLOBALS
-                    .db()
-                    .get_replaceable_event(list.event_kind(), my_pubkey, &metadata.dtag)?
+            if let Some(event) = GLOBALS
+                .db()
+                .get_replaceable_event(list.event_kind(), my_pubkey, &metadata.dtag)
+                .await?
             {
                 event.clone()
             } else {

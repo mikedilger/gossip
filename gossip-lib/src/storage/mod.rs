@@ -1318,10 +1318,13 @@ impl Storage {
     }
 
     #[inline]
-    pub fn read_event_reference(&self, eref: &EventReference) -> Result<Option<Event>, Error> {
+    pub async fn read_event_reference(
+        &self,
+        eref: &EventReference,
+    ) -> Result<Option<Event>, Error> {
         match eref {
             EventReference::Id { id, .. } => self.read_event(*id),
-            EventReference::Addr(ea) => self.get_replaceable_event(ea.kind, ea.author, &ea.d),
+            EventReference::Addr(ea) => self.get_replaceable_event(ea.kind, ea.author, &ea.d).await,
         }
     }
 
@@ -1390,13 +1393,15 @@ impl Storage {
         let mut filter = Filter::new();
         filter.add_event_kind(event.kind);
         filter.add_author(&event.pubkey.into());
-        let existing = self.find_events_by_filter(&filter, |e| {
-            if event.kind.is_parameterized_replaceable() {
-                e.parameter() == event.parameter()
-            } else {
-                true
-            }
-        })?;
+        let existing = self
+            .find_events_by_filter(&filter, async |e| {
+                if event.kind.is_parameterized_replaceable() {
+                    e.parameter() == event.parameter()
+                } else {
+                    true
+                }
+            })
+            .await?;
 
         let mut found_newer = false;
         for old in existing {
@@ -1423,7 +1428,7 @@ impl Storage {
 
     /// Get the matching replaceable event (possibly parameterized)
     /// TBD: optimize this by storing better event indexes
-    pub fn get_replaceable_event(
+    pub async fn get_replaceable_event(
         &self,
         kind: EventKind,
         pubkey: PublicKey,
@@ -1438,13 +1443,14 @@ impl Storage {
         filter.add_author(&pubkey.into());
 
         Ok(self
-            .find_events_by_filter(&filter, |e| {
+            .find_events_by_filter(&filter, async |e| {
                 if kind.is_parameterized_replaceable() {
                     e.parameter().as_deref() == Some(parameter)
                 } else {
                     true
                 }
-            })?
+            })
+            .await?
             .first()
             .cloned())
     }
@@ -1460,9 +1466,13 @@ impl Storage {
     /// 4. Supply some kinds, all of which are INDEXED_KINDS,
     ///
     /// The output will be sorted in reverse time order.
-    pub fn find_events_by_filter<F>(&self, filter: &Filter, screen: F) -> Result<Vec<Event>, Error>
+    pub async fn find_events_by_filter<F>(
+        &self,
+        filter: &Filter,
+        screen: F,
+    ) -> Result<Vec<Event>, Error>
     where
-        F: Fn(&Event) -> bool,
+        F: async Fn(&Event) -> bool,
     {
         let txn = self.env.read_txn()?;
 
@@ -1483,7 +1493,7 @@ impl Storage {
                 }
                 if let Some(bytes) = self.db_events()?.get(&txn, id.as_slice())? {
                     let event = Event::read_from_buffer(bytes)?;
-                    if filter.event_matches(&event) && screen(&event) {
+                    if filter.event_matches(&event) && screen(&event).await {
                         output.insert(event);
                     }
                 }
@@ -1509,7 +1519,7 @@ impl Storage {
                     let id = Id(val[0..32].try_into()?);
                     if let Some(bytes) = self.db_events()?.get(&txn, id.as_slice())? {
                         let event = Event::read_from_buffer(bytes)?;
-                        if filter.event_matches(&event) && screen(&event) {
+                        if filter.event_matches(&event) && screen(&event).await {
                             output.insert(event);
                         }
                     }
@@ -1548,7 +1558,7 @@ impl Storage {
                             }
 
                             // check against the rest of the filter
-                            if filter.event_matches(&event) && screen(&event) {
+                            if filter.event_matches(&event) && screen(&event).await {
                                 output.insert(event);
                                 paircount += 1;
 
@@ -1604,7 +1614,7 @@ impl Storage {
                         }
 
                         // check against the rest of the filter
-                        if filter.event_matches(&event) && screen(&event) {
+                        if filter.event_matches(&event) && screen(&event).await {
                             output.insert(event);
                             kindcount += 1;
 
@@ -1628,7 +1638,7 @@ impl Storage {
                 if let Some(kind) = Event::get_kind_from_speedy_bytes(bytes) {
                     if filter.kinds.contains(&kind) {
                         let event = Event::read_from_buffer(bytes)?;
-                        if filter.event_matches(&event) && screen(&event) {
+                        if filter.event_matches(&event) && screen(&event).await {
                             output.insert(event);
                             // We can't stop at a limit because our data is unsorted
                         }
@@ -1645,7 +1655,7 @@ impl Storage {
                     let pkh: PublicKeyHex = author.into();
                     if filter.authors.contains(&pkh) {
                         let event = Event::read_from_buffer(bytes)?;
-                        if filter.event_matches(&event) && screen(&event) {
+                        if filter.event_matches(&event) && screen(&event).await {
                             output.insert(event);
                         }
                     }
@@ -1658,7 +1668,7 @@ impl Storage {
             for result in iter {
                 let (_key, bytes) = result?;
                 let event = Event::read_from_buffer(bytes)?;
-                if filter.event_matches(&event) && screen(&event) {
+                if filter.event_matches(&event) && screen(&event).await {
                     output.insert(event);
                 }
             }
@@ -1780,7 +1790,10 @@ impl Storage {
         self.index_unindexed_giftwraps1().await
     }
 
-    pub(crate) fn get_highest_local_parent_event_id(&self, id: Id) -> Result<Option<Id>, Error> {
+    pub(crate) async fn get_highest_local_parent_event_id(
+        &self,
+        id: Id,
+    ) -> Result<Option<Id>, Error> {
         let event = match self.read_event(id)? {
             Some(event) => event,
             None => return Ok(None),
@@ -1788,11 +1801,14 @@ impl Storage {
 
         match event.replies_to() {
             Some(EventReference::Id { id: parent_id, .. }) => {
-                self.get_highest_local_parent_event_id(parent_id)
+                Box::pin(self.get_highest_local_parent_event_id(parent_id)).await
             }
             Some(EventReference::Addr(ea)) => {
-                match self.get_replaceable_event(ea.kind, ea.author, &ea.d)? {
-                    Some(event) => self.get_highest_local_parent_event_id(event.id),
+                match self
+                    .get_replaceable_event(ea.kind, ea.author, &ea.d)
+                    .await?
+                {
+                    Some(event) => Box::pin(self.get_highest_local_parent_event_id(event.id)).await,
                     None => Ok(Some(event.id)),
                 }
             }
@@ -2145,15 +2161,17 @@ impl Storage {
         let mut filter = Filter::new();
         filter.kinds = vec![EventKind::EncryptedDirectMessage, EventKind::GiftWrap];
 
-        let events = self.find_events_by_filter(&filter, |event| {
-            if event.kind == EventKind::EncryptedDirectMessage {
-                event.pubkey == my_pubkey || event.is_tagged(&my_pubkey)
-                // Make sure if it has tags, only author and my_pubkey
-                // TBD
-            } else {
-                event.kind == EventKind::GiftWrap
-            }
-        })?;
+        let events = self
+            .find_events_by_filter(&filter, async |event| {
+                if event.kind == EventKind::EncryptedDirectMessage {
+                    event.pubkey == my_pubkey || event.is_tagged(&my_pubkey)
+                    // Make sure if it has tags, only author and my_pubkey
+                    // TBD
+                } else {
+                    event.kind == EventKind::GiftWrap
+                }
+            })
+            .await?;
 
         // Map from channel to latest-message-time and unread-count
         let mut map: HashMap<DmChannel, DmChannelData> = HashMap::new();
@@ -2246,29 +2264,31 @@ impl Storage {
         let mut filter = Filter::new();
         filter.kinds = vec![EventKind::EncryptedDirectMessage, EventKind::GiftWrap];
 
-        let mut output: Vec<Event> = self.find_events_by_filter(&filter, |event| {
-            if let Some(event_dm_channel) = DmChannel::from_event(event, Some(my_pubkey)).await {
-                event_dm_channel == *channel
-            } else {
-                false
-            }
-        })?;
+        let mut output: Vec<Event> = self
+            .find_events_by_filter(&filter, async |event| {
+                if let Some(event_dm_channel) = DmChannel::from_event(event, Some(my_pubkey)).await
+                {
+                    event_dm_channel == *channel
+                } else {
+                    false
+                }
+            })
+            .await?;
 
         // Sort by rumor's time, not giftwrap's time
-        let mut sortable: Vec<(Unixtime, Event)> = output
-            .drain(..)
-            .map(|e| {
-                if e.kind == EventKind::GiftWrap {
-                    if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(&e).await {
-                        (rumor.created_at, e)
-                    } else {
-                        (e.created_at, e)
-                    }
+        let mut sortable: Vec<(Unixtime, Event)> = Vec::new();
+        for e in output.drain(..) {
+            let (cat, newe) = if e.kind == EventKind::GiftWrap {
+                if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(&e).await {
+                    (rumor.created_at, e)
                 } else {
                     (e.created_at, e)
                 }
-            })
-            .collect();
+            } else {
+                (e.created_at, e)
+            };
+            sortable.push((cat, newe));
+        }
 
         sortable.sort();
 

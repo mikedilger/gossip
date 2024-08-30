@@ -375,7 +375,8 @@ impl Feed {
                 // Potentially update thread parent to a higher parent
                 let maybe_tp = *self.thread_parent.read_arc();
                 if let Some(tp) = maybe_tp {
-                    if let Some(new_tp) = GLOBALS.db().get_highest_local_parent_event_id(tp)? {
+                    if let Some(new_tp) = GLOBALS.db().get_highest_local_parent_event_id(tp).await?
+                    {
                         if new_tp != tp {
                             *self.thread_parent.write_arc() = Some(new_tp);
                         }
@@ -430,8 +431,9 @@ impl Feed {
         let limit = GLOBALS.db().read_setting_load_more_count() as usize;
         let dismissed = GLOBALS.dismissed.read().await.clone();
 
-        let outer_screen =
-            |e: &Event| basic_screen(e, include_replies, include_dms, &dismissed) && screen(e);
+        let outer_screen = async |e: &Event| {
+            basic_screen(e, include_replies, include_dms, &dismissed) && screen(e)
+        };
 
         let mut before_filter = filter;
         let mut after_filter = before_filter.clone();
@@ -444,11 +446,13 @@ impl Feed {
 
         let events = GLOBALS
             .db()
-            .find_events_by_filter(&after_filter, outer_screen)?;
+            .find_events_by_filter(&after_filter, outer_screen)
+            .await?;
 
         let events2 = GLOBALS
             .db()
-            .find_events_by_filter(&before_filter, outer_screen)?;
+            .find_events_by_filter(&before_filter, outer_screen)
+            .await?;
 
         Ok(events
             .iter()
