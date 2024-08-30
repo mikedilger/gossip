@@ -936,12 +936,12 @@ impl Minion {
             .get(reqwest::header::CONTENT_TYPE)
             .and_then(|value| value.to_str().ok())
             .and_then(|value| value.parse::<Mime>().ok());
+        let full = response.bytes().await?;
         let encoding_name = content_type
             .as_ref()
             .and_then(|mime| mime.get_param("charset").map(|charset| charset.as_str()))
             .unwrap_or(default_encoding);
         let encoding = Encoding::for_label(encoding_name.as_bytes()).unwrap_or(UTF_8);
-        let full = response.bytes().await?;
         GLOBALS.bytes_read.fetch_add(full.len(), Ordering::Relaxed);
         let (text, _, _) = encoding.decode(&full);
         if let Cow::Owned(s) = text {
