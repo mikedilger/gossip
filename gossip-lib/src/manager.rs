@@ -102,7 +102,13 @@ async fn engage_minion_inner(url: RelayUrl, mut new_jobs: Vec<RelayJob>) -> Resu
 
     // Lock this URL
     let minion_lock = GLOBALS.minion_locks.get(&url).unwrap();
-    let _lockguard = minion_lock.lock().await;
+    let _lockguard = match minion_lock.try_lock() {
+        Ok(lg) => lg,
+        Err(_) => {
+            tracing::warn!("Lock contention on relay: {}", url);
+            minion_lock.lock().await
+        }
+    };
 
     let mut need_to_start = false;
     {
