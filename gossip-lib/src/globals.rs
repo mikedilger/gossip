@@ -68,6 +68,10 @@ pub struct Globals {
     /// All nostr people records currently loaded into memory, keyed by pubkey
     pub people: People,
 
+    /// These locks make sure that a minion is only being started by one thread at a
+    /// time (without holding an Entry open on `connected_relays`).
+    pub minion_locks: DashMap<RelayUrl, Arc<Mutex<()>>>,
+
     /// The relays currently connected to. It tracks the jobs that relay is assigned.
     /// As the minion completes jobs, code modifies this jobset, removing those completed
     /// jobs.
@@ -207,6 +211,7 @@ lazy_static! {
             read_runstate,
             tmp_overlord_receiver: Mutex::new(Some(tmp_overlord_receiver)),
             people: People::new(),
+            minion_locks: DashMap::new(),
             connected_relays: DashMap::new(),
             relay_picker: Default::default(),
             identity: GossipIdentity::default(),
