@@ -120,7 +120,7 @@ impl Overlord {
 
         // Listen on self.minions until it is empty
         use std::ops::DerefMut;
-        let mut minions = std::mem::take(GLOBALS.minions.write().deref_mut());
+        let mut minions = std::mem::take(GLOBALS.minions.write_arc().deref_mut());
         while !minions.is_empty() {
             tokio::select! {
                 _ = tokio::time::sleep(Duration::from_secs(10)) => {
@@ -214,7 +214,7 @@ impl Overlord {
                         // We do this only every so often because we cannot hog the
                         // GLOBALS.minions lock
                         let x = {
-                            let mut minions = GLOBALS.minions.write();
+                            let mut minions = GLOBALS.minions.write_arc();
                             if !minions.is_empty() {
                                 minions.try_join_next_with_id()
                             } else {

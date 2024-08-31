@@ -25,9 +25,9 @@ use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize};
 use std::sync::{Arc, OnceLock};
 use tokio::runtime::Runtime;
+use tokio::sync::{broadcast, mpsc, Mutex, Notify, RwLock};
 use watcher::Receiver as WatchReceiver;
 use watcher::Sender as WatchSender;
-use tokio::sync::{broadcast, mpsc, Mutex, Notify, RwLock};
 
 /// Global data shared between threads. Access via the static ref `GLOBALS`.
 pub struct Globals {
@@ -43,7 +43,7 @@ pub struct Globals {
     pub to_overlord: mpsc::UnboundedSender<ToOverlordMessage>,
 
     /// Current minion tasks
-    pub minions: PRwLock<tokio::task::JoinSet<Result<MinionExitReason, Error>>>,
+    pub minions: Arc<PRwLock<tokio::task::JoinSet<Result<MinionExitReason, Error>>>>,
 
     /// Map from minion task id to relay url
     pub minions_task_url: DashMap<tokio::task::Id, RelayUrl>,
@@ -201,7 +201,7 @@ lazy_static! {
             runtime: Arc::new(runtime),
             to_minions,
             to_overlord,
-            minions: PRwLock::new(tokio::task::JoinSet::new()),
+            minions: Arc::new(PRwLock::new(tokio::task::JoinSet::new())),
             minions_task_url: DashMap::new(),
             write_runstate,
             read_runstate,
