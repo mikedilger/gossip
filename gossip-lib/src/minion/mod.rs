@@ -89,6 +89,7 @@ pub struct Minion {
     failed_subs: HashSet<String>,
     loading_more: usize,
     subscriptions_empty_asof: Option<Unixtime>,
+    short_timeout: bool,
 }
 
 impl Drop for Minion {
@@ -100,7 +101,7 @@ impl Drop for Minion {
 }
 
 impl Minion {
-    pub async fn new(url: RelayUrl) -> Result<Minion, Error> {
+    pub async fn new(url: RelayUrl, short_timeout: bool) -> Result<Minion, Error> {
         let to_overlord = GLOBALS.to_overlord.clone();
         let from_overlord = GLOBALS.to_minions.subscribe();
         let dbrelay = GLOBALS.db().read_or_create_relay(&url, None)?;
@@ -110,7 +111,7 @@ impl Minion {
             return Err(ErrorKind::Offline.into());
         }
 
-        Ok(Minion {
+        let mut minion = Minion {
             url,
             to_overlord,
             from_overlord,
@@ -133,19 +134,21 @@ impl Minion {
             failed_subs: HashSet::new(),
             loading_more: 0,
             subscriptions_empty_asof: None,
-        })
+            short_timeout,
+        };
+
+        minion.connect().await?;
+
+        Ok(minion)
     }
 }
 
 impl Minion {
-    pub(crate) async fn connect(
-        &mut self,
-        short_timeout: bool
-    ) -> Result<(), Error> {
+    pub(crate) async fn connect(&mut self) -> Result<(), Error> {
         // minion will log when it connects
         tracing::trace!("{}: Minion connecting", &self.url);
 
-        let fetcher_timeout = if short_timeout {
+        let fetcher_timeout = if self.short_timeout {
             std::time::Duration::new(5, 0)
         } else {
             std::time::Duration::new(GLOBALS.db().read_setting_fetcher_timeout_sec(), 0)
@@ -213,7 +216,7 @@ impl Minion {
                 ..Default::default()
             };
 
-            let connect_timeout_secs = if short_timeout {
+            let connect_timeout_secs = if self.short_timeout {
                 5
             } else {
                 GLOBALS.db().read_setting_websocket_connect_timeout_sec()
@@ -259,24 +262,6 @@ impl Minion {
     ) -> Result<MinionExitReason, Error> {
         // minion will log when it connects
         tracing::trace!("{}: Minion handling started", &self.url);
-
-        // Possibly use a short timeout
-        let mut short_timeout = false;
-        for m in &messages {
-            // When advertising relay lists, use a short timeout
-            if matches!(m.detail, ToMinionPayloadDetail::AdvertiseRelayList(_, _)) {
-                short_timeout = true;
-            }
-        }
-
-        // Connect to the relay
-        if let Err(e) = self.connect(short_timeout).await {
-            if matches!(e.kind, ErrorKind::ShuttingDown) {
-                return Ok(MinionExitReason::GotShutdownMessage);
-            } else {
-                return Err(e);
-            }
-        }
 
         // Handle initial messages
         for message in messages.drain(..) {

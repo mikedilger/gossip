@@ -1,4 +1,4 @@
-use crate::comms::{RelayJob, ToMinionMessage};
+use crate::comms::{RelayJob, ToMinionMessage, ToMinionPayloadDetail};
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::minion::Minion;
@@ -118,7 +118,16 @@ async fn engage_minion_inner(url: RelayUrl, mut jobs: Vec<RelayJob>) -> Result<(
         }
     } else {
         // Start up the minion
-        let mut minion = Minion::new(url.clone()).await?;
+        // Possibly use a short timeout
+        let short_timeout = jobs.iter().any(|job| {
+            matches!(
+                job.payload.detail,
+                ToMinionPayloadDetail::AdvertiseRelayList(_, _)
+            )
+        });
+        let mut minion = Minion::new(url.clone(), short_timeout).await?;
+
+        // Handle jobs on minion
         let payloads = jobs.iter().map(|job| job.payload.clone()).collect();
         let abort_handle = GLOBALS
             .minions
