@@ -87,7 +87,6 @@ pub struct Minion {
     exiting: Option<MinionExitReason>,
     auth_state: AuthState,
     failed_subs: HashSet<String>,
-    initial_handling: bool,
     loading_more: usize,
     subscriptions_empty_asof: Option<Unixtime>,
 }
@@ -132,7 +131,6 @@ impl Minion {
             exiting: None,
             auth_state: AuthState::None,
             failed_subs: HashSet::new(),
-            initial_handling: true,
             loading_more: 0,
             subscriptions_empty_asof: None,
         })
@@ -271,17 +269,6 @@ impl Minion {
             }
         }
 
-        // Optimization:  before connecting to the relay, handle any 'loading_more' bumps
-        // that would happen after connecting to the relay.
-        for message in &messages {
-            if let ToMinionPayloadDetail::Subscribe(filter_set) = &message.detail {
-                if filter_set.is_loading_more() {
-                    self.loading_more += 1;
-                    let _ = GLOBALS.loading_more.fetch_add(1, Ordering::SeqCst);
-                }
-            }
-        }
-
         // Connect to the relay
         if let Err(e) = self.connect(short_timeout).await {
             if matches!(e.kind, ErrorKind::ShuttingDown) {
@@ -295,8 +282,6 @@ impl Minion {
         for message in messages.drain(..) {
             self.handle_overlord_message(message).await?;
         }
-
-        self.initial_handling = false;
 
         // Ping timer
         let mut ping_timer = tokio::time::interval(std::time::Duration::new(
@@ -620,7 +605,7 @@ impl Minion {
                 let handle = filter_set.handle(message.job_id);
 
                 // Bump loading more count
-                if !self.initial_handling && filter_set.is_loading_more() {
+                if filter_set.is_loading_more() {
                     self.loading_more += 1;
                     let _ = GLOBALS.loading_more.fetch_add(1, Ordering::SeqCst);
                 }
