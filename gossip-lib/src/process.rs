@@ -730,7 +730,7 @@ pub(crate) fn process_relationships_of_event<'a>(
                         .get_replaceable_event(EventKind::BookmarkList, pk, "")?
                 {
                     if newest_event == *event {
-                        *GLOBALS.bookmarks.write() = BookmarkList::from_event(event)?;
+                        *GLOBALS.bookmarks.write_arc() = BookmarkList::from_event(event)?;
                         GLOBALS.recompute_current_bookmarks.notify_one();
                     }
                 }

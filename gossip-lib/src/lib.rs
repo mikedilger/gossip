@@ -243,7 +243,7 @@ pub fn init(rapid: bool) -> Result<(), Error> {
                 .db()
                 .get_replaceable_event(EventKind::BookmarkList, pubkey, "")?
         {
-            *GLOBALS.bookmarks.write() = BookmarkList::from_event(&event)?;
+            *GLOBALS.bookmarks.write_arc() = BookmarkList::from_event(&event)?;
             GLOBALS.recompute_current_bookmarks.notify_one();
         }
     }
