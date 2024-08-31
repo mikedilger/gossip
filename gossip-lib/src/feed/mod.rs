@@ -10,6 +10,7 @@ use dashmap::DashMap;
 use nostr_types::{Event, EventKind, EventReference, Filter, Id, NAddr, PublicKey, Unixtime};
 use parking_lot::RwLock;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::task;
 
@@ -28,15 +29,15 @@ pub struct Feed {
     pub recompute_lock: AtomicBool,
     pub switching: AtomicBool,
 
-    current_feed_kind: RwLock<FeedKind>,
-    current_feed_events: RwLock<Vec<Id>>,
+    current_feed_kind: Arc<RwLock<FeedKind>>,
+    current_feed_events: Arc<RwLock<Vec<Id>>>,
     feed_anchors: DashMap<String, Unixtime>,
 
     // We only recompute the feed at specified intervals (or when they switch)
-    interval_ms: RwLock<u32>,
-    last_computed: RwLock<Option<Instant>>,
+    interval_ms: Arc<RwLock<u32>>,
+    last_computed: Arc<RwLock<Option<Instant>>>,
 
-    thread_parent: RwLock<Option<Id>>,
+    thread_parent: Arc<RwLock<Option<Id>>>,
 }
 
 impl Default for Feed {
@@ -50,12 +51,12 @@ impl Feed {
         Feed {
             recompute_lock: AtomicBool::new(false),
             switching: AtomicBool::new(false),
-            current_feed_kind: RwLock::new(FeedKind::List(PersonList::Followed, false)),
-            current_feed_events: RwLock::new(Vec::new()),
+            current_feed_kind: Arc::new(RwLock::new(FeedKind::List(PersonList::Followed, false))),
+            current_feed_events: Arc::new(RwLock::new(Vec::new())),
             feed_anchors: DashMap::new(),
-            interval_ms: RwLock::new(10000), // Every 10 seconds, until we load from settings
-            last_computed: RwLock::new(None),
-            thread_parent: RwLock::new(None),
+            interval_ms: Arc::new(RwLock::new(10000)), // Every 10 seconds, until we load from settings
+            last_computed: Arc::new(RwLock::new(None)),
+            thread_parent: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -64,9 +65,9 @@ impl Feed {
     //
     /// This doesn't deal with minion subscriptions.
     pub(crate) fn load_more(&self) -> Result<Unixtime, Error> {
-        let anchor_key = self.current_feed_kind.read().anchor_key();
+        let anchor_key = self.current_feed_kind.read_arc().anchor_key();
         // Load the timestamp of the earliest event in the feed so far
-        if let Some(earliest_id) = self.current_feed_events.read().iter().next_back() {
+        if let Some(earliest_id) = self.current_feed_events.read_arc().iter().next_back() {
             let earliest_event = GLOBALS.db().read_event(*earliest_id)?;
             if let Some(event) = earliest_event {
                 // Move the anchor back to the earliest event we have so far
@@ -85,7 +86,7 @@ impl Feed {
     }
 
     pub(crate) fn current_anchor(&self) -> Unixtime {
-        let anchor_key = self.current_feed_kind.read().anchor_key();
+        let anchor_key = self.current_feed_kind.read_arc().anchor_key();
         match self.feed_anchors.get(&anchor_key) {
             Some(r) => *r,
             None => Unixtime::now(),
@@ -93,7 +94,7 @@ impl Feed {
     }
 
     fn unlisten(&self) {
-        let feed_kind = self.current_feed_kind.read().to_owned();
+        let feed_kind = self.current_feed_kind.read_arc().to_owned();
 
         // If not in the Thread feed
         if !matches!(feed_kind, FeedKind::Thread { .. }) {
@@ -158,7 +159,7 @@ impl Feed {
         };
 
         // Reset the feed thread
-        *self.thread_parent.write() = if let FeedKind::Thread {
+        *self.thread_parent.write_arc() = if let FeedKind::Thread {
             id,
             referenced_by: _,
             author: _,
@@ -172,10 +173,10 @@ impl Feed {
         };
 
         // Set the feed kind
-        *self.current_feed_kind.write() = feed_kind;
+        *self.current_feed_kind.write_arc() = feed_kind;
 
         // Clear the feed before recomputing
-        *self.current_feed_events.write() = vec![];
+        *self.current_feed_events.write_arc() = vec![];
 
         // Recompute as they switch
         self.sync_recompute();
@@ -183,7 +184,7 @@ impl Feed {
         // Unlisten to the relays
         self.unlisten();
 
-        match &*self.current_feed_kind.read() {
+        match &*self.current_feed_kind.read_arc() {
             FeedKind::Thread {
                 id,
                 referenced_by,
@@ -219,26 +220,26 @@ impl Feed {
 
     /// Get the kind of the current feed
     pub fn get_feed_kind(&self) -> FeedKind {
-        self.current_feed_kind.read().to_owned()
+        self.current_feed_kind.read_arc().to_owned()
     }
 
     /// Read the followed feed
     pub fn get_feed_events(&self) -> Vec<Id> {
         self.sync_maybe_periodic_recompute();
-        self.current_feed_events.read().clone()
+        self.current_feed_events.read_arc().clone()
     }
 
     /// Get the parent of the current thread feed.
     /// The children should be recursively found via `GLOBALS.db().get_replies(id)`
     pub fn get_thread_parent(&self) -> Option<Id> {
         self.sync_maybe_periodic_recompute();
-        *self.thread_parent.read()
+        *self.thread_parent.read_arc()
     }
 
     /// When initially changing to the thread feed, the Overlord sets the thread
     /// parent to the highest locally available one (or the event if it is not local)
     pub(crate) fn set_thread_parent(&self, id: Id) {
-        *self.thread_parent.write() = Some(id);
+        *self.thread_parent.write_arc() = Some(id);
     }
 
     /// Are we switching feeds?
@@ -264,9 +265,9 @@ impl Feed {
         let now = Instant::now();
         let recompute = self
             .last_computed
-            .read()
+            .read_arc()
             .map(|last_computed| {
-                last_computed + Duration::from_millis(*self.interval_ms.read() as u64) < now
+                last_computed + Duration::from_millis(*self.interval_ms.read_arc() as u64) < now
             })
             .unwrap_or(true);
         if recompute {
@@ -299,11 +300,11 @@ impl Feed {
         // We only need to set this the first time, but has to be after
         // settings is loaded (can't be in new()).  Doing it every time is
         // ok because it is more reactive to changes to the setting.
-        *self.interval_ms.write() = feed_recompute_interval_ms;
+        *self.interval_ms.write_arc() = feed_recompute_interval_ms;
 
         let anchor: Unixtime = self.current_anchor();
 
-        let current_feed_kind = self.current_feed_kind.read().to_owned();
+        let current_feed_kind = self.current_feed_kind.read_arc().to_owned();
         match current_feed_kind {
             FeedKind::List(list, with_replies) => {
                 let filter = {
@@ -324,10 +325,10 @@ impl Feed {
                     Self::load_event_range(anchor, filter, with_replies, false, |_| true).await?
                 };
 
-                *self.current_feed_events.write() = events;
+                *self.current_feed_events.write_arc() = events;
             }
             FeedKind::Bookmarks => {
-                *self.current_feed_events.write() = GLOBALS.current_bookmarks.read().clone();
+                *self.current_feed_events.write_arc() = GLOBALS.current_bookmarks.read().clone();
             }
             FeedKind::Inbox(indirect) => {
                 if let Some(my_pubkey) = GLOBALS.identity.public_key() {
@@ -367,22 +368,22 @@ impl Feed {
 
                     let events =
                         Self::load_event_range(anchor, filter, true, false, screen).await?;
-                    *self.current_feed_events.write() = events;
+                    *self.current_feed_events.write_arc() = events;
                 }
             }
             FeedKind::Thread { .. } => {
                 // Potentially update thread parent to a higher parent
-                let maybe_tp = *self.thread_parent.read();
+                let maybe_tp = *self.thread_parent.read_arc();
                 if let Some(tp) = maybe_tp {
                     if let Some(new_tp) = GLOBALS.db().get_highest_local_parent_event_id(tp)? {
                         if new_tp != tp {
-                            *self.thread_parent.write() = Some(new_tp);
+                            *self.thread_parent.write_arc() = Some(new_tp);
                         }
                     }
                 }
 
                 // Thread recompute can be much faster, the above code is pretty cheap
-                *self.interval_ms.write() = 500;
+                *self.interval_ms.write_arc() = 500;
             }
             FeedKind::Person(person_pubkey) => {
                 let filter = {
@@ -394,21 +395,21 @@ impl Feed {
 
                 let events = Self::load_event_range(anchor, filter, true, false, |_| true).await?;
 
-                *self.current_feed_events.write() = events;
+                *self.current_feed_events.write_arc() = events;
             }
             FeedKind::DmChat(channel) => {
                 let ids = GLOBALS.db().dm_events(&channel)?;
-                *self.current_feed_events.write() = ids;
+                *self.current_feed_events.write_arc() = ids;
             }
             FeedKind::Global => {
                 let dismissed = GLOBALS.dismissed.read().await.clone();
                 let screen = |e: &Event| basic_screen(e, true, false, &dismissed);
                 let events = GLOBALS.db().load_volatile_events(screen);
-                *self.current_feed_events.write() = events.iter().map(|e| e.id).collect();
+                *self.current_feed_events.write_arc() = events.iter().map(|e| e.id).collect();
             }
         }
 
-        *self.last_computed.write() = Some(Instant::now());
+        *self.last_computed.write_arc() = Some(Instant::now());
         self.recompute_lock.store(false, Ordering::Relaxed);
         self.switching.store(false, Ordering::Relaxed);
 
