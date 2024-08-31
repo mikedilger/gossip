@@ -1,12 +1,10 @@
-use crate::comms::{RelayJob, ToMinionMessage, ToMinionPayloadDetail};
+use crate::comms::{RelayJob, ToMinionMessage};
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use crate::minion::Minion;
 use crate::pending::PendingItem;
 use dashmap::mapref::entry::Entry;
 use nostr_types::RelayUrl;
-use std::sync::Arc;
-use tokio::sync::Mutex;
 
 /// This is the main entry point for running a set of jobs on a set of relays.
 /// You specify the relays you prefer, in order of preferences, and the number
@@ -59,7 +57,7 @@ pub(crate) fn engage_minion(url: RelayUrl, jobs: Vec<RelayJob>) {
     }));
 }
 
-async fn engage_minion_inner(url: RelayUrl, mut new_jobs: Vec<RelayJob>) -> Result<(), Error> {
+async fn engage_minion_inner(url: RelayUrl, mut jobs: Vec<RelayJob>) -> Result<(), Error> {
     let relay = GLOBALS.db().read_or_create_relay(&url, None)?;
 
     if GLOBALS
@@ -73,7 +71,7 @@ async fn engage_minion_inner(url: RelayUrl, mut new_jobs: Vec<RelayJob>) -> Resu
                 // Save the engage_minion request and Ask the user
                 GLOBALS.pending.insert(PendingItem::RelayConnectionRequest {
                     relay: url.clone(),
-                    jobs: new_jobs.clone(),
+                    jobs: jobs.clone(),
                 });
                 return Err(ErrorKind::EngagePending.into());
             }
@@ -85,7 +83,7 @@ async fn engage_minion_inner(url: RelayUrl, mut new_jobs: Vec<RelayJob>) -> Resu
         return Err(ErrorKind::Offline.into());
     }
 
-    if new_jobs.is_empty() {
+    if jobs.is_empty() {
         return Err(ErrorKind::EmptyJob.into());
     }
 
@@ -94,66 +92,34 @@ async fn engage_minion_inner(url: RelayUrl, mut new_jobs: Vec<RelayJob>) -> Resu
         return Err(ErrorKind::EngageDisallowed.into());
     }
 
-    // Make sure there is a lock for this URL
-    GLOBALS
-        .minion_locks
-        .entry(url.clone())
-        .or_insert(Arc::new(Mutex::new(())));
+    let entry = GLOBALS.connected_relays.entry(url.clone());
 
-    // Lock this URL
-    let minion_lock = GLOBALS.minion_locks.get(&url).unwrap();
-    let _lockguard = match minion_lock.try_lock() {
-        Ok(lg) => lg,
-        Err(_) => {
-            tracing::warn!("Lock contention on relay: {}", url);
-            minion_lock.lock().await
-        }
-    };
+    if let Entry::Occupied(mut oe) = entry {
+        // We are already connected. Send it the jobs
+        for job in jobs.drain(..) {
+            let _ = GLOBALS.to_minions.send(ToMinionMessage {
+                target: url.as_str().to_owned(),
+                payload: job.payload.clone(),
+            });
 
-    let mut need_to_start = false;
-    {
-        let entry = GLOBALS.connected_relays.entry(url.clone());
-        if let Entry::Occupied(mut oe) = entry {
-            // We are already connected. Send it the jobs
-            for job in new_jobs.drain(..) {
-                let _ = GLOBALS.to_minions.send(ToMinionMessage {
-                    target: url.as_str().to_owned(),
-                    payload: job.payload.clone(),
-                });
+            let vec = oe.get_mut();
 
-                let vec = oe.get_mut();
-
-                // Record the job:
-                // If the relay already has a job of the same RelayConnectionReason
-                // and that reason is not persistent, then this job replaces that
-                // one (e.g. FetchAugments)
-                if !job.reason.persistent() {
-                    if let Some(pos) = vec.iter().position(|e| e.reason == job.reason) {
-                        vec[pos] = job;
-                        return Ok(());
-                    }
+            // Record the job:
+            // If the relay already has a job of the same RelayConnectionReason
+            // and that reason is not persistent, then this job replaces that
+            // one (e.g. FetchAugments)
+            if !job.reason.persistent() {
+                if let Some(pos) = vec.iter().position(|e| e.reason == job.reason) {
+                    vec[pos] = job;
+                    return Ok(());
                 }
-                vec.push(job);
             }
-        } else {
-            need_to_start = true;
-            // We don't start here while holding the dashmap entry open
+            vec.push(job);
         }
-    }
-
-    if need_to_start {
+    } else {
         // Start up the minion
-        // Possibly use a short timeout
-        let short_timeout = new_jobs.iter().any(|job| {
-            matches!(
-                job.payload.detail,
-                ToMinionPayloadDetail::AdvertiseRelayList(_, _)
-            )
-        });
-        let mut minion = Minion::new(url.clone(), short_timeout).await?;
-
-        // Handle jobs on minion
-        let payloads = new_jobs.iter().map(|job| job.payload.clone()).collect();
+        let mut minion = Minion::new(url.clone()).await?;
+        let payloads = jobs.iter().map(|job| job.payload.clone()).collect();
         let abort_handle = GLOBALS
             .minions
             .write_arc()
@@ -161,7 +127,7 @@ async fn engage_minion_inner(url: RelayUrl, mut new_jobs: Vec<RelayJob>) -> Resu
         let id = abort_handle.id();
         GLOBALS.minions_task_url.insert(id, url.clone());
 
-        GLOBALS.connected_relays.insert(url, new_jobs);
+        entry.insert(jobs);
     }
 
     Ok(())

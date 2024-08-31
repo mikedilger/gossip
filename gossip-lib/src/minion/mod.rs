@@ -87,9 +87,9 @@ pub struct Minion {
     exiting: Option<MinionExitReason>,
     auth_state: AuthState,
     failed_subs: HashSet<String>,
+    initial_handling: bool,
     loading_more: usize,
     subscriptions_empty_asof: Option<Unixtime>,
-    short_timeout: bool,
 }
 
 impl Drop for Minion {
@@ -101,7 +101,7 @@ impl Drop for Minion {
 }
 
 impl Minion {
-    pub async fn new(url: RelayUrl, short_timeout: bool) -> Result<Minion, Error> {
+    pub async fn new(url: RelayUrl) -> Result<Minion, Error> {
         let to_overlord = GLOBALS.to_overlord.clone();
         let from_overlord = GLOBALS.to_minions.subscribe();
         let dbrelay = GLOBALS.db().read_or_create_relay(&url, None)?;
@@ -111,7 +111,7 @@ impl Minion {
             return Err(ErrorKind::Offline.into());
         }
 
-        let mut minion = Minion {
+        Ok(Minion {
             url,
             to_overlord,
             from_overlord,
@@ -132,23 +132,42 @@ impl Minion {
             exiting: None,
             auth_state: AuthState::None,
             failed_subs: HashSet::new(),
+            initial_handling: true,
             loading_more: 0,
             subscriptions_empty_asof: None,
-            short_timeout,
-        };
-
-        minion.connect().await?;
-
-        Ok(minion)
+        })
     }
 }
 
 impl Minion {
-    pub(crate) async fn connect(&mut self) -> Result<(), Error> {
+    pub(crate) async fn handle(
+        &mut self,
+        mut messages: Vec<ToMinionPayload>,
+    ) -> Result<MinionExitReason, Error> {
         // minion will log when it connects
-        tracing::trace!("{}: Minion connecting", &self.url);
+        tracing::trace!("{}: Minion handling started", &self.url);
 
-        let fetcher_timeout = if self.short_timeout {
+        // Possibly use a short timeout
+        let mut short_timeout = false;
+        for m in &messages {
+            // When advertising relay lists, use a short timeout
+            if matches!(m.detail, ToMinionPayloadDetail::AdvertiseRelayList(_, _)) {
+                short_timeout = true;
+            }
+        }
+
+        // Optimization:  before connecting to the relay, handle any 'loading_more' bumps
+        // that would happen after connecting to the relay.
+        for message in &messages {
+            if let ToMinionPayloadDetail::Subscribe(filter_set) = &message.detail {
+                if filter_set.is_loading_more() {
+                    self.loading_more += 1;
+                    let _ = GLOBALS.loading_more.fetch_add(1, Ordering::SeqCst);
+                }
+            }
+        }
+
+        let fetcher_timeout = if short_timeout {
             std::time::Duration::new(5, 0)
         } else {
             std::time::Duration::new(GLOBALS.db().read_setting_fetcher_timeout_sec(), 0)
@@ -159,7 +178,13 @@ impl Minion {
             // Fetch NIP-11 data (if not fetched recently)
             if let Some(last_nip11) = self.dbrelay.last_attempt_nip11 {
                 if (last_nip11 as i64) + 3600 < Unixtime::now().0 {
-                    self.fetch_nip11(fetcher_timeout).await?;
+                    if let Err(e) = self.fetch_nip11(fetcher_timeout).await {
+                        if matches!(e.kind, ErrorKind::ShuttingDown) {
+                            return Ok(MinionExitReason::GotShutdownMessage);
+                        } else {
+                            return Err(e);
+                        }
+                    }
                 }
             }
 
@@ -216,7 +241,7 @@ impl Minion {
                 ..Default::default()
             };
 
-            let connect_timeout_secs = if self.short_timeout {
+            let connect_timeout_secs = if short_timeout {
                 5
             } else {
                 GLOBALS.db().read_setting_websocket_connect_timeout_sec()
@@ -231,7 +256,7 @@ impl Minion {
             let response;
             tokio::select! {
                 _ = self.read_runstate.wait_for(|runstate| !runstate.going_online()) => {
-                    return Err(ErrorKind::ShuttingDown.into());
+                    return Ok(MinionExitReason::GotShutdownMessage);
                 },
                 connect_result = connect_future => {
                     (websocket_stream, response) = connect_result??;
@@ -253,20 +278,12 @@ impl Minion {
         // Bump the success count for the relay
         self.bump_success_count(true).await;
 
-        Ok(())
-    }
-
-    pub(crate) async fn handle(
-        &mut self,
-        mut messages: Vec<ToMinionPayload>,
-    ) -> Result<MinionExitReason, Error> {
-        // minion will log when it connects
-        tracing::trace!("{}: Minion handling started", &self.url);
-
         // Handle initial messages
         for message in messages.drain(..) {
             self.handle_overlord_message(message).await?;
         }
+
+        self.initial_handling = false;
 
         // Ping timer
         let mut ping_timer = tokio::time::interval(std::time::Duration::new(
@@ -590,7 +607,7 @@ impl Minion {
                 let handle = filter_set.handle(message.job_id);
 
                 // Bump loading more count
-                if filter_set.is_loading_more() {
+                if !self.initial_handling && filter_set.is_loading_more() {
                     self.loading_more += 1;
                     let _ = GLOBALS.loading_more.fetch_add(1, Ordering::SeqCst);
                 }
