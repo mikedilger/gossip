@@ -442,18 +442,18 @@ impl Feed {
         after_filter.since = Some(since);
         after_filter.until = Some(now);
 
-        Ok(GLOBALS
+        let events = GLOBALS
             .db()
-            .find_events_by_filter(&after_filter, outer_screen)?
+            .find_events_by_filter(&after_filter, outer_screen)?;
+
+        let events2 = GLOBALS
+            .db()
+            .find_events_by_filter(&before_filter, outer_screen)?;
+
+        Ok(events
             .iter()
             .map(|e| e.id)
-            .chain(
-                GLOBALS
-                    .db()
-                    .find_events_by_filter(&before_filter, outer_screen)?
-                    .iter()
-                    .map(|e| e.id),
-            )
+            .chain(events2.iter().map(|e| e.id))
             .collect())
     }
 }
