@@ -46,7 +46,8 @@ pub fn process_new_event(
         let mut maxtime = now;
         maxtime.0 += GLOBALS.db().read_setting_future_allowance_secs() as i64;
         if let Err(e) = event.verify(Some(maxtime)) {
-            tracing::warn!("{}: VERIFY ERROR: {}", e, serde_json::to_string(&event)?);
+            // Don't print these, they clutter the console
+            tracing::debug!("{}: VERIFY ERROR: {}", e, serde_json::to_string(&event)?);
             return Ok(());
         }
     }
