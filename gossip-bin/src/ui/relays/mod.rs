@@ -295,58 +295,17 @@ pub(super) fn stop_entry_dialog(app: &mut GossipUi) {
 pub(super) fn entry_dialog(ctx: &Context, app: &mut GossipUi) {
     let dlg_size = vec2(ctx.screen_rect().width() * 0.66, 120.0);
 
-    egui::Area::new(Id::new("hide-background-area"))
-        .fixed_pos(ctx.screen_rect().left_top())
-        .movable(false)
-        .interactable(false)
-        .order(egui::Order::Middle)
-        .show(ctx, |ui| {
-            ui.painter().rect_filled(
-                ctx.screen_rect(),
-                egui::Rounding::same(0.0),
-                egui::Color32::from_rgba_unmultiplied(0, 0, 0, 80),
-            );
-        });
-
-    let id: Id = "relays-add-dialog".into();
-    let mut frame = egui::Frame::popup(&ctx.style());
-    let area = egui::Area::new(id)
-        .movable(false)
-        .interactable(true)
-        .order(egui::Order::Foreground)
-        .fixed_pos(ctx.screen_rect().center() - vec2(dlg_size.x / 2.0, dlg_size.y));
-    area.show(ctx, |ui| {
-        frame.fill = ui.visuals().extreme_bg_color;
-        frame.inner_margin = egui::Margin::symmetric(20.0, 10.0);
-        frame.show(ui, |ui| {
-            ui.set_min_size(dlg_size);
-            ui.set_max_size(dlg_size);
-
-            // ui.max_rect is inner_margin size
-            let tr = ui.max_rect().right_top();
-
-            ui.vertical(|ui| {
-                ui.horizontal(|ui| {
-                    ui.heading("Add a new relay");
-                    let rect = Rect::from_x_y_ranges(tr.x..=tr.x + 10.0, tr.y - 20.0..=tr.y - 10.0);
-                    ui.allocate_ui_at_rect(rect, |ui| {
-                        if ui
-                            .add_sized(rect.size(), super::widgets::NavItem::new("\u{274C}", false))
-                            .clicked()
-                        {
-                            stop_entry_dialog(app);
-                        }
-                    });
-                });
-
-                match app.relays.add_dialog_step {
-                    AddRelayDialogStep::Inactive => {}
-                    AddRelayDialogStep::Step1UrlEntry => entry_dialog_step1(ui, ctx, app),
-                    AddRelayDialogStep::Step2AwaitOverlord => entry_dialog_step2(ui, app),
-                }
-            });
-        });
+    let response = widgets::modal_popup(ctx, dlg_size, dlg_size, true, |ui| {
+        match app.relays.add_dialog_step {
+            AddRelayDialogStep::Inactive => {}
+            AddRelayDialogStep::Step1UrlEntry => entry_dialog_step1(ui, ctx, app),
+            AddRelayDialogStep::Step2AwaitOverlord => entry_dialog_step2(ui, app),
+        }
     });
+
+    if response.inner.clicked() || response.response.clicked_elsewhere() {
+        stop_entry_dialog(app);
+    }
 }
 
 fn entry_dialog_step1(ui: &mut Ui, ctx: &Context, app: &mut GossipUi) {
