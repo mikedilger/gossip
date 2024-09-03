@@ -3,7 +3,7 @@ use std::cmp::Ordering;
 use super::{widgets, GossipUi, Page};
 use eframe::egui;
 use egui::{Context, Ui};
-use egui_winit::egui::{vec2, Id, Rect, RichText};
+use egui_winit::egui::{vec2, Id, RichText};
 use gossip_lib::{comms::ToOverlordMessage, Relay, GLOBALS};
 use nostr_types::RelayUrl;
 

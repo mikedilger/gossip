@@ -5,7 +5,7 @@ use crate::ui::widgets;
 use crate::ui::Page;
 use eframe::egui;
 use egui::{Context, Ui};
-use egui_winit::egui::{Id, RichText};
+use egui_winit::egui::Id;
 use gossip_lib::Relay;
 use gossip_lib::GLOBALS;
 use nostr_types::RelayUrl;
@@ -23,11 +23,16 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         super::relay_sort_combo(app, ui);
         btn_h_space!(ui);
         widgets::TextEdit::search(&app.theme, &app.assets, &mut app.relays.search)
-            .desired_width(200.0)
+            .desired_width(150.0)
             .show(ui);
-        if ui
-            .button(RichText::new(Page::RelaysCoverage.name()))
-            .on_hover_cursor(egui::CursorIcon::PointingHand)
+        if widgets::Button::primary(&app.theme, "Add Relay")
+            .show(ui)
+            .clicked()
+        {
+            super::start_entry_dialog(app);
+        }
+        if widgets::Button::secondary(&app.theme, Page::RelaysCoverage.name())
+            .show(ui)
             .clicked()
         {
             app.set_page(ctx, crate::ui::Page::RelaysCoverage);

@@ -1139,21 +1139,6 @@ impl GossipUi {
             self.add_menu_item_page(ui, Page::RelaysActivityMonitor, None, true);
             self.add_menu_item_page(ui, Page::RelaysMine, None, true);
             self.add_menu_item_page(ui, Page::RelaysKnownNetwork(None), None, true);
-            ui.vertical(|ui| {
-                ui.spacing_mut().button_padding *= 2.0;
-                ui.visuals_mut().widgets.inactive.weak_bg_fill =
-                    self.theme.accent_color().linear_multiply(0.2);
-                ui.visuals_mut().widgets.inactive.fg_stroke.width = 1.0;
-                ui.visuals_mut().widgets.hovered.weak_bg_fill = self.theme.navigation_text_color();
-                ui.visuals_mut().widgets.hovered.fg_stroke.color = self.theme.accent_color();
-                if ui
-                    .button(RichText::new("Add Relay"))
-                    .on_hover_cursor(egui::CursorIcon::PointingHand)
-                    .clicked()
-                {
-                    relays::start_entry_dialog(self);
-                }
-            });
         });
         self.after_openable_menu(ui, &cstate);
     }
