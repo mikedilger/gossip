@@ -24,10 +24,8 @@ lazy_static! {
 
 /// The system that computes feeds as an ordered list of event Ids.
 pub struct Feed {
-    /// Consumers of gossip-lib should only read this, not write to it.
-    /// It will be true if the feed is being recomputed.
-    pub recompute_lock: AtomicBool,
-    pub switching: AtomicBool,
+    recompute_lock: AtomicBool,
+    switching: AtomicBool,
 
     current_feed_kind: Arc<RwLock<FeedKind>>,
     current_feed_events: Arc<RwLock<Vec<Id>>>,
@@ -138,6 +136,7 @@ impl Feed {
         }
     }
 
+    // NOTE: This is called by synchronous UI code, so it doesn't need to be re-entrant.
     pub fn switch_feed(&self, feed_kind: FeedKind) {
         // NOTE: do not clear the feed here, or the UI will get an empty feed momentarily
         // and the scroll bar "memory" will be reset to the top.  Let recompute rebuild
@@ -180,6 +179,8 @@ impl Feed {
 
         // Recompute as they switch
         self.sync_recompute();
+
+        self.switching.store(false, Ordering::Relaxed);
 
         // Unlisten to the relays
         self.unlisten();
@@ -294,17 +295,19 @@ impl Feed {
             return Ok(());
         }
 
-        // Copy some values from settings
-        let feed_recompute_interval_ms = GLOBALS.db().read_setting_feed_recompute_interval_ms();
+        let current_feed_kind = self.current_feed_kind.read_arc().to_owned();
 
+        // Update interval_ms
         // We only need to set this the first time, but has to be after
         // settings is loaded (can't be in new()).  Doing it every time is
         // ok because it is more reactive to changes to the setting.
-        *self.interval_ms.write_arc() = feed_recompute_interval_ms;
+        *self.interval_ms.write_arc() = match current_feed_kind {
+            FeedKind::Thread { .. } => 500,
+            _ => GLOBALS.db().read_setting_feed_recompute_interval_ms(),
+        };
 
         let anchor: Unixtime = self.current_anchor();
 
-        let current_feed_kind = self.current_feed_kind.read_arc().to_owned();
         match current_feed_kind {
             FeedKind::List(list, with_replies) => {
                 let filter = {
@@ -381,9 +384,6 @@ impl Feed {
                         }
                     }
                 }
-
-                // Thread recompute can be much faster, the above code is pretty cheap
-                *self.interval_ms.write_arc() = 500;
             }
             FeedKind::Person(person_pubkey) => {
                 let filter = {
@@ -411,7 +411,6 @@ impl Feed {
 
         *self.last_computed.write_arc() = Some(Instant::now());
         self.recompute_lock.store(false, Ordering::Relaxed);
-        self.switching.store(false, Ordering::Relaxed);
 
         Ok(())
     }
