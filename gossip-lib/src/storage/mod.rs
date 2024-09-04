@@ -42,6 +42,7 @@ mod person_relays1;
 mod person_relays2;
 mod relationships_by_addr1;
 mod relationships_by_addr2;
+mod relationships_by_addr3;
 mod relationships_by_id1;
 mod relationships_by_id2;
 mod relays1;
@@ -235,7 +236,7 @@ impl Storage {
 
     #[inline]
     pub(crate) fn db_relationships_by_addr(&self) -> Result<RawDatabase, Error> {
-        self.db_relationships_by_addr2()
+        self.db_relationships_by_addr3()
     }
 
     #[inline]
@@ -1834,7 +1835,7 @@ impl Storage {
         relationship_by_addr: RelationshipByAddr,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.write_relationship_by_addr2(addr, related, relationship_by_addr, rw_txn)
+        self.write_relationship_by_addr3(addr, related, relationship_by_addr, rw_txn)
     }
 
     /// Find relationships belonging to the given event to replaceable events
@@ -1843,7 +1844,7 @@ impl Storage {
         &self,
         addr: &NAddr,
     ) -> Result<Vec<(Id, RelationshipByAddr)>, Error> {
-        self.find_relationships_by_addr2(addr)
+        self.find_relationships_by_addr3(addr)
     }
 
     /// Get replies to the given event

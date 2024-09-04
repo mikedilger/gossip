@@ -795,17 +795,32 @@ pub(crate) fn process_relationships_of_event<'a>(
 
     // zaps
     if let Ok(Some(zapdata)) = event.zaps() {
-        GLOBALS.db().write_relationship_by_id(
-            zapdata.id,
-            event.id,
-            RelationshipById::Zaps {
-                by: event.pubkey,
-                amount: zapdata.amount,
+        match zapdata.zapped_event {
+            EventReference::Id { id, .. } => {
+                GLOBALS.db().write_relationship_by_id(
+                    id,
+                    event.id,
+                    RelationshipById::Zaps {
+                        by: zapdata.payer,
+                        amount: zapdata.amount,
+                    },
+                    Some(txn),
+                )?;
+                invalidate.push(id);
             },
-            Some(txn),
-        )?;
+            EventReference::Addr(naddr) => {
+                GLOBALS.db().write_relationship_by_addr(
+                    naddr,
+                    event.id,
+                    RelationshipByAddr::Zaps {
+                        by: zapdata.payer,
+                        amount: zapdata.amount,
+                    },
+                    Some(txn),
+                )?;
+            },
+        }
 
-        invalidate.push(zapdata.id);
     }
 
     // JobResult

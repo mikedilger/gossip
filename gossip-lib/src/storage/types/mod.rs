@@ -31,6 +31,9 @@ pub use relationship_by_addr1::RelationshipByAddr1;
 mod relationship_by_addr2;
 pub use relationship_by_addr2::RelationshipByAddr2;
 
+mod relationship_by_addr3;
+pub use relationship_by_addr3::RelationshipByAddr3;
+
 mod relationship_by_id1;
 pub use relationship_by_id1::RelationshipById1;
 
