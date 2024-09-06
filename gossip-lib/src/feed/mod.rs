@@ -174,13 +174,11 @@ impl Feed {
         // Set the feed kind
         *self.current_feed_kind.write_arc() = feed_kind;
 
-        // Clear the feed before recomputing
-        *self.current_feed_events.write_arc() = vec![];
-
         // Recompute as they switch
         self.sync_recompute();
 
-        self.switching.store(false, Ordering::Relaxed);
+        // NOTE: dont set switching to false here, the recompute is
+        // now in a tokio task and running separately from this thread.
 
         // Unlisten to the relays
         self.unlisten();
@@ -292,6 +290,7 @@ impl Feed {
         if self.recompute_lock.fetch_or(true, Ordering::Relaxed) {
             // If other process is already recomputing, just return as if
             // the recompute was successful.
+            self.switching.store(false, Ordering::Relaxed);
             return Ok(());
         }
 
@@ -411,6 +410,7 @@ impl Feed {
 
         *self.last_computed.write_arc() = Some(Instant::now());
         self.recompute_lock.store(false, Ordering::Relaxed);
+        self.switching.store(false, Ordering::Relaxed);
 
         Ok(())
     }
