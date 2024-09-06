@@ -48,8 +48,12 @@ impl From<RelationshipByAddr2> for RelationshipByAddr3 {
         match two {
             RelationshipByAddr2::RepliesTo => RelationshipByAddr3::RepliesTo,
             RelationshipByAddr2::Annotates => RelationshipByAddr3::Annotates,
-            RelationshipByAddr2::Deletes { by, reason } => RelationshipByAddr3::Deletes { by, reason },
-            RelationshipByAddr2::Labels { label, namespace } => RelationshipByAddr3::Labels { label, namespace },
+            RelationshipByAddr2::Deletes { by, reason } => {
+                RelationshipByAddr3::Deletes { by, reason }
+            }
+            RelationshipByAddr2::Labels { label, namespace } => {
+                RelationshipByAddr3::Labels { label, namespace }
+            }
             RelationshipByAddr2::Bookmarks => RelationshipByAddr3::Bookmarks,
             RelationshipByAddr2::Curates => RelationshipByAddr3::Curates,
             RelationshipByAddr2::ChatsWithin => RelationshipByAddr3::ChatsWithin,

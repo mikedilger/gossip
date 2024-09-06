@@ -807,7 +807,7 @@ pub(crate) fn process_relationships_of_event<'a>(
                     Some(txn),
                 )?;
                 invalidate.push(id);
-            },
+            }
             EventReference::Addr(naddr) => {
                 GLOBALS.db().write_relationship_by_addr(
                     naddr,
@@ -818,9 +818,8 @@ pub(crate) fn process_relationships_of_event<'a>(
                     },
                     Some(txn),
                 )?;
-            },
+            }
         }
-
     }
 
     // JobResult
