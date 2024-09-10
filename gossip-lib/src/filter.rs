@@ -116,7 +116,8 @@ fn filter(mut scope: Scope, id: Id) -> EventFilterAction {
     {
         Ok(action) => match action {
             0 => {
-                tracing::info!("SPAM FILTER BLOCKING EVENT {}", id.as_hex_string());
+                // This gets way too chatty
+                // tracing::info!("SPAM FILTER BLOCKING EVENT {}", id.as_hex_string());
                 EventFilterAction::Deny
             }
             1 => EventFilterAction::Allow,

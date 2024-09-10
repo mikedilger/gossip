@@ -99,13 +99,7 @@ pub fn process_new_event(
         match filter_result {
             None => {}
             Some(EventFilterAction::Allow) => {}
-            Some(EventFilterAction::Deny) => {
-                tracing::info!(
-                    "SPAM FILTER: Filtered out event {}",
-                    event.id.as_hex_string()
-                );
-                return Ok(());
-            }
+            Some(EventFilterAction::Deny) => return Ok(()),
             Some(EventFilterAction::MuteAuthor) => {
                 GLOBALS.people.mute(&event.pubkey, true, Private(false))?;
                 return Ok(());
