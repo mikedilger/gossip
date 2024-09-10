@@ -1887,6 +1887,21 @@ impl Storage {
             output.extend(self.get_non_replaceable_replies(*annotation)?);
         }
 
+        if self.read_setting_apply_spam_filter_on_threads() {
+            use crate::filter::{filter_event, EventFilterAction};
+            output.retain(|&id| {
+                if let Ok(Some(event)) = self.read_event(id) {
+                    let author = match PersonTable::read_record(event.pubkey, None) {
+                        Ok(a) => a,
+                        Err(_) => None,
+                    };
+                    filter_event(event.clone(), author) == EventFilterAction::Allow
+                } else {
+                    false
+                }
+            });
+        }
+
         Ok(output)
     }
 

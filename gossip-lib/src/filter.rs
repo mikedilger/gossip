@@ -5,7 +5,7 @@ use nostr_types::{Event, EventKind, Id, Rumor};
 use rhai::{Engine, Scope, AST};
 use std::fs;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum EventFilterAction {
     Deny,
     Allow,
