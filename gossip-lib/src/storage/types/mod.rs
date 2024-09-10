@@ -4,6 +4,9 @@ pub use person2::Person2;
 mod person3;
 pub use person3::Person3;
 
+mod person4;
+pub use person4::Person4;
+
 mod person_list1;
 pub use person_list1::PersonList1;
 

@@ -19,7 +19,7 @@ use tokio::sync::RwLock;
 use tokio::task;
 
 /// Person type, aliased to the latest version
-pub type Person = crate::storage::types::Person3;
+pub type Person = crate::storage::types::Person4;
 
 /// PersonList type, aliased to the latest version
 pub type PersonList = crate::storage::types::PersonList1;

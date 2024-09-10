@@ -14,7 +14,9 @@ pub use table::Table;
 // new tables
 pub mod person3_table;
 pub use person3_table::Person3Table;
-pub type PersonTable = Person3Table;
+pub mod person4_table;
+pub use person4_table::Person4Table;
+pub type PersonTable = Person4Table;
 
 // database implementations
 mod event_akci_index;
