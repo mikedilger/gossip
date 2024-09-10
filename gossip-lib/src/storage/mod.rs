@@ -791,6 +791,30 @@ impl Storage {
         bool,
         true
     );
+    def_setting!(
+        apply_spam_filter_on_incoming_events,
+        b"apply_spam_filter_on_incoming_events",
+        bool,
+        true
+    );
+    def_setting!(
+        apply_spam_filter_on_threads,
+        b"apply_spam_filter_on_threads",
+        bool,
+        false
+    );
+    def_setting!(
+        apply_spam_filter_on_inbox,
+        b"apply_spam_filter_on_inbox",
+        bool,
+        false
+    );
+    def_setting!(
+        apply_spam_filter_on_global,
+        b"apply_spam_filter_on_global",
+        bool,
+        false
+    );
 
     // -------------------------------------------------------------------
 
@@ -1861,6 +1885,21 @@ impl Storage {
         for annotation in annotation_children.iter() {
             // Extend with children of annotation
             output.extend(self.get_non_replaceable_replies(*annotation)?);
+        }
+
+        if self.read_setting_apply_spam_filter_on_threads() {
+            use crate::spam_filter::{filter_event, EventFilterAction};
+            output.retain(|&id| {
+                if let Ok(Some(event)) = self.read_event(id) {
+                    let author = match PersonTable::read_record(event.pubkey, None) {
+                        Ok(a) => a,
+                        Err(_) => None,
+                    };
+                    filter_event(event.clone(), author) == EventFilterAction::Allow
+                } else {
+                    false
+                }
+            });
         }
 
         Ok(output)

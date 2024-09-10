@@ -5,7 +5,7 @@ use nostr_types::{Event, EventKind, Id, Rumor};
 use rhai::{Engine, Scope, AST};
 use std::fs;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum EventFilterAction {
     Deny,
     Allow,
@@ -45,7 +45,7 @@ pub fn load_script(engine: &Engine) -> Option<AST> {
 }
 
 pub fn filter_rumor(rumor: Rumor, author: Option<Person>, id: Id) -> EventFilterAction {
-    if GLOBALS.filter.is_none() {
+    if GLOBALS.spam_filter.is_none() {
         return EventFilterAction::Allow;
     }
 
@@ -58,17 +58,24 @@ pub fn filter_rumor(rumor: Rumor, author: Option<Person>, id: Id) -> EventFilter
     scope.push("content", rumor.content.clone());
     scope.push(
         "nip05valid",
-        match author {
+        match &author {
             Some(a) => a.nip05_valid,
             None => false,
         },
     );
+    scope.push(
+        "name",
+        match &author {
+            Some(p) => p.best_name(),
+            None => "".to_owned(),
+        },
+    );
 
-    filter(scope, id)
+    filter(scope)
 }
 
 pub fn filter_event(event: Event, author: Option<Person>) -> EventFilterAction {
-    if GLOBALS.filter.is_none() {
+    if GLOBALS.spam_filter.is_none() {
         return EventFilterAction::Allow;
     }
 
@@ -81,30 +88,34 @@ pub fn filter_event(event: Event, author: Option<Person>) -> EventFilterAction {
     scope.push("content", event.content.clone());
     scope.push(
         "nip05valid",
-        match author {
+        match &author {
             Some(a) => a.nip05_valid,
             None => false,
         },
     );
+    scope.push(
+        "name",
+        match &author {
+            Some(p) => p.best_name(),
+            None => "".to_owned(),
+        },
+    );
 
-    filter(scope, event.id)
+    filter(scope)
 }
 
-fn filter(mut scope: Scope, id: Id) -> EventFilterAction {
-    let ast = match &GLOBALS.filter {
+fn filter(mut scope: Scope) -> EventFilterAction {
+    let ast = match &GLOBALS.spam_filter {
         Some(ast) => ast,
         None => return EventFilterAction::Allow,
     };
 
     match GLOBALS
-        .filter_engine
+        .spam_filter_engine
         .call_fn::<i64>(&mut scope, ast, "filter", ())
     {
         Ok(action) => match action {
-            0 => {
-                tracing::info!("SPAM FILTER BLOCKING EVENT {}", id.as_hex_string());
-                EventFilterAction::Deny
-            }
+            0 => EventFilterAction::Deny,
             1 => EventFilterAction::Allow,
             2 => EventFilterAction::MuteAuthor,
             _ => EventFilterAction::Allow,
