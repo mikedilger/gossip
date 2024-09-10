@@ -350,8 +350,27 @@ impl Feed {
                         filter
                     };
 
+                    let screen_spam = {
+                        if GLOBALS.db().read_setting_apply_spam_filter_on_inbox() {
+                            |event: &Event| {
+                                use crate::filter::{filter_event, EventFilterAction};
+                                use crate::storage::table::Table;
+                                use crate::PersonTable;
+
+                                let author = match PersonTable::read_record(event.pubkey, None) {
+                                    Ok(a) => a,
+                                    Err(_) => None,
+                                };
+                                filter_event(event.clone(), author) == EventFilterAction::Allow
+                            }
+                        } else {
+                            |_: &Event| true
+                        }
+                    };
+
                     let screen = |e: &Event| {
-                        e.pubkey != my_pubkey
+                        screen_spam(e)
+                            && e.pubkey != my_pubkey
                             && (indirect // don't screen further, keep all the 'p' tags
                                 || (
                                     // Either it is a direct reply
@@ -402,7 +421,27 @@ impl Feed {
             }
             FeedKind::Global => {
                 let dismissed = GLOBALS.dismissed.read().await.clone();
-                let screen = |e: &Event| basic_screen(e, true, false, &dismissed);
+
+                let screen_spam = {
+                    if GLOBALS.db().read_setting_apply_spam_filter_on_global() {
+                        |event: &Event| {
+                            use crate::filter::{filter_event, EventFilterAction};
+                            use crate::storage::table::Table;
+                            use crate::PersonTable;
+
+                            let author = match PersonTable::read_record(event.pubkey, None) {
+                                Ok(a) => a,
+                                Err(_) => None,
+                            };
+                            filter_event(event.clone(), author) == EventFilterAction::Allow
+                        }
+                    } else {
+                        |_: &Event| true
+                    }
+                };
+
+                let screen = |e: &Event| basic_screen(e, true, false, &dismissed) && screen_spam(e);
+
                 let events = GLOBALS.db().load_volatile_events(screen);
                 *self.current_feed_events.write_arc() = events.iter().map(|e| e.id).collect();
             }
