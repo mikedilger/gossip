@@ -59,11 +59,39 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     )
     .on_hover_text("Takes effect fully only on restart.");
 
+    ui.add_space(10.0);
+    ui.heading("Spam Settings");
+    ui.add_space(10.0);
+
     ui.checkbox(
         &mut app.unsaved_settings.avoid_spam_on_unsafe_relays,
         "Avoid spam from unsafe relays (SpamSafe)",
     )
         .on_hover_text("Unless a relay is marked as SpamSafe, replies and mentions will only be pulled from people you follow. Takes effect fully only on restart.");
+
+    ui.checkbox(
+        &mut app.unsaved_settings.apply_spam_filter_on_incoming_events,
+        "Apply spam filtering script to incoming events",
+    )
+        .on_hover_text("Your filter.rhai script (if it exists) will be run to filter out spam as events flow into gossip");
+
+    ui.checkbox(
+        &mut app.unsaved_settings.apply_spam_filter_on_threads,
+        "Apply spam filtering script to thread replies",
+    )
+        .on_hover_text("Your filter.rhai script (if it exists) will be run to filter out spam in thread replies");
+
+    ui.checkbox(
+        &mut app.unsaved_settings.apply_spam_filter_on_inbox,
+        "Apply spam filtering script to inbox",
+    )
+        .on_hover_text("Your filter.rhai script (if it exists) will be run to filter out spam in your inbox");
+
+    ui.checkbox(
+        &mut app.unsaved_settings.apply_spam_filter_on_global,
+        "Apply spam filtering script to the global feed",
+    )
+        .on_hover_text("Your filter.rhai script (if it exists) will be run to filter out spam in the global feed");
 
     ui.add_space(10.0);
     ui.heading("Event Content Settings");

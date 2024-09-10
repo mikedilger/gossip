@@ -791,6 +791,30 @@ impl Storage {
         bool,
         true
     );
+    def_setting!(
+        apply_spam_filter_on_incoming_events,
+        b"apply_spam_filter_on_incoming_events",
+        bool,
+        true
+    );
+    def_setting!(
+        apply_spam_filter_on_threads,
+        b"apply_spam_filter_on_threads",
+        bool,
+        false
+    );
+    def_setting!(
+        apply_spam_filter_on_inbox,
+        b"apply_spam_filter_on_inbox",
+        bool,
+        false
+    );
+    def_setting!(
+        apply_spam_filter_on_global,
+        b"apply_spam_filter_on_global",
+        bool,
+        false
+    );
 
     // -------------------------------------------------------------------
 
