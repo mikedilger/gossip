@@ -789,7 +789,7 @@ impl Storage {
         avoid_spam_on_unsafe_relays,
         b"avoid_spam_on_unsafe_relays",
         bool,
-        false
+        true
     );
 
     // -------------------------------------------------------------------
