@@ -67,8 +67,8 @@ pub fn filter_rumor(rumor: Rumor, author: Option<Person>, id: Id) -> EventFilter
         "name",
         match &author {
             Some(p) => p.best_name(),
-            None => "".to_owned()
-        }
+            None => "".to_owned(),
+        },
     );
 
     filter(scope, id)
@@ -97,8 +97,8 @@ pub fn filter_event(event: Event, author: Option<Person>) -> EventFilterAction {
         "name",
         match &author {
             Some(p) => p.best_name(),
-            None => "".to_owned()
-        }
+            None => "".to_owned(),
+        },
     );
 
     filter(scope, event.id)

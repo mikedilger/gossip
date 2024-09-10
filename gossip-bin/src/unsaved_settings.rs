@@ -157,7 +157,9 @@ impl Default for UnsavedSettings {
             approve_content_warning: default_setting!(approve_content_warning),
             show_deleted_events: default_setting!(show_deleted_events),
             avoid_spam_on_unsafe_relays: default_setting!(avoid_spam_on_unsafe_relays),
-            apply_spam_filter_on_incoming_events: default_setting!(apply_spam_filter_on_incoming_events),
+            apply_spam_filter_on_incoming_events: default_setting!(
+                apply_spam_filter_on_incoming_events
+            ),
             apply_spam_filter_on_threads: default_setting!(apply_spam_filter_on_threads),
             apply_spam_filter_on_inbox: default_setting!(apply_spam_filter_on_inbox),
             apply_spam_filter_on_global: default_setting!(apply_spam_filter_on_global),
@@ -243,7 +245,9 @@ impl UnsavedSettings {
             approve_content_warning: load_setting!(approve_content_warning),
             show_deleted_events: load_setting!(show_deleted_events),
             avoid_spam_on_unsafe_relays: load_setting!(avoid_spam_on_unsafe_relays),
-            apply_spam_filter_on_incoming_events: load_setting!(apply_spam_filter_on_incoming_events),
+            apply_spam_filter_on_incoming_events: load_setting!(
+                apply_spam_filter_on_incoming_events
+            ),
             apply_spam_filter_on_threads: load_setting!(apply_spam_filter_on_threads),
             apply_spam_filter_on_inbox: load_setting!(apply_spam_filter_on_inbox),
             apply_spam_filter_on_global: load_setting!(apply_spam_filter_on_global),

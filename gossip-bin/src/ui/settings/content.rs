@@ -79,19 +79,25 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         &mut app.unsaved_settings.apply_spam_filter_on_threads,
         "Apply spam filtering script to thread replies",
     )
-        .on_hover_text("Your filter.rhai script (if it exists) will be run to filter out spam in thread replies");
+    .on_hover_text(
+        "Your filter.rhai script (if it exists) will be run to filter out spam in thread replies",
+    );
 
     ui.checkbox(
         &mut app.unsaved_settings.apply_spam_filter_on_inbox,
         "Apply spam filtering script to inbox",
     )
-        .on_hover_text("Your filter.rhai script (if it exists) will be run to filter out spam in your inbox");
+    .on_hover_text(
+        "Your filter.rhai script (if it exists) will be run to filter out spam in your inbox",
+    );
 
     ui.checkbox(
         &mut app.unsaved_settings.apply_spam_filter_on_global,
         "Apply spam filtering script to the global feed",
     )
-        .on_hover_text("Your filter.rhai script (if it exists) will be run to filter out spam in the global feed");
+    .on_hover_text(
+        "Your filter.rhai script (if it exists) will be run to filter out spam in the global feed",
+    );
 
     ui.add_space(10.0);
     ui.heading("Event Content Settings");

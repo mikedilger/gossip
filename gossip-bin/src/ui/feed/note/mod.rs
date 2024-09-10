@@ -1535,7 +1535,9 @@ fn note_actions(
         )));
 
         items.push(MoreMenuItem::SubMenu(MoreMenuSubMenu::new(
-            "Copy event ID", copy_items, &menu,
+            "Copy event ID",
+            copy_items,
+            &menu,
         )));
     } // end Copy ID SubMenu
 
