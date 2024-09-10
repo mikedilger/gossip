@@ -639,7 +639,13 @@ impl Overlord {
                 self.follow_nprofile(nprofile, list, private).await?;
             }
             ToOverlordMessage::GeneratePrivateKey(password) => {
-                Self::generate_private_key(password).await?;
+                if let Err(e) = Self::generate_private_key(password).await {
+                    let _ = GLOBALS.identity.delete_identity();
+                    GLOBALS
+                        .status_queue
+                        .write()
+                        .write(format!("{}", e));
+                }
             }
             ToOverlordMessage::HideOrShowRelay(relay_url, hidden) => {
                 Self::hide_or_show_relay(relay_url, hidden)?;
