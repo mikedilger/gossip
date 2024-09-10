@@ -1888,14 +1888,10 @@ impl Storage {
         }
 
         if self.read_setting_apply_spam_filter_on_threads() {
-            use crate::spam_filter::{filter_event, EventFilterAction};
             output.retain(|&id| {
                 if let Ok(Some(event)) = self.read_event(id) {
-                    let author = match PersonTable::read_record(event.pubkey, None) {
-                        Ok(a) => a,
-                        Err(_) => None,
-                    };
-                    filter_event(event.clone(), author) == EventFilterAction::Allow
+                    use crate::spam_filter::{filter_event, EventFilterAction};
+                    filter_event(event.clone()) == EventFilterAction::Allow
                 } else {
                     false
                 }

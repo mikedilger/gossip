@@ -1,7 +1,8 @@
 use crate::globals::GLOBALS;
-use crate::people::Person;
+use crate::people::PersonList;
 use crate::profile::Profile;
-use nostr_types::{Event, EventKind, Id, Rumor};
+use crate::storage::{PersonTable, Table};
+use nostr_types::{Event, EventKind, Id, PublicKey};
 use rhai::{Engine, Scope, AST};
 use std::fs;
 
@@ -44,18 +45,46 @@ pub fn load_script(engine: &Engine) -> Option<AST> {
     Some(ast)
 }
 
-pub fn filter_rumor(rumor: Rumor, author: Option<Person>, id: Id) -> EventFilterAction {
+pub fn filter_event(event: Event) -> EventFilterAction {
     if GLOBALS.spam_filter.is_none() {
+        EventFilterAction::Allow
+    } else if event.kind == EventKind::GiftWrap {
+        if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(&event) {
+            // id from giftwrap, the rest from rumor
+            inner_filter(event.id, rumor.pubkey, rumor.kind, rumor.content)
+        } else {
+            EventFilterAction::Allow
+        }
+    } else {
+        inner_filter(event.id, event.pubkey, event.kind, event.content)
+    }
+}
+
+fn inner_filter(id: Id, pubkey: PublicKey, kind: EventKind, content: String) -> EventFilterAction {
+    // Only apply to feed-displayable events
+    if !kind.is_feed_displayable() {
+        return EventFilterAction::Allow;
+    }
+
+    let author = match PersonTable::read_record(pubkey, None) {
+        Ok(a) => a,
+        Err(_) => None,
+    };
+
+    // Do not apply to people you follow
+    if GLOBALS
+        .people
+        .is_person_in_list(&pubkey, PersonList::Followed)
+    {
         return EventFilterAction::Allow;
     }
 
     let mut scope = Scope::new();
-
-    scope.push("id", id.as_hex_string()); // ID of the gift wrap
-    scope.push("pubkey", rumor.pubkey.as_hex_string());
-    scope.push("kind", <EventKind as Into<u32>>::into(rumor.kind));
-    // FIXME tags
-    scope.push("content", rumor.content.clone());
+    scope.push("id", id.as_hex_string());
+    scope.push("pubkey", pubkey.as_hex_string());
+    scope.push("kind", <EventKind as Into<u32>>::into(kind));
+    // TBD: tags
+    scope.push("content", content);
     scope.push(
         "nip05valid",
         match &author {
@@ -71,40 +100,10 @@ pub fn filter_rumor(rumor: Rumor, author: Option<Person>, id: Id) -> EventFilter
         },
     );
 
-    filter(scope)
+    filter_with_script(scope)
 }
 
-pub fn filter_event(event: Event, author: Option<Person>) -> EventFilterAction {
-    if GLOBALS.spam_filter.is_none() {
-        return EventFilterAction::Allow;
-    }
-
-    let mut scope = Scope::new();
-
-    scope.push("id", event.id.as_hex_string());
-    scope.push("pubkey", event.pubkey.as_hex_string());
-    scope.push("kind", <EventKind as Into<u32>>::into(event.kind));
-    // FIXME tags
-    scope.push("content", event.content.clone());
-    scope.push(
-        "nip05valid",
-        match &author {
-            Some(a) => a.nip05_valid,
-            None => false,
-        },
-    );
-    scope.push(
-        "name",
-        match &author {
-            Some(p) => p.best_name(),
-            None => "".to_owned(),
-        },
-    );
-
-    filter(scope)
-}
-
-fn filter(mut scope: Scope) -> EventFilterAction {
+fn filter_with_script(mut scope: Scope) -> EventFilterAction {
     let ast = match &GLOBALS.spam_filter {
         Some(ast) => ast,
         None => return EventFilterAction::Allow,
@@ -126,5 +125,3 @@ fn filter(mut scope: Scope) -> EventFilterAction {
         }
     }
 }
-
-// Only call the filter if the author isn't followed

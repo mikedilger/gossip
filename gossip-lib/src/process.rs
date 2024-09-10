@@ -80,35 +80,13 @@ pub fn process_new_event(
         .read_setting_apply_spam_filter_on_incoming_events()
     {
         use crate::spam_filter::EventFilterAction;
-
-        // Spam filter (displayable and author is not followed)
-        if (event.kind.is_feed_displayable() || event.kind == EventKind::GiftWrap)
-            && !GLOBALS
-                .people
-                .is_person_in_list(&event.pubkey, PersonList::Followed)
-        {
-            let filter_result = {
-                if event.kind == EventKind::GiftWrap {
-                    if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(event) {
-                        let author = PersonTable::read_record(rumor.pubkey, None)?;
-                        Some(crate::spam_filter::filter_rumor(rumor, author, event.id))
-                    } else {
-                        None
-                    }
-                } else {
-                    let author = PersonTable::read_record(event.pubkey, None)?;
-                    Some(crate::spam_filter::filter_event(event.clone(), author))
-                }
-            };
-
-            match filter_result {
-                None => {}
-                Some(EventFilterAction::Allow) => {}
-                Some(EventFilterAction::Deny) => return Ok(()),
-                Some(EventFilterAction::MuteAuthor) => {
-                    GLOBALS.people.mute(&event.pubkey, true, Private(false))?;
-                    return Ok(());
-                }
+        let filter_result = crate::spam_filter::filter_event(event.clone());
+        match filter_result {
+            EventFilterAction::Allow => {}
+            EventFilterAction::Deny => return Ok(()),
+            EventFilterAction::MuteAuthor => {
+                GLOBALS.people.mute(&event.pubkey, true, Private(false))?;
+                return Ok(());
             }
         }
     }
