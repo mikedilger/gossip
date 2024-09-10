@@ -640,11 +640,11 @@ impl Overlord {
             }
             ToOverlordMessage::GeneratePrivateKey(password) => {
                 if let Err(e) = Self::generate_private_key(password).await {
-                    let _ = GLOBALS.identity.delete_identity();
-                    GLOBALS
-                        .status_queue
-                        .write()
-                        .write(format!("{}", e));
+                    if let Err(e2) = GLOBALS.identity.delete_identity() {
+                        panic!("{}\n{}", e, e2);
+                    }
+
+                    GLOBALS.status_queue.write().write(format!("{}", e));
                 }
             }
             ToOverlordMessage::HideOrShowRelay(relay_url, hidden) => {
