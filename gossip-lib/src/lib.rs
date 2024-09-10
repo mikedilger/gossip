@@ -88,8 +88,6 @@ pub use feed::{Feed, FeedKind};
 mod fetcher;
 pub use fetcher::Fetcher;
 
-mod filter;
-
 mod filter_set;
 
 mod globals;
@@ -149,6 +147,8 @@ pub use relay_picker::RelayPicker;
 
 mod seeker;
 pub use seeker::Seeker;
+
+mod spam_filter;
 
 mod status;
 pub use status::StatusQueue;

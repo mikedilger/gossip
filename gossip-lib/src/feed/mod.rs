@@ -353,7 +353,7 @@ impl Feed {
                     let screen_spam = {
                         if GLOBALS.db().read_setting_apply_spam_filter_on_inbox() {
                             |event: &Event| {
-                                use crate::filter::{filter_event, EventFilterAction};
+                                use crate::spam_filter::{filter_event, EventFilterAction};
                                 use crate::storage::table::Table;
                                 use crate::PersonTable;
 
@@ -425,7 +425,7 @@ impl Feed {
                 let screen_spam = {
                     if GLOBALS.db().read_setting_apply_spam_filter_on_global() {
                         |event: &Event| {
-                            use crate::filter::{filter_event, EventFilterAction};
+                            use crate::spam_filter::{filter_event, EventFilterAction};
                             use crate::storage::table::Table;
                             use crate::PersonTable;
 

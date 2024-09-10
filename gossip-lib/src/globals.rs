@@ -152,8 +152,8 @@ pub struct Globals {
     pub events_processed: AtomicU32,
 
     /// Filter
-    pub(crate) filter_engine: Engine,
-    pub(crate) filter: Option<AST>,
+    pub(crate) spam_filter_engine: Engine,
+    pub(crate) spam_filter: Option<AST>,
 
     // Wait for login
     pub wait_for_login: AtomicBool,
@@ -194,8 +194,8 @@ lazy_static! {
         // We start in the Offline state
         let (write_runstate, read_runstate) = watcher::channel(RunState::Initializing);
 
-        let filter_engine = Engine::new();
-        let filter = crate::filter::load_script(&filter_engine);
+        let spam_filter_engine = Engine::new();
+        let spam_filter = crate::spam_filter::load_script(&spam_filter_engine);
 
         Globals {
             runtime: Arc::new(runtime),
@@ -237,8 +237,8 @@ lazy_static! {
             tagging_regex: Regex::new(r"(?:^|\s+)@([\w\p{Extended_Pictographic}]+)(?:$|\W)").unwrap(),
             storage: OnceLock::new(),
             events_processed: AtomicU32::new(0),
-            filter_engine,
-            filter,
+            spam_filter_engine,
+            spam_filter,
             wait_for_login: AtomicBool::new(false),
             wait_for_login_notify: Notify::new(),
             wait_for_data_migration: AtomicBool::new(false),

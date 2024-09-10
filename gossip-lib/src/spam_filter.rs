@@ -45,7 +45,7 @@ pub fn load_script(engine: &Engine) -> Option<AST> {
 }
 
 pub fn filter_rumor(rumor: Rumor, author: Option<Person>, id: Id) -> EventFilterAction {
-    if GLOBALS.filter.is_none() {
+    if GLOBALS.spam_filter.is_none() {
         return EventFilterAction::Allow;
     }
 
@@ -75,7 +75,7 @@ pub fn filter_rumor(rumor: Rumor, author: Option<Person>, id: Id) -> EventFilter
 }
 
 pub fn filter_event(event: Event, author: Option<Person>) -> EventFilterAction {
-    if GLOBALS.filter.is_none() {
+    if GLOBALS.spam_filter.is_none() {
         return EventFilterAction::Allow;
     }
 
@@ -105,13 +105,13 @@ pub fn filter_event(event: Event, author: Option<Person>) -> EventFilterAction {
 }
 
 fn filter(mut scope: Scope) -> EventFilterAction {
-    let ast = match &GLOBALS.filter {
+    let ast = match &GLOBALS.spam_filter {
         Some(ast) => ast,
         None => return EventFilterAction::Allow,
     };
 
     match GLOBALS
-        .filter_engine
+        .spam_filter_engine
         .call_fn::<i64>(&mut scope, ast, "filter", ())
     {
         Ok(action) => match action {
