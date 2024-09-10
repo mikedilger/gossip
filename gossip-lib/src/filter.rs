@@ -71,7 +71,7 @@ pub fn filter_rumor(rumor: Rumor, author: Option<Person>, id: Id) -> EventFilter
         },
     );
 
-    filter(scope, id)
+    filter(scope)
 }
 
 pub fn filter_event(event: Event, author: Option<Person>) -> EventFilterAction {
@@ -101,10 +101,10 @@ pub fn filter_event(event: Event, author: Option<Person>) -> EventFilterAction {
         },
     );
 
-    filter(scope, event.id)
+    filter(scope)
 }
 
-fn filter(mut scope: Scope, id: Id) -> EventFilterAction {
+fn filter(mut scope: Scope) -> EventFilterAction {
     let ast = match &GLOBALS.filter {
         Some(ast) => ast,
         None => return EventFilterAction::Allow,
@@ -115,11 +115,7 @@ fn filter(mut scope: Scope, id: Id) -> EventFilterAction {
         .call_fn::<i64>(&mut scope, ast, "filter", ())
     {
         Ok(action) => match action {
-            0 => {
-                // This gets way too chatty
-                // tracing::info!("SPAM FILTER BLOCKING EVENT {}", id.as_hex_string());
-                EventFilterAction::Deny
-            }
+            0 => EventFilterAction::Deny,
             1 => EventFilterAction::Allow,
             2 => EventFilterAction::MuteAuthor,
             _ => EventFilterAction::Allow,
