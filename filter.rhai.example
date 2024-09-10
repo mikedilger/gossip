@@ -24,6 +24,7 @@
 // Your script will be provided the following global variables:
 //   'id' - the event ID, as a hex string
 //   'pubkey' - the event author public key, as a hex string
+//   'name' - if we have it, the name of the author (or your petname)
 //   'kind' - the event kind as an integer
 //   'content' - the event content as a string
 //   'nip05valid' - whether nip05 is valid for the author, as a boolean
@@ -32,16 +33,21 @@
 // how we can make spam filtering more effective.
 
 fn filter() {
-  // Mute these spammers
   if content.to_lower().contains("airdrop") {
     2
   }
-
-  // Block these events, I'm sick of talking about Ukraine
-  else if content.to_lower().contains("ukraine") {
+  else if name.contains("ReplyGuy") {
     0
   }
-
+  else if name.contains("ReplyGal") {
+    0
+  }
+  else if content.to_lower().contains("kike ") {
+    0
+  }
+  else if content.to_lower().contains(" kike") {
+    0
+  }
   else {
     1
   }

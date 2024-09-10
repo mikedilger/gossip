@@ -58,10 +58,17 @@ pub fn filter_rumor(rumor: Rumor, author: Option<Person>, id: Id) -> EventFilter
     scope.push("content", rumor.content.clone());
     scope.push(
         "nip05valid",
-        match author {
+        match &author {
             Some(a) => a.nip05_valid,
             None => false,
         },
+    );
+    scope.push(
+        "name",
+        match &author {
+            Some(p) => p.best_name(),
+            None => "".to_owned()
+        }
     );
 
     filter(scope, id)
@@ -81,10 +88,17 @@ pub fn filter_event(event: Event, author: Option<Person>) -> EventFilterAction {
     scope.push("content", event.content.clone());
     scope.push(
         "nip05valid",
-        match author {
+        match &author {
             Some(a) => a.nip05_valid,
             None => false,
         },
+    );
+    scope.push(
+        "name",
+        match &author {
+            Some(p) => p.best_name(),
+            None => "".to_owned()
+        }
     );
 
     filter(scope, event.id)
