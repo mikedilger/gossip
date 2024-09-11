@@ -1116,7 +1116,8 @@ fn render_content(
             .outer_margin(content_outer_margin)
             .show(ui, |ui| {
                 ui.horizontal_wrapped(|ui| {
-                    if note.muted() {
+                    let feed_kind = GLOBALS.feed.get_feed_kind();
+                    if note.muted() && !matches!(feed_kind, FeedKind::Person(_)) {
                         let color = app.theme.notice_marker_text_color();
                         ui.label(
                             RichText::new("MUTED")
