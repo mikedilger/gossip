@@ -53,12 +53,22 @@ impl Storage {
         Ok(())
     }
 
-    fn m41_earliest_event_created_at(&self, author: PublicKey, txn: &RoTxn<'_>) -> Result<Unixtime, Error> {
+    fn m41_earliest_event_created_at(
+        &self,
+        author: PublicKey,
+        txn: &RoTxn<'_>,
+    ) -> Result<Unixtime, Error> {
         let mut oldest: Unixtime = Unixtime::now();
 
         let iter = {
-            let start_prefix = AkciKey::from_parts(author, EventKind::Metadata, Unixtime(i64::MAX), Id([0; 32]));
-            let end_prefix = AkciKey::from_parts(author, EventKind::Other(u32::MAX), Unixtime(0), Id([255; 32]));
+            let start_prefix =
+                AkciKey::from_parts(author, EventKind::Metadata, Unixtime(i64::MAX), Id([0; 32]));
+            let end_prefix = AkciKey::from_parts(
+                author,
+                EventKind::Other(u32::MAX),
+                Unixtime(0),
+                Id([255; 32]),
+            );
             let range = (
                 Bound::Included(start_prefix.as_slice()),
                 Bound::Excluded(end_prefix.as_slice()),
