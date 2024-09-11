@@ -254,4 +254,49 @@ pub trait Table {
 
         Ok(())
     }
+
+    fn iter<'a>(txn: &'a RoTxn<'a>) -> Result<TableIterator<'a, Self::Item>, Error> {
+        Ok(TableIterator {
+            inner: Self::db()?.iter(txn)?,
+            phantom: std::marker::PhantomData,
+        })
+    }
+
+    fn clear(rw_txn: Option<&mut RwTxn<'_>>) -> Result<(), Error> {
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(GLOBALS.db(), rw_txn, local_txn);
+
+        Self::db()?.clear(txn)?;
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
+    }
+}
+
+pub struct TableIterator<'a, I: ByteRep> {
+    inner: heed::RoIter<'a, Bytes, Bytes>,
+    phantom: std::marker::PhantomData<I>,
+}
+
+impl<'a, I: ByteRep> Iterator for TableIterator<'a, I> {
+    type Item = I;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.inner.next() {
+            None => None,
+            Some(result) => {
+                if result.is_err() {
+                    None
+                } else {
+                    let (_keybytes, valbytes) = result.unwrap();
+                    if let Ok(record) = I::from_bytes(valbytes) {
+                        Some(record)
+                    } else {
+                        None
+                    }
+                }
+            }
+        }
+    }
 }
