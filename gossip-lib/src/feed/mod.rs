@@ -353,8 +353,11 @@ impl Feed {
                     let screen_spam = {
                         if GLOBALS.db().read_setting_apply_spam_filter_on_inbox() {
                             |event: &Event| {
-                                use crate::spam_filter::{filter_event, EventFilterAction};
-                                filter_event(event.clone()) == EventFilterAction::Allow
+                                use crate::spam_filter::{
+                                    filter_event, EventFilterAction, EventFilterCaller,
+                                };
+                                filter_event(event.clone(), EventFilterCaller::Inbox, false)
+                                    == EventFilterAction::Allow
                             }
                         } else {
                             |_: &Event| true
@@ -418,8 +421,11 @@ impl Feed {
                 let screen_spam = {
                     if GLOBALS.db().read_setting_apply_spam_filter_on_global() {
                         |event: &Event| {
-                            use crate::spam_filter::{filter_event, EventFilterAction};
-                            filter_event(event.clone()) == EventFilterAction::Allow
+                            use crate::spam_filter::{
+                                filter_event, EventFilterAction, EventFilterCaller,
+                            };
+                            filter_event(event.clone(), EventFilterCaller::Global, false)
+                                == EventFilterAction::Allow
                         }
                     } else {
                         |_: &Event| true

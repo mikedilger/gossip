@@ -1,54 +1,114 @@
-// This is a sample spam filtering script for the gossip nostr client.
-// The language is called Rhai, details are at: https://rhai.rs/book/
+// This is a sample spam filtering script for the gossip nostr
+// client. The language is called Rhai, details are at:
+// https://rhai.rs/book/
 //
-// For gossip to find your spam filtering script, put it in your gossip
-// profile directory. See https://docs.rs/dirs/latest/dirs/fn.data_dir.html
-// to find the base directory. A subdirectory "gossip" is your gossip
-// data directory which for most people is their profile directory too.
-// (Note: if you use a GOSSIP_PROFILE, you'll need to put it one directory
-// deeper into that profile directory).
+// For gossip to find your spam filtering script, put it in your
+// gossip profile directory. See
+//    https://docs.rs/dirs/latest/dirs/fn.data_dir.html
+// to find the base directory. A subdirectory "gossip" is your
+// gossip data directory which for most people is their profile
+// directory too. (Note: if you use a GOSSIP_PROFILE, you'll need
+// to put it one directory deeper into that profile directory).
 //
-// This filter is used to filter out and refuse to process incoming events
-// as they flow in from relays. It does not filter out events that are
-// already in your database.  It is only run on feed-displayable event kinds,
-// and only by authors you are not following. In case of error, nothing is
-// filtered.
+// This filter is used to filter out and refuse to process incoming
+// events as they flow in from relays, and also to filter which
+// events get displayed in certain circumstances. It is only run on
+// feed-displayable event kinds, and only events by authors you are
+// not following. In case of error, nothing is filtered.
 //
-// You must define a function called 'filter' which returns one of these
-// numerical results:
-//   0 = Deny (the event is filtered out)
-//   1 = Allow (the event is allowed through)
-//   2 = Mute Author (the event is filtered out, and the author is automatically muted)
-// Any other number will be treated like Allow.
+// You must define a function called 'filter' which returns one of
+// these constant values:
+//
+//   DENY (the event is filtered out)
+//   ALLOW (the event is allowed through)
+//   MUTE (the event is filtered out, and the author is
+//         automatically muted)
 //
 // Your script will be provided the following global variables:
-//   'id' - the event ID, as a hex string
-//   'pubkey' - the event author public key, as a hex string
-//   'name' - if we have it, the name of the author (or your petname)
-//   'kind' - the event kind as an integer
-//   'content' - the event content as a string
-//   'nip05valid' - whether nip05 is valid for the author, as a boolean
-//
-// I know this isn't very useful yet. Please open github issues to make suggestions on
-// how we can make spam filtering more effective.
+//   caller        - a string that is one of "Process", "Thread",
+//                   "Inbox" or "Global" indicating which part of
+//                   the code is running your script
+//   content       - the event content as a string
+//   id            - the event ID, as a hex string
+//   kind          - the event kind as an integer
+//   muted         - if the author is in your mute list
+//   name          - if we have it, the name of the author (or your
+//                   petname), else an empty string
+//   nip05valid    - whether nip05 is valid for the author, as a
+//                   boolean
+//   pow           - the Proof of Work on the event
+//   pubkey        - the event author public key, as a hex string
+//   seconds_known - the number of seconds that the author of the
+//                   event has been known to gossip
+//   spamsafe      - true only if the event came in from a relay
+//                   marked as SpamSafe during Process (even if the
+//                   global setting for SpamSafe is off)
 
 fn filter() {
-  if content.to_lower().contains("airdrop") {
-    2
-  }
-  else if name.contains("ReplyGuy") {
-    0
-  }
-  else if name.contains("ReplyGal") {
-    0
-  }
-  else if content.to_lower().contains("kike ") {
-    0
-  }
-  else if content.to_lower().contains(" kike") {
-    0
-  }
-  else {
-    1
-  }
+
+    // Show spam on global
+    // (global events are ephemeral; these won't grow the database)
+    if caller=="Global" {
+        return ALLOW;
+    }
+
+    // Block ReplyGuy
+    if name.contains("ReplyGuy") || name.contains("ReplyGal") {
+        return DENY;
+    }
+
+    // Block known DM spam
+    // (giftwraps are unwrapped before the content is passed to
+    //  this script)
+    if content.to_lower().contains(
+        "Mr. Gift and Mrs. Wrap under the tree, KISSING!")
+    {
+        return DENY;
+    }
+
+    // Reject events from new pubkeys, unless they have a high PoW
+    // or we somehow already have a nip05valid for them
+    //
+    // If this turns out to be a legit person, we will start
+    // hearing their events 2 seconds from now, so we will only
+    // miss their very first event.
+    if seconds_known <= 2 && pow < 25 && !nip05valid {
+        return DENY;
+    }
+
+    // Mute offensive people
+    if content.to_lower().contains(" kike") ||
+        content.to_lower().contains("kike ") ||
+        content.to_lower().contains(" nigger") ||
+        content.to_lower().contains("nigger ") ||
+    {
+        return MUTE;
+    }
+
+    // Reject events from muted people
+    //
+    // Gossip already does this internally, and since we are not
+    // Process this is rather redundant. But this works as an
+    // example.
+    if muted {
+        return DENY;
+    }
+
+    // Accept if the PoW is large enough
+    if pow >= 25 {
+        return ALLOW
+    }
+
+    // Accept if their NIP-05 is valid
+    if nip05valid {
+        return ALLOW;
+    }
+
+    // Accept if the event came through a spamsafe relay
+    if spamsafe {
+        return ALLOW;
+    }
+
+    // Reject the rest
+    DENY
 }

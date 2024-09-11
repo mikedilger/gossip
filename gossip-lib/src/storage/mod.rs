@@ -1892,8 +1892,9 @@ impl Storage {
         if self.read_setting_apply_spam_filter_on_threads() {
             output.retain(|&id| {
                 if let Ok(Some(event)) = self.read_event(id) {
-                    use crate::spam_filter::{filter_event, EventFilterAction};
-                    filter_event(event.clone()) == EventFilterAction::Allow
+                    use crate::spam_filter::{filter_event, EventFilterAction, EventFilterCaller};
+                    filter_event(event.clone(), EventFilterCaller::Thread, false)
+                        == EventFilterAction::Allow
                 } else {
                     false
                 }

@@ -6,6 +6,7 @@ use crate::misc::{Freshness, Private};
 use crate::people::{People, PersonList, PersonListMetadata};
 use crate::relationship::{RelationshipByAddr, RelationshipById};
 use crate::storage::{PersonTable, Table};
+use crate::Relay;
 use heed::RwTxn;
 use nostr_types::{
     Event, EventKind, EventReference, Filter, Id, Metadata, NAddr, NostrBech32, PublicKey,
@@ -51,6 +52,11 @@ pub fn process_new_event(
         }
     }
 
+    // Create the person if missing in the database
+    PersonTable::create_record_if_missing(event.pubkey, None)?;
+
+    let mut spamsafe = false;
+
     if let Some(url) = &seen_on {
         // Save seen-on-relay information
         if global_feed {
@@ -63,9 +69,6 @@ pub fn process_new_event(
                 .add_event_seen_on_relay(event.id, url, now, None)?;
         }
 
-        // Create the person if missing in the database
-        PersonTable::create_record_if_missing(event.pubkey, None)?;
-
         // Update person-relay information (seen them on this relay)
         GLOBALS.db().modify_person_relay(
             event.pubkey,
@@ -73,14 +76,19 @@ pub fn process_new_event(
             |pr| pr.last_fetched = Some(now.0 as u64),
             None,
         )?;
+
+        if let Some(relay) = GLOBALS.db().read_relay(url)? {
+            spamsafe = relay.has_usage_bits(Relay::SPAMSAFE);
+        }
     }
 
     if GLOBALS
         .db()
         .read_setting_apply_spam_filter_on_incoming_events()
     {
-        use crate::spam_filter::EventFilterAction;
-        let filter_result = crate::spam_filter::filter_event(event.clone());
+        use crate::spam_filter::{EventFilterAction, EventFilterCaller};
+        let filter_result =
+            crate::spam_filter::filter_event(event.clone(), EventFilterCaller::Process, spamsafe);
         match filter_result {
             EventFilterAction::Allow => {}
             EventFilterAction::Deny => return Ok(()),
