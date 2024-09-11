@@ -24,7 +24,7 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 39] = [
+const COMMANDS: [Command; 40] = [
     Command {
         cmd: "oneshot",
         usage_params: "{depends}",
@@ -47,7 +47,7 @@ const COMMANDS: [Command; 39] = [
     },
     Command {
         cmd: "bech32_encode_naddr",
-        usage_params: "<kind> <pubkeyhex> <d> [<relayurl>, ...]",
+        usage_params: "<kind> <pubkey> <d> [<relayurl>, ...]",
         desc: "encode an event address (parameterized replaceable event link).",
     },
     Command {
@@ -57,7 +57,7 @@ const COMMANDS: [Command; 39] = [
     },
     Command {
         cmd: "decrypt",
-        usage_params: "<pubkeyhex> <ciphertext>",
+        usage_params: "<pubkey> <ciphertext>",
         desc: "decrypt the ciphertext from the pubkeyhex.",
     },
     Command {
@@ -81,8 +81,13 @@ const COMMANDS: [Command; 39] = [
         desc: "print IDs of all events of kind=<kind>",
     },
     Command {
+        cmd: "events_of_pubkey",
+        usage_params: "<pubkey>",
+        desc: "print IDs of all events from <pubkeyhex>",
+    },
+    Command {
         cmd: "events_of_pubkey_and_kind",
-        usage_params: "<pubkeyhex> <kind>",
+        usage_params: "<pubkey> <kind>",
         desc: "print IDs of all events from <pubkeyhex> of kind=<kind>",
     },
     Command {
@@ -142,12 +147,12 @@ const COMMANDS: [Command; 39] = [
     },
     Command {
         cmd: "print_person",
-        usage_params: "<pubkeyHexOrBech32>",
+        usage_params: "<pubkey>",
         desc: "print the given person",
     },
     Command {
         cmd: "print_person_relays",
-        usage_params: "<pubkeyhex>",
+        usage_params: "<pubkey>",
         desc: "print all the person-relay records for the given person",
     },
     Command {
@@ -249,6 +254,7 @@ pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
         "delete_relay" => delete_relay(command, args)?,
         "dpi" => override_dpi(command, args)?,
         "events_of_kind" => events_of_kind(command, args)?,
+        "events_of_pubkey" => events_of_pubkey(command, args)?,
         "events_of_pubkey_and_kind" => events_of_pubkey_and_kind(command, args)?,
         "export_encrypted_key" => export_encrypted_key()?,
         "giftwraps" => giftwraps(command)?,
@@ -439,8 +445,11 @@ pub fn bech32_encode_naddr(cmd: Command, mut args: env::Args) -> Result<(), Erro
     };
 
     let pubkey = match args.next() {
-        Some(hex) => PublicKey::try_from_hex_string(&hex, true)?,
-        None => return cmd.usage("Missing pubkeyhex parameter".to_string()),
+        Some(s) => match PublicKey::try_from_hex_string(&s, true) {
+            Ok(pk) => pk,
+            Err(_) => PublicKey::try_from_bech32_string(&s, true)?,
+        },
+        None => return cmd.usage("Missing pubkey parameter".to_string()),
     };
 
     let d = match args.next() {
@@ -474,8 +483,11 @@ pub fn clear_timeouts() -> Result<(), Error> {
 
 pub fn decrypt(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     let pubkey = match args.next() {
-        Some(hex) => PublicKey::try_from_hex_string(&hex, true)?,
-        None => return cmd.usage("Missing pubkeyhex parameter".to_string()),
+        Some(s) => match PublicKey::try_from_hex_string(&s, true) {
+            Ok(pk) => pk,
+            Err(_) => PublicKey::try_from_bech32_string(&s, true)?,
+        },
+        None => return cmd.usage("Missing pubkey parameter".to_string()),
     };
 
     let ciphertext = match args.next() {
@@ -803,7 +815,7 @@ pub fn print_person(cmd: Command, mut args: env::Args) -> Result<(), Error> {
             Ok(pk) => pk,
             Err(_) => PublicKey::try_from_bech32_string(&s, true)?,
         },
-        None => return cmd.usage("Missing pubkeyHexOrBech32 parameter".to_string()),
+        None => return cmd.usage("Missing pubkey parameter".to_string()),
     };
 
     let person = PersonTable::read_record(pubkey, None)?;
@@ -813,8 +825,11 @@ pub fn print_person(cmd: Command, mut args: env::Args) -> Result<(), Error> {
 
 pub fn print_person_relays(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     let pubkey = match args.next() {
-        Some(hex) => PublicKey::try_from_hex_string(&hex, true)?,
-        None => return cmd.usage("Missing pubkeyhex parameter".to_string()),
+        Some(s) => match PublicKey::try_from_hex_string(&s, true) {
+            Ok(pk) => pk,
+            Err(_) => PublicKey::try_from_bech32_string(&s, true)?,
+        },
+        None => return cmd.usage("Missing pubkey parameter".to_string()),
     };
 
     let person_relays = GLOBALS.db().get_person_relays(pubkey)?;
@@ -833,8 +848,28 @@ pub fn events_of_kind(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     let mut filter = Filter::new();
     filter.add_event_kind(kind);
     let events = GLOBALS.db().find_events_by_filter(&filter, |_| true)?;
-    for event in events {
-        println!("{}", event.id.as_hex_string());
+    for event in &events {
+        println!("{}", serde_json::to_string(event)?);
+    }
+
+    Ok(())
+}
+
+pub fn events_of_pubkey(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+    let pubkey = match args.next() {
+        Some(s) => match PublicKey::try_from_hex_string(&s, true) {
+            Ok(pk) => pk,
+            Err(_) => PublicKey::try_from_bech32_string(&s, true)?,
+        },
+        None => return cmd.usage("Missing pubkey parameter".to_string()),
+    };
+
+    let mut filter = Filter::new();
+    filter.add_author(&pubkey.into());
+    let events = GLOBALS.db().find_events_by_filter(&filter, |_| true)?;
+
+    for event in &events {
+        println!("{}", serde_json::to_string(event)?);
     }
 
     Ok(())
@@ -842,8 +877,11 @@ pub fn events_of_kind(cmd: Command, mut args: env::Args) -> Result<(), Error> {
 
 pub fn events_of_pubkey_and_kind(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     let pubkey = match args.next() {
-        Some(hex) => PublicKey::try_from_hex_string(&hex, true)?,
-        None => return cmd.usage("Missing pubkeyhex parameter".to_string()),
+        Some(s) => match PublicKey::try_from_hex_string(&s, true) {
+            Ok(pk) => pk,
+            Err(_) => PublicKey::try_from_bech32_string(&s, true)?,
+        },
+        None => return cmd.usage("Missing pubkey parameter".to_string()),
     };
 
     let kind: EventKind = match args.next() {
@@ -856,8 +894,8 @@ pub fn events_of_pubkey_and_kind(cmd: Command, mut args: env::Args) -> Result<()
     filter.add_author(&pubkey.into());
     let events = GLOBALS.db().find_events_by_filter(&filter, |_| true)?;
 
-    for event in events {
-        println!("{}", event.id.as_hex_string());
+    for event in &events {
+        println!("{}", serde_json::to_string(event)?);
     }
 
     Ok(())
