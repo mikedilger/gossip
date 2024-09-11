@@ -45,7 +45,6 @@
 //                   global setting for SpamSafe is off)
 
 fn filter() {
-
     // Show spam on global
     // (global events are ephemeral; these won't grow the database)
     if caller=="Global" {
@@ -80,7 +79,7 @@ fn filter() {
     if content.to_lower().contains(" kike") ||
         content.to_lower().contains("kike ") ||
         content.to_lower().contains(" nigger") ||
-        content.to_lower().contains("nigger ") ||
+        content.to_lower().contains("nigger ")
     {
         return MUTE;
     }
@@ -96,7 +95,7 @@ fn filter() {
 
     // Accept if the PoW is large enough
     if pow >= 25 {
-        return ALLOW
+        return ALLOW;
     }
 
     // Accept if their NIP-05 is valid
