@@ -192,8 +192,7 @@ pub struct RelayEntry {
     accent: Color32,
     accent_hover: Color32,
     bg_fill: Color32,
-    // highlight: Option<Color32>,
-    option_symbol: TextureId,
+    bg_hover: Color32,
     auth_require_permission: bool,
     conn_require_permission: bool,
 }
@@ -205,6 +204,16 @@ impl RelayEntry {
         let mut hsva: ecolor::HsvaGamma = accent.into();
         hsva.v *= 0.8;
         let accent_hover: Color32 = hsva.into();
+        let bg_fill = if app.theme.dark_mode {
+            app.theme.neutral_800()
+        } else {
+            app.theme.neutral_100()
+        };
+        let bg_hover = if app.theme.dark_mode {
+            app.theme.neutral_950()
+        } else {
+            app.theme.neutral_50()
+        };
         Self {
             relay,
             view: RelayEntryView::List,
@@ -216,9 +225,8 @@ impl RelayEntry {
             usage,
             accent,
             accent_hover,
-            bg_fill: app.theme.main_content_bgcolor(),
-            // highlight: None,
-            option_symbol: (&app.assets.options_symbol).into(),
+            bg_fill,
+            bg_hover,
             auth_require_permission: false,
             conn_require_permission: false,
         }
@@ -330,29 +338,6 @@ impl RelayEntry {
         // set tooltip
         ui.interact(rect, ui.next_auto_id(), Sense::hover())
             .on_hover_text(tooltip);
-    }
-
-    fn paint_edit_btn(&mut self, ui: &mut Ui, rect: &Rect) -> Response {
-        let id = self.make_id("edit_btn");
-        let pos = rect.right_top() + vec2(-EDIT_BTN_SIZE - TEXT_RIGHT, TEXT_TOP);
-        let btn_rect = Rect::from_min_size(pos, vec2(EDIT_BTN_SIZE, EDIT_BTN_SIZE));
-        let response = ui
-            .interact(btn_rect, id, Sense::click())
-            .on_hover_cursor(CursorIcon::PointingHand)
-            .on_hover_text("Configure Relay");
-        let color = if response.hovered() {
-            ui.visuals().text_color()
-        } else {
-            self.accent
-        };
-        let mut mesh = Mesh::with_texture(self.option_symbol);
-        mesh.add_rect_with_uv(
-            btn_rect.shrink(2.0),
-            Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
-            color,
-        );
-        ui.painter().add(Shape::mesh(mesh));
-        response
     }
 
     fn paint_close_btn(&mut self, ui: &mut Ui, rect: &Rect) -> Response {
@@ -580,8 +565,7 @@ impl RelayEntry {
         const SPACE: f32 = 23.0;
 
         // match self.view { RelayEntryView::Detail => ... }
-        let right = pos2(rect.max.x, rect.min.y)
-            + vec2(-TEXT_RIGHT - EDIT_BTN_SIZE - SPACE, TEXT_TOP + 4.0);
+        let right = pos2(rect.max.x, rect.min.y) + vec2(-TEXT_RIGHT, TEXT_TOP + 4.0);
 
         let align = Align::Center;
 
@@ -1222,15 +1206,23 @@ impl RelayEntry {
         (self.relay.url.to_string() + str).into()
     }
 
+    fn interact_bg_color(&self, response: &Response) -> Option<Color32> {
+        if response.hovered() {
+            Some(self.bg_hover)
+        } else {
+            Some(self.bg_fill)
+        }
+    }
+
     /// Do layout and position the galley in the ui, without painting it or adding widget info.
-    fn update_list_view(mut self, ui: &mut Ui) -> Response {
+    fn update_list_view(self, ui: &mut Ui) -> Response {
         let (rect, mut response) = list_entry::allocate_space(ui, LIST_VIEW_HEIGHT);
+        response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
 
         // all the heavy lifting is only done if it's actually visible
         if ui.is_rect_visible(rect) {
-            list_entry::paint_frame(ui, &rect, Some(self.bg_fill));
+            list_entry::paint_frame(ui, &rect, self.interact_bg_color(&response));
             self.paint_title(ui, &rect);
-            response |= self.paint_edit_btn(ui, &rect);
             if self.relay.has_any_usage_bit() || self.relay.is_good_for_advertise() {
                 self.paint_usage(ui, &rect);
             } else {
@@ -1242,14 +1234,14 @@ impl RelayEntry {
         response
     }
 
-    fn update_detail_view(mut self, ui: &mut Ui) -> Response {
+    fn update_detail_view(self, ui: &mut Ui) -> Response {
         let (rect, mut response) = list_entry::allocate_space(ui, DETAIL_VIEW_HEIGHT);
+        response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
 
         // all the heavy lifting is only done if it's actually visible
         if ui.is_rect_visible(rect) {
-            list_entry::paint_frame(ui, &rect, Some(self.bg_fill));
+            list_entry::paint_frame(ui, &rect, self.interact_bg_color(&response));
             self.paint_title(ui, &rect);
-            response |= self.paint_edit_btn(ui, &rect);
             self.paint_stats(ui, &rect);
             if self.relay.has_any_usage_bit() || self.relay.is_good_for_advertise() {
                 self.paint_usage(ui, &rect);

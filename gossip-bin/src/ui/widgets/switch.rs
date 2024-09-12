@@ -325,17 +325,6 @@ fn draw_at(
             }
         };
 
-        // calc final size and placement
-        let text_size = if let Some(galley) = &galley {
-            galley.rect.size()
-        } else {
-            Vec2::ZERO
-        };
-        let total_size = text_size + size;
-        let total_rect = ui
-            .layout()
-            .align_size_within_rect(total_size, response.rect);
-
         // switch
         let switch_rect = Rect::from_min_size(rect.min + padding, size);
         ui.painter()
