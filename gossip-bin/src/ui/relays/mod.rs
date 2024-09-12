@@ -1,6 +1,9 @@
 use std::cmp::Ordering;
 
-use super::{widgets, GossipUi, Page};
+use super::{
+    widgets::{self, MoreMenuButton, MoreMenuItem, MoreMenuSwitch},
+    GossipUi, Page,
+};
 use eframe::egui;
 use egui::{Context, Ui};
 use egui_winit::egui::{vec2, Id, RichText};
@@ -426,20 +429,40 @@ fn entry_dialog_step2(ui: &mut Ui, app: &mut GossipUi) {
 pub(super) fn configure_list_btn(app: &mut GossipUi, ui: &mut Ui) {
     ui.add_enabled_ui(true, |ui| {
         let min_size = vec2(180.0, 20.0);
+        let max_size = vec2(180.0, ui.ctx().available_rect().height());
 
-        let response = widgets::options_menu_button(ui, &app.theme, &app.assets);
-        widgets::MoreMenu::bubble(ui.next_auto_id())
-            .with_min_size(min_size)
-            .with_hover_text("Configure List View".to_owned())
-            .show(ui, response, |ui, _is_open| {
-                widgets::Switch::small(&app.theme, &mut app.relays.show_details)
-                    .with_label("Show details")
-                    .show(ui);
-                ui.add_space(8.0);
-                widgets::Switch::small(&app.theme, &mut app.relays.show_hidden)
-                    .with_label("Show hidden relays")
-                    .show(ui);
-            });
+        let text = egui::RichText::new("=").size(13.0);
+        let response = widgets::Button::primary(&app.theme, text)
+            .small(true)
+            .show(ui);
+        let menu = widgets::MoreMenu::bubble(ui.next_auto_id(), min_size, max_size);
+
+        let mut items: Vec<MoreMenuItem> = Vec::new();
+
+        items.push(MoreMenuItem::Switch(MoreMenuSwitch::new(
+            "Show details",
+            app.relays.show_details,
+            Box::new(|_ui, app| {
+                app.relays.show_details = !app.relays.show_details;
+            }),
+        )));
+
+        items.push(MoreMenuItem::Switch(MoreMenuSwitch::new(
+            "Show hidden relays",
+            app.relays.show_hidden,
+            Box::new(|_ui, app| {
+                app.relays.show_hidden = !app.relays.show_hidden;
+            }),
+        )));
+
+        items.push(MoreMenuItem::Button(MoreMenuButton::new(
+            "Relay Coverage",
+            Box::new(|ui, app| {
+                app.set_page(ui.ctx(), crate::ui::Page::RelaysCoverage);
+            }),
+        )));
+
+        menu.show_entries(ui, app, response, items);
     });
 }
 

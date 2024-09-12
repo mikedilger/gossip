@@ -302,13 +302,11 @@ pub(super) fn update(
                                     let response = widgets::Button::primary(&app.theme, text)
                                         .small(true)
                                         .show(ui);
-                                    let menu =
-                                        widgets::MoreMenu::bubble(ui.auto_id_with(person.pubkey))
-                                            .with_min_size(vec2(100.0, 0.0))
-                                            .with_max_size(vec2(
-                                                100.0,
-                                                ctx.available_rect().height(),
-                                            ));
+                                    let menu = widgets::MoreMenu::bubble(
+                                        ui.auto_id_with(person.pubkey),
+                                        vec2(100.0, 0.0),
+                                        vec2(100.0, ctx.available_rect().height()),
+                                    );
                                     let mut items: Vec<MoreMenuItem> = Vec::new();
 
                                     // actions
@@ -780,9 +778,11 @@ pub(super) fn render_more_list_actions(
         .small(true)
         .show(ui);
 
-    let menu = widgets::MoreMenu::bubble(ui.next_auto_id())
-        .with_min_size(vec2(100.0, 0.0))
-        .with_max_size(vec2(140.0, ui.ctx().available_rect().height()));
+    let menu = widgets::MoreMenu::bubble(
+        ui.next_auto_id(),
+        vec2(100.0, 0.0),
+        vec2(140.0, ui.ctx().available_rect().height()),
+    );
 
     let mut items: Vec<MoreMenuItem> = Vec::new();
     items.push(MoreMenuItem::Button(MoreMenuButton::new(

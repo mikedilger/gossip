@@ -29,7 +29,9 @@ mod modal_popup;
 pub use modal_popup::{modal_popup, modal_popup_dyn, ModalEntry};
 
 mod more_menu;
-pub(super) use more_menu::{MoreMenu, MoreMenuButton, MoreMenuItem, MoreMenuSubMenu};
+pub(super) use more_menu::{
+    MoreMenu, MoreMenuButton, MoreMenuItem, MoreMenuSubMenu, MoreMenuSwitch,
+};
 
 mod information_popup;
 pub use information_popup::InformationPopup;

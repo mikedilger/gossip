@@ -286,10 +286,9 @@ fn dm_posting_area(
 
     ui.horizontal(|ui| {
         let response = widgets::options_menu_button(ui, &app.theme, &app.assets);
-        let menu = widgets::MoreMenu::bubble(ui.next_auto_id())
-            .with_max_size(vec2(190.0, 40.0))
-            .with_min_size(vec2(190.0, 40.0))
-            .place_above(!read_setting!(posting_area_at_top));
+        let menu =
+            widgets::MoreMenu::bubble(ui.next_auto_id(), vec2(190.0, 40.0), vec2(190.0, 40.0))
+                .place_above(!read_setting!(posting_area_at_top));
 
         let mut items: Vec<MoreMenuItem> = Vec::new();
         if app.dm_draft_data.include_subject {
@@ -589,10 +588,12 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
             // show advanced action menu
             if app.draft_data.repost.is_none() {
                 let response = widgets::options_menu_button(ui, &app.theme, &app.assets);
-                let menu = widgets::MoreMenu::bubble(ui.next_auto_id())
-                    .with_max_size(vec2(180.0, 80.0))
-                    .with_min_size(vec2(180.0, 80.0))
-                    .place_above(!read_setting!(posting_area_at_top));
+                let menu = widgets::MoreMenu::bubble(
+                    ui.next_auto_id(),
+                    vec2(180.0, 80.0),
+                    vec2(180.0, 80.0),
+                )
+                .place_above(!read_setting!(posting_area_at_top));
 
                 let mut items: Vec<MoreMenuItem> = Vec::new();
 
