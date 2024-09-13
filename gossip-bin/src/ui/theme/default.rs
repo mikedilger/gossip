@@ -18,32 +18,33 @@ impl DefaultTheme {
     }
 }
 
-// Trait for creating different types of shadows
-pub trait ShadowBuilder {
-    fn soft_dark() -> Self;
-    fn soft_light() -> Self;
-}
+/// Trait for creating different types of shadows
+/// TODO @dtonon: This must be reviewed as shadow interface changed with egui 0.28
+// pub trait ShadowBuilder {
+//     fn soft_dark() -> Self;
+//     fn soft_light() -> Self;
+// }
 
-// Implement the trait for Shadow
-impl ShadowBuilder for Shadow {
-    fn soft_dark() -> Self {
-        Self {
-            offset: vec2(6.0, 10.0),
-            blur: 30.0,
-            spread: 0.0,
-            color: Color32::from_black_alpha(40),
-        }
-    }
+// // Implement the trait for Shadow
+// impl ShadowBuilder for Shadow {
+//     fn soft_dark() -> Self {
+//         Self {
+//             offset: vec2(6.0, 10.0),
+//             blur: 30.0,
+//             spread: 0.0,
+//             color: Color32::from_black_alpha(40),
+//         }
+//     }
 
-    fn soft_light() -> Self {
-        Self {
-            offset: vec2(6.0, 10.0),
-            blur: 30.0,
-            spread: 0.0,
-            color: Color32::from_black_alpha(10),
-        }
-    }
-}
+//     fn soft_light() -> Self {
+//         Self {
+//             offset: vec2(6.0, 10.0),
+//             blur: 30.0,
+//             spread: 0.0,
+//             color: Color32::from_black_alpha(10),
+//         }
+//     }
+// }
 
 impl ThemeDef for DefaultTheme {
     fn name() -> &'static str {

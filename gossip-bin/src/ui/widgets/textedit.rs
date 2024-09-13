@@ -157,12 +157,12 @@ impl<'t> TextEdit<'t> {
 
             // ---- show inner ----
             let output = inner.show(ui);
+            let response = &output.response;
+            let frame_rect = response.rect + margin;
 
             // ---- draw frame ----
             {
                 let theme = self.theme;
-                let response = &output.response;
-                let frame_rect = response.rect + margin;
 
                 // this is how egui chooses the visual style:
                 #[allow(clippy::if_same_then_else)]
@@ -200,8 +200,7 @@ impl<'t> TextEdit<'t> {
             if self.with_search {
                 if let Some(symbol) = self.magnifyingglass_symbol {
                     let rect = Rect::from_center_size(
-                        output.response.rect.left_center()
-                            + vec2((MARGIN.left + pre_space) / 2.0, 0.0),
+                        frame_rect.left_center() + vec2((MARGIN.left + pre_space) / 2.0, 0.0),
                         symbol.size_vec2() / (assets::SVG_OVERSAMPLE + ui.ctx().zoom_factor()),
                     );
                     egui::Image::from_texture(SizedTexture::new(symbol.id(), symbol.size_vec2()))
@@ -217,8 +216,8 @@ impl<'t> TextEdit<'t> {
 
             if self.with_clear && !self.text.as_str().is_empty() {
                 let rect = Rect::from_min_size(
-                    output.response.rect.right_top() - vec2(output.response.rect.height(), 0.0),
-                    vec2(output.response.rect.height(), output.response.rect.height()),
+                    frame_rect.right_top() - vec2(frame_rect.height(), 0.0),
+                    vec2(frame_rect.height(), frame_rect.height()),
                 );
 
                 // clear button
@@ -266,9 +265,9 @@ impl<'t> TextEdit<'t> {
                     }
                 };
 
-                let action_size = vec2(45.0, output.response.rect.height());
+                let action_size = vec2(45.0, frame_rect.height());
                 let rect = Rect::from_min_size(
-                    output.response.rect.right_top() - vec2(action_size.x, 0.0),
+                    frame_rect.right_top() - vec2(action_size.x, 0.0),
                     action_size,
                 );
 

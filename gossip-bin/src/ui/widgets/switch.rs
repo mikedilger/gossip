@@ -14,7 +14,18 @@ pub struct Switch<'a> {
     label: Option<WidgetText>,
     label_color: Option<Color32>,
     size: Vec2,
+    padding: Vec2,
     theme: &'a Theme,
+}
+
+impl Switch<'_> {
+    pub const fn small_size() -> Vec2 {
+        vec2(29.0, 16.0)
+    }
+
+    pub const fn large_size() -> Vec2 {
+        vec2(40.0, 22.0)
+    }
 }
 
 impl<'a> Switch<'a> {
@@ -24,7 +35,8 @@ impl<'a> Switch<'a> {
             value,
             label: None,
             label_color: None,
-            size: vec2(29.0, 16.0),
+            size: Switch::small_size(),
+            padding: Vec2::ZERO,
             theme,
         }
     }
@@ -35,7 +47,8 @@ impl<'a> Switch<'a> {
             value,
             label: None,
             label_color: None,
-            size: vec2(40.0, 22.0),
+            size: Switch::large_size(),
+            padding: Vec2::ZERO,
             theme,
         }
     }
@@ -51,6 +64,11 @@ impl<'a> Switch<'a> {
         self
     }
 
+    pub fn with_padding(mut self, padding: Vec2) -> Self {
+        self.padding = padding;
+        self
+    }
+
     pub fn show(mut self, ui: &mut Ui) -> Response {
         let (response, galley) = self.allocate(ui);
         let (state, response) = interact(ui, response, self.value, self.label);
@@ -60,6 +78,7 @@ impl<'a> Switch<'a> {
             self.value,
             response,
             self.size,
+            self.padding,
             galley,
             self.label_color,
             state,
@@ -94,7 +113,9 @@ impl<'a> Switch<'a> {
             egui::Sense::hover()
         };
         // allocate
-        let (_, response) = ui.allocate_exact_size(self.size + vec2(extra_width, 0.0), sense);
+        let size = self.size + vec2(extra_width, 0.0);
+        let size = size + self.padding + self.padding;
+        let (_, response) = ui.allocate_exact_size(size, sense);
         (response, galley)
     }
 
@@ -229,6 +250,7 @@ fn draw_at(
     value: &bool,
     response: Response,
     size: Vec2,
+    padding: Vec2,
     galley: Option<Arc<Galley>>,
     label_color: Option<Color32>,
     _state: WidgetState,
@@ -237,7 +259,7 @@ fn draw_at(
     if ui.is_rect_visible(rect) {
         let how_on = ui.ctx().animate_bool(response.id, *value);
 
-        let radius = 0.5 * rect.height();
+        let radius = 0.5 * size.y;
         let stroke_width = 0.5;
         let (bg_fill, frame_stroke, knob_fill, knob_stroke, text_color) = if theme.dark_mode {
             if ui.is_enabled() {
@@ -304,7 +326,7 @@ fn draw_at(
         };
 
         // switch
-        let switch_rect = Rect::from_min_size(rect.min, size);
+        let switch_rect = Rect::from_min_size(rect.min + padding, size);
         ui.painter()
             .rect(switch_rect, radius, bg_fill, frame_stroke);
         let circle_x = egui::lerp(

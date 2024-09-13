@@ -355,7 +355,7 @@ fn button_test(app: &mut GossipUi, ui: &mut Ui) {
 
 fn textedit_test(app: &mut GossipUi, ui: &mut Ui) {
     ui.horizontal(|ui| {
-        ui.heading("Button Test:");
+        ui.heading("TextEdit Test:");
         ui.add_space(30.0);
     });
     ui.add_space(30.0);
@@ -426,6 +426,32 @@ fn textedit_test(app: &mut GossipUi, ui: &mut Ui) {
                 widgets::TextEdit::search(theme, assets, &mut app.theme_test.textedit_empty)
                     .hint_text(HINT)
                     .show(ui);
+            });
+        });
+        ui.add_space(20.0);
+        ui.horizontal(|ui| {
+            ui.add_sized(CSIZE, egui::Label::new("with Paste"));
+            ui.add_space(20.0);
+            ui.vertical(|ui| {
+                let output =
+                    widgets::TextEdit::singleline(theme, &mut app.theme_test.textedit_empty)
+                        .hint_text(HINT)
+                        .with_paste()
+                        .show(ui);
+                if ui.link("focus").clicked() {
+                    output.response.request_focus();
+                }
+            });
+            ui.add_space(20.0);
+            ui.vertical(|ui| {
+                let output =
+                    widgets::TextEdit::search(theme, assets, &mut app.theme_test.textedit_empty)
+                        .hint_text(HINT)
+                        .with_paste()
+                        .show(ui);
+                if ui.link("focus").clicked() {
+                    output.response.request_focus();
+                }
             });
         });
     });

@@ -34,7 +34,7 @@ const HLINE_THICKNESS: f32 = 1.5;
 
 pub(crate) fn allocate_space(ui: &mut Ui, height: f32) -> (Rect, Response) {
     let available_width = ui.available_size_before_wrap().x;
-    ui.allocate_exact_size(vec2(available_width, height), Sense::hover())
+    ui.allocate_exact_size(vec2(available_width, height), Sense::click())
 }
 
 pub(crate) fn paint_frame(ui: &mut Ui, rect: &Rect, fill: Option<Color32>) {

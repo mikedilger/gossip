@@ -27,6 +27,7 @@ enum MoreMenuStyle {
 pub(in crate::ui) enum MoreMenuItem<'a> {
     Button(MoreMenuButton<'a>),
     SubMenu(MoreMenuSubMenu<'a>),
+    Switch(MoreMenuSwitch<'a>),
 }
 
 #[allow(clippy::type_complexity)]
@@ -65,7 +66,7 @@ impl<'a> MoreMenuButton<'a> {
         galley.rect.width()
     }
 
-    fn show(self, app: &mut GossipUi, ui: &mut Ui) -> Response {
+    pub fn show(self, app: &mut GossipUi, ui: &mut Ui) -> Response {
         if !self.enabled {
             ui.disable();
         }
@@ -133,7 +134,7 @@ impl<'a> MoreMenuSubMenu<'a> {
         }
     }
 
-    fn show(self, app: &mut GossipUi, ui: &mut Ui) -> Response {
+    pub fn show(self, app: &mut GossipUi, ui: &mut Ui) -> Response {
         if !self.enabled {
             ui.disable();
         }
@@ -155,6 +156,7 @@ impl<'a> MoreMenuSubMenu<'a> {
             .map(|item| match item {
                 MoreMenuItem::Button(entry) => entry.calc_min_width(ui),
                 MoreMenuItem::SubMenu(menu) => menu.calc_min_width(ui),
+                MoreMenuItem::Switch(switch) => switch.calc_min_width(ui),
             })
             .reduce(f32::max)
             .unwrap_or(150.0)
@@ -221,6 +223,9 @@ impl<'a> MoreMenuSubMenu<'a> {
                                         open = false;
                                     }
                                 }
+                                MoreMenuItem::Switch(switch) => {
+                                    switch.show(app, ui);
+                                }
                             });
                         }
                     })
@@ -252,6 +257,65 @@ impl<'a> MoreMenuSubMenu<'a> {
     }
 }
 
+pub(in crate::ui) struct MoreMenuSwitch<'a> {
+    text: WidgetText,
+    value: bool,
+    action: Box<dyn FnOnce(&mut Ui, &mut GossipUi) + 'a>,
+    enabled: bool,
+}
+
+impl<'a> MoreMenuSwitch<'a> {
+    #[allow(clippy::type_complexity)]
+    pub fn new(
+        text: impl Into<WidgetText>,
+        value: bool,
+        action: Box<dyn FnOnce(&mut Ui, &mut GossipUi) + 'a>,
+    ) -> Self {
+        Self {
+            text: text.into(),
+            value,
+            action,
+            enabled: true,
+        }
+    }
+
+    #[allow(unused)]
+    pub fn enabled(mut self, enabled: bool) -> Self {
+        self.enabled = enabled;
+        self
+    }
+
+    fn calc_min_width(&self, ui: &Ui) -> f32 {
+        let galley = ui.fonts(|f| {
+            f.layout_no_wrap(
+                self.text.text().into(),
+                egui::TextStyle::Body.resolve(ui.style()),
+                egui::Color32::BLACK,
+            )
+        });
+        galley.rect.width() + super::Switch::small_size().x
+    }
+
+    pub fn show(self, app: &mut GossipUi, ui: &mut Ui) -> Response {
+        if !self.enabled {
+            ui.disable();
+        }
+
+        let mut value = self.value;
+        let response = super::Switch::small(&app.theme, &mut value)
+            .with_label(self.text)
+            .with_padding(vec2(10.0, 5.0))
+            .show(ui);
+
+        // process action
+        if response.clicked() {
+            (self.action)(ui, app);
+        }
+
+        response
+    }
+}
+
 pub(in crate::ui) struct MoreMenu {
     id: Id,
     min_size: Vec2,
@@ -276,14 +340,11 @@ impl MoreMenu {
         }
     }
 
-    pub fn bubble(id: Id) -> Self {
+    pub fn bubble(id: Id, min_size: Vec2, max_size: Vec2) -> Self {
         Self {
             id,
-            min_size: Vec2 { x: 0.0, y: 0.0 },
-            max_size: Vec2 {
-                x: f32::INFINITY,
-                y: f32::INFINITY,
-            },
+            min_size,
+            max_size,
             above_or_below: None,
             hover_text: None,
             style: MoreMenuStyle::Bubble,
@@ -516,6 +577,9 @@ impl MoreMenu {
                                     if menu.show(app, ui).clicked() && active {
                                         active = false;
                                     }
+                                }
+                                MoreMenuItem::Switch(switch) => {
+                                    switch.show(app, ui);
                                 }
                             });
                         }

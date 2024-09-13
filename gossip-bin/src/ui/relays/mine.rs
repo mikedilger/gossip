@@ -21,14 +21,19 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         super::relay_sort_combo(app, ui);
         btn_h_space!(ui);
         widgets::TextEdit::search(&app.theme, &app.assets, &mut app.relays.search)
-            .desired_width(200.0)
+            .desired_width(150.0)
             .show(ui);
-        widgets::set_important_button_visuals(ui, app);
+        if widgets::Button::primary(&app.theme, "Add Relay")
+            .show(ui)
+            .clicked()
+        {
+            super::start_entry_dialog(app);
+        }
 
         let advertise_remaining = GLOBALS.advertise_jobs_remaining.load(Ordering::Relaxed);
         if advertise_remaining == 0 {
-            if ui.button("Advertise Relay List")
-                .on_hover_cursor(egui::CursorIcon::PointingHand)
+            if widgets::Button::secondary(&app.theme,"Advertise Relay List")
+                .show(ui)
                 .on_hover_text("Advertise my relays. Will send your relay usage information to every relay that seems to be working well so that other people know how to follow and contact you.")
                 .clicked()
             {
@@ -39,7 +44,10 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         } else {
             ui.add_enabled(
                 false,
-                egui::Button::new(format!("Advertising, {} to go", advertise_remaining)),
+                widgets::Button::secondary(
+                    &app.theme,
+                    format!("Advertising, {} to go", advertise_remaining),
+                ),
             );
         }
     });

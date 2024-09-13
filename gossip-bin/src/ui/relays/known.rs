@@ -19,8 +19,14 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         super::relay_sort_combo(app, ui);
         btn_h_space!(ui);
         widgets::TextEdit::search(&app.theme, &app.assets, &mut app.relays.search)
-            .desired_width(200.0)
+            .desired_width(150.0)
             .show(ui);
+        if widgets::Button::primary(&app.theme, "Add Relay")
+            .show(ui)
+            .clicked()
+        {
+            super::start_entry_dialog(app);
+        }
     });
 
     // TBD time how long this takes. We don't want expensive code in the UI
