@@ -234,7 +234,7 @@ lazy_static! {
             max_image_side: AtomicUsize::new(2048),
             current_zap: PRwLock::new(ZapState::None),
             hashtag_regex: Regex::new(r"(?ms)(?:^|\s)(#[\w\p{Extended_Pictographic}]+)\b").unwrap(),
-            tagging_regex: Regex::new(r"(?ms)(?:^|\s)(@[\w\p{Extended_Pictographic}]+)\b").unwrap(),
+            tagging_regex: Regex::new(r"(?ms)(?:^|\s)@([\w\p{Extended_Pictographic}]+)\b").unwrap(),
             storage: OnceLock::new(),
             events_processed: AtomicU32::new(0),
             spam_filter_engine,
