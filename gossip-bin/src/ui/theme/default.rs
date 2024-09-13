@@ -420,7 +420,7 @@ impl ThemeDef for DefaultTheme {
             style.visuals.widgets.hovered.bg_fill = Color32::from_white_alpha(2);
             style.visuals.widgets.hovered.fg_stroke.color =
                 style.visuals.panel_fill.gamma_multiply(0.6);
-            style.visuals.selection.bg_fill = Self::accent_color(dark_mode).gamma_multiply(1.2);
+            style.visuals.selection.bg_fill = Self::accent_color(dark_mode).gamma_multiply(1.0);
             style.visuals.selection.stroke = Stroke::new(0.0, style.visuals.window_fill);
         } else {
             style.visuals.widgets.noninteractive.fg_stroke.color = style.visuals.panel_fill;
@@ -432,7 +432,7 @@ impl ThemeDef for DefaultTheme {
             style.visuals.widgets.hovered.bg_fill = Color32::from_white_alpha(2);
             style.visuals.widgets.hovered.fg_stroke.color =
                 style.visuals.panel_fill.gamma_multiply(0.6);
-            style.visuals.selection.bg_fill = Self::accent_color(dark_mode).gamma_multiply(1.2);
+            style.visuals.selection.bg_fill = Self::accent_color(dark_mode).gamma_multiply(1.0);
             style.visuals.selection.stroke = Stroke::new(0.0, style.visuals.panel_fill);
         }
     }
