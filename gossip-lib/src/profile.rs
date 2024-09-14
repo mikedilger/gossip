@@ -112,10 +112,22 @@ impl Profile {
         };
 
         // Create all these directories if missing
-        fs::create_dir_all(&base_dir)?;
-        fs::create_dir_all(&cache_dir)?;
-        fs::create_dir_all(&profile_dir)?;
-        fs::create_dir_all(&lmdb_dir)?;
+        fs::create_dir_all(&base_dir).map_err(|e| {
+            eprintln!("Error creating base directory ({}): {}", base_dir.display(), e);
+            Error::from(format!("Failed to create base directory: {}", e))
+        })?;
+        fs::create_dir_all(&cache_dir).map_err(|e| {
+            eprintln!("Error creating cache directory ({}): {}", cache_dir.display(), e);
+            Error::from(format!("Failed to create cache directory: {}", e))
+        })?;
+        fs::create_dir_all(&profile_dir).map_err(|e| {
+            eprintln!("Error creating profile directory ({}): {}", profile_dir.display(), e);
+            Error::from(format!("Failed to create profile directory: {}", e))
+        })?;
+        fs::create_dir_all(&lmdb_dir).map_err(|e| {
+            eprintln!("Error creating LMDB directory ({}): {}", lmdb_dir.display(), e);
+            Error::from(format!("Failed to create LMDB directory: {}", e))
+        })?;
 
         let tmp_cache_dir = TempDir::new("cache")?;
 
