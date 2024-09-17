@@ -346,7 +346,7 @@ fn dm_posting_area(
 
             // Emoji picker
             ui.menu_button(RichText::new("😀▼").size(14.0), |ui| {
-                if let Some(emoji) = crate::ui::components::emoji_picker(ui) {
+                if let Some(emoji) = crate::ui::emojis::emoji_picker(ui) {
                     app.dm_draft_data.draft.push(emoji);
                 }
             });
@@ -675,7 +675,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                 if app.draft_data.repost.is_none() {
                     // Emoji picker
                     ui.menu_button(RichText::new("😀▼").size(14.0), |ui| {
-                        if let Some(emoji) = crate::ui::components::emoji_picker(ui) {
+                        if let Some(emoji) = crate::ui::emojis::emoji_picker(ui) {
                             app.draft_data.draft.push(emoji);
                         }
                     });

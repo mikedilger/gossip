@@ -927,7 +927,7 @@ pub fn render_note_inner(
 
                                         bar_state.bar_menu(&button_response, |ui| {
                                             if let Some(emoji) =
-                                                crate::ui::components::emoji_picker(ui)
+                                                crate::ui::emojis::emoji_picker(ui)
                                             {
                                                 let _ = GLOBALS.to_overlord.send(
                                                     ToOverlordMessage::React(

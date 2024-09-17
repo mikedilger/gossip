@@ -34,8 +34,8 @@ macro_rules! write_setting {
 }
 
 mod assets;
-mod components;
 mod dm_chat_list;
+mod emojis;
 mod feed;
 mod help;
 mod notifications;
