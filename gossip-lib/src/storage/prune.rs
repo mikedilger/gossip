@@ -1,6 +1,8 @@
-use super::Storage;
+use super::table::Table;
+use super::{PersonTable, Storage};
 use crate::error::Error;
-use nostr_types::{Event, Id, Unixtime};
+use crate::globals::GLOBALS;
+use nostr_types::{Event, Filter, Id, Unixtime};
 use std::collections::HashSet;
 
 impl Storage {
@@ -101,5 +103,87 @@ impl Storage {
         txn.commit()?;
 
         Ok(ids.len())
+    }
+
+    /// Prune people that are not used:
+    ///   * No feed related events
+    ///   * less than 6 events
+    ///   * not in any lists
+    ///   * not petnamed
+    ///   * no valid nip05,
+    ///
+    /// Returns number of people deleted
+    pub fn prune_unused_people<'a>(&'a self) -> Result<usize, Error> {
+        let mut txn = self.get_write_txn()?;
+
+        let ekinds = crate::enabled_event_kinds();
+        let frkinds = crate::feed_related_event_kinds(true);
+
+        let mut filter = Filter::new();
+        filter.kinds = ekinds;
+        filter.limit = Some(6);
+
+        let mut count = 0;
+        let loop_txn = self.env.read_txn()?;
+        for person in PersonTable::iter(&loop_txn)? {
+            // Keep if they are in a person list
+            if !self.read_person_lists(&person.pubkey)?.is_empty() {
+                continue;
+            }
+
+            // Keep if they have a petname
+            if person.petname.is_some() {
+                continue;
+            }
+
+            // Keep if they have a valid nip-05
+            if person.nip05_valid {
+                continue;
+            }
+
+            // Load up to 6 of their events
+            filter.authors = vec![person.pubkey.into()];
+            let events = match self.find_events_by_filter(&filter, |_| true) {
+                Ok(events) => events,
+                Err(_) => continue, // some error we can't handle right now
+            };
+
+            // Keep people with at least 6 events
+            if events.len() >= 6 {
+                continue;
+            }
+
+            // Keep if any of their events is feed related
+            if events.iter().any(|e| frkinds.contains(&e.kind)) {
+                continue;
+            }
+
+            count += 1;
+            *GLOBALS.prune_status.write() = Some(
+                person
+                    .pubkey
+                    .as_hex_string()
+                    .get(0..10)
+                    .unwrap_or("?")
+                    .to_owned(),
+            );
+
+            // Delete their events
+            for event in &events {
+                self.delete_event(event.id, Some(&mut txn))?;
+            }
+
+            // Delete their person-relay records
+            self.delete_person_relays(|pr| pr.pubkey == person.pubkey, Some(&mut txn))?;
+
+            // Delete their person record
+            PersonTable::delete_record(person.pubkey, Some(&mut txn))?;
+        }
+
+        tracing::info!("PRUNE: deleted {} records from people", count);
+
+        txn.commit()?;
+
+        Ok(count)
     }
 }

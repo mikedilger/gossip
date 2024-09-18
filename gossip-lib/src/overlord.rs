@@ -708,6 +708,9 @@ impl Overlord {
             ToOverlordMessage::PruneOldEvents => {
                 Self::prune_old_events()?;
             }
+            ToOverlordMessage::PruneUnusedPeople => {
+                Self::prune_unused_people()?;
+            }
             ToOverlordMessage::PushPersonList(person_list) => {
                 self.push_person_list(person_list).await?;
             }
@@ -1878,7 +1881,7 @@ impl Overlord {
         GLOBALS
             .status_queue
             .write()
-            .write("Pruning database, please be patient..".to_owned());
+            .write("Pruning old events, please be patient..".to_owned());
 
         let now = Unixtime::now();
         let then = now
@@ -1892,6 +1895,44 @@ impl Overlord {
             "Database has been pruned. {} events removed.",
             count
         ));
+
+        Ok(())
+    }
+
+    /// Prune unused people
+    pub fn prune_unused_people() -> Result<(), Error> {
+        // Go offline
+        let mut need_to_go_back_online: bool = false;
+        if !GLOBALS.db().read_setting_offline() {
+            need_to_go_back_online = true;
+            GLOBALS.db().write_setting_offline(&true, None)?;
+            let _ = GLOBALS.write_runstate.send(RunState::Offline);
+        }
+
+        *GLOBALS.prune_status.write() = Some("pruning...".to_owned());
+
+        match GLOBALS.db().prune_unused_people() {
+            Ok(count) => {
+                GLOBALS.status_queue.write().write(format!(
+                    "Database has been pruned. {} people removed.",
+                    count
+                ));
+            }
+            Err(e) => {
+                GLOBALS
+                    .status_queue
+                    .write()
+                    .write(format!("Database prune error: {e}"));
+            }
+        }
+
+        *GLOBALS.prune_status.write() = None;
+
+        // Go online
+        if need_to_go_back_online {
+            GLOBALS.db().write_setting_offline(&false, None)?;
+            let _ = GLOBALS.write_runstate.send(RunState::Online);
+        }
 
         Ok(())
     }
