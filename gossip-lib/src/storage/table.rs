@@ -138,6 +138,23 @@ pub trait Table {
         Ok(rval)
     }
 
+    /// delete_record
+    fn delete_record(
+        key: <Self::Item as Record>::Key,
+        rw_txn: Option<&mut RwTxn<'_>>,
+    ) -> Result<(), Error> {
+        let keybytes = key.to_bytes()?;
+
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(GLOBALS.db(), rw_txn, local_txn);
+
+        Self::db()?.delete(txn, &keybytes)?;
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
+    }
+
     /// filter_records
     fn filter_records<F>(f: F) -> Result<Vec<Self::Item>, Error>
     where
