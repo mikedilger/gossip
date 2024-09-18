@@ -244,7 +244,9 @@ pub(super) fn relay_scroll_list(
                 if let Some(ref assignment) = GLOBALS.relay_picker.get_relay_assignment(&db_url) {
                     widget.set_user_count(assignment.pubkeys.len());
                 }
-                let response = ui.add_enabled(enabled, widget.clone());
+                let response = ui
+                    .add_enabled_ui(enabled, |ui| widget.show(ui, &app.theme))
+                    .inner;
                 if response.clicked() {
                     if !edit {
                         app.relays.edit = Some(db_url);

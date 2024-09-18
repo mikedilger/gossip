@@ -3,7 +3,7 @@ use eframe::egui::{self, *};
 use nostr_types::{PublicKeyHex, RelayUrl, Unixtime};
 use std::fmt;
 
-use crate::ui::{widgets, GossipUi};
+use crate::ui::{widgets, GossipUi, Theme};
 use gossip_lib::{comms::ToOverlordMessage, Relay, GLOBALS};
 
 use super::{
@@ -288,19 +288,17 @@ impl RelayEntry {
 }
 
 impl RelayEntry {
-    fn paint_title(&self, ui: &mut Ui, rect: &Rect) {
-        let title = self.relay.url.as_str().to_owned();
-        let text = RichText::new(title).size(list_entry::TITLE_FONT_SIZE);
-        let galley = list_entry::text_to_galley_max_width(
-            ui,
-            text.into(),
-            Align::LEFT,
-            rect.width() - 200.0,
-        );
+    fn paint_title(&self, ui: &mut Ui, theme: &Theme, rect: &Rect) {
         let pos = rect.min + vec2(TEXT_LEFT + STATUS_SYMBOL_SPACE, TEXT_TOP);
-        let rect = draw_text_galley_at(ui, pos, galley, Some(self.accent), None);
-        ui.interact(rect, ui.next_auto_id(), Sense::hover())
-            .on_hover_text(self.relay.url.as_str());
+        super::relay_url_at(
+            ui,
+            theme,
+            pos,
+            rect.width() - 220.0,
+            &self.relay.url,
+            Some(list_entry::TITLE_FONT_SIZE),
+        )
+        .on_hover_text(self.relay.url.as_str().to_owned());
 
         // paint status indicator
         // green - connected
@@ -336,7 +334,7 @@ impl RelayEntry {
         let rect = draw_text_at(ui, pos, symbol.into(), Align::LEFT, Some(color), None);
 
         // set tooltip
-        ui.interact(rect, ui.next_auto_id(), Sense::hover())
+        ui.interact(rect, ui.next_auto_id().with("ind"), Sense::hover())
             .on_hover_text(tooltip);
     }
 
@@ -1215,14 +1213,14 @@ impl RelayEntry {
     }
 
     /// Do layout and position the galley in the ui, without painting it or adding widget info.
-    fn update_list_view(self, ui: &mut Ui) -> Response {
+    fn update_list_view(self, ui: &mut Ui, theme: &Theme) -> Response {
         let (rect, mut response) = list_entry::allocate_space(ui, LIST_VIEW_HEIGHT);
         response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
 
         // all the heavy lifting is only done if it's actually visible
         if ui.is_rect_visible(rect) {
             list_entry::paint_frame(ui, &rect, self.interact_bg_color(&response));
-            self.paint_title(ui, &rect);
+            self.paint_title(ui, theme, &rect);
             if self.relay.has_any_usage_bit() || self.relay.is_good_for_advertise() {
                 self.paint_usage(ui, &rect);
             } else {
@@ -1234,14 +1232,14 @@ impl RelayEntry {
         response
     }
 
-    fn update_detail_view(self, ui: &mut Ui) -> Response {
+    fn update_detail_view(self, ui: &mut Ui, theme: &Theme) -> Response {
         let (rect, mut response) = list_entry::allocate_space(ui, DETAIL_VIEW_HEIGHT);
         response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
 
         // all the heavy lifting is only done if it's actually visible
         if ui.is_rect_visible(rect) {
             list_entry::paint_frame(ui, &rect, self.interact_bg_color(&response));
-            self.paint_title(ui, &rect);
+            self.paint_title(ui, theme, &rect);
             self.paint_stats(ui, &rect);
             if self.relay.has_any_usage_bit() || self.relay.is_good_for_advertise() {
                 self.paint_usage(ui, &rect);
@@ -1252,7 +1250,7 @@ impl RelayEntry {
         response
     }
 
-    fn update_edit_view(mut self, ui: &mut Ui) -> Response {
+    fn update_edit_view(mut self, ui: &mut Ui, theme: &Theme) -> Response {
         let (height, hline2_offset) =
             match (self.auth_require_permission, self.conn_require_permission) {
                 (true, true) => (
@@ -1267,21 +1265,27 @@ impl RelayEntry {
             };
 
         let size = vec2(ui.available_width(), height);
-        let rect = Rect::from_min_size(ui.next_widget_position(), size);
+        let pos = ui.next_widget_position();
+        let no_response_rect = Rect::from_min_size(pos, vec2(1.0, 1.0));
+        let rect = Rect::from_min_size(pos, size);
 
-        let mut response = ui.interact(rect, self.make_id("frame"), egui::Sense::hover());
+        let mut response = ui.interact(
+            no_response_rect,
+            self.make_id("frame"),
+            egui::Sense::hover(),
+        );
 
         // all the heavy lifting is only done if it's actually visible
         if ui.is_visible() {
             list_entry::paint_frame(ui, &rect, Some(self.bg_fill));
-            self.paint_title(ui, &rect);
+            self.paint_title(ui, theme, &rect);
             self.paint_stats(ui, &rect);
             paint_hline(ui, &rect, HLINE_1_Y_OFFSET);
             self.paint_nip11(ui, &rect);
             self.paint_usage_settings(ui, &rect);
             self.paint_permissions(ui, &rect);
             paint_hline(ui, &rect, hline2_offset);
-            response |= self.paint_lower_buttons(ui, &rect);
+            response = self.paint_lower_buttons(ui, &rect);
             response |= self.paint_close_btn(ui, &rect);
         }
 
@@ -1291,16 +1295,14 @@ impl RelayEntry {
 
         response
     }
-}
 
-impl Widget for RelayEntry {
-    fn ui(self, ui: &mut Ui) -> Response {
+    pub fn show(self, ui: &mut Ui, theme: &Theme) -> Response {
         ui.visuals_mut().widgets.hovered.fg_stroke.color = self.accent;
 
         match self.view {
-            RelayEntryView::List => self.update_list_view(ui),
-            RelayEntryView::Detail => self.update_detail_view(ui),
-            RelayEntryView::Edit => self.update_edit_view(ui),
+            RelayEntryView::List => self.update_list_view(ui, theme),
+            RelayEntryView::Detail => self.update_detail_view(ui, theme),
+            RelayEntryView::Edit => self.update_edit_view(ui, theme),
         }
     }
 }
