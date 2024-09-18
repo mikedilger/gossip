@@ -604,7 +604,7 @@ pub(super) fn sort_relay(rui: &RelayUi, a: &Relay, b: &Relay) -> Ordering {
             .then(b.get_usage_bits_for_sorting().cmp(&a.get_usage_bits_for_sorting()))
             .then(b.is_good_for_advertise().cmp(&a.is_good_for_advertise()))
             .then(a.url.cmp(&b.url)),
-        RelaySorting::Name => a.url.cmp(&b.url),
+        RelaySorting::Name => a.url.host().cmp(&b.url.host()).then(a.url.cmp(&b.url)),
         RelaySorting::WriteRelays => b.has_usage_bits(Relay::WRITE)
                               .cmp(&a.has_usage_bits(Relay::WRITE))
             .then(a.url.cmp(&b.url)),
