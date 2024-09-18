@@ -17,7 +17,7 @@ use super::{
 /// Height of the list view (width always max. available)
 const LIST_VIEW_HEIGHT: f32 = 60.0;
 /// Height of the list view (width always max. available)
-const DETAIL_VIEW_HEIGHT: f32 = 80.0;
+const DETAIL_VIEW_HEIGHT: f32 = 90.0;
 /// Height of the edit view (width always max. available)
 const EDIT_VIEW_HEIGHT: f32 = 280.0;
 /// Height required for one auth-permission drop-down
@@ -31,7 +31,7 @@ const DETAIL_SECTION_TOP: f32 = TEXT_TOP + LIST_VIEW_HEIGHT;
 /// Size of edit button
 const EDIT_BTN_SIZE: f32 = 20.0;
 /// Spacing of stats row to heading
-const STATS_Y_SPACING: f32 = 1.5 * TITLE_FONT_SIZE;
+const STATS_Y_SPACING: f32 = 2.0 * TITLE_FONT_SIZE;
 /// Distance of usage switch-left from TEXT_RIGHT
 const USAGE_SWITCH_PULL_RIGHT: f32 = 300.0;
 /// Spacing of usage switches: y direction
