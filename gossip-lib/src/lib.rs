@@ -83,7 +83,10 @@ mod error;
 pub use error::{Error, ErrorKind};
 
 mod feed;
-pub use feed::{Feed, FeedKind};
+pub use feed::{
+    enabled_event_kinds, feed_augment_event_kinds, feed_displayable_event_kinds,
+    feed_related_event_kinds, Feed, FeedKind,
+};
 
 mod fetcher;
 pub use fetcher::Fetcher;
