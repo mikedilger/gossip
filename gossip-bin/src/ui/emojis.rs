@@ -15,9 +15,7 @@ pub fn emoji_picker(ui: &mut Ui) -> Option<char> {
     let mut output: Option<char> = None;
 
     ui.vertical(|ui| {
-        if ui.add(
-            Button::new("LIKE").small()
-        ).clicked() {
+        if ui.add(Button::new("LIKE").small()).clicked() {
             output = Some('+');
         }
     });

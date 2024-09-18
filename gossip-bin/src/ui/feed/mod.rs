@@ -36,8 +36,10 @@ pub(super) fn enter_feed(app: &mut GossipUi, ctx: &Context, kind: FeedKind) {
             .map(|u| u.into_string())
             .collect();
         if app.global_relays.is_empty() {
-            app.global_relays
-                .push("You haven't configured any global relays, else they have errored recently".to_string());
+            app.global_relays.push(
+                "You haven't configured any global relays, else they have errored recently"
+                    .to_string(),
+            );
         }
     }
 
