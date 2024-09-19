@@ -176,14 +176,13 @@ impl Minion {
         // Connect to the relay
         let websocket_stream = {
             // Fetch NIP-11 data (if not fetched recently)
-            if let Some(last_nip11) = self.dbrelay.last_attempt_nip11 {
-                if (last_nip11 as i64) + 3600 < Unixtime::now().0 {
-                    if let Err(e) = self.fetch_nip11(fetcher_timeout).await {
-                        if matches!(e.kind, ErrorKind::ShuttingDown) {
-                            return Ok(MinionExitReason::GotShutdownMessage);
-                        } else {
-                            return Err(e);
-                        }
+            let last_nip11 = self.dbrelay.last_attempt_nip11.unwrap_or_default();
+            if (last_nip11 as i64) + 3600 < Unixtime::now().0 {
+                if let Err(e) = self.fetch_nip11(fetcher_timeout).await {
+                    if matches!(e.kind, ErrorKind::ShuttingDown) {
+                        return Ok(MinionExitReason::GotShutdownMessage);
+                    } else {
+                        return Err(e);
                     }
                 }
             }
