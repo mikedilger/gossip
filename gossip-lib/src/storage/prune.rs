@@ -20,6 +20,11 @@ impl Storage {
             if let Some(created_at) = Event::get_created_at_from_speedy_bytes(val) {
                 if created_at < from {
                     if let Some(id) = Event::get_id_from_speedy_bytes(val) {
+                        // Do not prune bookmarks, regardless of how old they are
+                        if GLOBALS.current_bookmarks.read().contains(&id) {
+                            continue;
+                        }
+
                         ids.insert(id);
                         // Too bad but we can't delete it now, other threads
                         // might try to access it still. We have to delete it from
