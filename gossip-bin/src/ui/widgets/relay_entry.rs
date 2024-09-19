@@ -19,15 +19,15 @@ const LIST_VIEW_HEIGHT: f32 = 60.0;
 /// Height of the list view (width always max. available)
 const DETAIL_VIEW_HEIGHT: f32 = 90.0;
 /// Height of the edit view (width always max. available)
-const EDIT_VIEW_HEIGHT: f32 = 280.0;
+const EDIT_VIEW_HEIGHT: f32 = 300.0;
 /// Height required for one auth-permission drop-down
 const EDIT_VIEW_AUTH_PERM_HEIGHT: f32 = 25.0;
 /// Y-offset for first separator
-const HLINE_1_Y_OFFSET: f32 = LIST_VIEW_HEIGHT - 12.0;
+const HLINE_1_Y_OFFSET: f32 = LIST_VIEW_HEIGHT;
 /// Y-offset for second separator
-const HLINE_2_Y_OFFSET: f32 = 210.0;
+const HLINE_2_Y_OFFSET: f32 = 230.0;
 /// Y top for the detail section
-const DETAIL_SECTION_TOP: f32 = TEXT_TOP + LIST_VIEW_HEIGHT;
+const DETAIL_SECTION_TOP: f32 = TEXT_TOP + LIST_VIEW_HEIGHT + 20.0;
 /// Size of edit button
 const EDIT_BTN_SIZE: f32 = 20.0;
 /// Spacing of stats row to heading
