@@ -358,7 +358,7 @@ impl Storage {
 
     /// Remove all events (and related data) with a created_at before `from`
     /// and all related indexes.
-    pub fn prune(&self, from: Unixtime) -> Result<usize, Error> {
+    pub fn prune_old_events(&self, from: Unixtime) -> Result<usize, Error> {
         // Extract the Ids to delete.
         let txn = self.env.read_txn()?;
         let mut ids: HashSet<Id> = HashSet::new();

@@ -705,8 +705,8 @@ impl Overlord {
             ToOverlordMessage::PruneCache => {
                 Self::prune_cache().await?;
             }
-            ToOverlordMessage::PruneDatabase => {
-                Self::prune_database()?;
+            ToOverlordMessage::PruneOldEvents => {
+                Self::prune_old_events()?;
             }
             ToOverlordMessage::PushPersonList(person_list) => {
                 self.push_person_list(person_list).await?;
@@ -1873,8 +1873,8 @@ impl Overlord {
         Ok(())
     }
 
-    /// Prune the database (events and more)
-    pub fn prune_database() -> Result<(), Error> {
+    /// Prune old events from the database
+    pub fn prune_old_events() -> Result<(), Error> {
         GLOBALS
             .status_queue
             .write()
@@ -1886,7 +1886,7 @@ impl Overlord {
                 GLOBALS.db().read_setting_prune_period_days() * 60 * 60 * 24,
                 0,
             );
-        let count = GLOBALS.db().prune(then)?;
+        let count = GLOBALS.db().prune_old_events(then)?;
 
         GLOBALS.status_queue.write().write(format!(
             "Database has been pruned. {} events removed.",

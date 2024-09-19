@@ -30,7 +30,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     if stored_settings == app.unsaved_settings {
         ui.add_space(20.0);
         if ui.button("Delete Old Events Now").on_hover_text("This will delete events older than the period specified above. but the LMDB files will continue consuming disk space. To compact them, copy withem with `mdb_copy -c` when gossip is not running.").clicked() {
-            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PruneDatabase);
+            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PruneOldEvents);
         }
 
         ui.add_space(20.0);

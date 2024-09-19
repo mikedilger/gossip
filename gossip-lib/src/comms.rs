@@ -136,8 +136,8 @@ pub enum ToOverlordMessage {
     /// Calls [prune_cache](crate::Overlord::prune_cache)
     PruneCache,
 
-    /// Calls [prune_database](crate::Overlord::prune_database)
-    PruneDatabase,
+    /// Calls [prune_old_events](crate::Overlord::prune_old_events)
+    PruneOldEvents,
 
     /// Calls [push_person_list](crate::Overlord::push_person_list)
     PushPersonList(PersonList),
