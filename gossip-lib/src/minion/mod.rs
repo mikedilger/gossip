@@ -16,8 +16,8 @@ use http::uri::{Parts, Scheme};
 use http::Uri;
 use mime::Mime;
 use nostr_types::{
-    ClientMessage, EventKind, Filter, Id, IdHex, NAddr, PreEvent, PublicKey, PublicKeyHex,
-    RelayInformationDocument, RelayUrl, Tag, Unixtime,
+    ClientMessage, EventKind, Filter, Id, IdHex, KeySigner, NAddr, PreEvent, PublicKey,
+    PublicKeyHex, RelayInformationDocument, RelayUrl, Signer, Tag, Unixtime,
 };
 use reqwest::Response;
 use std::borrow::Cow;
@@ -37,7 +37,22 @@ pub enum AuthState {
     None,
     Waiting(Id), // we sent AUTH, have not got response back yet
     Authenticated,
+    FakeWaiting(Id), // we sent fake AUTH, have not got response back yet
+    FakeAuthenticated,
     Failed,
+}
+
+impl AuthState {
+    pub fn is_waiting(&self) -> bool {
+        matches!(self, AuthState::Waiting(_)) || matches!(self, AuthState::FakeWaiting(_))
+    }
+
+    pub fn is_authenticated(&self) -> bool {
+        matches!(self, AuthState::Authenticated) || matches!(self, AuthState::FakeAuthenticated)
+    }
+    pub fn failed(&self) -> bool {
+        matches!(self, AuthState::Failed)
+    }
 }
 
 pub struct EventSeekState {
@@ -90,6 +105,7 @@ pub struct Minion {
     initial_handling: bool,
     loading_more: usize,
     subscriptions_empty_asof: Option<Unixtime>,
+    fake_auth_signer: KeySigner,
 }
 
 impl Drop for Minion {
@@ -135,6 +151,7 @@ impl Minion {
             initial_handling: true,
             loading_more: 0,
             subscriptions_empty_asof: None,
+            fake_auth_signer: KeySigner::generate("", 1)?,
         })
     }
 }
@@ -557,6 +574,7 @@ impl Minion {
             }
             ToMinionPayloadDetail::AuthDeclined => {
                 self.dbrelay.allow_auth = Some(false); // save in our memory copy of the relay
+                self.fake_authenticate().await?;
                 if let Some(pubkey) = GLOBALS.identity.public_key() {
                     GLOBALS.pending.remove(
                         &crate::pending::PendingItem::RelayAuthenticationRequest {
@@ -715,7 +733,7 @@ impl Minion {
         }
 
         // If we are authenticated
-        if self.auth_state == AuthState::Authenticated {
+        if self.auth_state.is_authenticated() {
             // Apply subscriptions that were waiting for auth
             let mut handles = std::mem::take(&mut self.subscriptions_waiting_for_auth);
             let now = Unixtime::now();
@@ -823,7 +841,7 @@ impl Minion {
             );
         }
 
-        if matches!(self.auth_state, AuthState::Waiting(_)) {
+        if self.auth_state.is_waiting() {
             // Save this, subscribe after AUTH completes
             self.subscriptions_waiting_for_auth
                 .insert(handle.to_owned(), Unixtime::now());
@@ -885,11 +903,11 @@ impl Minion {
     }
 
     async fn authenticate(&mut self) -> Result<(), Error> {
-        match self.auth_state {
-            AuthState::Authenticated => return Ok(()),
-            AuthState::Waiting(_) => return Ok(()),
-            AuthState::Failed => return Ok(()),
-            _ => (),
+        if self.auth_state.is_authenticated()
+            || self.auth_state.is_waiting()
+            || self.auth_state.failed()
+        {
+            return Ok(());
         }
 
         if !GLOBALS.identity.is_unlocked() {
@@ -920,6 +938,38 @@ impl Minion {
         ws_stream.send(WsMessage::Text(wire)).await?;
 
         self.auth_state = AuthState::Waiting(id);
+
+        Ok(())
+    }
+
+    async fn fake_authenticate(&mut self) -> Result<(), Error> {
+        if self.auth_state.is_authenticated()
+            || self.auth_state.is_waiting()
+            || self.auth_state.failed()
+        {
+            return Ok(());
+        }
+
+        let pubkey = self.fake_auth_signer.public_key();
+        let pre_event = PreEvent {
+            pubkey,
+            created_at: Unixtime::now(),
+            kind: EventKind::Auth,
+            tags: vec![
+                Tag::new(&["relay", self.url.as_str()]),
+                Tag::new(&["challenge", &self.auth_challenge]),
+            ],
+            content: "".to_string(),
+        };
+        let event = self.fake_auth_signer.sign_event(pre_event)?;
+        let id = event.id;
+        let msg = ClientMessage::Auth(Box::new(event));
+        let wire = serde_json::to_string(&msg)?;
+        self.last_message_sent = wire.clone();
+        let ws_stream = self.stream.as_mut().unwrap();
+        ws_stream.send(WsMessage::Text(wire)).await?;
+
+        self.auth_state = AuthState::FakeWaiting(id);
 
         Ok(())
     }

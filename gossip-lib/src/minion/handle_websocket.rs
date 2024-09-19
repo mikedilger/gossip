@@ -156,6 +156,11 @@ impl Minion {
                     format!("{url}: OK={ok} id={idhex}")
                 };
 
+                match ok {
+                    true => tracing::debug!("{relay_response}"),
+                    false => tracing::info!("{relay_response}"),
+                }
+
                 // If we are waiting for a response for this id, process
                 if let AuthState::Waiting(waiting_id) = self.auth_state {
                     if waiting_id == id {
@@ -168,6 +173,23 @@ impl Minion {
                             self.auth_state = AuthState::Authenticated;
                             self.try_subscribe_waiting().await?;
                         }
+                        return Ok(());
+                    }
+                }
+
+                // If we are waiting for a response for this id, process
+                if let AuthState::FakeWaiting(waiting_id) = self.auth_state {
+                    if waiting_id == id {
+                        if !ok {
+                            self.auth_state = AuthState::Failed;
+                            // Auth failed.
+                            tracing::warn!("fake-AUTH failed to {}: {}", &self.url, ok_message);
+                        } else {
+                            tracing::info!("Fake-authenticated to {}", &self.url);
+                            self.auth_state = AuthState::FakeAuthenticated;
+                            self.try_subscribe_waiting().await?;
+                        }
+                        return Ok(());
                     }
                 }
 
@@ -209,26 +231,18 @@ impl Minion {
                     // Take it out of the posting_ids whether or not job is done
                     self.posting_ids.remove(&id);
                 }
-
-                match ok {
-                    true => tracing::debug!("{relay_response}"),
-                    false => tracing::info!("{relay_response}"),
-                }
             }
             RelayMessage::Auth(challenge) => {
-                match self.auth_state {
-                    AuthState::Authenticated | AuthState::Failed => {
-                        // Ignore the AUTH. We already did.
-                        return Ok(());
-                    }
-                    _ => {}
+                if self.auth_state.is_authenticated() || self.auth_state.failed() {
+                    // Ignore the AUTH. We already did.
+                    return Ok(());
                 }
 
                 self.auth_challenge = challenge.to_owned();
                 if GLOBALS.db().read_setting_relay_auth_requires_approval() {
                     match self.dbrelay.allow_auth {
                         Some(true) => self.authenticate().await?,
-                        Some(false) => (),
+                        Some(false) => self.fake_authenticate().await?,
                         None => {
                             if let Some(pubkey) = GLOBALS.identity.public_key() {
                                 GLOBALS.pending.insert(
@@ -313,7 +327,7 @@ impl Minion {
                                         // return now, don't remove sub from map
                                         return Ok(());
                                     }
-                                    AuthState::Waiting(_) => {
+                                    AuthState::Waiting(_) | AuthState::FakeWaiting(_) => {
                                         // cork and retry once auth completes
                                         self.subscriptions_waiting_for_auth
                                             .insert(handle, Unixtime::now());
@@ -321,7 +335,7 @@ impl Minion {
                                         // return now, don't remove sub from map
                                         return Ok(());
                                     }
-                                    AuthState::Authenticated => {
+                                    AuthState::Authenticated | AuthState::FakeAuthenticated => {
                                         // We are authenticated, but it doesn't think so.
                                         // The relay is broken. Fail this sub.
                                         self.failed_subs.insert(handle.clone());
