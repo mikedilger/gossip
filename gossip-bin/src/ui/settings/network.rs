@@ -234,4 +234,15 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     });
 
     ui.add_space(20.0);
+
+    ui.add_space(10.0);
+    ui.heading("Fetch Now");
+    ui.add_space(10.0);
+
+    if ui.button("Fetch Relays for all people followed").on_hover_text("This will fetch relays for everybody that you follow (if they are stale). The data will come in eventually, there is no completion signal.").clicked() {
+        use crate::GLOBALS;
+        use gossip_lib::comms::ToOverlordMessage;
+        let pubkeys = GLOBALS.people.get_subscribed_pubkeys();
+        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::SubscribeDiscover(pubkeys, None));
+    }
 }
