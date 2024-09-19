@@ -3,10 +3,8 @@ use crate::ui::{widgets, Page};
 use eframe::egui;
 use egui::{Context, Ui};
 use egui_winit::egui::Id;
-use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::Relay;
 use gossip_lib::GLOBALS;
-use std::sync::atomic::Ordering;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     let is_editing = app.relays.edit.is_some();
@@ -30,26 +28,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             super::start_entry_dialog(app);
         }
 
-        let advertise_remaining = GLOBALS.advertise_jobs_remaining.load(Ordering::Relaxed);
-        if advertise_remaining == 0 {
-            if widgets::Button::secondary(&app.theme,"Advertise Relay List")
-                .show(ui)
-                .on_hover_text("Advertise my relays. Will send your relay usage information to every relay that seems to be working well so that other people know how to follow and contact you.")
-                .clicked()
-            {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::AdvertiseRelayList);
-            }
-        } else {
-            ui.add_enabled(
-                false,
-                widgets::Button::secondary(
-                    &app.theme,
-                    format!("Advertising, {} to go", advertise_remaining),
-                ),
-            );
-        }
+        // let advertise_remaining = GLOBALS.advertise_jobs_remaining.load(Ordering::Relaxed);
     });
 
     let relays = if !is_editing {
