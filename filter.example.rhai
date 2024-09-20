@@ -29,16 +29,17 @@
 //   caller        - a string that is one of "Process", "Thread",
 //                   "Inbox" or "Global" indicating which part of
 //                   the code is running your script
-//   content       - the event content as a string
 //   id            - the event ID, as a hex string
+//   pubkey        - the event author public key, as a hex string
 //   kind          - the event kind as an integer
+//   tags          - the event tags (array of array of strings)
+//   content       - the event content as a string
 //   muted         - if the author is in your mute list
 //   name          - if we have it, the name of the author (or your
 //                   petname), else an empty string
 //   nip05valid    - whether nip05 is valid for the author, as a
 //                   boolean
 //   pow           - the Proof of Work on the event
-//   pubkey        - the event author public key, as a hex string
 //   seconds_known - the number of seconds that the author of the
 //                   event has been known to gossip
 //   spamsafe      - true only if the event came in from a relay

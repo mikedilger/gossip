@@ -2,7 +2,7 @@ use crate::globals::GLOBALS;
 use crate::people::PersonList;
 use crate::profile::Profile;
 use crate::storage::{PersonTable, Table};
-use nostr_types::{Event, EventKind, Id, PublicKey, Unixtime};
+use nostr_types::{Event, EventKind, Id, PublicKey, Tag, Unixtime};
 use rhai::{CallFnOptions, Engine, Scope, AST};
 use std::fs;
 
@@ -68,6 +68,7 @@ pub fn filter_event(event: Event, caller: EventFilterCaller, spamsafe: bool) -> 
                 rumor.pubkey,
                 rumor.kind,
                 rumor.content,
+                rumor.tags,
                 pow,
                 caller,
                 spamsafe,
@@ -81,6 +82,7 @@ pub fn filter_event(event: Event, caller: EventFilterCaller, spamsafe: bool) -> 
             event.pubkey,
             event.kind,
             event.content,
+            event.tags,
             pow,
             caller,
             spamsafe,
@@ -93,6 +95,7 @@ fn inner_filter(
     pubkey: PublicKey,
     kind: EventKind,
     content: String,
+    mut tags: Vec<Tag>,
     pow: u8,
     caller: EventFilterCaller,
     spamsafe: bool,
@@ -117,6 +120,8 @@ fn inner_filter(
         return EventFilterAction::Allow;
     }
 
+    let tags: Vec<Vec<String>> = tags.drain(..).map(|t| t.into_inner()).collect();
+
     // NOTE numbers in rhai are i64 or f32
     let mut scope = Scope::new();
     scope
@@ -124,6 +129,7 @@ fn inner_filter(
         .push_constant("pubkey", pubkey.as_hex_string())
         .push_constant("kind", <EventKind as Into<u32>>::into(kind) as i64)
         .push_constant("content", content)
+        .push_constant("tags", tags)
         .push_constant(
             "nip05valid",
             match &author {
