@@ -441,8 +441,21 @@ pub fn process_new_event(
 }
 
 fn process_somebody_elses_contact_list(event: &Event, force: bool) -> Result<(), Error> {
-    // We don't keep their contacts or show to the user yet.
-    // We only process the contents for (non-standard) relay list information.
+    // Only if we follow them... update their followings record
+    if GLOBALS
+        .people
+        .is_person_in_list(&event.pubkey, PersonList::Followed)
+    {
+        use crate::storage::types::Following;
+        use crate::storage::{FollowingsTable, Table};
+
+        let mut following = Following {
+            actor: event.pubkey,
+            followed: event.people().drain(..).map(|(p, _, _)| p).collect(),
+        };
+
+        FollowingsTable::write_record(&mut following, None)?;
+    }
 
     // Try to parse the contents as a SimpleRelayList (ignore if it is not)
     if let Ok(srl) = serde_json::from_str::<SimpleRelayList>(&event.content) {
