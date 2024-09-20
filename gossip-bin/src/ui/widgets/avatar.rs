@@ -73,6 +73,7 @@ pub(crate) fn paint_avatar(
     let on_list = person.is_in_list(PersonList::Custom(2)); // TODO: change to any list
     let size = avatar_size.get_size();
     let has_dm_relays = GLOBALS.db().has_dm_relays(person.pubkey).unwrap_or(false);
+    let wot = format!("{}", GLOBALS.db().read_wot(person.pubkey).unwrap_or(0));
     const UNICODE_CIRCLED_17: &str = "\u{2470}";
 
     let avatar_response = paint_avatar_only(ui, avatar, avatar_size.get_size());
@@ -112,6 +113,28 @@ pub(crate) fn paint_avatar(
                 }
                 stat.join(", ")
             });
+    }
+    // paint WoT
+    {
+        let center = avatar_response.rect.left_bottom() + vec2(0.139 * size.x, -0.139 * size.y);
+        let mut fontid = TextStyle::Body.resolve(ui.style());
+        fontid.size = 9.0;
+        ui.painter().circle(
+            center,
+            avatar_size.get_status_size() + 3.0,
+            egui::Color32::WHITE,
+            egui::Stroke::new(
+                avatar_size.get_status_stroke_width(),
+                ui.visuals().panel_fill,
+            ),
+        );
+        ui.painter().text(
+            center + vec2(0.0, -1.0),
+            egui::Align2::CENTER_CENTER,
+            wot,
+            fontid,
+            ui.visuals().hyperlink_color,
+        );
     }
     if has_dm_relays {
         let center = avatar_response.rect.right_bottom() + vec2(-0.139 * size.x, -0.139 * size.y);
