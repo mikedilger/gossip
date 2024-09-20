@@ -1,8 +1,9 @@
 use crate::error::Error;
-use crate::storage::{RawDatabase, Storage};
+use crate::globals::GLOBALS;
+use crate::storage::{FollowingsTable, RawDatabase, Storage, Table};
 use heed::types::Bytes;
 use heed::RwTxn;
-use nostr_types::PublicKey;
+use nostr_types::{EventKind, Filter, PublicKey, PublicKeyHex};
 use std::sync::Mutex;
 
 // Pubkey -> u64
@@ -112,6 +113,36 @@ impl Storage {
         }
         self.db_wot()?
             .put(txn, pubkey.as_bytes(), wot.to_be_bytes().as_slice())?;
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
+    }
+
+    pub(crate) fn rebuild_wot<'a>(&'a self, rw_txn: Option<&mut RwTxn<'a>>) -> Result<(), Error> {
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
+
+        // Clear WoT data
+        self.db_wot()?.clear(txn)?;
+
+        // Clear following lists
+        FollowingsTable::clear(Some(txn))?;
+
+        // Get the contact lists of each person we follow
+        let mut filter = Filter::new();
+        filter.add_event_kind(EventKind::ContactList);
+        for pubkey in GLOBALS.people.get_subscribed_pubkeys().iter() {
+            let pkh: PublicKeyHex = pubkey.into();
+            filter.add_author(&pkh);
+        }
+        let contact_lists = self.find_events_by_filter(&filter, |_| true)?;
+
+        for event in &contact_lists {
+            crate::process::update_followings_and_wot_from_contact_list(event, Some(txn))?;
+        }
+
+        self.set_flag_rebuild_wot_needed(false, Some(txn))?;
 
         maybe_local_txn_commit!(local_txn);
 

@@ -489,6 +489,7 @@ impl Storage {
         b"reprocess_relay_lists_needed",
         true
     );
+    def_flag!(rebuild_wot_needed, b"rebuild_wot_needed", true);
 
     // Settings ----------------------------------------------------------
 
