@@ -449,12 +449,36 @@ fn process_somebody_elses_contact_list(event: &Event, force: bool) -> Result<(),
         use crate::storage::types::Following;
         use crate::storage::{FollowingsTable, Table};
 
-        let mut following = Following {
+        // Build their new followings table from the event
+        let mut new_followings = Following {
             actor: event.pubkey,
             followed: event.people().drain(..).map(|(p, _, _)| p).collect(),
         };
 
-        FollowingsTable::write_record(&mut following, None)?;
+        let mut txn = GLOBALS.db().get_write_txn()?;
+
+        // Fetch their old followings table
+        let old_followings = FollowingsTable::read_record(event.pubkey, Some(&mut txn))?
+            .unwrap_or(Following::new(event.pubkey, vec![]));
+
+        // Compute difference and adjust Web of Trust data
+        {
+            use std::collections::HashSet;
+
+            let old: HashSet<PublicKey> = old_followings.followed.iter().map(|p| *p).collect();
+            let new: HashSet<PublicKey> = new_followings.followed.iter().map(|p| *p).collect();
+            for added in new.difference(&old) {
+                GLOBALS.db().incr_wot(*added, Some(&mut txn))?;
+            }
+            for subtracted in old.difference(&new) {
+                GLOBALS.db().decr_wot(*subtracted, Some(&mut txn))?;
+            }
+        }
+
+        // Write their new followings data
+        FollowingsTable::write_record(&mut new_followings, Some(&mut txn))?;
+
+        txn.commit()?;
     }
 
     // Try to parse the contents as a SimpleRelayList (ignore if it is not)
