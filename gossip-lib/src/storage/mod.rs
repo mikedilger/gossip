@@ -55,6 +55,7 @@ mod relays2;
 mod relays3;
 mod unindexed_giftwraps1;
 mod versioned;
+mod wot;
 
 use crate::dm_channel::{DmChannel, DmChannelData};
 use crate::error::{Error, ErrorKind};
@@ -168,6 +169,7 @@ impl Storage {
         let _ = self.db_unindexed_giftwraps()?;
         let _ = self.db_person_lists()?;
         let _ = self.db_person_lists_metadata()?;
+        let _ = self.db_wot()?;
         let _ = PersonTable::db()?;
         let _ = FollowingsTable::db()?;
 
