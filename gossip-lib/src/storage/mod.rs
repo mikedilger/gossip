@@ -18,6 +18,8 @@ pub use person3_table::Person3Table;
 pub mod person4_table;
 pub use person4_table::Person4Table;
 pub type PersonTable = Person4Table;
+pub mod followings_table;
+pub use followings_table::FollowingsTable;
 
 // database implementations
 mod event_akci_index;
@@ -167,6 +169,7 @@ impl Storage {
         let _ = self.db_person_lists()?;
         let _ = self.db_person_lists_metadata()?;
         let _ = PersonTable::db()?;
+        let _ = FollowingsTable::db()?;
 
         // Do migrations
         match self.read_migration_level()? {
