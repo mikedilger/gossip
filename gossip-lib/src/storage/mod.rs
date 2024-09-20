@@ -357,6 +357,10 @@ impl Storage {
 
     // General key-value functions --------------------------------------------------
 
+    pub fn force_migration_level(&self, level: u32) -> Result<(), Error> {
+        self.write_migration_level(level, None)
+    }
+
     pub(crate) fn write_migration_level<'a>(
         &'a self,
         migration_level: u32,
