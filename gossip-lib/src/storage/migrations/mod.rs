@@ -25,6 +25,7 @@ mod m38;
 mod m39;
 mod m40;
 mod m41;
+mod m42;
 
 use super::Storage;
 use crate::error::{Error, ErrorKind};
@@ -32,7 +33,7 @@ use heed::RwTxn;
 
 impl Storage {
     const MIN_MIGRATION_LEVEL: u32 = 23;
-    const MAX_MIGRATION_LEVEL: u32 = 41;
+    const MAX_MIGRATION_LEVEL: u32 = 42;
 
     /// Initialize the database from empty
     pub(super) fn init_from_empty(&self) -> Result<(), Error> {
@@ -126,6 +127,7 @@ impl Storage {
             39 => self.m39_trigger()?,
             40 => self.m40_trigger()?,
             41 => self.m41_trigger()?,
+            42 => self.m42_trigger()?,
             _ => panic!("Unreachable migration level"),
         }
 
@@ -158,6 +160,7 @@ impl Storage {
             39 => self.m39_migrate(&prefix, txn)?,
             40 => self.m40_migrate(&prefix, txn)?,
             41 => self.m41_migrate(&prefix, txn)?,
+            42 => self.m42_migrate(&prefix, txn)?,
             _ => panic!("Unreachable migration level"),
         };
 
