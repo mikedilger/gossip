@@ -25,6 +25,9 @@ pub use person_relay1::PersonRelay1;
 mod person_relay2;
 pub use person_relay2::PersonRelay2;
 
+mod following;
+pub use following::Following;
+
 mod relationship1;
 pub use relationship1::Relationship1;
 
