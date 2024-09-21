@@ -3408,7 +3408,7 @@ dependencies = [
 [[package]]
 name = "nostr-types"
 version = "0.8.0-unstable"
-source = "git+https://github.com/mikedilger/nostr-types?rev=8b39785a349b3523d93c5ede1c7fd889bfa014c7#8b39785a349b3523d93c5ede1c7fd889bfa014c7"
+source = "git+https://github.com/mikedilger/nostr-types?rev=013a1657258d786196cc0b63bf7af8a0a588d004#013a1657258d786196cc0b63bf7af8a0a588d004"
 dependencies = [
  "aes",
  "base64 0.22.1",
