@@ -29,7 +29,7 @@ impl Storage {
         let loop_txn = self.env.read_txn()?;
 
         let iter = Person3Table::iter(&loop_txn)?;
-        for p in iter {
+        for (_pk, p) in iter {
             let mut p4 = Person4 {
                 pubkey: p.pubkey,
                 first_encountered: self.m41_earliest_event_created_at(p.pubkey, &loop_txn)?.0,

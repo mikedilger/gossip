@@ -130,7 +130,7 @@ impl Storage {
 
         let mut count = 0;
         let loop_txn = self.env.read_txn()?;
-        for person in PersonTable::iter(&loop_txn)? {
+        for (_pk, person) in PersonTable::iter(&loop_txn)? {
             // Keep if they are in a person list
             if !self.read_person_lists(&person.pubkey)?.is_empty() {
                 continue;

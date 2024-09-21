@@ -291,13 +291,13 @@ pub trait Table {
     }
 }
 
-pub struct TableIterator<'a, I: ByteRep> {
+pub struct TableIterator<'a, I: Record> {
     inner: heed::RoIter<'a, Bytes, Bytes>,
     phantom: std::marker::PhantomData<I>,
 }
 
-impl<'a, I: ByteRep> Iterator for TableIterator<'a, I> {
-    type Item = I;
+impl<'a, I: Record> Iterator for TableIterator<'a, I> {
+    type Item = (I::Key, I);
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.inner.next() {
@@ -306,11 +306,10 @@ impl<'a, I: ByteRep> Iterator for TableIterator<'a, I> {
                 if result.is_err() {
                     None
                 } else {
-                    let (_keybytes, valbytes) = result.unwrap();
-                    if let Ok(record) = I::from_bytes(valbytes) {
-                        Some(record)
-                    } else {
-                        None
+                    let (keybytes, valbytes) = result.unwrap();
+                    match (I::Key::from_bytes(keybytes), I::from_bytes(valbytes)) {
+                        (Ok(key), Ok(record)) => Some((key, record)),
+                        _ => None,
                     }
                 }
             }
