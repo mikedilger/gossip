@@ -360,6 +360,12 @@ impl Storage {
         Ok(self.db_person_lists()?.len(&txn)?)
     }
 
+    /// The number of records in the wot table
+    pub fn get_wot_len(&self) -> Result<u64, Error> {
+        let txn = self.env.read_txn()?;
+        Ok(self.db_wot()?.len(&txn)?)
+    }
+
     // General key-value functions --------------------------------------------------
 
     pub fn force_migration_level(&self, level: u32) -> Result<(), Error> {
