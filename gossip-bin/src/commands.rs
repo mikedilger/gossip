@@ -24,7 +24,7 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 40] = [
+const COMMANDS: [Command; 41] = [
     Command {
         cmd: "oneshot",
         usage_params: "{depends}",
@@ -94,6 +94,11 @@ const COMMANDS: [Command; 40] = [
         cmd: "export_encrypted_key",
         usage_params: "",
         desc: "Export the encrypted private key",
+    },
+    Command {
+        cmd: "force_migration_level",
+        usage_params: "<level>",
+        desc: "DANGEROUS! force storage migration level",
     },
     Command {
         cmd: "giftwraps",
@@ -257,6 +262,7 @@ pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
         "events_of_pubkey" => events_of_pubkey(command, args)?,
         "events_of_pubkey_and_kind" => events_of_pubkey_and_kind(command, args)?,
         "export_encrypted_key" => export_encrypted_key()?,
+        "force_migration_level" => force_migration_level(command, args)?,
         "giftwraps" => giftwraps(command)?,
         "help" => help(command, args)?,
         "import_encrypted_private_key" => import_encrypted_private_key(command, args)?,
@@ -908,6 +914,17 @@ pub fn export_encrypted_key() -> Result<(), Error> {
     };
 
     println!("{}", epk);
+
+    Ok(())
+}
+
+pub fn force_migration_level(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+    let level = match args.next() {
+        Some(l) => l.parse::<u32>()?,
+        None => return cmd.usage("Missing level parameter".to_string()),
+    };
+
+    GLOBALS.db().force_migration_level(level)?;
 
     Ok(())
 }

@@ -18,6 +18,8 @@ pub use person3_table::Person3Table;
 pub mod person4_table;
 pub use person4_table::Person4Table;
 pub type PersonTable = Person4Table;
+pub mod followings_table;
+pub use followings_table::FollowingsTable;
 
 // database implementations
 mod event_akci_index;
@@ -53,6 +55,7 @@ mod relays2;
 mod relays3;
 mod unindexed_giftwraps1;
 mod versioned;
+mod wot;
 
 use crate::dm_channel::{DmChannel, DmChannelData};
 use crate::error::{Error, ErrorKind};
@@ -166,7 +169,9 @@ impl Storage {
         let _ = self.db_unindexed_giftwraps()?;
         let _ = self.db_person_lists()?;
         let _ = self.db_person_lists_metadata()?;
+        let _ = self.db_wot()?;
         let _ = PersonTable::db()?;
+        let _ = FollowingsTable::db()?;
 
         // Do migrations
         match self.read_migration_level()? {
@@ -355,7 +360,17 @@ impl Storage {
         Ok(self.db_person_lists()?.len(&txn)?)
     }
 
+    /// The number of records in the wot table
+    pub fn get_wot_len(&self) -> Result<u64, Error> {
+        let txn = self.env.read_txn()?;
+        Ok(self.db_wot()?.len(&txn)?)
+    }
+
     // General key-value functions --------------------------------------------------
+
+    pub fn force_migration_level(&self, level: u32) -> Result<(), Error> {
+        self.write_migration_level(level, None)
+    }
 
     pub(crate) fn write_migration_level<'a>(
         &'a self,
@@ -480,6 +495,7 @@ impl Storage {
         b"reprocess_relay_lists_needed",
         true
     );
+    def_flag!(rebuild_wot_needed, b"rebuild_wot_needed", true);
 
     // Settings ----------------------------------------------------------
 

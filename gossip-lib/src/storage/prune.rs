@@ -2,7 +2,7 @@ use super::table::Table;
 use super::{PersonTable, Storage};
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use nostr_types::{Event, Filter, Id, Unixtime};
+use nostr_types::{Event, Filter, Id, PublicKey, Unixtime};
 use std::collections::HashSet;
 
 impl Storage {
@@ -130,7 +130,7 @@ impl Storage {
 
         let mut count = 0;
         let loop_txn = self.env.read_txn()?;
-        for person in PersonTable::iter(&loop_txn)? {
+        for (_pk, person) in PersonTable::iter(&loop_txn)? {
             // Keep if they are in a person list
             if !self.read_person_lists(&person.pubkey)?.is_empty() {
                 continue;
@@ -190,5 +190,30 @@ impl Storage {
         txn.commit()?;
 
         Ok(count)
+    }
+
+    /// Prune miscellaneous things
+    pub fn prune_misc(&self) -> Result<(), Error> {
+        let mut txn = self.get_write_txn()?;
+
+        // Remove WoT entries with value=0
+        let mut zero_wot: Vec<PublicKey> = Vec::new();
+        {
+            let mut iter = self.db_wot()?.iter(&txn)?;
+            while let Some(result) = iter.next() {
+                let (k, v) = result?;
+                let pubkey = PublicKey::from_bytes(k, false)?;
+                let count = u64::from_be_bytes(<[u8; 8]>::try_from(&v[..8]).unwrap());
+                if count == 0 {
+                    zero_wot.push(pubkey);
+                }
+            }
+        }
+
+        for pk in zero_wot.drain(..) {
+            self.db_wot()?.delete(&mut txn, pk.as_bytes())?;
+        }
+
+        Ok(())
     }
 }
