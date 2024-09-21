@@ -72,9 +72,7 @@ pub(crate) fn paint_avatar(
     let muted = person.is_in_list(PersonList::Muted);
     let on_list = person.is_in_list(PersonList::Custom(2)); // TODO: change to any list
     let size = avatar_size.get_size();
-    let has_dm_relays = GLOBALS.db().has_dm_relays(person.pubkey).unwrap_or(false);
-    let wot = format!("{}", GLOBALS.db().read_wot(person.pubkey).unwrap_or(0));
-    const UNICODE_CIRCLED_17: &str = "\u{2470}";
+    let wot = GLOBALS.db().read_wot(person.pubkey).unwrap_or(0);
 
     let avatar_response = paint_avatar_only(ui, avatar, avatar_size.get_size());
 
@@ -114,49 +112,35 @@ pub(crate) fn paint_avatar(
                 stat.join(", ")
             });
     }
-    // paint WoT
-    {
-        let center = avatar_response.rect.left_bottom() + vec2(0.139 * size.x, -0.139 * size.y);
-        let mut fontid = TextStyle::Body.resolve(ui.style());
-        fontid.size = 9.0;
-        ui.painter().circle(
-            center,
-            avatar_size.get_status_size() + 3.0,
-            egui::Color32::WHITE,
-            egui::Stroke::new(
-                avatar_size.get_status_stroke_width(),
-                ui.visuals().panel_fill,
-            ),
-        );
-        ui.painter().text(
-            center + vec2(0.0, -1.0),
-            egui::Align2::CENTER_CENTER,
-            wot,
-            fontid,
-            ui.visuals().hyperlink_color,
-        );
-    }
-    if has_dm_relays {
-        let center = avatar_response.rect.right_bottom() + vec2(-0.139 * size.x, -0.139 * size.y);
-        let mut fontid = TextStyle::Body.resolve(ui.style());
-        fontid.size = 11.0;
-        ui.painter().circle(
-            center,
-            avatar_size.get_status_size() + 1.0,
-            egui::Color32::WHITE,
-            egui::Stroke::new(
-                avatar_size.get_status_stroke_width(),
-                ui.visuals().panel_fill,
-            ),
-        );
-        ui.painter().text(
-            center + vec2(0.0, -1.0),
-            egui::Align2::CENTER_CENTER,
-            UNICODE_CIRCLED_17,
-            fontid,
-            ui.visuals().hyperlink_color,
-        );
-    }
+
+    // Paint WoT
+    let (wotstr, fsize) = if wot >= 100 {
+        ("★".to_owned(), 11.0)
+    } else if wot >= 10 {
+        (format!("{}", wot), 9.0) // 2-digits
+    } else {
+        (format!("{}", wot), 11.0) // 1-digit
+    };
+    let center = avatar_response.rect.right_bottom() + vec2(-0.139 * size.x, -0.139 * size.y);
+    let mut fontid = TextStyle::Body.resolve(ui.style());
+    fontid.size = fsize;
+    ui.painter().circle(
+        center,
+        avatar_size.get_status_size() + 3.0,
+        egui::Color32::WHITE,
+        egui::Stroke::new(
+            avatar_size.get_status_stroke_width(),
+            ui.visuals().panel_fill,
+        ),
+    );
+    ui.painter().text(
+        center,
+        egui::Align2::CENTER_CENTER,
+        wotstr,
+        fontid,
+        ui.visuals().hyperlink_color,
+    );
+
     avatar_response
 }
 
@@ -170,3 +154,21 @@ pub(crate) fn paint_avatar_only(ui: &mut Ui, avatar: &TextureHandle, size: Vec2)
     );
     avatar_response
 }
+
+/*
+fn wot_to_unicode(wot: u64) -> char {
+    let unicode: u64 = if wot==0 {
+        0x24EA
+    } else if (1..=20).contains(&wot) {
+        0x2460 + (wot-1)
+    } else if (21..=35).contains(&wot) {
+        0x3251 + (wot-21)
+    } else if (36..=50).contains(&wot) {
+        0x32B1 + (wot-36)
+    } else {
+        0x235F // or try 272A
+    };
+
+    char::from_u32(unicode as u32).unwrap()
+}
+*/
