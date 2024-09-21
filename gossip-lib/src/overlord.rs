@@ -1889,6 +1889,9 @@ impl Overlord {
             .write()
             .write("Pruning old events, please be patient..".to_owned());
 
+        // Prune misc while we are at it (we have no other UI action)
+        GLOBALS.db().prune_misc()?;
+
         let now = Unixtime::now();
         let then = now
             - Duration::new(
