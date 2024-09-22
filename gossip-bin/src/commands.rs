@@ -24,7 +24,7 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 41] = [
+const COMMANDS: [Command; 42] = [
     Command {
         cmd: "oneshot",
         usage_params: "{depends}",
@@ -186,6 +186,11 @@ const COMMANDS: [Command; 41] = [
         desc: "Show statistics on reactions",
     },
     Command {
+        cmd: "rebuild_wot",
+        usage_params: "",
+        desc: "Rebuild web of trust (will rebuild next time gossip starts)",
+    },
+    Command {
         cmd: "rebuild_indices",
         usage_params: "",
         desc: "Rebuild all event-related indices",
@@ -286,6 +291,7 @@ pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
         "print_seen_on" => print_seen_on(command, args)?,
         "rapid" => {} // is handled early in main.rs
         "reaction_stats" => reaction_stats(command, args)?,
+        "rebuild_wot" => rebuild_wot()?,
         "rebuild_indices" => rebuild_indices()?,
         "rename_person_list" => rename_person_list(command, args)?,
         "reprocess_recent" => reprocess_recent(command)?,
@@ -996,6 +1002,12 @@ pub fn reaction_stats(_cmd: Command, mut _args: env::Args) -> Result<(), Error> 
     for (reaction, count) in reactions {
         println!("{} {}", count, reaction);
     }
+    Ok(())
+}
+
+pub fn rebuild_wot() -> Result<(), Error> {
+    GLOBALS.db().set_flag_rebuild_wot_needed(true, None)?;
+    println!("Web of trust will be rebuilt next time gossip starts.");
     Ok(())
 }
 
