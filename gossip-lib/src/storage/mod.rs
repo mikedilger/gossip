@@ -697,12 +697,6 @@ impl Storage {
         u64,
         600
     );
-    def_setting!(
-        nip11_lines_to_output_on_error,
-        b"nip11_lines_to_output_on_error",
-        usize,
-        10
-    );
     def_setting!(prune_period_days, b"prune_period_days", u64, 90);
     def_setting!(cache_prune_period_days, b"cache_prune_period_days", u64, 90);
     def_setting!(

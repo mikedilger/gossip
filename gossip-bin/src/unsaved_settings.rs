@@ -120,7 +120,6 @@ pub struct UnsavedSettings {
     pub fetcher_host_exclusion_on_low_error_secs: u64,
     pub fetcher_host_exclusion_on_med_error_secs: u64,
     pub fetcher_host_exclusion_on_high_error_secs: u64,
-    pub nip11_lines_to_output_on_error: usize,
 
     // Database settings
     pub prune_period_days: u64,
@@ -210,7 +209,6 @@ impl Default for UnsavedSettings {
             fetcher_host_exclusion_on_high_error_secs: default_setting!(
                 fetcher_host_exclusion_on_high_error_secs
             ),
-            nip11_lines_to_output_on_error: default_setting!(nip11_lines_to_output_on_error),
             prune_period_days: default_setting!(prune_period_days),
             cache_prune_period_days: default_setting!(prune_period_days),
         }
@@ -296,7 +294,6 @@ impl UnsavedSettings {
             fetcher_host_exclusion_on_high_error_secs: load_setting!(
                 fetcher_host_exclusion_on_high_error_secs
             ),
-            nip11_lines_to_output_on_error: load_setting!(nip11_lines_to_output_on_error),
             prune_period_days: load_setting!(prune_period_days),
             cache_prune_period_days: load_setting!(cache_prune_period_days),
         }
@@ -370,7 +367,6 @@ impl UnsavedSettings {
         save_setting!(fetcher_host_exclusion_on_low_error_secs, self, txn);
         save_setting!(fetcher_host_exclusion_on_med_error_secs, self, txn);
         save_setting!(fetcher_host_exclusion_on_high_error_secs, self, txn);
-        save_setting!(nip11_lines_to_output_on_error, self, txn);
         save_setting!(prune_period_days, self, txn);
         save_setting!(cache_prune_period_days, self, txn);
         txn.commit()?;

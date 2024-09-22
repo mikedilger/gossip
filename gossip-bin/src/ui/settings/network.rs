@@ -119,16 +119,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             .text("seconds"),
         );
     });
-    ui.horizontal(|ui| {
-        ui.label("When a NIP-11 is not a NIP-11, how many lines of the body do you want to see?");
-        ui.add(
-            Slider::new(
-                &mut app.unsaved_settings.nip11_lines_to_output_on_error,
-                1..=100,
-            )
-            .text("lines"),
-        );
-    });
 
     ui.add_space(10.0);
     ui.heading("Websocket Settings");

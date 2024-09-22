@@ -409,18 +409,8 @@ impl Minion {
                             self.nip11 = Some(nip11);
                             self.dbrelay.nip11 = self.nip11.clone();
                         }
-                        Err(e) => {
-                            tracing::warn!(
-                                "{}: Unable to parse response as NIP-11 ({}): {}\n",
-                                &self.url,
-                                e,
-                                text.lines()
-                                    .take(
-                                        GLOBALS.db().read_setting_nip11_lines_to_output_on_error()
-                                    )
-                                    .collect::<Vec<_>>()
-                                    .join("\n")
-                            );
+                        Err(_) => {
+                            tracing::warn!("{}: Unable to parse response as NIP-11", &self.url);
                         }
                     }
                 }
