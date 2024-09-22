@@ -1,6 +1,7 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::storage::{FollowingsTable, RawDatabase, Storage, Table};
+use crate::PersonList;
 use heed::types::Bytes;
 use heed::RwTxn;
 use nostr_types::{EventKind, Filter, PublicKey, PublicKeyHex};
@@ -132,7 +133,12 @@ impl Storage {
         // Get the contact lists of each person we follow
         let mut filter = Filter::new();
         filter.add_event_kind(EventKind::ContactList);
-        for pubkey in GLOBALS.people.get_subscribed_pubkeys().iter() {
+        for pubkey in GLOBALS
+            .db()
+            .get_people_in_list(PersonList::Followed)?
+            .iter()
+            .map(|(pk, _private)| pk)
+        {
             let pkh: PublicKeyHex = pubkey.into();
             filter.add_author(&pkh);
         }
