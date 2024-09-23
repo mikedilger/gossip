@@ -434,7 +434,7 @@ pub(super) fn configure_list_btn(app: &mut GossipUi, ui: &mut Ui) {
         let max_size = vec2(180.0, ui.ctx().available_rect().height());
 
         let text = egui::RichText::new("=").size(13.0);
-        let response = widgets::Button::primary(&app.theme, text)
+        let response = widgets::Button::secondary(&app.theme, text)
             .small(true)
             .show(ui);
         let menu = widgets::MoreMenu::bubble(ui.next_auto_id(), min_size, max_size);
