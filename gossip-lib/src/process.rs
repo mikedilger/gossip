@@ -441,12 +441,12 @@ pub fn process_new_event(
 }
 
 fn process_somebody_elses_contact_list(event: &Event, force: bool) -> Result<(), Error> {
-    // Only if we follow them... update their followings record and the WoT
+    // Only if we follow them... update their followings record and the FoF
     if GLOBALS
         .people
         .is_person_in_list(&event.pubkey, PersonList::Followed)
     {
-        update_followings_and_wot_from_contact_list(event, None)?;
+        update_followings_and_fof_from_contact_list(event, None)?;
     }
 
     // Try to parse the contents as a SimpleRelayList (ignore if it is not)
@@ -966,7 +966,7 @@ fn update_or_allocate_person_list_from_event(
 }
 
 // Caller must ensure that the author is followed.
-pub(crate) fn update_followings_and_wot_from_contact_list<'a>(
+pub(crate) fn update_followings_and_fof_from_contact_list<'a>(
     event: &Event,
     rw_txn: Option<&mut RwTxn<'a>>,
 ) -> Result<(), Error> {
@@ -992,17 +992,17 @@ pub(crate) fn update_followings_and_wot_from_contact_list<'a>(
     let old_followings = FollowingsTable::read_record(event.pubkey, Some(txn))?
         .unwrap_or(Following::new(event.pubkey, vec![]));
 
-    // Compute difference and adjust Web of Trust data
+    // Compute difference and adjust Friends of Friends data
     {
         use std::collections::HashSet;
 
         let old: HashSet<PublicKey> = old_followings.followed.iter().map(|p| *p).collect();
         let new: HashSet<PublicKey> = new_followings.followed.iter().map(|p| *p).collect();
         for added in new.difference(&old) {
-            GLOBALS.db().incr_wot(*added, Some(txn))?;
+            GLOBALS.db().incr_fof(*added, Some(txn))?;
         }
         for subtracted in old.difference(&new) {
-            GLOBALS.db().decr_wot(*subtracted, Some(txn))?;
+            GLOBALS.db().decr_fof(*subtracted, Some(txn))?;
         }
     }
 

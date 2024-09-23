@@ -149,8 +149,8 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ui.add_space(6.0);
 
         ui.label(format!(
-            "WoT: {} records",
-            GLOBALS.db().get_wot_len().unwrap_or(0)
+            "FoF: {} records",
+            GLOBALS.db().get_fof_len().unwrap_or(0)
         ));
         ui.add_space(6.0);
     });

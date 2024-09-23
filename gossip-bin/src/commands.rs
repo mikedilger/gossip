@@ -186,9 +186,9 @@ const COMMANDS: [Command; 42] = [
         desc: "Show statistics on reactions",
     },
     Command {
-        cmd: "rebuild_wot",
+        cmd: "rebuild_fof",
         usage_params: "",
-        desc: "Rebuild web of trust (will rebuild next time gossip starts)",
+        desc: "Rebuild friends-of-friends (will rebuild next time gossip starts)",
     },
     Command {
         cmd: "rebuild_indices",
@@ -291,7 +291,7 @@ pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
         "print_seen_on" => print_seen_on(command, args)?,
         "rapid" => {} // is handled early in main.rs
         "reaction_stats" => reaction_stats(command, args)?,
-        "rebuild_wot" => rebuild_wot()?,
+        "rebuild_fof" => rebuild_fof()?,
         "rebuild_indices" => rebuild_indices()?,
         "rename_person_list" => rename_person_list(command, args)?,
         "reprocess_recent" => reprocess_recent(command)?,
@@ -1005,9 +1005,9 @@ pub fn reaction_stats(_cmd: Command, mut _args: env::Args) -> Result<(), Error> 
     Ok(())
 }
 
-pub fn rebuild_wot() -> Result<(), Error> {
-    GLOBALS.db().set_flag_rebuild_wot_needed(true, None)?;
-    println!("Web of trust will be rebuilt next time gossip starts.");
+pub fn rebuild_fof() -> Result<(), Error> {
+    GLOBALS.db().set_flag_rebuild_fof_needed(true, None)?;
+    println!("Friends of friends data will be rebuilt next time gossip starts.");
     Ok(())
 }
 

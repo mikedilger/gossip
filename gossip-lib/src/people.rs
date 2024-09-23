@@ -734,13 +734,13 @@ impl People {
             // Don't remove from relay picker here. They might still be on other
             // lists. Garbage collection will eventually clean it up.
 
-            // Update Web of Trust scores
+            // Update Friends of Friends data
             if list == PersonList::Followed {
                 use crate::storage::{FollowingsTable, Table};
                 let mut txn = GLOBALS.db().get_write_txn()?;
                 if let Some(followings) = FollowingsTable::read_record(*pubkey, Some(&mut txn))? {
                     for followed in followings.followed.iter() {
-                        GLOBALS.db().decr_wot(*followed, Some(&mut txn))?;
+                        GLOBALS.db().decr_fof(*followed, Some(&mut txn))?;
                     }
                 }
                 txn.commit()?;

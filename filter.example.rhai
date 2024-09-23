@@ -37,9 +37,9 @@
 //   muted         - if the author is in your mute list
 //   name          - if we have it, the name of the author (or your
 //                   petname), else an empty string
-//   wot           - Web of Trust score. How many people that you
-//                   follow happen to follow the author of the
-//                   event.
+//   fof           - Friends of friends: Among you, the people you
+//                   follow, and the people they follow, how many
+//                   follow the pubkey of the event?
 //   nip05valid    - whether nip05 is valid for the author, as a
 //                   boolean
 //   pow           - the Proof of Work on the event
@@ -167,7 +167,7 @@ fn allow_proven() {
     }
 
     // Accept if anybody that you follow follows them
-    if wot > 0 {
+    if fof > 0 {
         return ALLOW;
     }
 

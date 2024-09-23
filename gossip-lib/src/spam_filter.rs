@@ -130,7 +130,9 @@ fn inner_filter(
         .push_constant("kind", <EventKind as Into<u32>>::into(kind) as i64)
         .push_constant("content", content)
         .push_constant("tags", tags)
-        .push_constant("wot", GLOBALS.db().read_wot(pubkey).unwrap_or(0) as i64)
+        .push_constant("fof", GLOBALS.db().read_fof(pubkey).unwrap_or(0) as i64)
+        // for backwards compatibility:
+        .push_constant("wot", GLOBALS.db().read_fof(pubkey).unwrap_or(0) as i64)
         .push_constant(
             "nip05valid",
             match &author {

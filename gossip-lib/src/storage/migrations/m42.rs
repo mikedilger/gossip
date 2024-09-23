@@ -13,10 +13,10 @@ impl Storage {
         txn: &mut RwTxn<'a>,
     ) -> Result<(), Error> {
         // Info message
-        tracing::info!("{prefix}: rebuilding web of trust...");
+        tracing::info!("{prefix}: rebuilding friends-of-friends datat...");
 
-        // Rebuild WoT
-        self.set_flag_rebuild_wot_needed(true, Some(txn))?;
+        // Rebuild Fof
+        self.set_flag_rebuild_fof_needed(true, Some(txn))?;
 
         Ok(())
     }

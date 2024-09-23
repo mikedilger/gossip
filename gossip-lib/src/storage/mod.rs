@@ -34,6 +34,7 @@ mod event_tag_index1;
 mod event_viewed1;
 mod events2;
 mod events3;
+mod fof;
 mod general;
 mod hashtags1;
 mod nip46servers1;
@@ -55,7 +56,6 @@ mod relays2;
 mod relays3;
 mod unindexed_giftwraps1;
 mod versioned;
-mod wot;
 
 use crate::dm_channel::{DmChannel, DmChannelData};
 use crate::error::{Error, ErrorKind};
@@ -169,7 +169,7 @@ impl Storage {
         let _ = self.db_unindexed_giftwraps()?;
         let _ = self.db_person_lists()?;
         let _ = self.db_person_lists_metadata()?;
-        let _ = self.db_wot()?;
+        let _ = self.db_fof()?;
         let _ = PersonTable::db()?;
         let _ = FollowingsTable::db()?;
 
@@ -360,10 +360,10 @@ impl Storage {
         Ok(self.db_person_lists()?.len(&txn)?)
     }
 
-    /// The number of records in the wot table
-    pub fn get_wot_len(&self) -> Result<u64, Error> {
+    /// The number of records in the fof table
+    pub fn get_fof_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
-        Ok(self.db_wot()?.len(&txn)?)
+        Ok(self.db_fof()?.len(&txn)?)
     }
 
     // General key-value functions --------------------------------------------------
@@ -495,7 +495,7 @@ impl Storage {
         b"reprocess_relay_lists_needed",
         true
     );
-    def_flag!(rebuild_wot_needed, b"rebuild_wot_needed", true);
+    def_flag!(rebuild_fof_needed, b"rebuild_fof_needed", true);
 
     // Settings ----------------------------------------------------------
 

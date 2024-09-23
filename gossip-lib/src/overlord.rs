@@ -168,10 +168,10 @@ impl Overlord {
                 crate::process::reprocess_relay_lists()?;
             }
 
-            // If we need to rebuild web of trust, do so now
-            if GLOBALS.db().get_flag_rebuild_wot_needed() {
-                tracing::info!("Rebuilding web of trust...");
-                GLOBALS.db().rebuild_wot(None)?;
+            // If we need to rebuild friends of friends data, do so now
+            if GLOBALS.db().get_flag_rebuild_fof_needed() {
+                tracing::info!("Rebuilding friends-of-friends data...");
+                GLOBALS.db().rebuild_fof(None)?;
             }
 
             // Data migrations complete

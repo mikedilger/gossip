@@ -72,7 +72,7 @@ pub(crate) fn paint_avatar(
     let muted = person.is_in_list(PersonList::Muted);
     let on_list = person.is_in_list(PersonList::Custom(2)); // TODO: change to any list
     let size = avatar_size.get_size();
-    let wot = GLOBALS.db().read_wot(person.pubkey).unwrap_or(0);
+    let fof = GLOBALS.db().read_fof(person.pubkey).unwrap_or(0);
 
     let avatar_response = paint_avatar_only(ui, avatar, avatar_size.get_size());
 
@@ -113,13 +113,13 @@ pub(crate) fn paint_avatar(
             });
     }
 
-    // Paint WoT
-    let (wotstr, fsize) = if wot >= 100 {
+    // Paint fof
+    let (fofstr, fsize) = if fof >= 100 {
         ("★".to_owned(), 11.0)
-    } else if wot >= 10 {
-        (format!("{}", wot), 9.0) // 2-digits
+    } else if fof >= 10 {
+        (format!("{}", fof), 9.0) // 2-digits
     } else {
-        (format!("{}", wot), 11.0) // 1-digit
+        (format!("{}", fof), 11.0) // 1-digit
     };
     let center = avatar_response.rect.right_bottom() + vec2(-0.139 * size.x, -0.139 * size.y);
     let mut fontid = TextStyle::Body.resolve(ui.style());
@@ -136,7 +136,7 @@ pub(crate) fn paint_avatar(
     ui.painter().text(
         center,
         egui::Align2::CENTER_CENTER,
-        wotstr,
+        fofstr,
         fontid,
         ui.visuals().hyperlink_color,
     );
@@ -156,15 +156,15 @@ pub(crate) fn paint_avatar_only(ui: &mut Ui, avatar: &TextureHandle, size: Vec2)
 }
 
 /*
-fn wot_to_unicode(wot: u64) -> char {
-    let unicode: u64 = if wot==0 {
+fn fof_to_unicode(fof: u64) -> char {
+    let unicode: u64 = if fof==0 {
         0x24EA
-    } else if (1..=20).contains(&wot) {
-        0x2460 + (wot-1)
-    } else if (21..=35).contains(&wot) {
-        0x3251 + (wot-21)
-    } else if (36..=50).contains(&wot) {
-        0x32B1 + (wot-36)
+    } else if (1..=20).contains(&fof) {
+        0x2460 + (fof-1)
+    } else if (21..=35).contains(&fof) {
+        0x3251 + (fof-21)
+    } else if (36..=50).contains(&fof) {
+        0x32B1 + (fof-36)
     } else {
         0x235F // or try 272A
     };

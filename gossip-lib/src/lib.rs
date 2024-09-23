@@ -230,7 +230,7 @@ pub fn init(rapid: bool) -> Result<(), Error> {
         if GLOBALS.db().get_flag_rebuild_relationships_needed()
             || GLOBALS.db().get_flag_rebuild_indexes_needed()
             || GLOBALS.db().get_flag_reprocess_relay_lists_needed()
-            || GLOBALS.db().get_flag_rebuild_wot_needed()
+            || GLOBALS.db().get_flag_rebuild_fof_needed()
         {
             GLOBALS.wait_for_login.store(true, Ordering::Relaxed);
             GLOBALS

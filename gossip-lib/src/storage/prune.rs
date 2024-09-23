@@ -196,22 +196,22 @@ impl Storage {
     pub fn prune_misc(&self) -> Result<(), Error> {
         let mut txn = self.get_write_txn()?;
 
-        // Remove WoT entries with value=0
-        let mut zero_wot: Vec<PublicKey> = Vec::new();
+        // Remove Fof entries with value=0
+        let mut zero_fof: Vec<PublicKey> = Vec::new();
         {
-            let mut iter = self.db_wot()?.iter(&txn)?;
+            let mut iter = self.db_fof()?.iter(&txn)?;
             while let Some(result) = iter.next() {
                 let (k, v) = result?;
                 let pubkey = PublicKey::from_bytes(k, false)?;
                 let count = u64::from_be_bytes(<[u8; 8]>::try_from(&v[..8]).unwrap());
                 if count == 0 {
-                    zero_wot.push(pubkey);
+                    zero_fof.push(pubkey);
                 }
             }
         }
 
-        for pk in zero_wot.drain(..) {
-            self.db_wot()?.delete(&mut txn, pk.as_bytes())?;
+        for pk in zero_fof.drain(..) {
+            self.db_fof()?.delete(&mut txn, pk.as_bytes())?;
         }
 
         Ok(())
