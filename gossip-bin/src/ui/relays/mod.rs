@@ -15,6 +15,7 @@ mod coverage;
 mod known;
 mod mine;
 
+pub const SEARCH_WIDTH: f32 = 80.0;
 pub const RELAY_URL_PREPOPULATE: &str = "wss://";
 
 pub(super) struct RelayUi {
