@@ -209,6 +209,7 @@ fn show_priv_key_detail(_app: &mut GossipUi, ui: &mut Ui) {
             match key_security {
                 KeySecurity::Weak => "weak",
                 KeySecurity::Medium => "medium",
+                KeySecurity::NotTracked => "not tracked",
             }
         ));
     }

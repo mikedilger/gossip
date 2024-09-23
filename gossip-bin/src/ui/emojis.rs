@@ -2,19 +2,23 @@ use eframe::egui::{self, vec2, Button};
 use egui::Ui;
 
 pub fn emoji_picker(ui: &mut Ui) -> Option<char> {
-    // These were the top 84 in the dataset I collected.
-    // I also added some more rare but I think important ones.
     let mut emojis = "🤙👍👌🙏🤝💪🤘👏🙌🤟🤌🫶👊👆✊\
-                      🫂💜❤🧡♥💚🤍💙💟🖤💖✨💫🌈\
-                      +:✔✅🔥👀💯🚀⚡🎉\
+                      🫂💜❤💟💖✨💫🌈\
+                      ✔✅🔥👀💯🚀⚡🎉\
                       🍻🍺☕🍷🥂🍮🥩🍪🍓\
                       🥜👾🎯🏛🍆💀🌻💥⚠🍊🐽☦🌞\
                       😂🤣🐸🫡🤔😆😱😍😭🤯🥰😁🤨\
-                      🤡🤠😎😮😅🥳😢🫠👨😄🤢🤐🙄😏\
+                      🤡🤠😎😮😅🥳😢🫠👨😄🤢🤐🙄😏🤦\
                       📖🐈🫧🕊🚩💩"
         .chars();
 
     let mut output: Option<char> = None;
+
+    ui.vertical(|ui| {
+        if ui.add(Button::new("LIKE").small()).clicked() {
+            output = Some('+');
+        }
+    });
 
     let mut quit: bool = false;
 

@@ -441,8 +441,13 @@ pub fn process_new_event(
 }
 
 fn process_somebody_elses_contact_list(event: &Event, force: bool) -> Result<(), Error> {
-    // We don't keep their contacts or show to the user yet.
-    // We only process the contents for (non-standard) relay list information.
+    // Only if we follow them... update their followings record and the WoT
+    if GLOBALS
+        .people
+        .is_person_in_list(&event.pubkey, PersonList::Followed)
+    {
+        update_followings_and_wot_from_contact_list(event, None)?;
+    }
 
     // Try to parse the contents as a SimpleRelayList (ignore if it is not)
     if let Ok(srl) = serde_json::from_str::<SimpleRelayList>(&event.content) {
@@ -958,4 +963,55 @@ fn update_or_allocate_person_list_from_event(
     }
 
     Ok((list, metadata))
+}
+
+// Caller must ensure that the author is followed.
+pub(crate) fn update_followings_and_wot_from_contact_list<'a>(
+    event: &Event,
+    rw_txn: Option<&mut RwTxn<'a>>,
+) -> Result<(), Error> {
+    use crate::storage::types::Following;
+    use crate::storage::{FollowingsTable, Table};
+
+    let mut local_txn = None;
+    let txn = match rw_txn {
+        Some(x) => x,
+        None => {
+            local_txn = Some(GLOBALS.db().get_write_txn()?);
+            local_txn.as_mut().unwrap()
+        }
+    };
+
+    // Build their new followings table from the event
+    let mut new_followings = Following {
+        actor: event.pubkey,
+        followed: event.people().drain(..).map(|(p, _, _)| p).collect(),
+    };
+
+    // Fetch their old followings table
+    let old_followings = FollowingsTable::read_record(event.pubkey, Some(txn))?
+        .unwrap_or(Following::new(event.pubkey, vec![]));
+
+    // Compute difference and adjust Web of Trust data
+    {
+        use std::collections::HashSet;
+
+        let old: HashSet<PublicKey> = old_followings.followed.iter().map(|p| *p).collect();
+        let new: HashSet<PublicKey> = new_followings.followed.iter().map(|p| *p).collect();
+        for added in new.difference(&old) {
+            GLOBALS.db().incr_wot(*added, Some(txn))?;
+        }
+        for subtracted in old.difference(&new) {
+            GLOBALS.db().decr_wot(*subtracted, Some(txn))?;
+        }
+    }
+
+    // Write their new followings data
+    FollowingsTable::write_record(&mut new_followings, Some(txn))?;
+
+    if let Some(txn) = local_txn {
+        txn.commit()?;
+    }
+
+    Ok(())
 }

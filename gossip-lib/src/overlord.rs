@@ -168,6 +168,12 @@ impl Overlord {
                 crate::process::reprocess_relay_lists()?;
             }
 
+            // If we need to rebuild web of trust, do so now
+            if GLOBALS.db().get_flag_rebuild_wot_needed() {
+                tracing::info!("Rebuilding web of trust...");
+                GLOBALS.db().rebuild_wot(None)?;
+            }
+
             // Data migrations complete
             GLOBALS
                 .wait_for_data_migration
@@ -705,8 +711,11 @@ impl Overlord {
             ToOverlordMessage::PruneCache => {
                 Self::prune_cache().await?;
             }
-            ToOverlordMessage::PruneDatabase => {
-                Self::prune_database()?;
+            ToOverlordMessage::PruneOldEvents => {
+                Self::prune_old_events()?;
+            }
+            ToOverlordMessage::PruneUnusedPeople => {
+                Self::prune_unused_people()?;
             }
             ToOverlordMessage::PushPersonList(person_list) => {
                 self.push_person_list(person_list).await?;
@@ -1873,12 +1882,15 @@ impl Overlord {
         Ok(())
     }
 
-    /// Prune the database (events and more)
-    pub fn prune_database() -> Result<(), Error> {
+    /// Prune old events from the database
+    pub fn prune_old_events() -> Result<(), Error> {
         GLOBALS
             .status_queue
             .write()
-            .write("Pruning database, please be patient..".to_owned());
+            .write("Pruning old events, please be patient..".to_owned());
+
+        // Prune misc while we are at it (we have no other UI action)
+        GLOBALS.db().prune_misc()?;
 
         let now = Unixtime::now();
         let then = now
@@ -1886,12 +1898,50 @@ impl Overlord {
                 GLOBALS.db().read_setting_prune_period_days() * 60 * 60 * 24,
                 0,
             );
-        let count = GLOBALS.db().prune(then)?;
+        let count = GLOBALS.db().prune_old_events(then)?;
 
         GLOBALS.status_queue.write().write(format!(
             "Database has been pruned. {} events removed.",
             count
         ));
+
+        Ok(())
+    }
+
+    /// Prune unused people
+    pub fn prune_unused_people() -> Result<(), Error> {
+        // Go offline
+        let mut need_to_go_back_online: bool = false;
+        if !GLOBALS.db().read_setting_offline() {
+            need_to_go_back_online = true;
+            GLOBALS.db().write_setting_offline(&true, None)?;
+            let _ = GLOBALS.write_runstate.send(RunState::Offline);
+        }
+
+        *GLOBALS.prune_status.write() = Some("pruning...".to_owned());
+
+        match GLOBALS.db().prune_unused_people() {
+            Ok(count) => {
+                GLOBALS.status_queue.write().write(format!(
+                    "Database has been pruned. {} people removed.",
+                    count
+                ));
+            }
+            Err(e) => {
+                GLOBALS
+                    .status_queue
+                    .write()
+                    .write(format!("Database prune error: {e}"));
+            }
+        }
+
+        *GLOBALS.prune_status.write() = None;
+
+        // Go online
+        if need_to_go_back_online {
+            GLOBALS.db().write_setting_offline(&false, None)?;
+            let _ = GLOBALS.write_runstate.send(RunState::Online);
+        }
 
         Ok(())
     }

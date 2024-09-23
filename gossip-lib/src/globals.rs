@@ -177,6 +177,9 @@ pub struct Globals {
     /// Current bookmarks, resolved into a Vec<Id> (updated by tasks)
     pub current_bookmarks: PRwLock<Vec<Id>>,
     pub recompute_current_bookmarks: Arc<Notify>,
+
+    /// If we are doing a long database prune, this will indicate the status
+    pub prune_status: PRwLock<Option<String>>,
 }
 
 lazy_static! {
@@ -234,7 +237,7 @@ lazy_static! {
             max_image_side: AtomicUsize::new(2048),
             current_zap: PRwLock::new(ZapState::None),
             hashtag_regex: Regex::new(r"(?ms)(?:^|\s)(#[\w\p{Extended_Pictographic}]+)\b").unwrap(),
-            tagging_regex: Regex::new(r"(?ms)(?:^|\s)(@[\w\p{Extended_Pictographic}]+)\b").unwrap(),
+            tagging_regex: Regex::new(r"(?ms)(?:^|\s)@([\w\p{Extended_Pictographic}]+)\b").unwrap(),
             storage: OnceLock::new(),
             events_processed: AtomicU32::new(0),
             spam_filter_engine,
@@ -248,6 +251,7 @@ lazy_static! {
             bookmarks: Arc::new(PRwLock::new(BookmarkList::empty())),
             current_bookmarks: PRwLock::new(Vec::new()),
             recompute_current_bookmarks: Arc::new(Notify::new()),
+            prune_status: PRwLock::new(None),
         }
     };
 }

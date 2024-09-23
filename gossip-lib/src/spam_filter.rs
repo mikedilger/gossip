@@ -2,8 +2,8 @@ use crate::globals::GLOBALS;
 use crate::people::PersonList;
 use crate::profile::Profile;
 use crate::storage::{PersonTable, Table};
-use nostr_types::{Event, EventKind, Id, PublicKey, Unixtime};
-use rhai::{Engine, Scope, AST};
+use nostr_types::{Event, EventKind, Id, PublicKey, Tag, Unixtime};
+use rhai::{CallFnOptions, Engine, Scope, AST};
 use std::fs;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -68,6 +68,7 @@ pub fn filter_event(event: Event, caller: EventFilterCaller, spamsafe: bool) -> 
                 rumor.pubkey,
                 rumor.kind,
                 rumor.content,
+                rumor.tags,
                 pow,
                 caller,
                 spamsafe,
@@ -81,6 +82,7 @@ pub fn filter_event(event: Event, caller: EventFilterCaller, spamsafe: bool) -> 
             event.pubkey,
             event.kind,
             event.content,
+            event.tags,
             pow,
             caller,
             spamsafe,
@@ -93,6 +95,7 @@ fn inner_filter(
     pubkey: PublicKey,
     kind: EventKind,
     content: String,
+    mut tags: Vec<Tag>,
     pow: u8,
     caller: EventFilterCaller,
     spamsafe: bool,
@@ -117,46 +120,66 @@ fn inner_filter(
         return EventFilterAction::Allow;
     }
 
-    // TBD: tags
+    let tags: Vec<Vec<String>> = tags.drain(..).map(|t| t.into_inner()).collect();
 
     // NOTE numbers in rhai are i64 or f32
     let mut scope = Scope::new();
-    scope.push("id", id.as_hex_string())
-        .push("pubkey", pubkey.as_hex_string())
-        .push("kind", <EventKind as Into<u32>>::into(kind) as i64)
-        .push("content", content)
-        .push("nip05valid", match &author {
-            Some(a) => a.nip05_valid,
-            None => false,
-        })
-        .push("name", match &author {
-            Some(p) => p.best_name(),
-            None => "".to_owned(),
-        })
-        .push("caller", format!("{:?}", caller))
-        .push("seconds_known", match &author {
-            Some(a) => Unixtime::now().0 - a.first_encountered,
-            None => 0_i64,
-        })
-        .push("pow", pow as i64)
-        .push("spamsafe", spamsafe)
-        .push("muted", muted)
+    scope
+        .push_constant("id", id.as_hex_string())
+        .push_constant("pubkey", pubkey.as_hex_string())
+        .push_constant("kind", <EventKind as Into<u32>>::into(kind) as i64)
+        .push_constant("content", content)
+        .push_constant("tags", tags)
+        .push_constant("wot", GLOBALS.db().read_wot(pubkey).unwrap_or(0) as i64)
+        .push_constant(
+            "nip05valid",
+            match &author {
+                Some(a) => a.nip05_valid,
+                None => false,
+            },
+        )
+        .push_constant(
+            "name",
+            match &author {
+                Some(p) => p.best_name(),
+                None => "".to_owned(),
+            },
+        )
+        .push_constant("caller", format!("{:?}", caller))
+        .push_constant(
+            "seconds_known",
+            match &author {
+                Some(a) => Unixtime::now().0 - a.first_encountered,
+                None => 0_i64,
+            },
+        )
+        .push_constant("pow", pow as i64)
+        .push_constant("spamsafe", spamsafe)
+        .push_constant("muted", muted)
         .push_constant("DENY", 0_i64)
         .push_constant("ALLOW", 1_i64)
         .push_constant("MUTE", 2_i64);
 
-    filter_with_script(scope) }
+    filter_with_script(scope)
+}
 
 fn filter_with_script(mut scope: Scope) -> EventFilterAction {
+    // Get the pre-computed AST
     let ast = match &GLOBALS.spam_filter {
         Some(ast) => ast,
         None => return EventFilterAction::Allow,
     };
 
-    match GLOBALS
-        .spam_filter_engine
-        .call_fn::<i64>(&mut scope, ast, "filter", ())
-    {
+    // Do not bother to evaluate the AST, there are no imports
+    let options = CallFnOptions::new().eval_ast(false);
+
+    match GLOBALS.spam_filter_engine.call_fn_with_options::<i64>(
+        options,
+        &mut scope,
+        ast,
+        "filter",
+        (),
+    ) {
         Ok(action) => match action {
             0 => EventFilterAction::Deny,
             1 => EventFilterAction::Allow,

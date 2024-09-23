@@ -83,7 +83,10 @@ mod error;
 pub use error::{Error, ErrorKind};
 
 mod feed;
-pub use feed::{Feed, FeedKind};
+pub use feed::{
+    enabled_event_kinds, feed_augment_event_kinds, feed_displayable_event_kinds,
+    feed_related_event_kinds, Feed, FeedKind,
+};
 
 mod fetcher;
 pub use fetcher::Fetcher;
@@ -155,7 +158,7 @@ pub use status::StatusQueue;
 
 mod storage;
 pub use storage::types::*;
-pub use storage::{PersonTable, Storage, Table};
+pub use storage::{FollowingsTable, PersonTable, Storage, Table};
 
 mod tasks;
 
@@ -226,6 +229,8 @@ pub fn init(rapid: bool) -> Result<(), Error> {
         // If we need to rebuild relationships
         if GLOBALS.db().get_flag_rebuild_relationships_needed()
             || GLOBALS.db().get_flag_rebuild_indexes_needed()
+            || GLOBALS.db().get_flag_reprocess_relay_lists_needed()
+            || GLOBALS.db().get_flag_rebuild_wot_needed()
         {
             GLOBALS.wait_for_login.store(true, Ordering::Relaxed);
             GLOBALS

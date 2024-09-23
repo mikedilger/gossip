@@ -4,6 +4,7 @@ use nostr_types::{
     ContentEncryptionAlgorithm, Event, EventKind, EventReference, Id, PreEvent, RelayUrl, Tag,
     Unixtime,
 };
+use std::collections::BTreeMap;
 
 pub struct BookmarkList(Vec<(EventReference, bool)>);
 
@@ -157,20 +158,27 @@ impl BookmarkList {
     }
 
     pub fn get_bookmark_feed(&self) -> Result<Vec<Id>, Error> {
-        let mut feed: Vec<Id> = Vec::new();
+        let mut map: BTreeMap<Unixtime, Id> = BTreeMap::new();
+
         for (eref, _) in &self.0 {
             match eref {
-                EventReference::Id { id, .. } => feed.push(*id),
+                EventReference::Id { id, .. } => {
+                    if let Some(event) = GLOBALS.db().read_event(*id)? {
+                        map.insert(event.created_at, *id);
+                    }
+                }
                 EventReference::Addr(ea) => {
                     if let Some(event) = GLOBALS
                         .db()
                         .get_replaceable_event(ea.kind, ea.author, &ea.d)?
                     {
-                        feed.push(event.id);
+                        map.insert(event.created_at, event.id);
                     }
                 }
             }
         }
+
+        let feed: Vec<Id> = map.iter().rev().map(|(_, v)| *v).collect();
         Ok(feed)
     }
 }

@@ -24,58 +24,119 @@
 //   MUTE (the event is filtered out, and the author is
 //         automatically muted)
 //
-// Your script will be provided the following global variables:
+// Your script will be provided the following:
+//
 //   caller        - a string that is one of "Process", "Thread",
 //                   "Inbox" or "Global" indicating which part of
 //                   the code is running your script
-//   content       - the event content as a string
 //   id            - the event ID, as a hex string
+//   pubkey        - the event author public key, as a hex string
 //   kind          - the event kind as an integer
+//   tags          - the event tags (array of array of strings)
+//   content       - the event content as a string
 //   muted         - if the author is in your mute list
 //   name          - if we have it, the name of the author (or your
 //                   petname), else an empty string
+//   wot           - Web of Trust score. How many people that you
+//                   follow happen to follow the author of the
+//                   event.
 //   nip05valid    - whether nip05 is valid for the author, as a
 //                   boolean
 //   pow           - the Proof of Work on the event
-//   pubkey        - the event author public key, as a hex string
 //   seconds_known - the number of seconds that the author of the
 //                   event has been known to gossip
 //   spamsafe      - true only if the event came in from a relay
 //                   marked as SpamSafe during Process (even if the
 //                   global setting for SpamSafe is off)
+//
+// Here is some notes on the language and syntax:
+//
+// * Functions are pure. Call them with fn!() syntax to propagate
+//   scope (global variables explained above) into the function.
+//
+// * '()' is nil.
+//
+// * The ?? operator coalesces values. If the first value is nil
+//   it moves on to the next one.
 
+// This is the top level main function.  It gets all the scope
+// explained in the comments above.
 fn filter() {
-    // Show spam on global
-    // (global events are ephemeral; these won't grow the database)
+    filter_medium!()
+}
+
+fn filter_mild() {
+    allow_global!() ??
+        filter_known_spam!() ??
+        ALLOW
+}
+
+fn filter_medium() {
+    allow_global!() ??
+        filter_known_spam!() ??
+        reject_new_pubkeys!() ??
+        ALLOW
+}
+
+fn filter_strong() {
+    allow_global!() ??
+        filter_known_spam!() ??
+        reject_new_pubkeys!() ??
+        allow_proven!() ??
+        DENY
+}
+
+// ---------------------------------------------------------
+
+// Show spam on global
+//
+// Global events and media are ephemeral, and people usually want
+// to see everything there.
+fn allow_global() {
     if caller=="Global" {
         return ALLOW;
     }
 
+    // always return () if you don't have an answer
+    ()
+}
+
+fn filter_known_spam() {
     // Block ReplyGuy
     if name.contains("ReplyGuy") || name.contains("ReplyGal") {
         return DENY;
     }
 
-    // Block known DM spam
-    // (giftwraps are unwrapped before the content is passed to
-    //  this script)
+    // NOTE: This works because giftwraps are unwrapped before the
+    // content is passed to this script
     if content.to_lower().contains(
         "Mr. Gift and Mrs. Wrap under the tree, KISSING!")
     {
         return DENY;
     }
 
-    // Reject events from new pubkeys, unless they have a high PoW
-    // or we somehow already have a nip05valid for them
-    //
-    // If this turns out to be a legit person, we will start
-    // hearing their events 2 seconds from now, so we will only
-    // miss their very first event.
-    if seconds_known <= 2 && pow < 25 && !nip05valid {
+    // always return () if you don't have an answer
+    ()
+}
+
+// Reject events from pubkeys we have not seen before
+// unless they have a high PoW.
+//
+// NOTE: If this turns out to be a legit person, we will
+// start hearing their events 2 seconds from now, probably
+// starting with their second event.
+fn reject_new_pubkeys() {
+    if seconds_known <= 2 && pow < 25 {
         return DENY;
     }
 
-    // Mute offensive people
+    // always return () if you don't have an answer
+    ()
+}
+
+// Mute people that use offensive words
+// (Mike Dilger does not recommend, but this is a good example)
+fn mute_offensive_people() {
     if content.to_lower().contains(" kike") ||
         content.to_lower().contains("kike ") ||
         content.to_lower().contains(" nigger") ||
@@ -84,15 +145,12 @@ fn filter() {
         return MUTE;
     }
 
-    // Reject events from muted people
-    //
-    // Gossip already does this internally, and since we are not
-    // Process this is rather redundant. But this works as an
-    // example.
-    if muted {
-        return DENY;
-    }
+    // always return () if you don't have an answer
+    ()
+}
 
+// Allow events if proven to be good somehow
+fn allow_proven() {
     // Accept if the PoW is large enough
     if pow >= 25 {
         return ALLOW;
@@ -108,6 +166,11 @@ fn filter() {
         return ALLOW;
     }
 
-    // Reject the rest
-    DENY
+    // Accept if anybody that you follow follows them
+    if wot > 0 {
+        return ALLOW;
+    }
+
+    // always return () if you don't have an answer
+    ()
 }

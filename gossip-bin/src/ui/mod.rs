@@ -34,8 +34,8 @@ macro_rules! write_setting {
 }
 
 mod assets;
-mod components;
 mod dm_chat_list;
+mod emojis;
 mod feed;
 mod help;
 mod notifications;
@@ -1500,6 +1500,12 @@ impl eframe::App for GossipUi {
             return wait_for_data_migration(self, ctx);
         }
 
+        // If database is being pruned, show that screen
+        let optstatus = GLOBALS.prune_status.read();
+        if let Some(status) = optstatus.as_ref() {
+            return wait_for_prune(self, ctx, status);
+        }
+
         // Wizard does its own panels
         if let Page::Wizard(wp) = self.page {
             return wizard::update(self, ctx, frame, wp);
@@ -2433,5 +2439,22 @@ fn wait_for_data_migration(app: &mut GossipUi, ctx: &Context) {
             ui.centered_and_justified(|ui| {
                 ui.heading("Please wait for the data migration to complete...");
             });
+        });
+}
+
+fn wait_for_prune(app: &mut GossipUi, ctx: &Context, status: &str) {
+    egui::CentralPanel::default()
+        .frame({
+            let frame = egui::Frame::central_panel(&app.theme.get_style());
+            frame.inner_margin(egui::Margin {
+                left: 20.0,
+                right: 10.0,
+                top: 10.0,
+                bottom: 0.0,
+            })
+        })
+        .show(ctx, |ui| {
+            ui.heading("Please wait for the database prune to complete...");
+            ui.label(status);
         });
 }

@@ -363,6 +363,7 @@ impl FilterSet {
                 filters.push(Filter {
                     authors: pkhp,
                     kinds: vec![
+                        EventKind::ContactList,
                         EventKind::Metadata,
                         EventKind::RelayList,
                         EventKind::DmRelayList,

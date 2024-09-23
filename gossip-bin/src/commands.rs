@@ -24,7 +24,7 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 40] = [
+const COMMANDS: [Command; 42] = [
     Command {
         cmd: "oneshot",
         usage_params: "{depends}",
@@ -94,6 +94,11 @@ const COMMANDS: [Command; 40] = [
         cmd: "export_encrypted_key",
         usage_params: "",
         desc: "Export the encrypted private key",
+    },
+    Command {
+        cmd: "force_migration_level",
+        usage_params: "<level>",
+        desc: "DANGEROUS! force storage migration level",
     },
     Command {
         cmd: "giftwraps",
@@ -181,6 +186,11 @@ const COMMANDS: [Command; 40] = [
         desc: "Show statistics on reactions",
     },
     Command {
+        cmd: "rebuild_wot",
+        usage_params: "",
+        desc: "Rebuild web of trust (will rebuild next time gossip starts)",
+    },
+    Command {
         cmd: "rebuild_indices",
         usage_params: "",
         desc: "Rebuild all event-related indices",
@@ -257,6 +267,7 @@ pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
         "events_of_pubkey" => events_of_pubkey(command, args)?,
         "events_of_pubkey_and_kind" => events_of_pubkey_and_kind(command, args)?,
         "export_encrypted_key" => export_encrypted_key()?,
+        "force_migration_level" => force_migration_level(command, args)?,
         "giftwraps" => giftwraps(command)?,
         "help" => help(command, args)?,
         "import_encrypted_private_key" => import_encrypted_private_key(command, args)?,
@@ -280,6 +291,7 @@ pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
         "print_seen_on" => print_seen_on(command, args)?,
         "rapid" => {} // is handled early in main.rs
         "reaction_stats" => reaction_stats(command, args)?,
+        "rebuild_wot" => rebuild_wot()?,
         "rebuild_indices" => rebuild_indices()?,
         "rename_person_list" => rename_person_list(command, args)?,
         "reprocess_recent" => reprocess_recent(command)?,
@@ -912,6 +924,17 @@ pub fn export_encrypted_key() -> Result<(), Error> {
     Ok(())
 }
 
+pub fn force_migration_level(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+    let level = match args.next() {
+        Some(l) => l.parse::<u32>()?,
+        None => return cmd.usage("Missing level parameter".to_string()),
+    };
+
+    GLOBALS.db().force_migration_level(level)?;
+
+    Ok(())
+}
+
 pub fn ungiftwrap(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     let idstr = match args.next() {
         Some(id) => id,
@@ -979,6 +1002,12 @@ pub fn reaction_stats(_cmd: Command, mut _args: env::Args) -> Result<(), Error> 
     for (reaction, count) in reactions {
         println!("{} {}", count, reaction);
     }
+    Ok(())
+}
+
+pub fn rebuild_wot() -> Result<(), Error> {
+    GLOBALS.db().set_flag_rebuild_wot_needed(true, None)?;
+    println!("Web of trust will be rebuilt next time gossip starts.");
     Ok(())
 }
 
