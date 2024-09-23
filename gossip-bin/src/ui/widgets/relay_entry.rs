@@ -560,7 +560,7 @@ impl RelayEntry {
         response.on_hover_text("The relay is not configured and either has low usage, poor success, or you have disabled it.");
     }
 
-    fn paint_usage(&self, ui: &mut Ui, rect: &Rect) {
+    fn paint_usage(&self, ui: &mut Ui, rect: &Rect, mut response: Response) -> Response {
         const RIGHT: f32 = -17.0;
         const SPACE: f32 = 23.0;
 
@@ -593,16 +593,20 @@ impl RelayEntry {
         // ---- Read ----
         let pos = right + vec2(RIGHT - 6.0 * SPACE, 0.0);
         let (text, color) = switch(ui, "R", self.usage.read);
-        let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("R"));
+        let (galley, resp) = allocate_text_at(ui, pos, text.into(), align, self.make_id("R"));
         draw_text_galley_at(ui, pos, galley, Some(color), None);
-        response.on_hover_text(READ_HOVER_TEXT);
+        response |= resp
+            .on_hover_text(READ_HOVER_TEXT)
+            .on_hover_cursor(CursorIcon::PointingHand);
 
         // ---- Inbox ----
         let pos = right + vec2(RIGHT - 5.0 * SPACE, 0.0);
         let (text, color) = switch(ui, "I", self.usage.inbox);
-        let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("I"));
+        let (galley, resp) = allocate_text_at(ui, pos, text.into(), align, self.make_id("I"));
         draw_text_galley_at(ui, pos, galley, Some(color), None);
-        response.on_hover_text(INBOX_HOVER_TEXT);
+        response |= resp
+            .on_hover_text(INBOX_HOVER_TEXT)
+            .on_hover_cursor(CursorIcon::PointingHand);
 
         // ---- + ----
         let pos = pos - vec2(SPACE / 2.0, 0.0);
@@ -611,16 +615,20 @@ impl RelayEntry {
         // ---- Write ----
         let pos = right + vec2(RIGHT - 4.0 * SPACE, 0.0);
         let (text, color) = switch(ui, "W", self.usage.write);
-        let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("W"));
+        let (galley, resp) = allocate_text_at(ui, pos, text.into(), align, self.make_id("W"));
         draw_text_galley_at(ui, pos, galley, Some(color), None);
-        response.on_hover_text(WRITE_HOVER_TEXT);
+        response |= resp
+            .on_hover_text(WRITE_HOVER_TEXT)
+            .on_hover_cursor(CursorIcon::PointingHand);
 
         // ---- Outbox ----
         let pos = right + vec2(RIGHT - 3.0 * SPACE, 0.0);
         let (text, color) = switch(ui, "O", self.usage.outbox);
-        let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("O"));
+        let (galley, resp) = allocate_text_at(ui, pos, text.into(), align, self.make_id("O"));
         draw_text_galley_at(ui, pos, galley, Some(color), None);
-        response.on_hover_text(OUTBOX_HOVER_TEXT);
+        response |= resp
+            .on_hover_text(OUTBOX_HOVER_TEXT)
+            .on_hover_cursor(CursorIcon::PointingHand);
 
         // ---- + ----
         let pos = pos - vec2(SPACE / 2.0, 0.0);
@@ -629,23 +637,31 @@ impl RelayEntry {
         // ---- Discover ----
         let pos = right + vec2(RIGHT - 2.0 * SPACE, 0.0);
         let (text, color) = switch(ui, "D", self.usage.discover);
-        let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("D"));
+        let (galley, resp) = allocate_text_at(ui, pos, text.into(), align, self.make_id("D"));
         draw_text_galley_at(ui, pos, galley, Some(color), None);
-        response.on_hover_text(DISCOVER_HOVER_TEXT);
+        response |= resp
+            .on_hover_text(DISCOVER_HOVER_TEXT)
+            .on_hover_cursor(CursorIcon::PointingHand);
 
         // ---- Spamsafe ----
         let pos = right + vec2(RIGHT - 1.0 * SPACE, 0.0);
         let (text, color) = switch(ui, "S", self.usage.spamsafe);
-        let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("S"));
+        let (galley, resp) = allocate_text_at(ui, pos, text.into(), align, self.make_id("S"));
         draw_text_galley_at(ui, pos, galley, Some(color), None);
-        response.on_hover_text(SPAMSAFE_HOVER_TEXT);
+        response |= resp
+            .on_hover_text(SPAMSAFE_HOVER_TEXT)
+            .on_hover_cursor(CursorIcon::PointingHand);
 
         // ---- DM ----
         let pos = right + vec2(RIGHT - 0.0 * SPACE, 0.0);
         let (text, color) = switch(ui, "DM", self.usage.dm);
-        let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("DM"));
+        let (galley, resp) = allocate_text_at(ui, pos, text.into(), align, self.make_id("DM"));
         draw_text_galley_at(ui, pos, galley, Some(color), None);
-        response.on_hover_text(DM_USE_HOVER_TEXT);
+        response |= resp
+            .on_hover_text(DM_USE_HOVER_TEXT)
+            .on_hover_cursor(CursorIcon::PointingHand);
+
+        response
     }
 
     fn paint_nip11(&self, ui: &mut Ui, rect: &Rect) {
@@ -1207,7 +1223,7 @@ impl RelayEntry {
     }
 
     fn interact_bg_color(&self, response: &Response) -> Option<Color32> {
-        if response.hovered() {
+        if response.contains_pointer() {
             Some(self.bg_hover)
         } else {
             Some(self.bg_fill)
@@ -1224,7 +1240,7 @@ impl RelayEntry {
             list_entry::paint_frame(ui, &rect, self.interact_bg_color(&response));
             self.paint_title(ui, theme, &rect);
             if self.relay.has_any_usage_bit() || self.relay.is_good_for_advertise() {
-                self.paint_usage(ui, &rect);
+                response = self.paint_usage(ui, &rect, response);
             } else {
                 self.paint_low_quality(ui, &rect);
             }
@@ -1244,7 +1260,7 @@ impl RelayEntry {
             self.paint_title(ui, theme, &rect);
             self.paint_stats(ui, &rect);
             if self.relay.has_any_usage_bit() || self.relay.is_good_for_advertise() {
-                self.paint_usage(ui, &rect);
+                response = self.paint_usage(ui, &rect, response);
             }
             self.paint_reasons(ui, &rect);
         }
