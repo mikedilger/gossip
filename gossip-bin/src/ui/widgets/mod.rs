@@ -154,6 +154,7 @@ pub fn relay_url_at(
     max_width: f32,
     url: &RelayUrl,
     font_size: Option<f32>,
+    with_path: bool,
 ) -> Response {
     let (symbol, color, spacer) = if url.as_url_crate_url().scheme() != "wss" {
         (
@@ -164,18 +165,62 @@ pub fn relay_url_at(
     } else {
         ("", theme.accent_color(), "")
     };
-    let text = format!(
-        "{}{}",
-        spacer,
-        url.as_url_crate_url().domain().unwrap_or_default()
-    );
+    let url = url.as_url_crate_url();
+    let text = format!("{}{}", spacer, url.host_str().unwrap_or_default());
     let text = if let Some(size) = font_size {
         RichText::new(text).size(size)
     } else {
         RichText::new(text)
     };
-    let galley = list_entry::text_to_galley_max_width(ui, text.into(), Align::LEFT, max_width);
-    let rect = list_entry::draw_text_galley_at(ui, pos, galley, Some(theme.accent_color()), None);
+
+    let rect = if !with_path {
+        let galley = list_entry::text_to_galley_max_width(ui, text.into(), Align::LEFT, max_width);
+        let rect =
+            list_entry::draw_text_galley_at(ui, pos, galley, Some(theme.accent_color()), None);
+        rect
+    } else {
+        let galley = list_entry::text_to_galley_max_width(ui, text.into(), Align::LEFT, max_width);
+        let max_width = max_width - galley.rect.width();
+
+        let path_text = if let Some(host) = url.host_str() {
+            url.as_str()
+                .split_once(host)
+                .map_or(
+                    None,
+                    |(_before, after)| if after.len() > 1 { Some(after) } else { None },
+                )
+        } else {
+            url.as_str()
+                .split_once("/")
+                .map_or(None, |(_before, after)| Some(after))
+        };
+
+        let path_text = format!(
+            "\u{00A0}\u{00A0}{}",
+            path_text.unwrap_or_default().trim_end_matches('/')
+        );
+
+        let path_text = if let Some(size) = font_size {
+            RichText::new(path_text).size(size)
+        } else {
+            RichText::new(path_text)
+        };
+        let path_galley =
+            list_entry::text_to_galley_max_width(ui, path_text.into(), Align::LEFT, max_width);
+
+        let rect =
+            list_entry::draw_text_galley_at(ui, pos, galley, Some(theme.accent_color()), None);
+        let path_rect = list_entry::draw_text_galley_at(
+            ui,
+            pos + vec2(rect.width(), 0.0),
+            path_galley,
+            None,
+            None,
+        );
+
+        rect.union(path_rect)
+    };
+
     let response = ui.interact(rect, ui.next_auto_id().with("rtitle"), Sense::hover());
 
     let mut font = FontId::default();

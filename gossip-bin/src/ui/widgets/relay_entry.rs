@@ -299,6 +299,7 @@ impl RelayEntry {
             rect.width() - 220.0,
             &self.relay.url,
             Some(list_entry::TITLE_FONT_SIZE),
+            true,
         )
         .on_hover_text(self.relay.url.as_str().to_owned());
 
