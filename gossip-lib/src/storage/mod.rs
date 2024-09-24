@@ -96,7 +96,7 @@ pub struct Storage {
 }
 
 impl Storage {
-    pub(crate) fn new(rapid: bool) -> Result<Storage, Error> {
+    fn new_env(rapid: bool) -> Result<Env, Error> {
         let mut builder = EnvOpenOptions::new();
 
         let flags = if rapid {
@@ -139,11 +139,59 @@ impl Storage {
             }
         };
 
+        Ok(env)
+    }
+
+    pub(crate) fn new(rapid: bool) -> Result<Storage, Error> {
+        let env = Self::new_env(rapid)?;
+
         Ok(Storage {
             env,
             volatile_events: DashMap::new(),
             volatile_seen_on: DashMap::new(),
         })
+    }
+
+    pub(crate) fn compact() -> Result<(), Error> {
+        let lmdb_dir = Profile::lmdb_dir()?;
+
+        let data = {
+            let mut data = lmdb_dir.clone();
+            data.push("data.mdb");
+            data
+        };
+
+        let backup = {
+            let mut backup = lmdb_dir.clone();
+            backup.push("backup.mdb");
+            backup
+        };
+
+        let old = {
+            let mut old = lmdb_dir.clone();
+            old.push("data_old.mdb");
+            old
+        };
+
+        {
+            // Open env
+            let env = Self::new_env(false)?;
+
+            // Copy to backup file, compacting
+            tracing::info!("Compacting LMDB...");
+            let _ = env.copy_to_file(&backup, heed::CompactionOption::Enabled)?;
+        }
+
+        // Move the data out of the way
+        std::fs::rename(&data, &old)?;
+
+        // Move the backup to the data
+        std::fs::rename(&backup, &data)?;
+
+        // Rmeove the old
+        std::fs::remove_file(&old)?;
+
+        Ok(())
     }
 
     /// Initialize and migrate the database

@@ -211,6 +211,7 @@ pub fn init(rapid: bool) -> Result<(), Error> {
     use std::sync::atomic::Ordering;
 
     // Initialize storage
+    Storage::compact()?;
     let storage = Storage::new(rapid)?;
     GLOBALS
         .storage
