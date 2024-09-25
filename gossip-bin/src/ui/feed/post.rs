@@ -228,6 +228,12 @@ fn dm_posting_area(
             .desired_width(f32::INFINITY)
             .lock_focus(true)
             .interactive(true)
+            .margin(egui::Margin {
+                left: 0.0,
+                right: 0.0,
+                top: 10.0,
+                bottom: 0.0,
+            })
             .layouter(&mut layouter),
     );
     if app.draft_needs_focus {
@@ -261,7 +267,7 @@ fn dm_posting_area(
 
     // show encryption hint on edit area frame
     {
-        let pos = draft_response.rect.right_top() + vec2(-35.0, -2.0);
+        let pos = draft_response.rect.right_top() + vec2(-35.0, -12.0);
         let where_to_put_bg = ui.painter().add(egui::Shape::Noop);
         let bg_rect = ui
             .painter()
