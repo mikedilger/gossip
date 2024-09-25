@@ -177,9 +177,14 @@ impl Storage {
             // Open env
             let env = Self::new_env(false)?;
 
+            env.force_sync()?;
+
             // Copy to backup file, compacting
             tracing::info!("Compacting LMDB...");
             let _ = env.copy_to_file(&backup, heed::CompactionOption::Enabled)?;
+
+            env.force_sync()?;
+            let _ = env.prepare_for_closing();
         }
 
         // Move the data out of the way
