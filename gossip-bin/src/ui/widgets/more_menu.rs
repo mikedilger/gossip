@@ -33,6 +33,8 @@ pub(in crate::ui) enum MoreMenuItem<'a> {
 #[allow(clippy::type_complexity)]
 pub(in crate::ui) struct MoreMenuButton<'a> {
     text: WidgetText,
+    on_hover_text: Option<WidgetText>,
+    on_disabled_hover_text: Option<WidgetText>,
     action: Box<dyn FnOnce(&mut Ui, &mut GossipUi) + 'a>,
     enabled: bool,
 }
@@ -45,11 +47,26 @@ impl<'a> MoreMenuButton<'a> {
     ) -> Self {
         Self {
             text: text.into(),
+            on_hover_text: None,
+            on_disabled_hover_text: None,
             action,
             enabled: true,
         }
     }
 
+    /// Set an optional `on_hover_text`
+    pub fn on_hover_text(mut self, text: impl Into<WidgetText>) -> Self {
+        self.on_hover_text = Some(text.into());
+        self
+    }
+
+    /// Set an optional `on_disabled_hover_text`
+    pub fn on_disabled_hover_text(mut self, text: impl Into<WidgetText>) -> Self {
+        self.on_disabled_hover_text = Some(text.into());
+        self
+    }
+
+    /// Set `enabled` state of this button
     pub fn enabled(mut self, enabled: bool) -> Self {
         self.enabled = enabled;
         self
@@ -71,7 +88,14 @@ impl<'a> MoreMenuButton<'a> {
             ui.disable();
         }
 
-        let response = draw_menu_button(ui, &app.theme, self.text, None);
+        let response = draw_menu_button(
+            ui,
+            &app.theme,
+            self.text,
+            None,
+            self.on_hover_text,
+            self.on_disabled_hover_text,
+        );
 
         // process action
         if response.clicked() {
@@ -141,7 +165,7 @@ impl<'a> MoreMenuSubMenu<'a> {
 
         let mut open = load_state(ui, &self.id);
 
-        let response = draw_menu_button(ui, &app.theme, self.title, Some(open));
+        let response = draw_menu_button(ui, &app.theme, self.title, Some(open), None, None);
 
         // TODO paint open/close arrow, use animation
 
@@ -779,12 +803,14 @@ fn draw_menu_button(
     theme: &Theme,
     title: WidgetText,
     force_hover: Option<bool>,
+    on_hover_text: Option<WidgetText>,
+    on_disabled_hover_text: Option<WidgetText>,
 ) -> Response {
     // layout
     let desired_size = vec2(ui.available_width(), 32.0);
 
     // interact
-    let (rect, response) = ui.allocate_at_least(desired_size, Sense::click());
+    let (rect, mut response) = ui.allocate_at_least(desired_size, Sense::click());
     response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, ui.is_enabled(), title.text()));
     let state = super::interact_widget_state(ui, &response);
     let state = match state {
@@ -901,6 +927,13 @@ fn draw_menu_button(
         3.0,
     );
     painter.add(shapes);
+
+    if let Some(text) = on_hover_text {
+        response = response.on_hover_text(text);
+    }
+    if let Some(text) = on_disabled_hover_text {
+        response = response.on_disabled_hover_text(text);
+    }
 
     response
 }

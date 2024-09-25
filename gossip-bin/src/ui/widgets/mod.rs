@@ -14,7 +14,7 @@ pub(crate) mod list_entry;
 pub use copy_button::{CopyButton, COPY_SYMBOL_SIZE};
 
 mod nav_item;
-use eframe::egui::{vec2, FontId, Galley, Rect};
+use eframe::egui::{vec2, FontId, Galley, Pos2, Rect};
 use egui_winit::egui::text::LayoutJob;
 use egui_winit::egui::{
     self, Align, FontSelection, Response, RichText, Rounding, Sense, Ui, WidgetText,
@@ -137,8 +137,98 @@ pub fn relay_url(ui: &mut Ui, theme: &Theme, url: &RelayUrl) -> Response {
     font.size *= 0.7;
 
     ui.painter().text(
-        response.rect.left_top(),
-        egui::Align2::CENTER_TOP,
+        response.rect.left_center(),
+        egui::Align2::CENTER_CENTER,
+        symbol,
+        font,
+        color,
+    );
+
+    response
+}
+
+pub fn relay_url_at(
+    ui: &mut Ui,
+    theme: &Theme,
+    pos: Pos2,
+    max_width: f32,
+    url: &RelayUrl,
+    font_size: Option<f32>,
+    with_path: bool,
+) -> Response {
+    let (symbol, color, spacer) = if url.as_url_crate_url().scheme() != "wss" {
+        (
+            "\u{00A0}\u{00A0}\u{1F513}",
+            theme.red_500(),
+            "\u{00A0}\u{00A0}\u{00A0}",
+        )
+    } else {
+        ("", theme.accent_color(), "")
+    };
+    let url = url.as_url_crate_url();
+    let text = format!("{}{}", spacer, url.host_str().unwrap_or_default());
+    let text = if let Some(size) = font_size {
+        RichText::new(text).size(size)
+    } else {
+        RichText::new(text)
+    };
+
+    let rect = if !with_path {
+        let galley = list_entry::text_to_galley_max_width(ui, text.into(), Align::LEFT, max_width);
+        let rect =
+            list_entry::draw_text_galley_at(ui, pos, galley, Some(theme.accent_color()), None);
+        rect
+    } else {
+        let galley = list_entry::text_to_galley_max_width(ui, text.into(), Align::LEFT, max_width);
+        let max_width = max_width - galley.rect.width();
+
+        let path_text = if let Some(host) = url.host_str() {
+            url.as_str()
+                .split_once(host)
+                .map_or(
+                    None,
+                    |(_before, after)| if after.len() > 1 { Some(after) } else { None },
+                )
+        } else {
+            url.as_str()
+                .split_once("/")
+                .map_or(None, |(_before, after)| Some(after))
+        };
+
+        let path_text = format!(
+            "\u{00A0}\u{00A0}{}",
+            path_text.unwrap_or_default().trim_end_matches('/')
+        );
+
+        let path_text = if let Some(size) = font_size {
+            RichText::new(path_text).size(size)
+        } else {
+            RichText::new(path_text)
+        };
+        let path_galley =
+            list_entry::text_to_galley_max_width(ui, path_text.into(), Align::LEFT, max_width);
+
+        let rect =
+            list_entry::draw_text_galley_at(ui, pos, galley, Some(theme.accent_color()), None);
+        let path_rect = list_entry::draw_text_galley_at(
+            ui,
+            pos + vec2(rect.width(), 0.0),
+            path_galley,
+            None,
+            None,
+        );
+
+        rect.union(path_rect)
+    };
+
+    let response = ui.interact(rect, ui.next_auto_id().with("rtitle"), Sense::hover());
+
+    let mut font = FontId::default();
+    font.size = font_size.unwrap_or(font.size) * 0.7;
+
+    ui.painter().text(
+        response.rect.left_center(),
+        egui::Align2::CENTER_CENTER,
         symbol,
         font,
         color,

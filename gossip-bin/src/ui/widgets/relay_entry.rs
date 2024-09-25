@@ -3,7 +3,7 @@ use eframe::egui::{self, *};
 use nostr_types::{PublicKeyHex, RelayUrl, Unixtime};
 use std::fmt;
 
-use crate::ui::{widgets, GossipUi};
+use crate::ui::{widgets, GossipUi, Theme};
 use gossip_lib::{comms::ToOverlordMessage, Relay, GLOBALS};
 
 use super::{
@@ -17,21 +17,23 @@ use super::{
 /// Height of the list view (width always max. available)
 const LIST_VIEW_HEIGHT: f32 = 60.0;
 /// Height of the list view (width always max. available)
-const DETAIL_VIEW_HEIGHT: f32 = 80.0;
+const DETAIL_VIEW_HEIGHT: f32 = 90.0;
 /// Height of the edit view (width always max. available)
-const EDIT_VIEW_HEIGHT: f32 = 280.0;
+const EDIT_VIEW_HEIGHT: f32 = 270.0;
 /// Height required for one auth-permission drop-down
 const EDIT_VIEW_AUTH_PERM_HEIGHT: f32 = 25.0;
 /// Y-offset for first separator
-const HLINE_1_Y_OFFSET: f32 = LIST_VIEW_HEIGHT - 12.0;
+const HLINE_1_Y_OFFSET: f32 = LIST_VIEW_HEIGHT;
 /// Y-offset for second separator
-const HLINE_2_Y_OFFSET: f32 = 210.0;
+const HLINE_2_Y_OFFSET: f32 = 200.0;
 /// Y top for the detail section
-const DETAIL_SECTION_TOP: f32 = TEXT_TOP + LIST_VIEW_HEIGHT;
+const DETAIL_SECTION_TOP: f32 = TEXT_TOP + LIST_VIEW_HEIGHT + 20.0;
+/// Space needed for rank adjuster
+const RANK_SWITCH_HEIGHT: f32 = 30.0;
 /// Size of edit button
 const EDIT_BTN_SIZE: f32 = 20.0;
 /// Spacing of stats row to heading
-const STATS_Y_SPACING: f32 = 1.5 * TITLE_FONT_SIZE;
+const STATS_Y_SPACING: f32 = 2.0 * TITLE_FONT_SIZE;
 /// Distance of usage switch-left from TEXT_RIGHT
 const USAGE_SWITCH_PULL_RIGHT: f32 = 300.0;
 /// Spacing of usage switches: y direction
@@ -288,19 +290,18 @@ impl RelayEntry {
 }
 
 impl RelayEntry {
-    fn paint_title(&self, ui: &mut Ui, rect: &Rect) {
-        let title = self.relay.url.as_str().to_owned();
-        let text = RichText::new(title).size(list_entry::TITLE_FONT_SIZE);
-        let galley = list_entry::text_to_galley_max_width(
-            ui,
-            text.into(),
-            Align::LEFT,
-            rect.width() - 200.0,
-        );
+    fn paint_title(&self, ui: &mut Ui, theme: &Theme, rect: &Rect) {
         let pos = rect.min + vec2(TEXT_LEFT + STATUS_SYMBOL_SPACE, TEXT_TOP);
-        let rect = draw_text_galley_at(ui, pos, galley, Some(self.accent), None);
-        ui.interact(rect, ui.next_auto_id(), Sense::hover())
-            .on_hover_text(self.relay.url.as_str());
+        super::relay_url_at(
+            ui,
+            theme,
+            pos,
+            rect.width() - 220.0,
+            &self.relay.url,
+            Some(list_entry::TITLE_FONT_SIZE),
+            true,
+        )
+        .on_hover_text(self.relay.url.as_str().to_owned());
 
         // paint status indicator
         // green - connected
@@ -336,7 +337,7 @@ impl RelayEntry {
         let rect = draw_text_at(ui, pos, symbol.into(), Align::LEFT, Some(color), None);
 
         // set tooltip
-        ui.interact(rect, ui.next_auto_id(), Sense::hover())
+        ui.interact(rect, ui.next_auto_id().with("ind"), Sense::hover())
             .on_hover_text(tooltip);
     }
 
@@ -560,7 +561,7 @@ impl RelayEntry {
         response.on_hover_text("The relay is not configured and either has low usage, poor success, or you have disabled it.");
     }
 
-    fn paint_usage(&self, ui: &mut Ui, rect: &Rect) {
+    fn paint_usage(&self, ui: &mut Ui, rect: &Rect, mut response: Response) -> Response {
         const RIGHT: f32 = -17.0;
         const SPACE: f32 = 23.0;
 
@@ -593,16 +594,20 @@ impl RelayEntry {
         // ---- Read ----
         let pos = right + vec2(RIGHT - 6.0 * SPACE, 0.0);
         let (text, color) = switch(ui, "R", self.usage.read);
-        let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("R"));
+        let (galley, resp) = allocate_text_at(ui, pos, text.into(), align, self.make_id("R"));
         draw_text_galley_at(ui, pos, galley, Some(color), None);
-        response.on_hover_text(READ_HOVER_TEXT);
+        response |= resp
+            .on_hover_text(READ_HOVER_TEXT)
+            .on_hover_cursor(CursorIcon::PointingHand);
 
         // ---- Inbox ----
         let pos = right + vec2(RIGHT - 5.0 * SPACE, 0.0);
         let (text, color) = switch(ui, "I", self.usage.inbox);
-        let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("I"));
+        let (galley, resp) = allocate_text_at(ui, pos, text.into(), align, self.make_id("I"));
         draw_text_galley_at(ui, pos, galley, Some(color), None);
-        response.on_hover_text(INBOX_HOVER_TEXT);
+        response |= resp
+            .on_hover_text(INBOX_HOVER_TEXT)
+            .on_hover_cursor(CursorIcon::PointingHand);
 
         // ---- + ----
         let pos = pos - vec2(SPACE / 2.0, 0.0);
@@ -611,16 +616,20 @@ impl RelayEntry {
         // ---- Write ----
         let pos = right + vec2(RIGHT - 4.0 * SPACE, 0.0);
         let (text, color) = switch(ui, "W", self.usage.write);
-        let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("W"));
+        let (galley, resp) = allocate_text_at(ui, pos, text.into(), align, self.make_id("W"));
         draw_text_galley_at(ui, pos, galley, Some(color), None);
-        response.on_hover_text(WRITE_HOVER_TEXT);
+        response |= resp
+            .on_hover_text(WRITE_HOVER_TEXT)
+            .on_hover_cursor(CursorIcon::PointingHand);
 
         // ---- Outbox ----
         let pos = right + vec2(RIGHT - 3.0 * SPACE, 0.0);
         let (text, color) = switch(ui, "O", self.usage.outbox);
-        let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("O"));
+        let (galley, resp) = allocate_text_at(ui, pos, text.into(), align, self.make_id("O"));
         draw_text_galley_at(ui, pos, galley, Some(color), None);
-        response.on_hover_text(OUTBOX_HOVER_TEXT);
+        response |= resp
+            .on_hover_text(OUTBOX_HOVER_TEXT)
+            .on_hover_cursor(CursorIcon::PointingHand);
 
         // ---- + ----
         let pos = pos - vec2(SPACE / 2.0, 0.0);
@@ -629,29 +638,37 @@ impl RelayEntry {
         // ---- Discover ----
         let pos = right + vec2(RIGHT - 2.0 * SPACE, 0.0);
         let (text, color) = switch(ui, "D", self.usage.discover);
-        let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("D"));
+        let (galley, resp) = allocate_text_at(ui, pos, text.into(), align, self.make_id("D"));
         draw_text_galley_at(ui, pos, galley, Some(color), None);
-        response.on_hover_text(DISCOVER_HOVER_TEXT);
+        response |= resp
+            .on_hover_text(DISCOVER_HOVER_TEXT)
+            .on_hover_cursor(CursorIcon::PointingHand);
 
         // ---- Spamsafe ----
         let pos = right + vec2(RIGHT - 1.0 * SPACE, 0.0);
         let (text, color) = switch(ui, "S", self.usage.spamsafe);
-        let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("S"));
+        let (galley, resp) = allocate_text_at(ui, pos, text.into(), align, self.make_id("S"));
         draw_text_galley_at(ui, pos, galley, Some(color), None);
-        response.on_hover_text(SPAMSAFE_HOVER_TEXT);
+        response |= resp
+            .on_hover_text(SPAMSAFE_HOVER_TEXT)
+            .on_hover_cursor(CursorIcon::PointingHand);
 
         // ---- DM ----
         let pos = right + vec2(RIGHT - 0.0 * SPACE, 0.0);
         let (text, color) = switch(ui, "DM", self.usage.dm);
-        let (galley, response) = allocate_text_at(ui, pos, text.into(), align, self.make_id("DM"));
+        let (galley, resp) = allocate_text_at(ui, pos, text.into(), align, self.make_id("DM"));
         draw_text_galley_at(ui, pos, galley, Some(color), None);
-        response.on_hover_text(DM_USE_HOVER_TEXT);
+        response |= resp
+            .on_hover_text(DM_USE_HOVER_TEXT)
+            .on_hover_cursor(CursorIcon::PointingHand);
+
+        response
     }
 
     fn paint_nip11(&self, ui: &mut Ui, rect: &Rect) {
         let align = egui::Align::LEFT;
         let max_width = rect.width() - TEXT_RIGHT - TEXT_LEFT - USAGE_SWITCH_PULL_RIGHT - 30.0;
-        let pos = rect.left_top() + vec2(TEXT_LEFT, DETAIL_SECTION_TOP);
+        let pos = rect.left_top() + vec2(TEXT_LEFT, DETAIL_SECTION_TOP + RANK_SWITCH_HEIGHT);
         if let Some(doc) = &self.relay.nip11 {
             if let Some(contact) = &doc.contact {
                 let rect = draw_text_at(ui, pos, contact.into(), align, None, None);
@@ -1068,104 +1085,104 @@ impl RelayEntry {
                 None,
             );
         }
-        let pos = pos + vec2(0.0, USAGE_SWITCH_Y_SPACING);
+    }
+
+    pub fn paint_rank_setting(&mut self, ui: &mut Ui, rect: &Rect) {
+        // rank switch is painted above NIP-11 section
+        let r = self.relay.rank;
+        let mut new_r = self.relay.rank;
+        let txt_color = ui.visuals().text_color();
+        let on_text = ui.visuals().extreme_bg_color;
+        let off_fill_color = ui.visuals().widgets.inactive.bg_fill;
+        let btn_height: f32 = ui.spacing().interact_size.y;
+        let btn_round: Rounding = Rounding::same(btn_height / 2.0);
+        let font: FontId = Default::default();
+
+        let pos = rect.left_top() + vec2(TEXT_LEFT, DETAIL_SECTION_TOP);
+
+        let label_rect = draw_text_at(
+            ui,
+            pos,
+            "Relay-picker rank:".into(),
+            Align::LEFT,
+            Some(txt_color),
+            None,
+        );
+
+        let pos = pos + vec2(5.0 + label_rect.width(), 0.0);
         {
-            // ---- rank ----
-            let r = self.relay.rank;
-            let mut new_r = self.relay.rank;
-            let txt_color = ui.visuals().text_color();
-            let on_text = ui.visuals().extreme_bg_color;
-            let btn_height: f32 = ui.spacing().interact_size.y;
-            let btn_round: Rounding = Rounding::same(btn_height / 2.0);
-            let font: FontId = Default::default();
-
-            let pos = pos + vec2(USAGE_SWITCH_X_SPACING, 0.0);
+            // -- value display --
+            let rect =
+                Rect::from_min_size(pos + vec2(10.0, -4.0), vec2(40.0 + 8.0, btn_height + 4.0));
+            ui.painter().rect(
+                rect,
+                btn_round,
+                ui.visuals().extreme_bg_color,
+                Stroke::new(1.0, off_fill_color),
+            );
+            ui.painter().text(
+                pos + vec2(34.0, 0.0),
+                Align2::CENTER_TOP,
+                format!("{}", r),
+                font.clone(),
+                txt_color,
+            );
             {
-                draw_text_at(
-                    ui,
-                    pos - vec2(5.0, 0.0),
-                    "Relay-picker rank:".into(),
-                    Align::RIGHT,
-                    Some(txt_color),
-                    None,
-                );
-            }
-
-            {
-                // -- value display --
-                let rect =
-                    Rect::from_min_size(pos + vec2(10.0, -4.0), vec2(40.0 + 8.0, btn_height + 4.0));
-                ui.painter().rect(
-                    rect,
-                    btn_round,
-                    ui.visuals().extreme_bg_color,
-                    Stroke::new(1.0, off_fill_color),
-                );
+                // -- - button --
+                let rect = Rect::from_min_size(pos + vec2(0.0, -2.0), vec2(btn_height, btn_height));
+                let resp = ui
+                    .interact(rect, self.make_id("rank_sub"), Sense::click())
+                    .on_hover_cursor(CursorIcon::PointingHand);
+                if resp.clicked() {
+                    new_r = new_r.saturating_sub(1)
+                }
+                let (fill, txt) = if resp.hovered() {
+                    (self.accent_hover, on_text)
+                } else {
+                    (self.accent, on_text)
+                };
+                ui.painter().rect(rect, btn_round, fill, Stroke::NONE);
                 ui.painter().text(
-                    pos + vec2(34.0, 0.0),
-                    Align2::CENTER_TOP,
-                    format!("{}", r),
+                    rect.center(),
+                    Align2::CENTER_CENTER,
+                    "\u{2212}",
                     font.clone(),
-                    txt_color,
+                    txt,
                 );
-                {
-                    // -- - button --
-                    let rect =
-                        Rect::from_min_size(pos + vec2(0.0, -2.0), vec2(btn_height, btn_height));
-                    let resp = ui
-                        .interact(rect, self.make_id("rank_sub"), Sense::click())
-                        .on_hover_cursor(CursorIcon::PointingHand);
-                    if resp.clicked() {
-                        new_r = new_r.saturating_sub(1)
-                    }
-                    let (fill, txt) = if resp.hovered() {
-                        (self.accent_hover, on_text)
-                    } else {
-                        (self.accent, on_text)
-                    };
-                    ui.painter().rect(rect, btn_round, fill, Stroke::NONE);
-                    ui.painter().text(
-                        rect.center(),
-                        Align2::CENTER_CENTER,
-                        "\u{2212}",
-                        font.clone(),
-                        txt,
-                    );
-                }
-                {
-                    // -- + button --
-                    let rect =
-                        Rect::from_min_size(pos + vec2(48.0, -2.0), vec2(btn_height, btn_height));
-                    let resp = ui
-                        .interact(rect, self.make_id("rank_add"), Sense::click())
-                        .on_hover_cursor(CursorIcon::PointingHand);
-                    if resp.clicked() {
-                        if new_r < 9 {
-                            new_r += 1;
-                        }
-                    }
-                    let (fill, txt) = if resp.hovered() {
-                        (self.accent_hover, on_text)
-                    } else {
-                        (self.accent, on_text)
-                    };
-                    ui.painter().rect(rect, btn_round, fill, Stroke::NONE);
-                    ui.painter().text(
-                        rect.center(),
-                        Align2::CENTER_CENTER,
-                        "\u{002B}",
-                        font.clone(),
-                        txt,
-                    );
-                }
             }
+            {
+                // -- + button --
+                let rect =
+                    Rect::from_min_size(pos + vec2(48.0, -2.0), vec2(btn_height, btn_height));
+                let resp = ui
+                    .interact(rect, self.make_id("rank_add"), Sense::click())
+                    .on_hover_cursor(CursorIcon::PointingHand);
+                if resp.clicked() {
+                    if new_r < 9 {
+                        new_r += 1;
+                    }
+                }
+                let (fill, txt) = if resp.hovered() {
+                    (self.accent_hover, on_text)
+                } else {
+                    (self.accent, on_text)
+                };
+                ui.painter().rect(rect, btn_round, fill, Stroke::NONE);
+                ui.painter().text(
+                    rect.center(),
+                    Align2::CENTER_CENTER,
+                    "\u{002B}",
+                    font.clone(),
+                    txt,
+                );
+            }
+        }
 
-            if new_r != self.relay.rank {
-                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::RankRelay(
-                    self.relay.url.clone(),
-                    new_r as u8,
-                ));
-            }
+        if new_r != self.relay.rank {
+            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::RankRelay(
+                self.relay.url.clone(),
+                new_r as u8,
+            ));
         }
     }
 
@@ -1207,7 +1224,7 @@ impl RelayEntry {
     }
 
     fn interact_bg_color(&self, response: &Response) -> Option<Color32> {
-        if response.hovered() {
+        if response.contains_pointer() {
             Some(self.bg_hover)
         } else {
             Some(self.bg_fill)
@@ -1215,16 +1232,16 @@ impl RelayEntry {
     }
 
     /// Do layout and position the galley in the ui, without painting it or adding widget info.
-    fn update_list_view(self, ui: &mut Ui) -> Response {
+    fn update_list_view(self, ui: &mut Ui, theme: &Theme) -> Response {
         let (rect, mut response) = list_entry::allocate_space(ui, LIST_VIEW_HEIGHT);
         response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
 
         // all the heavy lifting is only done if it's actually visible
         if ui.is_rect_visible(rect) {
             list_entry::paint_frame(ui, &rect, self.interact_bg_color(&response));
-            self.paint_title(ui, &rect);
+            self.paint_title(ui, theme, &rect);
             if self.relay.has_any_usage_bit() || self.relay.is_good_for_advertise() {
-                self.paint_usage(ui, &rect);
+                response = self.paint_usage(ui, &rect, response);
             } else {
                 self.paint_low_quality(ui, &rect);
             }
@@ -1234,17 +1251,17 @@ impl RelayEntry {
         response
     }
 
-    fn update_detail_view(self, ui: &mut Ui) -> Response {
+    fn update_detail_view(self, ui: &mut Ui, theme: &Theme) -> Response {
         let (rect, mut response) = list_entry::allocate_space(ui, DETAIL_VIEW_HEIGHT);
         response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
 
         // all the heavy lifting is only done if it's actually visible
         if ui.is_rect_visible(rect) {
             list_entry::paint_frame(ui, &rect, self.interact_bg_color(&response));
-            self.paint_title(ui, &rect);
+            self.paint_title(ui, theme, &rect);
             self.paint_stats(ui, &rect);
             if self.relay.has_any_usage_bit() || self.relay.is_good_for_advertise() {
-                self.paint_usage(ui, &rect);
+                response = self.paint_usage(ui, &rect, response);
             }
             self.paint_reasons(ui, &rect);
         }
@@ -1252,7 +1269,7 @@ impl RelayEntry {
         response
     }
 
-    fn update_edit_view(mut self, ui: &mut Ui) -> Response {
+    fn update_edit_view(mut self, ui: &mut Ui, theme: &Theme) -> Response {
         let (height, hline2_offset) =
             match (self.auth_require_permission, self.conn_require_permission) {
                 (true, true) => (
@@ -1267,21 +1284,28 @@ impl RelayEntry {
             };
 
         let size = vec2(ui.available_width(), height);
-        let rect = Rect::from_min_size(ui.next_widget_position(), size);
+        let pos = ui.next_widget_position();
+        let no_response_rect = Rect::from_min_size(pos, vec2(1.0, 1.0));
+        let rect = Rect::from_min_size(pos, size);
 
-        let mut response = ui.interact(rect, self.make_id("frame"), egui::Sense::hover());
+        let mut response = ui.interact(
+            no_response_rect,
+            self.make_id("frame"),
+            egui::Sense::hover(),
+        );
 
         // all the heavy lifting is only done if it's actually visible
         if ui.is_visible() {
             list_entry::paint_frame(ui, &rect, Some(self.bg_fill));
-            self.paint_title(ui, &rect);
+            self.paint_title(ui, theme, &rect);
             self.paint_stats(ui, &rect);
             paint_hline(ui, &rect, HLINE_1_Y_OFFSET);
+            self.paint_rank_setting(ui, &rect);
             self.paint_nip11(ui, &rect);
             self.paint_usage_settings(ui, &rect);
             self.paint_permissions(ui, &rect);
             paint_hline(ui, &rect, hline2_offset);
-            response |= self.paint_lower_buttons(ui, &rect);
+            response = self.paint_lower_buttons(ui, &rect);
             response |= self.paint_close_btn(ui, &rect);
         }
 
@@ -1291,16 +1315,14 @@ impl RelayEntry {
 
         response
     }
-}
 
-impl Widget for RelayEntry {
-    fn ui(self, ui: &mut Ui) -> Response {
+    pub fn show(self, ui: &mut Ui, theme: &Theme) -> Response {
         ui.visuals_mut().widgets.hovered.fg_stroke.color = self.accent;
 
         match self.view {
-            RelayEntryView::List => self.update_list_view(ui),
-            RelayEntryView::Detail => self.update_detail_view(ui),
-            RelayEntryView::Edit => self.update_edit_view(ui),
+            RelayEntryView::List => self.update_list_view(ui, theme),
+            RelayEntryView::Detail => self.update_detail_view(ui, theme),
+            RelayEntryView::Edit => self.update_edit_view(ui, theme),
         }
     }
 }
