@@ -15,6 +15,7 @@ mod coverage;
 mod known;
 mod mine;
 
+pub const SEARCH_WIDTH: f32 = 80.0;
 pub const RELAY_URL_PREPOPULATE: &str = "wss://";
 
 pub(super) struct RelayUi {
@@ -244,7 +245,9 @@ pub(super) fn relay_scroll_list(
                 if let Some(ref assignment) = GLOBALS.relay_picker.get_relay_assignment(&db_url) {
                     widget.set_user_count(assignment.pubkeys.len());
                 }
-                let response = ui.add_enabled(enabled, widget.clone());
+                let response = ui
+                    .add_enabled_ui(enabled, |ui| widget.show(ui, &app.theme))
+                    .inner;
                 if response.clicked() {
                     if !edit {
                         app.relays.edit = Some(db_url);
@@ -432,7 +435,7 @@ pub(super) fn configure_list_btn(app: &mut GossipUi, ui: &mut Ui) {
         let max_size = vec2(180.0, ui.ctx().available_rect().height());
 
         let text = egui::RichText::new("=").size(13.0);
-        let response = widgets::Button::primary(&app.theme, text)
+        let response = widgets::Button::secondary(&app.theme, text)
             .small(true)
             .show(ui);
         let menu = widgets::MoreMenu::bubble(ui.next_auto_id(), min_size, max_size);
@@ -461,6 +464,20 @@ pub(super) fn configure_list_btn(app: &mut GossipUi, ui: &mut Ui) {
                 app.set_page(ui.ctx(), crate::ui::Page::RelaysCoverage);
             }),
         )));
+
+        if app.page == Page::RelaysMine {
+            items.push(MoreMenuItem::Button(MoreMenuButton::new("Advertise Relay List",
+                Box::new(|_ui, _app| {
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::AdvertiseRelayList);
+
+                }))
+                .enabled(GLOBALS.identity.is_unlocked())
+                .on_disabled_hover_text("Add or unlock your private key to advertise your relays")
+                .on_hover_text("Advertise my relays. Will send your relay usage information to every relay that seems to be working well so that other people know how to follow and contact you.")
+            ));
+        }
 
         menu.show_entries(ui, app, response, items);
     });
@@ -604,7 +621,7 @@ pub(super) fn sort_relay(rui: &RelayUi, a: &Relay, b: &Relay) -> Ordering {
             .then(b.get_usage_bits_for_sorting().cmp(&a.get_usage_bits_for_sorting()))
             .then(b.is_good_for_advertise().cmp(&a.is_good_for_advertise()))
             .then(a.url.cmp(&b.url)),
-        RelaySorting::Name => a.url.cmp(&b.url),
+        RelaySorting::Name => a.url.host().cmp(&b.url.host()).then(a.url.cmp(&b.url)),
         RelaySorting::WriteRelays => b.has_usage_bits(Relay::WRITE)
                               .cmp(&a.has_usage_bits(Relay::WRITE))
             .then(a.url.cmp(&b.url)),
