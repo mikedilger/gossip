@@ -483,6 +483,7 @@ struct GossipUi {
     unlock_needs_focus: bool,
     draft_data: DraftData,
     dm_draft_data: DraftData,
+    dm_draft_data_target: Option<DmChannel>,
 
     // User entry: metadata
     editing_metadata: bool,
@@ -733,6 +734,7 @@ impl GossipUi {
             unlock_needs_focus: true,
             draft_data: DraftData::default(),
             dm_draft_data: DraftData::default(),
+            dm_draft_data_target: None,
             editing_metadata: false,
             metadata: Metadata::new(),
             delegatee_tag_str: "".to_owned(),
@@ -2219,6 +2221,7 @@ impl GossipUi {
     fn reset_draft(&mut self) {
         if let Page::Feed(FeedKind::DmChat(_)) = &self.page {
             self.dm_draft_data.clear();
+            self.dm_draft_data_target = None;
         } else {
             self.draft_data.clear();
             self.show_post_area = false;

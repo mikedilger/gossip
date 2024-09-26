@@ -172,8 +172,18 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                         ctx,
                         Page::Feed(FeedKind::DmChat(channeldata.dm_channel.clone())),
                     );
-                    app.dm_draft_data.clear();
                     app.draft_needs_focus = true;
+
+                    // Maybe clear the draft, if we are going into a different channel than last
+                    // time
+                    if let Some(oldtarget) = &app.dm_draft_data_target {
+                        if *oldtarget != channeldata.dm_channel {
+                            app.dm_draft_data.clear();
+                        }
+                    } else {
+                        app.dm_draft_data.clear();
+                    }
+                    app.dm_draft_data_target = Some(channeldata.dm_channel.clone());
                 }
             }
         });
