@@ -228,6 +228,10 @@ impl Feed {
         self.current_feed_events.read_arc().clone()
     }
 
+    pub fn get_last_computed_time(&self) -> Option<Instant> {
+        *self.last_computed.read_arc()
+    }
+
     /// Get the parent of the current thread feed.
     /// The children should be recursively found via `GLOBALS.db().get_replies(id)`
     pub fn get_thread_parent(&self) -> Option<Id> {
