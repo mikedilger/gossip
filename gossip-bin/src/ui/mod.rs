@@ -116,6 +116,11 @@ pub fn run() -> Result<(), Error> {
         ..Default::default()
     };
 
+    // According to eframe docs, we just need the directory:
+    let mut persistence_path = gossip_lib::Profile::base_dir()?;
+    // But based on testing, we need to give it the file:
+    persistence_path.push("app.ron");
+
     let options = eframe::NativeOptions {
         viewport,
         default_theme: if read_setting!(dark_mode) {
@@ -131,6 +136,8 @@ pub fn run() -> Result<(), Error> {
         } else {
             eframe::Renderer::Glow
         },
+        persist_window: true,
+        persistence_path: Some(persistence_path),
         ..Default::default()
     };
 
