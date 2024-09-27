@@ -36,6 +36,8 @@ pub struct Feed {
     last_computed: Arc<RwLock<Option<Instant>>>,
 
     thread_parent: Arc<RwLock<Option<Id>>>,
+
+    last_volatile_feed: Arc<RwLock<Option<FeedKind>>>,
 }
 
 impl Default for Feed {
@@ -55,6 +57,7 @@ impl Feed {
             interval_ms: Arc::new(RwLock::new(10000)), // Every 10 seconds, until we load from settings
             last_computed: Arc::new(RwLock::new(None)),
             thread_parent: Arc::new(RwLock::new(None)),
+            last_volatile_feed: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -185,17 +188,28 @@ impl Feed {
             None
         };
 
+        // Clear the volatile storage if the feed is volatile
+        // and different from the last time
+        if feed_kind.is_volatile() {
+            if let Some(ref last_volatile_feed) = *self.last_volatile_feed.read() {
+                if *last_volatile_feed != feed_kind {
+                    GLOBALS.db().clear_volatile();
+                }
+            }
+            *self.last_volatile_feed.write() = Some(feed_kind.clone());
+        }
+
         // Set the feed kind
         *self.current_feed_kind.write_arc() = feed_kind;
+
+        // Unlisten to the relays
+        self.unlisten();
 
         // Recompute as they switch
         self.sync_recompute();
 
         // NOTE: dont set switching to false here, the recompute is
         // now in a tokio task and running separately from this thread.
-
-        // Unlisten to the relays
-        self.unlisten();
 
         match &*self.current_feed_kind.read_arc() {
             FeedKind::Thread {

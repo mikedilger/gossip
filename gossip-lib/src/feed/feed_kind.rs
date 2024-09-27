@@ -69,4 +69,12 @@ impl FeedKind {
             Self::Relay(_) => true,
         }
     }
+
+    pub fn is_volatile(&self) -> bool {
+        match self {
+            Self::Global => true,
+            Self::Relay(_) => true,
+            _ => false,
+        }
+    }
 }

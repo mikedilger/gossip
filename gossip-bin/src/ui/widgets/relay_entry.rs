@@ -384,7 +384,7 @@ impl RelayEntry {
         response
     }
 
-    fn paint_lower_buttons(&self, ui: &mut Ui, rect: &Rect) -> Response {
+    fn paint_lower_buttons(&self, app: &mut GossipUi, ui: &mut Ui, rect: &Rect) -> Response {
         let line_height = ui.fonts(|f| f.row_height(&FontId::default()));
         let pos = rect.left_bottom() + vec2(TEXT_LEFT, -TEXT_BOTTOM - line_height);
         let is_personal = self.relay.has_any_usage_bit();
@@ -432,6 +432,17 @@ impl RelayEntry {
                 self.relay.url.to_owned(),
                 !self.relay.hidden,
             ));
+        }
+
+        let pos = pos + vec2(120.0, 0.0);
+        let id = self.make_id("view_relay_feed");
+        let text = "View Feed";
+        let response = draw_link_at(ui, id, pos, text.into(), Align::Min, true, true);
+        if response.clicked() {
+            app.set_page(
+                ui.ctx(),
+                crate::ui::Page::Feed(gossip_lib::FeedKind::Relay(self.relay.url.clone())),
+            );
         }
 
         // pass the response back so the page knows the edit view should close
@@ -1269,7 +1280,7 @@ impl RelayEntry {
         response
     }
 
-    fn update_edit_view(mut self, ui: &mut Ui, theme: &Theme) -> Response {
+    fn update_edit_view(mut self, app: &mut GossipUi, ui: &mut Ui) -> Response {
         let (height, hline2_offset) =
             match (self.auth_require_permission, self.conn_require_permission) {
                 (true, true) => (
@@ -1297,7 +1308,7 @@ impl RelayEntry {
         // all the heavy lifting is only done if it's actually visible
         if ui.is_visible() {
             list_entry::paint_frame(ui, &rect, Some(self.bg_fill));
-            self.paint_title(ui, theme, &rect);
+            self.paint_title(ui, &app.theme, &rect);
             self.paint_stats(ui, &rect);
             paint_hline(ui, &rect, HLINE_1_Y_OFFSET);
             self.paint_rank_setting(ui, &rect);
@@ -1305,7 +1316,7 @@ impl RelayEntry {
             self.paint_usage_settings(ui, &rect);
             self.paint_permissions(ui, &rect);
             paint_hline(ui, &rect, hline2_offset);
-            response = self.paint_lower_buttons(ui, &rect);
+            response = self.paint_lower_buttons(app, ui, &rect);
             response |= self.paint_close_btn(ui, &rect);
         }
 
@@ -1316,13 +1327,13 @@ impl RelayEntry {
         response
     }
 
-    pub fn show(self, ui: &mut Ui, theme: &Theme) -> Response {
+    pub fn show(self, app: &mut GossipUi, ui: &mut Ui) -> Response {
         ui.visuals_mut().widgets.hovered.fg_stroke.color = self.accent;
 
         match self.view {
-            RelayEntryView::List => self.update_list_view(ui, theme),
-            RelayEntryView::Detail => self.update_detail_view(ui, theme),
-            RelayEntryView::Edit => self.update_edit_view(ui, theme),
+            RelayEntryView::List => self.update_list_view(ui, &app.theme),
+            RelayEntryView::Detail => self.update_detail_view(ui, &app.theme),
+            RelayEntryView::Edit => self.update_edit_view(app, ui),
         }
     }
 }
