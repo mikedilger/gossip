@@ -35,7 +35,11 @@ pub fn process_new_event(
     GLOBALS.events_processed.fetch_add(1, Ordering::SeqCst);
 
     // Detect if duplicate. We still need to process some things even if a duplicate
-    let duplicate = GLOBALS.db().has_event(event.id)?;
+    let duplicate = if global_feed {
+        GLOBALS.db().has_volatile_event(event.id)
+    } else {
+        GLOBALS.db().has_event(event.id)?
+    };
 
     // Verify the event,
     // Don't verify if it is a duplicate:

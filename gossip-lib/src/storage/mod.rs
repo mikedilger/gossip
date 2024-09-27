@@ -1303,6 +1303,12 @@ impl Storage {
         events
     }
 
+    /// If we have the volatile event
+    #[inline]
+    pub fn has_volatile_event(&self, id: Id) -> bool {
+        self.volatile_events.contains_key(&id)
+    }
+
     /// If we have the event
     #[inline]
     pub fn has_event(&self, id: Id) -> Result<bool, Error> {
