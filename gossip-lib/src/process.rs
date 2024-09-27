@@ -27,7 +27,7 @@ pub fn process_new_event(
     let now = Unixtime::now();
 
     let global_feed = match subscription {
-        Some(ref s) => s == "global_feed",
+        Some(ref s) => s.contains("global_feed"),
         _ => false,
     };
 
