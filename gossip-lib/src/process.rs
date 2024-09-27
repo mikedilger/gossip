@@ -86,9 +86,10 @@ pub fn process_new_event(
         }
     }
 
-    if GLOBALS
-        .db()
-        .read_setting_apply_spam_filter_on_incoming_events()
+    if !global_feed
+        && GLOBALS
+            .db()
+            .read_setting_apply_spam_filter_on_incoming_events()
     {
         use crate::spam_filter::{EventFilterAction, EventFilterCaller};
         let filter_result =
