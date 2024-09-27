@@ -274,6 +274,18 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
             let feed = GLOBALS.feed.get_feed_events();
             render_a_feed(app, ctx, ui, feed, false, "global", load_more);
         }
+        FeedKind::Relay(relay_url) => {
+            ui.add_space(10.0);
+            ui.horizontal(|ui| {
+                add_left_space(ui);
+                ui.heading(format!("{}", &relay_url));
+                recompute_btn(ui);
+            });
+            ui.add_space(6.0);
+
+            let feed = GLOBALS.feed.get_feed_events();
+            render_a_feed(app, ctx, ui, feed, false, relay_url.as_str(), load_more);
+        }
         FeedKind::DmChat(channel) => {
             if !GLOBALS.identity.is_unlocked() {
                 ui.add_space(10.0);

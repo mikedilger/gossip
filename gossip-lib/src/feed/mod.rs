@@ -134,6 +134,20 @@ impl Feed {
                 },
             });
         }
+
+        // If not in a Relay feed
+        if let FeedKind::Relay(relay_url) = feed_kind {
+            // Stop listening to Global events
+            let _ = GLOBALS.to_minions.send(ToMinionMessage {
+                target: relay_url.to_string(),
+                payload: ToMinionPayload {
+                    job_id: 0,
+                    detail: ToMinionPayloadDetail::Unsubscribe(FilterSet::GlobalFeedFuture(
+                        Unixtime::now(),
+                    )),
+                },
+            });
+        }
     }
 
     // NOTE: This is called by synchronous UI code, so it doesn't need to be re-entrant.
@@ -212,6 +226,11 @@ impl Feed {
                 let _ = GLOBALS
                     .to_overlord
                     .send(ToOverlordMessage::SetGlobalFeed(anchor));
+            }
+            FeedKind::Relay(relay_url) => {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::SetRelayFeed(relay_url.clone(), anchor));
             }
             _ => (),
         }
@@ -419,7 +438,7 @@ impl Feed {
                 let ids = GLOBALS.db().dm_events(&channel)?;
                 *self.current_feed_events.write_arc() = ids;
             }
-            FeedKind::Global => {
+            FeedKind::Global | FeedKind::Relay(_) => {
                 let dismissed = GLOBALS.dismissed.read().await.clone();
 
                 let screen_spam = {

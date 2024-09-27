@@ -1,7 +1,7 @@
 use crate::dm_channel::DmChannel;
 use crate::globals::GLOBALS;
 use crate::people::PersonList;
-use nostr_types::{Id, PublicKey};
+use nostr_types::{Id, PublicKey, RelayUrl};
 
 /// Kinds of feeds, with configuration parameteers
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -17,6 +17,7 @@ pub enum FeedKind {
     Person(PublicKey),
     DmChat(DmChannel),
     Global,
+    Relay(RelayUrl),
 }
 
 impl std::fmt::Display for FeedKind {
@@ -36,6 +37,7 @@ impl std::fmt::Display for FeedKind {
             FeedKind::Person(pk) => write!(f, "{}", crate::names::best_name_from_pubkey_lookup(pk)),
             FeedKind::DmChat(channel) => write!(f, "{}", channel.name()),
             FeedKind::Global => write!(f, "Global"),
+            FeedKind::Relay(relayurl) => write!(f, "{}", relayurl),
         }
     }
 }
@@ -51,6 +53,7 @@ impl FeedKind {
             Self::Person(pubkey) => format!("person{}", pubkey.as_hex_string()),
             Self::DmChat(_) => "dmchat".to_owned(),
             Self::Global => "global".to_owned(),
+            Self::Relay(relayurl) => format!("relay {}", relayurl),
         }
     }
 
@@ -63,6 +66,7 @@ impl FeedKind {
             Self::Person(_) => true,
             Self::DmChat(_) => false, // always full
             Self::Global => true,
+            Self::Relay(_) => true,
         }
     }
 }

@@ -753,6 +753,9 @@ impl Overlord {
             ToOverlordMessage::SetPersonFeed(pubkey, anchor) => {
                 self.set_person_feed(pubkey, anchor).await?;
             }
+            ToOverlordMessage::SetRelayFeed(relay_url, anchor) => {
+                self.set_relay_feed(relay_url, anchor).await?;
+            }
             ToOverlordMessage::SetThreadFeed {
                 id,
                 referenced_by,
@@ -2391,6 +2394,34 @@ impl Overlord {
                             pubkey,
                             anchor,
                         }),
+                    },
+                },
+            ],
+        );
+
+        Ok(())
+    }
+
+    async fn set_relay_feed(&mut self, relay_url: RelayUrl, anchor: Unixtime) -> Result<(), Error> {
+        manager::run_jobs_on_all_relays(
+            vec![relay_url],
+            vec![
+                RelayJob {
+                    reason: RelayConnectionReason::SubscribeGlobal,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::Subscribe(FilterSet::GlobalFeedFuture(
+                            anchor,
+                        )),
+                    },
+                },
+                RelayJob {
+                    reason: RelayConnectionReason::SubscribeGlobal,
+                    payload: ToMinionPayload {
+                        job_id: rand::random::<u64>(),
+                        detail: ToMinionPayloadDetail::Subscribe(FilterSet::GlobalFeedChunk(
+                            anchor,
+                        )),
                     },
                 },
             ],

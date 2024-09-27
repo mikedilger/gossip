@@ -182,6 +182,9 @@ pub enum ToOverlordMessage {
     SetPersonFeed(PublicKey, Unixtime),
 
     /// internal
+    SetRelayFeed(RelayUrl, Unixtime),
+
+    /// internal
     SetThreadFeed {
         id: Id,
         referenced_by: Id,
