@@ -2146,6 +2146,35 @@ impl Storage {
         Ok(false)
     }
 
+    /// Mark all DMs as read
+    pub fn mark_all_dms_read(&self) -> Result<(), Error> {
+        let my_pubkey = match GLOBALS.identity.public_key() {
+            Some(pk) => pk,
+            None => return Ok(()),
+        };
+
+        let mut filter = Filter::new();
+        filter.kinds = vec![EventKind::EncryptedDirectMessage, EventKind::GiftWrap];
+
+        let events = self.find_events_by_filter(&filter, |event| {
+            if event.kind == EventKind::EncryptedDirectMessage {
+                event.pubkey == my_pubkey || event.is_tagged(&my_pubkey)
+                // Make sure if it has tags, only author and my_pubkey
+                // TBD
+            } else {
+                event.kind == EventKind::GiftWrap
+            }
+        })?;
+
+        let mut txn = self.get_write_txn()?;
+        for event in &events {
+            self.mark_event_viewed(event.id, Some(&mut txn))?;
+        }
+        txn.commit()?;
+
+        Ok(())
+    }
+
     /// Get all the DM channels with associated data
     pub fn dm_channels(&self) -> Result<Vec<DmChannelData>, Error> {
         let my_pubkey = match GLOBALS.identity.public_key() {

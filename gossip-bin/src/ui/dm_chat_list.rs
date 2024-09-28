@@ -43,7 +43,16 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
     let mut channels = app.dm_channel_cache.clone();
 
-    widgets::page_header(ui, "Direct Messages", |_| {});
+    widgets::page_header(ui, "Direct Messages", |ui| {
+        ui.add_space(16.0);
+        if widgets::Button::bordered(&app.theme, "Mark all read")
+            .small(true)
+            .show(ui)
+            .clicked()
+        {
+            let _ = GLOBALS.db().mark_all_dms_read();
+        }
+    });
 
     let is_signer_ready = GLOBALS.identity.is_unlocked();
 
