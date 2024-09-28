@@ -7,7 +7,7 @@ use egui::{Button, Color32, Pos2, RichText, Stroke, Ui};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::FeedKind;
 use gossip_lib::GLOBALS;
-use nostr_types::{ContentSegment, Id, IdHex, NAddr, NostrBech32, PublicKey, Span, Url};
+use nostr_types::{ContentSegment, Id, IdHex, NAddr, NostrBech32, PublicKey, RelayUrl, Span, Url};
 use std::{
     cell::{Ref, RefCell},
     rc::Rc,
@@ -204,6 +204,11 @@ pub(super) fn render_hyperlink(
 ) {
     let link = note.shattered_content.slice(linkspan).unwrap();
 
+    if let Ok(relay_url) = RelayUrl::try_from_str(link) {
+        render_relay_link(app, ui, relay_url);
+        return;
+    }
+
     // In DMs, fetching an image allows someone to associate your pubkey with your IP address
     // by controlling the image URL, and since only you see the URL it must have been you
     let privacy_issue = note.direct_message;
@@ -271,6 +276,12 @@ pub(super) fn render_profile_link(app: &mut GossipUi, ui: &mut Ui, pubkey: &Publ
     let name = gossip_lib::names::best_name_from_pubkey_lookup(pubkey);
     if ui.link(&name).clicked() {
         app.set_page(ui.ctx(), Page::Person(pubkey.to_owned()));
+    };
+}
+
+pub fn render_relay_link(app: &mut GossipUi, ui: &mut Ui, relay_url: RelayUrl) {
+    if ui.link(relay_url.as_str()).clicked() {
+        app.set_page(ui.ctx(), Page::RelaysKnownNetwork(Some(relay_url)));
     };
 }
 
