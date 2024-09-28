@@ -11,6 +11,7 @@ use crate::manager;
 use crate::minion::MinionExitReason;
 use crate::misc::{Private, ZapState};
 use crate::nostr_connect_server::{Approval, ParsedCommand};
+use crate::pending::PendingItem;
 use crate::people::{Person, PersonList};
 use crate::relay;
 use crate::relay::Relay;
@@ -1140,6 +1141,17 @@ impl Overlord {
         GLOBALS.db().clear_person_list(list, Some(&mut txn))?;
         GLOBALS.db().deallocate_person_list(list, Some(&mut txn))?;
         txn.commit()?;
+
+        // Remove from pending
+        GLOBALS
+            .pending
+            .remove(&PendingItem::PersonListNeverPublished(list));
+        GLOBALS
+            .pending
+            .remove(&PendingItem::PersonListOutOfSync(list));
+        GLOBALS
+            .pending
+            .remove(&PendingItem::PersonListNotPublishedRecently(list));
 
         // If we are only following, nothing else needed
         if GLOBALS.db().get_flag_following_only() {
