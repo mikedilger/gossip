@@ -13,12 +13,24 @@ pub enum EventFilterAction {
     MuteAuthor,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum EventFilterCaller {
     Process,
     Thread,
     Inbox,
     Global,
+}
+
+#[derive(Debug, Clone)]
+struct EventParams {
+    pub id: Id,
+    pub pubkey: PublicKey,
+    pub kind: EventKind,
+    pub content: String,
+    pub tags: Vec<Tag>,
+    pub pow: u8,
+    pub caller: EventFilterCaller,
+    pub spamsafe: bool,
 }
 
 pub fn load_script(engine: &Engine) -> Option<AST> {
@@ -63,43 +75,47 @@ pub fn filter_event(event: Event, caller: EventFilterCaller, spamsafe: bool) -> 
     } else if event.kind == EventKind::GiftWrap {
         if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(&event) {
             // id from giftwrap, the rest from rumor
-            inner_filter(
+            let event_params = EventParams {
                 id,
-                rumor.pubkey,
-                rumor.kind,
-                rumor.content,
-                rumor.tags,
+                pubkey: rumor.pubkey,
+                kind: rumor.kind,
+                content: rumor.content,
+                tags: rumor.tags,
                 pow,
                 caller,
                 spamsafe,
-            )
+            };
+            inner_filter(event_params)
         } else {
             EventFilterAction::Allow
         }
     } else {
-        inner_filter(
+        let event_params = EventParams {
             id,
-            event.pubkey,
-            event.kind,
-            event.content,
-            event.tags,
+            pubkey: event.pubkey,
+            kind: event.kind,
+            content: event.content,
+            tags: event.tags,
             pow,
             caller,
             spamsafe,
-        )
+        };
+        inner_filter(event_params)
     }
 }
 
-fn inner_filter(
-    id: Id,
-    pubkey: PublicKey,
-    kind: EventKind,
-    content: String,
-    mut tags: Vec<Tag>,
-    pow: u8,
-    caller: EventFilterCaller,
-    spamsafe: bool,
-) -> EventFilterAction {
+fn inner_filter(event_params: EventParams) -> EventFilterAction {
+    let EventParams {
+        id,
+        pubkey,
+        kind,
+        content,
+        mut tags,
+        pow,
+        caller,
+        spamsafe,
+    } = event_params;
+
     // Only apply to feed-displayable events
     if !kind.is_feed_displayable() {
         return EventFilterAction::Allow;

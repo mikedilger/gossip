@@ -9,6 +9,8 @@ use egui_winit::egui::{self, vec2, AboveOrBelow, Align2, Id, Ui, Vec2};
 
 use crate::ui::{GossipUi, Theme};
 
+type Action<'a> = Box<dyn FnOnce(&mut Ui, &mut GossipUi) + 'a>;
+
 const POPUP_MARGIN: Vec2 = Vec2 { x: 20.0, y: 16.0 };
 const CORNER_RADIUS: f32 = 8.0;
 const INNER_MARGIN: Margin = Margin {
@@ -35,16 +37,13 @@ pub(in crate::ui) struct MoreMenuButton<'a> {
     text: WidgetText,
     on_hover_text: Option<WidgetText>,
     on_disabled_hover_text: Option<WidgetText>,
-    action: Box<dyn FnOnce(&mut Ui, &mut GossipUi) + 'a>,
+    action: Action<'a>,
     enabled: bool,
 }
 
 impl<'a> MoreMenuButton<'a> {
     #[allow(clippy::type_complexity)]
-    pub fn new(
-        text: impl Into<WidgetText>,
-        action: Box<dyn FnOnce(&mut Ui, &mut GossipUi) + 'a>,
-    ) -> Self {
+    pub fn new(text: impl Into<WidgetText>, action: Action<'a>) -> Self {
         Self {
             text: text.into(),
             on_hover_text: None,
@@ -284,17 +283,13 @@ impl<'a> MoreMenuSubMenu<'a> {
 pub(in crate::ui) struct MoreMenuSwitch<'a> {
     text: WidgetText,
     value: bool,
-    action: Box<dyn FnOnce(&mut Ui, &mut GossipUi) + 'a>,
+    action: Action<'a>,
     enabled: bool,
 }
 
 impl<'a> MoreMenuSwitch<'a> {
     #[allow(clippy::type_complexity)]
-    pub fn new(
-        text: impl Into<WidgetText>,
-        value: bool,
-        action: Box<dyn FnOnce(&mut Ui, &mut GossipUi) + 'a>,
-    ) -> Self {
+    pub fn new(text: impl Into<WidgetText>, value: bool, action: Action<'a>) -> Self {
         Self {
             text: text.into(),
             value,

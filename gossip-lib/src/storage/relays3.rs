@@ -163,7 +163,7 @@ impl Storage {
         Ok(())
     }
 
-    pub(crate) fn read_relay3<'a>(&'a self, url: &RelayUrl) -> Result<Option<Relay3>, Error> {
+    pub(crate) fn read_relay3(&self, url: &RelayUrl) -> Result<Option<Relay3>, Error> {
         let txn = self.get_read_txn()?;
 
         // Note that we use serde instead of speedy because the complexity of the

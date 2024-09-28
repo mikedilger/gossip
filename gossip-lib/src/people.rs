@@ -738,7 +738,7 @@ impl People {
             if list == PersonList::Followed {
                 use crate::storage::{FollowingsTable, Table};
                 let mut txn = GLOBALS.db().get_write_txn()?;
-                if let Some(followings) = FollowingsTable::read_record(*pubkey, Some(&mut txn))? {
+                if let Some(followings) = FollowingsTable::read_record(*pubkey, Some(&txn))? {
                     for followed in followings.followed.iter() {
                         GLOBALS.db().decr_fof(*followed, Some(&mut txn))?;
                     }

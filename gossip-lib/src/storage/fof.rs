@@ -65,7 +65,7 @@ impl Storage {
     }
 
     // Read fof
-    pub fn read_fof<'a>(&'a self, pubkey: PublicKey) -> Result<u64, Error> {
+    pub fn read_fof(&self, pubkey: PublicKey) -> Result<u64, Error> {
         let txn = self.get_read_txn()?;
         let fof = match self.db_fof()?.get(&txn, pubkey.as_bytes())? {
             Some(bytes) => u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[..8]).unwrap()),
@@ -109,9 +109,7 @@ impl Storage {
             Some(bytes) => u64::from_be_bytes(<[u8; 8]>::try_from(&bytes[..8]).unwrap()),
             None => 0,
         };
-        if fof > 0 {
-            fof -= 1;
-        }
+        fof = fof.saturating_sub(1);
         self.db_fof()?
             .put(txn, pubkey.as_bytes(), fof.to_be_bytes().as_slice())?;
 

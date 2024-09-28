@@ -118,7 +118,7 @@ impl Storage {
     ///   * no valid nip05,
     ///
     /// Returns number of people deleted
-    pub fn prune_unused_people<'a>(&'a self) -> Result<usize, Error> {
+    pub fn prune_unused_people(&self) -> Result<usize, Error> {
         let mut txn = self.get_write_txn()?;
 
         let ekinds = crate::enabled_event_kinds();
@@ -199,8 +199,8 @@ impl Storage {
         // Remove Fof entries with value=0
         let mut zero_fof: Vec<PublicKey> = Vec::new();
         {
-            let mut iter = self.db_fof()?.iter(&txn)?;
-            while let Some(result) = iter.next() {
+            let iter = self.db_fof()?.iter(&txn)?;
+            for result in iter {
                 let (k, v) = result?;
                 let pubkey = PublicKey::from_bytes(k, false)?;
                 let count = u64::from_be_bytes(<[u8; 8]>::try_from(&v[..8]).unwrap());

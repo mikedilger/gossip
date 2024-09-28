@@ -435,11 +435,11 @@ impl Storage {
         let mut local_txn = None;
         let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-        let output = self.db_general()?.put(txn, b"migration_level", &bytes)?;
+        self.db_general()?.put(txn, b"migration_level", &bytes)?;
 
         maybe_local_txn_commit!(local_txn);
 
-        Ok(output)
+        Ok(())
     }
 
     pub(crate) fn read_migration_level(&self) -> Result<Option<u32>, Error> {
@@ -1008,7 +1008,7 @@ impl Storage {
 
     /// Read a relay record
     #[inline]
-    pub fn read_relay<'a>(&'a self, url: &RelayUrl) -> Result<Option<Relay>, Error> {
+    pub fn read_relay(&self, url: &RelayUrl) -> Result<Option<Relay>, Error> {
         self.read_relay3(url)
     }
 
@@ -1918,6 +1918,7 @@ impl Storage {
     }
 
     /// Returns the list of reactions and whether or not this account has already reacted to this event
+    #[allow(clippy::type_complexity)]
     pub fn get_reactions(&self, id: Id) -> Result<(Vec<(char, usize)>, Option<char>), Error> {
         // Whether or not the Gossip user already reacted to this event
         let mut our_reaction: Option<char> = None;
@@ -2410,7 +2411,7 @@ impl Storage {
 
     /// Get people in a person list
     pub fn get_people_in_list(&self, list: PersonList) -> Result<Vec<(PublicKey, Private)>, Error> {
-        Ok(self.get_people_in_list2(list)?)
+        self.get_people_in_list2(list)
     }
 
     /// Hash a person list

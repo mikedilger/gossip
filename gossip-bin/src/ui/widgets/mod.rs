@@ -175,9 +175,7 @@ pub fn relay_url_at(
 
     let rect = if !with_path {
         let galley = list_entry::text_to_galley_max_width(ui, text.into(), Align::LEFT, max_width);
-        let rect =
-            list_entry::draw_text_galley_at(ui, pos, galley, Some(theme.accent_color()), None);
-        rect
+        list_entry::draw_text_galley_at(ui, pos, galley, Some(theme.accent_color()), None)
     } else {
         let galley = list_entry::text_to_galley_max_width(ui, text.into(), Align::LEFT, max_width);
         let max_width = max_width - galley.rect.width();
@@ -185,14 +183,9 @@ pub fn relay_url_at(
         let path_text = if let Some(host) = url.host_str() {
             url.as_str()
                 .split_once(host)
-                .map_or(
-                    None,
-                    |(_before, after)| if after.len() > 1 { Some(after) } else { None },
-                )
+                .and_then(|(_before, after)| if after.len() > 1 { Some(after) } else { None })
         } else {
-            url.as_str()
-                .split_once("/")
-                .map_or(None, |(_before, after)| Some(after))
+            url.as_str().split_once("/").map(|(_before, after)| after)
         };
 
         let path_text = format!(

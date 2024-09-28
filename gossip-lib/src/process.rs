@@ -534,9 +534,9 @@ pub fn reprocess_relay_lists() -> Result<(usize, usize), Error> {
 
 /// Process relationships of an event.
 /// This returns IDs that should be UI invalidated (must be redrawn)
-pub(crate) fn process_relationships_of_event<'a>(
+pub(crate) fn process_relationships_of_event(
     event: &Event,
-    rw_txn: Option<&mut RwTxn<'a>>,
+    rw_txn: Option<&mut RwTxn<'_>>,
 ) -> Result<Vec<Id>, Error> {
     let mut invalidate: Vec<Id> = Vec::new();
 
@@ -971,9 +971,9 @@ fn update_or_allocate_person_list_from_event(
 }
 
 // Caller must ensure that the author is followed.
-pub(crate) fn update_followings_and_fof_from_contact_list<'a>(
+pub(crate) fn update_followings_and_fof_from_contact_list(
     event: &Event,
-    rw_txn: Option<&mut RwTxn<'a>>,
+    rw_txn: Option<&mut RwTxn<'_>>,
 ) -> Result<(), Error> {
     use crate::storage::types::Following;
     use crate::storage::{FollowingsTable, Table};
@@ -1001,8 +1001,8 @@ pub(crate) fn update_followings_and_fof_from_contact_list<'a>(
     {
         use std::collections::HashSet;
 
-        let old: HashSet<PublicKey> = old_followings.followed.iter().map(|p| *p).collect();
-        let new: HashSet<PublicKey> = new_followings.followed.iter().map(|p| *p).collect();
+        let old: HashSet<PublicKey> = old_followings.followed.iter().copied().collect();
+        let new: HashSet<PublicKey> = new_followings.followed.iter().copied().collect();
         for added in new.difference(&old) {
             GLOBALS.db().incr_fof(*added, Some(txn))?;
         }

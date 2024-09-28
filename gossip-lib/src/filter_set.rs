@@ -1,3 +1,5 @@
+#![allow(clippy::match_like_matches_macro)]
+
 use crate::dm_channel::DmChannel;
 use crate::globals::GLOBALS;
 use nostr_types::{EventKind, Filter, IdHex, NAddr, PublicKey, PublicKeyHex, Tag, Unixtime};
