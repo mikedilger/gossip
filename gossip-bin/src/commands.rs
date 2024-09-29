@@ -38,7 +38,7 @@ const COMMANDS: [Command; 42] = [
     Command {
         cmd: "backdate_eose",
         usage_params: "",
-        desc: "backdate last_general_eose_at by 24 hours for every relay",
+        desc: "backdate last_general_eose_at by 24 hours for every relay. This will usually cause gossip to refetch recent things.",
     },
     Command {
         cmd: "bech32_decode",
@@ -68,7 +68,7 @@ const COMMANDS: [Command; 42] = [
     Command {
         cmd: "delete_relay",
         usage_params: "<relayurl>",
-        desc: "delete a relay record from storage.",
+        desc: "delete a relay record from storage. Be aware any event referencing it will cause it to be recreated.",
     },
     Command {
         cmd: "dpi",

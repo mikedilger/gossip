@@ -13,7 +13,7 @@ This file may not be up to date. You can see the list of all the commands with `
 
 You can see the details of a particular command with `gossip help <command>`.
 
-## Commands that launce the GUI program
+## Commands that launch the GUI program
 
 ### login
 
@@ -37,29 +37,34 @@ Start gossip in offline mode.
 
 **usage**:   `gossip offline`
 
+### theme
+
+Start gossip with the selected theme
+
+**usage**:  `gossip theme <dark | light>`
+
 ## Commands that operate in the terminal and then exit
 
 ### add_person_list
 
-add a new person list with the given name.
+Createe a new person list with the given name.
 
 **usage**:  `gossip add_person_list <listname>`
 
 ### backdate_eose
 
-backdate last_general_eose_at by 24 hours for every relay.
-
+Backdate last_general_eose_at by 24 hours for every relay. This will usually cause gossip to refetch recent things.
 **usage**:  `gossip backdate_eose`
 
 ### bech32_decode
 
-decode the bech32 string.
+Decode the bech32 string.
 
 **usage**:  `gossip bech32_decode <bech32string>`
 
 ### bech32_encode_naddr
 
-encode an event address (parameterized replaceable event link).
+Encode an event address (parameterized replaceable event link).
 
 **usage**:  `gossip bech32_encode_naddr <kind> <pubkeyhex> <d> [<relayurl>, ...]`
 
@@ -71,37 +76,43 @@ clear relay avoidance timeouts.
 
 ### decrypt
 
-decrypt the ciphertext from the pubkeyhex.
+Decrypt the ciphertext from the pubkeyhex.
 
 **usage**:  `gossip decrypt <pubkeyhex> <ciphertext>`
 
 ### delete_spam_by_content
 
-delete all feed-displayable events with content matching the substring (including giftwraps).
+Delete all feed-displayable events with content matching the substring (including giftwraps).
 
 **usage**:  `gossip delete_spam_by_content`
 
 ### delete_relay
 
-delete a relay record from storage.
+Delete a relay record from storage. Be aware any event referencing it will cause it to be recreated.
 
 **usage**:  `gossip delete_relay <relayurl>`
 
 ### dpi
 
-override the DPI setting.
+Override the DPI setting.
 
 **usage**:  `gossip dpi <dpi>`
 
 ### events_of_kind
 
-print IDs of all events of kind=<kind>
+Print IDs of all events of kind=<kind>
 
 **usage**:  `gossip events_of_kind <kind>`
 
+### events_of_pubkey
+
+Print IDs of all events of pubkey=<pubkeyhex>
+
+**usage**:  `gossip events_of_pubkey <pubkeyhex>`
+
 ### events_of_pubkey_and_kind
 
-print IDs of all events from <pubkeyhex> of kind=<kind>
+Print IDs of all events from <pubkeyhex> of kind=<kind>
 
 **usage**:  `gossip events_of_pubkey_and_kind <pubkeyhex> <kind>`
 
@@ -110,6 +121,12 @@ print IDs of all events from <pubkeyhex> of kind=<kind>
 Export the encrypted private key
 
 **usage**:  `gossip export_encrypted_key`
+
+### force_migration_level
+
+Force the migration level. This is DANGEROUS and can easily corrupt your data.
+
+**usage**:  `gossip force_migration_level <level>`
 
 ### giftwraps
 
@@ -125,19 +142,19 @@ Show this list.
 
 ### import_encrypted_private_key
 
-import encrypted private key
+Import encrypted private key
 
 **usage**:  `gossip import_encrypted_private_key <ncryptsec>`
 
 ### import_event
 
-import and process a JSON event
+Import and process a JSON event
 
 **usage**:  `gossip import_event <event_json>`
 
 ### print_event
 
-print the event (in JSON) from the database that has the given id
+Print the event (in JSON) from the database that has the given id
 
 **usage**:  `gossip print_event <idhex>`
 
@@ -183,12 +200,23 @@ print all the relay records
 
 **usage**:  `gossip print_relays`
 
-
 ### print_seen_on
 
 print the relays the event was seen on
 
 **usage**:  `gossip print_seen_on <idhex>`
+
+### reaction_stats
+
+Show statistics on reactions
+
+**usage**:  `gossip reaction_stats`
+
+### rebuild_fof
+
+Rebuild friends-of-friends (will rebuild next time gossip starts)
+
+**usage**:  `gossip rebuild_fof`
 
 ### rebuild_indices
 

@@ -22,6 +22,11 @@ cargo clippy
 cargo test
 cargo fmt
 ```
+
+### Update recommended relays
+
+This can be a long external process.
+
 ### Update documentation
 
 Update the following
@@ -111,7 +116,6 @@ Copy these into the release directory.
 - gossip/packaging/
 - gossip/docs/README.flatpak.txt
 - gossip/docs/README.macos.txt
-- gossip/docs/README.upgrading.txt
 
 ### Create a changelog and put into the release directory
 
