@@ -2,6 +2,7 @@ use crate::ui::{GossipUi, Page};
 use eframe::egui;
 use egui::widgets::Slider;
 use egui::{Context, Ui};
+use gossip_lib::GLOBALS;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.heading("Identity Settings");
@@ -10,7 +11,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     // public_key
     ui.horizontal(|ui| {
         ui.label("Public Key:");
-        if let Some(pk) = app.unsaved_settings.public_key {
+        if let Some(pk) = GLOBALS.identity.public_key() {
             ui.label(pk.as_bech32_string());
         } else {
             ui.label("NOT SET");
