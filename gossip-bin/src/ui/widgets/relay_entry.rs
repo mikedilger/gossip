@@ -426,8 +426,8 @@ impl RelayEntry {
         } else {
             "Hide Relay"
         };
-        let response = draw_link_at(ui, id, pos, text.into(), Align::Min, self.enabled, true);
-        if response.clicked() {
+        let response_hide = draw_link_at(ui, id, pos, text.into(), Align::Min, self.enabled, true);
+        if response_hide.clicked() {
             let _ = GLOBALS.to_overlord.send(ToOverlordMessage::HideOrShowRelay(
                 self.relay.url.to_owned(),
                 !self.relay.hidden,
@@ -437,16 +437,26 @@ impl RelayEntry {
         let pos = pos + vec2(120.0, 0.0);
         let id = self.make_id("view_relay_feed");
         let text = "View Feed";
-        let response = draw_link_at(ui, id, pos, text.into(), Align::Min, true, true);
-        if response.clicked() {
+        let response_feed = draw_link_at(ui, id, pos, text.into(), Align::Min, true, true);
+        if response_feed.clicked() {
             app.set_page(
                 ui.ctx(),
                 crate::ui::Page::Feed(gossip_lib::FeedKind::Relay(self.relay.url.clone())),
             );
         }
 
+        let pos = pos + vec2(120.0, 0.0);
+        let id = self.make_id("test_relay");
+        let text = "Test";
+        let response_test = draw_link_at(ui, id, pos, text.into(), Align::Min, true, true);
+        if response_test.clicked() {
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::TestRelay(self.relay.url.to_owned()));
+        }
+
         // pass the response back so the page knows the edit view should close
-        response
+        response_hide | response_feed
     }
 
     fn paint_stats(&self, ui: &mut Ui, rect: &Rect) {
@@ -755,6 +765,8 @@ impl RelayEntry {
                 text.truncate(text.len() - 1); // safe because we built the string
                 draw_text_at(ui, pos, text.into(), align, None, None);
             }
+            //let pos = pos + vec2(0.0, NIP11_Y_SPACING);
+            ui.label("_ INBOX _ OUTBOX _ DM");
         }
     }
 

@@ -206,6 +206,9 @@ pub enum ToOverlordMessage {
     /// Calls [subscribe_nip46](crate::Overlord::subscribe_nip46)
     SubscribeNip46(Vec<RelayUrl>),
 
+    /// Calls [test_relay](crate::Overlord::test_relay)
+    TestRelay(RelayUrl),
+
     /// Calls [unlock_key](crate::Overlord::unlock_key)
     UnlockKey(String),
 
