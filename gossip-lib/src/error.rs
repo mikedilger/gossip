@@ -10,6 +10,7 @@ pub enum ErrorKind {
     BroadcastReceive(tokio::sync::broadcast::error::RecvError),
     CannotUpdateRelayUrl,
     Delegation(String),
+    Disconnected,
     Empty(String),
     EmptyJob,
     EngageDisallowed,
@@ -72,6 +73,7 @@ pub enum ErrorKind {
     Svg(usvg::Error),
     TagNotIndexed(String),
     Timeout(tokio::time::error::Elapsed),
+    TimedOut,
     UnknownCommand(String),
     UnsupportedRelayUsage,
     UrlHasEmptyHostname,
@@ -110,6 +112,7 @@ impl std::fmt::Display for Error {
                 write!(f, "Cannot update relay url (create a new relay instead)")
             }
             Delegation(s) => write!(f, "NIP-26 Delegation Error: {s}"),
+            Disconnected => write!(f, "Disconnected"),
             Empty(s) => write!(f, "{s} is empty"),
             EmptyJob => write!(f, "relay job is empty"),
             EngageDisallowed => write!(f, "relay is disallowed"),
@@ -177,6 +180,7 @@ impl std::fmt::Display for Error {
             Svg(e) => write!(f, "SVG: {e}"),
             TagNotIndexed(s) => write!(f, "Tag not indexed: {s}"),
             Timeout(e) => write!(f, "Timeout: {e}"),
+            TimedOut => write!(f, "Timed out"),
             UnknownCommand(s) => write!(f, "Unknown command: {s}"),
             UnsupportedRelayUsage => write!(f, "Unsupported relay usage"),
             UrlHasEmptyHostname => write!(f, "URL has empty hostname"),
