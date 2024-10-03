@@ -585,8 +585,7 @@ impl Overlord {
                 self.advertise_relay_list().await?;
             }
             ToOverlordMessage::AdvertiseRelayListOne(relay_url, event, dmevent) => {
-                self.advertise_relay_list_one(relay_url, event, dmevent)
-                    .await?;
+                self.advertise_relay_list_one(relay_url, event, dmevent)?;
             }
             ToOverlordMessage::AuthApproved(relay_url, permanent) => {
                 self.auth_approved(relay_url, permanent)?;
@@ -595,10 +594,10 @@ impl Overlord {
                 self.auth_declined(relay_url, permanent)?;
             }
             ToOverlordMessage::BookmarkAdd(er, private) => {
-                self.bookmark_add(er, private).await?;
+                self.bookmark_add(er, private)?;
             }
             ToOverlordMessage::BookmarkRm(er) => {
-                self.bookmark_rm(er).await?;
+                self.bookmark_rm(er)?;
             }
             ToOverlordMessage::ChangePassphrase { old, new } => {
                 Self::change_passphrase(old, new).await?;
@@ -607,19 +606,19 @@ impl Overlord {
                 self.clear_person_list(list)?;
             }
             ToOverlordMessage::ConnectApproved(relay_url, permanent) => {
-                self.connect_approved(relay_url, permanent).await?;
+                self.connect_approved(relay_url, permanent)?;
             }
             ToOverlordMessage::ConnectDeclined(relay_url, permanent) => {
-                self.connect_declined(relay_url, permanent).await?;
+                self.connect_declined(relay_url, permanent)?;
             }
             ToOverlordMessage::DelegationReset => {
                 Self::delegation_reset().await?;
             }
             ToOverlordMessage::DeletePersonList(list) => {
-                self.delete_person_list(list).await?;
+                self.delete_person_list(list)?;
             }
             ToOverlordMessage::DeletePost(id) => {
-                self.delete_post(id).await?;
+                self.delete_post(id)?;
             }
             ToOverlordMessage::DeletePriv => {
                 Self::delete_priv().await?;
@@ -631,22 +630,22 @@ impl Overlord {
                 self.drop_relay(relay_url)?;
             }
             ToOverlordMessage::FetchEvent(id, relay_urls) => {
-                self.fetch_event(id, relay_urls).await?;
+                self.fetch_event(id, relay_urls)?;
             }
             ToOverlordMessage::FetchNAddr(ea) => {
-                self.fetch_naddr(ea).await?;
+                self.fetch_naddr(ea)?;
             }
             ToOverlordMessage::FollowPubkey(pubkey, list, private) => {
-                self.follow_pubkey(pubkey, list, private).await?;
+                self.follow_pubkey(pubkey, list, private)?;
             }
             ToOverlordMessage::FollowNip05(nip05, list, private) => {
-                Self::follow_nip05(nip05, list, private).await?;
+                Self::follow_nip05(nip05, list, private)?;
             }
             ToOverlordMessage::FollowNprofile(nprofile, list, private) => {
-                self.follow_nprofile(nprofile, list, private).await?;
+                self.follow_nprofile(nprofile, list, private)?;
             }
             ToOverlordMessage::GeneratePrivateKey(password) => {
-                if let Err(e) = Self::generate_private_key(password).await {
+                if let Err(e) = Self::generate_private_key(password) {
                     if let Err(e2) = GLOBALS.identity.delete_identity() {
                         panic!("{}\n{}", e, e2);
                     }
@@ -658,13 +657,13 @@ impl Overlord {
                 Self::hide_or_show_relay(relay_url, hidden)?;
             }
             ToOverlordMessage::ImportPriv { privkey, password } => {
-                Self::import_priv(privkey, password).await?;
+                Self::import_priv(privkey, password)?;
             }
             ToOverlordMessage::ImportPub(pubstr) => {
-                Self::import_pub(pubstr).await?;
+                Self::import_pub(pubstr)?;
             }
             ToOverlordMessage::LoadMoreCurrentFeed => {
-                self.load_more().await?;
+                self.load_more()?;
             }
             ToOverlordMessage::MinionJobComplete(url, job_id) => {
                 self.finish_job(url, Some(job_id), None)?;
@@ -687,8 +686,7 @@ impl Overlord {
                 }
             }
             ToOverlordMessage::Nip46ServerOpApprovalResponse(pubkey, parsed_command, approval) => {
-                self.nip46_server_op_approval_response(pubkey, parsed_command, approval)
-                    .await?;
+                self.nip46_server_op_approval_response(pubkey, parsed_command, approval)?;
             }
             ToOverlordMessage::RefreshScoresAndPickRelays => {
                 self.refresh_scores_and_pick_relays().await?;
@@ -700,14 +698,13 @@ impl Overlord {
                 annotation,
                 dm_channel,
             } => {
-                self.post(content, tags, in_reply_to, annotation, dm_channel)
-                    .await?;
+                self.post(content, tags, in_reply_to, annotation, dm_channel)?;
             }
             ToOverlordMessage::PostAgain(event) => {
-                self.post_again(event).await?;
+                self.post_again(event)?;
             }
             ToOverlordMessage::PostNip46Event(event, relays) => {
-                self.post_nip46_event(event, relays).await?;
+                self.post_nip46_event(event, relays)?;
             }
             ToOverlordMessage::PruneCache => {
                 Self::prune_cache().await?;
@@ -722,80 +719,80 @@ impl Overlord {
                 self.push_person_list(person_list).await?;
             }
             ToOverlordMessage::PushMetadata(metadata) => {
-                self.push_metadata(metadata).await?;
+                self.push_metadata(metadata)?;
             }
             ToOverlordMessage::RankRelay(relay_url, rank) => {
                 Self::rank_relay(relay_url, rank)?;
             }
             ToOverlordMessage::React(id, pubkey, emoji) => {
-                self.react(id, pubkey, emoji).await?;
+                self.react(id, pubkey, emoji)?;
             }
             ToOverlordMessage::ReengageMinion(url, jobs) => {
                 manager::engage_minion(url, jobs);
             }
             ToOverlordMessage::RefreshSubscribedMetadata => {
-                self.refresh_subscribed_metadata().await?;
+                self.refresh_subscribed_metadata()?;
             }
             ToOverlordMessage::Repost(id) => {
-                self.repost(id).await?;
+                self.repost(id)?;
             }
             ToOverlordMessage::Search(text) => {
-                Self::search(text).await?;
+                Self::search(text)?;
             }
             ToOverlordMessage::SetActivePerson(pubkey) => {
                 Self::set_active_person(pubkey).await?;
             }
             ToOverlordMessage::SetDmChannel(dmchannel) => {
-                self.set_dm_channel(dmchannel).await?;
+                self.set_dm_channel(dmchannel)?;
             }
             ToOverlordMessage::SetGlobalFeed(anchor) => {
-                self.set_global_feed(anchor).await?;
+                self.set_global_feed(anchor)?;
             }
             ToOverlordMessage::SetPersonFeed(pubkey, anchor) => {
-                self.set_person_feed(pubkey, anchor).await?;
+                self.set_person_feed(pubkey, anchor)?;
             }
             ToOverlordMessage::SetRelayFeed(relay_url, anchor) => {
-                self.set_relay_feed(relay_url, anchor).await?;
+                self.set_relay_feed(relay_url, anchor)?;
             }
             ToOverlordMessage::SetThreadFeed {
                 id,
                 referenced_by,
                 author,
             } => {
-                self.set_thread_feed(id, referenced_by, author).await?;
+                self.set_thread_feed(id, referenced_by, author)?;
             }
             ToOverlordMessage::StartLongLivedSubscriptions => {
                 self.start_long_lived_subscriptions().await?;
             }
             ToOverlordMessage::SubscribeConfig(opt_relays) => {
-                self.subscribe_config(opt_relays).await?;
+                self.subscribe_config(opt_relays)?;
             }
             ToOverlordMessage::SubscribeDiscover(pubkeys, opt_relays) => {
-                self.subscribe_discover(pubkeys, opt_relays).await?;
+                self.subscribe_discover(pubkeys, opt_relays)?;
             }
             ToOverlordMessage::SubscribeInbox(opt_relays) => {
-                self.subscribe_inbox(opt_relays).await?;
+                self.subscribe_inbox(opt_relays)?;
             }
             ToOverlordMessage::SubscribeNip46(relays) => {
-                self.subscribe_nip46(relays).await?;
+                self.subscribe_nip46(relays)?;
             }
             ToOverlordMessage::UnlockKey(password) => {
                 Self::unlock_key(password)?;
             }
             ToOverlordMessage::UpdateMetadata(pubkey) => {
-                self.update_metadata(pubkey).await?;
+                self.update_metadata(pubkey)?;
             }
             ToOverlordMessage::UpdateMetadataInBulk(pubkeys) => {
-                self.update_metadata_in_bulk(pubkeys).await?;
+                self.update_metadata_in_bulk(pubkeys)?;
             }
             ToOverlordMessage::UpdatePersonList { person_list, merge } => {
                 self.update_person_list(person_list, merge).await?;
             }
             ToOverlordMessage::UpdateRelay(old, new) => {
-                self.update_relay(old, new).await?;
+                self.update_relay(old, new)?;
             }
             ToOverlordMessage::VisibleNotesChanged(visible) => {
-                self.visible_notes_changed(visible).await?;
+                self.visible_notes_changed(visible)?;
             }
             ToOverlordMessage::ZapStart(id, pubkey, lnurl) => {
                 self.zap_start(id, pubkey, lnurl).await?;
@@ -906,7 +903,7 @@ impl Overlord {
     }
 
     /// Advertise the user's current relay list to one relay
-    pub async fn advertise_relay_list_one(
+    pub fn advertise_relay_list_one(
         &mut self,
         relay_url: RelayUrl,
         event: Box<Event>,
@@ -1004,7 +1001,7 @@ impl Overlord {
         Ok(())
     }
 
-    async fn post_bookmarks(&mut self, event: Event) -> Result<(), Error> {
+    fn post_bookmarks(&mut self, event: Event) -> Result<(), Error> {
         // Process this event locally (ignore any error)
         let _ = crate::process::process_new_event(&event, None, None, false, false);
 
@@ -1025,26 +1022,26 @@ impl Overlord {
     }
 
     /// Adds or removes a bookmark, and publishes new bookmarks list
-    pub async fn bookmark_add(&mut self, er: EventReference, private: bool) -> Result<(), Error> {
+    pub fn bookmark_add(&mut self, er: EventReference, private: bool) -> Result<(), Error> {
         let added = GLOBALS.bookmarks.write_arc().add(er, private)?;
 
         if added {
             GLOBALS.recompute_current_bookmarks.notify_one();
             let event = GLOBALS.bookmarks.read_arc().into_event()?;
-            self.post_bookmarks(event).await?;
+            self.post_bookmarks(event)?;
         }
 
         Ok(())
     }
 
     /// Adds or removes a bookmark, and publishes new bookmarks list
-    pub async fn bookmark_rm(&mut self, er: EventReference) -> Result<(), Error> {
+    pub fn bookmark_rm(&mut self, er: EventReference) -> Result<(), Error> {
         let removed = GLOBALS.bookmarks.write_arc().remove(er)?;
 
         if removed {
             GLOBALS.recompute_current_bookmarks.notify_one();
             let event = GLOBALS.bookmarks.read_arc().into_event()?;
-            self.post_bookmarks(event).await?;
+            self.post_bookmarks(event)?;
         }
 
         Ok(())
@@ -1067,7 +1064,7 @@ impl Overlord {
 
     /// User has approved connection to this relay. Save this result for later
     /// and inform the minion.
-    pub async fn connect_approved(
+    pub fn connect_approved(
         &mut self,
         relay_url: RelayUrl,
         permanent: bool,
@@ -1093,7 +1090,7 @@ impl Overlord {
 
     /// User has declined connection to this relay. Save this result for later
     /// and inform the minion.
-    pub async fn connect_declined(
+    pub fn connect_declined(
         &mut self,
         relay_url: RelayUrl,
         permanent: bool,
@@ -1129,7 +1126,7 @@ impl Overlord {
     }
 
     /// Delete a person list
-    pub async fn delete_person_list(&mut self, list: PersonList) -> Result<(), Error> {
+    pub fn delete_person_list(&mut self, list: PersonList) -> Result<(), Error> {
         // Get the metadata first, we need it to delete events
         let metadata = match GLOBALS.db().get_person_list_metadata(list)? {
             Some(m) => m,
@@ -1269,7 +1266,7 @@ impl Overlord {
     }
 
     /// Delete a post
-    pub async fn delete_post(&mut self, id: Id) -> Result<(), Error> {
+    pub fn delete_post(&mut self, id: Id) -> Result<(), Error> {
         let mut tags: Vec<Tag> = vec![Tag::new_event(id, None, None)];
 
         if let Some(target_event) = GLOBALS.db().read_event(id)? {
@@ -1367,7 +1364,7 @@ impl Overlord {
     }
 
     /// Fetch an event from specific relays by event `Id`
-    pub async fn fetch_event(
+    pub fn fetch_event(
         &mut self,
         id: Id,
         mut relay_urls: Vec<RelayUrl>,
@@ -1400,7 +1397,7 @@ impl Overlord {
     }
 
     /// Fetch an event based on an `NAddr`
-    pub async fn fetch_naddr(&mut self, ea: NAddr) -> Result<(), Error> {
+    pub fn fetch_naddr(&mut self, ea: NAddr) -> Result<(), Error> {
         let relays: Vec<RelayUrl> = ea
             .relays
             .iter()
@@ -1422,7 +1419,7 @@ impl Overlord {
     }
 
     /// Follow a person by `PublicKey`
-    pub async fn follow_pubkey(
+    pub fn follow_pubkey(
         &mut self,
         pubkey: PublicKey,
         list: PersonList,
@@ -1434,7 +1431,7 @@ impl Overlord {
     }
 
     /// Follow a person by a nip-05 address
-    pub async fn follow_nip05(
+    pub fn follow_nip05(
         nip05: String,
         list: PersonList,
         private: Private,
@@ -1448,7 +1445,7 @@ impl Overlord {
     }
 
     /// Follow a person by a `Profile` (nprofile1...)
-    pub async fn follow_nprofile(
+    pub fn follow_nprofile(
         &mut self,
         nprofile: Profile,
         list: PersonList,
@@ -1486,7 +1483,7 @@ impl Overlord {
     }
 
     /// Generate an identity (private key) and keep encrypted under the given passphrase
-    pub async fn generate_private_key(mut password: String) -> Result<(), Error> {
+    pub fn generate_private_key(mut password: String) -> Result<(), Error> {
         GLOBALS.identity.generate_private_key(&password)?;
         password.zeroize();
         Ok(())
@@ -1504,7 +1501,7 @@ impl Overlord {
     }
 
     /// Import a private key
-    pub async fn import_priv(mut privkey: String, mut password: String) -> Result<(), Error> {
+    pub fn import_priv(mut privkey: String, mut password: String) -> Result<(), Error> {
         if privkey.starts_with("ncryptsec") {
             let epk = EncryptedPrivateKey(privkey);
             match GLOBALS.identity.set_encrypted_private_key(epk, &password) {
@@ -1541,7 +1538,7 @@ impl Overlord {
     }
 
     /// Import a public key only (npub or hex)
-    pub async fn import_pub(pubstr: String) -> Result<(), Error> {
+    pub fn import_pub(pubstr: String) -> Result<(), Error> {
         let maybe_pk1 = PublicKey::try_from_bech32_string(pubstr.trim(), true);
         let maybe_pk2 = PublicKey::try_from_hex_string(pubstr.trim(), true);
         if maybe_pk1.is_err() && maybe_pk2.is_err() {
@@ -1557,7 +1554,7 @@ impl Overlord {
         Ok(())
     }
 
-    pub async fn load_more(&mut self) -> Result<(), Error> {
+    pub fn load_more(&mut self) -> Result<(), Error> {
         // Change the feed range:
         let anchor = GLOBALS.feed.load_more()?;
 
@@ -1636,7 +1633,7 @@ impl Overlord {
     }
 
     /// Process approved nip46 server operation
-    pub async fn nip46_server_op_approval_response(
+    pub fn nip46_server_op_approval_response(
         &mut self,
         pubkey: PublicKey,
         parsed_command: ParsedCommand,
@@ -1709,7 +1706,7 @@ impl Overlord {
 
     /// React to a post. The backend doesn't read the event, so you have to supply the
     /// pubkey author too.
-    pub async fn react(&mut self, id: Id, pubkey: PublicKey, reaction: char) -> Result<(), Error> {
+    pub fn react(&mut self, id: Id, pubkey: PublicKey, reaction: char) -> Result<(), Error> {
         let event = {
             let public_key = match GLOBALS.identity.public_key() {
                 Some(pk) => pk,
@@ -1777,7 +1774,7 @@ impl Overlord {
     }
 
     /// Post a TextNote (kind 1) event
-    pub async fn post(
+    pub fn post(
         &mut self,
         content: String,
         tags: Vec<Tag>,
@@ -1831,7 +1828,7 @@ impl Overlord {
         Ok(())
     }
 
-    pub async fn post_again(&mut self, event: Event) -> Result<(), Error> {
+    pub fn post_again(&mut self, event: Event) -> Result<(), Error> {
         let relay_urls = relay::relays_to_post_to(&event)?;
 
         for url in &relay_urls {
@@ -1852,7 +1849,7 @@ impl Overlord {
         Ok(())
     }
 
-    pub async fn post_nip46_event(
+    pub fn post_nip46_event(
         &mut self,
         event: Event,
         relays: Vec<RelayUrl>,
@@ -1994,7 +1991,7 @@ impl Overlord {
     }
 
     /// Publish the user's metadata
-    pub async fn push_metadata(&mut self, metadata: Metadata) -> Result<(), Error> {
+    pub fn push_metadata(&mut self, metadata: Metadata) -> Result<(), Error> {
         let public_key = match GLOBALS.identity.public_key() {
             Some(pk) => pk,
             None => return Err((ErrorKind::NoPrivateKey, file!(), line!()).into()), // not even a public key
@@ -2043,7 +2040,7 @@ impl Overlord {
 
     /// Refresh metadata for everybody who is followed
     /// This gets it whether we had it or not. Because it might have changed.
-    pub async fn refresh_subscribed_metadata(&mut self) -> Result<(), Error> {
+    pub fn refresh_subscribed_metadata(&mut self) -> Result<(), Error> {
         let mut pubkeys = GLOBALS.people.get_subscribed_pubkeys();
 
         // add own pubkey as well
@@ -2079,7 +2076,7 @@ impl Overlord {
     }
 
     /// Repost a post by `Id`
-    pub async fn repost(&mut self, id: Id) -> Result<(), Error> {
+    pub fn repost(&mut self, id: Id) -> Result<(), Error> {
         let reposted_event = match GLOBALS.db().read_event(id)? {
             Some(event) => event,
             None => {
@@ -2198,7 +2195,7 @@ impl Overlord {
 
     /// Search people and notes in the local database.
     /// Search results eventually arrive in `GLOBALS.people_search_results` and `GLOBALS.note_search_results`
-    pub async fn search(mut text: String) -> Result<(), Error> {
+    pub fn search(mut text: String) -> Result<(), Error> {
         if text.len() < 2 {
             GLOBALS
                 .status_queue
@@ -2330,7 +2327,7 @@ impl Overlord {
         Ok(())
     }
 
-    async fn set_dm_channel(&mut self, dmchannel: DmChannel) -> Result<(), Error> {
+    fn set_dm_channel(&mut self, dmchannel: DmChannel) -> Result<(), Error> {
         // subscribe to channel on outbox and inbox relays
         //   outbox: you may have written them there. Other clients may have too.
         //   inbox: they may have put theirs here for you to pick up.
@@ -2354,7 +2351,7 @@ impl Overlord {
         Ok(())
     }
 
-    async fn set_global_feed(&mut self, anchor: Unixtime) -> Result<(), Error> {
+    fn set_global_feed(&mut self, anchor: Unixtime) -> Result<(), Error> {
         let relay_urls = Relay::choose_relay_urls(Relay::GLOBAL, |_| true)?;
         manager::run_jobs_on_all_relays(
             relay_urls,
@@ -2383,7 +2380,7 @@ impl Overlord {
         Ok(())
     }
 
-    async fn set_person_feed(&mut self, pubkey: PublicKey, anchor: Unixtime) -> Result<(), Error> {
+    fn set_person_feed(&mut self, pubkey: PublicKey, anchor: Unixtime) -> Result<(), Error> {
         let relays: Vec<RelayUrl> = relay::get_some_pubkey_outboxes(pubkey)?;
         manager::run_jobs_on_all_relays(
             relays,
@@ -2414,7 +2411,7 @@ impl Overlord {
         Ok(())
     }
 
-    async fn set_relay_feed(&mut self, relay_url: RelayUrl, anchor: Unixtime) -> Result<(), Error> {
+    fn set_relay_feed(&mut self, relay_url: RelayUrl, anchor: Unixtime) -> Result<(), Error> {
         manager::run_jobs_on_all_relays(
             vec![relay_url],
             vec![
@@ -2449,7 +2446,7 @@ impl Overlord {
     ///
     /// Note that seprately the UI constructs the thread view from local data including
     /// relationships that are built by process.rs as events flow in.
-    async fn set_thread_feed(
+    fn set_thread_feed(
         &mut self,
         id: Id,
         referenced_by: Id,
@@ -2549,7 +2546,7 @@ impl Overlord {
                         .extend(bonus_relays.iter().map(|r| r.to_unchecked_url()));
                     eaddr.relays.sort();
                     eaddr.relays.dedup();
-                    self.fetch_naddr(eaddr).await?;
+                    self.fetch_naddr(eaddr)?;
                 }
                 Some(EventReference::Id {
                     id,
@@ -2664,20 +2661,20 @@ impl Overlord {
         }
 
         // Separately subscribe to our outbox events on our write relays
-        self.subscribe_config(None).await?;
+        self.subscribe_config(None)?;
 
         // Separately subscribe to our inbox on our read relays
         // NOTE: we also do this on all dynamically connected relays since NIP-65 is
         //       not in widespread usage.
-        self.subscribe_inbox(None).await?;
+        self.subscribe_inbox(None)?;
 
         // Separately subscribe to our giftwraps on our DM and INBOX relays
-        self.subscribe_giftwraps().await?;
+        self.subscribe_giftwraps()?;
 
         // Separately subscribe to RelayList discovery for everyone we follow
         // who needs to seek a relay list again.
         let followed = GLOBALS.people.get_subscribed_pubkeys_needing_relay_lists();
-        self.subscribe_discover(followed, None).await?;
+        self.subscribe_discover(followed, None)?;
 
         // Separately subscribe to nostr-connect channels
         let mut relays: Vec<RelayUrl> = Vec::new();
@@ -2691,13 +2688,13 @@ impl Overlord {
         }
         relays.sort();
         relays.dedup();
-        self.subscribe_nip46(relays).await?;
+        self.subscribe_nip46(relays)?;
 
         Ok(())
     }
 
     /// Subscribe to the user's configuration events from the given relay
-    pub async fn subscribe_config(&mut self, relays: Option<Vec<RelayUrl>>) -> Result<(), Error> {
+    pub fn subscribe_config(&mut self, relays: Option<Vec<RelayUrl>>) -> Result<(), Error> {
         let config_relays: Vec<RelayUrl> = match relays {
             Some(r) => r,
             None => Relay::choose_relay_urls(Relay::WRITE, |_| true)?,
@@ -2723,7 +2720,7 @@ impl Overlord {
     /// already have an in-flight request doing this.  This can be done with:
     ///    GLOBALS.people.person_needs_relay_list()
     ///    GLOBALS.people.get_subscribed_pubkeys_needing_relay_lists()
-    pub async fn subscribe_discover(
+    pub fn subscribe_discover(
         &mut self,
         pubkeys: Vec<PublicKey>,
         relays: Option<Vec<RelayUrl>>,
@@ -2761,7 +2758,7 @@ impl Overlord {
     }
 
     /// Subscribe to the user's configuration events from the given relay
-    pub async fn subscribe_inbox(&mut self, relays: Option<Vec<RelayUrl>>) -> Result<(), Error> {
+    pub fn subscribe_inbox(&mut self, relays: Option<Vec<RelayUrl>>) -> Result<(), Error> {
         let now = Unixtime::now();
         let mention_relays: Vec<RelayUrl> = match relays {
             Some(r) => r,
@@ -2791,7 +2788,7 @@ impl Overlord {
     }
 
     /// Subscribe to the user's giftwrap events on their DM and INBOX relays
-    pub async fn subscribe_giftwraps(&mut self) -> Result<(), Error> {
+    pub fn subscribe_giftwraps(&mut self) -> Result<(), Error> {
         let mut relays: Vec<Relay> = GLOBALS
             .db()
             .filter_relays(|r| r.has_usage_bits(Relay::DM) || r.has_usage_bits(Relay::INBOX))?;
@@ -2817,7 +2814,7 @@ impl Overlord {
     }
 
     /// Subscribe to nip46 nostr connect relays
-    pub async fn subscribe_nip46(&mut self, relays: Vec<RelayUrl>) -> Result<(), Error> {
+    pub fn subscribe_nip46(&mut self, relays: Vec<RelayUrl>) -> Result<(), Error> {
         manager::run_jobs_on_all_relays(
             relays,
             vec![RelayJob {
@@ -2854,7 +2851,7 @@ impl Overlord {
     }
 
     /// Subscribe, fetch, and update metadata for the person
-    pub async fn update_metadata(&mut self, pubkey: PublicKey) -> Result<(), Error> {
+    pub fn update_metadata(&mut self, pubkey: PublicKey) -> Result<(), Error> {
         // Indicate that we are doing this, as the People manager wants to know
         // for it's retry logic
         GLOBALS.people.metadata_fetch_initiated(&[pubkey]);
@@ -2883,7 +2880,7 @@ impl Overlord {
     }
 
     /// Subscribe, fetch, and update metadata for the people
-    pub async fn update_metadata_in_bulk(
+    pub fn update_metadata_in_bulk(
         &mut self,
         mut pubkeys: Vec<PublicKey>,
     ) -> Result<(), Error> {
@@ -3095,7 +3092,7 @@ impl Overlord {
 
     /// Update the relay. This saves the new relay and also adjusts active
     /// subscriptions based on the changes.
-    pub async fn update_relay(&mut self, old: Relay, new: Relay) -> Result<(), Error> {
+    pub fn update_relay(&mut self, old: Relay, new: Relay) -> Result<(), Error> {
         if old.url != new.url {
             return Err(ErrorKind::CannotUpdateRelayUrl.into());
         }
@@ -3168,7 +3165,7 @@ impl Overlord {
                     )?;
 
                     // Subscribe to inbox on this inbox relay
-                    self.subscribe_inbox(Some(vec![new.url.clone()])).await?;
+                    self.subscribe_inbox(Some(vec![new.url.clone()]))?;
                 }
             }
             _ => (),
@@ -3187,7 +3184,7 @@ impl Overlord {
                     )?;
 
                     // Subscribe to config on this outbox relay
-                    self.subscribe_config(Some(vec![new.url.clone()])).await?;
+                    self.subscribe_config(Some(vec![new.url.clone()]))?;
                 }
             }
             _ => (),
@@ -3197,8 +3194,7 @@ impl Overlord {
             -1 => (), // Discover subscriptions are temp / short-lived, so no action needed.
             1 => {
                 let pubkeys = GLOBALS.people.get_subscribed_pubkeys_needing_relay_lists();
-                self.subscribe_discover(pubkeys, Some(vec![new.url.clone()]))
-                    .await?;
+                self.subscribe_discover(pubkeys, Some(vec![new.url.clone()]))?;
             }
             _ => (),
         }
@@ -3211,7 +3207,7 @@ impl Overlord {
     /// for events currently in view, to keep them small.
     ///
     /// WARNING: DO NOT CALL TOO OFTEN or relays will hate you.
-    pub async fn visible_notes_changed(&mut self, mut visible: Vec<Id>) -> Result<(), Error> {
+    pub fn visible_notes_changed(&mut self, mut visible: Vec<Id>) -> Result<(), Error> {
         // Work out which relays to use to find augments for which ids
         let mut augment_subs: HashMap<RelayUrl, Vec<Id>> = HashMap::new();
         for id in visible.drain(..) {
