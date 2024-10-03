@@ -1064,11 +1064,7 @@ impl Overlord {
 
     /// User has approved connection to this relay. Save this result for later
     /// and inform the minion.
-    pub fn connect_approved(
-        &mut self,
-        relay_url: RelayUrl,
-        permanent: bool,
-    ) -> Result<(), Error> {
+    pub fn connect_approved(&mut self, relay_url: RelayUrl, permanent: bool) -> Result<(), Error> {
         if permanent {
             // Save the answer in the relay record
             GLOBALS.db().modify_relay(
@@ -1090,11 +1086,7 @@ impl Overlord {
 
     /// User has declined connection to this relay. Save this result for later
     /// and inform the minion.
-    pub fn connect_declined(
-        &mut self,
-        relay_url: RelayUrl,
-        permanent: bool,
-    ) -> Result<(), Error> {
+    pub fn connect_declined(&mut self, relay_url: RelayUrl, permanent: bool) -> Result<(), Error> {
         if permanent {
             // Save the answer in the relay record
             GLOBALS.db().modify_relay(
@@ -1364,11 +1356,7 @@ impl Overlord {
     }
 
     /// Fetch an event from specific relays by event `Id`
-    pub fn fetch_event(
-        &mut self,
-        id: Id,
-        mut relay_urls: Vec<RelayUrl>,
-    ) -> Result<(), Error> {
+    pub fn fetch_event(&mut self, id: Id, mut relay_urls: Vec<RelayUrl>) -> Result<(), Error> {
         // Use READ relays if relays are unknown
         if relay_urls.is_empty() {
             relay_urls = Relay::choose_relay_urls(Relay::READ, |_| true)?;
@@ -1431,11 +1419,7 @@ impl Overlord {
     }
 
     /// Follow a person by a nip-05 address
-    pub fn follow_nip05(
-        nip05: String,
-        list: PersonList,
-        private: Private,
-    ) -> Result<(), Error> {
+    pub fn follow_nip05(nip05: String, list: PersonList, private: Private) -> Result<(), Error> {
         std::mem::drop(tokio::spawn(async move {
             if let Err(e) = crate::nip05::get_and_follow_nip05(nip05, list, private).await {
                 tracing::error!("{}", e);
@@ -1849,11 +1833,7 @@ impl Overlord {
         Ok(())
     }
 
-    pub fn post_nip46_event(
-        &mut self,
-        event: Event,
-        relays: Vec<RelayUrl>,
-    ) -> Result<(), Error> {
+    pub fn post_nip46_event(&mut self, event: Event, relays: Vec<RelayUrl>) -> Result<(), Error> {
         for url in &relays {
             tracing::debug!("Asking {} to post nostrconnect", url);
         }
@@ -2880,10 +2860,7 @@ impl Overlord {
     }
 
     /// Subscribe, fetch, and update metadata for the people
-    pub fn update_metadata_in_bulk(
-        &mut self,
-        mut pubkeys: Vec<PublicKey>,
-    ) -> Result<(), Error> {
+    pub fn update_metadata_in_bulk(&mut self, mut pubkeys: Vec<PublicKey>) -> Result<(), Error> {
         // Indicate that we are doing this, as the People manager wants to know
         // for it's retry logic
         GLOBALS.people.metadata_fetch_initiated(&pubkeys);
