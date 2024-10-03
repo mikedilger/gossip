@@ -1,13 +1,13 @@
 # NIP support
 
-The nostr protocol is a moving target.  This page documents which NIPs gossis supports
+The nostr protocol is a moving target.  This page documents which NIPs gossip supports
 as of which git commit.
 
-✅ = Fully Supported
-🟩 = Partly Supported
-⬜ = Not Supported (but might be in the future)
-🟫 = No intention to ever support
-⬛ = Not Applicable
+- ✅ = Fully Supported
+- 🟩 = Partly Supported
+- ⬜ = Not Supported (but might be in the future)
+- 🟫 = No intention to ever support
+- ⬛ = Not Applicable
 
 | NIP | Name                                 | Commit   | Support Level | Notes
 | --- | ------------------------------------ | -------- | ------------- | -----
@@ -37,26 +37,26 @@ as of which git commit.
 | 28  | Public Chat                          |          | ⬜ none       |
 | 29  | Relay-based Groups                   |          | ⬜ none       |
 | 30  | Custom Emoji                         |          | ⬜ none       |
-| 31  | Dealing with Unknown Events          |          | ✅ full       |
+| 31  | Dealing with Unknown Events          | e830a73c | ✅ full       | displays it; doesn't generate custom events
 | 32  | Labeling                             |          | ⬜ none       |
-| 34  | git stuff                            |          | ⬜ none       |
-| 35  | Torrents                             |          | ⬜ none       |
-| 36  | Sensitive Content                    |          | ✅ full       |
+| 34  | git stuff                            |          | 🟫 none       |
+| 35  | Torrents                             |          | 🟫 none       |
+| 36  | Sensitive Content                    | e830a73c | ✅ full       | posting with it, showing it, and hiding content (optionally)
 | 38  | User Statuses                        |          | ⬜ none       |
 | 39  | External Identities in Profiles      |          | ⬜ none       |
 | 40  | Expiration Timestamp                 |          | ⬜ none       |
-| 42  | Authentication of clients to relays  |          | ✅ full       |
-| 44  | Versioned Encryption                 |          | ✅ full       |
+| 42  | Authentication of clients to relays  | e830a73c | ✅ full       |
+| 44  | Versioned Encryption                 | e830a73c | ✅ full       |
 | 45  | Counting results                     |          | ⬜ none       |
-| 46  | Nostr Connect                        |          | 🟩 partial    | as signer, not as client
+| 46  | Nostr Connect                        | e830a73c | 🟩 partial    | as signer, not as client
 | 47  | Wallet Connect                       |          | 🟫 none       |
-| 48  | Proxy Tags                           |          | ✅ full       |
-| 49  | Private Key Encryption               |          | ✅ full       |
+| 48  | Proxy Tags                           | e830a73c | ✅ full       | shows the tag and proxy link
+| 49  | Private Key Encryption               | e830a73c | ✅ full       |
 | 50  | Search Capability                    |          | ⬜ none       |
-| 51  | Lists                                |          | 🟩 partial    | some (which?)
-| 52  | Calendar Events                      |          | ⬜ none       |
-| 53  | Live Activities                      |          | ⬜ none       |
-| 54  | Wiki                                 |          | ⬜ none       |
+| 51  | Lists                                |          | 🟩 partial    | Mute, bookmarks, DM relays, and follow sets. But none of the others.
+| 52  | Calendar Events                      |          | 🟫 none       |
+| 53  | Live Activities                      |          | 🟫 none       |
+| 54  | Wiki                                 |          | 🟫 none       |
 | 55  | Android Signer Application           |          | ⬛ n/a        |
 | 56  | Reporting                            |          | ⬜ none       |
 | 57  | Lightning Zaps                       |          | ✅ full       |
@@ -69,9 +69,9 @@ as of which git commit.
 | 72  | Moderated Communities                |          | ⬜ none       |
 | 73  | External Content IDs                 |          | ⬜ none       |
 | 75  | Zap Goals                            |          | ⬜ none       |
-| 78  | Application-specific data            |          | ⬜ none       |
+| 78  | Application-specific data            |          | ⬜ none       | We will use eventually
 | 84  | Highlights                           |          | ⬜ none       |
-| 89  | Recommended Application Handlers     |          | ⬜ none       |
+| 89  | Recommended Application Handlers     |          | ⬜ none       | We will launch links eventually
 | 90  | Data Vending Machines                |          | ⬜ none       |
 | 92  | Media Attachments                    |          | ⬜ none       |
 | 94  | File Metadata                        |          | ⬜ none       |
