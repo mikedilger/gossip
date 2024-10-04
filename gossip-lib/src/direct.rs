@@ -102,6 +102,8 @@ impl Connection {
 
     // Dont call if we are still connected
     async fn reconnect(&mut self) -> Result<(), Error> {
+        eprintln!("TEST RELAY: Connecting");
+
         // Wait for a few seconds before reconnecting
         tokio::time::sleep(Duration::from_secs(WAIT_SECONDS)).await;
 
@@ -141,6 +143,7 @@ impl Connection {
 
     /// Disconnect from the relay
     pub async fn disconnect(&mut self) -> Result<(), Error> {
+        eprintln!("TEST RELAY: Disconnecting");
         let msg = Message::Close(None);
         let _ = self.inner_send_message(msg).await;
         let _ = self.websocket.close(None).await;
@@ -164,6 +167,7 @@ impl Connection {
     async fn send_message(&mut self, message: ClientMessage) -> Result<(), Error> {
         let wire = serde_json::to_string(&message)?;
         let msg = Message::Text(wire);
+        eprintln!("TEST RELAY: --> {}", msg);
         self.inner_send_message(msg).await?;
         Ok(())
     }
@@ -193,6 +197,7 @@ impl Connection {
                     // Take action
                     match message {
                         Message::Text(s) => {
+                            eprintln!("TEST RELAY: <-- {s}");
                             let output: RelayMessage = serde_json::from_str(&s)?;
 
                             match output {
