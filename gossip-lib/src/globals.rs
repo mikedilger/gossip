@@ -12,6 +12,7 @@ use crate::pending::Pending;
 use crate::people::{People, Person};
 use crate::relay::Relay;
 use crate::relay_picker::RelayPicker;
+use crate::relay_test_results::RelayTestResults;
 use crate::seeker::Seeker;
 use crate::status::StatusQueue;
 use crate::storage::Storage;
@@ -180,6 +181,9 @@ pub struct Globals {
 
     /// If we are doing a long database prune, this will indicate the status
     pub prune_status: PRwLock<Option<String>>,
+
+    /// Relay tests
+    pub relay_tests: DashMap<RelayUrl, Option<RelayTestResults>>,
 }
 
 lazy_static! {
@@ -252,6 +256,7 @@ lazy_static! {
             current_bookmarks: PRwLock::new(Vec::new()),
             recompute_current_bookmarks: Arc::new(Notify::new()),
             prune_status: PRwLock::new(None),
+            relay_tests: DashMap::new(),
         }
     };
 }

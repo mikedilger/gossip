@@ -24,7 +24,6 @@ use super::widgets::list_entry::OUTER_MARGIN_RIGHT;
 const CONTINUE_BTN_TEXT: &str = "Continue \u{25b6}";
 const BACK_BTN_TEXT: &str = "\u{25c0} Go Back";
 
-
 // Last updated: 2024-10-01
 static DEFAULT_RELAYS: [&str; 20] = [
     "wss://nostr.mom/",

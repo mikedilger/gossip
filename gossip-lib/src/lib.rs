@@ -148,6 +148,9 @@ pub use relay::Relay;
 pub mod relay_picker;
 pub use relay_picker::RelayPicker;
 
+mod relay_test_results;
+pub use relay_test_results::{RelayTestResult, RelayTestResults};
+
 mod seeker;
 pub use seeker::Seeker;
 

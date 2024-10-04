@@ -16,6 +16,7 @@ use crate::people::{Person, PersonList};
 use crate::relay;
 use crate::relay::Relay;
 use crate::relay_picker::RelayAssignment;
+use crate::relay_test_results::{RelayTestResults, RelayTestResult};
 use crate::storage::{PersonTable, Table};
 use crate::RunState;
 use heed::RwTxn;
@@ -23,7 +24,7 @@ use http::StatusCode;
 use nostr_types::{
     EncryptedPrivateKey, Event, EventKind, EventReference, Filter, Id, IdHex, Metadata,
     MilliSatoshi, NAddr, NostrBech32, PayRequestData, PreEvent, PrivateKey, Profile, PublicKey,
-    RelayUrl, Tag, UncheckedUrl, Unixtime,
+    PublicKeyHex, RelayUrl, Tag, UncheckedUrl, Unixtime,
 };
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
@@ -776,6 +777,9 @@ impl Overlord {
             ToOverlordMessage::SubscribeNip46(relays) => {
                 self.subscribe_nip46(relays)?;
             }
+            ToOverlordMessage::TestRelay(relay_url) => {
+                Self::test_relay(relay_url);
+            }
             ToOverlordMessage::UnlockKey(password) => {
                 Self::unlock_key(password)?;
             }
@@ -1064,11 +1068,7 @@ impl Overlord {
 
     /// User has approved connection to this relay. Save this result for later
     /// and inform the minion.
-    pub fn connect_approved(
-        &mut self,
-        relay_url: RelayUrl,
-        permanent: bool,
-    ) -> Result<(), Error> {
+    pub fn connect_approved(&mut self, relay_url: RelayUrl, permanent: bool) -> Result<(), Error> {
         if permanent {
             // Save the answer in the relay record
             GLOBALS.db().modify_relay(
@@ -1090,11 +1090,7 @@ impl Overlord {
 
     /// User has declined connection to this relay. Save this result for later
     /// and inform the minion.
-    pub fn connect_declined(
-        &mut self,
-        relay_url: RelayUrl,
-        permanent: bool,
-    ) -> Result<(), Error> {
+    pub fn connect_declined(&mut self, relay_url: RelayUrl, permanent: bool) -> Result<(), Error> {
         if permanent {
             // Save the answer in the relay record
             GLOBALS.db().modify_relay(
@@ -1364,11 +1360,7 @@ impl Overlord {
     }
 
     /// Fetch an event from specific relays by event `Id`
-    pub fn fetch_event(
-        &mut self,
-        id: Id,
-        mut relay_urls: Vec<RelayUrl>,
-    ) -> Result<(), Error> {
+    pub fn fetch_event(&mut self, id: Id, mut relay_urls: Vec<RelayUrl>) -> Result<(), Error> {
         // Use READ relays if relays are unknown
         if relay_urls.is_empty() {
             relay_urls = Relay::choose_relay_urls(Relay::READ, |_| true)?;
@@ -1431,11 +1423,7 @@ impl Overlord {
     }
 
     /// Follow a person by a nip-05 address
-    pub fn follow_nip05(
-        nip05: String,
-        list: PersonList,
-        private: Private,
-    ) -> Result<(), Error> {
+    pub fn follow_nip05(nip05: String, list: PersonList, private: Private) -> Result<(), Error> {
         std::mem::drop(tokio::spawn(async move {
             if let Err(e) = crate::nip05::get_and_follow_nip05(nip05, list, private).await {
                 tracing::error!("{}", e);
@@ -1849,11 +1837,7 @@ impl Overlord {
         Ok(())
     }
 
-    pub fn post_nip46_event(
-        &mut self,
-        event: Event,
-        relays: Vec<RelayUrl>,
-    ) -> Result<(), Error> {
+    pub fn post_nip46_event(&mut self, event: Event, relays: Vec<RelayUrl>) -> Result<(), Error> {
         for url in &relays {
             tracing::debug!("Asking {} to post nostrconnect", url);
         }
@@ -2829,6 +2813,150 @@ impl Overlord {
         Ok(())
     }
 
+    pub fn test_relay(relay_url: RelayUrl) {
+        // Indicate that the test has started
+        GLOBALS.relay_tests.insert(relay_url.clone(), None);
+
+        std::mem::drop(tokio::task::spawn(async move {
+            match Self::test_relay_inner(relay_url.clone()).await {
+                Ok(test_results) => {
+                    // TODO: store and remember the test results
+                    GLOBALS.relay_tests.insert(relay_url, Some(test_results));
+                }
+                Err(e) => {
+                    tracing::error!("{}", e);
+                    GLOBALS.relay_tests.insert(relay_url, Some(RelayTestResults::fail()));
+                }
+            }
+        }));
+    }
+
+    async fn test_relay_inner(relay_url: RelayUrl) -> Result<RelayTestResults, Error> {
+        use nostr_types::{KeySigner, Signer};
+
+        let pubkey = match GLOBALS.identity.public_key() {
+            Some(pk) => pk,
+            None => return Err(ErrorKind::NoPublicKey.into()),
+        };
+
+        let posted_outbox: RelayTestResult;
+        let mut anon_fetched_outbox: RelayTestResult = Default::default();
+        let anon_posted_inbox: RelayTestResult;
+        let mut anon_fetched_inbox: RelayTestResult = Default::default();
+        let fetched_inbox: RelayTestResult;
+
+        let outbox_event = {
+            let pre_event = PreEvent {
+                pubkey,
+                created_at: Unixtime::now(),
+                kind: EventKind::Other(112),
+                tags: vec![],
+                content: format!("This is an automated test of the suitability of {} for inbox/outbox/dm usage. Please disregard.", relay_url),
+            };
+            GLOBALS.identity.sign_event(pre_event)?
+        };
+
+        let mut conn1 = crate::direct::Connection::new(relay_url.as_str().to_owned()).await?;
+
+        // 1. posted_outbox
+        conn1.authenticate_if_challenged().await?;
+        match conn1.post_event(outbox_event.clone(), Duration::from_secs(2)).await? {
+            (true, _) => posted_outbox = RelayTestResult::Pass,
+            (false, msg) => {
+                if msg.starts_with("auth-required:") {
+                    conn1.authenticate_if_challenged().await?;
+                    match conn1.post_event(outbox_event.clone(), Duration::from_secs(2)).await? {
+                        (true, _) => posted_outbox = RelayTestResult::Pass,
+                        (false, _) => posted_outbox = RelayTestResult::Fail,
+                    }
+                } else {
+                    posted_outbox = RelayTestResult::Fail;
+                }
+            }
+        }
+
+        conn1.disconnect().await?;
+        drop(conn1);
+
+        // Wait before immediately reconnecting
+        tokio::time::sleep(Duration::from_secs(1)).await;
+
+        let stranger = KeySigner::generate("stranger", 2)?;
+        let inbox_event = {
+            let pre_event = PreEvent {
+                pubkey: stranger.public_key(),
+                created_at: Unixtime::now(),
+                kind: EventKind::Reaction,
+                tags: vec![
+                    Tag::new_event(outbox_event.id, Some(relay_url.to_unchecked_url()), None),
+                    Tag::new_pubkey(pubkey, Some(relay_url.to_unchecked_url()), None),
+                ],
+                content: "".to_owned(),
+            };
+            stranger.sign_event(pre_event)?
+        };
+
+        let mut conn = crate::direct::Connection::new(relay_url.as_str().to_owned()).await?;
+
+        // 2. anon_fetched_outbox
+        if posted_outbox == RelayTestResult::Pass {
+            let mut filter = Filter::new();
+            filter.add_event_kind(outbox_event.kind);
+            let pkh: PublicKeyHex = outbox_event.pubkey.into();
+            filter.add_author(&pkh);
+            filter.since = Some(outbox_event.created_at);
+
+            let fetch_result = conn.fetch_events(vec![filter], Duration::from_secs(2)).await?;
+            if fetch_result.into_events().contains(&outbox_event) {
+                anon_fetched_outbox = RelayTestResult::Pass;
+            } else {
+                anon_fetched_outbox = RelayTestResult::Fail;
+            }
+        }
+
+        // 3. anon_posted_inbox
+        match conn.post_event(inbox_event.clone(), Duration::from_secs(2)).await? {
+            (true, _) => anon_posted_inbox = RelayTestResult::Pass,
+            (false, _) => anon_posted_inbox = RelayTestResult::Fail,
+        }
+
+        let mut inbox_filter = Filter::new();
+        inbox_filter.add_event_kind(inbox_event.kind);
+        let pkh: PublicKeyHex = inbox_event.pubkey.into();
+        inbox_filter.add_author(&pkh);
+        inbox_filter.since = Some(inbox_event.created_at);
+
+        // 4. anon_fetched_inbox
+        if anon_posted_inbox == RelayTestResult::Pass {
+            let fetch_result = conn.fetch_events(vec![inbox_filter.clone()], Duration::from_secs(2)).await?;
+            if fetch_result.into_events().contains(&inbox_event) {
+                anon_fetched_inbox = RelayTestResult::Pass;
+            } else {
+                anon_fetched_inbox = RelayTestResult::Fail;
+            }
+        }
+
+        // 5. fetched_inbox
+        conn.authenticate_if_challenged().await?;
+        let fetch_result = conn.fetch_events(vec![inbox_filter.clone()], Duration::from_secs(2)).await?;
+        if fetch_result.into_events().contains(&inbox_event) {
+            fetched_inbox = RelayTestResult::Pass;
+        } else {
+            fetched_inbox = RelayTestResult::Fail;
+        }
+
+        conn.disconnect().await?;
+        drop(conn);
+
+        Ok(RelayTestResults {
+            outbox: posted_outbox + anon_fetched_outbox,
+            inbox: anon_posted_inbox + fetched_inbox,
+            public_inbox: anon_posted_inbox + anon_fetched_inbox,
+            test_failed: false,
+        })
+
+    }
+
     /// Unlock the private key with the given passphrase so that gossip can use it.
     /// This is akin to logging in.
     pub fn unlock_key(mut password: String) -> Result<(), Error> {
@@ -2880,10 +3008,7 @@ impl Overlord {
     }
 
     /// Subscribe, fetch, and update metadata for the people
-    pub fn update_metadata_in_bulk(
-        &mut self,
-        mut pubkeys: Vec<PublicKey>,
-    ) -> Result<(), Error> {
+    pub fn update_metadata_in_bulk(&mut self, mut pubkeys: Vec<PublicKey>) -> Result<(), Error> {
         // Indicate that we are doing this, as the People manager wants to know
         // for it's retry logic
         GLOBALS.people.metadata_fetch_initiated(&pubkeys);

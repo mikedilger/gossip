@@ -633,9 +633,21 @@ pub fn delete_spam_by_content(cmd: Command, mut args: env::Args) -> Result<(), E
         } else {
             // Post the event to all the relays
             for relay in relays {
-                if let Err(e) = gossip_lib::direct::post(relay.as_str(), event.clone()) {
+                let mut conn =
+                    match gossip_lib::direct::Connection::new(relay.as_str().to_owned()).await {
+                        Ok(conn) => conn,
+                        Err(e) => {
+                            println!("ERROR: {}", e);
+                            continue;
+                        }
+                    };
+                if let Err(e) = conn
+                    .post_event(event.clone(), std::time::Duration::from_secs(3))
+                    .await
+                {
                     println!("ERROR: {}", e);
                 }
+                let _ = conn.disconnect();
             }
         }
     });
