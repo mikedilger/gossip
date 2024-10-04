@@ -22,15 +22,32 @@ impl Add for RelayTestResult {
     }
 }
 
+impl RelayTestResult {
+    pub fn tick(&self) -> char {
+        match *self {
+            RelayTestResult::Unknown => '❓',
+            RelayTestResult::Pass => '✅',
+            RelayTestResult::Fail => '❌',
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, Default)]
 pub struct RelayTestResults {
     pub outbox: RelayTestResult,
     pub inbox: RelayTestResult,
     pub public_inbox: RelayTestResult,
+    pub test_failed: bool,
 }
 
 impl RelayTestResults {
     pub fn dm(&self) -> RelayTestResult {
         self.inbox + self.outbox
+    }
+
+    pub fn fail() -> RelayTestResults {
+        let mut results: RelayTestResults = Default::default();
+        results.test_failed = true;
+        results
     }
 }

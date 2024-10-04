@@ -765,8 +765,22 @@ impl RelayEntry {
                 text.truncate(text.len() - 1); // safe because we built the string
                 draw_text_at(ui, pos, text.into(), align, None, None);
             }
-            //let pos = pos + vec2(0.0, NIP11_Y_SPACING);
-            ui.label("_ INBOX _ OUTBOX _ DM");
+
+            if let Some(entry) = GLOBALS.relay_tests.get(&self.relay.url) {
+                let pos = pos + vec2(0.0, NIP11_Y_SPACING);
+                let text = match entry.value() {
+                    None => "Testing...".to_owned(),
+                    Some(results) => if results.test_failed {
+                        "Relay test failed.".to_owned()
+                    } else {
+                        format!("{} outbox, {} inbox, {} public_inbox",
+                                results.outbox.tick(),
+                                results.inbox.tick(),
+                                results.public_inbox.tick())
+                    }
+                };
+                draw_text_at(ui, pos, text.into(), align, None, None);
+            }
         }
     }
 

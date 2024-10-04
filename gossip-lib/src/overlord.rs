@@ -2814,14 +2814,18 @@ impl Overlord {
     }
 
     pub fn test_relay(relay_url: RelayUrl) {
+        // Indicate that the test has started
+        GLOBALS.relay_tests.insert(relay_url.clone(), None);
+
         std::mem::drop(tokio::task::spawn(async move {
             match Self::test_relay_inner(relay_url.clone()).await {
                 Ok(test_results) => {
                     // TODO: store and remember the test results
-                    tracing::info!("RELAY TEST RESULTS FOR {}: {:?}", relay_url, test_results);
+                    GLOBALS.relay_tests.insert(relay_url, Some(test_results));
                 }
                 Err(e) => {
                     tracing::error!("{}", e);
+                    GLOBALS.relay_tests.insert(relay_url, Some(RelayTestResults::fail()));
                 }
             }
         }));
@@ -2948,6 +2952,7 @@ impl Overlord {
             outbox: posted_outbox + anon_fetched_outbox,
             inbox: anon_posted_inbox + fetched_inbox,
             public_inbox: anon_posted_inbox + anon_fetched_inbox,
+            test_failed: false,
         })
 
     }
