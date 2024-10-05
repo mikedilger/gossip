@@ -768,18 +768,54 @@ impl RelayEntry {
 
             if let Some(entry) = GLOBALS.relay_tests.get(&self.relay.url) {
                 let pos = pos + vec2(0.0, NIP11_Y_SPACING);
-                let text = match entry.value() {
-                    None => "Testing...".to_owned(),
-                    Some(results) => if results.test_failed {
-                        "Relay test failed.".to_owned()
-                    } else {
-                        format!("{} outbox, {} inbox, {} public_inbox",
-                                results.outbox.tick(),
-                                results.inbox.tick(),
-                                results.public_inbox.tick())
+                match entry.value() {
+                    None => {
+                        draw_text_at(ui, pos, "Testing...".into(), align, None, None);
+                    }
+                    Some(results) => {
+                        if results.test_failed {
+                            draw_text_at(ui, pos, "Relay test failed.".into(), align, None, None);
+                        } else {
+                            let text = format!("{} outbox,", results.outbox.tick());
+                            let hover = results.outbox.hover().unwrap_or("Ok");
+                            let (galley, response) = allocate_text_at(
+                                ui,
+                                pos,
+                                text.into(),
+                                align,
+                                self.make_id("outbox_suitability"),
+                            );
+                            draw_text_galley_at(ui, pos, galley, None, None);
+                            response.on_hover_text(hover);
+
+                            let pos = pos + vec2(100.0, 0.0);
+                            let text = format!("{} inbox,", results.inbox.tick());
+                            let hover = results.inbox.hover().unwrap_or("Ok");
+                            let (galley, response) = allocate_text_at(
+                                ui,
+                                pos,
+                                text.into(),
+                                align,
+                                self.make_id("inbox_suitability"),
+                            );
+                            draw_text_galley_at(ui, pos, galley, None, None);
+                            response.on_hover_text(hover);
+
+                            let pos = pos + vec2(100.0, 0.0);
+                            let text = format!("{} Public inbox,", results.public_inbox.tick());
+                            let hover = results.public_inbox.hover().unwrap_or("Ok");
+                            let (galley, response) = allocate_text_at(
+                                ui,
+                                pos,
+                                text.into(),
+                                align,
+                                self.make_id("public_inbox_suitability"),
+                            );
+                            draw_text_galley_at(ui, pos, galley, None, None);
+                            response.on_hover_text(hover);
+                        }
                     }
                 };
-                draw_text_at(ui, pos, text.into(), align, None, None);
             }
         }
     }

@@ -1,11 +1,11 @@
 use std::ops::Add;
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub enum RelayTestResult {
     #[default]
     Unknown,
     Pass,
-    Fail,
+    Fail(String),
 }
 
 impl Add for RelayTestResult {
@@ -13,8 +13,8 @@ impl Add for RelayTestResult {
 
     fn add(self, other: RelayTestResult) -> RelayTestResult {
         match (self, other) {
-            (RelayTestResult::Fail, _) => RelayTestResult::Fail,
-            (_, RelayTestResult::Fail) => RelayTestResult::Fail,
+            (RelayTestResult::Fail(s), _) => RelayTestResult::Fail(s),
+            (_, RelayTestResult::Fail(s)) => RelayTestResult::Fail(s),
             (RelayTestResult::Unknown, _) => RelayTestResult::Unknown,
             (_, RelayTestResult::Unknown) => RelayTestResult::Unknown,
             _ => RelayTestResult::Pass,
@@ -27,12 +27,20 @@ impl RelayTestResult {
         match *self {
             RelayTestResult::Unknown => '❓',
             RelayTestResult::Pass => '✅',
-            RelayTestResult::Fail => '❌',
+            RelayTestResult::Fail(_) => '❌',
+        }
+    }
+
+    pub fn hover<'a>(&'a self) -> Option<&'a str> {
+        match *self {
+            RelayTestResult::Unknown => None,
+            RelayTestResult::Pass => None,
+            RelayTestResult::Fail(ref s) => Some(s),
         }
     }
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct RelayTestResults {
     pub outbox: RelayTestResult,
     pub inbox: RelayTestResult,
@@ -42,7 +50,7 @@ pub struct RelayTestResults {
 
 impl RelayTestResults {
     pub fn dm(&self) -> RelayTestResult {
-        self.inbox + self.outbox
+        self.inbox.clone() + self.outbox.clone()
     }
 
     pub fn fail() -> RelayTestResults {

@@ -16,7 +16,7 @@ use crate::people::{Person, PersonList};
 use crate::relay;
 use crate::relay::Relay;
 use crate::relay_picker::RelayAssignment;
-use crate::relay_test_results::{RelayTestResults, RelayTestResult};
+use crate::relay_test_results::{RelayTestResult, RelayTestResults};
 use crate::storage::{PersonTable, Table};
 use crate::RunState;
 use heed::RwTxn;
@@ -2825,7 +2825,9 @@ impl Overlord {
                 }
                 Err(e) => {
                     tracing::error!("{}", e);
-                    GLOBALS.relay_tests.insert(relay_url, Some(RelayTestResults::fail()));
+                    GLOBALS
+                        .relay_tests
+                        .insert(relay_url, Some(RelayTestResults::fail()));
                 }
             }
         }));
@@ -2860,17 +2862,23 @@ impl Overlord {
 
         // 1. posted_outbox
         conn1.authenticate_if_challenged().await?;
-        match conn1.post_event(outbox_event.clone(), Duration::from_secs(2)).await? {
+        match conn1
+            .post_event(outbox_event.clone(), Duration::from_secs(2))
+            .await?
+        {
             (true, _) => posted_outbox = RelayTestResult::Pass,
             (false, msg) => {
                 if msg.starts_with("auth-required:") {
                     conn1.authenticate_if_challenged().await?;
-                    match conn1.post_event(outbox_event.clone(), Duration::from_secs(2)).await? {
+                    match conn1
+                        .post_event(outbox_event.clone(), Duration::from_secs(2))
+                        .await?
+                    {
                         (true, _) => posted_outbox = RelayTestResult::Pass,
-                        (false, _) => posted_outbox = RelayTestResult::Fail,
+                        (false, msg) => posted_outbox = RelayTestResult::Fail(msg),
                     }
                 } else {
-                    posted_outbox = RelayTestResult::Fail;
+                    posted_outbox = RelayTestResult::Fail(msg);
                 }
             }
         }
@@ -2906,18 +2914,25 @@ impl Overlord {
             filter.add_author(&pkh);
             filter.since = Some(outbox_event.created_at);
 
-            let fetch_result = conn.fetch_events(vec![filter], Duration::from_secs(2)).await?;
+            let fetch_result = conn
+                .fetch_events(vec![filter], Duration::from_secs(2))
+                .await?;
+            let close_msg = fetch_result.close_msg.clone();
             if fetch_result.into_events().contains(&outbox_event) {
                 anon_fetched_outbox = RelayTestResult::Pass;
             } else {
-                anon_fetched_outbox = RelayTestResult::Fail;
+                anon_fetched_outbox =
+                    RelayTestResult::Fail(close_msg.unwrap_or("timed out".to_string()));
             }
         }
 
         // 3. anon_posted_inbox
-        match conn.post_event(inbox_event.clone(), Duration::from_secs(2)).await? {
+        match conn
+            .post_event(inbox_event.clone(), Duration::from_secs(2))
+            .await?
+        {
             (true, _) => anon_posted_inbox = RelayTestResult::Pass,
-            (false, _) => anon_posted_inbox = RelayTestResult::Fail,
+            (false, msg) => anon_posted_inbox = RelayTestResult::Fail(msg),
         }
 
         let mut inbox_filter = Filter::new();
@@ -2928,33 +2943,39 @@ impl Overlord {
 
         // 4. anon_fetched_inbox
         if anon_posted_inbox == RelayTestResult::Pass {
-            let fetch_result = conn.fetch_events(vec![inbox_filter.clone()], Duration::from_secs(2)).await?;
+            let fetch_result = conn
+                .fetch_events(vec![inbox_filter.clone()], Duration::from_secs(2))
+                .await?;
+            let close_msg = fetch_result.close_msg.clone();
             if fetch_result.into_events().contains(&inbox_event) {
                 anon_fetched_inbox = RelayTestResult::Pass;
             } else {
-                anon_fetched_inbox = RelayTestResult::Fail;
+                anon_fetched_inbox =
+                    RelayTestResult::Fail(close_msg.unwrap_or("timed out".to_string()));
             }
         }
 
         // 5. fetched_inbox
         conn.authenticate_if_challenged().await?;
-        let fetch_result = conn.fetch_events(vec![inbox_filter.clone()], Duration::from_secs(2)).await?;
+        let fetch_result = conn
+            .fetch_events(vec![inbox_filter.clone()], Duration::from_secs(2))
+            .await?;
+        let close_msg = fetch_result.close_msg.clone();
         if fetch_result.into_events().contains(&inbox_event) {
             fetched_inbox = RelayTestResult::Pass;
         } else {
-            fetched_inbox = RelayTestResult::Fail;
+            fetched_inbox = RelayTestResult::Fail(close_msg.unwrap_or("timed out".to_string()));
         }
 
         conn.disconnect().await?;
         drop(conn);
 
         Ok(RelayTestResults {
-            outbox: posted_outbox + anon_fetched_outbox,
-            inbox: anon_posted_inbox + fetched_inbox,
-            public_inbox: anon_posted_inbox + anon_fetched_inbox,
+            outbox: posted_outbox.clone() + anon_fetched_outbox.clone(),
+            inbox: anon_posted_inbox.clone() + fetched_inbox.clone(),
+            public_inbox: anon_posted_inbox.clone() + anon_fetched_inbox.clone(),
             test_failed: false,
         })
-
     }
 
     /// Unlock the private key with the given passphrase so that gossip can use it.
