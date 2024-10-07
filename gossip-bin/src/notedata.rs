@@ -135,7 +135,7 @@ impl NoteData {
         let mentions = {
             let mut mentions = Vec::<(usize, Id)>::new();
             for (i, tag) in event.tags.iter().enumerate() {
-                if let Ok((id, _, _)) = tag.parse_event() {
+                if let Ok((id, _, _, _)) = tag.parse_event() {
                     mentions.push((i, id));
                 }
             }

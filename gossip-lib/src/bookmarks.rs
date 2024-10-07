@@ -21,7 +21,7 @@ impl BookmarkList {
         for tag in tags.iter() {
             let bookmark = match tag.tagname() {
                 "e" => {
-                    let (id, opturl, optmarker) = tag.parse_event()?;
+                    let (id, opturl, optmarker, optpk) = tag.parse_event()?;
                     let relays = match opturl {
                         Some(url) => match RelayUrl::try_from_unchecked_url(&url) {
                             Ok(rurl) => vec![rurl],
@@ -31,7 +31,7 @@ impl BookmarkList {
                     };
                     EventReference::Id {
                         id,
-                        author: None,
+                        author: optpk,
                         relays,
                         marker: optmarker,
                     }
@@ -103,9 +103,12 @@ impl BookmarkList {
 
         let er_to_tag = |er: &EventReference| -> Tag {
             match er {
-                EventReference::Id { id, relays, .. } => {
-                    Tag::new_event(*id, relays.first().map(|r| r.to_unchecked_url()), None)
-                }
+                EventReference::Id { id, relays, .. } => Tag::new_event(
+                    *id,
+                    relays.first().map(|r| r.to_unchecked_url()),
+                    None,
+                    er.author(),
+                ),
                 EventReference::Addr(ea) => Tag::new_address(ea, None),
             }
         };

@@ -215,7 +215,7 @@ pub fn process_new_event(
 
     if seen_on.is_some() {
         for tag in event.tags.iter() {
-            if let Ok((_, Some(uurl), _optmarker)) = tag.parse_event() {
+            if let Ok((_, Some(uurl), _optmarker, _optpubkey)) = tag.parse_event() {
                 if let Ok(url) = RelayUrl::try_from_unchecked_url(&uurl) {
                     GLOBALS.db().write_relay_if_missing(&url, None)?;
                 }
@@ -552,7 +552,7 @@ pub(crate) fn process_relationships_of_event(
     // timestamps
     if event.kind == EventKind::Timestamp {
         for tag in &event.tags {
-            if let Ok((id, _, _)) = tag.parse_event() {
+            if let Ok((id, _, _, _)) = tag.parse_event() {
                 GLOBALS.db().write_relationship_by_id(
                     id,
                     event.id,
@@ -631,7 +631,14 @@ pub(crate) fn process_relationships_of_event(
     }
 
     // reacts to
-    if let Some((reacted_to_id, reaction, _maybe_url)) = event.reacts_to() {
+
+    if let Some((
+        EventReference::Id {
+            id: reacted_to_id, ..
+        },
+        reaction,
+    )) = event.reacts_to()
+    {
         // NOTE: reactions may precede the event they react to. So we cannot validate here.
         GLOBALS.db().write_relationship_by_id(
             reacted_to_id, // event reacted to
@@ -662,7 +669,7 @@ pub(crate) fn process_relationships_of_event(
         }
 
         for tag in &event.tags {
-            if let Ok((id, _, _)) = tag.parse_event() {
+            if let Ok((id, _, _, _)) = tag.parse_event() {
                 GLOBALS.db().write_relationship_by_id(
                     id,
                     event.id,
@@ -689,7 +696,7 @@ pub(crate) fn process_relationships_of_event(
     // ListMutesThread
     if event.kind == EventKind::MuteList {
         for tag in &event.tags {
-            if let Ok((id, _, _)) = tag.parse_event() {
+            if let Ok((id, _, _, _)) = tag.parse_event() {
                 GLOBALS.db().write_relationship_by_id(
                     id,
                     event.id,
@@ -703,7 +710,7 @@ pub(crate) fn process_relationships_of_event(
     // ListPins
     if event.kind == EventKind::PinList {
         for tag in &event.tags {
-            if let Ok((id, _, _)) = tag.parse_event() {
+            if let Ok((id, _, _, _)) = tag.parse_event() {
                 GLOBALS.db().write_relationship_by_id(
                     id,
                     event.id,
@@ -777,7 +784,7 @@ pub(crate) fn process_relationships_of_event(
 
     if event.kind == EventKind::Reporting {
         for tag in &event.tags {
-            if let Ok((id, Some(rurl), _)) = tag.parse_event() {
+            if let Ok((id, Some(rurl), _, _)) = tag.parse_event() {
                 let report = &rurl.0;
                 GLOBALS.db().write_relationship_by_id(
                     id,
@@ -821,7 +828,7 @@ pub(crate) fn process_relationships_of_event(
     // JobResult
     if event.kind.is_job_result() {
         for tag in &event.tags {
-            if let Ok((id, _, _)) = tag.parse_event() {
+            if let Ok((id, _, _, _)) = tag.parse_event() {
                 GLOBALS.db().write_relationship_by_id(
                     id,
                     event.id,

@@ -135,7 +135,7 @@ pub(super) fn render_content(
                     if let Some(tag) = note.event.tags.get(*num) {
                         if let Ok((pubkey, _, _)) = tag.parse_pubkey() {
                             render_profile_link(app, ui, &pubkey);
-                        } else if let Ok((id, _, _)) = tag.parse_event() {
+                        } else if let Ok((id, _, _, _)) = tag.parse_event() {
                             let mut render_link = true;
                             if read_setting!(show_mentions) {
                                 match note.repost {

@@ -184,11 +184,17 @@ fn add_tags_mirroring_content(content: &str, tags: &mut Vec<Tag>, direct_message
             }
             NostrBech32::NEvent(ne) => {
                 // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
-                add_event_to_tags(tags, ne.id, ne.relays.first().cloned(), "mention");
+                add_event_to_tags(
+                    tags,
+                    ne.id,
+                    ne.relays.first().cloned(),
+                    ne.author,
+                    "mention",
+                );
             }
             NostrBech32::Id(id) => {
                 // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
-                add_event_to_tags(tags, *id, None, "mention");
+                add_event_to_tags(tags, *id, None, None, "mention");
             }
             NostrBech32::Profile(prof) => {
                 if !direct_message {
@@ -248,7 +254,7 @@ fn add_thread_based_tags(
     match parent.replies_to_root() {
         Some(EventReference::Id {
             id: root,
-            author: _,
+            author,
             mut relays,
             marker: _,
         }) => {
@@ -257,6 +263,7 @@ fn add_thread_based_tags(
                 tags,
                 root,
                 relays.pop().map(|u| u.to_unchecked_url()),
+                author,
                 "root",
             );
             parent_is_root = false;
@@ -272,7 +279,7 @@ fn add_thread_based_tags(
             let ancestor = parent.replies_to();
             if ancestor.is_none() {
                 // parent is the root
-                add_event_to_tags(tags, parent_id, None, "root");
+                add_event_to_tags(tags, parent_id, None, Some(parent.pubkey), "root");
             } else {
                 parent_is_root = false;
             }
@@ -281,7 +288,7 @@ fn add_thread_based_tags(
 
     // Add 'reply tags
     let reply_marker = if parent_is_root { "root" } else { "reply" };
-    add_event_to_tags(tags, parent_id, None, reply_marker);
+    add_event_to_tags(tags, parent_id, None, Some(parent.pubkey), reply_marker);
     if parent.kind.is_replaceable() {
         // Add an 'a' tag for the note we are replying to
         let d = parent.parameter().unwrap_or("".to_owned());
@@ -316,6 +323,7 @@ fn add_event_to_tags(
     existing_tags: &mut Vec<Tag>,
     added: Id,
     relay_url: Option<UncheckedUrl>,
+    opt_pubkey: Option<PublicKey>,
     marker: &str,
 ) -> usize {
     let relay_url = match relay_url {
@@ -327,7 +335,7 @@ fn add_event_to_tags(
     };
 
     // We only use this for kind-1 so we always use_quote=true
-    nostr_types::add_event_to_tags(existing_tags, added, relay_url, marker, true)
+    nostr_types::add_event_to_tags(existing_tags, added, relay_url, marker, opt_pubkey, true)
 }
 
 fn work_logger(work_receiver: mpsc::Receiver<u8>, powint: u8) {

@@ -607,13 +607,14 @@ pub fn delete_spam_by_content(cmd: Command, mut args: env::Args) -> Result<(), E
         }
     }
 
+    let public_key = GLOBALS.identity.public_key().unwrap();
+
     // Build up a single deletion event
     let mut tags: Vec<Tag> = Vec::new();
     for id in target_ids {
-        tags.push(Tag::new_event(id, None, None));
+        tags.push(Tag::new_event(id, None, None, Some(public_key)));
     }
     let event = {
-        let public_key = GLOBALS.identity.public_key().unwrap();
         let pre_event = PreEvent {
             pubkey: public_key,
             created_at: Unixtime::now(),

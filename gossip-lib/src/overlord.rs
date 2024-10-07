@@ -1200,7 +1200,7 @@ impl Overlord {
 
             // Include "e" tags for each event
             for bad_event in &bad_events {
-                tags.push(Tag::new_event(bad_event.id, None, None));
+                tags.push(Tag::new_event(bad_event.id, None, None, Some(public_key)));
             }
 
             let pre_event = PreEvent {
@@ -1263,21 +1263,21 @@ impl Overlord {
 
     /// Delete a post
     pub fn delete_post(&mut self, id: Id) -> Result<(), Error> {
-        let mut tags: Vec<Tag> = vec![Tag::new_event(id, None, None)];
+        let public_key = match GLOBALS.identity.public_key() {
+            Some(pk) => pk,
+            None => {
+                tracing::warn!("No public key! Not posting");
+                return Ok(());
+            }
+        };
+
+        let mut tags: Vec<Tag> = vec![Tag::new_event(id, None, None, Some(public_key))];
 
         if let Some(target_event) = GLOBALS.db().read_event(id)? {
             tags.push(Tag::new_kind(target_event.kind));
         }
 
         let event = {
-            let public_key = match GLOBALS.identity.public_key() {
-                Some(pk) => pk,
-                None => {
-                    tracing::warn!("No public key! Not posting");
-                    return Ok(());
-                }
-            };
-
             let pre_event = PreEvent {
                 pubkey: public_key,
                 created_at: Unixtime::now(),
@@ -1709,6 +1709,7 @@ impl Overlord {
                     id,
                     relay::recommended_relay_hint(id)?.map(|rr| rr.to_unchecked_url()),
                     None,
+                    Some(pubkey),
                 ),
                 Tag::new_pubkey(pubkey, None, None),
             ];
@@ -2085,7 +2086,7 @@ impl Overlord {
         let kind: EventKind;
         let mut tags: Vec<Tag> = vec![
             Tag::new_pubkey(reposted_event.pubkey, None, None),
-            Tag::new_event(id, relay_url.clone(), None),
+            Tag::new_event(id, relay_url.clone(), None, Some(reposted_event.pubkey)),
         ];
 
         if reposted_event.kind != EventKind::TextNote {
@@ -2896,7 +2897,12 @@ impl Overlord {
                 created_at: Unixtime::now(),
                 kind: EventKind::Reaction,
                 tags: vec![
-                    Tag::new_event(outbox_event.id, Some(relay_url.to_unchecked_url()), None),
+                    Tag::new_event(
+                        outbox_event.id,
+                        Some(relay_url.to_unchecked_url()),
+                        None,
+                        None,
+                    ),
                     Tag::new_pubkey(pubkey, Some(relay_url.to_unchecked_url()), None),
                 ],
                 content: "".to_owned(),
@@ -3571,7 +3577,7 @@ impl Overlord {
             created_at: Unixtime::now(),
             kind: EventKind::ZapRequest,
             tags: vec![
-                Tag::new_event(id, None, None),
+                Tag::new_event(id, None, None, None),
                 Tag::new_pubkey(target_pubkey, None, None),
                 relays_tag,
                 Tag::new(&["amount", &msats_string]),
