@@ -161,7 +161,7 @@ pub use status::StatusQueue;
 
 mod storage;
 pub use storage::types::*;
-pub use storage::{FollowingsTable, PersonTable, Storage, Table};
+pub use storage::{FollowingsTable, HandlersTable, PersonTable, Storage, Table};
 
 mod tasks;
 
