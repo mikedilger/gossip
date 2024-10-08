@@ -24,7 +24,7 @@ use http::StatusCode;
 use nostr_types::{
     EncryptedPrivateKey, Event, EventKind, EventReference, Filter, Id, IdHex, Metadata,
     MilliSatoshi, NAddr, NostrBech32, PayRequestData, PreEvent, PrivateKey, Profile, PublicKey,
-    PublicKeyHex, RelayUrl, Tag, UncheckedUrl, Unixtime,
+    RelayUrl, Tag, UncheckedUrl, Unixtime,
 };
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
@@ -1161,7 +1161,7 @@ impl Overlord {
 
         let mut filter = Filter::new();
         filter.add_event_kind(EventKind::FollowSets);
-        filter.add_author(&public_key.into());
+        filter.add_author(public_key);
 
         // Find all local-storage events that define the list
         let bad_events = GLOBALS.db().find_events_by_filter(&filter, |event| {
@@ -2206,7 +2206,7 @@ impl Overlord {
                 NostrBech32::NAddr(ea) => {
                     let mut filter = Filter::new();
                     filter.add_event_kind(ea.kind);
-                    filter.add_author(&ea.author.into());
+                    filter.add_author(ea.author);
 
                     if let Some(event) = GLOBALS
                         .db()
@@ -2916,8 +2916,7 @@ impl Overlord {
         if posted_outbox == RelayTestResult::Pass {
             let mut filter = Filter::new();
             filter.add_event_kind(outbox_event.kind);
-            let pkh: PublicKeyHex = outbox_event.pubkey.into();
-            filter.add_author(&pkh);
+            filter.add_author(outbox_event.pubkey);
             filter.since = Some(outbox_event.created_at);
 
             let fetch_result = conn
@@ -2943,8 +2942,7 @@ impl Overlord {
 
         let mut inbox_filter = Filter::new();
         inbox_filter.add_event_kind(inbox_event.kind);
-        let pkh: PublicKeyHex = inbox_event.pubkey.into();
-        inbox_filter.add_author(&pkh);
+        inbox_filter.add_author(inbox_event.pubkey);
         inbox_filter.since = Some(inbox_event.created_at);
 
         // 4. anon_fetched_inbox

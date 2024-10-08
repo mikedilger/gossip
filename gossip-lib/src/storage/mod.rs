@@ -1387,7 +1387,7 @@ impl Storage {
 
         let mut filter = Filter::new();
         filter.add_event_kind(event.kind);
-        filter.add_author(&event.pubkey.into());
+        filter.add_author(event.pubkey);
         let existing = self.find_events_by_filter(&filter, |e| {
             if event.kind.is_parameterized_replaceable() {
                 e.parameter() == event.parameter()
@@ -1433,7 +1433,7 @@ impl Storage {
 
         let mut filter = Filter::new();
         filter.add_event_kind(kind);
-        filter.add_author(&pubkey.into());
+        filter.add_author(pubkey);
 
         Ok(self
             .find_events_by_filter(&filter, |e| {

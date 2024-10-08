@@ -890,7 +890,7 @@ pub fn events_of_pubkey(cmd: Command, mut args: env::Args) -> Result<(), Error> 
     };
 
     let mut filter = Filter::new();
-    filter.add_author(&pubkey.into());
+    filter.add_author(pubkey);
     let events = GLOBALS.db().find_events_by_filter(&filter, |_| true)?;
 
     for event in &events {
@@ -916,7 +916,7 @@ pub fn events_of_pubkey_and_kind(cmd: Command, mut args: env::Args) -> Result<()
 
     let mut filter = Filter::new();
     filter.add_event_kind(kind);
-    filter.add_author(&pubkey.into());
+    filter.add_author(pubkey);
     let events = GLOBALS.db().find_events_by_filter(&filter, |_| true)?;
 
     for event in &events {

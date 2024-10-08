@@ -5,7 +5,7 @@ use crate::nostr_connect_server::ParsedCommand;
 use crate::people::PersonList;
 use crate::relay::Relay;
 use crate::storage::Storage;
-use nostr_types::{EventKind, Filter, PublicKey, PublicKeyHex, RelayList, RelayUrl, Unixtime};
+use nostr_types::{EventKind, Filter, PublicKey, RelayList, RelayUrl, Unixtime};
 use parking_lot::RwLock as PRwLock;
 use parking_lot::RwLockReadGuard as PRwLockReadGuard;
 use std::collections::hash_map::DefaultHasher;
@@ -227,10 +227,8 @@ impl Pending {
         let t30days = 60 * 60 * 24 * 30;
         let t90days = 60 * 60 * 24 * 90;
 
-        let pkh: PublicKeyHex = mypubkey.into();
-
         let mut filter = Filter::new();
-        filter.add_author(&pkh);
+        filter.add_author(mypubkey);
         filter.kinds = vec![EventKind::RelayList];
         let relay_lists = GLOBALS.db().find_events_by_filter(&filter, |_| true)?;
         filter.kinds = vec![EventKind::DmRelayList];

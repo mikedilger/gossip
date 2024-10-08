@@ -4,7 +4,7 @@ use crate::storage::{FollowingsTable, RawDatabase, Storage, Table};
 use crate::PersonList;
 use heed::types::Bytes;
 use heed::RwTxn;
-use nostr_types::{EventKind, Filter, PublicKey, PublicKeyHex};
+use nostr_types::{EventKind, Filter, PublicKey};
 use std::sync::Mutex;
 
 // Pubkey -> u64
@@ -137,8 +137,7 @@ impl Storage {
             .iter()
             .map(|(pk, _private)| pk)
         {
-            let pkh: PublicKeyHex = pubkey.into();
-            filter.add_author(&pkh);
+            filter.add_author(*pubkey);
         }
         let contact_lists = self.find_events_by_filter(&filter, |_| true)?;
 
