@@ -24,11 +24,11 @@ pub mod handlers_table;
 pub use handlers_table::HandlersTable;
 
 // database implementations
+mod configured_handlers;
 mod event_akci_index;
 use event_akci_index::AkciKey;
 mod event_kci_index;
 use event_kci_index::KciKey;
-
 mod event_ek_c_index1;
 mod event_ek_pk_index1;
 mod event_seen_on_relay1;
@@ -209,6 +209,7 @@ impl Storage {
         //
         // old-version databases will be handled by their migration code and only
         // triggered into existence if their migration is necessary.
+        let _ = self.db_configured_handlers()?;
         let _ = self.db_event_akci_index()?;
         let _ = self.db_event_kci_index()?;
         let _ = self.db_event_tag_index()?;
@@ -225,6 +226,7 @@ impl Storage {
         let _ = self.db_person_lists()?;
         let _ = self.db_person_lists_metadata()?;
         let _ = self.db_fof()?;
+        let _ = self.db_configured_handlers()?;
         let _ = PersonTable::db()?;
         let _ = FollowingsTable::db()?;
         let _ = HandlersTable::db()?;
