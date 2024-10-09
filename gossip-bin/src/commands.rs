@@ -24,7 +24,7 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 43] = [
+const COMMANDS: [Command; 44] = [
     Command {
         cmd: "oneshot",
         usage_params: "{depends}",
@@ -79,6 +79,11 @@ const COMMANDS: [Command; 43] = [
         cmd: "dpi",
         usage_params: "<dpi>",
         desc: "override the DPI setting",
+    },
+    Command {
+        cmd: "disable_relay",
+        usage_params: "<relayurl>",
+        desc: "Set a relay rank to 0 so it will never connect, and also hide form thie list. This is better than delete because deleted relays quickly come back with default settings."
     },
     Command {
         cmd: "events_of_kind",
@@ -269,6 +274,7 @@ pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
         "delete_spam_by_content" => delete_spam_by_content(command, args)?,
         "delete_relay" => delete_relay(command, args)?,
         "dpi" => override_dpi(command, args)?,
+        "disable_relay" => disable_relay(command, args)?,
         "events_of_kind" => events_of_kind(command, args)?,
         "events_of_pubkey" => events_of_pubkey(command, args)?,
         "events_of_pubkey_and_kind" => events_of_pubkey_and_kind(command, args)?,
@@ -713,6 +719,24 @@ pub fn override_dpi(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     GLOBALS.db().write_setting_override_dpi(&Some(dpi), None)?;
 
     println!("DPI override setting set to {}", dpi);
+
+    Ok(())
+}
+
+pub fn disable_relay(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+    let rurl = match args.next() {
+        Some(urlstr) => RelayUrl::try_from_str(&urlstr)?,
+        None => return cmd.usage("Missing relay url parameter".to_string()),
+    };
+
+    GLOBALS.db().modify_relay(
+        &rurl,
+        |relay| {
+            relay.rank = 0;
+            relay.hidden = true;
+        },
+        None,
+    )?;
 
     Ok(())
 }

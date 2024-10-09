@@ -981,7 +981,7 @@ impl Storage {
 
     /// Modify a relay record
     #[inline]
-    pub(crate) fn modify_relay<'a, M>(
+    pub fn modify_relay<'a, M>(
         &'a self,
         url: &RelayUrl,
         modify: M,
