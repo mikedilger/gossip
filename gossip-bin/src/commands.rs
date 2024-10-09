@@ -24,7 +24,7 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 42] = [
+const COMMANDS: [Command; 43] = [
     Command {
         cmd: "oneshot",
         usage_params: "{depends}",
@@ -59,6 +59,11 @@ const COMMANDS: [Command; 42] = [
         cmd: "decrypt",
         usage_params: "<pubkey> <ciphertext>",
         desc: "decrypt the ciphertext from the pubkeyhex.",
+    },
+    Command {
+        cmd: "delete_by_kind",
+        usage_params: "<kind>",
+        desc: "deletes all events of the given kind (be careful!)",
     },
     Command {
         cmd: "delete_spam_by_content",
@@ -260,6 +265,7 @@ pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
         "bech32_encode_naddr" => bech32_encode_naddr(command, args)?,
         "clear_timeouts" => clear_timeouts()?,
         "decrypt" => decrypt(command, args)?,
+        "delete_by_kind" => delete_by_kind(command, args)?,
         "delete_spam_by_content" => delete_spam_by_content(command, args)?,
         "delete_relay" => delete_relay(command, args)?,
         "dpi" => override_dpi(command, args)?,
@@ -511,6 +517,34 @@ pub fn decrypt(cmd: Command, mut args: env::Args) -> Result<(), Error> {
 
     let plaintext = GLOBALS.identity.decrypt(&pubkey, &ciphertext)?;
     println!("{}", plaintext);
+
+    Ok(())
+}
+
+pub fn delete_by_kind(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+    let kind: EventKind = match args.next() {
+        Some(integer) => integer.parse::<u32>()?.into(),
+        None => return cmd.usage("Missing kind parameter".to_string()),
+    };
+
+    let mut target_ids: Vec<Id> = Vec::new();
+
+    let mut filter = Filter::new();
+    filter.add_event_kind(kind);
+    let events = GLOBALS.db().find_events_by_filter(&filter, |_| true)?;
+    for event in &events {
+        target_ids.push(event.id);
+    }
+
+    // Delete locally
+    let mut txn = GLOBALS.db().get_write_txn()?;
+    for id in &target_ids {
+        // Delete locally
+        GLOBALS.db().delete_event(*id, Some(&mut txn))?;
+    }
+    txn.commit()?;
+
+    println!("Deleted {} events", target_ids.len());
 
     Ok(())
 }
