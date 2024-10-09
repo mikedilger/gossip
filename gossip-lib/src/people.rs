@@ -243,6 +243,10 @@ impl People {
             }
         }
 
+        if verified_need.is_empty() {
+            return;
+        }
+
         // This fires off the minions to fetch metadata events
         // When they come in, process.rs handles it by calling
         // GLOBALS.people.update_metadata() [down below]
