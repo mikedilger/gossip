@@ -251,16 +251,16 @@ pub fn process_new_event(
     // Let seeker know about this event id (in case it was sought)
     GLOBALS.seeker.found(event)?;
 
-    // If metadata, update person
     if event.kind == EventKind::Metadata {
+        // If metadata, update person
         let metadata: Metadata = serde_json::from_str(&event.content)?;
 
         GLOBALS
             .people
             .update_metadata(&event.pubkey, metadata, event.created_at)?;
-    }
-
-    if event.kind == EventKind::ContactList {
+    } else if event.kind == EventKind::HandlerRecommendation {
+        process_handler_recommendation(event)?;
+    } else if event.kind == EventKind::ContactList {
         if let Some(pubkey) = GLOBALS.identity.public_key() {
             if event.pubkey == pubkey {
                 // Updates stamps and counts, does NOT change membership
@@ -530,6 +530,50 @@ pub fn reprocess_relay_lists() -> Result<(usize, usize), Error> {
     txn.commit()?;
 
     Ok(counts)
+}
+
+// Collect handler recommendations, then fetch the handler information
+fn process_handler_recommendation(event: &Event) -> Result<(), Error> {
+    // NOTE: We don't care what 'd' kind is given, we collect these for all kinds.
+
+    let mut naddrs: Vec<NAddr> = Vec::new();
+
+    for tag in &event.tags {
+        let (naddr, marker) = match tag.parse_address() {
+            Ok(pair) => pair,
+            Err(_) => continue,
+        };
+        let marker = match marker {
+            Some(m) => m,
+            None => continue,
+        };
+        if marker != "web" {
+            continue;
+        }
+
+        if naddr.kind != EventKind::HandlerInformation {
+            continue;
+        };
+
+        // We need a relay to load the handler from
+        if naddr.relays.is_empty() {
+            continue;
+        }
+
+        naddrs.push(naddr);
+    }
+
+    if naddrs.is_empty() {
+        return Ok(());
+    }
+
+    for naddr in naddrs {
+        let _ = GLOBALS
+            .to_overlord
+            .send(ToOverlordMessage::FetchNAddr(naddr));
+    }
+
+    Ok(())
 }
 
 /// Process relationships of an event.
