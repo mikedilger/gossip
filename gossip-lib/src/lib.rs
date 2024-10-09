@@ -210,11 +210,13 @@ impl std::convert::TryFrom<u8> for RunState {
 }
 
 /// Initialize gossip-lib
-pub fn init(rapid: bool) -> Result<(), Error> {
+pub fn init(rapid: bool, command_mode: bool) -> Result<(), Error> {
     use std::sync::atomic::Ordering;
 
     // Initialize storage
-    Storage::compact()?;
+    if !command_mode {
+        Storage::compact()?;
+    }
     let storage = Storage::new(rapid)?;
     GLOBALS
         .storage
