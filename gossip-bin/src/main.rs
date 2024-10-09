@@ -63,7 +63,7 @@ fn main() -> Result<(), Error> {
     }
 
     // Initialize the lib
-    gossip_lib::init(rapid, args.len()>0)?;
+    gossip_lib::init(rapid, args.len() > 0)?;
 
     // Setup async, and allow non-async code the context to spawn tasks
     let _main_rt = GLOBALS.runtime.enter(); // <-- this allows it.
