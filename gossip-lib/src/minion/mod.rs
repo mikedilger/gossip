@@ -17,7 +17,7 @@ use http::Uri;
 use mime::Mime;
 use nostr_types::{
     ClientMessage, EventKind, Filter, Id, IdHex, KeySigner, NAddr, PreEvent, PublicKey,
-    PublicKeyHex, RelayInformationDocument, RelayUrl, Signer, Tag, Unixtime,
+    RelayInformationDocument, RelayUrl, Signer, Tag, Unixtime,
 };
 use reqwest::Response;
 use std::borrow::Cow;
@@ -93,6 +93,7 @@ pub struct Minion {
     posting_jobs: HashMap<u64, Vec<Id>>,
     posting_ids: HashMap<Id, u64>,
     sought_events: HashMap<Id, EventSeekState>,
+    sought_naddrs: HashMap<NAddr, EventSeekState>,
     last_message_sent: String,
     auth_challenge: String,
     subscriptions_waiting_for_auth: HashMap<String, Unixtime>,
@@ -139,6 +140,7 @@ impl Minion {
             posting_jobs: HashMap::new(),
             posting_ids: HashMap::new(),
             sought_events: HashMap::new(),
+            sought_naddrs: HashMap::new(),
             last_message_sent: String::new(),
             auth_challenge: "".to_string(),
             subscriptions_waiting_for_auth: HashMap::new(),
@@ -447,6 +449,7 @@ impl Minion {
             _ = task_timer.tick()  => { // 1.5 seconds
                 // Update subscription for sought events
                 self.get_events().await?;
+                self.get_naddrs().await?;
 
                 // Try to subscribe to subscriptions waiting for something
                 self.try_subscribe_waiting().await?;
@@ -575,6 +578,7 @@ impl Minion {
                 }
             }
             ToMinionPayloadDetail::FetchEvent(id) => {
+                // We don't ask the relay immediately. See task_timer.
                 self.sought_events
                     .entry(id)
                     .and_modify(|ess| ess.job_ids.push(message.job_id))
@@ -582,12 +586,16 @@ impl Minion {
                         job_ids: vec![message.job_id],
                         asked: false,
                     });
-                // We don't ask the relay immediately. See task_timer.
             }
             ToMinionPayloadDetail::FetchNAddr(ea) => {
-                // These are rare enough we can ask immediately. We can't store in sought_events
-                // anyways we would have to create a parallel thing.
-                self.get_naddr(message.job_id, ea).await?;
+                // We don't ask the relay immediately. See task_timer.
+                self.sought_naddrs
+                    .entry(ea)
+                    .and_modify(|ess| ess.job_ids.push(message.job_id))
+                    .or_insert(EventSeekState {
+                        job_ids: vec![message.job_id],
+                        asked: false,
+                    });
             }
             ToMinionPayloadDetail::PostEvents(mut events) => {
                 self.posting_jobs.insert(
@@ -689,6 +697,45 @@ impl Minion {
         Ok(())
     }
 
+    async fn get_naddrs(&mut self) -> Result<(), Error> {
+        // Collect all the sought naddrs we have not yet asked for, and
+        // presumptively mark them as having been asked for.
+        let mut naddrs: Vec<NAddr> = Vec::new();
+        for (naddr, ess) in self.sought_naddrs.iter_mut() {
+            if !ess.asked {
+                naddrs.push(naddr.clone());
+                ess.asked = true;
+            }
+        }
+
+        // Bail if nothing is sought
+        if naddrs.is_empty() {
+            return Ok(());
+        }
+
+        // The subscription job_id wont be used.
+        let job_id: u64 = u64::MAX;
+
+        // create the filters
+        let mut filters: Vec<Filter> = Vec::new();
+        for naddr in naddrs.iter() {
+            let mut filter = Filter::new();
+            filter.add_author(naddr.author);
+            filter.add_event_kind(naddr.kind);
+            filter.add_tag_value('d', naddr.d.clone());
+            filters.push(filter);
+        }
+
+        // create a handle for ourselves
+        // This is always a fresh subscription because they handle keeps changing
+        let handle = format!("temp_naddrs_{}", self.next_events_subscription_id);
+        self.next_events_subscription_id += 1;
+
+        self.subscribe(filters, &handle, job_id).await?;
+
+        Ok(())
+    }
+
     // This is run every tick
     async fn try_subscribe_waiting(&mut self) -> Result<(), Error> {
         // Subscribe to metadata that is waiting (unless we already have a
@@ -754,21 +801,6 @@ impl Minion {
         }
 
         Ok(())
-    }
-
-    async fn get_naddr(&mut self, job_id: u64, ea: NAddr) -> Result<(), Error> {
-        // create a handle for ourselves
-        let handle = format!("temp_naddr_{}", self.next_events_subscription_id);
-        self.next_events_subscription_id += 1;
-
-        // build the filter
-        let mut filter = Filter::new();
-        let pkh: PublicKeyHex = ea.author.into();
-        filter.authors = vec![pkh];
-        filter.kinds = vec![ea.kind];
-        filter.set_tag_values('d', vec![ea.d]);
-
-        self.subscribe(vec![filter], &handle, job_id).await
     }
 
     async fn subscribe(
