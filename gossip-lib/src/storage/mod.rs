@@ -2582,13 +2582,17 @@ impl Storage {
     }
 
     pub fn url_is_banned(url: &RelayUrl) -> bool {
+        let s = url.as_str();
+
         // Infinite number of subdomain relays being unmanageable
-        url.as_str().contains("relay.nostr.band")
+        (s.contains("relay.nostr.band") && !s.ends_with("relay.nostr.band/"))
+            ||
         // Infinite number of subdomain relays being unmanageable, they disclaim them
-            || url.as_str().contains("filter.nostr.wine")
+            (s.contains("filter.nostr.wine") && !s.ends_with("filter.nostr.wine/"))
+
         // spamming gossip with NOTICE subscription rejected messages causing an overload condition.
             // They need to send CLOSED and not NOTICE
-            || url.as_str().contains("at.nostrworks.com")
+            // || url.as_str().contains("at.nostrworks.com")
     }
 
     pub fn is_my_event(&self, id: Id) -> Result<bool, Error> {
