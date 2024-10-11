@@ -342,6 +342,30 @@ pub fn help(_cmd: Command, mut args: env::Args) -> Result<(), Error> {
 
 pub fn oneshot(_cmd: Command, mut _args: env::Args) -> Result<(), Error> {
     // This code area is reserved for doing things that do not get committed
+
+    let mut txn = GLOBALS.db().get_write_txn()?;
+
+    // Delete NIP-89 events
+    let mut target_ids: Vec<Id> = Vec::new();
+    let mut filter = Filter::new();
+    filter.add_event_kind(EventKind::HandlerRecommendation);
+    filter.add_event_kind(EventKind::HandlerInformation);
+    let events = GLOBALS.db().find_events_by_filter(&filter, |_| true)?;
+    for event in &events {
+        target_ids.push(event.id);
+    }
+    // Delete locally
+    for id in &target_ids {
+        // Delete locally
+        GLOBALS.db().delete_event(*id, Some(&mut txn))?;
+    }
+
+    // Clear NIP-89 databases
+    GLOBALS.db().clear_configured_handlers(Some(&mut txn))?;
+    gossip_lib::HandlersTable::clear(Some(&mut txn))?;
+
+    txn.commit()?;
+
     Ok(())
 }
 
