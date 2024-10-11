@@ -424,6 +424,12 @@ impl Storage {
         Ok(self.db_fof()?.len(&txn)?)
     }
 
+    /// The number of records in the fof table
+    pub fn get_configured_handlers_len(&self) -> Result<u64, Error> {
+        let txn = self.env.read_txn()?;
+        Ok(self.db_configured_handlers()?.len(&txn)?)
+    }
+
     // General key-value functions --------------------------------------------------
 
     pub fn force_migration_level(&self, level: u32) -> Result<(), Error> {

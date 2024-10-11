@@ -159,5 +159,11 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             HandlersTable::num_records().unwrap_or(0)
         ));
         ui.add_space(6.0);
+
+        ui.label(format!(
+            "Configured Handlers: {} records",
+            GLOBALS.db().get_configured_handlers_len().unwrap_or(0)
+        ));
+        ui.add_space(6.0);
     });
 }
