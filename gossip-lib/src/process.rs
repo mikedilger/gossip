@@ -265,6 +265,21 @@ pub fn process_new_event(
         // If event kind handler information, add to database
         if let Some(mut handler) = Handler::from_31990(event) {
             HandlersTable::write_record(&mut handler, None)?;
+
+            // Also add entry to configured_handlers for each kind
+            for kind in handler.kinds {
+                // If we already have this handler, do not clobber the
+                // user's 'enabled' flag
+                let existing = GLOBALS.db().read_configured_handlers(kind)?;
+                if existing.iter().any(|(hk, _)| *hk == handler.key) {
+                    continue;
+                }
+
+                // Write configured handler, enabled by default
+                GLOBALS
+                    .db()
+                    .write_configured_handler(kind, handler.key.clone(), true, None)?;
+            }
         }
     } else if event.kind == EventKind::ContactList {
         if let Some(pubkey) = GLOBALS.identity.public_key() {
