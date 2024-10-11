@@ -2591,8 +2591,8 @@ impl Storage {
             (s.contains("filter.nostr.wine") && !s.ends_with("filter.nostr.wine/"))
 
         // spamming gossip with NOTICE subscription rejected messages causing an overload condition.
-            // They need to send CLOSED and not NOTICE
-            // || url.as_str().contains("at.nostrworks.com")
+        // They need to send CLOSED and not NOTICE
+        // || url.as_str().contains("at.nostrworks.com")
     }
 
     pub fn is_my_event(&self, id: Id) -> Result<bool, Error> {
