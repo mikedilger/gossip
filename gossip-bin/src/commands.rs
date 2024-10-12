@@ -24,7 +24,7 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 44] = [
+const COMMANDS: [Command; 45] = [
     Command {
         cmd: "oneshot",
         usage_params: "{depends}",
@@ -84,6 +84,11 @@ const COMMANDS: [Command; 44] = [
         cmd: "disable_relay",
         usage_params: "<relayurl>",
         desc: "Set a relay rank to 0 so it will never connect, and also hide form thie list. This is better than delete because deleted relays quickly come back with default settings."
+    },
+    Command {
+        cmd: "dump_handlers",
+        usage_params: "",
+        desc: "print all the web-based event handlers",
     },
     Command {
         cmd: "events_of_kind",
@@ -275,6 +280,7 @@ pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
         "delete_relay" => delete_relay(command, args)?,
         "dpi" => override_dpi(command, args)?,
         "disable_relay" => disable_relay(command, args)?,
+        "dump_handlers" => dump_handlers()?,
         "events_of_kind" => events_of_kind(command, args)?,
         "events_of_pubkey" => events_of_pubkey(command, args)?,
         "events_of_pubkey_and_kind" => events_of_pubkey_and_kind(command, args)?,
@@ -737,6 +743,44 @@ pub fn disable_relay(cmd: Command, mut args: env::Args) -> Result<(), Error> {
         },
         None,
     )?;
+
+    Ok(())
+}
+
+pub fn dump_handlers() -> Result<(), Error> {
+    use gossip_lib::HandlersTable;
+
+    let mut last_kind = EventKind::Other(12345);
+
+    for (kind, handler_key, enabled) in GLOBALS.db().read_all_configured_handlers()?.iter() {
+        if *kind != last_kind {
+            println!("KIND={:?}", *kind);
+            last_kind = *kind;
+        }
+
+        if let Some(handler) = HandlersTable::read_record(handler_key.clone(), None)? {
+            let handler_url = if kind.is_parameterized_replaceable() {
+                if let Some(naddr_url) = &handler.naddr_url {
+                    naddr_url
+                } else {
+                    continue;
+                }
+            } else {
+                if let Some(nevent_url) = &handler.nevent_url {
+                    nevent_url
+                } else {
+                    continue;
+                }
+            };
+
+            println!(
+                "  {} enabled={} url={}",
+                handler.name(),
+                *enabled,
+                handler_url
+            );
+        }
+    }
 
     Ok(())
 }
