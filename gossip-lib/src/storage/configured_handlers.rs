@@ -107,6 +107,18 @@ impl Storage {
         Ok(output)
     }
 
+    pub fn read_all_configured_handlers(&self) -> Result<Vec<(HandlerKey, bool)>, Error> {
+        let txn = self.env.read_txn()?;
+        let mut output: Vec<(HandlerKey, bool)> = Vec::new();
+        let iter = self.db_configured_handlers()?.iter(&txn)?;
+        for result in iter {
+            let (_key, val) = result?;
+            let handler: (HandlerKey, bool) = configured_handlers_bytes_to_val(val)?;
+            output.push(handler);
+        }
+        Ok(output)
+    }
+
     pub fn clear_configured_handlers<'a>(
         &'a self,
         rw_txn: Option<&mut RwTxn<'a>>,
