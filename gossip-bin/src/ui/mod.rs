@@ -1374,295 +1374,7 @@ impl GossipUi {
     fn is_scrolling(&self) -> bool {
         self.current_scroll_offset != 0.0
     }
-}
 
-impl eframe::App for GossipUi {
-    fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame) {
-        // Run only on first frame
-        if self.initializing {
-            self.initializing = false;
-
-            // Initialize scaling, now that we have a Viewport
-            self.init_scaling(ctx);
-
-            // Set initial menu state, Feed open since initial page is Following.
-            self.open_menu(ctx, SubMenu::Feeds);
-
-            // Init first page
-            self.set_page_inner(ctx, self.page.clone());
-        }
-
-        let max_fps = read_setting!(max_fps) as f32;
-
-        if self.future_scroll_offset != 0.0 {
-            ctx.request_repaint();
-        } else {
-            // Wait until the next frame
-            std::thread::sleep(self.next_frame - Instant::now());
-            self.next_frame += Duration::from_secs_f32(1.0 / max_fps);
-
-            // Redraw at least once per second
-            ctx.request_repaint_after(Duration::from_secs(1));
-        }
-
-        if *GLOBALS.read_runstate.borrow() == RunState::ShuttingDown {
-            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-            return;
-        }
-
-        // How much scrolling has been requested by inputs during this frame?
-        let compose_area_is_focused =
-            ctx.memory(|mem| mem.has_focus(egui::Id::new("compose_area")));
-        let mut requested_scroll: f32 = 0.0;
-        ctx.input(|i| {
-            // Consider mouse inputs
-            requested_scroll = i.raw_scroll_delta.y * read_setting!(mouse_acceleration);
-
-            // Consider keyboard inputs unless compose area is focused
-            if !compose_area_is_focused {
-                if i.key_pressed(egui::Key::ArrowDown) {
-                    requested_scroll -= 50.0;
-                }
-                if i.key_pressed(egui::Key::ArrowUp) {
-                    requested_scroll += 50.0;
-                }
-                if i.key_pressed(egui::Key::PageUp) {
-                    let screen_rect = i.screen_rect;
-                    let window_height = screen_rect.max.y - screen_rect.min.y;
-                    requested_scroll += window_height * 0.75;
-                }
-                if i.key_pressed(egui::Key::PageDown) {
-                    let screen_rect = i.screen_rect;
-                    let window_height = screen_rect.max.y - screen_rect.min.y;
-                    requested_scroll -= window_height * 0.75;
-                }
-            }
-        });
-
-        // Inertial scrolling
-        if read_setting!(inertial_scrolling) {
-            // Apply some of the requested scrolling, and save some for later so that
-            // scrolling is animated and not instantaneous.
-            {
-                self.future_scroll_offset += requested_scroll;
-
-                // Move by 10% of future scroll offsets
-                self.current_scroll_offset = 0.1 * self.future_scroll_offset;
-                self.future_scroll_offset -= self.current_scroll_offset;
-
-                // Friction stop when slow enough
-                if self.future_scroll_offset < 1.0 && self.future_scroll_offset > -1.0 {
-                    self.future_scroll_offset = 0.0;
-                }
-            }
-        } else {
-            // Changes to the input state have no effect on the scrolling, because it was copied
-            // into a private FrameState at the start of the frame.
-            // So we have to use current_scroll_offset to do this
-            self.current_scroll_offset = requested_scroll;
-        }
-
-        ctx.input_mut(|i| {
-            i.smooth_scroll_delta.y = self.current_scroll_offset;
-        });
-
-        // F11 maximizes
-        if ctx.input(|i| i.key_pressed(egui::Key::F11)) {
-            let maximized = matches!(ctx.input(|i| i.viewport().maximized), Some(true));
-            ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(!maximized));
-        }
-
-        let mut reapply = false;
-        let mut theme = Theme::from_settings();
-        if theme.follow_os_dark_mode {
-            // detect if the OS has changed dark/light mode
-            let os_dark_mode = ctx.style().visuals.dark_mode;
-            if os_dark_mode != theme.dark_mode {
-                // switch to the OS setting
-                write_setting!(dark_mode, os_dark_mode);
-                theme.dark_mode = os_dark_mode;
-                reapply = true;
-            }
-        }
-        if self.theme != theme {
-            self.theme = theme;
-            reapply = true;
-        }
-        if reapply {
-            theme::apply_theme(&self.theme, ctx);
-        }
-
-        notifications::calc(self);
-
-        // dialogues first
-        if relays::is_entry_dialog_active(self) {
-            relays::entry_dialog(ctx, self);
-        }
-
-        // If login is forced, it takes over
-        if GLOBALS.wait_for_login.load(Ordering::Relaxed) {
-            return force_login(self, ctx);
-        }
-
-        // If data migration, show that screen
-        if GLOBALS.wait_for_data_migration.load(Ordering::Relaxed) {
-            return wait_for_data_migration(self, ctx);
-        }
-
-        // If database is being pruned, show that screen
-        let optstatus = GLOBALS.prune_status.read();
-        if let Some(status) = optstatus.as_ref() {
-            return wait_for_prune(self, ctx, status);
-        }
-
-        // Wizard does its own panels
-        if let Page::Wizard(wp) = self.page {
-            return wizard::update(self, ctx, frame, wp);
-        }
-
-        // Modal dialogue
-        if let Some(entry) = &self.modal {
-            if widgets::modal_popup_dyn(ctx, self, true, entry.clone())
-                .inner
-                .clicked()
-            {
-                self.modal = None;
-            }
-        }
-
-        // Side panel
-        self.side_panel(ctx);
-
-        let (show_top_post_area, show_bottom_post_area) = if self.show_post_area_fn() {
-            if read_setting!(posting_area_at_top) {
-                (true, false)
-            } else {
-                (false, true)
-            }
-        } else {
-            (false, false)
-        };
-
-        let has_warning = {
-            #[cfg(feature = "video-ffmpeg")]
-            {
-                !self.warn_no_libsdl2_dismissed && self.audio_device.is_none()
-            }
-            #[cfg(not(feature = "video-ffmpeg"))]
-            {
-                false
-            }
-        };
-
-        egui::TopBottomPanel::top("top-panel")
-            .frame(
-                egui::Frame::side_top_panel(&self.theme.get_style()).inner_margin(egui::Margin {
-                    left: 20.0,
-                    right: 15.0,
-                    top: 10.0,
-                    bottom: 10.0,
-                }),
-            )
-            .resizable(true)
-            .show_animated(
-                ctx,
-                show_top_post_area || has_warning,
-                |ui| {
-                    self.begin_ui(ui);
-                    #[cfg(feature = "video-ffmpeg")]
-                    {
-                        if has_warning {
-                            widgets::warning_frame(ui, self, |ui, app| {
-                                ui.label("You have compiled gossip with 'video-ffmpeg' option but no audio device was found on your system. Make sure you have followed the instructions at ");
-                                ui.hyperlink("https://github.com/Rust-SDL2/rust-sdl2");
-                                ui.label("and installed 'libsdl2-dev' package for your system.");
-                                ui.end_row();
-                                ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
-                                    if ui.link("Dismiss message").clicked() {
-                                        app.warn_no_libsdl2_dismissed = true;
-                                    }
-                                });
-                            });
-                        }
-                    }
-                    if show_top_post_area {
-                        feed::post::posting_area(self, ctx, frame, ui);
-                    }
-                },
-            );
-
-        let resizable = true;
-
-        egui::TopBottomPanel::bottom("bottom-panel")
-            .frame({
-                let frame = egui::Frame::side_top_panel(&self.theme.get_style());
-                frame.inner_margin(egui::Margin {
-                    left: 20.0,
-                    right: 18.0,
-                    top: 10.0,
-                    bottom: 10.0,
-                })
-            })
-            .resizable(resizable)
-            .show_separator_line(false)
-            .show_animated(ctx, show_bottom_post_area, |ui| {
-                self.begin_ui(ui);
-                if show_bottom_post_area {
-                    ui.add_space(7.0);
-                    feed::post::posting_area(self, ctx, frame, ui);
-                }
-            });
-
-        // Prepare local zap data once per frame for easier compute at render time
-        self.zap_state = (*GLOBALS.current_zap.read()).clone();
-        self.note_being_zapped = match self.zap_state {
-            ZapState::None => None,
-            ZapState::CheckingLnurl(id, _, _) => Some(id),
-            ZapState::SeekingAmount(id, _, _, _) => Some(id),
-            ZapState::LoadingInvoice(id, _) => Some(id),
-            ZapState::ReadyToPay(id, _) => Some(id),
-        };
-
-        egui::CentralPanel::default()
-            .frame({
-                let frame = egui::Frame::central_panel(&self.theme.get_style());
-                frame.inner_margin(egui::Margin {
-                    left: 20.0,
-                    right: 10.0,
-                    top: 10.0,
-                    bottom: 0.0,
-                })
-            })
-            .show(ctx, |ui| {
-                self.begin_ui(ui);
-                match self.page {
-                    Page::DmChatList => dm_chat_list::update(self, ctx, frame, ui),
-                    Page::Feed(_) => feed::update(self, ctx, ui),
-                    Page::Notifications => notifications::update(self, ui),
-                    Page::PeopleLists | Page::PeopleList(_) | Page::Person(_) => {
-                        people::update(self, ctx, frame, ui)
-                    }
-                    Page::YourKeys
-                    | Page::YourMetadata
-                    | Page::YourDelegation
-                    | Page::YourNostrConnect => you::update(self, ctx, frame, ui),
-                    Page::RelaysActivityMonitor
-                    | Page::RelaysCoverage
-                    | Page::RelaysMine
-                    | Page::RelaysKnownNetwork(_) => relays::update(self, ctx, frame, ui),
-                    Page::Search => search::update(self, ctx, frame, ui),
-                    Page::Settings => settings::update(self, ctx, frame, ui),
-                    Page::HelpHelp | Page::HelpStats | Page::HelpAbout => {
-                        help::update(self, ctx, frame, ui)
-                    }
-                    Page::ThemeTest => theme::test_page::update(self, ctx, frame, ui),
-                    Page::Wizard(_) => unreachable!(),
-                }
-            });
-    }
-}
-
-impl GossipUi {
     fn enable_ui(&self) -> bool {
         !relays::is_entry_dialog_active(self)
             && self.person_qr.is_none()
@@ -2262,6 +1974,292 @@ impl GossipUi {
         {
             GLOBALS.status_queue.write().dismiss(2);
         }
+    }
+}
+
+impl eframe::App for GossipUi {
+    fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame) {
+        // Run only on first frame
+        if self.initializing {
+            self.initializing = false;
+
+            // Initialize scaling, now that we have a Viewport
+            self.init_scaling(ctx);
+
+            // Set initial menu state, Feed open since initial page is Following.
+            self.open_menu(ctx, SubMenu::Feeds);
+
+            // Init first page
+            self.set_page_inner(ctx, self.page.clone());
+        }
+
+        let max_fps = read_setting!(max_fps) as f32;
+
+        if self.future_scroll_offset != 0.0 {
+            ctx.request_repaint();
+        } else {
+            // Wait until the next frame
+            std::thread::sleep(self.next_frame - Instant::now());
+            self.next_frame += Duration::from_secs_f32(1.0 / max_fps);
+
+            // Redraw at least once per second
+            ctx.request_repaint_after(Duration::from_secs(1));
+        }
+
+        if *GLOBALS.read_runstate.borrow() == RunState::ShuttingDown {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+            return;
+        }
+
+        // How much scrolling has been requested by inputs during this frame?
+        let compose_area_is_focused =
+            ctx.memory(|mem| mem.has_focus(egui::Id::new("compose_area")));
+        let mut requested_scroll: f32 = 0.0;
+        ctx.input(|i| {
+            // Consider mouse inputs
+            requested_scroll = i.raw_scroll_delta.y * read_setting!(mouse_acceleration);
+
+            // Consider keyboard inputs unless compose area is focused
+            if !compose_area_is_focused {
+                if i.key_pressed(egui::Key::ArrowDown) {
+                    requested_scroll -= 50.0;
+                }
+                if i.key_pressed(egui::Key::ArrowUp) {
+                    requested_scroll += 50.0;
+                }
+                if i.key_pressed(egui::Key::PageUp) {
+                    let screen_rect = i.screen_rect;
+                    let window_height = screen_rect.max.y - screen_rect.min.y;
+                    requested_scroll += window_height * 0.75;
+                }
+                if i.key_pressed(egui::Key::PageDown) {
+                    let screen_rect = i.screen_rect;
+                    let window_height = screen_rect.max.y - screen_rect.min.y;
+                    requested_scroll -= window_height * 0.75;
+                }
+            }
+        });
+
+        // Inertial scrolling
+        if read_setting!(inertial_scrolling) {
+            // Apply some of the requested scrolling, and save some for later so that
+            // scrolling is animated and not instantaneous.
+            {
+                self.future_scroll_offset += requested_scroll;
+
+                // Move by 10% of future scroll offsets
+                self.current_scroll_offset = 0.1 * self.future_scroll_offset;
+                self.future_scroll_offset -= self.current_scroll_offset;
+
+                // Friction stop when slow enough
+                if self.future_scroll_offset < 1.0 && self.future_scroll_offset > -1.0 {
+                    self.future_scroll_offset = 0.0;
+                }
+            }
+        } else {
+            // Changes to the input state have no effect on the scrolling, because it was copied
+            // into a private FrameState at the start of the frame.
+            // So we have to use current_scroll_offset to do this
+            self.current_scroll_offset = requested_scroll;
+        }
+
+        ctx.input_mut(|i| {
+            i.smooth_scroll_delta.y = self.current_scroll_offset;
+        });
+
+        // F11 maximizes
+        if ctx.input(|i| i.key_pressed(egui::Key::F11)) {
+            let maximized = matches!(ctx.input(|i| i.viewport().maximized), Some(true));
+            ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(!maximized));
+        }
+
+        let mut reapply = false;
+        let mut theme = Theme::from_settings();
+        if theme.follow_os_dark_mode {
+            // detect if the OS has changed dark/light mode
+            let os_dark_mode = ctx.style().visuals.dark_mode;
+            if os_dark_mode != theme.dark_mode {
+                // switch to the OS setting
+                write_setting!(dark_mode, os_dark_mode);
+                theme.dark_mode = os_dark_mode;
+                reapply = true;
+            }
+        }
+        if self.theme != theme {
+            self.theme = theme;
+            reapply = true;
+        }
+        if reapply {
+            theme::apply_theme(&self.theme, ctx);
+        }
+
+        notifications::calc(self);
+
+        // dialogues first
+        if relays::is_entry_dialog_active(self) {
+            relays::entry_dialog(ctx, self);
+        }
+
+        // If login is forced, it takes over
+        if GLOBALS.wait_for_login.load(Ordering::Relaxed) {
+            return force_login(self, ctx);
+        }
+
+        // If data migration, show that screen
+        if GLOBALS.wait_for_data_migration.load(Ordering::Relaxed) {
+            return wait_for_data_migration(self, ctx);
+        }
+
+        // If database is being pruned, show that screen
+        let optstatus = GLOBALS.prune_status.read();
+        if let Some(status) = optstatus.as_ref() {
+            return wait_for_prune(self, ctx, status);
+        }
+
+        // Wizard does its own panels
+        if let Page::Wizard(wp) = self.page {
+            return wizard::update(self, ctx, frame, wp);
+        }
+
+        // Modal dialogue
+        if let Some(entry) = &self.modal {
+            if widgets::modal_popup_dyn(ctx, self, true, entry.clone())
+                .inner
+                .clicked()
+            {
+                self.modal = None;
+            }
+        }
+
+        // Side panel
+        self.side_panel(ctx);
+
+        let (show_top_post_area, show_bottom_post_area) = if self.show_post_area_fn() {
+            if read_setting!(posting_area_at_top) {
+                (true, false)
+            } else {
+                (false, true)
+            }
+        } else {
+            (false, false)
+        };
+
+        let has_warning = {
+            #[cfg(feature = "video-ffmpeg")]
+            {
+                !self.warn_no_libsdl2_dismissed && self.audio_device.is_none()
+            }
+            #[cfg(not(feature = "video-ffmpeg"))]
+            {
+                false
+            }
+        };
+
+        egui::TopBottomPanel::top("top-panel")
+            .frame(
+                egui::Frame::side_top_panel(&self.theme.get_style()).inner_margin(egui::Margin {
+                    left: 20.0,
+                    right: 15.0,
+                    top: 10.0,
+                    bottom: 10.0,
+                }),
+            )
+            .resizable(true)
+            .show_animated(
+                ctx,
+                show_top_post_area || has_warning,
+                |ui| {
+                    self.begin_ui(ui);
+                    #[cfg(feature = "video-ffmpeg")]
+                    {
+                        if has_warning {
+                            widgets::warning_frame(ui, self, |ui, app| {
+                                ui.label("You have compiled gossip with 'video-ffmpeg' option but no audio device was found on your system. Make sure you have followed the instructions at ");
+                                ui.hyperlink("https://github.com/Rust-SDL2/rust-sdl2");
+                                ui.label("and installed 'libsdl2-dev' package for your system.");
+                                ui.end_row();
+                                ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
+                                    if ui.link("Dismiss message").clicked() {
+                                        app.warn_no_libsdl2_dismissed = true;
+                                    }
+                                });
+                            });
+                        }
+                    }
+                    if show_top_post_area {
+                        feed::post::posting_area(self, ctx, frame, ui);
+                    }
+                },
+            );
+
+        let resizable = true;
+
+        egui::TopBottomPanel::bottom("bottom-panel")
+            .frame({
+                let frame = egui::Frame::side_top_panel(&self.theme.get_style());
+                frame.inner_margin(egui::Margin {
+                    left: 20.0,
+                    right: 18.0,
+                    top: 10.0,
+                    bottom: 10.0,
+                })
+            })
+            .resizable(resizable)
+            .show_separator_line(false)
+            .show_animated(ctx, show_bottom_post_area, |ui| {
+                self.begin_ui(ui);
+                if show_bottom_post_area {
+                    ui.add_space(7.0);
+                    feed::post::posting_area(self, ctx, frame, ui);
+                }
+            });
+
+        // Prepare local zap data once per frame for easier compute at render time
+        self.zap_state = (*GLOBALS.current_zap.read()).clone();
+        self.note_being_zapped = match self.zap_state {
+            ZapState::None => None,
+            ZapState::CheckingLnurl(id, _, _) => Some(id),
+            ZapState::SeekingAmount(id, _, _, _) => Some(id),
+            ZapState::LoadingInvoice(id, _) => Some(id),
+            ZapState::ReadyToPay(id, _) => Some(id),
+        };
+
+        egui::CentralPanel::default()
+            .frame({
+                let frame = egui::Frame::central_panel(&self.theme.get_style());
+                frame.inner_margin(egui::Margin {
+                    left: 20.0,
+                    right: 10.0,
+                    top: 10.0,
+                    bottom: 0.0,
+                })
+            })
+            .show(ctx, |ui| {
+                self.begin_ui(ui);
+                match self.page {
+                    Page::DmChatList => dm_chat_list::update(self, ctx, frame, ui),
+                    Page::Feed(_) => feed::update(self, ctx, ui),
+                    Page::Notifications => notifications::update(self, ui),
+                    Page::PeopleLists | Page::PeopleList(_) | Page::Person(_) => {
+                        people::update(self, ctx, frame, ui)
+                    }
+                    Page::YourKeys
+                    | Page::YourMetadata
+                    | Page::YourDelegation
+                    | Page::YourNostrConnect => you::update(self, ctx, frame, ui),
+                    Page::RelaysActivityMonitor
+                    | Page::RelaysCoverage
+                    | Page::RelaysMine
+                    | Page::RelaysKnownNetwork(_) => relays::update(self, ctx, frame, ui),
+                    Page::Search => search::update(self, ctx, frame, ui),
+                    Page::Settings => settings::update(self, ctx, frame, ui),
+                    Page::HelpHelp | Page::HelpStats | Page::HelpAbout => {
+                        help::update(self, ctx, frame, ui)
+                    }
+                    Page::ThemeTest => theme::test_page::update(self, ctx, frame, ui),
+                    Page::Wizard(_) => unreachable!(),
+                }
+            });
     }
 }
 
