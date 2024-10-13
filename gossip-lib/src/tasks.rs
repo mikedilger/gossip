@@ -83,4 +83,7 @@ async fn do_general_tasks(tick: usize) {
             GLOBALS.unread_dms.store(unread, Ordering::Relaxed);
         }
     }
+
+    // Update handlers for quick menu rendering
+    let _ = GLOBALS.update_handlers();
 }

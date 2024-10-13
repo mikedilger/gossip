@@ -15,10 +15,10 @@ use crate::relay_picker::RelayPicker;
 use crate::relay_test_results::RelayTestResults;
 use crate::seeker::Seeker;
 use crate::status::StatusQueue;
-use crate::storage::Storage;
+use crate::storage::{HandlersTable, Storage, Table};
 use crate::RunState;
 use dashmap::DashMap;
-use nostr_types::{Event, Id, Profile, PublicKey, RelayUrl};
+use nostr_types::{Event, EventKind, Id, Profile, PublicKey, RelayUrl, UncheckedUrl};
 use parking_lot::RwLock as PRwLock;
 use regex::Regex;
 use rhai::{Engine, AST};
@@ -184,6 +184,9 @@ pub struct Globals {
 
     /// Relay tests
     pub relay_tests: DashMap<RelayUrl, Option<RelayTestResults>>,
+
+    /// Handlers
+    pub handlers: DashMap<EventKind, Vec<(String, UncheckedUrl)>>,
 }
 
 lazy_static! {
@@ -257,6 +260,7 @@ lazy_static! {
             recompute_current_bookmarks: Arc::new(Notify::new()),
             prune_status: PRwLock::new(None),
             relay_tests: DashMap::new(),
+            handlers: DashMap::new(),
         }
     };
 }
@@ -296,5 +300,41 @@ impl Globals {
         }
 
         Some(profile)
+    }
+
+    pub fn update_handlers(&self) -> Result<(), Error> {
+        self.handlers.clear();
+
+        for (handler_key, enabled) in self.db().read_all_configured_handlers()?.iter() {
+            if !enabled {
+                continue;
+            }
+            if let Some(handler) = HandlersTable::read_record(handler_key.clone(), None)? {
+                for kind in &handler.kinds {
+                    let url = match (
+                        kind.is_parameterized_replaceable(),
+                        &handler.nevent_url,
+                        &handler.naddr_url,
+                    ) {
+                        (true, _, Some(u)) => u.clone(),
+                        (true, _, None) => continue,
+                        (false, Some(u), _) => u.clone(),
+                        (false, None, _) => continue,
+                    };
+                    let uri: http::Uri = url.as_str().parse::<http::Uri>()?;
+                    let host = match uri.host() {
+                        Some(h) => h.to_owned(),
+                        None => continue,
+                    };
+                    let data = (host, url);
+                    self.handlers
+                        .entry(*kind)
+                        .and_modify(|e| e.push(data.clone()))
+                        .or_insert(vec![data.clone()]);
+                }
+            }
+        }
+
+        Ok(())
     }
 }
