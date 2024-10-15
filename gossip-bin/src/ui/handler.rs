@@ -37,18 +37,19 @@ pub(super) fn update_kind(_app: &mut GossipUi, _ctx: &Context, ui: &mut Ui, kind
         .read_configured_handlers(kind)
         .unwrap_or(vec![]);
     for (key, mut enabled) in handlers.iter() {
-        let name = {
-            if let Ok(Some(handler)) = HandlersTable::read_record(key.clone(), None) {
-                handler.name()
-            } else {
-                "error reading handler".to_owned()
+        if let Ok(Some(handler)) = HandlersTable::read_record(key.clone(), None) {
+            if !kind.is_parameterized_replaceable() && handler.nevent_url.is_none() {
+                continue;
             }
-        };
+            if kind.is_parameterized_replaceable() && handler.naddr_url.is_none() {
+                continue;
+            }
 
-        if ui.checkbox(&mut enabled, name).changed() {
-            let _ = GLOBALS
-                .db()
-                .write_configured_handler(kind, key.clone(), enabled, None);
+            if ui.checkbox(&mut enabled, handler.name()).changed() {
+                let _ = GLOBALS
+                    .db()
+                    .write_configured_handler(kind, key.clone(), enabled, None);
+            }
         }
     }
 }
