@@ -761,15 +761,15 @@ pub fn dump_handlers() -> Result<(), Error> {
         if let Some(handler) = HandlersTable::read_record(handler_key.clone(), None)? {
             let handler_url = if kind.is_parameterized_replaceable() {
                 if let Some(naddr_url) = &handler.naddr_url {
-                    naddr_url
+                    naddr_url.as_str()
                 } else {
-                    continue;
+                    "no web-naddr url provided"
                 }
             } else {
                 if let Some(nevent_url) = &handler.nevent_url {
-                    nevent_url
+                    nevent_url.as_str()
                 } else {
-                    continue;
+                    "no web-nevent url provided"
                 }
             };
 
