@@ -37,6 +37,7 @@ mod assets;
 mod dm_chat_list;
 mod emojis;
 mod feed;
+mod handler;
 mod help;
 mod notifications;
 mod people;
@@ -72,7 +73,7 @@ use gossip_lib::{
 };
 use nostr_types::ContentSegment;
 use nostr_types::RelayUrl;
-use nostr_types::{Id, Metadata, MilliSatoshi, Profile, PublicKey, UncheckedUrl, Url};
+use nostr_types::{EventKind, Id, Metadata, MilliSatoshi, Profile, PublicKey, UncheckedUrl, Url};
 use widgets::ModalEntry;
 
 use std::collections::{HashMap, HashSet};
@@ -156,6 +157,8 @@ pub fn run() -> Result<(), Error> {
 enum Page {
     DmChatList,
     Feed(FeedKind),
+    HandlerKinds,
+    Handlers(EventKind),
     Notifications,
     PeopleLists,
     PeopleList(PersonList),
@@ -194,6 +197,8 @@ impl Page {
         match self {
             Page::DmChatList => (SubMenu::Feeds.as_str(), "Private chats".into()),
             Page::Feed(feedkind) => ("Feed", feedkind.to_string()),
+            Page::HandlerKinds => ("Event Handlers", "Event Handlers".into()),
+            Page::Handlers(kind) => ("Event Handler", format!("{:?}", kind)),
             Page::Notifications => ("Notifications", "Notifications".into()),
             Page::PeopleLists => ("Lists", "Lists".into()),
             Page::PeopleList(list) => {
@@ -965,6 +970,7 @@ impl GossipUi {
                 self.add_people_lists(ui, ctx);
                 self.add_relays_submenu(ui, ctx);
                 self.add_account_submenu(ui, ctx);
+                self.add_handlers(ui, ctx);
                 self.add_settings(ui, ctx);
                 self.add_help_submenu(ui, ctx);
 
@@ -1161,6 +1167,19 @@ impl GossipUi {
             self.add_menu_item_page(ui, Page::YourNostrConnect, None, true);
         });
         self.after_openable_menu(ui, &cstate);
+    }
+
+    fn add_handlers(&mut self, ui: &mut Ui, ctx: &Context) {
+        if self
+            .add_selected_label(
+                ui,
+                self.page == Page::HandlerKinds || matches!(self.page, Page::Handlers(_)),
+                "Handlers",
+            )
+            .clicked()
+        {
+            self.set_page(ctx, Page::HandlerKinds);
+        }
     }
 
     fn add_settings(&mut self, ui: &mut Ui, ctx: &Context) {
@@ -2239,6 +2258,8 @@ impl eframe::App for GossipUi {
                 match self.page {
                     Page::DmChatList => dm_chat_list::update(self, ctx, frame, ui),
                     Page::Feed(_) => feed::update(self, ctx, ui),
+                    Page::HandlerKinds => handler::update_all_kinds(self, ctx, ui),
+                    Page::Handlers(kind) => handler::update_kind(self, ctx, ui, kind),
                     Page::Notifications => notifications::update(self, ui),
                     Page::PeopleLists | Page::PeopleList(_) | Page::Person(_) => {
                         people::update(self, ctx, frame, ui)
