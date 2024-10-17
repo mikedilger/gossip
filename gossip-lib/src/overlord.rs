@@ -763,8 +763,8 @@ impl Overlord {
             } => {
                 self.set_thread_feed(id, referenced_by, author)?;
             }
-            ToOverlordMessage::ShareHandler(kind, handler_key) => {
-                self.share_handler(kind, handler_key).await?;
+            ToOverlordMessage::ShareHandlerRecommendations(kind) => {
+                self.share_handler_recommendations(kind).await?;
             }
             ToOverlordMessage::StartLongLivedSubscriptions => {
                 self.start_long_lived_subscriptions().await?;
@@ -2638,12 +2638,26 @@ impl Overlord {
         Ok(())
     }
 
-    pub async fn share_handler(
-        &mut self,
-        kind: EventKind,
-        handler_key: HandlerKey,
-    ) -> Result<(), Error> {
-        let event = {
+    pub async fn share_handler_recommendations(&mut self, kind: EventKind) -> Result<(), Error> {
+        let public_key = match GLOBALS.identity.public_key() {
+            Some(pk) => pk,
+            None => {
+                tracing::warn!("No public key! Not posting");
+                return Ok(());
+            }
+        };
+
+        // Build the recommended handlers tags
+        let mut a_tags: Vec<Tag> = vec![];
+        let handlers: Vec<(HandlerKey, bool, bool)> = GLOBALS
+            .db()
+            .read_configured_handlers(kind)
+            .unwrap_or(vec![]);
+        for (handler_key, _enabled, recommended) in handlers {
+            if !recommended {
+                continue;
+            }
+
             // Find the 31990 event, and then find out which relay we saw it on
             let url = {
                 let handler_event = {
@@ -2677,22 +2691,19 @@ impl Overlord {
                 author: handler_key.pubkey,
             };
 
-            let public_key = match GLOBALS.identity.public_key() {
-                Some(pk) => pk,
-                None => {
-                    tracing::warn!("No public key! Not posting");
-                    return Ok(());
-                }
-            };
+            a_tags.push(Tag::new_address(&naddr, Some("web".to_owned())));
+        }
+
+        // Build the recommendation event
+        let event = {
+            let mut tags = vec![Tag::new_identifier(format!("{}", u32::from(kind)))];
+            tags.extend(a_tags);
 
             let pre_event = PreEvent {
                 pubkey: public_key,
                 created_at: Unixtime::now(),
                 kind: EventKind::HandlerRecommendation,
-                tags: vec![
-                    Tag::new_identifier(format!("{}", u32::from(kind))),
-                    Tag::new_address(&naddr, Some("web".to_owned())),
-                ],
+                tags,
                 content: "".to_string(),
             };
 

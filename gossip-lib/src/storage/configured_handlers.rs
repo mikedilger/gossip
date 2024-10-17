@@ -6,7 +6,10 @@ use heed::RwTxn;
 use nostr_types::EventKind;
 use std::sync::Mutex;
 
-// (EventKind, HandlerKey) -> enabled
+// (EventKind, HandlerKey) -> u8(flags)
+
+const ENABLED: u8 = 0x1;
+const RECOMMENDED: u8 = 0x2;
 
 fn configured_handlers_key_to_bytes(kind: EventKind, hk: HandlerKey) -> Result<Vec<u8>, Error> {
     let mut bytes: Vec<u8> = Vec::new();
@@ -60,34 +63,47 @@ impl Storage {
         kind: EventKind,
         handler_key: HandlerKey,
         enabled: bool,
+        recommended: bool,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
         let mut local_txn = None;
         let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
+        let mut flags: u8 = 0;
+        if enabled {
+            flags |= ENABLED;
+        }
+        if recommended {
+            flags |= RECOMMENDED;
+        }
+
         let key = configured_handlers_key_to_bytes(kind, handler_key)?;
-        let val = if enabled { vec![1_u8] } else { vec![0_u8] };
+        let val = vec![flags];
         self.db_configured_handlers()?.put(txn, &key, &val)?;
 
         maybe_local_txn_commit!(local_txn);
         Ok(())
     }
 
-    /// Read a configured handler
+    /// Read a configured handler (key, enabled, recommended)
     pub fn read_configured_handlers(
         &self,
         kind: EventKind,
-    ) -> Result<Vec<(HandlerKey, bool)>, Error> {
+    ) -> Result<Vec<(HandlerKey, bool, bool)>, Error> {
         let txn = self.get_read_txn()?;
 
-        let mut output: Vec<(HandlerKey, bool)> = Vec::new();
+        let mut output: Vec<(HandlerKey, bool, bool)> = Vec::new();
         let prefix: Vec<u8> = u32::from(kind).to_be_bytes().into();
         let iter = self.db_configured_handlers()?.prefix_iter(&txn, &prefix)?;
         for result in iter {
             let (key, val) = result?;
             let (_kind, handler_key) = configured_handlers_bytes_to_key(key)?;
-            let enabled: bool = if val.len() > 0 { val[0] != 0 } else { false };
-            output.push((handler_key, enabled));
+            let (enabled, recommended) = if val.len() == 0 {
+                (false, false)
+            } else {
+                (val[0] & ENABLED != 0, val[0] & RECOMMENDED != 0)
+            };
+            output.push((handler_key, enabled, recommended));
         }
 
         Ok(output)
@@ -95,15 +111,19 @@ impl Storage {
 
     pub fn read_all_configured_handlers(
         &self,
-    ) -> Result<Vec<(EventKind, HandlerKey, bool)>, Error> {
+    ) -> Result<Vec<(EventKind, HandlerKey, bool, bool)>, Error> {
         let txn = self.env.read_txn()?;
-        let mut output: Vec<(EventKind, HandlerKey, bool)> = Vec::new();
+        let mut output: Vec<(EventKind, HandlerKey, bool, bool)> = Vec::new();
         let iter = self.db_configured_handlers()?.iter(&txn)?;
         for result in iter {
             let (key, val) = result?;
             let (kind, handler_key) = configured_handlers_bytes_to_key(key)?;
-            let enabled = if val.len() > 0 { val[0] != 0 } else { false };
-            output.push((kind, handler_key, enabled));
+            let (enabled, recommended) = if val.len() == 0 {
+                (false, false)
+            } else {
+                (val[0] & ENABLED != 0, val[0] & RECOMMENDED != 0)
+            };
+            output.push((kind, handler_key, enabled, recommended));
         }
         Ok(output)
     }

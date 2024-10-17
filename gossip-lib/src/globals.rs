@@ -305,7 +305,9 @@ impl Globals {
     pub fn update_handlers(&self) -> Result<(), Error> {
         self.handlers.clear();
 
-        for (kind, handler_key, enabled) in self.db().read_all_configured_handlers()?.iter() {
+        for (kind, handler_key, enabled, _recommended) in
+            self.db().read_all_configured_handlers()?.iter()
+        {
             if !enabled {
                 continue;
             }

@@ -752,7 +752,9 @@ pub fn dump_handlers() -> Result<(), Error> {
 
     let mut last_kind = EventKind::Other(12345);
 
-    for (kind, handler_key, enabled) in GLOBALS.db().read_all_configured_handlers()?.iter() {
+    for (kind, handler_key, enabled, recommended) in
+        GLOBALS.db().read_all_configured_handlers()?.iter()
+    {
         if *kind != last_kind {
             println!("KIND={:?}", *kind);
             last_kind = *kind;
@@ -774,9 +776,10 @@ pub fn dump_handlers() -> Result<(), Error> {
             };
 
             println!(
-                "  {} enabled={} url={}",
+                "  {} enabled={} recommended={} url={}",
                 handler.name(),
                 *enabled,
+                *recommended,
                 handler_url
             );
         }

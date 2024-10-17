@@ -4,7 +4,6 @@ use crate::misc::Private;
 use crate::nostr_connect_server::{Approval, ParsedCommand};
 use crate::people::PersonList;
 use crate::relay::Relay;
-use crate::storage::types::HandlerKey;
 use nostr_types::{
     Event, EventKind, EventReference, Id, Metadata, MilliSatoshi, NAddr, Profile, PublicKey,
     RelayUrl, Tag, UncheckedUrl, Unixtime,
@@ -192,8 +191,8 @@ pub enum ToOverlordMessage {
         author: Option<PublicKey>,
     },
 
-    /// Calls [share_handler](crate::Overlord::share_handler)
-    ShareHandler(EventKind, HandlerKey),
+    /// Calls [share_handler_recommendations](crate::Overlord::share_handler_recommendations)
+    ShareHandlerRecommendations(EventKind),
 
     /// Calls [start_long_lived_subscriptions](crate::Overlord::start_long_lived_subscriptions)
     StartLongLivedSubscriptions,

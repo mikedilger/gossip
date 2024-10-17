@@ -271,14 +271,18 @@ pub fn process_new_event(
                 // If we already have this handler, do not clobber the
                 // user's 'enabled' flag
                 let existing = GLOBALS.db().read_configured_handlers(kind)?;
-                if existing.iter().any(|(hk, _)| *hk == handler.key) {
+                if existing.iter().any(|(hk, _, _)| *hk == handler.key) {
                     continue;
                 }
 
                 // Write configured handler, enabled by default
-                GLOBALS
-                    .db()
-                    .write_configured_handler(kind, handler.key.clone(), true, None)?;
+                GLOBALS.db().write_configured_handler(
+                    kind,
+                    handler.key.clone(),
+                    true,
+                    false,
+                    None,
+                )?;
             }
         }
     } else if event.kind == EventKind::ContactList {
