@@ -89,7 +89,7 @@ impl Handler {
             return None;
         }
 
-        Some(Handler {
+        let handler = Handler {
             key: HandlerKey {
                 pubkey: event.pubkey,
                 d,
@@ -99,7 +99,13 @@ impl Handler {
             kinds,
             nevent_url,
             naddr_url,
-        })
+        };
+
+        if &handler.name() == "broken handler" {
+            None
+        } else {
+            Some(handler)
+        }
     }
 
     pub fn metadata(&self) -> &Option<Metadata> {
@@ -133,7 +139,7 @@ impl Handler {
             }
         }
 
-        "unnamed".to_owned()
+        "broken handler".to_owned()
     }
 }
 
