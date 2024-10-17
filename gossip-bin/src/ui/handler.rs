@@ -1,6 +1,7 @@
 use super::{GossipUi, Page};
 use eframe::egui;
 use egui::{Context, Ui};
+use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{HandlerKey, HandlersTable, Table, GLOBALS};
 use nostr_types::EventKind;
 
@@ -45,11 +46,18 @@ pub(super) fn update_kind(_app: &mut GossipUi, _ctx: &Context, ui: &mut Ui, kind
                 continue;
             }
 
-            if ui.checkbox(&mut enabled, handler.name()).changed() {
-                let _ = GLOBALS
-                    .db()
-                    .write_configured_handler(kind, key.clone(), enabled, None);
-            }
+            ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
+                if ui.checkbox(&mut enabled, handler.name()).changed() {
+                    let _ = GLOBALS
+                        .db()
+                        .write_configured_handler(kind, key.clone(), enabled, None);
+                }
+                if ui.button("Share").clicked() {
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::ShareHandler(kind, key.clone()));
+                }
+            });
         }
     }
 }
