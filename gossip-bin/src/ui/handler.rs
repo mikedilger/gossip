@@ -3,7 +3,7 @@ use eframe::egui;
 use egui::{Context, Ui};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{HandlerKey, HandlersTable, Table, GLOBALS};
-use nostr_types::EventKind;
+use nostr_types::{EventKind, NAddr};
 
 pub(super) fn update_all_kinds(app: &mut GossipUi, _ctx: &Context, ui: &mut Ui) {
     ui.heading("External Event Handlers");
@@ -23,6 +23,40 @@ pub(super) fn update_all_kinds(app: &mut GossipUi, _ctx: &Context, ui: &mut Ui) 
             }
             ui.label(format!("{} {:?}", u32::from(*kind), kind));
         });
+    }
+
+    ui.add_space(10.0);
+    ui.separator();
+    ui.add_space(10.0);
+
+    ui.label("Import a handler via nevent");
+    let response = ui.add(text_edit_line!(app, app.handler_naddr).hint_text("naddr1..."));
+    let mut go: bool = false;
+    if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+        go = true;
+    }
+    if ui.button("Import").clicked() {
+        go = true;
+    }
+    if go {
+        if app.handler_naddr.starts_with("nostr:") {
+            app.handler_naddr = app.handler_naddr[6..].to_owned();
+        }
+
+        match NAddr::try_from_bech32_string(&app.handler_naddr) {
+            Ok(naddr) => {
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::FetchNAddr(naddr));
+            }
+            Err(_) => {
+                GLOBALS
+                    .status_queue
+                    .write()
+                    .write("Invalid naddr".to_string());
+            }
+        }
+        app.handler_naddr = "".to_string();
     }
 }
 
