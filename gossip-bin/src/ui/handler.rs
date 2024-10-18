@@ -106,7 +106,7 @@ pub(super) fn update_all_kinds(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
     });
 }
 
-pub(super) fn update_kind(app: &mut GossipUi, _ctx: &Context, ui: &mut Ui, kind: EventKind) {
+pub(super) fn update_kind(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, kind: EventKind) {
     widgets::page_header(
         ui,
         format!("Handler: {:?} ({})", kind, u32::from(kind)),
@@ -164,31 +164,63 @@ pub(super) fn update_kind(app: &mut GossipUi, _ctx: &Context, ui: &mut Ui, kind:
                             }
 
                             ui.add_space(10.0);
-                            let lwidth = ui.label(&name).rect.width();
+                            let lresp = ui.link(&name).on_hover_text("go to profile");
+                            if lresp.clicked() {
+                                app.set_page(ctx, super::Page::Person(handler.key.pubkey));
+                            }
+                            let lwidth = lresp.rect.width();
 
                             ui.add_space(200.0 - lwidth);
-
-                            if widgets::Switch::small(&app.theme, &mut recommended)
-                                .with_label("recommend")
-                                .show(ui)
-                                .changed()
-                            {
-                                let _ = GLOBALS.db().write_configured_handler(
-                                    kind,
-                                    key.clone(),
-                                    enabled,
-                                    recommended,
-                                    None,
-                                );
-                            }
-                        });
-
-                        ui.horizontal(|ui| {
-                            ui.label("About: ");
                             if let Some(metadata) = handler.metadata() {
-                                ui.label(metadata.about.as_deref().unwrap_or("".into()));
+                                if let Some(value) = metadata.other.get("website") {
+                                    match value {
+                                        serde_json::Value::String(url) => {
+                                            if ui
+                                                .link(url.to_string())
+                                                .on_hover_text("open website in browser")
+                                                .clicked()
+                                            {
+                                                ui.output_mut(|o| {
+                                                    o.open_url = Some(egui::OpenUrl {
+                                                        url: url.to_string(),
+                                                        new_tab: true,
+                                                    });
+                                                });
+                                            }
+                                        }
+                                        _ => {}
+                                    }
+                                }
                             }
+
+                            ui.with_layout(
+                                egui::Layout::right_to_left(egui::Align::default()),
+                                |ui| {
+                                    if widgets::Switch::small(&app.theme, &mut recommended)
+                                        .with_label("recommend")
+                                        .show(ui)
+                                        .changed()
+                                    {
+                                        let _ = GLOBALS.db().write_configured_handler(
+                                            kind,
+                                            key.clone(),
+                                            enabled,
+                                            recommended,
+                                            None,
+                                        );
+                                    }
+                                },
+                            );
                         });
+
+                        if let Some(metadata) = handler.metadata() {
+                            ui.horizontal(|ui| {
+                                ui.label(format!(
+                                    "About: {}",
+                                    metadata.about.as_deref().unwrap_or("".into())
+                                ));
+                            });
+                        }
 
                         ui.horizontal(|ui| {
                             ui.label("Recommended by: <TODO>");
