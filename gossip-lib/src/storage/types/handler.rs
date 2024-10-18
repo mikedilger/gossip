@@ -101,7 +101,10 @@ impl Handler {
             naddr_url,
         };
 
-        if &handler.name() == "broken handler" {
+        // If it doesn't have a valid hostname for either nevent or naddr:
+        if handler.hostname(EventKind::TextNote).is_none()
+            && handler.hostname(EventKind::LongFormContent).is_none()
+        {
             None
         } else {
             Some(handler)
@@ -113,33 +116,44 @@ impl Handler {
             .get_or_init(|| serde_json::from_str::<Metadata>(&self.metadata_json).ok())
     }
 
-    pub fn name(&self) -> String {
+    pub fn bestname(&self, kind: EventKind) -> Option<String> {
+        match self.metaname() {
+            Some(n) => Some(n),
+            None => self.hostname(kind),
+        }
+    }
+
+    pub fn metaname(&self) -> Option<String> {
         // Try metadata
         if let Some(m) = self.metadata() {
             if let Some(n) = &m.name {
-                return n.to_owned();
+                return Some(n.to_owned());
             }
         }
 
-        // Use DNS name of host from nevent_url
-        if let Some(url) = &self.nevent_url {
-            if let Ok(uri) = url.as_str().replace("<naddr>", "x").parse::<http::Uri>() {
-                if let Some(host) = uri.host() {
-                    return host.to_owned();
+        None
+    }
+
+    pub fn hostname(&self, kind: EventKind) -> Option<String> {
+        if kind.is_parameterized_replaceable() {
+            if let Some(url) = &self.naddr_url {
+                if let Ok(uri) = url.as_str().replace("<naddr>", "x").parse::<http::Uri>() {
+                    if let Some(host) = uri.host() {
+                        return Some(host.to_owned());
+                    }
+                }
+            }
+        } else {
+            if let Some(url) = &self.nevent_url {
+                if let Ok(uri) = url.as_str().replace("<naddr>", "x").parse::<http::Uri>() {
+                    if let Some(host) = uri.host() {
+                        return Some(host.to_owned());
+                    }
                 }
             }
         }
 
-        // Use DNS name of host from naddr_url
-        if let Some(url) = &self.naddr_url {
-            if let Ok(uri) = url.as_str().replace("<naddr>", "x").parse::<http::Uri>() {
-                if let Some(host) = uri.host() {
-                    return host.to_owned();
-                }
-            }
-        }
-
-        "broken handler".to_owned()
+        None
     }
 }
 

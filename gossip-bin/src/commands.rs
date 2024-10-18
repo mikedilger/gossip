@@ -776,8 +776,8 @@ pub fn dump_handlers() -> Result<(), Error> {
             };
 
             println!(
-                "  {} enabled={} recommended={} url={}",
-                handler.name(),
+                "  {:?} enabled={} recommended={} url={}",
+                handler.bestname(*kind),
                 *enabled,
                 *recommended,
                 handler_url

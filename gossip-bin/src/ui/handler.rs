@@ -101,11 +101,15 @@ pub(super) fn update_all_kinds(app: &mut GossipUi, _ctx: &Context, ui: &mut Ui) 
                                             {
                                                 continue;
                                             }
+                                            let name = match handler.bestname(*kind) {
+                                                Some(n) => n,
+                                                None => continue,
+                                            };
 
                                             ui.with_layout(
                                                 egui::Layout::left_to_right(egui::Align::TOP),
                                                 |ui| {
-                                                    ui.label(handler.name());
+                                                    ui.label(name);
                                                     if widgets::Switch::small(
                                                         &app.theme,
                                                         &mut enabled,

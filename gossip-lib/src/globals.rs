@@ -323,7 +323,11 @@ impl Globals {
                     (false, Some(u), _) => u.clone(),
                     (false, None, _) => continue,
                 };
-                let data = (handler.name(), url);
+                let name = match handler.bestname(*kind) {
+                    Some(n) => n,
+                    None => continue,
+                };
+                let data = (name, url);
                 self.handlers
                     .entry(*kind)
                     .and_modify(|e| e.push(data.clone()))
