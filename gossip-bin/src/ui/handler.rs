@@ -59,7 +59,7 @@ pub(super) fn update_all_kinds(app: &mut GossipUi, _ctx: &Context, ui: &mut Ui) 
                     ui.set_min_width(ui.available_width());
                     ui.set_height(37.0);
 
-                    let kind_name = format!("{:?}", kind);
+                    let kind_name = format!("{}", kind);
                     let id = egui::Id::new(u32::from(*kind).to_string());
 
                     ui.horizontal(|ui| {
