@@ -1,6 +1,6 @@
 use super::{ByteRep, Record};
 use crate::error::Error;
-use nostr_types::{Event, EventKind, Metadata, PublicKey, UncheckedUrl};
+use nostr_types::{Event, EventKind, Metadata, NAddr, PublicKey, UncheckedUrl};
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
 use std::sync::OnceLock;
@@ -16,6 +16,17 @@ pub struct HandlerKey {
 
     /// d tag
     pub d: String,
+}
+
+impl HandlerKey {
+    pub fn as_naddr(&self, relays: Vec<UncheckedUrl>) -> NAddr {
+        NAddr {
+            d: self.d.clone(),
+            relays,
+            kind: EventKind::HandlerInformation,
+            author: self.pubkey,
+        }
+    }
 }
 
 impl ByteRep for HandlerKey {
