@@ -3,7 +3,7 @@ use eframe::egui::{self};
 use egui::{Context, Ui};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{HandlerKey, HandlersTable, Table, GLOBALS};
-use nostr_types::{EventKind, NAddr};
+use nostr_types::{EventKind, NAddr, PublicKey};
 
 pub(super) fn update_all_kinds(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
     widgets::page_header(ui, "External Event Handlers", |_ui| ());
@@ -222,8 +222,22 @@ pub(super) fn update_kind(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, kind: 
                             });
                         }
 
+                        let recommended_by: Vec<PublicKey> = GLOBALS
+                            .db()
+                            .who_recommended_handler(&key, kind)
+                            .unwrap_or(vec![]);
+                        let mut rec_msg: String = "Recommended by: ".to_string();
+                        let mut first = true;
+                        for pubkey in recommended_by.iter() {
+                            if !first {
+                                rec_msg.push_str(", ");
+                            }
+                            first = false;
+                            let name = gossip_lib::names::best_name_from_pubkey_lookup(pubkey);
+                            rec_msg.push_str(&name);
+                        }
                         ui.horizontal(|ui| {
-                            ui.label("Recommended by: <TODO>");
+                            ui.label(rec_msg);
                         });
                     },
                 );
