@@ -5,7 +5,7 @@ use crate::globals::GLOBALS;
 use crate::misc::{Freshness, Private};
 use crate::people::{People, PersonList, PersonListMetadata};
 use crate::relationship::{RelationshipByAddr, RelationshipById};
-use crate::storage::types::Handler;
+use crate::storage::types::{Handler, HandlerKey};
 use crate::storage::{HandlersTable, PersonTable, Table};
 use crate::Relay;
 use heed::RwTxn;
@@ -562,8 +562,13 @@ fn process_handler_recommendation(event: &Event) -> Result<(), Error> {
     // NOTE: We don't care what 'd' kind is given, we collect these for all kinds.
 
     let mut naddrs: Vec<NAddr> = Vec::new();
+    let mut d = "".to_owned();
 
     for tag in &event.tags {
+        if tag.get_index(0) == "d" {
+            d = tag.get_index(1).to_owned();
+        }
+
         let (naddr, marker) = match tag.parse_address() {
             Ok(pair) => pair,
             Err(_) => continue,
@@ -590,6 +595,30 @@ fn process_handler_recommendation(event: &Event) -> Result<(), Error> {
 
     if naddrs.is_empty() {
         return Ok(());
+    }
+
+    // If it is ours (e.g. from another client), update our local recommendation bits
+    if let Some(pk) = GLOBALS.identity.public_key() {
+        if event.pubkey == pk {
+            if let Ok(kindnum) = d.parse::<u32>() {
+                let kind: EventKind = kindnum.into();
+                let configured_handlers: Vec<(HandlerKey, bool, bool)> =
+                    GLOBALS.db().read_configured_handlers(kind)?;
+                for (key, enabled, recommended) in configured_handlers.iter() {
+                    let event_recommended =
+                        naddrs.iter().any(|naddr| *naddr == key.as_naddr(vec![]));
+                    if event_recommended != *recommended {
+                        GLOBALS.db().write_configured_handler(
+                            kind,
+                            key.clone(),
+                            *enabled,
+                            event_recommended,
+                            None,
+                        )?;
+                    }
+                }
+            }
+        }
     }
 
     for naddr in naddrs {
