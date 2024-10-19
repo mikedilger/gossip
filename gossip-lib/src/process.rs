@@ -279,8 +279,8 @@ pub fn process_new_event(
                 GLOBALS.db().write_configured_handler(
                     kind,
                     handler.key.clone(),
-                    true,
-                    false,
+                    true,  // enabled
+                    false, // recommended
                     None,
                 )?;
             }

@@ -72,24 +72,34 @@ impl Handler {
                     kinds.push(kind);
                 }
             } else if tag.get_index(0) == "web" {
-                if tag.get_index(2) == "nevent" {
-                    nevent_url = Some(UncheckedUrl::from_str(tag.get_index(1)));
-                } else if tag.get_index(2) == "naddr" {
-                    naddr_url = Some(UncheckedUrl::from_str(tag.get_index(1)));
+                let u = tag.get_index(1);
+                if Self::check_url(u) {
+                    if tag.get_index(2) == "nevent" {
+                        nevent_url = Some(UncheckedUrl::from_str(u));
+                    } else if tag.get_index(2) == "naddr" {
+                        naddr_url = Some(UncheckedUrl::from_str(u));
+                    }
                 }
             }
         }
 
-        if kinds.is_empty() {
-            return None;
-        }
-
-        // Don't store it if it doesn't handle anything useful.
+        // Must have at least one supported URL
         if nevent_url.is_none() && naddr_url.is_none() {
             return None;
         }
 
-        let handler = Handler {
+        // Remove kinds that don't have web URLs for them
+        kinds.retain(|k| {
+            (!k.is_parameterized_replaceable() && nevent_url.is_some())
+                || (k.is_parameterized_replaceable() && naddr_url.is_some())
+        });
+
+        // Must support at least one kind with the supported URLs
+        if kinds.is_empty() {
+            return None;
+        }
+
+        Some(Handler {
             key: HandlerKey {
                 pubkey: event.pubkey,
                 d,
@@ -99,16 +109,18 @@ impl Handler {
             kinds,
             nevent_url,
             naddr_url,
-        };
+        })
+    }
 
-        // If it doesn't have a valid hostname for either nevent or naddr:
-        if handler.hostname(EventKind::TextNote).is_none()
-            && handler.hostname(EventKind::LongFormContent).is_none()
-        {
-            None
-        } else {
-            Some(handler)
+    fn check_url(u: &str) -> bool {
+        // Verify it parses as a URI with a host
+        if let Ok(uri) = u.replace("<bech32>", "x").parse::<http::Uri>() {
+            if uri.host().is_some() {
+                return true;
+            }
         }
+
+        false
     }
 
     pub fn metadata(&self) -> &Option<Metadata> {
@@ -137,7 +149,7 @@ impl Handler {
     pub fn hostname(&self, kind: EventKind) -> Option<String> {
         if kind.is_parameterized_replaceable() {
             if let Some(url) = &self.naddr_url {
-                if let Ok(uri) = url.as_str().replace("<naddr>", "x").parse::<http::Uri>() {
+                if let Ok(uri) = url.as_str().replace("<bech32>", "x").parse::<http::Uri>() {
                     if let Some(host) = uri.host() {
                         return Some(host.to_owned());
                     }
@@ -145,7 +157,7 @@ impl Handler {
             }
         } else {
             if let Some(url) = &self.nevent_url {
-                if let Ok(uri) = url.as_str().replace("<naddr>", "x").parse::<http::Uri>() {
+                if let Ok(uri) = url.as_str().replace("<bech32>", "x").parse::<http::Uri>() {
                     if let Some(host) = uri.host() {
                         return Some(host.to_owned());
                     }
