@@ -3,7 +3,8 @@ use crate::error::Error;
 use crate::storage::{RawDatabase, Storage};
 use heed::types::Bytes;
 use heed::RwTxn;
-use nostr_types::EventKind;
+use nostr_types::{EventKind, Filter, PublicKey, Tag};
+use std::collections::BTreeSet;
 use std::sync::Mutex;
 
 // (EventKind, HandlerKey) -> u8(flags)
@@ -139,5 +140,32 @@ impl Storage {
 
         maybe_local_txn_commit!(local_txn);
         Ok(())
+    }
+
+    pub fn who_recommended_handler(
+        &self,
+        key: &HandlerKey,
+        kind: EventKind,
+    ) -> Result<Vec<PublicKey>, Error> {
+        let mut who: BTreeSet<PublicKey> = BTreeSet::new();
+
+        let naddr = key.as_naddr(vec![]);
+        let atag = Tag::new_address(&naddr, None);
+        let mut filter = Filter::new();
+        filter.add_event_kind(EventKind::HandlerRecommendation);
+        filter.add_tag_value('a', atag.get_index(1).to_string());
+        let events = self.find_events_by_filter(&filter, |_| true)?;
+        for event in events.iter() {
+            if let Some(d) = event.parameter() {
+                if let Ok(kindnum) = d.parse::<u32>() {
+                    let event_kind: EventKind = kindnum.into();
+                    if event_kind == kind {
+                        who.insert(event.pubkey);
+                    }
+                }
+            }
+        }
+
+        Ok(who.iter().map(|k| *k).collect())
     }
 }
