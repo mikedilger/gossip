@@ -54,7 +54,7 @@ pub(super) fn update_all_kinds(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                 |ui, app| {
                     ui.set_min_width(ui.available_width());
 
-                    let kind_name = format!("Kind {:?}", u32::from(*kind));
+                    let kind_name = format!("Kind {}", u32::from(*kind));
 
                     let handlers: Vec<(HandlerKey, bool, bool)> = GLOBALS
                         .db()
@@ -68,7 +68,7 @@ pub(super) fn update_all_kinds(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                     ui.horizontal(|ui| {
                         let kwidth = ui.label(egui::RichText::new(&kind_name)).rect.width();
                         ui.add_space(200.0 - kwidth);
-                        ui.label(egui::RichText::new(format!("{:?}", kind)));
+                        ui.label(egui::RichText::new(format!("{}", kind)));
 
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
                             if all_count == 0 {
@@ -109,7 +109,7 @@ pub(super) fn update_all_kinds(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
 pub(super) fn update_kind(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, kind: EventKind) {
     widgets::page_header(
         ui,
-        format!("Handler: {:?} ({})", kind, u32::from(kind)),
+        format!("Handler: {} ({})", kind, u32::from(kind)),
         |ui| {
             if widgets::Button::secondary(&app.theme, "Share recommendations")
                 .show(ui)
