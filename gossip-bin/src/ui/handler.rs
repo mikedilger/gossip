@@ -214,7 +214,7 @@ pub(super) fn update_kind(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, kind: 
                         });
 
                         if let Some(metadata) = handler.metadata() {
-                            ui.horizontal(|ui| {
+                            ui.horizontal_wrapped(|ui| {
                                 ui.label(format!(
                                     "About: {}",
                                     metadata.about.as_deref().unwrap_or("".into())
