@@ -226,18 +226,17 @@ pub(super) fn update_kind(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, kind: 
                             .db()
                             .who_recommended_handler(&key, kind)
                             .unwrap_or(vec![]);
-                        let mut rec_msg: String = "Recommended by: ".to_string();
-                        let mut first = true;
-                        for pubkey in recommended_by.iter() {
-                            if !first {
-                                rec_msg.push_str(", ");
-                            }
-                            first = false;
-                            let name = gossip_lib::names::best_name_from_pubkey_lookup(pubkey);
-                            rec_msg.push_str(&name);
-                        }
                         ui.horizontal(|ui| {
-                            ui.label(rec_msg);
+                            if recommended_by.len() > 0 {
+                                ui.label("Recommended by: ");
+                                for pubkey in recommended_by.iter() {
+                                    let name =
+                                        gossip_lib::names::best_name_from_pubkey_lookup(pubkey);
+                                    if ui.link(name).clicked() {
+                                        app.set_page(ctx, super::Page::Person(pubkey.to_owned()));
+                                    }
+                                }
+                            }
                         });
                     },
                 );
