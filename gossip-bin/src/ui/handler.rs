@@ -227,13 +227,17 @@ pub(super) fn update_kind(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, kind: 
                             .who_recommended_handler(&key, kind)
                             .unwrap_or(vec![]);
                         ui.horizontal(|ui| {
-                            if recommended_by.len() > 0 {
+                            let count = recommended_by.len();
+                            if count > 0 {
                                 ui.label("Recommended by: ");
-                                for pubkey in recommended_by.iter() {
+                                for (i, pubkey) in recommended_by.iter().enumerate() {
                                     let name =
                                         gossip_lib::names::best_name_from_pubkey_lookup(pubkey);
                                     if ui.link(name).clicked() {
                                         app.set_page(ctx, super::Page::Person(pubkey.to_owned()));
+                                    }
+                                    if (i + 1) < count {
+                                        ui.label("|");
                                     }
                                 }
                             }
