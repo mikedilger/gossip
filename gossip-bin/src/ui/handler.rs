@@ -2,10 +2,24 @@ use super::{widgets, GossipUi};
 use eframe::egui::{self};
 use egui::{Context, Ui};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::{HandlerKey, HandlersTable, Table, GLOBALS};
+use gossip_lib::{Handler, HandlerKey, HandlersTable, Table, GLOBALS};
 use nostr_types::{EventKind, NAddr, PublicKey};
 
+pub struct Handlers {
+    /// Handler that is open for detailed view, if any
+    detail: Option<PublicKey>,
+}
+
+impl Default for Handlers {
+    fn default() -> Self {
+        Self { detail: None }
+    }
+}
+
 pub(super) fn update_all_kinds(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
+    // If we end up in this overview, we clear any detail view
+    app.handlers.detail.take();
+
     widgets::page_header(ui, "External Event Handlers", |_ui| ());
 
     ui.label("Import a handler via nevent");
@@ -106,7 +120,7 @@ pub(super) fn update_all_kinds(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
     });
 }
 
-pub(super) fn update_kind(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, kind: EventKind) {
+pub(super) fn update_kind(app: &mut GossipUi, _ctx: &Context, ui: &mut Ui, kind: EventKind) {
     widgets::page_header(
         ui,
         format!("Handler: {} ({})", kind, u32::from(kind)),
@@ -142,108 +156,147 @@ pub(super) fn update_kind(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, kind: 
                     None => continue,
                 };
 
-                widgets::list_entry::clickable_frame(
+                let response = widgets::list_entry::clickable_frame(
                     ui,
                     app,
                     Some(app.theme.main_content_bgcolor()),
                     |ui, app| {
                         ui.set_min_width(ui.available_width());
 
-                        ui.horizontal(|ui| {
-                            if widgets::Switch::small(&app.theme, &mut enabled)
-                                .show(ui)
-                                .changed()
-                            {
-                                let _ = GLOBALS.db().write_configured_handler(
-                                    kind,
-                                    key.clone(),
-                                    enabled,
-                                    recommended,
-                                    None,
-                                );
-                            }
-
-                            ui.add_space(10.0);
-                            let lresp = ui.link(&name).on_hover_text("go to profile");
-                            if lresp.clicked() {
-                                app.set_page(ctx, super::Page::Person(handler.key.pubkey));
-                            }
-                            let lwidth = lresp.rect.width();
-
-                            ui.add_space(200.0 - lwidth);
-                            if let Some(metadata) = handler.metadata() {
-                                if let Some(value) = metadata.other.get("website") {
-                                    match value {
-                                        serde_json::Value::String(url) => {
-                                            if ui
-                                                .link(url.to_string())
-                                                .on_hover_text("open website in browser")
-                                                .clicked()
-                                            {
-                                                ui.output_mut(|o| {
-                                                    o.open_url = Some(egui::OpenUrl {
-                                                        url: url.to_string(),
-                                                        new_tab: true,
-                                                    });
-                                                });
-                                            }
-                                        }
-                                        _ => {}
-                                    }
-                                }
-                            }
-
-                            ui.with_layout(
-                                egui::Layout::right_to_left(egui::Align::default()),
-                                |ui| {
-                                    if widgets::Switch::small(&app.theme, &mut recommended)
-                                        .with_label("recommend")
-                                        .show(ui)
-                                        .changed()
-                                    {
-                                        let _ = GLOBALS.db().write_configured_handler(
-                                            kind,
-                                            key.clone(),
-                                            enabled,
-                                            recommended,
-                                            None,
-                                        );
-                                    }
-                                },
+                        ui.push_id(&name, |ui| {
+                            handler_header(
+                                ui,
+                                app,
+                                &handler,
+                                &name,
+                                kind,
+                                &mut enabled,
+                                &mut recommended,
                             );
-                        });
 
-                        if let Some(metadata) = handler.metadata() {
-                            ui.horizontal_wrapped(|ui| {
-                                ui.label(format!(
-                                    "About: {}",
-                                    metadata.about.as_deref().unwrap_or("".into())
-                                ));
-                            });
-                        }
-
-                        let recommended_by: Vec<PublicKey> = GLOBALS
-                            .db()
-                            .who_recommended_handler(&key, kind)
-                            .unwrap_or(vec![]);
-                        ui.horizontal(|ui| {
-                            let count = recommended_by.len();
-                            if count > 0 {
-                                ui.label("Recommended by: ");
-                                for (i, pubkey) in recommended_by.iter().enumerate() {
-                                    let name =
-                                        gossip_lib::names::best_name_from_pubkey_lookup(pubkey);
-                                    if ui.link(name).clicked() {
-                                        app.set_page(ctx, super::Page::Person(pubkey.to_owned()));
-                                    }
-                                    if (i + 1) < count {
-                                        ui.label("|");
-                                    }
-                                }
+                            if app.handlers.detail == Some(handler.key.pubkey) {
+                                handler_detail(ui, app, &handler, kind);
                             }
-                        });
+
+                            ui.interact_bg(egui::Sense::click())
+                        })
+                        .inner
                     },
                 );
+
+                if response
+                    .inner
+                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                    .clicked()
+                {
+                    if app.handlers.detail == Some(handler.key.pubkey) {
+                        app.handlers.detail.take();
+                    } else {
+                        app.handlers.detail = Some(handler.key.pubkey);
+                    }
+                }
+            }
+        }
+    });
+}
+
+fn handler_header(
+    ui: &mut Ui,
+    app: &mut GossipUi,
+    handler: &Handler,
+    name: &String,
+    kind: EventKind,
+    enabled: &mut bool,
+    recommended: &mut bool,
+) {
+    ui.horizontal(|ui| {
+        if widgets::Switch::small(&app.theme, enabled)
+            .show(ui)
+            .changed()
+        {
+            let _ = GLOBALS.db().write_configured_handler(
+                kind,
+                handler.key.clone(),
+                *enabled,
+                *recommended,
+                None,
+            );
+        }
+
+        ui.add_space(10.0);
+        let lresp = ui.link(name).on_hover_text("go to profile");
+        if lresp.clicked() {
+            app.set_page(ui.ctx(), super::Page::Person(handler.key.pubkey));
+        }
+        let lwidth = lresp.rect.width();
+
+        ui.add_space(200.0 - lwidth);
+        if let Some(metadata) = handler.metadata() {
+            if let Some(value) = metadata.other.get("website") {
+                match value {
+                    serde_json::Value::String(url) => {
+                        if ui
+                            .link(url.to_string())
+                            .on_hover_text("open website in browser")
+                            .clicked()
+                        {
+                            ui.output_mut(|o| {
+                                o.open_url = Some(egui::OpenUrl {
+                                    url: url.to_string(),
+                                    new_tab: true,
+                                });
+                            });
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
+            if widgets::Switch::small(&app.theme, recommended)
+                .with_label("recommend")
+                .show(ui)
+                .changed()
+            {
+                let _ = GLOBALS.db().write_configured_handler(
+                    kind,
+                    handler.key.clone(),
+                    *enabled,
+                    *recommended,
+                    None,
+                );
+            }
+        });
+    });
+}
+
+fn handler_detail(ui: &mut Ui, app: &mut GossipUi, handler: &Handler, kind: EventKind) {
+    if let Some(metadata) = handler.metadata() {
+        ui.horizontal_wrapped(|ui| {
+            ui.label(format!(
+                "About: {}",
+                metadata.about.as_deref().unwrap_or("".into())
+            ));
+        });
+    }
+
+    let recommended_by: Vec<PublicKey> = GLOBALS
+        .db()
+        .who_recommended_handler(&handler.key, kind)
+        .unwrap_or(vec![]);
+    ui.horizontal(|ui| {
+        let count = recommended_by.len();
+        if count > 0 {
+            ui.label("Recommended by: ");
+            for (i, pubkey) in recommended_by.iter().enumerate() {
+                let name = gossip_lib::names::best_name_from_pubkey_lookup(pubkey);
+                if ui.link(name).clicked() {
+                    app.set_page(ui.ctx(), super::Page::Person(pubkey.to_owned()));
+                }
+                if (i + 1) < count {
+                    ui.label("|");
+                }
             }
         }
     });

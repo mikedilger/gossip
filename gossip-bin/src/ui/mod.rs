@@ -71,6 +71,7 @@ use gossip_lib::{
     DmChannel, DmChannelData, Error, FeedKind, Person, PersonList, Private, RunState, ZapState,
     GLOBALS,
 };
+use handler::Handlers;
 use nostr_types::ContentSegment;
 use nostr_types::RelayUrl;
 use nostr_types::{EventKind, Id, Metadata, MilliSatoshi, Profile, PublicKey, UncheckedUrl, Url};
@@ -444,6 +445,9 @@ struct GossipUi {
     // people::ListUi
     people_list: people::ListUi,
 
+    // Handlers Ui
+    handlers: Handlers,
+
     // Post rendering
     render_raw: Option<(Id, String)>,
     render_qr: Option<Id>,
@@ -709,6 +713,7 @@ impl GossipUi {
             notification_data: NotificationData::new(),
             relays: relays::RelayUi::new(),
             people_list: people::ListUi::new(),
+            handlers: Default::default(),
             render_raw: None,
             render_qr: None,
             approved: HashSet::new(),
