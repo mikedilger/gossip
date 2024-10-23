@@ -5,7 +5,8 @@ use crate::globals::GLOBALS;
 use crate::misc::{Freshness, Private};
 use crate::people::{People, PersonList, PersonListMetadata};
 use crate::relationship::{RelationshipByAddr, RelationshipById};
-use crate::storage::{PersonTable, Table};
+use crate::storage::types::{Handler, HandlerKey};
+use crate::storage::{HandlersTable, PersonTable, Table};
 use crate::Relay;
 use heed::RwTxn;
 use nostr_types::{
@@ -251,16 +252,40 @@ pub fn process_new_event(
     // Let seeker know about this event id (in case it was sought)
     GLOBALS.seeker.found(event)?;
 
-    // If metadata, update person
     if event.kind == EventKind::Metadata {
+        // If metadata, update person
         let metadata: Metadata = serde_json::from_str(&event.content)?;
 
         GLOBALS
             .people
             .update_metadata(&event.pubkey, metadata, event.created_at)?;
-    }
+    } else if event.kind == EventKind::HandlerRecommendation {
+        process_handler_recommendation(event)?;
+    } else if event.kind == EventKind::HandlerInformation {
+        // If event kind handler information, add to database
+        if let Some(mut handler) = Handler::from_31990(event) {
+            HandlersTable::write_record(&mut handler, None)?;
 
-    if event.kind == EventKind::ContactList {
+            // Also add entry to configured_handlers for each kind
+            for kind in handler.kinds {
+                // If we already have this handler, do not clobber the
+                // user's 'enabled' flag
+                let existing = GLOBALS.db().read_configured_handlers(kind)?;
+                if existing.iter().any(|(hk, _, _)| *hk == handler.key) {
+                    continue;
+                }
+
+                // Write configured handler, enabled by default
+                GLOBALS.db().write_configured_handler(
+                    kind,
+                    handler.key.clone(),
+                    true,  // enabled
+                    false, // recommended
+                    None,
+                )?;
+            }
+        }
+    } else if event.kind == EventKind::ContactList {
         if let Some(pubkey) = GLOBALS.identity.public_key() {
             if event.pubkey == pubkey {
                 // Updates stamps and counts, does NOT change membership
@@ -530,6 +555,79 @@ pub fn reprocess_relay_lists() -> Result<(usize, usize), Error> {
     txn.commit()?;
 
     Ok(counts)
+}
+
+// Collect handler recommendations, then fetch the handler information
+fn process_handler_recommendation(event: &Event) -> Result<(), Error> {
+    // NOTE: We don't care what 'd' kind is given, we collect these for all kinds.
+
+    let mut naddrs: Vec<NAddr> = Vec::new();
+    let mut d = "".to_owned();
+
+    for tag in &event.tags {
+        if tag.get_index(0) == "d" {
+            d = tag.get_index(1).to_owned();
+        }
+
+        let (naddr, marker) = match tag.parse_address() {
+            Ok(pair) => pair,
+            Err(_) => continue,
+        };
+        let marker = match marker {
+            Some(m) => m,
+            None => continue,
+        };
+        if marker != "web" {
+            continue;
+        }
+
+        if naddr.kind != EventKind::HandlerInformation {
+            continue;
+        };
+
+        // We need a relay to load the handler from
+        if naddr.relays.is_empty() {
+            continue;
+        }
+
+        naddrs.push(naddr);
+    }
+
+    if naddrs.is_empty() {
+        return Ok(());
+    }
+
+    // If it is ours (e.g. from another client), update our local recommendation bits
+    if let Some(pk) = GLOBALS.identity.public_key() {
+        if event.pubkey == pk {
+            if let Ok(kindnum) = d.parse::<u32>() {
+                let kind: EventKind = kindnum.into();
+                let configured_handlers: Vec<(HandlerKey, bool, bool)> =
+                    GLOBALS.db().read_configured_handlers(kind)?;
+                for (key, enabled, recommended) in configured_handlers.iter() {
+                    let event_recommended =
+                        naddrs.iter().any(|naddr| *naddr == key.as_naddr(vec![]));
+                    if event_recommended != *recommended {
+                        GLOBALS.db().write_configured_handler(
+                            kind,
+                            key.clone(),
+                            *enabled,
+                            event_recommended,
+                            None,
+                        )?;
+                    }
+                }
+            }
+        }
+    }
+
+    for naddr in naddrs {
+        let _ = GLOBALS
+            .to_overlord
+            .send(ToOverlordMessage::FetchNAddr(naddr));
+    }
+
+    Ok(())
 }
 
 /// Process relationships of an event.

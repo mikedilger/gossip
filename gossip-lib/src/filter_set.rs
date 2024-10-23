@@ -369,6 +369,7 @@ impl FilterSet {
                         EventKind::Metadata,
                         EventKind::RelayList,
                         EventKind::DmRelayList,
+                        EventKind::HandlerRecommendation,
                     ],
                     // FIXME: we could probably get a since-last-fetched-their-metadata here.
                     //        but relays should just return the latest of these.

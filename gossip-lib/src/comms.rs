@@ -5,8 +5,8 @@ use crate::nostr_connect_server::{Approval, ParsedCommand};
 use crate::people::PersonList;
 use crate::relay::Relay;
 use nostr_types::{
-    Event, EventReference, Id, Metadata, MilliSatoshi, NAddr, Profile, PublicKey, RelayUrl, Tag,
-    UncheckedUrl, Unixtime,
+    Event, EventKind, EventReference, Id, Metadata, MilliSatoshi, NAddr, Profile, PublicKey,
+    RelayUrl, Tag, UncheckedUrl, Unixtime,
 };
 use std::fmt;
 use std::hash::{Hash, Hasher};
@@ -190,6 +190,9 @@ pub enum ToOverlordMessage {
         referenced_by: Id,
         author: Option<PublicKey>,
     },
+
+    /// Calls [share_handler_recommendations](crate::Overlord::share_handler_recommendations)
+    ShareHandlerRecommendations(EventKind),
 
     /// Calls [start_long_lived_subscriptions](crate::Overlord::start_long_lived_subscriptions)
     StartLongLivedSubscriptions,

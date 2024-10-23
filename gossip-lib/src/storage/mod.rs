@@ -20,13 +20,15 @@ pub use person4_table::Person4Table;
 pub type PersonTable = Person4Table;
 pub mod followings_table;
 pub use followings_table::FollowingsTable;
+pub mod handlers_table;
+pub use handlers_table::HandlersTable;
 
 // database implementations
+mod configured_handlers;
 mod event_akci_index;
 use event_akci_index::AkciKey;
 mod event_kci_index;
 use event_kci_index::KciKey;
-
 mod event_ek_c_index1;
 mod event_ek_pk_index1;
 mod event_seen_on_relay1;
@@ -223,8 +225,10 @@ impl Storage {
         let _ = self.db_person_lists()?;
         let _ = self.db_person_lists_metadata()?;
         let _ = self.db_fof()?;
+        let _ = self.db_configured_handlers()?;
         let _ = PersonTable::db()?;
         let _ = FollowingsTable::db()?;
+        let _ = HandlersTable::db()?;
 
         // Do migrations
         match self.read_migration_level()? {
@@ -417,6 +421,11 @@ impl Storage {
     pub fn get_fof_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
         Ok(self.db_fof()?.len(&txn)?)
+    }
+
+    pub fn get_configured_handlers_len(&self) -> Result<u64, Error> {
+        let txn = self.env.read_txn()?;
+        Ok(self.db_configured_handlers()?.len(&txn)?)
     }
 
     // General key-value functions --------------------------------------------------

@@ -17,6 +17,7 @@ use crate::relay;
 use crate::relay::Relay;
 use crate::relay_picker::RelayAssignment;
 use crate::relay_test_results::{RelayTestResult, RelayTestResults};
+use crate::storage::types::HandlerKey;
 use crate::storage::{PersonTable, Table};
 use crate::RunState;
 use heed::RwTxn;
@@ -761,6 +762,9 @@ impl Overlord {
                 author,
             } => {
                 self.set_thread_feed(id, referenced_by, author)?;
+            }
+            ToOverlordMessage::ShareHandlerRecommendations(kind) => {
+                self.share_handler_recommendations(kind).await?;
             }
             ToOverlordMessage::StartLongLivedSubscriptions => {
                 self.start_long_lived_subscriptions().await?;
@@ -2630,6 +2634,97 @@ impl Overlord {
                 manager::engage_minion(url.to_owned(), jobs);
             }
         }
+
+        Ok(())
+    }
+
+    pub async fn share_handler_recommendations(&mut self, kind: EventKind) -> Result<(), Error> {
+        let public_key = match GLOBALS.identity.public_key() {
+            Some(pk) => pk,
+            None => {
+                tracing::warn!("No public key! Not posting");
+                return Ok(());
+            }
+        };
+
+        // Build the recommended handlers tags
+        let mut a_tags: Vec<Tag> = vec![];
+        let handlers: Vec<(HandlerKey, bool, bool)> = GLOBALS
+            .db()
+            .read_configured_handlers(kind)
+            .unwrap_or(vec![]);
+        for (handler_key, _enabled, recommended) in handlers {
+            if !recommended {
+                continue;
+            }
+
+            // Find the 31990 event, and then find out which relay we saw it on
+            let url = {
+                let handler_event = {
+                    let mut filter = Filter::new();
+                    filter.add_event_kind(EventKind::HandlerInformation);
+                    filter.add_author(handler_key.pubkey);
+                    filter.add_tag_value('d', handler_key.d.clone());
+                    let handler_events = GLOBALS.db().find_events_by_filter(&filter, |_| true)?;
+                    if handler_events.is_empty() {
+                        tracing::warn!("Handler event not found locally");
+                        return Ok(());
+                    }
+                    handler_events[0].clone()
+                };
+
+                let mut seen_on = GLOBALS.db().get_event_seen_on_relay(handler_event.id)?;
+                if seen_on.is_empty() {
+                    tracing::warn!("Cannot determine a relay where the handler was seen.");
+                    return Ok(());
+                }
+
+                // Get the most recent seen_on
+                seen_on.sort_by(|a, b| a.1.cmp(&b.1));
+                seen_on.pop().unwrap().0
+            };
+
+            let naddr = NAddr {
+                d: handler_key.d,
+                relays: vec![url.to_unchecked_url()],
+                kind: EventKind::HandlerInformation,
+                author: handler_key.pubkey,
+            };
+
+            a_tags.push(Tag::new_address(&naddr, Some("web".to_owned())));
+        }
+
+        // Build the recommendation event
+        let event = {
+            let mut tags = vec![Tag::new_identifier(format!("{}", u32::from(kind)))];
+            tags.extend(a_tags);
+
+            let pre_event = PreEvent {
+                pubkey: public_key,
+                created_at: Unixtime::now(),
+                kind: EventKind::HandlerRecommendation,
+                tags,
+                content: "".to_string(),
+            };
+
+            GLOBALS.identity.sign_event(pre_event)?
+        };
+
+        // Process this event locally
+        crate::process::process_new_event(&event, None, None, false, false)?;
+
+        // Post the event to our outboxes
+        let write_relays = relay::relays_to_post_to(&event)?;
+        manager::run_jobs_on_all_relays(
+            write_relays,
+            vec![RelayJob {
+                reason: RelayConnectionReason::PostEvent,
+                payload: ToMinionPayload {
+                    job_id: rand::random::<u64>(),
+                    detail: ToMinionPayloadDetail::PostEvents(vec![event.clone()]),
+                },
+            }],
+        );
 
         Ok(())
     }

@@ -1463,10 +1463,13 @@ fn note_actions(
         )));
     } // end Bookmark
 
-    // ---- Share ----
+    // ---- Open with ----
     if !note.event.kind.is_direct_message_related() {
-        items.push(MoreMenuItem::Button(MoreMenuButton::new(
-            "Share via web",
+        let mut my_items: Vec<MoreMenuItem> = Vec::new();
+
+        // njump.me
+        my_items.push(MoreMenuItem::Button(MoreMenuButton::new(
+            "njump.me",
             Box::new(|ui, _| {
                 let nevent = NEvent {
                     id: note.event.id,
@@ -1474,12 +1477,53 @@ fn note_actions(
                     author: None,
                     kind: None,
                 };
-                ui.output_mut(|o| {
-                    o.copied_text = format!("https://njump.me/{}", nevent.as_bech32_string())
+                let url = format!("https://njump.me/{}", nevent.as_bech32_string());
+                ui.ctx().open_url(egui::OpenUrl {
+                    url: url.clone(),
+                    new_tab: true,
                 });
             }),
         )));
-    } // end Share
+
+        if let Some(handlers) = GLOBALS.handlers.get(&note.event.kind) {
+            for (label, url) in handlers.value().iter() {
+                let url = if note.event.kind.is_parameterized_replaceable() {
+                    let param = match note.event.parameter() {
+                        Some(p) => p,
+                        None => "".to_owned(),
+                    };
+                    let naddr = NAddr {
+                        d: param,
+                        relays: relays.clone(),
+                        kind: note.event.kind,
+                        author: note.event.pubkey,
+                    };
+                    url.as_str().replace("<bech32>", &naddr.as_bech32_string())
+                } else {
+                    let nevent = NEvent {
+                        id: note.event.id,
+                        relays: relays.clone(),
+                        author: Some(note.event.pubkey),
+                        kind: Some(note.event.kind),
+                    };
+                    url.as_str().replace("<bech32>", &nevent.as_bech32_string())
+                };
+
+                my_items.push(MoreMenuItem::Button(MoreMenuButton::new(
+                    label,
+                    Box::new(move |ui, _app| {
+                        ui.ctx().open_url(egui::OpenUrl { url, new_tab: true });
+                    }),
+                )));
+            }
+        }
+
+        items.push(MoreMenuItem::SubMenu(MoreMenuSubMenu::new(
+            "Open with",
+            my_items,
+            &menu,
+        )))
+    } // Open with SubMenu
 
     // ---- Copy ID SubMenu ----
     {

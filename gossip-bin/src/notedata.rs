@@ -191,7 +191,6 @@ impl NoteData {
             EventKind::GiftWrap => ("".to_owned(), Some("DECRYPTION FAILED".to_owned())),
             EventKind::ChannelMessage => (event.content.clone(), None),
             EventKind::LiveChatMessage => (event.content.clone(), None),
-            EventKind::CommunityPost => (event.content.clone(), None),
             EventKind::DraftLongFormContent => (event.content.clone(), None),
             k => {
                 if k.is_feed_displayable() {

@@ -1,7 +1,7 @@
 use super::GossipUi;
 use eframe::egui;
 use egui::{Context, Ui};
-use gossip_lib::{FollowingsTable, PersonTable, Table, GLOBALS};
+use gossip_lib::{FollowingsTable, HandlersTable, PersonTable, Table, GLOBALS};
 use humansize::{format_size, DECIMAL};
 use std::sync::atomic::Ordering;
 
@@ -151,6 +151,18 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ui.label(format!(
             "FoF: {} records",
             GLOBALS.db().get_fof_len().unwrap_or(0)
+        ));
+        ui.add_space(6.0);
+
+        ui.label(format!(
+            "Handlers: {} records",
+            HandlersTable::num_records().unwrap_or(0)
+        ));
+        ui.add_space(6.0);
+
+        ui.label(format!(
+            "Configured Handlers: {} records",
+            GLOBALS.db().get_configured_handlers_len().unwrap_or(0)
         ));
         ui.add_space(6.0);
     });

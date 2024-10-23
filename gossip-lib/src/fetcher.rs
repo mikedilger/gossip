@@ -415,7 +415,7 @@ impl Fetcher {
                         FailOutcome::Requeue,
                         "timeout",
                         Some(e.into()),
-                        low_exclusion,
+                        med_exclusion,
                     );
                 } else if e.is_request() {
                     finish(FailOutcome::Fail, "request error", Some(e.into()), 0);
@@ -439,7 +439,7 @@ impl Fetcher {
                 FailOutcome::Requeue,
                 "informational error",
                 None,
-                low_exclusion,
+                med_exclusion,
             );
             return;
         } else if status.is_redirection() {
