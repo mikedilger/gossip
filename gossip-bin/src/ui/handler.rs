@@ -1,5 +1,7 @@
+use core::f32;
+
 use super::{widgets, GossipUi};
-use eframe::egui::{self};
+use eframe::egui::{self, vec2, RichText};
 use egui::{Context, Ui};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{Handler, HandlerKey, HandlersTable, Table, GLOBALS};
@@ -8,11 +10,86 @@ use nostr_types::{EventKind, NAddr, PublicKey};
 pub struct Handlers {
     /// Handler that is open for detailed view, if any
     detail: Option<PublicKey>,
+    /// Is the add-handler dialog open?
+    add_dialog: bool,
+    /// Entry text for add-dialog
+    add_naddr: String,
+    /// Any errors while entering naddr
+    add_err: Option<String>,
 }
 
 impl Default for Handlers {
     fn default() -> Self {
-        Self { detail: None }
+        Self {
+            detail: None,
+            add_dialog: false,
+            add_naddr: "".to_owned(),
+            add_err: None,
+        }
+    }
+}
+
+fn add_dialog(ui: &mut Ui, app: &mut GossipUi) {
+    const DLG_SIZE: egui::Vec2 = vec2(400.0, 260.0);
+    let dlg_response = widgets::modal_popup(ui.ctx(), vec2(400.0, 0.0), DLG_SIZE, true, |ui| {
+        ui.heading("Import a handler via nevent");
+        ui.add_space(8.0);
+
+        ui.label("To add a new handler, paste its corresponding naddr here:");
+        ui.add_space(12.0);
+
+        let response = widgets::TextEdit::singleline(&app.theme, &mut app.handlers.add_naddr)
+            .desired_width(f32::INFINITY)
+            .hint_text("naddr1...")
+            .with_paste()
+            .show(ui);
+        let mut go: bool = false;
+
+        ui.add_space(12.0);
+
+        ui.horizontal(|ui| {
+            if let Some(err) = &app.handlers.add_err {
+                ui.label(RichText::new(err).color(app.theme.warning_marker_text_color()));
+            } else {
+                ui.label("");
+            }
+
+            ui.with_layout(egui::Layout::right_to_left(Default::default()), |ui| {
+                if widgets::Button::primary(&app.theme, "Import")
+                    .show(ui)
+                    .clicked()
+                {
+                    go = true;
+                }
+            });
+        });
+        if response.response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+            go = true;
+        }
+        if go {
+            if app.handlers.add_naddr.starts_with("nostr:") {
+                app.handlers.add_naddr = app.handlers.add_naddr[6..].to_owned();
+            }
+
+            match NAddr::try_from_bech32_string(&app.handlers.add_naddr) {
+                Ok(naddr) => {
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::FetchNAddr(naddr));
+                    app.handlers.add_naddr = "".to_string();
+                    app.handlers.add_dialog = false;
+                    app.handlers.add_err = None;
+                }
+                Err(_) => {
+                    app.handlers.add_err = Some("Invalid naddr".to_owned());
+                }
+            }
+        }
+    });
+
+    if dlg_response.inner.clicked() {
+        app.handlers.add_dialog = false;
+        app.handlers.add_err = None;
     }
 }
 
@@ -20,37 +97,19 @@ pub(super) fn update_all_kinds(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
     // If we end up in this overview, we clear any detail view
     app.handlers.detail.take();
 
-    widgets::page_header(ui, "External Event Handlers", |_ui| ());
+    if app.handlers.add_dialog {
+        add_dialog(ui, app);
+    }
 
-    ui.label("Import a handler via nevent");
-    let response = ui.add(text_edit_line!(app, app.handler_naddr).hint_text("naddr1..."));
-    let mut go: bool = false;
-    if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-        go = true;
-    }
-    if ui.button("Import").clicked() {
-        go = true;
-    }
-    if go {
-        if app.handler_naddr.starts_with("nostr:") {
-            app.handler_naddr = app.handler_naddr[6..].to_owned();
+    // render page
+    widgets::page_header(ui, "External Event Handlers", |ui| {
+        if widgets::Button::primary(&app.theme, "Import Handler")
+            .show(ui)
+            .clicked()
+        {
+            app.handlers.add_dialog = true;
         }
-
-        match NAddr::try_from_bech32_string(&app.handler_naddr) {
-            Ok(naddr) => {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::FetchNAddr(naddr));
-            }
-            Err(_) => {
-                GLOBALS
-                    .status_queue
-                    .write()
-                    .write("Invalid naddr".to_string());
-            }
-        }
-        app.handler_naddr = "".to_string();
-    }
+    });
 
     app.vert_scroll_area().show(ui, |ui| {
         let data = GLOBALS

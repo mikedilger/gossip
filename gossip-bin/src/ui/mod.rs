@@ -524,7 +524,6 @@ struct GossipUi {
     nostr_connect_name: String,
     nostr_connect_relay1: String,
     nostr_connect_relay2: String,
-    handler_naddr: String,
 
     // Collapsed threads
     collapsed: Vec<Id>,
@@ -771,7 +770,6 @@ impl GossipUi {
             nostr_connect_name: "".to_owned(),
             nostr_connect_relay1: "".to_owned(),
             nostr_connect_relay2: "".to_owned(),
-            handler_naddr: "".to_owned(),
             collapsed: vec![],
             opened: HashSet::new(),
             visible_note_ids: vec![],
