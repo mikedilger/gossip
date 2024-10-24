@@ -136,7 +136,6 @@ pub(super) fn update_all_kinds(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
 
                     let all_count = handlers.len();
                     let enabled_count = handlers.iter().filter_map(|f| f.1.then(|| {})).count();
-                    let recommended_count = handlers.iter().filter_map(|f| f.2.then(|| {})).count();
 
                     ui.horizontal(|ui| {
                         let kwidth = ui.label(egui::RichText::new(&kind_name)).rect.width();
@@ -147,7 +146,12 @@ pub(super) fn update_all_kinds(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                             if all_count == 0 {
                                 ui.label(egui::RichText::new("No recommendations").weak());
                             } else {
-                                if recommended_count != all_count {
+                                if enabled_count == 0 {
+                                    ui.label(
+                                        egui::RichText::new(format!("zero of {} apps", all_count))
+                                            .weak(),
+                                    );
+                                } else if enabled_count != all_count {
                                     ui.label(
                                         egui::RichText::new(format!(
                                             "{} of {} apps",
