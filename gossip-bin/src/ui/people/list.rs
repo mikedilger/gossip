@@ -222,6 +222,7 @@ pub(super) fn update(
                 ui,
                 app,
                 Some(app.theme.main_content_bgcolor()),
+                Some(app.theme.hovered_content_bgcolor()),
                 |ui, app| {
                     ui.horizontal(|ui| {
                         // Avatar first

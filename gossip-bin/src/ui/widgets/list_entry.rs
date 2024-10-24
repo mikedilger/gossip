@@ -73,13 +73,22 @@ pub(crate) fn clickable_frame<R>(
     ui: &mut Ui,
     app: &mut GossipUi,
     fill: Option<Color32>,
+    hover_fill: Option<Color32>,
     mut content: impl FnMut(&mut Ui, &mut GossipUi) -> R,
 ) -> InnerResponse<R> {
     // now really render the frame
     let frame = make_frame(ui, fill);
     let mut prepared = frame.begin(ui);
     let inner = content(&mut prepared.content_ui, app);
-    let response = prepared.end(ui);
+    let response = prepared.allocate_space(ui);
+
+    if response.hovered() {
+        if let Some(fill) = hover_fill {
+            prepared.frame.fill = fill;
+        }
+    }
+
+    prepared.paint(ui);
 
     InnerResponse { inner, response }
 }
