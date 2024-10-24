@@ -187,16 +187,7 @@ pub(super) fn update_kind(app: &mut GossipUi, _ctx: &Context, ui: &mut Ui, kind:
     widgets::page_header(
         ui,
         format!("Handler: {} ({})", kind, u32::from(kind)),
-        |ui| {
-            if widgets::Button::secondary(&app.theme, "Share recommendations")
-                .show(ui)
-                .clicked()
-            {
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::ShareHandlerRecommendations(kind));
-            }
-        },
+        |_ui| {},
     );
 
     let handlers: Vec<(HandlerKey, bool, bool)> = GLOBALS
@@ -317,18 +308,42 @@ fn handler_header(
         }
 
         ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
-            if widgets::Switch::small(&app.theme, recommended)
-                .with_label("recommend")
-                .show(ui)
-                .changed()
-            {
-                let _ = GLOBALS.db().write_configured_handler(
-                    kind,
-                    handler.key.clone(),
-                    *enabled,
-                    *recommended,
-                    None,
-                );
+            if *recommended {
+                if widgets::Button::secondary(&app.theme, "Revert recommendation")
+                    .show(ui)
+                    .clicked()
+                {
+                    *recommended = false;
+                    let _ = GLOBALS.db().write_configured_handler(
+                        kind,
+                        handler.key.clone(),
+                        *enabled,
+                        *recommended,
+                        None,
+                    );
+
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::ShareHandlerRecommendations(kind));
+                }
+            } else {
+                if widgets::Button::primary(&app.theme, "Recommend")
+                    .show(ui)
+                    .clicked()
+                {
+                    *recommended = true;
+                    let _ = GLOBALS.db().write_configured_handler(
+                        kind,
+                        handler.key.clone(),
+                        *enabled,
+                        *recommended,
+                        None,
+                    );
+
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::ShareHandlerRecommendations(kind));
+                }
             }
         });
     });
