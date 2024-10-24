@@ -335,19 +335,13 @@ fn handler_header(
 }
 
 fn handler_detail(ui: &mut Ui, app: &mut GossipUi, handler: &Handler, kind: EventKind) {
-    if let Some(metadata) = handler.metadata() {
-        ui.horizontal_wrapped(|ui| {
-            ui.label(format!(
-                "About: {}",
-                metadata.about.as_deref().unwrap_or("".into())
-            ));
-        });
-    }
-
     let recommended_by: Vec<PublicKey> = GLOBALS
         .db()
         .who_recommended_handler(&handler.key, kind)
         .unwrap_or(vec![]);
+
+    ui.add_space(12.0);
+
     ui.horizontal(|ui| {
         let count = recommended_by.len();
         if count > 0 {
@@ -363,4 +357,12 @@ fn handler_detail(ui: &mut Ui, app: &mut GossipUi, handler: &Handler, kind: Even
             }
         }
     });
+
+    ui.add_space(12.0);
+
+    if let Some(metadata) = handler.metadata() {
+        ui.horizontal_wrapped(|ui| {
+            ui.label(metadata.about.as_deref().unwrap_or("".into()));
+        });
+    }
 }
