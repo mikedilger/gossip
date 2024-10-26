@@ -2,7 +2,8 @@ use crate::comms::ToOverlordMessage;
 use crate::globals::GLOBALS;
 use crate::{Error, ErrorKind};
 use nostr_types::{
-    ContentEncryptionAlgorithm, Event, EventKind, PreEvent, PublicKey, RelayUrl, Tag, Unixtime,
+    ContentEncryptionAlgorithm, Event, EventKind, PreEvent, PrivateKey, PublicKey, RelayUrl, Tag,
+    Unixtime,
 };
 use serde::Deserialize;
 use speedy::{Readable, Writable};
@@ -104,6 +105,7 @@ impl Nip46Server {
             ref id,
             ref method,
             ref params,
+            ref algo,
         } = cmd;
 
         let result: Result<String, Error> = match method.as_str() {
@@ -175,6 +177,7 @@ impl Nip46Server {
                 "".to_owned(),
                 self.peer_pubkey,
                 self.relays.clone(),
+                *algo,
             )?,
             Err(e) => {
                 if matches!(e.kind, ErrorKind::Nip46NeedApproval) {
@@ -186,6 +189,7 @@ impl Nip46Server {
                         format!("{}", e),
                         self.peer_pubkey,
                         self.relays.clone(),
+                        *algo,
                     )?;
                 }
             }
@@ -318,9 +322,12 @@ pub struct ParsedCommand {
     pub id: String,
     pub method: String,
     pub params: Vec<String>,
+    pub algo: ContentEncryptionAlgorithm,
 }
 
 fn parse_command(peer_pubkey: PublicKey, contents: &str) -> Result<ParsedCommand, Error> {
+    let algo = PrivateKey::detect_encryption_algorithm(&contents);
+
     let bytes = GLOBALS.identity.decrypt(&peer_pubkey, contents)?;
 
     let json: serde_json::Value = serde_json::from_str(&bytes)?;
@@ -370,7 +377,12 @@ fn parse_command(peer_pubkey: PublicKey, contents: &str) -> Result<ParsedCommand
                         }
                     }
                 }
-                Ok(ParsedCommand { id, method, params })
+                Ok(ParsedCommand {
+                    id,
+                    method,
+                    params,
+                    algo,
+                })
             }
             None => Err(ErrorKind::Nip46ParsingError(id, "params not an array".to_owned()).into()),
         },
@@ -384,6 +396,7 @@ fn send_response(
     error: String,
     peer_pubkey: PublicKey,
     relays: Vec<RelayUrl>,
+    algo: ContentEncryptionAlgorithm,
 ) -> Result<(), Error> {
     use serde_json::json;
 
@@ -399,9 +412,7 @@ fn send_response(
     });
     let s = output.to_string();
 
-    let e = GLOBALS
-        .identity
-        .encrypt(&peer_pubkey, &s, ContentEncryptionAlgorithm::Nip04)?;
+    let e = GLOBALS.identity.encrypt(&peer_pubkey, &s, algo)?;
 
     let pre_event = PreEvent {
         pubkey: public_key,
@@ -435,6 +446,7 @@ pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Er
                         msg.clone(),
                         event.pubkey,
                         server.relays.clone(),
+                        PrivateKey::detect_encryption_algorithm(&event.content),
                     )?;
                 }
 
@@ -481,6 +493,7 @@ pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Er
                     msg.clone(),
                     event.pubkey,
                     vec![seen_on_relay],
+                    PrivateKey::detect_encryption_algorithm(&event.content),
                 )?;
             }
 
@@ -489,7 +502,12 @@ pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Er
         }
     };
 
-    let ParsedCommand { id, method, params } = parsed_command;
+    let ParsedCommand {
+        id,
+        method,
+        params,
+        algo,
+    } = parsed_command;
 
     // Do we have a waiiting unconnected server?
     let userver = match GLOBALS.db().read_nip46_unconnected_server()? {
@@ -502,6 +520,7 @@ pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Er
                 "Gossip is not configured to receive a connection".to_string(),
                 event.pubkey,
                 vec![seen_on_relay],
+                algo,
             )?;
             return Ok(()); // no need to pass back error
         }
@@ -520,6 +539,7 @@ pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Er
             "Your pubkey is not configured for nostr connect here.".to_string(),
             event.pubkey,
             reply_relays,
+            algo,
         )?;
         return Ok(()); // no need to pass back error
     }
@@ -531,6 +551,7 @@ pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Er
             "connect requires two parameters".to_string(),
             event.pubkey,
             reply_relays,
+            algo,
         )?;
         return Ok(()); // no need to pass back error
     }
@@ -544,6 +565,7 @@ pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Er
                 "No public key".to_string(),
                 event.pubkey,
                 reply_relays,
+                algo,
             )?;
             return Err(ErrorKind::NoPublicKey.into());
         }
@@ -557,6 +579,7 @@ pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Er
             "Gossip is not configured to sign with the requested public key".to_string(),
             event.pubkey,
             reply_relays,
+            algo,
         )?;
         return Ok(()); // no need to pass back error
     }
@@ -568,6 +591,7 @@ pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Er
             "Incorrect secret.".to_string(),
             event.pubkey,
             reply_relays,
+            algo,
         )?;
         return Ok(()); // no need to pass back error
     }
@@ -597,6 +621,7 @@ pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Er
         "".to_owned(),
         event.pubkey,
         reply_relays,
+        algo,
     )?;
 
     Ok(())
