@@ -8,13 +8,24 @@ use gossip_lib::GLOBALS;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     let is_editing = app.relays.edit.is_some();
+    let relays = if !is_editing {
+        // clear edit cache if present
+        if !app.relays.edit_relays.is_empty() {
+            app.relays.edit_relays.clear()
+        }
+        get_relays(app)
+    } else {
+        // when editing, use cached list
+        // build list if still empty
+        if app.relays.edit_relays.is_empty() {
+            app.relays.edit_relays = get_relays(app);
+        }
+        app.relays.edit_relays.clone()
+    };
+
     widgets::page_header(
         ui,
-        &format!(
-            "{} ({} relays)",
-            Page::RelaysMine.name(),
-            get_relays(app).len()
-        ),
+        &format!("{} ({} relays)", Page::RelaysMine.name(), relays.len()),
         |ui| {
             if is_editing {
                 ui.disable();
@@ -38,21 +49,6 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
             // let advertise_remaining = GLOBALS.advertise_jobs_remaining.load(Ordering::Relaxed);
         },
     );
-
-    let relays = if !is_editing {
-        // clear edit cache if present
-        if !app.relays.edit_relays.is_empty() {
-            app.relays.edit_relays.clear()
-        }
-        get_relays(app)
-    } else {
-        // when editing, use cached list
-        // build list if still empty
-        if app.relays.edit_relays.is_empty() {
-            app.relays.edit_relays = get_relays(app);
-        }
-        app.relays.edit_relays.clone()
-    };
 
     let id_source: Id = "MyRelaysScroll".into();
 
