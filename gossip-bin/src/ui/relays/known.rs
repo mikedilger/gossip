@@ -8,26 +8,34 @@ use gossip_lib::GLOBALS;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     let is_editing = app.relays.edit.is_some();
-    widgets::page_header(ui, Page::RelaysKnownNetwork(None).name(), |ui| {
-        if is_editing {
-            ui.disable();
-        }
-        super::configure_list_btn(app, ui);
-        btn_h_space!(ui);
-        super::relay_filter_combo(app, ui);
-        btn_h_space!(ui);
-        super::relay_sort_combo(app, ui);
-        btn_h_space!(ui);
-        widgets::TextEdit::search(&app.theme, &app.assets, &mut app.relays.search)
-            .desired_width(super::SEARCH_WIDTH)
-            .show(ui);
-        if widgets::Button::primary(&app.theme, "Add Relay")
-            .show(ui)
-            .clicked()
-        {
-            super::start_entry_dialog(app);
-        }
-    });
+    widgets::page_header(
+        ui,
+        &format!(
+            "{} ({} relays)",
+            Page::RelaysKnownNetwork(None).name(),
+            get_relays(app).len()
+        ),
+        |ui| {
+            if is_editing {
+                ui.disable();
+            }
+            super::configure_list_btn(app, ui);
+            btn_h_space!(ui);
+            super::relay_filter_combo(app, ui);
+            btn_h_space!(ui);
+            super::relay_sort_combo(app, ui);
+            btn_h_space!(ui);
+            widgets::TextEdit::search(&app.theme, &app.assets, &mut app.relays.search)
+                .desired_width(super::SEARCH_WIDTH)
+                .show(ui);
+            if widgets::Button::primary(&app.theme, "Add Relay")
+                .show(ui)
+                .clicked()
+            {
+                super::start_entry_dialog(app);
+            }
+        },
+    );
 
     // TBD time how long this takes. We don't want expensive code in the UI
     // FIXME keep more relay info and display it
