@@ -696,11 +696,8 @@ fn add_media_menu(app: &mut GossipUi, ui: &mut Ui, url: Url, response: &Response
                     .on_hover_text("Hide (return to a link)")
                     .clicked()
                 {
-                    if read_setting!(show_media) {
-                        app.media_hide_list.insert(url.clone());
-                    } else {
-                        app.media_show_list.remove(&url);
-                    }
+                    app.media_hide_list.insert(url.clone());
+                    app.media_show_list.remove(&url);
                 }
                 ui.add_space(SPACE);
                 if ui
