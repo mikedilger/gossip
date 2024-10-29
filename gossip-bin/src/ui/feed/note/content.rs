@@ -127,7 +127,11 @@ pub(super) fn render_content(
                             render_profile_link(app, ui, pubkey);
                         }
                         NostrBech32::Relay(url) => {
-                            ui.label(RichText::new(&url.0).underline());
+                            if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(url) {
+                                render_relay_link(app, ui, relay_url);
+                            } else {
+                                ui.label(RichText::new(&url.0).underline());
+                            }
                         }
                     }
                 }
