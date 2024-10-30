@@ -19,12 +19,14 @@ pub fn show_image_toggle(
     let row_height = ui.cursor().height();
     let mut show_link = true;
 
+    // Show image or loading placeholder
     if show(app, &url, privacy_issue) {
         if try_render_image(app, ui, url.clone(), volatile) {
             show_link = false;
         }
     }
 
+    // Show link
     if show_link {
         let url_string = url.to_string();
 
@@ -85,12 +87,14 @@ pub fn show_video_toggle(
     let row_height = ui.cursor().height();
     let mut show_link = true;
 
+    // Show video player or loading placeholder
     if show(app, &url, privacy_issue) {
         if try_render_video(app, ui, url.clone(), volatile) {
             show_link = false;
         }
     }
 
+    // Show link
     if show_link {
         let url_string = url.to_string();
 
@@ -183,10 +187,26 @@ fn try_render_image(app: &mut GossipUi, ui: &mut Ui, url: Url, volatile: bool) -
 
                 add_media_menu(app, ui, url, &response);
             });
-        true
     } else {
-        false
+        egui::Frame::none()
+            .inner_margin(egui::Margin::same(0.0))
+            .outer_margin(egui::Margin {
+                top: 10.0,
+                left: 0.0,
+                right: 0.0,
+                bottom: 10.0,
+            })
+            .fill(egui::Color32::TRANSPARENT)
+            .rounding(ui.style().noninteractive().rounding)
+            .show(ui, |ui| {
+                let text = "Loading...";
+                let color = app.theme.notice_marker_text_color();
+                ui.label(RichText::new(text).color(color))
+            });
     }
+
+    // Temporary. Future commits will sometimes return false, rendering the link
+    true
 }
 
 #[cfg(feature = "video-ffmpeg")]
@@ -227,19 +247,32 @@ fn try_render_video(app: &mut GossipUi, ui: &mut Ui, url: Url, volatile: bool) -
                     app.media_full_width_list.insert(url.clone());
                 }
             }
-
-            true
-        } else {
-            false
         }
     } else {
-        false
+        egui::Frame::none()
+            .inner_margin(egui::Margin::same(0.0))
+            .outer_margin(egui::Margin {
+                top: 10.0,
+                left: 0.0,
+                right: 0.0,
+                bottom: 10.0,
+            })
+            .fill(egui::Color32::TRANSPARENT)
+            .rounding(ui.style().noninteractive().rounding)
+            .show(ui, |ui| {
+                let text = "Loading...";
+                let color = app.theme.notice_marker_text_color();
+                ui.label(RichText::new(text).color(color))
+            });
     }
+
+    // Temporary. Future commits will sometimes return false, rendering the link
+    true
 }
 
 #[cfg(not(feature = "video-ffmpeg"))]
 fn try_render_video(_app: &mut GossipUi, _ui: &mut Ui, _url: Url, _volatile: bool) -> bool {
-    false
+    true
 }
 
 // Should we show the media, or fall back to a link?
