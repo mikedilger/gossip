@@ -16,17 +16,8 @@ pub fn show_image_toggle(
     let mut show_link = true;
 
     if show(app, &url, privacy_issue) {
-        if let Some(response) = try_render_image(app, ui, url.clone(), volatile) {
+        if try_render_image(app, ui, url.clone(), volatile) {
             show_link = false;
-
-            // full-width toggle
-            if response.clicked() {
-                if app.media_full_width_list.contains(&url) {
-                    app.media_full_width_list.remove(&url);
-                } else {
-                    app.media_full_width_list.insert(url.clone());
-                }
-            }
         }
     }
 
@@ -87,17 +78,8 @@ pub fn show_video_toggle(
     let mut show_link = true;
 
     if show(app, &url, privacy_issue) {
-        if let Some(response) = try_render_video(app, ui, url.clone(), volatile) {
+        if try_render_video(app, ui, url.clone(), volatile) {
             show_link = false;
-
-            // full-width toggle
-            if response.clicked() {
-                if app.media_full_width_list.contains(&url) {
-                    app.media_full_width_list.remove(&url);
-                } else {
-                    app.media_full_width_list.insert(url.clone());
-                }
-            }
         }
     }
 
@@ -152,8 +134,7 @@ pub fn show_video_toggle(
 
 /// Try to fetch and render a piece of media
 ///  - return: true if successfully rendered, false otherwise
-fn try_render_image(app: &mut GossipUi, ui: &mut Ui, url: Url, volatile: bool) -> Option<Response> {
-    let mut response_return = None;
+fn try_render_image(app: &mut GossipUi, ui: &mut Ui, url: Url, volatile: bool) -> bool {
     if let Some(media) = app.try_get_media(ui.ctx(), url.clone(), volatile) {
         let size = media_scale(
             app.media_full_width_list.contains(&url),
@@ -187,16 +168,26 @@ fn try_render_image(app: &mut GossipUi, ui: &mut Ui, url: Url, volatile: bool) -
                 if response.hovered() {
                     ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
                 }
+
+                // full-width toggle
+                if response.clicked() {
+                    if app.media_full_width_list.contains(&url) {
+                        app.media_full_width_list.remove(&url);
+                    } else {
+                        app.media_full_width_list.insert(url.clone());
+                    }
+                }
+
                 add_media_menu(app, ui, url, &response);
-                response_return = Some(response);
             });
-    };
-    response_return
+        true
+    } else {
+        false
+    }
 }
 
 #[cfg(feature = "video-ffmpeg")]
-fn try_render_video(app: &mut GossipUi, ui: &mut Ui, url: Url, volatile: bool) -> Option<Response> {
-    let mut response_return = None;
+fn try_render_video(app: &mut GossipUi, ui: &mut Ui, url: Url, volatile: bool) -> bool {
     let show_full_width = app.media_full_width_list.contains(&url);
     if let Some(player_ref) = app.try_get_player(ui.ctx(), url.clone(), volatile) {
         if let Ok(mut player) = player_ref.try_borrow_mut() {
@@ -225,24 +216,32 @@ fn try_render_video(app: &mut GossipUi, ui: &mut Ui, url: Url, volatile: bool) -
                 player.stop();
             }
 
-            add_media_menu(app, ui, url, &response);
+            add_media_menu(app, ui, url.clone(), &response);
 
             // TODO fix click action
             let new_rect = response.rect.shrink(size.x / 2.0);
-            response_return = Some(response.with_new_rect(new_rect))
+
+            // full-width toggle
+            if response.with_new_rect(new_rect).clicked() {
+                if app.media_full_width_list.contains(&url) {
+                    app.media_full_width_list.remove(&url);
+                } else {
+                    app.media_full_width_list.insert(url.clone());
+                }
+            }
+
+            true
+        } else {
+            false
         }
+    } else {
+        false
     }
-    response_return
 }
 
 #[cfg(not(feature = "video-ffmpeg"))]
-fn try_render_video(
-    _app: &mut GossipUi,
-    _ui: &mut Ui,
-    _url: Url,
-    _volatile: bool,
-) -> Option<Response> {
-    None
+fn try_render_video(_app: &mut GossipUi, _ui: &mut Ui, _url: Url, _volatile: bool) -> bool {
+    false
 }
 
 // Should we show the media, or fall back to a link?
