@@ -16,13 +16,7 @@ pub fn show_image_toggle(
     let url_string = url.to_string();
     let mut show_link = true;
 
-    // FIXME show/hide lists should persist app restarts
-    let show_image = (read_setting!(show_media)
-        && !app.media_hide_list.contains(&url)
-        && (!privacy_issue || app.media_show_list.contains(&url)))
-        || (!read_setting!(show_media) && app.media_show_list.contains(&url));
-
-    if show_image {
+    if show(app, &url, privacy_issue) {
         if let Some(response) = try_render_image(app, ui, url.clone(), volatile) {
             show_link = false;
 
@@ -92,13 +86,7 @@ pub fn show_video_toggle(
     let url_string = url.to_string();
     let mut show_link = true;
 
-    // FIXME show/hide lists should persist app restarts
-    let show_video = (read_setting!(show_media)
-        && !app.media_hide_list.contains(&url)
-        && (!privacy_issue || app.media_show_list.contains(&url)))
-        || (!read_setting!(show_media) && app.media_show_list.contains(&url));
-
-    if show_video {
+    if show(app, &url, privacy_issue) {
         if let Some(response) = try_render_video(app, ui, url.clone(), volatile) {
             show_link = false;
 
@@ -253,6 +241,15 @@ fn try_render_video(
     _volatile: bool,
 ) -> Option<Response> {
     None
+}
+
+// Should we show the media, or fall back to a link?
+fn show(app: &mut GossipUi, url: &Url, privacy_issue: bool) -> bool {
+    // FIXME show/hide lists should persist app restarts
+    let show_media_setting = read_setting!(show_media);
+    let overriding_hide = app.media_hide_list.contains(&url);
+    let overriding_show = app.media_show_list.contains(&url);
+    overriding_show || (show_media_setting && !overriding_hide && !privacy_issue)
 }
 
 fn media_scale(show_full_width: bool, ui: &Ui, media_size: Vec2) -> Vec2 {
