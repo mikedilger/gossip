@@ -13,7 +13,6 @@ pub fn show_image_toggle(
     volatile: bool,
 ) {
     let row_height = ui.cursor().height();
-    let url_string = url.to_string();
     let mut show_link = true;
 
     if show(app, &url, privacy_issue) {
@@ -32,6 +31,8 @@ pub fn show_image_toggle(
     }
 
     if show_link {
+        let url_string = url.to_string();
+
         // show media toggle
         let response = if privacy_issue {
             ui.link("[ PRIVACY RISK Image ]").on_hover_text(format!("The sender might be trying to associate your nostr pubkey with your IP address. URL={}", url_string))
@@ -83,7 +84,6 @@ pub fn show_video_toggle(
     volatile: bool,
 ) {
     let row_height = ui.cursor().height();
-    let url_string = url.to_string();
     let mut show_link = true;
 
     if show(app, &url, privacy_issue) {
@@ -102,6 +102,8 @@ pub fn show_video_toggle(
     }
 
     if show_link {
+        let url_string = url.to_string();
+
         // show media toggle
         let response = if privacy_issue {
             ui.link("[ PRIVACY RISK Video ]").on_hover_text(format!(
