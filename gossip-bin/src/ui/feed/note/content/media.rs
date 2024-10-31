@@ -340,7 +340,13 @@ fn try_render_video(
 }
 
 #[cfg(not(feature = "video-ffmpeg"))]
-fn try_render_video(_app: &mut GossipUi, _ui: &mut Ui, _url: Url, _volatile: bool) -> bool {
+fn try_render_video(
+    _app: &mut GossipUi,
+    _ui: &mut Ui,
+    _url: Url,
+    _volatile: bool,
+    _file_metadata: Option<FileMetadata>,
+) -> bool {
     true
 }
 
