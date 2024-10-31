@@ -114,6 +114,8 @@ impl Media {
         }
 
         match self.get_data(url, use_temp_cache, file_metadata) {
+            MediaLoadingResult::Disabled => MediaLoadingResult::Disabled,
+            MediaLoadingResult::Loading => MediaLoadingResult::Loading,
             MediaLoadingResult::Ready(bytes) => {
                 // Finish this later (spawn)
                 let aurl = url.to_owned();
@@ -144,8 +146,6 @@ impl Media {
                 self.media_pending_processing.insert(url.clone());
                 MediaLoadingResult::Loading
             }
-            MediaLoadingResult::Loading => MediaLoadingResult::Loading,
-            MediaLoadingResult::Disabled => MediaLoadingResult::Disabled,
             MediaLoadingResult::Failed(s) => MediaLoadingResult::Failed(s),
         }
     }

@@ -180,7 +180,18 @@ fn try_render_image(
                 .fill(egui::Color32::TRANSPARENT)
                 .rounding(ui.style().noninteractive().rounding)
                 .show(ui, |ui| {
-                    let text = "Loading...";
+                    let text = if let Some(fm) = &file_metadata {
+                        // FIXME do blurhash
+                        if let Some(alt) = &fm.alt {
+                            &format!("Loading image: {alt}")
+                        } else if let Some(summary) = &fm.summary {
+                            &format!("Loading image: {summary}")
+                        } else {
+                            "Loading image..."
+                        }
+                    } else {
+                        "Loading image..."
+                    };
                     let color = app.theme.notice_marker_text_color();
                     ui.label(RichText::new(text).color(color))
                 });
@@ -228,9 +239,9 @@ fn try_render_image(
                 });
             true
         }
-        MediaLoadingResult::Failed(failure) => {
+        MediaLoadingResult::Failed(ref s) => {
             let color = app.theme.notice_marker_text_color();
-            ui.label(RichText::new(format!("COULD NOT LOAD MEDIA: {failure}")).color(color));
+            ui.label(RichText::new(format!("COULD NOT LOAD MEDIA: {s}")).color(color));
             false
         }
     }
@@ -245,7 +256,6 @@ fn try_render_video(
     file_metadata: Option<FileMetadata>,
 ) -> bool {
     let show_full_width = app.media_full_width_list.contains(&url);
-
     match app.try_get_player(ui.ctx(), url.clone(), volatile, file_metadata.as_ref()) {
         MediaLoadingResult::Disabled => {
             // will render link
@@ -263,7 +273,18 @@ fn try_render_video(
                 .fill(egui::Color32::TRANSPARENT)
                 .rounding(ui.style().noninteractive().rounding)
                 .show(ui, |ui| {
-                    let text = "Loading...";
+                    let text = if let Some(fm) = &file_metadata {
+                        // FIXME do blurhash
+                        if let Some(alt) = &fm.alt {
+                            &format!("Loading video: {alt}")
+                        } else if let Some(summary) = &fm.summary {
+                            &format!("Loading video: {summary}")
+                        } else {
+                            "Loading video..."
+                        }
+                    } else {
+                        "Loading video..."
+                    };
                     let color = app.theme.notice_marker_text_color();
                     ui.label(RichText::new(text).color(color))
                 });
@@ -308,9 +329,9 @@ fn try_render_video(
 
             true
         }
-        MediaLoadingResult::Failed(failure) => {
+        MediaLoadingResult::Failed(ref s) => {
             let color = app.theme.notice_marker_text_color();
-            ui.label(RichText::new(format!("COULD NOT LOAD MEDIA: {failure}")).color(color));
+            ui.label(RichText::new(format!("COULD NOT LOAD MEDIA: {s}")).color(color));
             false
         }
     }
