@@ -311,8 +311,8 @@ fn try_render_video(_app: &mut GossipUi, _ui: &mut Ui, _url: Url, _volatile: boo
 fn show(app: &mut GossipUi, url: &Url, privacy_issue: bool) -> bool {
     // FIXME show/hide lists should persist app restarts
     let show_media_setting = read_setting!(show_media);
-    let overriding_hide = app.media_hide_list.contains(&url);
-    let overriding_show = app.media_show_list.contains(&url);
+    let overriding_hide = app.media_hide_list.contains(url);
+    let overriding_show = app.media_show_list.contains(url);
     overriding_show || (show_media_setting && !overriding_hide && !privacy_issue)
 }
 

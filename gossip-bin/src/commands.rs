@@ -694,7 +694,7 @@ pub fn delete_spam_by_content(cmd: Command, mut args: env::Args) -> Result<(), E
                 {
                     println!("ERROR: {}", e);
                 }
-                let _ = conn.disconnect();
+                let _ = conn.disconnect().await;
             }
         }
     });

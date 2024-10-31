@@ -326,7 +326,7 @@ pub struct ParsedCommand {
 }
 
 fn parse_command(peer_pubkey: PublicKey, contents: &str) -> Result<ParsedCommand, Error> {
-    let algo = PrivateKey::detect_encryption_algorithm(&contents);
+    let algo = PrivateKey::detect_encryption_algorithm(contents);
 
     let bytes = GLOBALS.identity.decrypt(&peer_pubkey, contents)?;
 

@@ -31,7 +31,7 @@ impl RelayTestResult {
         }
     }
 
-    pub fn hover<'a>(&'a self) -> Option<&'a str> {
+    pub fn hover(&self) -> Option<&str> {
         match *self {
             RelayTestResult::Unknown => None,
             RelayTestResult::Pass => None,
@@ -54,8 +54,9 @@ impl RelayTestResults {
     }
 
     pub fn fail() -> RelayTestResults {
-        let mut results: RelayTestResults = Default::default();
-        results.test_failed = true;
-        results
+        RelayTestResults {
+            test_failed: true,
+            ..Default::default()
+        }
     }
 }

@@ -2652,7 +2652,7 @@ impl Overlord {
         let handlers: Vec<(HandlerKey, bool, bool)> = GLOBALS
             .db()
             .read_configured_handlers(kind)
-            .unwrap_or(vec![]);
+            .unwrap_or_default();
         for (handler_key, _enabled, recommended) in handlers {
             if !recommended {
                 continue;
@@ -2939,9 +2939,7 @@ impl Overlord {
 
         let posted_outbox: RelayTestResult;
         let mut anon_fetched_outbox: RelayTestResult = Default::default();
-        let anon_posted_inbox: RelayTestResult;
         let mut anon_fetched_inbox: RelayTestResult = Default::default();
-        let fetched_inbox: RelayTestResult;
 
         let outbox_event = {
             let pre_event = PreEvent {
@@ -3027,13 +3025,13 @@ impl Overlord {
         }
 
         // 3. anon_posted_inbox
-        match conn
+        let anon_posted_inbox: RelayTestResult = match conn
             .post_event(inbox_event.clone(), Duration::from_secs(2))
             .await?
         {
-            (true, _) => anon_posted_inbox = RelayTestResult::Pass,
-            (false, msg) => anon_posted_inbox = RelayTestResult::Fail(msg),
-        }
+            (true, _) => RelayTestResult::Pass,
+            (false, msg) => RelayTestResult::Fail(msg),
+        };
 
         let mut inbox_filter = Filter::new();
         inbox_filter.add_event_kind(inbox_event.kind);
@@ -3060,11 +3058,11 @@ impl Overlord {
             .fetch_events(vec![inbox_filter.clone()], Duration::from_secs(2))
             .await?;
         let close_msg = fetch_result.close_msg.clone();
-        if fetch_result.into_events().contains(&inbox_event) {
-            fetched_inbox = RelayTestResult::Pass;
+        let fetched_inbox: RelayTestResult = if fetch_result.into_events().contains(&inbox_event) {
+            RelayTestResult::Pass
         } else {
-            fetched_inbox = RelayTestResult::Fail(close_msg.unwrap_or("timed out".to_string()));
-        }
+            RelayTestResult::Fail(close_msg.unwrap_or("timed out".to_string()))
+        };
 
         conn.disconnect().await?;
         drop(conn);

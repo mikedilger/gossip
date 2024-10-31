@@ -99,7 +99,7 @@ impl Storage {
         for result in iter {
             let (key, val) = result?;
             let (_kind, handler_key) = configured_handlers_bytes_to_key(key)?;
-            let (enabled, recommended) = if val.len() == 0 {
+            let (enabled, recommended) = if val.is_empty() {
                 (false, false)
             } else {
                 (val[0] & ENABLED != 0, val[0] & RECOMMENDED != 0)
@@ -119,7 +119,7 @@ impl Storage {
         for result in iter {
             let (key, val) = result?;
             let (kind, handler_key) = configured_handlers_bytes_to_key(key)?;
-            let (enabled, recommended) = if val.len() == 0 {
+            let (enabled, recommended) = if val.is_empty() {
                 (false, false)
             } else {
                 (val[0] & ENABLED != 0, val[0] & RECOMMENDED != 0)
@@ -166,6 +166,6 @@ impl Storage {
             }
         }
 
-        Ok(who.iter().map(|k| *k).collect())
+        Ok(who.iter().copied().collect())
     }
 }

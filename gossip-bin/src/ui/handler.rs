@@ -115,7 +115,7 @@ pub(super) fn update_all_kinds(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
         let data = GLOBALS
             .db()
             .read_all_configured_handlers()
-            .unwrap_or(vec![]);
+            .unwrap_or_default();
         let mut kinds: Vec<EventKind> = data.iter().map(|(k, _, _, _)| *k).collect();
         kinds.dedup();
 
@@ -133,10 +133,10 @@ pub(super) fn update_all_kinds(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                     let handlers: Vec<(HandlerKey, bool, bool)> = GLOBALS
                         .db()
                         .read_configured_handlers(*kind)
-                        .unwrap_or(vec![]);
+                        .unwrap_or_default();
 
                     let all_count = handlers.len();
-                    let enabled_count = handlers.iter().filter_map(|f| f.1.then(|| {})).count();
+                    let enabled_count = handlers.iter().filter(|&f| f.1).count();
 
                     ui.horizontal(|ui| {
                         let kwidth = ui.label(egui::RichText::new(&kind_name)).rect.width();
@@ -194,7 +194,7 @@ pub(super) fn update_kind(app: &mut GossipUi, _ctx: &Context, ui: &mut Ui, kind:
     let handlers: Vec<(HandlerKey, bool, bool)> = GLOBALS
         .db()
         .read_configured_handlers(kind)
-        .unwrap_or(vec![]);
+        .unwrap_or_default();
 
     app.vert_scroll_area().show(ui, |ui| {
         for (key, mut enabled, mut recommended) in handlers.iter() {
@@ -288,23 +288,18 @@ fn handler_header(
 
         ui.add_space(200.0 - lwidth);
         if let Some(metadata) = handler.metadata() {
-            if let Some(value) = metadata.other.get("website") {
-                match value {
-                    serde_json::Value::String(url) => {
-                        if ui
-                            .link(url.to_string())
-                            .on_hover_text("open website in browser")
-                            .clicked()
-                        {
-                            ui.output_mut(|o| {
-                                o.open_url = Some(egui::OpenUrl {
-                                    url: url.to_string(),
-                                    new_tab: true,
-                                });
-                            });
-                        }
-                    }
-                    _ => {}
+            if let Some(serde_json::Value::String(url)) = metadata.other.get("website") {
+                if ui
+                    .link(url.to_string())
+                    .on_hover_text("open website in browser")
+                    .clicked()
+                {
+                    ui.output_mut(|o| {
+                        o.open_url = Some(egui::OpenUrl {
+                            url: url.to_string(),
+                            new_tab: true,
+                        });
+                    });
                 }
             }
         }
@@ -355,7 +350,7 @@ fn handler_detail(ui: &mut Ui, app: &mut GossipUi, handler: &Handler, kind: Even
     let recommended_by: Vec<PublicKey> = GLOBALS
         .db()
         .who_recommended_handler(&handler.key, kind)
-        .unwrap_or(vec![]);
+        .unwrap_or_default();
 
     ui.add_space(12.0);
 
@@ -379,7 +374,7 @@ fn handler_detail(ui: &mut Ui, app: &mut GossipUi, handler: &Handler, kind: Even
 
     if let Some(metadata) = handler.metadata() {
         ui.horizontal_wrapped(|ui| {
-            ui.label(metadata.about.as_deref().unwrap_or("".into()));
+            ui.label(metadata.about.as_deref().unwrap_or(""));
         });
     }
 }
