@@ -12,6 +12,10 @@ pub fn show_image_toggle(
     privacy_issue: bool,
     volatile: bool,
 ) {
+    // insert a newline if the current line has text
+    if ui.cursor().min.x > ui.max_rect().min.x {
+        ui.end_row();
+    }
     let row_height = ui.cursor().height();
     let mut show_link = true;
 
@@ -74,6 +78,10 @@ pub fn show_video_toggle(
     privacy_issue: bool,
     volatile: bool,
 ) {
+    // insert a newline if the current line has text
+    if ui.cursor().min.x > ui.max_rect().min.x {
+        ui.end_row();
+    }
     let row_height = ui.cursor().height();
     let mut show_link = true;
 
@@ -142,11 +150,6 @@ fn try_render_image(app: &mut GossipUi, ui: &mut Ui, url: Url, volatile: bool) -
             media.size_vec2(),
         );
 
-        // insert a newline if the current line has text
-        if ui.cursor().min.x > ui.max_rect().min.x {
-            ui.end_row();
-        }
-
         // render the image with a nice frame around it
         egui::Frame::none()
             .inner_margin(egui::Margin::same(0.0))
@@ -199,11 +202,6 @@ fn try_render_video(app: &mut GossipUi, ui: &mut Ui, url: Url, volatile: bool) -
                     y: player.height as f32,
                 },
             );
-
-            // insert a newline if the current line has text
-            if ui.cursor().min.x > ui.max_rect().min.x {
-                ui.end_row();
-            }
 
             // show the player
             if !show_full_width {
