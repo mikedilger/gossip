@@ -3,14 +3,15 @@ use eframe::{egui, epaint};
 use egui::{Image, Response, RichText, Ui};
 use epaint::Vec2;
 use gossip_lib::{MediaLoadingResult, GLOBALS};
-use nostr_types::Url;
+use nostr_types::{FileMetadata, Url};
 
-pub fn show_image_toggle(
+pub fn show_image(
     app: &mut GossipUi,
     ui: &mut Ui,
     url: Url,
     privacy_issue: bool,
     volatile: bool,
+    file_metadata: Option<FileMetadata>,
 ) {
     // insert a newline if the current line has text
     if ui.cursor().min.x > ui.max_rect().min.x {
@@ -21,7 +22,7 @@ pub fn show_image_toggle(
 
     // Show image or loading placeholder
     if show(app, &url, privacy_issue) {
-        if try_render_image(app, ui, url.clone(), volatile) {
+        if try_render_image(app, ui, url.clone(), volatile, file_metadata) {
             show_link = false;
         }
     }
@@ -77,12 +78,13 @@ pub fn show_image_toggle(
     ui.set_row_height(row_height);
 }
 
-pub fn show_video_toggle(
+pub fn show_video(
     app: &mut GossipUi,
     ui: &mut Ui,
     url: Url,
     privacy_issue: bool,
     volatile: bool,
+    file_metadata: Option<FileMetadata>,
 ) {
     // insert a newline if the current line has text
     if ui.cursor().min.x > ui.max_rect().min.x {
@@ -93,7 +95,7 @@ pub fn show_video_toggle(
 
     // Show video player or loading placeholder
     if show(app, &url, privacy_issue) {
-        if try_render_video(app, ui, url.clone(), volatile) {
+        if try_render_video(app, ui, url.clone(), volatile, file_metadata) {
             show_link = false;
         }
     }
@@ -154,8 +156,14 @@ pub fn show_video_toggle(
 
 /// Try to fetch and render a piece of media
 ///  - return: true if successfully rendered, false otherwise
-fn try_render_image(app: &mut GossipUi, ui: &mut Ui, url: Url, volatile: bool) -> bool {
-    match app.try_get_media(ui.ctx(), url.clone(), volatile) {
+fn try_render_image(
+    app: &mut GossipUi,
+    ui: &mut Ui,
+    url: Url,
+    volatile: bool,
+    file_metadata: Option<FileMetadata>,
+) -> bool {
+    match app.try_get_media(ui.ctx(), url.clone(), volatile, file_metadata.as_ref()) {
         MediaLoadingResult::Disabled => {
             // will render link
             false
@@ -229,10 +237,16 @@ fn try_render_image(app: &mut GossipUi, ui: &mut Ui, url: Url, volatile: bool) -
 }
 
 #[cfg(feature = "video-ffmpeg")]
-fn try_render_video(app: &mut GossipUi, ui: &mut Ui, url: Url, volatile: bool) -> bool {
+fn try_render_video(
+    app: &mut GossipUi,
+    ui: &mut Ui,
+    url: Url,
+    volatile: bool,
+    file_metadata: Option<FileMetadata>,
+) -> bool {
     let show_full_width = app.media_full_width_list.contains(&url);
 
-    match app.try_get_player(ui.ctx(), url.clone(), volatile) {
+    match app.try_get_player(ui.ctx(), url.clone(), volatile, file_metadata.as_ref()) {
         MediaLoadingResult::Disabled => {
             // will render link
             false

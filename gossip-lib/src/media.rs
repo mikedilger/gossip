@@ -4,7 +4,7 @@ use dashmap::{DashMap, DashSet};
 use image::imageops;
 use image::imageops::FilterType;
 use image::{DynamicImage, Rgba, RgbaImage};
-use nostr_types::{UncheckedUrl, Url};
+use nostr_types::{FileMetadata, UncheckedUrl, Url};
 use std::fmt;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
@@ -97,7 +97,12 @@ impl Media {
     /// FIXME: this API doesn't serve async clients well.
     ///
     /// DO NOT CALL FROM LIB, ONLY FROM UI
-    pub fn get_image(&self, url: &Url, use_temp_cache: bool) -> MediaLoadingResult<RgbaImage> {
+    pub fn get_image(
+        &self,
+        url: &Url,
+        use_temp_cache: bool,
+        file_metadata: Option<&FileMetadata>,
+    ) -> MediaLoadingResult<RgbaImage> {
         // If we have it, hand it over (we won't need a copy anymore)
         if let Some(th) = self.image_temp.remove(url) {
             return MediaLoadingResult::Ready(th.1);
@@ -108,7 +113,7 @@ impl Media {
             return MediaLoadingResult::Loading;
         }
 
-        match self.get_data(url, use_temp_cache) {
+        match self.get_data(url, use_temp_cache, file_metadata) {
             MediaLoadingResult::Ready(bytes) => {
                 // Finish this later (spawn)
                 let aurl = url.to_owned();
@@ -153,7 +158,12 @@ impl Media {
     /// FIXME: this API doesn't serve async clients well.
     ///
     /// DO NOT CALL FROM LIB, ONLY FROM UI
-    pub fn get_data(&self, url: &Url, use_temp_cache: bool) -> MediaLoadingResult<Vec<u8>> {
+    pub fn get_data(
+        &self,
+        url: &Url,
+        use_temp_cache: bool,
+        file_metadata: Option<&FileMetadata>,
+    ) -> MediaLoadingResult<Vec<u8>> {
         // If it failed before, error out now
         if let Some(s) = self.failed_media.get(&url.to_unchecked_url()) {
             return MediaLoadingResult::Failed(s.to_string());
@@ -161,6 +171,20 @@ impl Media {
 
         // If we have it, hand it over (we won't need a copy anymore)
         if let Some(th) = self.data_temp.remove(url) {
+            // Verify metadata hash
+            if let Some(file_metadata) = &file_metadata {
+                if let Some(x) = &file_metadata.x {
+                    use sha2::{Digest, Sha256};
+                    let mut hasher = Sha256::new();
+                    hasher.update(&th.1);
+                    let sha256hash = hasher.finalize();
+                    let hash_str = hex::encode(sha256hash);
+                    if hash_str != *x {
+                        return MediaLoadingResult::Failed("Hash Mismatch".to_string());
+                    }
+                }
+            }
+
             return MediaLoadingResult::Ready(th.1);
         }
 

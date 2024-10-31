@@ -6,7 +6,9 @@ use egui::{Button, Color32, Margin, Pos2, RichText, Stroke, Ui};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::FeedKind;
 use gossip_lib::GLOBALS;
-use nostr_types::{ContentSegment, Id, IdHex, NAddr, NostrBech32, PublicKey, RelayUrl, Span};
+use nostr_types::{
+    ContentSegment, FileMetadata, Id, IdHex, NAddr, NostrBech32, PublicKey, RelayUrl, Span,
+};
 use std::{
     cell::{Ref, RefCell},
     rc::Rc,
@@ -207,6 +209,18 @@ pub(super) fn render_hyperlink(
 ) {
     let link = note.shattered_content.slice(linkspan).unwrap();
 
+    // Check for a matching imeta tag
+    let mut file_metadata: Option<FileMetadata> = None;
+    {
+        let mut vec = note.event.file_metadata();
+        for fm in vec.drain(..) {
+            if fm.url.as_str() == link {
+                file_metadata = Some(fm);
+                break;
+            }
+        }
+    }
+
     if let Ok(relay_url) = RelayUrl::try_from_str(link) {
         render_relay_link(app, ui, relay_url);
         return;
@@ -218,9 +232,9 @@ pub(super) fn render_hyperlink(
 
     if let (Ok(url), Some(nurl)) = (url::Url::try_from(link), app.try_check_url(link)) {
         if is_image_url(&url) {
-            media::show_image_toggle(app, ui, nurl, privacy_issue, note.volatile);
+            media::show_image(app, ui, nurl, privacy_issue, note.volatile, file_metadata);
         } else if is_video_url(&url) {
-            media::show_video_toggle(app, ui, nurl, privacy_issue, note.volatile);
+            media::show_video(app, ui, nurl, privacy_issue, note.volatile, file_metadata);
         } else {
             crate::ui::widgets::break_anywhere_hyperlink_to(ui, link, link);
         }

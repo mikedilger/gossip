@@ -74,7 +74,9 @@ use gossip_lib::{
 use handler::Handlers;
 use nostr_types::ContentSegment;
 use nostr_types::RelayUrl;
-use nostr_types::{EventKind, Id, Metadata, MilliSatoshi, Profile, PublicKey, UncheckedUrl, Url};
+use nostr_types::{
+    EventKind, FileMetadata, Id, Metadata, MilliSatoshi, Profile, PublicKey, UncheckedUrl, Url,
+};
 use widgets::ModalEntry;
 
 use std::collections::{HashMap, HashSet};
@@ -1603,6 +1605,7 @@ impl GossipUi {
         ctx: &Context,
         url: Url,
         volatile: bool,
+        file_metadata: Option<&FileMetadata>,
     ) -> MediaLoadingResult<TextureHandle> {
         // Do not keep retrying if failed
         if let Some(failure) = GLOBALS.media.has_failed(&url.to_unchecked_url()) {
@@ -1614,7 +1617,7 @@ impl GossipUi {
             return MediaLoadingResult::Ready(th.to_owned());
         }
 
-        match GLOBALS.media.get_image(&url, volatile) {
+        match GLOBALS.media.get_image(&url, volatile, file_metadata) {
             MediaLoadingResult::Disabled => MediaLoadingResult::Disabled,
             MediaLoadingResult::Loading => MediaLoadingResult::Loading,
             MediaLoadingResult::Ready(rgba_image) => {
@@ -1640,6 +1643,7 @@ impl GossipUi {
         ctx: &Context,
         url: Url,
         volatile: bool,
+        file_metadata: Option<&FileMetadata>,
     ) -> MediaLoadingResult<Rc<RefCell<egui_video::Player>>> {
         // Do not keep retrying if failed
         if let Some(failure) = GLOBALS.media.has_failed(&url.to_unchecked_url()) {
@@ -1651,7 +1655,7 @@ impl GossipUi {
             return MediaLoadingResult::Ready(player.to_owned());
         }
 
-        match GLOBALS.media.get_data(&url, volatile) {
+        match GLOBALS.media.get_data(&url, volatile, file_metadata) {
             MediaLoadingResult::Disabled => MediaLoadingResult::Disabled,
             MediaLoadingResult::Loading => MediaLoadingResult::Loading,
             MediaLoadingResult::Ready(bytes) => {
