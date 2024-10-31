@@ -242,6 +242,7 @@ fn try_render_image(
         MediaLoadingResult::Failed(ref s) => {
             let color = app.theme.notice_marker_text_color();
             ui.label(RichText::new(format!("COULD NOT LOAD MEDIA: {s}")).color(color));
+            ui.end_row();
             false
         }
     }
@@ -332,6 +333,7 @@ fn try_render_video(
         MediaLoadingResult::Failed(ref s) => {
             let color = app.theme.notice_marker_text_color();
             ui.label(RichText::new(format!("COULD NOT LOAD MEDIA: {s}")).color(color));
+            ui.end_row();
             false
         }
     }
