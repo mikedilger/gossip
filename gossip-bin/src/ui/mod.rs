@@ -68,8 +68,8 @@ use egui_winit::egui::Response;
 use egui_winit::egui::ViewportBuilder;
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{
-    DmChannel, DmChannelData, Error, FeedKind, Person, PersonList, Private, RunState, ZapState,
-    GLOBALS,
+    DmChannel, DmChannelData, Error, FeedKind, MediaLoadingResult, Person, PersonList, Private,
+    RunState, ZapState, GLOBALS,
 };
 use handler::Handlers;
 use nostr_types::ContentSegment;
@@ -1593,7 +1593,7 @@ impl GossipUi {
         GLOBALS.media.retry_failed(&url.to_unchecked_url());
     }
 
-    pub fn has_media_loading_failed(&self, url_string: &str) -> bool {
+    pub fn has_media_loading_failed(&self, url_string: &str) -> Option<String> {
         let unchecked_url = UncheckedUrl(url_string.to_owned());
         GLOBALS.media.has_failed(&unchecked_url)
     }
@@ -1605,7 +1605,7 @@ impl GossipUi {
         volatile: bool,
     ) -> Option<TextureHandle> {
         // Do not keep retrying if failed
-        if GLOBALS.media.has_failed(&url.to_unchecked_url()) {
+        if GLOBALS.media.has_failed(&url.to_unchecked_url()).is_some() {
             return None;
         }
 
@@ -1614,7 +1614,7 @@ impl GossipUi {
             return Some(th.to_owned());
         }
 
-        if let Some(rgba_image) = GLOBALS.media.get_image(&url, volatile) {
+        if let MediaLoadingResult::Ready(rgba_image) = GLOBALS.media.get_image(&url, volatile) {
             let current_size = [rgba_image.width() as usize, rgba_image.height() as usize];
             let pixels = rgba_image.as_flat_samples();
             let color_image = ColorImage::from_rgba_unmultiplied(current_size, pixels.as_slice());
@@ -1638,7 +1638,7 @@ impl GossipUi {
         volatile: bool,
     ) -> Option<Rc<RefCell<egui_video::Player>>> {
         // Do not keep retrying if failed
-        if GLOBALS.media.has_failed(&url.to_unchecked_url()) {
+        if GLOBALS.media.has_failed(&url.to_unchecked_url()).is_some() {
             return None;
         }
 
@@ -1647,7 +1647,7 @@ impl GossipUi {
             return Some(player.to_owned());
         }
 
-        if let Some(bytes) = GLOBALS.media.get_data(&url, volatile) {
+        if let MediaLoadingResult::Ready(bytes) = GLOBALS.media.get_data(&url, volatile) {
             if let Ok(player) = Player::new_from_bytes(ctx, &bytes) {
                 if let Some(audio) = &mut self.audio_device {
                     if let Ok(player) = player.with_audio(audio) {
@@ -1655,7 +1655,10 @@ impl GossipUi {
                         self.video_players.insert(url.clone(), player_ref.clone());
                         Some(player_ref)
                     } else {
-                        GLOBALS.media.set_has_failed(&url.to_unchecked_url());
+                        let failure = "Player setup with audio failed".to_owned();
+                        GLOBALS
+                            .media
+                            .set_has_failed(&url.to_unchecked_url(), failure);
                         None
                     }
                 } else {
@@ -1664,7 +1667,10 @@ impl GossipUi {
                     Some(player_ref)
                 }
             } else {
-                GLOBALS.media.set_has_failed(&url.to_unchecked_url());
+                let failure = "Player setup failed".to_owned();
+                GLOBALS
+                    .media
+                    .set_has_failed(&url.to_unchecked_url(), failure);
                 None
             }
         } else {

@@ -5,10 +5,27 @@ use image::imageops;
 use image::imageops::FilterType;
 use image::{DynamicImage, Rgba, RgbaImage};
 use nostr_types::{UncheckedUrl, Url};
-use std::collections::HashSet;
+use std::fmt;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
-use tokio::sync::RwLock;
+
+pub enum MediaLoadingResult<T> {
+    Disabled,
+    Loading,
+    Ready(T),
+    Failed(String),
+}
+
+impl<T> fmt::Display for MediaLoadingResult<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match *self {
+            MediaLoadingResult::Disabled => write!(f, "Media loading is disabled"),
+            MediaLoadingResult::Loading => write!(f, "Loading..."),
+            MediaLoadingResult::Ready(_) => write!(f, "Ready"),
+            MediaLoadingResult::Failed(ref s) => write!(f, "{s}"),
+        }
+    }
+}
 
 /// System that processes media fetched from the internet
 pub struct Media {
@@ -19,7 +36,7 @@ pub struct Media {
     image_temp: DashMap<Url, RgbaImage>,
     data_temp: DashMap<Url, Vec<u8>>,
     media_pending_processing: DashSet<Url>,
-    failed_media: RwLock<HashSet<UncheckedUrl>>,
+    failed_media: DashMap<UncheckedUrl, String>,
 }
 
 impl Default for Media {
@@ -34,7 +51,7 @@ impl Media {
             image_temp: DashMap::new(),
             data_temp: DashMap::new(),
             media_pending_processing: DashSet::new(),
-            failed_media: RwLock::new(HashSet::new()),
+            failed_media: DashMap::new(),
         }
     }
 
@@ -45,9 +62,9 @@ impl Media {
         // Fail permanently if the URL is bad
         let url = match Url::try_from_unchecked_url(&unchecked_url) {
             Ok(url) => url,
-            Err(_) => {
+            Err(e) => {
                 // this cannot recover without new metadata
-                self.failed_media.blocking_write().insert(unchecked_url);
+                self.failed_media.insert(unchecked_url, format!("{e}"));
                 return None;
             }
         };
@@ -56,22 +73,20 @@ impl Media {
 
     /// Check if a Url has failed
     /// DO NOT CALL FROM ASYNC, ONLY FROM UI
-    pub fn has_failed(&self, unchecked_url: &UncheckedUrl) -> bool {
-        return self.failed_media.blocking_read().contains(unchecked_url);
+    pub fn has_failed(&self, unchecked_url: &UncheckedUrl) -> Option<String> {
+        self.failed_media.get(unchecked_url).map(|r| r.to_owned())
     }
 
     /// Set that a Url has failed
     /// DO NOT CALL FROM ASYNC, ONLY FROM UI
-    pub fn set_has_failed(&self, unchecked_url: &UncheckedUrl) {
-        self.failed_media
-            .blocking_write()
-            .insert(unchecked_url.to_owned());
+    pub fn set_has_failed(&self, unchecked_url: &UncheckedUrl, failure: String) {
+        self.failed_media.insert(unchecked_url.to_owned(), failure);
     }
 
     /// Retry a failed Url
     /// DO NOT CALL FROM ASYNC, ONLY FROM UI
     pub fn retry_failed(&self, unchecked_url: &UncheckedUrl) {
-        self.failed_media.blocking_write().remove(unchecked_url);
+        self.failed_media.remove(unchecked_url);
     }
 
     /// Get an image by Url
@@ -82,19 +97,19 @@ impl Media {
     /// FIXME: this API doesn't serve async clients well.
     ///
     /// DO NOT CALL FROM LIB, ONLY FROM UI
-    pub fn get_image(&self, url: &Url, use_temp_cache: bool) -> Option<RgbaImage> {
+    pub fn get_image(&self, url: &Url, use_temp_cache: bool) -> MediaLoadingResult<RgbaImage> {
         // If we have it, hand it over (we won't need a copy anymore)
         if let Some(th) = self.image_temp.remove(url) {
-            return Some(th.1);
+            return MediaLoadingResult::Ready(th.1);
         }
 
         // If it is pending processing, respond now
         if self.media_pending_processing.contains(url) {
-            return None; // will recover after processing completes
+            return MediaLoadingResult::Loading;
         }
 
         match self.get_data(url, use_temp_cache) {
-            Some(bytes) => {
+            MediaLoadingResult::Ready(bytes) => {
                 // Finish this later (spawn)
                 let aurl = url.to_owned();
                 tokio::spawn(async move {
@@ -113,20 +128,20 @@ impl Media {
                         Ok(color_image) => {
                             GLOBALS.media.image_temp.insert(aurl, color_image);
                         }
-                        Err(_) => {
+                        Err(e) => {
                             GLOBALS
                                 .media
                                 .failed_media
-                                .write()
-                                .await
-                                .insert(aurl.to_unchecked_url());
+                                .insert(aurl.to_unchecked_url(), format!("{e}"));
                         }
                     }
                 });
                 self.media_pending_processing.insert(url.clone());
-                None
+                MediaLoadingResult::Loading
             }
-            None => None,
+            MediaLoadingResult::Loading => MediaLoadingResult::Loading,
+            MediaLoadingResult::Disabled => MediaLoadingResult::Disabled,
+            MediaLoadingResult::Failed(s) => MediaLoadingResult::Failed(s),
         }
     }
 
@@ -138,24 +153,20 @@ impl Media {
     /// FIXME: this API doesn't serve async clients well.
     ///
     /// DO NOT CALL FROM LIB, ONLY FROM UI
-    pub fn get_data(&self, url: &Url, use_temp_cache: bool) -> Option<Vec<u8>> {
+    pub fn get_data(&self, url: &Url, use_temp_cache: bool) -> MediaLoadingResult<Vec<u8>> {
         // If it failed before, error out now
-        if self
-            .failed_media
-            .blocking_read()
-            .contains(&url.to_unchecked_url())
-        {
-            return None; // cannot recover.
+        if let Some(s) = self.failed_media.get(&url.to_unchecked_url()) {
+            return MediaLoadingResult::Failed(s.to_string());
         }
 
         // If we have it, hand it over (we won't need a copy anymore)
         if let Some(th) = self.data_temp.remove(url) {
-            return Some(th.1);
+            return MediaLoadingResult::Ready(th.1);
         }
 
         // Do not fetch if disabled
         if !GLOBALS.db().read_setting_load_media() {
-            return None; // can recover if the setting is switched
+            return MediaLoadingResult::Disabled;
         }
 
         match GLOBALS.fetcher.try_get(
@@ -163,18 +174,19 @@ impl Media {
             Duration::from_secs(60 * 60 * GLOBALS.db().read_setting_media_becomes_stale_hours()),
             use_temp_cache,
         ) {
-            Ok(None) => None,
+            Ok(None) => MediaLoadingResult::Loading,
             Ok(Some(bytes)) => {
+                // FIXME: Why not just return it right here?
                 self.data_temp.insert(url.clone(), bytes);
-                None
+                MediaLoadingResult::Loading
             }
             Err(e) => {
-                tracing::error!("{}", e);
+                let error = format!("{e}");
+                tracing::error!("{}", error);
                 // this cannot recover without new metadata
                 self.failed_media
-                    .blocking_write()
-                    .insert(url.to_unchecked_url());
-                None
+                    .insert(url.to_unchecked_url(), error.clone());
+                MediaLoadingResult::Failed(error)
             }
         }
     }

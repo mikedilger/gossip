@@ -59,10 +59,14 @@ pub fn show_image_toggle(
             if ui.button("Copy URL").clicked() {
                 ui.output_mut(|o| o.copied_text = url_string.clone());
             }
-            if app.has_media_loading_failed(url_string.as_str())
-                && ui.button("Retry loading ...").clicked()
-            {
-                app.retry_media(&url);
+            if let Some(error) = app.has_media_loading_failed(url_string.as_str()) {
+                if ui
+                    .button("Retry loading ...")
+                    .on_hover_text(error)
+                    .clicked()
+                {
+                    app.retry_media(&url);
+                }
             }
         });
     }
@@ -130,10 +134,14 @@ pub fn show_video_toggle(
             if ui.button("Copy URL").clicked() {
                 ui.output_mut(|o| o.copied_text = url_string.clone());
             }
-            if app.has_media_loading_failed(url_string.as_str())
-                && ui.button("Retry loading ...").clicked()
-            {
-                app.retry_media(&url);
+            if let Some(error) = app.has_media_loading_failed(url_string.as_str()) {
+                if ui
+                    .button("Retry loading ...")
+                    .on_hover_text(error)
+                    .clicked()
+                {
+                    app.retry_media(&url);
+                }
             }
         });
     }
