@@ -56,15 +56,14 @@ impl Media {
     }
 
     /// Check if a Url is a valid HTTP Url
-    ///
-    /// DO NOT CALL FROM LIB, ONLY FROM UI
     pub fn check_url(&self, unchecked_url: UncheckedUrl) -> Option<Url> {
         // Fail permanently if the URL is bad
         let url = match Url::try_from_unchecked_url(&unchecked_url) {
             Ok(url) => url,
             Err(e) => {
                 // this cannot recover without new metadata
-                self.failed_media.insert(unchecked_url, format!("{e}"));
+                let error = format!("{e}");
+                self.set_has_failed(&unchecked_url, error);
                 return None;
             }
         };
@@ -72,19 +71,16 @@ impl Media {
     }
 
     /// Check if a Url has failed
-    /// DO NOT CALL FROM ASYNC, ONLY FROM UI
     pub fn has_failed(&self, unchecked_url: &UncheckedUrl) -> Option<String> {
         self.failed_media.get(unchecked_url).map(|r| r.to_owned())
     }
 
     /// Set that a Url has failed
-    /// DO NOT CALL FROM ASYNC, ONLY FROM UI
     pub fn set_has_failed(&self, unchecked_url: &UncheckedUrl, failure: String) {
         self.failed_media.insert(unchecked_url.to_owned(), failure);
     }
 
     /// Retry a failed Url
-    /// DO NOT CALL FROM ASYNC, ONLY FROM UI
     pub fn retry_failed(&self, unchecked_url: &UncheckedUrl) {
         self.failed_media.remove(unchecked_url);
     }
@@ -95,8 +91,6 @@ impl Media {
     /// Call it again later to try to pick up the result.
     ///
     /// FIXME: this API doesn't serve async clients well.
-    ///
-    /// DO NOT CALL FROM LIB, ONLY FROM UI
     pub fn get_image(
         &self,
         url: &Url,
@@ -138,10 +132,10 @@ impl Media {
                             GLOBALS.media.image_temp.insert(aurl, color_image);
                         }
                         Err(e) => {
+                            let error = format!("{e}");
                             GLOBALS
                                 .media
-                                .failed_media
-                                .insert(aurl.to_unchecked_url(), format!("{e}"));
+                                .set_has_failed(&aurl.to_unchecked_url(), error);
                         }
                     }
                 });
@@ -181,7 +175,12 @@ impl Media {
                     let sha256hash = hasher.finalize();
                     let hash_str = hex::encode(sha256hash);
                     if hash_str != *x {
-                        return MediaLoadingResult::Failed("Hash Mismatch".to_string());
+                        if url.as_str() == "https://mikedilger.com/bs.png" {
+                            tracing::error!("Hash Mismatch Computed");
+                        }
+                        let error = "Hash Mismatch".to_string();
+                        self.set_has_failed(&url.to_unchecked_url(), error.clone());
+                        return MediaLoadingResult::Failed(error);
                     }
                 }
             }
@@ -209,8 +208,7 @@ impl Media {
                 let error = format!("{e}");
                 tracing::error!("{}", error);
                 // this cannot recover without new metadata
-                self.failed_media
-                    .insert(url.to_unchecked_url(), error.clone());
+                self.set_has_failed(&url.to_unchecked_url(), error.clone());
                 MediaLoadingResult::Failed(error)
             }
         }
