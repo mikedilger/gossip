@@ -60,6 +60,14 @@ impl Media {
         return self.failed_media.blocking_read().contains(unchecked_url);
     }
 
+    /// Set that a Url has failed
+    /// DO NOT CALL FROM ASYNC, ONLY FROM UI
+    pub fn set_has_failed(&self, unchecked_url: &UncheckedUrl) {
+        self.failed_media
+            .blocking_write()
+            .insert(unchecked_url.to_owned());
+    }
+
     /// Retry a failed Url
     /// DO NOT CALL FROM ASYNC, ONLY FROM UI
     pub fn retry_failed(&self, unchecked_url: &UncheckedUrl) {

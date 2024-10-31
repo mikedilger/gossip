@@ -1655,7 +1655,7 @@ impl GossipUi {
                         self.video_players.insert(url.clone(), player_ref.clone());
                         Some(player_ref)
                     } else {
-                        GLOBALS.media.has_failed(&url.to_unchecked_url());
+                        GLOBALS.media.set_has_failed(&url.to_unchecked_url());
                         None
                     }
                 } else {
@@ -1664,7 +1664,7 @@ impl GossipUi {
                     Some(player_ref)
                 }
             } else {
-                GLOBALS.media.has_failed(&url.to_unchecked_url());
+                GLOBALS.media.set_has_failed(&url.to_unchecked_url());
                 None
             }
         } else {
