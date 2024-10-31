@@ -2,7 +2,7 @@ use crate::ui::GossipUi;
 use eframe::{egui, epaint};
 use egui::{Image, Response, RichText, Ui};
 use epaint::Vec2;
-use gossip_lib::GLOBALS;
+use gossip_lib::{MediaLoadingResult, GLOBALS};
 use nostr_types::Url;
 
 pub fn show_image_toggle(
@@ -155,127 +155,151 @@ pub fn show_video_toggle(
 /// Try to fetch and render a piece of media
 ///  - return: true if successfully rendered, false otherwise
 fn try_render_image(app: &mut GossipUi, ui: &mut Ui, url: Url, volatile: bool) -> bool {
-    if let Some(media) = app.try_get_media(ui.ctx(), url.clone(), volatile) {
-        let size = media_scale(
-            app.media_full_width_list.contains(&url),
-            ui,
-            media.size_vec2(),
-        );
+    match app.try_get_media(ui.ctx(), url.clone(), volatile) {
+        MediaLoadingResult::Disabled => {
+            // will render link
+            false
+        }
+        MediaLoadingResult::Loading => {
+            egui::Frame::none()
+                .inner_margin(egui::Margin::same(0.0))
+                .outer_margin(egui::Margin {
+                    top: 10.0,
+                    left: 0.0,
+                    right: 0.0,
+                    bottom: 10.0,
+                })
+                .fill(egui::Color32::TRANSPARENT)
+                .rounding(ui.style().noninteractive().rounding)
+                .show(ui, |ui| {
+                    let text = "Loading...";
+                    let color = app.theme.notice_marker_text_color();
+                    ui.label(RichText::new(text).color(color))
+                });
+            true
+        }
+        MediaLoadingResult::Ready(media) => {
+            let size = media_scale(
+                app.media_full_width_list.contains(&url),
+                ui,
+                media.size_vec2(),
+            );
 
-        // render the image with a nice frame around it
-        egui::Frame::none()
-            .inner_margin(egui::Margin::same(0.0))
-            .outer_margin(egui::Margin {
-                top: 10.0,
-                left: 0.0,
-                right: 0.0,
-                bottom: 10.0,
-            })
-            .fill(egui::Color32::TRANSPARENT)
-            .rounding(ui.style().noninteractive().rounding)
-            .show(ui, |ui| {
-                let response = ui.add(
-                    Image::new(&media)
-                        .max_size(size)
-                        .maintain_aspect_ratio(true)
-                        .sense(egui::Sense::click()),
+            // render the image with a nice frame around it
+            egui::Frame::none()
+                .inner_margin(egui::Margin::same(0.0))
+                .outer_margin(egui::Margin {
+                    top: 10.0,
+                    left: 0.0,
+                    right: 0.0,
+                    bottom: 10.0,
+                })
+                .fill(egui::Color32::TRANSPARENT)
+                .rounding(ui.style().noninteractive().rounding)
+                .show(ui, |ui| {
+                    let response = ui.add(
+                        Image::new(&media)
+                            .max_size(size)
+                            .maintain_aspect_ratio(true)
+                            .sense(egui::Sense::click()),
+                    );
+                    if response.hovered() {
+                        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+                    }
+
+                    // full-width toggle
+                    if response.clicked() {
+                        if app.media_full_width_list.contains(&url) {
+                            app.media_full_width_list.remove(&url);
+                        } else {
+                            app.media_full_width_list.insert(url.clone());
+                        }
+                    }
+
+                    add_media_menu(app, ui, url, &response);
+                });
+            true
+        }
+        MediaLoadingResult::Failed(failure) => {
+            let color = app.theme.notice_marker_text_color();
+            ui.label(RichText::new(format!("COULD NOT LOAD MEDIA: {failure}")).color(color));
+            false
+        }
+    }
+}
+
+#[cfg(feature = "video-ffmpeg")]
+fn try_render_video(app: &mut GossipUi, ui: &mut Ui, url: Url, volatile: bool) -> bool {
+    let show_full_width = app.media_full_width_list.contains(&url);
+
+    match app.try_get_player(ui.ctx(), url.clone(), volatile) {
+        MediaLoadingResult::Disabled => {
+            // will render link
+            false
+        }
+        MediaLoadingResult::Loading => {
+            egui::Frame::none()
+                .inner_margin(egui::Margin::same(0.0))
+                .outer_margin(egui::Margin {
+                    top: 10.0,
+                    left: 0.0,
+                    right: 0.0,
+                    bottom: 10.0,
+                })
+                .fill(egui::Color32::TRANSPARENT)
+                .rounding(ui.style().noninteractive().rounding)
+                .show(ui, |ui| {
+                    let text = "Loading...";
+                    let color = app.theme.notice_marker_text_color();
+                    ui.label(RichText::new(text).color(color))
+                });
+            true
+        }
+        MediaLoadingResult::Ready(player_ref) => {
+            if let Ok(mut player) = player_ref.try_borrow_mut() {
+                let size = media_scale(
+                    show_full_width,
+                    ui,
+                    Vec2 {
+                        x: player.width as f32,
+                        y: player.height as f32,
+                    },
                 );
-                if response.hovered() {
-                    ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+
+                // show the player
+                if !show_full_width {
+                    player.stop();
+                }
+                let response = player.ui(ui, [size.x, size.y]);
+
+                // stop the player when it scrolls out of view
+                if !ui.is_rect_visible(response.rect) {
+                    player.stop();
                 }
 
+                add_media_menu(app, ui, url.clone(), &response);
+
+                // TODO fix click action
+                let new_rect = response.rect.shrink(size.x / 2.0);
+
                 // full-width toggle
-                if response.clicked() {
+                if response.with_new_rect(new_rect).clicked() {
                     if app.media_full_width_list.contains(&url) {
                         app.media_full_width_list.remove(&url);
                     } else {
                         app.media_full_width_list.insert(url.clone());
                     }
                 }
-
-                add_media_menu(app, ui, url, &response);
-            });
-    } else {
-        egui::Frame::none()
-            .inner_margin(egui::Margin::same(0.0))
-            .outer_margin(egui::Margin {
-                top: 10.0,
-                left: 0.0,
-                right: 0.0,
-                bottom: 10.0,
-            })
-            .fill(egui::Color32::TRANSPARENT)
-            .rounding(ui.style().noninteractive().rounding)
-            .show(ui, |ui| {
-                let text = "Loading...";
-                let color = app.theme.notice_marker_text_color();
-                ui.label(RichText::new(text).color(color))
-            });
-    }
-
-    // Temporary. Future commits will sometimes return false, rendering the link
-    true
-}
-
-#[cfg(feature = "video-ffmpeg")]
-fn try_render_video(app: &mut GossipUi, ui: &mut Ui, url: Url, volatile: bool) -> bool {
-    let show_full_width = app.media_full_width_list.contains(&url);
-    if let Some(player_ref) = app.try_get_player(ui.ctx(), url.clone(), volatile) {
-        if let Ok(mut player) = player_ref.try_borrow_mut() {
-            let size = media_scale(
-                show_full_width,
-                ui,
-                Vec2 {
-                    x: player.width as f32,
-                    y: player.height as f32,
-                },
-            );
-
-            // show the player
-            if !show_full_width {
-                player.stop();
-            }
-            let response = player.ui(ui, [size.x, size.y]);
-
-            // stop the player when it scrolls out of view
-            if !ui.is_rect_visible(response.rect) {
-                player.stop();
             }
 
-            add_media_menu(app, ui, url.clone(), &response);
-
-            // TODO fix click action
-            let new_rect = response.rect.shrink(size.x / 2.0);
-
-            // full-width toggle
-            if response.with_new_rect(new_rect).clicked() {
-                if app.media_full_width_list.contains(&url) {
-                    app.media_full_width_list.remove(&url);
-                } else {
-                    app.media_full_width_list.insert(url.clone());
-                }
-            }
+            true
         }
-    } else {
-        egui::Frame::none()
-            .inner_margin(egui::Margin::same(0.0))
-            .outer_margin(egui::Margin {
-                top: 10.0,
-                left: 0.0,
-                right: 0.0,
-                bottom: 10.0,
-            })
-            .fill(egui::Color32::TRANSPARENT)
-            .rounding(ui.style().noninteractive().rounding)
-            .show(ui, |ui| {
-                let text = "Loading...";
-                let color = app.theme.notice_marker_text_color();
-                ui.label(RichText::new(text).color(color))
-            });
+        MediaLoadingResult::Failed(failure) => {
+            let color = app.theme.notice_marker_text_color();
+            ui.label(RichText::new(format!("COULD NOT LOAD MEDIA: {failure}")).color(color));
+            false
+        }
     }
-
-    // Temporary. Future commits will sometimes return false, rendering the link
-    true
 }
 
 #[cfg(not(feature = "video-ffmpeg"))]

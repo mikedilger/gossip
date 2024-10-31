@@ -1603,30 +1603,34 @@ impl GossipUi {
         ctx: &Context,
         url: Url,
         volatile: bool,
-    ) -> Option<TextureHandle> {
+    ) -> MediaLoadingResult<TextureHandle> {
         // Do not keep retrying if failed
-        if GLOBALS.media.has_failed(&url.to_unchecked_url()).is_some() {
-            return None;
+        if let Some(failure) = GLOBALS.media.has_failed(&url.to_unchecked_url()) {
+            return MediaLoadingResult::Failed(failure);
         }
 
         // see if we already have a texturehandle for this media
         if let Some(th) = self.images.get(&url) {
-            return Some(th.to_owned());
+            return MediaLoadingResult::Ready(th.to_owned());
         }
 
-        if let MediaLoadingResult::Ready(rgba_image) = GLOBALS.media.get_image(&url, volatile) {
-            let current_size = [rgba_image.width() as usize, rgba_image.height() as usize];
-            let pixels = rgba_image.as_flat_samples();
-            let color_image = ColorImage::from_rgba_unmultiplied(current_size, pixels.as_slice());
-            let texture_handle = ctx.load_texture(
-                url.as_str().to_owned(),
-                color_image,
-                TextureOptions::default(),
-            );
-            self.images.insert(url, texture_handle.clone());
-            Some(texture_handle)
-        } else {
-            None
+        match GLOBALS.media.get_image(&url, volatile) {
+            MediaLoadingResult::Disabled => MediaLoadingResult::Disabled,
+            MediaLoadingResult::Loading => MediaLoadingResult::Loading,
+            MediaLoadingResult::Ready(rgba_image) => {
+                let current_size = [rgba_image.width() as usize, rgba_image.height() as usize];
+                let pixels = rgba_image.as_flat_samples();
+                let color_image =
+                    ColorImage::from_rgba_unmultiplied(current_size, pixels.as_slice());
+                let texture_handle = ctx.load_texture(
+                    url.as_str().to_owned(),
+                    color_image,
+                    TextureOptions::default(),
+                );
+                self.images.insert(url, texture_handle.clone());
+                MediaLoadingResult::Ready(texture_handle)
+            }
+            MediaLoadingResult::Failed(s) => MediaLoadingResult::Failed(s),
         }
     }
 
@@ -1636,45 +1640,48 @@ impl GossipUi {
         ctx: &Context,
         url: Url,
         volatile: bool,
-    ) -> Option<Rc<RefCell<egui_video::Player>>> {
+    ) -> MediaLoadingResult<Rc<RefCell<egui_video::Player>>> {
         // Do not keep retrying if failed
-        if GLOBALS.media.has_failed(&url.to_unchecked_url()).is_some() {
-            return None;
+        if let Some(failure) = GLOBALS.media.has_failed(&url.to_unchecked_url()) {
+            return MediaLoadingResult::Failed(failure);
         }
 
         // see if we already have a player for this video
         if let Some(player) = self.video_players.get(&url) {
-            return Some(player.to_owned());
+            return MediaLoadingResult::Ready(player.to_owned());
         }
 
-        if let MediaLoadingResult::Ready(bytes) = GLOBALS.media.get_data(&url, volatile) {
-            if let Ok(player) = Player::new_from_bytes(ctx, &bytes) {
-                if let Some(audio) = &mut self.audio_device {
-                    if let Ok(player) = player.with_audio(audio) {
+        match GLOBALS.media.get_data(&url, volatile) {
+            MediaLoadingResult::Disabled => MediaLoadingResult::Disabled,
+            MediaLoadingResult::Loading => MediaLoadingResult::Loading,
+            MediaLoadingResult::Ready(bytes) => {
+                if let Ok(player) = Player::new_from_bytes(ctx, &bytes) {
+                    if let Some(audio) = &mut self.audio_device {
+                        if let Ok(player) = player.with_audio(audio) {
+                            let player_ref = Rc::new(RefCell::new(player));
+                            self.video_players.insert(url.clone(), player_ref.clone());
+                            MediaLoadingResult::Ready(player_ref)
+                        } else {
+                            let failure = "Player setup with audio failed".to_owned();
+                            GLOBALS
+                                .media
+                                .set_has_failed(&url.to_unchecked_url(), failure.clone());
+                            MediaLoadingResult::Failed(failure)
+                        }
+                    } else {
                         let player_ref = Rc::new(RefCell::new(player));
                         self.video_players.insert(url.clone(), player_ref.clone());
-                        Some(player_ref)
-                    } else {
-                        let failure = "Player setup with audio failed".to_owned();
-                        GLOBALS
-                            .media
-                            .set_has_failed(&url.to_unchecked_url(), failure);
-                        None
+                        MediaLoadingResult::Ready(player_ref)
                     }
                 } else {
-                    let player_ref = Rc::new(RefCell::new(player));
-                    self.video_players.insert(url.clone(), player_ref.clone());
-                    Some(player_ref)
+                    let failure = "Player setup failed".to_owned();
+                    GLOBALS
+                        .media
+                        .set_has_failed(&url.to_unchecked_url(), failure.clone());
+                    MediaLoadingResult::Failed(failure)
                 }
-            } else {
-                let failure = "Player setup failed".to_owned();
-                GLOBALS
-                    .media
-                    .set_has_failed(&url.to_unchecked_url(), failure);
-                None
             }
-        } else {
-            None
+            MediaLoadingResult::Failed(s) => MediaLoadingResult::Failed(s),
         }
     }
 
