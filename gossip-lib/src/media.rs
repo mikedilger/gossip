@@ -108,15 +108,17 @@ impl Media {
             return MediaLoadingResult::Ready(th.1);
         }
 
-        // If it is pending processing, respond now
-        if self.media_pending_processing.contains(url) {
-            return MediaLoadingResult::Loading;
-        }
-
         match self.get_data(url, use_temp_cache, file_metadata) {
             MediaLoadingResult::Disabled => MediaLoadingResult::Disabled,
             MediaLoadingResult::Loading => MediaLoadingResult::Loading,
             MediaLoadingResult::Ready(bytes) => {
+                // If it is already pending processing, respond now
+                if self.media_pending_processing.contains(url) {
+                    return MediaLoadingResult::Loading;
+                } else {
+                    self.media_pending_processing.insert(url.clone());
+                }
+
                 // Finish this later (spawn)
                 let aurl = url.to_owned();
                 tokio::spawn(async move {
@@ -143,7 +145,6 @@ impl Media {
                         }
                     }
                 });
-                self.media_pending_processing.insert(url.clone());
                 MediaLoadingResult::Loading
             }
             MediaLoadingResult::Failed(s) => MediaLoadingResult::Failed(s),
