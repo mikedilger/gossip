@@ -20,6 +20,7 @@ appimage = [ "gossip-lib/appimage" ]
 
 [dependencies]
 bech32 = "0.11"
+blurhash = { version = "0.2", features = [ "image" ] }
 eframe = { git = "https://github.com/bu5hm4nn/egui", rev = "f40370c48ae2e07d2bc1d7ec33d094d29dc34e70", features = [ "persistence", "wayland", "wgpu" ] }
 egui-winit = { git = "https://github.com/bu5hm4nn/egui", rev = "f40370c48ae2e07d2bc1d7ec33d094d29dc34e70", features = [ "default" ] }
 egui_extras = { git = "https://github.com/bu5hm4nn/egui", rev = "f40370c48ae2e07d2bc1d7ec33d094d29dc34e70", features = [ "syntect" ] }
