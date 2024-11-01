@@ -34,7 +34,6 @@ pub struct Media {
     // and hand them over. This way we can do the work that takes
     // longer and the UI can do as little work as possible.
     image_temp: DashMap<Url, RgbaImage>,
-    data_temp: DashMap<Url, Vec<u8>>,
     media_pending_processing: DashSet<Url>,
     failed_media: DashMap<UncheckedUrl, String>,
 }
@@ -49,7 +48,6 @@ impl Media {
     pub(crate) fn new() -> Media {
         Media {
             image_temp: DashMap::new(),
-            data_temp: DashMap::new(),
             media_pending_processing: DashSet::new(),
             failed_media: DashMap::new(),
         }
@@ -164,30 +162,6 @@ impl Media {
             return MediaLoadingResult::Failed(s.to_string());
         }
 
-        // If we have it, hand it over (we won't need a copy anymore)
-        if let Some(th) = self.data_temp.remove(url) {
-            // Verify metadata hash
-            if let Some(file_metadata) = &file_metadata {
-                if let Some(x) = &file_metadata.x {
-                    use sha2::{Digest, Sha256};
-                    let mut hasher = Sha256::new();
-                    hasher.update(&th.1);
-                    let sha256hash = hasher.finalize();
-                    let hash_str = hex::encode(sha256hash);
-                    if hash_str != *x {
-                        if url.as_str() == "https://mikedilger.com/bs.png" {
-                            tracing::error!("Hash Mismatch Computed");
-                        }
-                        let error = "Hash Mismatch".to_string();
-                        self.set_has_failed(&url.to_unchecked_url(), error.clone());
-                        return MediaLoadingResult::Failed(error);
-                    }
-                }
-            }
-
-            return MediaLoadingResult::Ready(th.1);
-        }
-
         // Do not fetch if disabled
         if !GLOBALS.db().read_setting_load_media() {
             return MediaLoadingResult::Disabled;
@@ -200,9 +174,26 @@ impl Media {
         ) {
             Ok(None) => MediaLoadingResult::Loading,
             Ok(Some(bytes)) => {
-                // FIXME: Why not just return it right here?
-                self.data_temp.insert(url.clone(), bytes);
-                MediaLoadingResult::Loading
+                // Verify metadata hash
+                if let Some(file_metadata) = &file_metadata {
+                    if let Some(x) = &file_metadata.x {
+                        use sha2::{Digest, Sha256};
+                        let mut hasher = Sha256::new();
+                        hasher.update(&bytes);
+                        let sha256hash = hasher.finalize();
+                        let hash_str = hex::encode(sha256hash);
+                        if hash_str != *x {
+                            if url.as_str() == "https://mikedilger.com/bs.png" {
+                                tracing::error!("Hash Mismatch Computed");
+                            }
+                            let error = "Hash Mismatch".to_string();
+                            self.set_has_failed(&url.to_unchecked_url(), error.clone());
+                            return MediaLoadingResult::Failed(error);
+                        }
+                    }
+                }
+
+                MediaLoadingResult::Ready(bytes)
             }
             Err(e) => {
                 let error = format!("{e}");
