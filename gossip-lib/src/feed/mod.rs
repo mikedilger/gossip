@@ -550,6 +550,7 @@ pub fn enabled_event_kinds() -> Vec<EventKind> {
         .filter(|k| {
             *k == EventKind::Metadata
                 || *k == EventKind::TextNote
+                || *k == EventKind::Comment
             //|| *k == EventKind::RecommendRelay
                 || *k == EventKind::ContactList
                 || ((*k == EventKind::EncryptedDirectMessage) && direct_messages)
