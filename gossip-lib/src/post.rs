@@ -4,12 +4,14 @@ use crate::globals::GLOBALS;
 use crate::relay;
 use crate::relay::Relay;
 use nostr_types::{
-    ContentEncryptionAlgorithm, ContentSegment, Event, EventKind, EventReference, Id, NAddr,
-    NostrBech32, PreEvent, PublicKey, RelayUrl, ShatteredContent, Tag, UncheckedUrl, Unixtime,
+    ContentEncryptionAlgorithm, ContentSegment, Event, EventKind, EventReference, FileMetadata, Id,
+    NAddr, NostrBech32, PreEvent, PublicKey, RelayUrl, ShatteredContent, Tag, UncheckedUrl,
+    Unixtime, Url,
 };
 use std::sync::mpsc;
+use std::time::Duration;
 
-pub fn prepare_post_normal(
+pub async fn prepare_post_normal(
     author: PublicKey,
     content: String,
     mut tags: Vec<Tag>,
@@ -18,7 +20,7 @@ pub fn prepare_post_normal(
 ) -> Result<Vec<(Event, Vec<RelayUrl>)>, Error> {
     add_gossip_tag(&mut tags);
 
-    add_tags_mirroring_content(&content, &mut tags, false);
+    add_tags_mirroring_content(&content, &mut tags, false).await;
 
     if let Some(parent_id) = in_reply_to {
         add_thread_based_tags(author, &mut tags, parent_id)?;
@@ -100,7 +102,7 @@ pub fn prepare_post_nip04(
     Ok(vec![(event, relay_urls)])
 }
 
-pub fn prepare_post_nip17(
+pub async fn prepare_post_nip17(
     author: PublicKey,
     content: String,
     mut tags: Vec<Tag>,
@@ -120,7 +122,7 @@ pub fn prepare_post_nip17(
 
     add_gossip_tag(&mut tags);
 
-    add_tags_mirroring_content(&content, &mut tags, true);
+    add_tags_mirroring_content(&content, &mut tags, true).await;
 
     // All recipients get 'p' tagged on the DM rumor
     for pk in dm_channel.keys() {
@@ -166,7 +168,7 @@ fn add_gossip_tag(tags: &mut Vec<Tag>) {
     }
 }
 
-fn add_tags_mirroring_content(content: &str, tags: &mut Vec<Tag>, direct_message: bool) {
+async fn add_tags_mirroring_content(content: &str, tags: &mut Vec<Tag>, direct_message: bool) {
     let shattered_content = ShatteredContent::new(content.to_owned());
     for segment in shattered_content.segments.iter() {
         match segment {
@@ -210,9 +212,12 @@ fn add_tags_mirroring_content(content: &str, tags: &mut Vec<Tag>, direct_message
             ContentSegment::TagReference(_index) => {
                 // do nothing
             }
-            ContentSegment::Hyperlink(_span) => {
-                // do nothing
-                // FIXME: do something!
+            ContentSegment::Hyperlink(span) => {
+                if let Some(slice) = shattered_content.slice(&span) {
+                    if let Some(mimetype) = crate::media_url_mimetype(slice) {
+                        add_imeta_tag(slice, mimetype, tags).await;
+                    }
+                }
             }
             ContentSegment::Plain(_span) => {
                 // do nothing
@@ -229,6 +234,72 @@ fn add_tags_mirroring_content(content: &str, tags: &mut Vec<Tag>, direct_message
     for capture in GLOBALS.hashtag_regex.captures_iter(content) {
         tags.push(Tag::new_hashtag(capture[1][1..].to_string()));
     }
+}
+
+async fn add_imeta_tag(urlstr: &str, mimetype: &str, tags: &mut Vec<Tag>) {
+    //turn into a nostr_types::Url
+    let url = match Url::try_from_str(urlstr) {
+        Ok(url) => url,
+        _ => return,
+    };
+
+    // Fetch the link and wait for it
+    GLOBALS.fetcher.fetch(url.clone(), false).await;
+
+    // Pick up the result from the fetcher
+    let bytes = match GLOBALS.fetcher.try_get(
+        &url,
+        Duration::from_secs(60 * 60 * GLOBALS.db().read_setting_media_becomes_stale_hours()),
+        false,
+    ) {
+        Ok(Some(b)) => b,
+        _ => return,
+    };
+
+    // FIXME - in case we already have an imeta tag matching this url, we should
+    //         find it, convert it into a FileMetadata, and delete it from tags to
+    //         be replaced at the bottom of this function. However, I don't think
+    //         it will ever happen so I'm just writing this note instead.
+
+    let imeta = {
+        let unchecked_url = url.to_unchecked_url();
+        let mut imeta = FileMetadata::new(unchecked_url);
+
+        imeta.m = Some(mimetype.to_owned());
+        imeta.size = Some(bytes.len() as u64);
+
+        let hash = {
+            use sha2::Digest;
+            let mut hasher = sha2::Sha256::new();
+            hasher.update(&bytes);
+            let result = hasher.finalize();
+            hex::encode(result)
+        };
+        imeta.x = Some(hash);
+
+        if mimetype.starts_with("image") {
+            use image::{DynamicImage, GenericImageView};
+            if let Ok(dynamic_image) = image::load_from_memory(&bytes) {
+                let (w, h) = dynamic_image.dimensions();
+                // Convert to RGBA8
+                let dynamic_image = DynamicImage::ImageRgba8(dynamic_image.to_rgba8());
+                if let Ok(blurhash) = blurhash::encode(
+                    (4 * w / h).min(9),
+                    (4 * h / w).min(9),
+                    w,
+                    h,
+                    dynamic_image.as_bytes(),
+                ) {
+                    imeta.blurhash = Some(blurhash);
+                    imeta.dim = Some((w as usize, h as usize));
+                }
+            }
+        }
+
+        imeta
+    };
+
+    tags.push(imeta.to_imeta_tag());
 }
 
 fn add_thread_based_tags(
