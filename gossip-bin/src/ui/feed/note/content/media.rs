@@ -181,7 +181,6 @@ fn try_render_image(
                 .rounding(ui.style().noninteractive().rounding)
                 .show(ui, |ui| {
                     let text = if let Some(fm) = &file_metadata {
-                        // FIXME do blurhash
                         if let Some(alt) = &fm.alt {
                             &format!("Loading image: {alt}")
                         } else if let Some(summary) = &fm.summary {
