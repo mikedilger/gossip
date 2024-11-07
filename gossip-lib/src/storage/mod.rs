@@ -170,7 +170,7 @@ impl Storage {
         if let Ok(metadata) = fs::metadata(&stamp) {
             let last_modified = FileTime::from_last_modification_time(&metadata).seconds();
             let now = FileTime::now().seconds();
-            if now - last_modified < 60*60*24+7 {
+            if now - last_modified < 60 * 60 * 24 + 7 {
                 return Ok(());
             } else {
                 // Touch the stamp file
@@ -1907,6 +1907,22 @@ impl Storage {
                     false
                 }
             });
+        }
+
+        // Sort
+        if !output.is_empty() {
+            use std::cmp::Ordering;
+            let mut filter = Filter::new();
+            filter.ids = output.iter().map(|id| (*id).into()).collect();
+            let mut events = self.find_events_by_filter(&filter, |_| true)?;
+            events.sort_by(
+                |a, b| match (a.pubkey == event.pubkey, b.pubkey == event.pubkey) {
+                    (true, false) => Ordering::Less,
+                    (false, true) => Ordering::Greater,
+                    _ => a.created_at.cmp(&b.created_at),
+                },
+            );
+            output = events.iter().map(|e| e.id).collect();
         }
 
         Ok(output)
