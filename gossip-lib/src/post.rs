@@ -4,8 +4,8 @@ use crate::globals::GLOBALS;
 use crate::relay;
 use crate::relay::Relay;
 use nostr_types::{
-    ContentEncryptionAlgorithm, Event, EventKind, EventReference, Id, NAddr, NostrBech32, PreEvent,
-    PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime,
+    ContentEncryptionAlgorithm, ContentSegment, Event, EventKind, EventReference, Id, NAddr,
+    NostrBech32, PreEvent, PublicKey, RelayUrl, ShatteredContent, Tag, UncheckedUrl, Unixtime,
 };
 use std::sync::mpsc;
 
@@ -167,47 +167,55 @@ fn add_gossip_tag(tags: &mut Vec<Tag>) {
 }
 
 fn add_tags_mirroring_content(content: &str, tags: &mut Vec<Tag>, direct_message: bool) {
-    // Add Tags based on references in the content
-    //
-    // FIXME - this function takes a 'tags' variable. We may want to let
-    // the user determine which tags to keep and which to delete, so we
-    // should probably move this processing into the post editor instead.
-    // For now, I'm just trying to remove the old #[0] type substitutions
-    // and use the new NostrBech32 parsing.
-    for bech32 in NostrBech32::find_all_in_string(content).iter() {
-        match bech32 {
-            NostrBech32::CryptSec(_) => {
-                // add nothing
-            }
-            NostrBech32::NAddr(ea) => {
-                nostr_types::add_addr_to_tags(tags, ea, Some("mention".to_string()));
-            }
-            NostrBech32::NEvent(ne) => {
-                // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
-                add_event_to_tags(
-                    tags,
-                    ne.id,
-                    ne.relays.first().cloned(),
-                    ne.author,
-                    "mention",
-                );
-            }
-            NostrBech32::Id(id) => {
-                // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
-                add_event_to_tags(tags, *id, None, None, "mention");
-            }
-            NostrBech32::Profile(prof) => {
-                if !direct_message {
-                    nostr_types::add_pubkey_to_tags(tags, prof.pubkey, None);
+    let shattered_content = ShatteredContent::new(content.to_owned());
+    for segment in shattered_content.segments.iter() {
+        match segment {
+            ContentSegment::NostrUrl(nurl) => {
+                match &nurl.0 {
+                    NostrBech32::CryptSec(_) => {
+                        // add nothing
+                    }
+                    NostrBech32::NAddr(ea) => {
+                        nostr_types::add_addr_to_tags(tags, ea, Some("mention".to_string()));
+                    }
+                    NostrBech32::NEvent(ne) => {
+                        // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
+                        add_event_to_tags(
+                            tags,
+                            ne.id,
+                            ne.relays.first().cloned(),
+                            ne.author,
+                            "mention",
+                        );
+                    }
+                    NostrBech32::Id(id) => {
+                        // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
+                        add_event_to_tags(tags, *id, None, None, "mention");
+                    }
+                    NostrBech32::Profile(prof) => {
+                        if !direct_message {
+                            nostr_types::add_pubkey_to_tags(tags, prof.pubkey, None);
+                        }
+                    }
+                    NostrBech32::Pubkey(pk) => {
+                        if !direct_message {
+                            nostr_types::add_pubkey_to_tags(tags, *pk, None);
+                        }
+                    }
+                    NostrBech32::Relay(_) => {
+                        // we don't need to add this to tags I don't think.
+                    }
                 }
             }
-            NostrBech32::Pubkey(pk) => {
-                if !direct_message {
-                    nostr_types::add_pubkey_to_tags(tags, *pk, None);
-                }
+            ContentSegment::TagReference(_index) => {
+                // do nothing
             }
-            NostrBech32::Relay(_) => {
-                // we don't need to add this to tags I don't think.
+            ContentSegment::Hyperlink(_span) => {
+                // do nothing
+                // FIXME: do something!
+            }
+            ContentSegment::Plain(_span) => {
+                // do nothing
             }
         }
     }
