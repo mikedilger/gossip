@@ -70,6 +70,7 @@ use crate::profile::Profile;
 use crate::relationship::{RelationshipByAddr, RelationshipById};
 use crate::relay::Relay;
 use dashmap::DashMap;
+use filetime::FileTime;
 use heed::types::{Bytes, Unit};
 use heed::{Database, Env, EnvFlags, EnvOpenOptions, RoTxn, RwTxn};
 use nostr_types::{
@@ -79,7 +80,9 @@ use nostr_types::{
 use paste::paste;
 use speedy::{Readable, Writable};
 use std::collections::{BTreeSet, HashMap};
+use std::fs;
 use std::ops::Bound;
+use std::time::SystemTime;
 
 use self::event_kci_index::INDEXED_KINDS;
 use self::event_tag_index1::INDEXED_TAGS;
@@ -157,16 +160,41 @@ impl Storage {
     pub(crate) fn compact() -> Result<(), Error> {
         let lmdb_dir = Profile::lmdb_dir()?;
 
-        let data = {
-            let mut data = lmdb_dir.clone();
-            data.push("data.mdb");
-            data
+        let stamp = {
+            let mut stamp = lmdb_dir.clone();
+            stamp.push(".stamp");
+            stamp
         };
+
+        // If the stamp exists and is less than 1 week old, do not compact
+        if let Ok(metadata) = fs::metadata(&stamp) {
+            let last_modified = FileTime::from_last_modification_time(&metadata).seconds();
+            let now = FileTime::now().seconds();
+            if now - last_modified < 60*60*24+7 {
+                return Ok(());
+            } else {
+                // Touch the stamp file
+                let file = fs::File::open(&stamp)?;
+                file.set_modified(SystemTime::now())?;
+            }
+        } else {
+            // Create stamp file
+            fs::File::create(&stamp)?;
+        }
 
         let backup = {
             let mut backup = lmdb_dir.clone();
             backup.push("backup.mdb");
             backup
+        };
+
+        // Rmeove the backup file, ignore errors
+        let _ = std::fs::remove_file(&backup);
+
+        let data = {
+            let mut data = lmdb_dir.clone();
+            data.push("data.mdb");
+            data
         };
 
         let old = {
