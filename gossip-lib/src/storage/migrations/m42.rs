@@ -13,7 +13,7 @@ impl Storage {
         txn: &mut RwTxn<'a>,
     ) -> Result<(), Error> {
         // Info message
-        tracing::info!("{prefix}: rebuilding friends-of-friends datat...");
+        tracing::info!("{prefix}: rebuilding friends-of-friends data...");
 
         // Rebuild Fof
         self.set_flag_rebuild_fof_needed(true, Some(txn))?;
