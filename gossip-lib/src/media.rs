@@ -355,3 +355,32 @@ fn round_image(image: &mut RgbaImage) {
         }
     }
 }
+
+pub fn media_url_mimetype(s: &str) -> Option<&'static str> {
+    let lower = s.to_lowercase();
+    if lower.ends_with(".jpg") || lower.ends_with(".jpeg") {
+        Some("image/jpeg")
+    } else if lower.ends_with(".png") {
+        Some("image/png")
+    } else if lower.ends_with(".gif") {
+        Some("image/gif")
+    } else if lower.ends_with(".webp") {
+        Some("image/webp")
+    } else if lower.ends_with(".mov") {
+        Some("video/quicktime")
+    } else if lower.ends_with(".mp4") {
+        Some("video/mp4")
+    } else if lower.ends_with(".webm") {
+        Some("video/webm")
+    } else if lower.ends_with(".mkv") {
+        Some("video/x-matroska")
+    } else if lower.ends_with(".avi") {
+        Some("video/x-msvideo")
+    } else if lower.ends_with(".wmv") {
+        Some("video/x-ms-wmv")
+    } else if lower.ends_with(".3gp") {
+        Some("video/3gpp")
+    } else {
+        None
+    }
+}
