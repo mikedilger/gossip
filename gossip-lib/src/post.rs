@@ -178,6 +178,8 @@ async fn add_tags_mirroring_content(content: &str, tags: &mut Vec<Tag>, direct_m
                         // add nothing
                     }
                     NostrBech32::NAddr(ea) => {
+                        // https://github.com/nostr-protocol/nips/pull/1560 may allow us to use 'q'
+                        // in the future
                         nostr_types::add_addr_to_tags(tags, ea, Some("mention".to_string()));
                     }
                     NostrBech32::NEvent(ne) => {
@@ -187,12 +189,12 @@ async fn add_tags_mirroring_content(content: &str, tags: &mut Vec<Tag>, direct_m
                             ne.id,
                             ne.relays.first().cloned(),
                             ne.author,
-                            "mention",
+                            "mention", // this will use 'q', see the function
                         );
                     }
                     NostrBech32::Id(id) => {
                         // NIP-10: "Those marked with "mention" denote a quoted or reposted event id."
-                        add_event_to_tags(tags, *id, None, None, "mention");
+                        add_event_to_tags(tags, *id, None, None, "mention"); // this will use 'q', see the function
                     }
                     NostrBech32::Profile(prof) => {
                         if !direct_message {
