@@ -66,7 +66,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                         ui,
                         app,
                         Some(app.theme.main_content_bgcolor()),
-                        Some(app.theme.hovered_content_bgcolor()),
                         |ui, app| {
                             ui.set_min_width(ui.available_width());
                             ui.set_min_height(AVATAR_SIZE_F32);

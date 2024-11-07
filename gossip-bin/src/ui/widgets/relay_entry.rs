@@ -206,8 +206,16 @@ impl RelayEntry {
         let mut hsva: ecolor::HsvaGamma = accent.into();
         hsva.v *= 0.8;
         let accent_hover: Color32 = hsva.into();
-        let bg_fill = app.theme.main_content_bgcolor();
-        let bg_hover = app.theme.hovered_content_bgcolor();
+        let bg_fill = if app.theme.dark_mode {
+            app.theme.neutral_800()
+        } else {
+            app.theme.neutral_100()
+        };
+        let bg_hover = if app.theme.dark_mode {
+            app.theme.neutral_950()
+        } else {
+            app.theme.neutral_50()
+        };
         Self {
             relay,
             view: RelayEntryView::List,
