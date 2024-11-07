@@ -542,6 +542,8 @@ pub trait ThemeDef: Send + Sync {
     fn neutral_700() -> Color32;
     fn neutral_800() -> Color32;
     fn neutral_900() -> Color32;
+    fn neutral_850() -> Color32;
+    fn neutral_875() -> Color32;
     fn neutral_950() -> Color32;
     fn accent_dark() -> Color32;
     fn accent_dark_b20() -> Color32; // overlay 20% black
