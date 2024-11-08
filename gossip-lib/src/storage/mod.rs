@@ -211,7 +211,10 @@ impl Storage {
 
             // Copy to backup file, compacting
             tracing::info!("Compacting LMDB...");
-            let _ = env.copy_to_file(&backup, heed::CompactionOption::Enabled)?;
+            if let Err(_) = env.copy_to_file(&backup, heed::CompactionOption::Enabled) {
+                // Just give up on compacting
+                return Ok(());
+            }
 
             env.force_sync()?;
             let _ = env.prepare_for_closing();
