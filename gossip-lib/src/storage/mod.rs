@@ -212,6 +212,9 @@ impl Storage {
             // Copy to backup file, compacting
             tracing::info!("Compacting LMDB...");
             if let Err(_) = env.copy_to_file(&backup, heed::CompactionOption::Enabled) {
+                // Erase the attempt
+                std::fs::remove_file(&backup)?;
+
                 // Just give up on compacting
                 return Ok(());
             }
@@ -226,7 +229,7 @@ impl Storage {
         // Move the backup to the data
         std::fs::rename(&backup, &data)?;
 
-        // Rmeove the old
+        // Remove the old
         std::fs::remove_file(&old)?;
 
         Ok(())
