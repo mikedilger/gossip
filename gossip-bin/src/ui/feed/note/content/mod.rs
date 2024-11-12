@@ -231,10 +231,12 @@ pub(super) fn render_hyperlink(
     let privacy_issue = note.direct_message;
 
     if let (Ok(url), Some(nurl)) = (url::Url::try_from(link), app.try_check_url(link)) {
-        if is_image_url(&url) {
-            media::show_image(app, ui, nurl, privacy_issue, note.volatile, file_metadata);
-        } else if is_video_url(&url) {
-            media::show_video(app, ui, nurl, privacy_issue, note.volatile, file_metadata);
+        if let Some(mimetype) = gossip_lib::media_url_mimetype(url.path()) {
+            if mimetype.starts_with("image/") {
+                media::show_image(app, ui, nurl, privacy_issue, note.volatile, file_metadata);
+            } else if mimetype.starts_with("video/") {
+                media::show_video(app, ui, nurl, privacy_issue, note.volatile, file_metadata);
+            }
         } else {
             crate::ui::widgets::break_anywhere_hyperlink_to(ui, link, link);
         }
@@ -375,21 +377,4 @@ pub(super) fn render_unknown_reference(ui: &mut Ui, num: usize) {
             .write()
             .write("Gossip can't handle this kind of tag link yet.".to_owned());
     }
-}
-
-fn is_image_url(url: &url::Url) -> bool {
-    let lower = url.path().to_lowercase();
-    lower.ends_with(".jpg")
-        || lower.ends_with(".jpeg")
-        || lower.ends_with(".png")
-        || lower.ends_with(".gif")
-        || lower.ends_with(".webp")
-}
-
-fn is_video_url(url: &url::Url) -> bool {
-    let lower = url.path().to_lowercase();
-    lower.ends_with(".mov")
-        || lower.ends_with(".mp4")
-        || lower.ends_with(".mkv")
-        || lower.ends_with(".webm")
 }

@@ -700,7 +700,8 @@ impl Overlord {
                 annotation,
                 dm_channel,
             } => {
-                self.post(content, tags, in_reply_to, annotation, dm_channel)?;
+                self.post(content, tags, in_reply_to, annotation, dm_channel)
+                    .await?;
             }
             ToOverlordMessage::PostAgain(event) => {
                 self.post_again(event)?;
@@ -1767,7 +1768,7 @@ impl Overlord {
     }
 
     /// Post a TextNote (kind 1) event
-    pub fn post(
+    pub async fn post(
         &mut self,
         content: String,
         tags: Vec<Tag>,
@@ -1787,13 +1788,15 @@ impl Overlord {
         let mut prepared_events = match dm_channel {
             Some(channel) => {
                 if channel.can_use_nip17() {
-                    crate::post::prepare_post_nip17(author, content, tags, channel, annotation)?
+                    crate::post::prepare_post_nip17(author, content, tags, channel, annotation)
+                        .await?
                 } else {
                     crate::post::prepare_post_nip04(author, content, channel, annotation)?
                 }
             }
             None => {
-                crate::post::prepare_post_normal(author, content, tags, in_reply_to, annotation)?
+                crate::post::prepare_post_normal(author, content, tags, in_reply_to, annotation)
+                    .await?
             }
         };
 

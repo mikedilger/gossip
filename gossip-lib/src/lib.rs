@@ -102,7 +102,7 @@ pub use gossip_identity::GossipIdentity;
 pub mod manager;
 
 mod media;
-pub use media::{Media, MediaLoadingResult};
+pub use media::{media_url_mimetype, Media, MediaLoadingResult};
 
 mod minion;
 

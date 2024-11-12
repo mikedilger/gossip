@@ -70,6 +70,7 @@ use crate::profile::Profile;
 use crate::relationship::{RelationshipByAddr, RelationshipById};
 use crate::relay::Relay;
 use dashmap::DashMap;
+use filetime::FileTime;
 use heed::types::{Bytes, Unit};
 use heed::{Database, Env, EnvFlags, EnvOpenOptions, RoTxn, RwTxn};
 use nostr_types::{
@@ -79,7 +80,9 @@ use nostr_types::{
 use paste::paste;
 use speedy::{Readable, Writable};
 use std::collections::{BTreeSet, HashMap};
+use std::fs;
 use std::ops::Bound;
+use std::time::SystemTime;
 
 use self::event_kci_index::INDEXED_KINDS;
 use self::event_tag_index1::INDEXED_TAGS;
@@ -157,16 +160,41 @@ impl Storage {
     pub(crate) fn compact() -> Result<(), Error> {
         let lmdb_dir = Profile::lmdb_dir()?;
 
-        let data = {
-            let mut data = lmdb_dir.clone();
-            data.push("data.mdb");
-            data
+        let stamp = {
+            let mut stamp = lmdb_dir.clone();
+            stamp.push(".stamp");
+            stamp
         };
+
+        // If the stamp exists and is less than 1 week old, do not compact
+        if let Ok(metadata) = fs::metadata(&stamp) {
+            let last_modified = FileTime::from_last_modification_time(&metadata).seconds();
+            let now = FileTime::now().seconds();
+            if now - last_modified < 60 * 60 * 24 + 7 {
+                return Ok(());
+            } else {
+                // Touch the stamp file
+                let file = fs::File::open(&stamp)?;
+                file.set_modified(SystemTime::now())?;
+            }
+        } else {
+            // Create stamp file
+            fs::File::create(&stamp)?;
+        }
 
         let backup = {
             let mut backup = lmdb_dir.clone();
             backup.push("backup.mdb");
             backup
+        };
+
+        // Rmeove the backup file, ignore errors
+        let _ = std::fs::remove_file(&backup);
+
+        let data = {
+            let mut data = lmdb_dir.clone();
+            data.push("data.mdb");
+            data
         };
 
         let old = {
@@ -183,7 +211,13 @@ impl Storage {
 
             // Copy to backup file, compacting
             tracing::info!("Compacting LMDB...");
-            let _ = env.copy_to_file(&backup, heed::CompactionOption::Enabled)?;
+            if let Err(_) = env.copy_to_file(&backup, heed::CompactionOption::Enabled) {
+                // Erase the attempt
+                std::fs::remove_file(&backup)?;
+
+                // Just give up on compacting
+                return Ok(());
+            }
 
             env.force_sync()?;
             let _ = env.prepare_for_closing();
@@ -195,7 +229,7 @@ impl Storage {
         // Move the backup to the data
         std::fs::rename(&backup, &data)?;
 
-        // Rmeove the old
+        // Remove the old
         std::fs::remove_file(&old)?;
 
         Ok(())
@@ -1879,6 +1913,22 @@ impl Storage {
                     false
                 }
             });
+        }
+
+        // Sort
+        if !output.is_empty() {
+            use std::cmp::Ordering;
+            let mut filter = Filter::new();
+            filter.ids = output.iter().map(|id| (*id).into()).collect();
+            let mut events = self.find_events_by_filter(&filter, |_| true)?;
+            events.sort_by(
+                |a, b| match (a.pubkey == event.pubkey, b.pubkey == event.pubkey) {
+                    (true, false) => Ordering::Less,
+                    (false, true) => Ordering::Greater,
+                    _ => a.created_at.cmp(&b.created_at),
+                },
+            );
+            output = events.iter().map(|e| e.id).collect();
         }
 
         Ok(output)

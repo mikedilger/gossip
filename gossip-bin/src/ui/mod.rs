@@ -481,6 +481,7 @@ struct GossipUi {
     theme: Theme,
     avatars: HashMap<PublicKey, TextureHandle>,
     images: HashMap<Url, TextureHandle>,
+    blurs: HashMap<Url, TextureHandle>,
     /// used when settings.show_media=false to explicitly show
     media_show_list: HashSet<Url>,
     /// used when settings.show_media=true to explicitly hide
@@ -738,6 +739,7 @@ impl GossipUi {
             theme,
             avatars: HashMap::new(),
             images: HashMap::new(),
+            blurs: HashMap::new(),
             media_show_list: HashSet::new(),
             media_hide_list: HashSet::new(),
             media_full_width_list: HashSet::new(),
@@ -1619,7 +1621,39 @@ impl GossipUi {
 
         match GLOBALS.media.get_image(&url, volatile, file_metadata) {
             MediaLoadingResult::Disabled => MediaLoadingResult::Disabled,
-            MediaLoadingResult::Loading => MediaLoadingResult::Loading,
+            MediaLoadingResult::Loading => {
+                if let Some(fm) = file_metadata {
+                    let (w, h) = match fm.dim {
+                        Some((w, h)) => (w, h),
+                        None => (400, 400),
+                    };
+                    if let Some(bh) = &fm.blurhash {
+                        if let Some(texture_handle) = self.blurs.get(&url) {
+                            return MediaLoadingResult::Ready(texture_handle.clone());
+                        } else {
+                            if let Ok(rgba_image) =
+                                blurhash::decode_image(bh, w as u32, h as u32, 1.0)
+                            {
+                                let current_size =
+                                    [rgba_image.width() as usize, rgba_image.height() as usize];
+                                let pixels = rgba_image.as_flat_samples();
+                                let color_image = ColorImage::from_rgba_unmultiplied(
+                                    current_size,
+                                    pixels.as_slice(),
+                                );
+                                let texture_handle = ctx.load_texture(
+                                    url.as_str().to_owned(),
+                                    color_image,
+                                    TextureOptions::default(),
+                                );
+                                self.blurs.insert(url, texture_handle.clone());
+                                return MediaLoadingResult::Ready(texture_handle);
+                            }
+                        }
+                    }
+                }
+                MediaLoadingResult::Loading
+            }
             MediaLoadingResult::Ready(rgba_image) => {
                 let current_size = [rgba_image.width() as usize, rgba_image.height() as usize];
                 let pixels = rgba_image.as_flat_samples();

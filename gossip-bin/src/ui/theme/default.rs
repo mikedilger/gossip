@@ -79,6 +79,12 @@ impl ThemeDef for DefaultTheme {
     fn neutral_800() -> Color32 {
         Color32::from_rgb(0x26, 0x26, 0x26)
     } // #262626
+    fn neutral_850() -> Color32 {
+        Color32::from_rgb(0x1e, 0x1e, 0x1e)
+    } // #1E1E1E
+    fn neutral_875() -> Color32 {
+        Color32::from_rgb(0x1b, 0x1b, 0x1b)
+    } // #1B1B1B
     fn neutral_900() -> Color32 {
         Color32::from_rgb(0x17, 0x17, 0x17)
     } // #171717
@@ -142,17 +148,17 @@ impl ThemeDef for DefaultTheme {
 
     fn main_content_bgcolor(dark_mode: bool) -> Color32 {
         if dark_mode {
-            Color32::BLACK
+            Self::neutral_800()
         } else {
-            Color32::WHITE
+            Self::neutral_50()
         }
     }
 
     fn hovered_content_bgcolor(dark_mode: bool) -> Color32 {
         if dark_mode {
-            Self::neutral_950()
+            Self::neutral_850()
         } else {
-            Self::neutral_50()
+            Color32::WHITE
         }
     }
 
@@ -280,7 +286,7 @@ impl ThemeDef for DefaultTheme {
 
                 // Background colors
                 window_fill: Self::neutral_950(), // pulldown menus and tooltips
-                panel_fill: Color32::from_gray(0x29), // panel backgrounds, even-table-rows
+                panel_fill: Self::neutral_875(), // panel backgrounds, even-table-rows
                 faint_bg_color: Color32::from_gray(20), // odd-table-rows
                 extreme_bg_color: Color32::from_gray(45), // text input background; scrollbar background
                 code_bg_color: Color32::from_gray(64),    // ???
@@ -372,7 +378,7 @@ impl ThemeDef for DefaultTheme {
 
                 // Background colors
                 window_fill: Self::neutral_100(), // pulldown menus and tooltips
-                panel_fill: Color32::from_gray(0xF4), // panel backgrounds, even-table-rows
+                panel_fill: Self::neutral_200(), // panel backgrounds, even-table-rows
                 faint_bg_color: Color32::from_gray(248), // odd-table-rows
                 extreme_bg_color: Color32::from_gray(246), // text input background; scrollbar background
                 code_bg_color: Color32::from_gray(230),    // ???
@@ -695,9 +701,9 @@ impl ThemeDef for DefaultTheme {
 
     fn navigation_bg_fill(dark_mode: bool) -> eframe::egui::Color32 {
         if dark_mode {
-            Color32::from_gray(0x26)
+            Self::neutral_800()
         } else {
-            Color32::from_gray(0xE1)
+            Self::neutral_100()
         }
     }
 

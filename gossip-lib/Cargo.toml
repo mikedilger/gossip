@@ -41,6 +41,7 @@ appimage = []
 [dependencies]
 base64 = "0.22"
 bech32 = "0.11"
+blurhash = { version = "0.2", features = [ "image" ] }
 dashmap = "6.0"
 dirs = "5.0"
 encoding_rs = "0.8"
@@ -55,7 +56,7 @@ kamadak-exif = "0.5"
 lazy_static = "1.5"
 linkify = "0.10"
 mime = "0.3"
-nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "071af42b008a8ba0eff3683fec6dda0812819e4f", features = [ "speedy" ] }
+nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "78cb912d72c6ed39123da4c32d308cfe3ae35d6d", features = [ "speedy" ] }
 parking_lot = { version = "0.12", features = [ "arc_lock", "send_guard" ] }
 paste = "1.0"
 rand = "0.8"

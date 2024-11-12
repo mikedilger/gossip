@@ -818,6 +818,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "blurhash"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e79769241dcd44edf79a732545e8b5cec84c247ac060f5252cd51885d093a8fc"
+dependencies = [
+ "image",
+]
+
+[[package]]
 name = "brotli"
 version = "7.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2262,6 +2271,7 @@ name = "gossip"
 version = "0.13.0-unstable"
 dependencies = [
  "bech32 0.11.0",
+ "blurhash",
  "chrono",
  "eframe",
  "egui-video",
@@ -2296,6 +2306,7 @@ version = "0.13.0-unstable"
 dependencies = [
  "base64 0.22.1",
  "bech32 0.11.0",
+ "blurhash",
  "dashmap",
  "dirs",
  "encoding_rs",
@@ -3439,7 +3450,7 @@ dependencies = [
 [[package]]
 name = "nostr-types"
 version = "0.8.0-unstable"
-source = "git+https://github.com/mikedilger/nostr-types?rev=071af42b008a8ba0eff3683fec6dda0812819e4f#071af42b008a8ba0eff3683fec6dda0812819e4f"
+source = "git+https://github.com/mikedilger/nostr-types?rev=78cb912d72c6ed39123da4c32d308cfe3ae35d6d#78cb912d72c6ed39123da4c32d308cfe3ae35d6d"
 dependencies = [
  "aes",
  "base64 0.22.1",

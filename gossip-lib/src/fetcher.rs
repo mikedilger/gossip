@@ -266,7 +266,9 @@ impl Fetcher {
         Ok(None)
     }
 
-    async fn fetch(&self, url: Url, use_temp_cache: bool) {
+    /// This causes the fetcher to fetch the resource. After it completes, you can pick it up
+    /// the result using try_get()
+    pub async fn fetch(&self, url: Url, use_temp_cache: bool) {
         // Do not fetch if offline
         if GLOBALS.db().read_setting_offline() {
             tracing::debug!("FETCH {url}: Failed: offline mode");
