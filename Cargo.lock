@@ -1543,7 +1543,7 @@ dependencies = [
 [[package]]
 name = "egui-video"
 version = "0.1.0"
-source = "git+https://github.com/mikedilger/egui-video?rev=2485b2b09372a1e254a4f2c51edab3fc62d79c3a#2485b2b09372a1e254a4f2c51edab3fc62d79c3a"
+source = "git+https://github.com/mikedilger/egui-video?rev=8ff342e20a3806bfa6c8dd7a9cd44305210695c7#8ff342e20a3806bfa6c8dd7a9cd44305210695c7"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1828,8 +1828,8 @@ dependencies = [
 
 [[package]]
 name = "ffmpeg-next"
-version = "7.0.4"
-source = "git+https://github.com/mikedilger/rust-ffmpeg.git?rev=8974928ecf53e69777f85ee5c8780c907b7aa0a4#8974928ecf53e69777f85ee5c8780c907b7aa0a4"
+version = "7.1.0"
+source = "git+https://github.com/mikedilger/rust-ffmpeg.git?rev=2f5d8a3714247243b892d7927bad36e98c1aeb06#2f5d8a3714247243b892d7927bad36e98c1aeb06"
 dependencies = [
  "bitflags 2.6.0",
  "ffmpeg-sys-next",
