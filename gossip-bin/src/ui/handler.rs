@@ -124,6 +124,7 @@ pub(super) fn update_all_kinds(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                 ui,
                 app,
                 Some(app.theme.main_content_bgcolor()),
+                Some(app.theme.hovered_content_bgcolor()),
                 |ui, app| {
                     ui.set_min_width(ui.available_width());
 
@@ -214,6 +215,7 @@ pub(super) fn update_kind(app: &mut GossipUi, _ctx: &Context, ui: &mut Ui, kind:
                     ui,
                     app,
                     Some(app.theme.main_content_bgcolor()),
+                    Some(app.theme.hovered_content_bgcolor()),
                     |ui, app| {
                         ui.set_min_width(ui.available_width());
 
