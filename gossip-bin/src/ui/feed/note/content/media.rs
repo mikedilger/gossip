@@ -346,7 +346,7 @@ fn try_render_video(
     _volatile: bool,
     _file_metadata: Option<FileMetadata>,
 ) -> bool {
-    true
+    false
 }
 
 // Should we show the media, or fall back to a link?
