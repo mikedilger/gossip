@@ -61,6 +61,7 @@ use egui::{
     Align, Color32, ColorImage, Context, IconData, Image, ImageData, Label, Layout, RichText,
     ScrollArea, Sense, TextureHandle, TextureOptions, Ui, Vec2,
 };
+use egui_file_dialog::FileDialog;
 #[cfg(feature = "video-ffmpeg")]
 use egui_video::{AudioDevice, Player};
 use egui_winit::egui::Rect;
@@ -81,6 +82,7 @@ use widgets::ModalEntry;
 
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
+use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
@@ -555,6 +557,9 @@ struct GossipUi {
     dm_channel_cache: Vec<DmChannelData>,
     dm_channel_next_refresh: Instant,
     dm_channel_error: Option<String>,
+
+    file_dialog: FileDialog,
+    uploading: Option<PathBuf>,
 }
 
 impl Drop for GossipUi {
@@ -786,6 +791,8 @@ impl GossipUi {
             dm_channel_cache: vec![],
             dm_channel_next_refresh: Instant::now(),
             dm_channel_error: None,
+            file_dialog: FileDialog::new(),
+            uploading: None,
         }
     }
 
