@@ -2321,6 +2321,7 @@ dependencies = [
  "kamadak-exif",
  "lazy_static",
  "linkify",
+ "memmap2 0.9.5",
  "mime",
  "normpath",
  "nostr-types",
