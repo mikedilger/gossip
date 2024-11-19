@@ -1,7 +1,7 @@
 use crate::ui::GossipUi;
 use eframe::egui;
 use egui::widgets::Slider;
-use egui::{Context, Ui};
+use egui::{Context, TextEdit, Ui};
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.heading("Posting Settings");
@@ -27,6 +27,18 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ),
     )
     .on_hover_text("Takes effect on next relay connection.");
+
+    ui.add_space(20.0);
+
+    ui.horizontal(|ui| {
+        ui.label("Blossom servers: ")
+            .on_hover_text("Specify your blossom servers (just the host and port if it is not 443). Separate then by spaces or newlines");
+        ui.add(
+            TextEdit::multiline(
+                &mut app.unsaved_settings.blossom_servers)
+                .desired_width(f32::INFINITY)
+        );
+    });
 
     ui.add_space(20.0);
 }

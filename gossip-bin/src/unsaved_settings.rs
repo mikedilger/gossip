@@ -124,6 +124,8 @@ pub struct UnsavedSettings {
     // Database settings
     pub prune_period_days: u64,
     pub cache_prune_period_days: u64,
+
+    pub blossom_servers: String,
 }
 
 impl Default for UnsavedSettings {
@@ -211,6 +213,7 @@ impl Default for UnsavedSettings {
             ),
             prune_period_days: default_setting!(prune_period_days),
             cache_prune_period_days: default_setting!(prune_period_days),
+            blossom_servers: default_setting!(blossom_servers),
         }
     }
 }
@@ -296,6 +299,7 @@ impl UnsavedSettings {
             ),
             prune_period_days: load_setting!(prune_period_days),
             cache_prune_period_days: load_setting!(cache_prune_period_days),
+            blossom_servers: load_setting!(blossom_servers),
         }
     }
 
@@ -369,6 +373,7 @@ impl UnsavedSettings {
         save_setting!(fetcher_host_exclusion_on_high_error_secs, self, txn);
         save_setting!(prune_period_days, self, txn);
         save_setting!(cache_prune_period_days, self, txn);
+        save_setting!(blossom_servers, self, txn);
         txn.commit()?;
 
         let runstate = *GLOBALS.read_runstate.borrow();
