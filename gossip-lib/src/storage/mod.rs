@@ -825,6 +825,7 @@ impl Storage {
         bool,
         false
     );
+    def_setting!(blossom_servers, b"blossom_servers", String, "".to_string());
 
     // -------------------------------------------------------------------
 

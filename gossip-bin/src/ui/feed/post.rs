@@ -152,7 +152,7 @@ pub(in crate::ui) fn posting_area(
 
 fn dm_posting_area(
     app: &mut GossipUi,
-    _ctx: &Context,
+    ctx: &Context,
     _frame: &mut eframe::Frame,
     ui: &mut Ui,
     dm_channel: &DmChannel,
@@ -356,6 +356,37 @@ fn dm_posting_area(
                     app.dm_draft_data.draft.push(emoji);
                 }
             });
+
+            // Attachment button
+            if let Some(pathbuf) = &app.uploading {
+                if let Some(result) = GLOBALS.blossom_uploads.get(pathbuf) {
+                    match result.value() {
+                        Ok(bd) => {
+                            app.draft_data.draft.push(' ');
+                            app.draft_data.draft.push_str(&bd.url);
+                            if let Some(ext) = pathbuf.extension() {
+                                app.draft_data.draft.push('.');
+                                app.draft_data.draft.push_str(&ext.to_string_lossy());
+                            }
+                            app.uploading = None;
+                        }
+                        Err(e) => {
+                            ui.label(format!("{e}"));
+                        }
+                    }
+                } else {
+                    ui.label("Uploading...");
+                }
+            } else if ui.button(RichText::new("📎").size(14.0)).clicked() {
+                app.file_dialog.select_file();
+            }
+            app.file_dialog.update(ctx);
+            if let Some(pathbuf) = app.file_dialog.take_selected() {
+                app.uploading = Some(pathbuf.clone());
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::BlossomUpload(pathbuf));
+            }
         });
     });
 
@@ -685,6 +716,37 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                             app.draft_data.draft.push(emoji);
                         }
                     });
+                }
+
+                // Attachment button
+                if let Some(pathbuf) = &app.uploading {
+                    if let Some(result) = GLOBALS.blossom_uploads.get(pathbuf) {
+                        match result.value() {
+                            Ok(bd) => {
+                                app.draft_data.draft.push(' ');
+                                app.draft_data.draft.push_str(&bd.url);
+                                if let Some(ext) = pathbuf.extension() {
+                                    app.draft_data.draft.push('.');
+                                    app.draft_data.draft.push_str(&ext.to_string_lossy());
+                                }
+                                app.uploading = None;
+                            }
+                            Err(e) => {
+                                ui.label(format!("{e}"));
+                            }
+                        }
+                    } else {
+                        ui.label("Uploading...");
+                    }
+                } else if ui.button(RichText::new("📎").size(14.0)).clicked() {
+                    app.file_dialog.select_file();
+                }
+                app.file_dialog.update(ctx);
+                if let Some(pathbuf) = app.file_dialog.take_selected() {
+                    app.uploading = Some(pathbuf.clone());
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::BlossomUpload(pathbuf));
                 }
             });
         } else {

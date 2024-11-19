@@ -64,6 +64,9 @@
 //! with the storage engine. In some cases, the `Overlord` has more complex code for doing this,
 //! but in many cases, you can interact with `GLOBALS.db()` directly.
 
+pub mod blossom;
+pub use blossom::Blossom;
+
 pub mod bookmarks;
 pub use bookmarks::BookmarkList;
 

@@ -286,7 +286,7 @@ impl ThemeDef for DefaultTheme {
 
                 // Background colors
                 window_fill: Self::neutral_950(), // pulldown menus and tooltips
-                panel_fill: Self::neutral_875(), // panel backgrounds, even-table-rows
+                panel_fill: Self::neutral_875(),  // panel backgrounds, even-table-rows
                 faint_bg_color: Color32::from_gray(20), // odd-table-rows
                 extreme_bg_color: Color32::from_gray(45), // text input background; scrollbar background
                 code_bg_color: Color32::from_gray(64),    // ???
@@ -378,7 +378,7 @@ impl ThemeDef for DefaultTheme {
 
                 // Background colors
                 window_fill: Self::neutral_100(), // pulldown menus and tooltips
-                panel_fill: Self::neutral_200(), // panel backgrounds, even-table-rows
+                panel_fill: Self::neutral_200(),  // panel backgrounds, even-table-rows
                 faint_bg_color: Color32::from_gray(248), // odd-table-rows
                 extreme_bg_color: Color32::from_gray(246), // text input background; scrollbar background
                 code_bg_color: Color32::from_gray(230),    // ???
