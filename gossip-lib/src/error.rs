@@ -6,6 +6,7 @@ use nostr_types::RelayUrl;
 #[derive(Debug)]
 pub enum ErrorKind {
     BadNostrConnectString,
+    BlossomError(String),
     BroadcastSend(String),
     BroadcastReceive(tokio::sync::broadcast::error::RecvError),
     CannotUpdateRelayUrl,
@@ -106,6 +107,7 @@ impl std::fmt::Display for Error {
         }
         match &self.kind {
             BadNostrConnectString => write!(f, "Bad nostrconnect string"),
+            BlossomError(s) => write!(f, "Blossom error: {s}"),
             BroadcastSend(s) => write!(f, "Error broadcasting: {s}"),
             BroadcastReceive(e) => write!(f, "Error receiving broadcast: {e}"),
             CannotUpdateRelayUrl => {
