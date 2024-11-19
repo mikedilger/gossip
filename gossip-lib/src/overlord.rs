@@ -1029,17 +1029,18 @@ impl Overlord {
         let blossom = match GLOBALS.blossom.get() {
             Some(b) => b,
             None => {
-                let blossom_servers = GLOBALS.db().read_setting_blossom_servers();
-                let first = blossom_servers.split_whitespace().next();
-                let bs = match first {
-                    Some(bs) => bs,
-                    None => {
-                        return Err(ErrorKind::General("Blossom not configured".to_owned()).into())
-                    }
-                };
-
-                let _ = GLOBALS.blossom.set(Blossom::new(bs.to_owned()).unwrap());
+                let blossom = Blossom::new()?;
+                let _ = GLOBALS.blossom.set(blossom);
                 GLOBALS.blossom.get().unwrap()
+            }
+        };
+
+        let host = {
+            let blossom_servers = GLOBALS.db().read_setting_blossom_servers();
+            let first = blossom_servers.split_whitespace().next();
+            match first {
+                Some(bs) => bs.to_owned(),
+                None => return Err(ErrorKind::General("Blossom not configured".to_owned()).into()),
             }
         };
 
@@ -1050,7 +1051,7 @@ impl Overlord {
         let file = tokio::fs::File::open(&pathbuf).await?;
 
         // upload
-        let result = blossom.upload(file, hash).await;
+        let result = blossom.upload(file, host, hash).await;
         if let Ok(ref bd) = result {
             println!("UPLOADED:  {} -> {}", pathbuf.display(), &bd.url);
         }

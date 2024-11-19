@@ -1013,9 +1013,10 @@ fn offer_attachment(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, dm: bool) {
                     app.uploading = None;
                 }
                 Err(e) => {
-                    if ui.add(
-                        Label::new(format!("{e}")).sense(Sense::click())
-                    ).clicked() {
+                    if ui
+                        .add(Label::new(format!("{e}")).sense(Sense::click()))
+                        .clicked()
+                    {
                         app.uploading = None;
                     }
                 }

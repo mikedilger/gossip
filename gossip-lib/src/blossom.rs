@@ -83,12 +83,11 @@ pub struct BlobDescriptor {
 }
 
 pub struct Blossom {
-    host: String,
     client: Client,
 }
 
 impl Blossom {
-    pub fn new(host: String) -> Result<Blossom, Error> {
+    pub fn new() -> Result<Blossom, Error> {
         let connect_timeout =
             Duration::new(GLOBALS.db().read_setting_fetcher_connect_timeout_sec(), 0);
         let timeout = Duration::new(GLOBALS.db().read_setting_fetcher_timeout_sec(), 0);
@@ -101,13 +100,18 @@ impl Blossom {
             .timeout(timeout)
             .build()?;
 
-        Ok(Blossom { host, client })
+        Ok(Blossom { client })
     }
 
     /// BUD-01 HEAD /<sha256>
     /// Check if the data exists on the blossom server
-    pub async fn check_exists(&self, hash: HashOutput, authorize: bool) -> Result<bool, Error> {
-        let url = format!("https://{}/{}", self.host, hash);
+    pub async fn check_exists(
+        &self,
+        host: String,
+        hash: HashOutput,
+        authorize: bool,
+    ) -> Result<bool, Error> {
+        let url = format!("https://{}/{}", host, hash);
         let mut req_builder = self.client.head(url);
 
         if authorize {
@@ -133,8 +137,13 @@ impl Blossom {
     /// BUD-01 GET /<sha256>
     /// This returns the Response so it can be extracted as the caller desires
     /// with bytes(), bytes_stream(), chunk(), text(), or text_with_charset()
-    pub async fn download(&self, hash: HashOutput, authorize: bool) -> Result<Response, Error> {
-        let url = format!("https://{}/{}", self.host, hash);
+    pub async fn download(
+        &self,
+        host: String,
+        hash: HashOutput,
+        authorize: bool,
+    ) -> Result<Response, Error> {
+        let url = format!("https://{}/{}", host, hash);
         let mut req_builder = self.client.get(url);
 
         if authorize {
@@ -166,6 +175,7 @@ impl Blossom {
     pub async fn upload<T: Into<Body>>(
         &self,
         data: T,
+        host: String,
         hash: HashOutput,
     ) -> Result<BlobDescriptor, Error> {
         let authorization = authorization(
@@ -175,7 +185,7 @@ impl Blossom {
             vec![hash],
         )?;
 
-        let url = format!("https://{}/upload", self.host);
+        let url = format!("https://{}/upload", host);
         let response = self
             .client
             .put(url)
