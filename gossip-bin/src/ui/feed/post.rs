@@ -1017,6 +1017,7 @@ fn offer_attachment(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, dm: bool) {
                         .add(Label::new(format!("{e}")).sense(Sense::click()))
                         .clicked()
                     {
+                        let _ = GLOBALS.blossom_uploads.remove(pathbuf);
                         app.uploading = None;
                     }
                 }
