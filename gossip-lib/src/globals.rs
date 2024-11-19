@@ -1,3 +1,4 @@
+use crate::blossom::{BlobDescriptor, Blossom};
 use crate::bookmarks::BookmarkList;
 use crate::comms::{RelayJob, ToMinionMessage, ToOverlordMessage};
 use crate::delegation::Delegation;
@@ -23,6 +24,7 @@ use parking_lot::RwLock as PRwLock;
 use regex::Regex;
 use rhai::{Engine, AST};
 use std::collections::HashSet;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize};
 use std::sync::{Arc, OnceLock};
 use tokio::runtime::Runtime;
@@ -187,6 +189,12 @@ pub struct Globals {
 
     /// Handlers
     pub handlers: DashMap<EventKind, Vec<(String, UncheckedUrl)>>,
+
+    /// Blossom (the uploader)
+    pub blossom: OnceLock<Blossom>,
+
+    /// Blossom Uploads (Path to Url)
+    pub blossom_uploads: DashMap<PathBuf, Result<BlobDescriptor, Error>>,
 }
 
 lazy_static! {
@@ -261,6 +269,8 @@ lazy_static! {
             prune_status: PRwLock::new(None),
             relay_tests: DashMap::new(),
             handlers: DashMap::new(),
+            blossom: OnceLock::new(),
+            blossom_uploads: DashMap::new(),
         }
     };
 }
