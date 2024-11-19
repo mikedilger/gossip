@@ -1,6 +1,6 @@
 use super::FeedNoteParams;
 use crate::ui::widgets::{InformationPopup, MoreMenuButton, MoreMenuItem};
-use crate::ui::{widgets, you, FeedKind, GossipUi, HighlightType, Page, Theme};
+use crate::ui::{widgets, you, FeedKind, GossipUi, HighlightType, Label, Page, Sense, Theme};
 use eframe::egui;
 use eframe::epaint::text::LayoutJob;
 use egui::containers::CollapsingHeader;
@@ -357,36 +357,7 @@ fn dm_posting_area(
                 }
             });
 
-            // Attachment button
-            if let Some(pathbuf) = &app.uploading {
-                if let Some(result) = GLOBALS.blossom_uploads.get(pathbuf) {
-                    match result.value() {
-                        Ok(bd) => {
-                            app.draft_data.draft.push(' ');
-                            app.draft_data.draft.push_str(&bd.url);
-                            if let Some(ext) = pathbuf.extension() {
-                                app.draft_data.draft.push('.');
-                                app.draft_data.draft.push_str(&ext.to_string_lossy());
-                            }
-                            app.uploading = None;
-                        }
-                        Err(e) => {
-                            ui.label(format!("{e}"));
-                        }
-                    }
-                } else {
-                    ui.label("Uploading...");
-                }
-            } else if ui.button(RichText::new("📎").size(14.0)).clicked() {
-                app.file_dialog.select_file();
-            }
-            app.file_dialog.update(ctx);
-            if let Some(pathbuf) = app.file_dialog.take_selected() {
-                app.uploading = Some(pathbuf.clone());
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::BlossomUpload(pathbuf));
-            }
+            offer_attachment(app, ctx, ui, true);
         });
     });
 
@@ -718,36 +689,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                     });
                 }
 
-                // Attachment button
-                if let Some(pathbuf) = &app.uploading {
-                    if let Some(result) = GLOBALS.blossom_uploads.get(pathbuf) {
-                        match result.value() {
-                            Ok(bd) => {
-                                app.draft_data.draft.push(' ');
-                                app.draft_data.draft.push_str(&bd.url);
-                                if let Some(ext) = pathbuf.extension() {
-                                    app.draft_data.draft.push('.');
-                                    app.draft_data.draft.push_str(&ext.to_string_lossy());
-                                }
-                                app.uploading = None;
-                            }
-                            Err(e) => {
-                                ui.label(format!("{e}"));
-                            }
-                        }
-                    } else {
-                        ui.label("Uploading...");
-                    }
-                } else if ui.button(RichText::new("📎").size(14.0)).clicked() {
-                    app.file_dialog.select_file();
-                }
-                app.file_dialog.update(ctx);
-                if let Some(pathbuf) = app.file_dialog.take_selected() {
-                    app.uploading = Some(pathbuf.clone());
-                    let _ = GLOBALS
-                        .to_overlord
-                        .send(ToOverlordMessage::BlossomUpload(pathbuf));
-                }
+                offer_attachment(app, ctx, ui, false);
             });
         } else {
             // raw preview
@@ -1045,4 +987,50 @@ fn do_replacements(draft: &str, replacements: &HashMap<String, ContentSegment>) 
         }
     }
     output
+}
+
+fn offer_attachment(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, dm: bool) {
+    // Attachment button
+    if let Some(pathbuf) = &app.uploading {
+        if let Some(result) = GLOBALS.blossom_uploads.get(pathbuf) {
+            match result.value() {
+                Ok(bd) => {
+                    if dm {
+                        app.dm_draft_data.draft.push(' ');
+                        app.dm_draft_data.draft.push_str(&bd.url);
+                        if let Some(ext) = pathbuf.extension() {
+                            app.dm_draft_data.draft.push('.');
+                            app.dm_draft_data.draft.push_str(&ext.to_string_lossy());
+                        }
+                    } else {
+                        app.draft_data.draft.push(' ');
+                        app.draft_data.draft.push_str(&bd.url);
+                        if let Some(ext) = pathbuf.extension() {
+                            app.draft_data.draft.push('.');
+                            app.draft_data.draft.push_str(&ext.to_string_lossy());
+                        }
+                    }
+                    app.uploading = None;
+                }
+                Err(e) => {
+                    if ui.add(
+                        Label::new(format!("{e}")).sense(Sense::click())
+                    ).clicked() {
+                        app.uploading = None;
+                    }
+                }
+            }
+        } else {
+            ui.label("Uploading...");
+        }
+    } else if ui.button(RichText::new("📎").size(14.0)).clicked() {
+        app.file_dialog.select_file();
+    }
+    app.file_dialog.update(ctx);
+    if let Some(pathbuf) = app.file_dialog.take_selected() {
+        app.uploading = Some(pathbuf.clone());
+        let _ = GLOBALS
+            .to_overlord
+            .send(ToOverlordMessage::BlossomUpload(pathbuf));
+    }
 }
