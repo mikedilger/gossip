@@ -195,7 +195,15 @@ impl Blossom {
             .await?;
 
         if response.status().as_u16() < 300 {
-            Ok(response.json::<BlobDescriptor>().await?)
+            let full = response.bytes().await?;
+            match serde_json::from_slice::<BlobDescriptor>(&full) {
+                Ok(bd) => Ok(bd),
+                Err(e) => {
+                    let text = String::from_utf8_lossy(&full);
+                    tracing::error!("Failed to deserialize Blossom Blob Descriptor: {}", text);
+                    return Err(e.into());
+                }
+            }
         } else {
             Err(get_error(&response))
         }
