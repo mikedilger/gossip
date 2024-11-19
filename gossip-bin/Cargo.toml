@@ -24,6 +24,7 @@ blurhash = { version = "0.2", features = [ "image" ] }
 eframe = { git = "https://github.com/bu5hm4nn/egui", rev = "f40370c48ae2e07d2bc1d7ec33d094d29dc34e70", features = [ "persistence", "wayland", "wgpu" ] }
 egui-winit = { git = "https://github.com/bu5hm4nn/egui", rev = "f40370c48ae2e07d2bc1d7ec33d094d29dc34e70", features = [ "default" ] }
 egui_extras = { git = "https://github.com/bu5hm4nn/egui", rev = "f40370c48ae2e07d2bc1d7ec33d094d29dc34e70", features = [ "syntect" ] }
+egui-file-dialog = { git = "https://github.com/mikedilger/egui-file-dialog", rev = "537561cdc805c97d480fde82f6a647abc6eee1af" }
 ## egui = { git = "https://github.com/bu5hm4nn/egui", rev = "f40370c48ae2e07d2bc1d7ec33d094d29dc34e70", features = [ "deadlock_detection" ] }
 egui-video = { git = "https://github.com/mikedilger/egui-video", rev = "8ff342e20a3806bfa6c8dd7a9cd44305210695c7",  features = [ "from_bytes" ], optional = true }
 gossip-lib = { path = "../gossip-lib" }
