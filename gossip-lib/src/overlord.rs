@@ -1033,7 +1033,9 @@ impl Overlord {
                 let first = blossom_servers.split_whitespace().next();
                 let bs = match first {
                     Some(bs) => bs,
-                    None => return Err(ErrorKind::General("Blossom not configured".to_owned()).into()),
+                    None => {
+                        return Err(ErrorKind::General("Blossom not configured".to_owned()).into())
+                    }
                 };
 
                 let _ = GLOBALS.blossom.set(Blossom::new(bs.to_owned()).unwrap());
