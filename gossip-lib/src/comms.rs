@@ -10,6 +10,7 @@ use nostr_types::{
 };
 use std::fmt;
 use std::hash::{Hash, Hasher};
+use std::path::PathBuf;
 
 /// This is a message sent to the Overlord. Tasks which take any amount of time,
 /// especially involving relays, are handled by the Overlord in this way. There is
@@ -35,12 +36,16 @@ pub enum ToOverlordMessage {
     /// pass 'true' as the second parameter for a permanent approval
     AuthDeclined(RelayUrl, bool),
 
+    /// Calls [blossom_upload](crate::Overlord::blossom_upload)
+    /// Uploads the local file to a blossom server
+    BlossomUpload(PathBuf),
+
     /// Calls [bookmark_add](crate::Overlord::bookmark_add)
     /// Adds a bookmark, possibly privately, and publishes new bookmarks list
     BookmarkAdd(EventReference, bool),
 
     /// Calls [bookmark_rm](crate::Overlord::bookmark_rm)
-    /// Removess a bookmark, and publishes new bookmarks list
+    /// Removes a bookmark, and publishes new bookmarks list
     BookmarkRm(EventReference),
 
     /// Calls [change_passphrase](crate::Overlord::change_passphrase)

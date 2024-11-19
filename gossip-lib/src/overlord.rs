@@ -1,3 +1,4 @@
+use crate::blossom::{Blossom, HashOutput};
 use crate::comms::{
     RelayConnectionReason, RelayJob, ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail,
     ToOverlordMessage,
@@ -28,6 +29,7 @@ use nostr_types::{
     RelayUrl, Tag, UncheckedUrl, Unixtime,
 };
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc;
 use std::time::Duration;
@@ -595,6 +597,9 @@ impl Overlord {
             ToOverlordMessage::AuthDeclined(relay_url, permanent) => {
                 self.auth_declined(relay_url, permanent)?;
             }
+            ToOverlordMessage::BlossomUpload(pathbuf) => {
+                self.blossom_upload(pathbuf).await?;
+            }
             ToOverlordMessage::BookmarkAdd(er, private) => {
                 self.bookmark_add(er, private)?;
             }
@@ -1006,6 +1011,48 @@ impl Overlord {
                     .take_relay_authentication_request(&pubkey, &relay_url);
             }
         }
+
+        Ok(())
+    }
+
+    pub async fn blossom_upload(&mut self, pathbuf: PathBuf) -> Result<(), Error> {
+        std::mem::drop(tokio::spawn(async move {
+            if let Err(e) = Overlord::inner_blossom_upload(pathbuf).await {
+                tracing::error!("{}", e);
+            }
+        }));
+
+        Ok(())
+    }
+
+    async fn inner_blossom_upload(pathbuf: PathBuf) -> Result<(), Error> {
+        let blossom = match GLOBALS.blossom.get() {
+            Some(b) => b,
+            None => {
+                let blossom_servers = GLOBALS.db().read_setting_blossom_servers();
+                let first = blossom_servers.split_whitespace().next();
+                let bs = match first {
+                    Some(bs) => bs,
+                    None => return Err(ErrorKind::General("Blossom not configured".to_owned()).into()),
+                };
+
+                let _ = GLOBALS.blossom.set(Blossom::new(bs.to_owned()).unwrap());
+                GLOBALS.blossom.get().unwrap()
+            }
+        };
+
+        // hash
+        let hash = HashOutput::from_file(&pathbuf)?;
+
+        // open
+        let file = tokio::fs::File::open(&pathbuf).await?;
+
+        // upload
+        let result = blossom.upload(file, hash).await;
+        if let Ok(ref bd) = result {
+            println!("UPLOADED:  {} -> {}", pathbuf.display(), &bd.url);
+        }
+        GLOBALS.blossom_uploads.insert(pathbuf, result);
 
         Ok(())
     }
