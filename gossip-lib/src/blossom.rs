@@ -78,8 +78,12 @@ pub struct BlobDescriptor {
     pub mime_type: Option<String>,
 
     /// When uploaded
-    #[serde(rename = "uploaded")]
-    pub created_at: u64,
+    #[serde(default)]
+    pub uploaded: Option<u64>,
+
+    /// When uploaded (alternate)
+    #[serde(default)]
+    pub created: Option<u64>,
 }
 
 pub struct Blossom {
@@ -244,9 +248,10 @@ fn authorization(
         tags.push(Tag::new(&["x", &format!("{}", hash)]));
     }
 
+    let now = Unixtime::now();
     let pre_event = PreEvent {
         pubkey: public_key,
-        created_at: Unixtime::now(),
+        created_at: now,
         kind: EventKind::Blossom, // 24242
         tags,
         content: purpose,
