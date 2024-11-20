@@ -1044,14 +1044,20 @@ impl Overlord {
             }
         };
 
+        // metadata
+        let metadata = tokio::fs::metadata(&pathbuf).await?;
+
         // hash
         let hash = HashOutput::from_file(&pathbuf)?;
+
+        // mime type
+        let mime = crate::blossom::get_content_type(&pathbuf)?;
 
         // open
         let file = tokio::fs::File::open(&pathbuf).await?;
 
         // upload
-        let result = blossom.upload(file, host, hash).await;
+        let result = blossom.upload(file, host, hash, mime, metadata.len()).await;
         if let Ok(ref bd) = result {
             println!("UPLOADED:  {} -> {}", pathbuf.display(), &bd.url);
         }

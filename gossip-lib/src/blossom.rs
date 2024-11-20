@@ -2,7 +2,9 @@ use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use base64::Engine;
 use memmap2::Mmap;
+use mime::Mime;
 use nostr_types::{EventKind, PreEvent, Tag, Unixtime};
+use reqwest::header::{AUTHORIZATION, CONTENT_LENGTH, CONTENT_TYPE};
 use reqwest::{Body, Client, Response};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -126,7 +128,7 @@ impl Blossom {
                 vec![],
             )?;
 
-            req_builder = req_builder.header("Authorization", format!("Nostr {}", authorization))
+            req_builder = req_builder.header(AUTHORIZATION, format!("Nostr {}", authorization))
         };
 
         let response = req_builder.send().await?;
@@ -158,7 +160,7 @@ impl Blossom {
                 vec![],
             )?;
 
-            req_builder = req_builder.header("Authorization", format!("Nostr {}", authorization))
+            req_builder = req_builder.header(AUTHORIZATION, format!("Nostr {}", authorization))
         };
 
         let response = req_builder.send().await?;
@@ -181,6 +183,8 @@ impl Blossom {
         data: T,
         host: String,
         hash: HashOutput,
+        content_type: Mime,
+        content_length: u64,
     ) -> Result<BlobDescriptor, Error> {
         let authorization = authorization(
             BlossomVerb::Upload,
@@ -193,7 +197,9 @@ impl Blossom {
         let response = self
             .client
             .put(url)
-            .header("Authorization", format!("Nostr {}", authorization))
+            .header(AUTHORIZATION, format!("Nostr {}", authorization))
+            .header(CONTENT_TYPE, format!("{}", content_type))
+            .header(CONTENT_LENGTH, content_length)
             .body(data)
             .send()
             .await?;
@@ -273,5 +279,19 @@ fn get_error(response: &Response) -> Error {
         }
     } else {
         ErrorKind::BlossomError(format!("{}", response.status())).into()
+    }
+}
+
+/// This first infers the content-type by the magic number of the content
+/// Then it uses the file extension
+/// It falls back to application/octet-stream
+pub fn get_content_type(path: &Path) -> Result<Mime, Error> {
+    if let Some(mime) = infer::get_from_path(path)? {
+        Ok(mime.mime_type().parse().unwrap())
+    } else {
+        let extension_guess = mime_guess::from_path(path);
+        Ok(extension_guess
+            .first()
+            .unwrap_or(mime::APPLICATION_OCTET_STREAM))
     }
 }
