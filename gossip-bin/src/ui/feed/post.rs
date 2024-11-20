@@ -1007,16 +1007,20 @@ fn offer_attachment(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, dm: bool) {
                     if dm {
                         app.dm_draft_data.draft.push(' ');
                         app.dm_draft_data.draft.push_str(&bd.url);
-                        if let Some(ext) = pathbuf.extension() {
-                            app.dm_draft_data.draft.push('.');
-                            app.dm_draft_data.draft.push_str(&ext.to_string_lossy());
+                        if bd.url.len() > 5 && !bd.url[bd.url.len() - 5..].contains('.') {
+                            if let Some(ext) = pathbuf.extension() {
+                                app.dm_draft_data.draft.push('.');
+                                app.dm_draft_data.draft.push_str(&ext.to_string_lossy());
+                            }
                         }
                     } else {
                         app.draft_data.draft.push(' ');
                         app.draft_data.draft.push_str(&bd.url);
-                        if let Some(ext) = pathbuf.extension() {
-                            app.draft_data.draft.push('.');
-                            app.draft_data.draft.push_str(&ext.to_string_lossy());
+                        if bd.url.len() > 5 && !bd.url[bd.url.len() - 5..].contains('.') {
+                            if let Some(ext) = pathbuf.extension() {
+                                app.draft_data.draft.push('.');
+                                app.draft_data.draft.push_str(&ext.to_string_lossy());
+                            }
                         }
                     }
                     clear_uploading = true;
