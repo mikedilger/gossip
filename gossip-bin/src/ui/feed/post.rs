@@ -990,6 +990,9 @@ fn do_replacements(draft: &str, replacements: &HashMap<String, ContentSegment>) 
 }
 
 fn offer_attachment(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, dm: bool) {
+    let mut clear_uploading: bool = false;
+    let mut clear_upload: bool = false;
+
     // Attachment button
     if let Some(pathbuf) = &app.uploading {
         if let Some(result) = GLOBALS.blossom_uploads.get(pathbuf) {
@@ -1010,20 +1013,27 @@ fn offer_attachment(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, dm: bool) {
                             app.draft_data.draft.push_str(&ext.to_string_lossy());
                         }
                     }
-                    app.uploading = None;
+                    clear_uploading = true;
                 }
                 Err(e) => {
                     if ui
                         .add(Label::new(format!("{e}")).sense(Sense::click()))
                         .clicked()
                     {
-                        let _ = GLOBALS.blossom_uploads.remove(pathbuf);
-                        app.uploading = None;
+                        clear_uploading = true;
+                        clear_upload = true;
                     }
                 }
             }
         } else {
             ui.label("Uploading...");
+        }
+
+        if clear_upload {
+            let _ = GLOBALS.blossom_uploads.remove(pathbuf);
+        }
+        if clear_uploading {
+            app.uploading = None;
         }
     } else if ui.button(RichText::new("📎").size(14.0)).clicked() {
         app.file_dialog.select_file();
