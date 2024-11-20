@@ -646,6 +646,8 @@ pub(super) fn font_definitions() -> FontDefinitions {
     let mut font_data: BTreeMap<String, FontData> = BTreeMap::new();
     let mut families = BTreeMap::new();
 
+    // Refer to epaint (text/fonts.rs) to see what egui default font stack is.
+
     font_data.insert(
         "DejaVuSans".to_owned(),
         FontData::from_static(include_bytes!("../../../../fonts/DejaVuSansSansEmoji.ttf")),
@@ -703,7 +705,27 @@ pub(super) fn font_definitions() -> FontDefinitions {
         ),
     );
 
-    let mut proportional = vec!["DejaVuSans".to_owned(), "NotoEmoji-Regular".to_owned()];
+    // For fallback purposes
+    font_data.insert(
+        "Hack".to_owned(),
+        FontData::from_static(include_bytes!("../../../../fonts/Hack-Regular.ttf")),
+    );
+    font_data.insert(
+        "Ubuntu-Light".to_owned(),
+        FontData::from_static(include_bytes!("../../../../fonts/Ubuntu-Light.ttf")),
+    );
+    font_data.insert(
+        "emoji-icon-font".to_owned(),
+        FontData::from_static(include_bytes!("../../../../fonts/emoji-icon-font.ttf")),
+    );
+
+
+    let mut proportional = vec![
+        "DejaVuSans".to_owned(),
+        "Ubuntu-Light".to_owned(),
+        "NotoEmoji-Regular".to_owned(),
+        "emoji-icon-font".to_owned(),
+    ];
     if cfg!(feature = "lang-cjk") {
         proportional.push("NotoSansCJK".to_owned());
         proportional.push("NotoSansThai".to_owned())
@@ -713,7 +735,13 @@ pub(super) fn font_definitions() -> FontDefinitions {
 
     families.insert(
         FontFamily::Monospace,
-        vec!["Inconsolata".to_owned(), "NotoEmoji-Regular".to_owned()],
+        vec![
+            "Inconsolata".to_owned(),
+            "Hack".to_owned(),
+            "Ubuntu-Light".to_owned(),
+            "emoji-icon-font".to_owned(),
+            "NotoEmoji-Regular".to_owned(),
+        ],
     );
 
     families.insert(
