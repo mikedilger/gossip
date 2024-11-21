@@ -1017,8 +1017,8 @@ impl Overlord {
 
     pub async fn blossom_upload(&mut self, pathbuf: PathBuf) -> Result<(), Error> {
         std::mem::drop(tokio::spawn(async move {
-            if let Err(e) = Overlord::inner_blossom_upload(pathbuf).await {
-                tracing::error!("{}", e);
+            if let Err(e) = Overlord::inner_blossom_upload(pathbuf.clone()).await {
+                GLOBALS.blossom_uploads.insert(pathbuf, Err(e));
             }
         }));
 
