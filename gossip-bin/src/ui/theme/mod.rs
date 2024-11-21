@@ -719,7 +719,6 @@ pub(super) fn font_definitions() -> FontDefinitions {
         FontData::from_static(include_bytes!("../../../../fonts/emoji-icon-font.ttf")),
     );
 
-
     let mut proportional = vec![
         "DejaVuSans".to_owned(),
         "Ubuntu-Light".to_owned(),
