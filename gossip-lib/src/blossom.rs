@@ -117,7 +117,7 @@ impl Blossom {
         hash: HashOutput,
         authorize: bool,
     ) -> Result<bool, Error> {
-        let url = format!("{}/{}", base_url, hash);
+        let url = format!("{}{}", base_url, hash);
         let mut req_builder = self.client.head(url);
 
         if authorize {
@@ -149,7 +149,7 @@ impl Blossom {
         hash: HashOutput,
         authorize: bool,
     ) -> Result<Response, Error> {
-        let url = format!("{}/{}", base_url, hash);
+        let url = format!("{}{}", base_url, hash);
         let mut req_builder = self.client.get(url);
 
         if authorize {
@@ -193,7 +193,7 @@ impl Blossom {
             vec![hash],
         )?;
 
-        let url = format!("{}/upload", base_url);
+        let url = format!("{}upload", base_url);
         let response = self
             .client
             .put(url)
