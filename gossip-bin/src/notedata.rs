@@ -178,6 +178,7 @@ impl NoteData {
         // Compute the content to our needs
         let (display_content, error_content) = match event.kind {
             EventKind::TextNote => (event.content.trim().to_string(), None),
+            EventKind::Comment => (event.content.trim().to_string(), None),
             EventKind::Repost => ("".to_owned(), embedded_event_error),
             EventKind::GenericRepost => ("".to_owned(), None),
             EventKind::EncryptedDirectMessage => {
@@ -194,7 +195,7 @@ impl NoteData {
             EventKind::DraftLongFormContent => (event.content.clone(), None),
             k => {
                 if k.is_feed_displayable() {
-                    (event.content.clone(), Some(format!("{:?}", k)))
+                    (event.content.clone(), Some(format!("kind={:?}", k)))
                 } else {
                     let mut dc = format!("UNSUPPORTED EVENT KIND {:?}", k);
                     // support the 'alt' tag of NIP-31:

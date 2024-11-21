@@ -5,7 +5,7 @@ use speedy::{Readable, Writable};
 /// A relationship between events by Ids
 #[derive(Clone, Debug, PartialEq, Eq, Readable, Writable)]
 pub enum RelationshipById2 {
-    // NIP-01, NIP-10 replies
+    // NIP-01, NIP-10 replies, NIP-22 comments
     RepliesTo,
 
     // Annotation
