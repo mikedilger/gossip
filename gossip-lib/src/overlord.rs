@@ -1035,11 +1035,24 @@ impl Overlord {
             }
         };
 
-        let host = {
+        let base_url = {
             let blossom_servers = GLOBALS.db().read_setting_blossom_servers();
             let first = blossom_servers.split_whitespace().next();
             match first {
-                Some(bs) => bs.to_owned(),
+                Some(bs) => {
+                    use http::uri::{Parts, PathAndQuery, Scheme};
+                    use http::Uri;
+
+                    let uri = bs.parse::<Uri>()?;
+                    let mut parts: Parts = uri.into_parts();
+                    parts.path_and_query = Some(PathAndQuery::from_static("/")); // Force no path
+                    if parts.scheme.is_none() {
+                        // Default to https
+                        parts.scheme = Some(Scheme::HTTPS);
+                    }
+                    let uri = Uri::from_parts(parts)?;
+                    format!("{}", uri)
+                }
                 None => return Err(ErrorKind::General("Blossom not configured".to_owned()).into()),
             }
         };
@@ -1057,7 +1070,9 @@ impl Overlord {
         let file = tokio::fs::File::open(&pathbuf).await?;
 
         // upload
-        let result = blossom.upload(file, host, hash, mime, metadata.len()).await;
+        let result = blossom
+            .upload(file, base_url, hash, mime, metadata.len())
+            .await;
         if let Ok(ref bd) = result {
             println!("UPLOADED:  {} -> {}", pathbuf.display(), &bd.url);
         }

@@ -113,11 +113,11 @@ impl Blossom {
     /// Check if the data exists on the blossom server
     pub async fn check_exists(
         &self,
-        host: String,
+        base_url: String,
         hash: HashOutput,
         authorize: bool,
     ) -> Result<bool, Error> {
-        let url = format!("https://{}/{}", host, hash);
+        let url = format!("{}/{}", base_url, hash);
         let mut req_builder = self.client.head(url);
 
         if authorize {
@@ -145,11 +145,11 @@ impl Blossom {
     /// with bytes(), bytes_stream(), chunk(), text(), or text_with_charset()
     pub async fn download(
         &self,
-        host: String,
+        base_url: String,
         hash: HashOutput,
         authorize: bool,
     ) -> Result<Response, Error> {
-        let url = format!("https://{}/{}", host, hash);
+        let url = format!("{}/{}", base_url, hash);
         let mut req_builder = self.client.get(url);
 
         if authorize {
@@ -181,7 +181,7 @@ impl Blossom {
     pub async fn upload<T: Into<Body>>(
         &self,
         data: T,
-        host: String,
+        base_url: String,
         hash: HashOutput,
         content_type: Mime,
         content_length: u64,
@@ -193,7 +193,7 @@ impl Blossom {
             vec![hash],
         )?;
 
-        let url = format!("https://{}/upload", host);
+        let url = format!("{}/upload", base_url);
         let response = self
             .client
             .put(url)
