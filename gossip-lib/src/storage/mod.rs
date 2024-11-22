@@ -2666,4 +2666,55 @@ impl Storage {
             Ok(false)
         }
     }
+
+    // Caller must ensure that the author is followed.
+    pub fn update_followings_and_fof_from_contact_list(
+        event: &Event,
+        rw_txn: Option<&mut RwTxn<'_>>,
+    ) -> Result<(), Error> {
+        use crate::storage::types::Following;
+        use crate::storage::{FollowingsTable, Table};
+
+        let mut local_txn = None;
+        let txn = match rw_txn {
+            Some(x) => x,
+            None => {
+                local_txn = Some(GLOBALS.db().get_write_txn()?);
+                local_txn.as_mut().unwrap()
+            }
+        };
+
+        // Build their new followings table from the event
+        let mut new_followings = Following {
+            actor: event.pubkey,
+            followed: event.people().drain(..).map(|(p, _, _)| p).collect(),
+        };
+
+        // Fetch their old followings table
+        let old_followings = FollowingsTable::read_record(event.pubkey, Some(txn))?
+            .unwrap_or(Following::new(event.pubkey, vec![]));
+
+        // Compute difference and adjust Friends of Friends data
+        {
+            use std::collections::HashSet;
+
+            let old: HashSet<PublicKey> = old_followings.followed.iter().copied().collect();
+            let new: HashSet<PublicKey> = new_followings.followed.iter().copied().collect();
+            for added in new.difference(&old) {
+                GLOBALS.db().incr_fof(*added, Some(txn))?;
+            }
+            for subtracted in old.difference(&new) {
+                GLOBALS.db().decr_fof(*subtracted, Some(txn))?;
+            }
+        }
+
+        // Write their new followings data
+        FollowingsTable::write_record(&mut new_followings, Some(txn))?;
+
+        if let Some(txn) = local_txn {
+            txn.commit()?;
+        }
+
+        Ok(())
+    }
 }

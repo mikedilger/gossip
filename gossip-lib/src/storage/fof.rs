@@ -142,7 +142,7 @@ impl Storage {
         let contact_lists = self.find_events_by_filter(&filter, |_| true)?;
 
         for event in &contact_lists {
-            crate::process::update_followings_and_fof_from_contact_list(event, Some(txn))?;
+            Self::update_followings_and_fof_from_contact_list(event, Some(txn))?;
         }
 
         self.set_flag_rebuild_fof_needed(false, Some(txn))?;

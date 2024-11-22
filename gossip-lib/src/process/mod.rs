@@ -2,18 +2,17 @@ use crate::bookmarks::BookmarkList;
 use crate::comms::ToOverlordMessage;
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use crate::misc::{Freshness, Private};
-use crate::people::{People, PersonList, PersonListMetadata};
+use crate::misc::Private;
 use crate::relationship::{RelationshipByAddr, RelationshipById};
-use crate::storage::types::{Handler, HandlerKey};
-use crate::storage::{HandlersTable, PersonTable, Table};
+use crate::storage::{PersonTable, Table};
 use crate::Relay;
 use heed::RwTxn;
 use nostr_types::{
-    Event, EventKind, EventReference, Filter, Id, Metadata, NAddr, NostrBech32, PublicKey,
-    RelayList, RelayListUsage, RelayUrl, SimpleRelayList, Tag, Unixtime,
+    Event, EventKind, EventReference, Filter, Id, NAddr, NostrBech32, RelayUrl, Unixtime,
 };
 use std::sync::atomic::Ordering;
+
+mod by_kind;
 
 /// This is mainly used internally to gossip-lib, but you can use it to stuff events
 /// into gossip from other sources. This processes a new event, saving the results into
@@ -25,17 +24,20 @@ pub fn process_new_event(
     verify: bool,
     process_even_if_duplicate: bool,
 ) -> Result<(), Error> {
+    // Now
     let now = Unixtime::now();
 
+    // Determine if this came in on global
     let global_feed = match subscription {
         Some(ref s) => s.contains("global_feed"),
         _ => false,
     };
 
-    // Bump count
+    // Bump count of events processed
     GLOBALS.events_processed.fetch_add(1, Ordering::SeqCst);
 
-    // Detect if duplicate. We still need to process some things even if a duplicate
+    // Detect if duplicate.
+    // We still need to process some things even if a duplicate
     let duplicate = if global_feed {
         GLOBALS.db().has_volatile_event(event.id)
     } else {
@@ -60,8 +62,8 @@ pub fn process_new_event(
     // Create the person if missing in the database
     PersonTable::create_record_if_missing(event.pubkey, None)?;
 
+    // Update seen_on relay related information
     let mut spamsafe = false;
-
     if let Some(url) = &seen_on {
         // Save seen-on-relay information
         if global_feed {
@@ -87,6 +89,7 @@ pub fn process_new_event(
         }
     }
 
+    // Process with spam filter
     if !global_feed
         && GLOBALS
             .db()
@@ -108,7 +111,7 @@ pub fn process_new_event(
     // Invalidate the note itself (due to seen_on probably changing)
     GLOBALS.ui_notes_to_invalidate.write().push(event.id);
 
-    // Determine if we already had this event
+    // Bail out if duplicate (in most cases)
     if duplicate && !process_even_if_duplicate {
         tracing::trace!(
             "{}: Old Event: {} {:?} @{}",
@@ -120,7 +123,7 @@ pub fn process_new_event(
         return Ok(()); // No more processing needed for existing event.
     }
 
-    // Ignore if the event is already deleted (by id)
+    // Bail out if the event was deleted (by id)
     for (_id, relbyid) in GLOBALS.db().find_relationships_by_id(event.id)? {
         if let RelationshipById::Deletes { by, reason: _ } = relbyid {
             if event.delete_author_allowed(by) {
@@ -136,7 +139,7 @@ pub fn process_new_event(
         }
     }
 
-    // Ignore if the event is already deleted (by address)
+    // Bail out if the event was deleted (by address)
     if let Some(parameter) = event.parameter() {
         let ea = NAddr {
             d: parameter.to_owned(),
@@ -214,6 +217,7 @@ pub fn process_new_event(
         }
     }
 
+    // Create referenced relays and people, and update person_relay associations
     if seen_on.is_some() {
         for tag in event.tags.iter() {
             if let Ok((_, Some(uurl), _optmarker, _optpubkey)) = tag.parse_event() {
@@ -223,8 +227,7 @@ pub fn process_new_event(
             }
 
             if let Ok((pubkey, maybeurl, _)) = tag.parse_pubkey() {
-                // Add person if missing
-                GLOBALS.people.create_all_if_missing(&[pubkey])?;
+                PersonTable::create_record_if_missing(pubkey, None)?;
 
                 if let Some(uncheckedurl) = maybeurl {
                     if let Ok(url) = RelayUrl::try_from_unchecked_url(&uncheckedurl) {
@@ -243,388 +246,130 @@ pub fn process_new_event(
         }
     }
 
-    // Save event relationships (whether from a relay or not)
-    let invalid_ids = process_relationships_of_event(event, None)?;
-
-    // Invalidate UI events indicated by those relationships
-    GLOBALS.ui_notes_to_invalidate.write().extend(&invalid_ids);
-
     // Let seeker know about this event id (in case it was sought)
     GLOBALS.seeker.found(event)?;
 
-    if event.kind == EventKind::Metadata {
-        // If metadata, update person
-        let metadata: Metadata = serde_json::from_str(&event.content)?;
-
-        GLOBALS
-            .people
-            .update_metadata(&event.pubkey, metadata, event.created_at)?;
-    } else if event.kind == EventKind::HandlerRecommendation {
-        process_handler_recommendation(event)?;
-    } else if event.kind == EventKind::HandlerInformation {
-        // If event kind handler information, add to database
-        if let Some(mut handler) = Handler::from_31990(event) {
-            HandlersTable::write_record(&mut handler, None)?;
-
-            // Also add entry to configured_handlers for each kind
-            for kind in handler.kinds {
-                // If we already have this handler, do not clobber the
-                // user's 'enabled' flag
-                let existing = GLOBALS.db().read_configured_handlers(kind)?;
-                if existing.iter().any(|(hk, _, _)| *hk == handler.key) {
-                    continue;
-                }
-
-                // Write configured handler, enabled by default
-                GLOBALS.db().write_configured_handler(
-                    kind,
-                    handler.key.clone(),
-                    true,  // enabled
-                    false, // recommended
-                    None,
-                )?;
-            }
-        }
-    } else if event.kind == EventKind::ContactList {
-        if let Some(pubkey) = GLOBALS.identity.public_key() {
-            if event.pubkey == pubkey {
-                // Updates stamps and counts, does NOT change membership
-                let (_personlist, _metadata) =
-                    update_or_allocate_person_list_from_event(event, pubkey)?;
-            } else {
-                process_somebody_elses_contact_list(event, false)?;
-            }
-        } else {
-            process_somebody_elses_contact_list(event, false)?;
-        }
-    } else if event.kind == EventKind::MuteList || event.kind == EventKind::FollowSets {
-        // Only our own
-        if let Some(pubkey) = GLOBALS.identity.public_key() {
-            if event.pubkey == pubkey {
-                // Updates stamps and counts, does NOT change membership
-                let (_personlist, _metadata) =
-                    update_or_allocate_person_list_from_event(event, pubkey)?;
-            }
-        }
-    } else if event.kind == EventKind::RelayList {
-        GLOBALS.db().process_relay_list(event, false, None)?;
-
-        // Let the seeker know we now have relays for this author, in case the seeker
-        // wants to update it's state
-        // (we might not, but by this point we have tried)
-        GLOBALS.seeker.found_author_relays(event.pubkey);
-
-        // the following also refreshes scores before it picks relays
-        let _ = GLOBALS
-            .to_overlord
-            .send(ToOverlordMessage::RefreshScoresAndPickRelays);
-    } else if event.kind == EventKind::DmRelayList {
-        GLOBALS.db().process_dm_relay_list(event, None)?;
-    } else if event.kind == EventKind::Repost {
-        // If it has a json encoded inner event
-        if let Ok(inner_event) = serde_json::from_str::<Event>(&event.content) {
-            // Maybe seek the relay list of the event author
-            match People::person_needs_relay_list(inner_event.pubkey) {
-                Freshness::NeverSought | Freshness::Stale => {
-                    let _ = GLOBALS
-                        .to_overlord
-                        .send(ToOverlordMessage::SubscribeDiscover(
-                            vec![inner_event.pubkey],
-                            None,
-                        ));
-                }
-                _ => {}
-            }
-
-            // process the inner event
-            process_new_event(&inner_event, None, None, verify, false)?;
-
-            // Seek additional info for this event by id and author
-            GLOBALS
-                .seeker
-                .seek_id_and_author(inner_event.id, inner_event.pubkey, vec![], false)?;
-        } else {
-            // If the content is a repost, seek the event it reposts
-            for eref in event.mentions().iter() {
-                match eref {
-                    EventReference::Id { id, relays, .. } => {
-                        if relays.is_empty() {
-                            // Even if the event tags the author, we have no way to coorelate
-                            // the nevent with that tag.
-                            GLOBALS.seeker.seek_id(*id, vec![], false)?;
-                        } else {
-                            GLOBALS
-                                .seeker
-                                .seek_id_and_relays(*id, relays.clone(), false);
-                        }
-                    }
-                    EventReference::Addr(ea) => {
-                        if !ea.relays.is_empty() {
-                            let _ = GLOBALS
-                                .to_overlord
-                                .send(ToOverlordMessage::FetchNAddr(ea.clone()));
-                        }
-                    }
-                }
-            }
-        }
-    } else if event.kind == EventKind::NostrConnect {
-        crate::nostr_connect_server::handle_command(event, seen_on.clone())?
-    }
+    // Save event relationships (whether from a relay or not)
+    // and invalidate UI events that need to be redrawn because those relationships
+    // affect their rendering.
+    let invalid_ids = process_relationships_of_event(event, None)?;
+    GLOBALS.ui_notes_to_invalidate.write().extend(&invalid_ids);
 
     if event.kind.is_feed_displayable() {
-        // Process the content for references to things we might want
-        for bech32 in NostrBech32::find_all_in_string(&event.content) {
-            match bech32 {
-                NostrBech32::CryptSec(_) => {
-                    // do nothing here
-                }
-                NostrBech32::Id(id) => {
-                    if GLOBALS.db().read_event(id)?.is_none() {
-                        if let Some(relay_url) = seen_on.as_ref() {
-                            let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FetchEvent(
-                                id,
-                                vec![relay_url.to_owned()],
-                            ));
-                        }
-                    }
-                }
-                NostrBech32::NEvent(ne) => {
-                    if GLOBALS.db().read_event(ne.id)?.is_none() {
-                        let relay_urls: Vec<RelayUrl> = ne
-                            .relays
-                            .iter()
-                            .filter_map(|unchecked| {
-                                RelayUrl::try_from_unchecked_url(unchecked).ok()
-                            })
-                            .collect();
-                        let _ = GLOBALS
-                            .to_overlord
-                            .send(ToOverlordMessage::FetchEvent(ne.id, relay_urls));
-                    }
-                }
-                NostrBech32::NAddr(mut ea) => {
-                    if let Ok(None) = GLOBALS
-                        .db()
-                        .get_replaceable_event(ea.kind, ea.author, &ea.d)
-                    {
-                        // Add the seen_on relay
-                        if let Some(seen_on_url) = seen_on.as_ref() {
-                            let seen_on_unchecked_url = seen_on_url.to_unchecked_url();
-                            if !ea.relays.contains(&seen_on_unchecked_url) {
-                                ea.relays.push(seen_on_unchecked_url);
-                            }
-                        }
+        process_feed_displayable_content(event, seen_on.as_ref(), now)?;
+    }
 
-                        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FetchNAddr(ea));
+    let mut ours: bool = false;
+    if let Some(pubkey) = GLOBALS.identity.public_key() {
+        if event.pubkey == pubkey {
+            ours = true;
+        }
+    }
+
+    match event.kind {
+        EventKind::Metadata => by_kind::process_metadata(event)?,
+        EventKind::HandlerRecommendation => by_kind::process_handler_recommendation(event)?,
+        EventKind::HandlerInformation => by_kind::process_handler_information(event)?,
+        EventKind::ContactList => by_kind::process_contact_list(event)?,
+        EventKind::MuteList => by_kind::process_mute_list(event, ours)?,
+        EventKind::FollowSets => by_kind::process_follow_sets(event, ours)?,
+        EventKind::RelayList => by_kind::process_relay_list(event)?,
+        EventKind::DmRelayList => by_kind::process_dm_relay_list(event)?,
+        EventKind::Repost => by_kind::process_repost(event, verify)?,
+        EventKind::NostrConnect => by_kind::process_nostr_connect(event, seen_on.clone())?,
+        _ => {}
+    }
+
+    Ok(())
+}
+
+// Process the content for references to things we might want
+fn process_feed_displayable_content(
+    event: &Event,
+    seen_on: Option<&RelayUrl>,
+    now: Unixtime,
+) -> Result<(), Error> {
+    for bech32 in NostrBech32::find_all_in_string(&event.content) {
+        match bech32 {
+            NostrBech32::CryptSec(_) => {
+                // do nothing here
+            }
+            NostrBech32::Id(id) => {
+                if GLOBALS.db().read_event(id)?.is_none() {
+                    if let Some(relay_url) = seen_on {
+                        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FetchEvent(
+                            id,
+                            vec![relay_url.to_owned()],
+                        ));
                     }
                 }
-                NostrBech32::Profile(prof) => {
-                    // Record existence of such a person
-                    GLOBALS.people.create_if_missing(prof.pubkey);
-
-                    // Make sure we have their relays
-                    for relay in prof.relays {
-                        if let Ok(rurl) = RelayUrl::try_from_unchecked_url(&relay) {
-                            GLOBALS.db().modify_person_relay(
-                                prof.pubkey,
-                                &rurl,
-                                |pr| {
-                                    if prof.pubkey == event.pubkey {
-                                        // The author themselves said it
-                                        pr.read = true;
-                                        pr.write = true;
-                                    } else {
-                                        // It was suggested by someone else
-                                        pr.last_suggested = Some(now.0 as u64);
-                                    }
-                                },
-                                None,
-                            )?
+            }
+            NostrBech32::NEvent(ne) => {
+                if GLOBALS.db().read_event(ne.id)?.is_none() {
+                    let relay_urls: Vec<RelayUrl> = ne
+                        .relays
+                        .iter()
+                        .filter_map(|unchecked| RelayUrl::try_from_unchecked_url(unchecked).ok())
+                        .collect();
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::FetchEvent(ne.id, relay_urls));
+                }
+            }
+            NostrBech32::NAddr(mut ea) => {
+                if let Ok(None) = GLOBALS
+                    .db()
+                    .get_replaceable_event(ea.kind, ea.author, &ea.d)
+                {
+                    // Add the seen_on relay
+                    if let Some(seen_on_url) = seen_on {
+                        let seen_on_unchecked_url = seen_on_url.to_unchecked_url();
+                        if !ea.relays.contains(&seen_on_unchecked_url) {
+                            ea.relays.push(seen_on_unchecked_url);
                         }
                     }
+
+                    let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FetchNAddr(ea));
                 }
-                NostrBech32::Pubkey(pubkey) => {
-                    // Record existence of such a person
-                    GLOBALS.people.create_if_missing(pubkey);
-                }
-                NostrBech32::Relay(relay) => {
+            }
+            NostrBech32::Profile(prof) => {
+                // Record existence of such a person
+                GLOBALS.people.create_if_missing(prof.pubkey);
+
+                // Make sure we have their relays
+                for relay in prof.relays {
                     if let Ok(rurl) = RelayUrl::try_from_unchecked_url(&relay) {
-                        // make sure we have the relay
-                        GLOBALS.db().write_relay_if_missing(&rurl, None)?;
-                    }
-                }
-            }
-            // TBD: If the content contains an nprofile, make sure the pubkey is associated
-            // with those relays
-        }
-    }
-
-    // TBD (have to parse runes language for this)
-    //if event.kind == EventKind::RelayList {
-    //    process_somebody_elses_relay_list(event.pubkey.clone(), &event.contents)?;
-    //}
-
-    // FIXME: Handle EventKind::RecommendedRelay
-
-    Ok(())
-}
-
-fn process_somebody_elses_contact_list(event: &Event, force: bool) -> Result<(), Error> {
-    // Only if we follow them... update their followings record and the FoF
-    if GLOBALS
-        .people
-        .is_person_in_list(&event.pubkey, PersonList::Followed)
-    {
-        update_followings_and_fof_from_contact_list(event, None)?;
-    }
-
-    // Try to parse the contents as a SimpleRelayList (ignore if it is not)
-    if let Ok(srl) = serde_json::from_str::<SimpleRelayList>(&event.content) {
-        // Update that we received the relay list (and optionally bump forward the date
-        // if this relay list happens to be newer)
-        let newer = GLOBALS
-            .people
-            .update_relay_list_stamps(event.pubkey, event.created_at.0)?;
-
-        if !newer && !force {
-            return Ok(());
-        }
-
-        let mut relay_list: RelayList = Default::default();
-        for (url, simple_relay_usage) in srl.0.iter() {
-            if let Ok(relay_url) = RelayUrl::try_from_unchecked_url(url) {
-                if simple_relay_usage.read && simple_relay_usage.write {
-                    relay_list.0.insert(relay_url, RelayListUsage::Both);
-                } else if simple_relay_usage.read {
-                    relay_list.0.insert(relay_url, RelayListUsage::Inbox);
-                } else if simple_relay_usage.write {
-                    relay_list.0.insert(relay_url, RelayListUsage::Outbox);
-                }
-            }
-        }
-        GLOBALS
-            .db()
-            .set_relay_list(event.pubkey, relay_list, None)?;
-
-        if !force {
-            // the following also refreshes scores before it picks relays
-            let _ = GLOBALS
-                .to_overlord
-                .send(ToOverlordMessage::RefreshScoresAndPickRelays);
-        }
-    } else if !event.content.is_empty() {
-        tracing::info!("Contact list content does not parse: {}", &event.content);
-    }
-
-    Ok(())
-}
-
-pub fn reprocess_relay_lists() -> Result<(usize, usize), Error> {
-    let mut counts: (usize, usize) = (0, 0);
-
-    // Reprocess all contact lists
-    let mut filter = Filter::new();
-    filter.add_event_kind(EventKind::ContactList);
-    let events = GLOBALS.db().find_events_by_filter(&filter, |_e| true)?;
-    for event in &events {
-        process_somebody_elses_contact_list(event, true)?;
-    }
-    counts.0 = events.len();
-
-    // Reprocess all relay lists
-    let mut filter = Filter::new();
-    filter.add_event_kind(EventKind::RelayList);
-
-    let mut txn = GLOBALS.db().get_write_txn()?;
-    let relay_lists = GLOBALS.db().find_events_by_filter(&filter, |_| true)?;
-
-    // Process all RelayLists
-    for event in relay_lists.iter() {
-        GLOBALS
-            .db()
-            .process_relay_list(event, true, Some(&mut txn))?;
-    }
-    counts.1 = events.len();
-
-    // Turn off the flag
-    GLOBALS
-        .db()
-        .set_flag_reprocess_relay_lists_needed(false, Some(&mut txn))?;
-
-    txn.commit()?;
-
-    Ok(counts)
-}
-
-// Collect handler recommendations, then fetch the handler information
-fn process_handler_recommendation(event: &Event) -> Result<(), Error> {
-    // NOTE: We don't care what 'd' kind is given, we collect these for all kinds.
-
-    let mut naddrs: Vec<NAddr> = Vec::new();
-    let mut d = "".to_owned();
-
-    for tag in &event.tags {
-        if tag.get_index(0) == "d" {
-            d = tag.get_index(1).to_owned();
-        }
-
-        let (naddr, marker) = match tag.parse_address() {
-            Ok(pair) => pair,
-            Err(_) => continue,
-        };
-        let marker = match marker {
-            Some(m) => m,
-            None => continue,
-        };
-        if marker != "web" {
-            continue;
-        }
-
-        if naddr.kind != EventKind::HandlerInformation {
-            continue;
-        };
-
-        // We need a relay to load the handler from
-        if naddr.relays.is_empty() {
-            continue;
-        }
-
-        naddrs.push(naddr);
-    }
-
-    if naddrs.is_empty() {
-        return Ok(());
-    }
-
-    // If it is ours (e.g. from another client), update our local recommendation bits
-    if let Some(pk) = GLOBALS.identity.public_key() {
-        if event.pubkey == pk {
-            if let Ok(kindnum) = d.parse::<u32>() {
-                let kind: EventKind = kindnum.into();
-                let configured_handlers: Vec<(HandlerKey, bool, bool)> =
-                    GLOBALS.db().read_configured_handlers(kind)?;
-                for (key, enabled, recommended) in configured_handlers.iter() {
-                    let event_recommended =
-                        naddrs.iter().any(|naddr| *naddr == key.as_naddr(vec![]));
-                    if event_recommended != *recommended {
-                        GLOBALS.db().write_configured_handler(
-                            kind,
-                            key.clone(),
-                            *enabled,
-                            event_recommended,
+                        GLOBALS.db().modify_person_relay(
+                            prof.pubkey,
+                            &rurl,
+                            |pr| {
+                                if prof.pubkey == event.pubkey {
+                                    // The author themselves said it
+                                    pr.read = true;
+                                    pr.write = true;
+                                } else {
+                                    // It was suggested by someone else
+                                    pr.last_suggested = Some(now.0 as u64);
+                                }
+                            },
                             None,
-                        )?;
+                        )?
                     }
                 }
             }
+            NostrBech32::Pubkey(pubkey) => {
+                // Record existence of such a person
+                GLOBALS.people.create_if_missing(pubkey);
+            }
+            NostrBech32::Relay(relay) => {
+                if let Ok(rurl) = RelayUrl::try_from_unchecked_url(&relay) {
+                    // make sure we have the relay
+                    GLOBALS.db().write_relay_if_missing(&rurl, None)?;
+                }
+            }
         }
-    }
-
-    for naddr in naddrs {
-        let _ = GLOBALS
-            .to_overlord
-            .send(ToOverlordMessage::FetchNAddr(naddr));
+        // TBD: If the content contains an nprofile, make sure the pubkey is associated
+        // with those relays
     }
 
     Ok(())
@@ -1019,109 +764,39 @@ pub(crate) fn process_relationships_of_event(
     Ok(invalidate)
 }
 
-// This updates the event data and maybe the title, but it does NOT update the list
-// (that happens only when the user overwrites/merges)
-fn update_or_allocate_person_list_from_event(
-    event: &Event,
-    pubkey: PublicKey,
-) -> Result<(PersonList, PersonListMetadata), Error> {
-    // Determine PersonList and fetch Metadata
-    let (list, mut metadata, new) = crate::people::fetch_current_personlist_matching_event(event)?;
+pub fn reprocess_relay_lists() -> Result<(usize, usize), Error> {
+    let mut counts: (usize, usize) = (0, 0);
 
-    // Update metadata
-    {
-        metadata.event_created_at = event.created_at;
-
-        metadata.event_public_len = event.tags.iter().filter(|t| t.tagname() == "p").count();
-
-        if event.kind == EventKind::ContactList {
-            metadata.event_private_len = None;
-        } else if GLOBALS.identity.is_unlocked() {
-            let mut private_len: Option<usize> = None;
-            if let Ok(bytes) = GLOBALS.identity.decrypt(&pubkey, &event.content) {
-                if let Ok(vectags) = serde_json::from_str::<Vec<Tag>>(&bytes) {
-                    private_len = Some(vectags.iter().filter(|t| t.tagname() == "p").count());
-                }
-            }
-            metadata.event_private_len = private_len;
-        }
-
-        if let Some(title) = event.title() {
-            metadata.title = title.to_owned();
-        }
-
-        // If title is empty, use the d-tag
-        if metadata.title.is_empty() && !metadata.dtag.is_empty() {
-            metadata.title = metadata.dtag.clone();
-        }
+    // Reprocess all contact lists
+    let mut filter = Filter::new();
+    filter.add_event_kind(EventKind::ContactList);
+    let events = GLOBALS.db().find_events_by_filter(&filter, |_e| true)?;
+    for event in &events {
+        by_kind::process_somebody_elses_contact_list(event, true)?;
     }
+    counts.0 = events.len();
 
-    // Save metadata
+    // Reprocess all relay lists
+    let mut filter = Filter::new();
+    filter.add_event_kind(EventKind::RelayList);
+
+    let mut txn = GLOBALS.db().get_write_txn()?;
+    let relay_lists = GLOBALS.db().find_events_by_filter(&filter, |_| true)?;
+
+    // Process all RelayLists
+    for event in relay_lists.iter() {
+        GLOBALS
+            .db()
+            .process_relay_list(event, true, Some(&mut txn))?;
+    }
+    counts.1 = events.len();
+
+    // Turn off the flag
     GLOBALS
         .db()
-        .set_person_list_metadata(list, &metadata, None)?;
+        .set_flag_reprocess_relay_lists_needed(false, Some(&mut txn))?;
 
-    if new {
-        // Ask the overlord to populate the list from the event, since it is
-        // locally new
-        let _ = GLOBALS
-            .to_overlord
-            .send(ToOverlordMessage::UpdatePersonList {
-                person_list: list,
-                merge: false,
-            });
-    }
+    txn.commit()?;
 
-    Ok((list, metadata))
-}
-
-// Caller must ensure that the author is followed.
-pub(crate) fn update_followings_and_fof_from_contact_list(
-    event: &Event,
-    rw_txn: Option<&mut RwTxn<'_>>,
-) -> Result<(), Error> {
-    use crate::storage::types::Following;
-    use crate::storage::{FollowingsTable, Table};
-
-    let mut local_txn = None;
-    let txn = match rw_txn {
-        Some(x) => x,
-        None => {
-            local_txn = Some(GLOBALS.db().get_write_txn()?);
-            local_txn.as_mut().unwrap()
-        }
-    };
-
-    // Build their new followings table from the event
-    let mut new_followings = Following {
-        actor: event.pubkey,
-        followed: event.people().drain(..).map(|(p, _, _)| p).collect(),
-    };
-
-    // Fetch their old followings table
-    let old_followings = FollowingsTable::read_record(event.pubkey, Some(txn))?
-        .unwrap_or(Following::new(event.pubkey, vec![]));
-
-    // Compute difference and adjust Friends of Friends data
-    {
-        use std::collections::HashSet;
-
-        let old: HashSet<PublicKey> = old_followings.followed.iter().copied().collect();
-        let new: HashSet<PublicKey> = new_followings.followed.iter().copied().collect();
-        for added in new.difference(&old) {
-            GLOBALS.db().incr_fof(*added, Some(txn))?;
-        }
-        for subtracted in old.difference(&new) {
-            GLOBALS.db().decr_fof(*subtracted, Some(txn))?;
-        }
-    }
-
-    // Write their new followings data
-    FollowingsTable::write_record(&mut new_followings, Some(txn))?;
-
-    if let Some(txn) = local_txn {
-        txn.commit()?;
-    }
-
-    Ok(())
+    Ok(counts)
 }
