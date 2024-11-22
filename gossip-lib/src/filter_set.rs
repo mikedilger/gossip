@@ -179,6 +179,7 @@ impl FilterSet {
                             EventKind::RelayList,
                             EventKind::DmRelayList,
                             EventKind::BookmarkList,
+                            EventKind::UserServerList,
                         ],
                         // these are all replaceable, no since required
                         ..Default::default()

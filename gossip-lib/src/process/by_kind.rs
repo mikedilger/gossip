@@ -247,6 +247,27 @@ pub fn process_nostr_connect(event: &Event, seen_on: Option<RelayUrl>) -> Result
     Ok(())
 }
 
+// EventKind::UserServerList
+pub fn process_user_server_list(event: &Event, ours: bool) -> Result<(), Error> {
+    if ours {
+        // Update blossom servers
+        let mut servers: String = "".to_owned();
+        let mut virgin: bool = true;
+        for tag in &event.tags {
+            if tag.tagname() == "server" {
+                if !virgin {
+                    servers.push('\n');
+                }
+                servers.push_str(tag.value());
+                virgin = false;
+            }
+        }
+        GLOBALS.db().write_setting_blossom_servers(&servers, None)?;
+    }
+
+    Ok(())
+}
+
 pub fn process_somebody_elses_contact_list(event: &Event, force: bool) -> Result<(), Error> {
     use crate::people::PersonList;
     use crate::storage::Storage;
