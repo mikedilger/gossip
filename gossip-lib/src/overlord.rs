@@ -723,6 +723,9 @@ impl Overlord {
             ToOverlordMessage::PruneUnusedPeople => {
                 Self::prune_unused_people()?;
             }
+            ToOverlordMessage::PushBlossomServers => {
+                self.push_blossom_servers().await?;
+            }
             ToOverlordMessage::PushPersonList(person_list) => {
                 self.push_person_list(person_list).await?;
             }
@@ -2017,6 +2020,44 @@ impl Overlord {
             GLOBALS.db().write_setting_offline(&false, None)?;
             let _ = GLOBALS.write_runstate.send(RunState::Online);
         }
+
+        Ok(())
+    }
+
+    pub async fn push_blossom_servers(&mut self) -> Result<(), Error> {
+        let public_key = match GLOBALS.identity.public_key() {
+            Some(pk) => pk,
+            None => return Err((ErrorKind::NoPrivateKey, file!(), line!()).into()), // not even a public key
+        };
+
+        let mut tags: Vec<Tag> = Vec::new();
+        let blossom_servers = GLOBALS.db().read_setting_blossom_servers();
+        for server in blossom_servers.split_whitespace() {
+            tags.push(Tag::new(&["server", &server]));
+        }
+
+        let pre_event = PreEvent {
+            pubkey: public_key,
+            created_at: Unixtime::now(),
+            kind: EventKind::UserServerList,
+            tags,
+            content: "".to_string(),
+        };
+
+        let event = GLOBALS.identity.sign_event(pre_event)?;
+
+        let config_relays: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
+
+        manager::run_jobs_on_all_relays(
+            config_relays,
+            vec![RelayJob {
+                reason: RelayConnectionReason::PostBlossomServers,
+                payload: ToMinionPayload {
+                    job_id: rand::random::<u64>(),
+                    detail: ToMinionPayloadDetail::PostEvents(vec![event.clone()]),
+                },
+            }],
+        );
 
         Ok(())
     }

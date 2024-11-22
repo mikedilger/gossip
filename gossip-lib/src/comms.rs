@@ -147,6 +147,9 @@ pub enum ToOverlordMessage {
     /// Calls [prune_unused_people](crate::Overlord::prune_unused_people)
     PruneUnusedPeople,
 
+    /// Calls [push_blossom_servers](crate::Overlord::push_blossom_servers)
+    PushBlossomServers,
+
     /// Calls [push_person_list](crate::Overlord::push_person_list)
     PushPersonList(PersonList),
 
@@ -299,6 +302,7 @@ pub enum RelayConnectionReason {
     Follow,
     Giftwraps,
     NostrConnect,
+    PostBlossomServers,
     PostEvent,
     PostContacts,
     PostLike,
@@ -331,6 +335,7 @@ impl RelayConnectionReason {
             Follow => "Following the posts of people in our Contact List",
             Giftwraps => "Fetch giftwraps addressed to you",
             NostrConnect => "Nostr connect",
+            PostBlossomServers => "Posting blossom servers",
             PostEvent => "Posting an event",
             Advertising => "Advertising our relay list",
             PostLike => "Posting a reaction to an event",
@@ -358,6 +363,7 @@ impl RelayConnectionReason {
             Follow => true,
             Giftwraps => true,
             NostrConnect => true,
+            PostBlossomServers => false,
             PostEvent => false,
             Advertising => false,
             PostLike => false,

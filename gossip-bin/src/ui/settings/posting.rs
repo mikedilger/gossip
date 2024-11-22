@@ -2,6 +2,8 @@ use crate::ui::GossipUi;
 use eframe::egui;
 use egui::widgets::Slider;
 use egui::{Context, TextEdit, Ui};
+use gossip_lib::comms::ToOverlordMessage;
+use gossip_lib::GLOBALS;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     ui.heading("Posting Settings");
@@ -39,6 +41,12 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                 .desired_width(f32::INFINITY)
         );
     });
+
+    if ui.button("Publish Blossom Servers").clicked() {
+        let _ = GLOBALS
+            .to_overlord
+            .send(ToOverlordMessage::PushBlossomServers);
+    };
 
     ui.add_space(20.0);
 }
