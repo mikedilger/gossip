@@ -69,6 +69,7 @@ impl Relay3 {
     pub const SPAMSAFE: u64 = 1 << 6; // 64
     pub const DM: u64 = 1 << 7; // 128             this is of kind 10050
     pub const GLOBAL: u64 = 1 << 8; // 256
+    pub const SEARCH: u64 = 1 << 9; // 512
 
     pub fn new(url: RelayUrl) -> Self {
         Self {
