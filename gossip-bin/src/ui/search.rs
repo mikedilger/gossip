@@ -3,7 +3,7 @@ use eframe::{egui, Frame};
 use egui::widgets::Button;
 use egui::{Context, Label, RichText, Sense, Ui};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::{FeedKind, PersonTable, Table, GLOBALS};
+use gossip_lib::{FeedKind, PersonTable, Relay, Table, GLOBALS};
 
 pub(super) fn update(
     app: &mut GossipUi,
@@ -17,6 +17,25 @@ pub(super) fn update(
         ui.heading("Search notes and users in local database");
     } else {
         ui.heading("Search notes and users on search relays");
+    }
+
+    // Warn if there are no search relays configured
+    if !local {
+        let search_relays: Vec<Relay> = GLOBALS
+            .db()
+            .filter_relays(|relay| relay.has_usage_bits(Relay::SEARCH))
+            .unwrap_or_default();
+
+        if search_relays.is_empty() {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("You must first configure SEARCH relays on the ");
+                if ui.link("relays").clicked() {
+                    app.set_page(ctx, Page::RelaysKnownNetwork(None));
+                }
+                ui.label(" page.");
+            });
+            return;
+        }
     }
 
     ui.add_space(12.0);
