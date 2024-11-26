@@ -2,7 +2,7 @@
 
 use crate::dm_channel::DmChannel;
 use crate::globals::GLOBALS;
-use nostr_types::{EventKind, Filter, IdHex, NAddr, PublicKey, PublicKeyHex, Tag, Unixtime};
+use nostr_types::{EventKind, Filter, Id, NAddr, PublicKey, Tag, Unixtime};
 use std::time::Duration;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -25,7 +25,7 @@ impl FeedRange {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum FilterSet {
-    Augments(Vec<IdHex>),
+    Augments(Vec<Id>),
     Config,
     Discover(Vec<PublicKey>),
     DmChannel(DmChannel),
@@ -52,7 +52,7 @@ pub enum FilterSet {
         pubkey: PublicKey,
         anchor: Unixtime,
     },
-    RepliesToId(IdHex),
+    RepliesToId(Id),
     RepliesToAddr(NAddr),
 }
 
@@ -143,7 +143,7 @@ impl FilterSet {
                         kinds: event_kinds,
                         ..Default::default()
                     };
-                    filter.set_tag_values('e', ids.iter().map(|id| id.to_string()).collect());
+                    filter.set_tag_values('e', ids.iter().map(|id| id.as_hex_string()).collect());
                     filter
                 };
                 filters.push(filter);
@@ -151,7 +151,6 @@ impl FilterSet {
             FilterSet::Config => {
                 let since = Unixtime::now() - Duration::from_secs(60 * 60 * 24 * 15);
                 if let Some(pubkey) = GLOBALS.identity.public_key() {
-                    let pkh: PublicKeyHex = pubkey.into();
                     if GLOBALS.identity.is_unlocked() {
                         // GiftWraps to me, recent only
                         let giftwrap_since = Unixtime(since.0 - 60 * 60 * 24 * 7);
@@ -161,7 +160,7 @@ impl FilterSet {
                                 since: Some(giftwrap_since),
                                 ..Default::default()
                             };
-                            f.set_tag_values('p', vec![pkh.to_string()]);
+                            f.set_tag_values('p', vec![pubkey.as_hex_string()]);
                             f
                         };
                         filters.push(giftwrap_filter);
@@ -169,7 +168,7 @@ impl FilterSet {
 
                     // Actual config stuff
                     filters.push(Filter {
-                        authors: vec![pkh.clone()],
+                        authors: vec![pubkey],
                         kinds: vec![
                             EventKind::Metadata,
                             //EventKind::RecommendRelay,
@@ -188,7 +187,7 @@ impl FilterSet {
                     // Events I posted recently, including feed_displayable and
                     //  augments (deletions, reactions, timestamp, label,reporting, and zap)
                     filters.push(Filter {
-                        authors: vec![pkh],
+                        authors: vec![pubkey],
                         kinds: crate::feed::feed_related_event_kinds(false), // not DMs
                         since: Some(since),
                         ..Default::default()
@@ -196,9 +195,8 @@ impl FilterSet {
                 }
             }
             FilterSet::Discover(pubkeys) => {
-                let pkp: Vec<PublicKeyHex> = pubkeys.iter().map(|pk| pk.into()).collect();
                 filters.push(Filter {
-                    authors: pkp,
+                    authors: pubkeys.to_vec(),
                     kinds: vec![EventKind::RelayList, EventKind::DmRelayList],
                     // these are all replaceable, no since required
                     ..Default::default()
@@ -209,14 +207,12 @@ impl FilterSet {
                     Some(pk) => pk,
                     None => return vec![],
                 };
-                let pkh: PublicKeyHex = pubkey.into();
 
                 // note: giftwraps can't be subscribed by channel. they are subscribed more
                 // globally, and have to be limited to recent ones.
 
-                let mut authors: Vec<PublicKeyHex> =
-                    channel.keys().iter().map(|k| k.into()).collect();
-                authors.push(pkh.clone());
+                let mut authors = channel.keys().to_vec();
+                authors.push(pubkey);
 
                 let mut filter = Filter {
                     authors: authors.clone(),
@@ -224,7 +220,7 @@ impl FilterSet {
                     ..Default::default()
                 };
                 // tagging the user
-                filter.set_tag_values('p', authors.iter().map(|x| x.as_str().to_owned()).collect());
+                filter.set_tag_values('p', authors.iter().map(|x| x.as_hex_string()).collect());
                 filters.push(filter);
             }
             FilterSet::GeneralFeedFuture { pubkeys, anchor } => {
@@ -232,15 +228,13 @@ impl FilterSet {
                     return vec![];
                 }
 
-                let pkp: Vec<PublicKeyHex> = pubkeys.iter().map(|pk| pk.into()).collect();
-
                 // Do not load feed related event kinds, or the limit will be wrong
                 let event_kinds = crate::feed::feed_displayable_event_kinds(false);
 
                 let range = FeedRange::After { since: *anchor };
                 let (since, until, limit) = range.since_until_limit();
                 filters.push(Filter {
-                    authors: pkp,
+                    authors: pubkeys.to_vec(),
                     kinds: event_kinds,
                     since,
                     until,
@@ -253,8 +247,6 @@ impl FilterSet {
                     return vec![];
                 }
 
-                let pkp: Vec<PublicKeyHex> = pubkeys.iter().map(|pk| pk.into()).collect();
-
                 // Do not load feed related event kinds, or the limit will be wrong
                 let event_kinds = crate::feed::feed_displayable_event_kinds(false);
 
@@ -265,7 +257,7 @@ impl FilterSet {
                 };
                 let (since, until, limit) = range.since_until_limit();
                 filters.push(Filter {
-                    authors: pkp,
+                    authors: pubkeys.to_vec(),
                     kinds: event_kinds,
                     since,
                     until,
@@ -276,8 +268,6 @@ impl FilterSet {
             FilterSet::Giftwraps(range) => {
                 let (since, until, limit) = range.since_until_limit();
                 if let Some(pubkey) = GLOBALS.identity.public_key() {
-                    let pkh: PublicKeyHex = pubkey.into();
-
                     // Giftwraps cannot be filtered by author so we have to take them regardless
                     // of the spamsafe designation of the relay.
                     //
@@ -292,7 +282,7 @@ impl FilterSet {
                             limit,
                             ..Default::default()
                         };
-                        let values = vec![pkh.to_string()];
+                        let values = vec![pubkey.as_hex_string()];
                         filter.set_tag_values('p', values);
                         filter
                     };
@@ -362,9 +352,8 @@ impl FilterSet {
                 }
             }
             FilterSet::Metadata(pubkeys) => {
-                let pkhp: Vec<PublicKeyHex> = pubkeys.iter().map(|pk| pk.into()).collect();
                 filters.push(Filter {
-                    authors: pkhp,
+                    authors: pubkeys.to_vec(),
                     kinds: vec![
                         EventKind::ContactList,
                         EventKind::Metadata,
@@ -382,13 +371,12 @@ impl FilterSet {
                     Some(pk) => pk,
                     None => return vec![],
                 };
-                let pkh: PublicKeyHex = pubkey.into();
 
                 let mut filter = Filter {
                     kinds: vec![EventKind::NostrConnect],
                     ..Default::default()
                 };
-                filter.set_tag_values('p', vec![pkh.to_string()]);
+                filter.set_tag_values('p', vec![pubkey.as_hex_string()]);
                 filters.push(filter);
             }
             FilterSet::PersonFeedFuture { pubkey, anchor } => {
@@ -399,7 +387,7 @@ impl FilterSet {
                 let range = FeedRange::After { since: *anchor };
                 let (since, until, limit) = range.since_until_limit();
                 filters.push(Filter {
-                    authors: vec![pubkey.into()],
+                    authors: vec![*pubkey],
                     kinds: event_kinds,
                     since,
                     until,
@@ -420,7 +408,7 @@ impl FilterSet {
 
                 let (since, until, limit) = range.since_until_limit();
                 filters.push(Filter {
-                    authors: vec![pubkey.into()],
+                    authors: vec![*pubkey],
                     kinds: event_kinds,
                     since,
                     until,
@@ -437,17 +425,13 @@ impl FilterSet {
                         kinds: event_kinds,
                         ..Default::default()
                     };
-                    let values = vec![id.to_string()];
+                    let values = vec![id.as_hex_string()];
                     filter.set_tag_values('e', values);
 
                     // Spam prevention:
                     if !spamsafe && GLOBALS.db().read_setting_avoid_spam_on_unsafe_relays() {
-                        filter.authors = GLOBALS
-                            .people
-                            .get_subscribed_pubkeys()
-                            .drain(..)
-                            .map(|pk| pk.into())
-                            .collect();
+                        filter.authors =
+                            GLOBALS.people.get_subscribed_pubkeys().drain(..).collect();
                     }
 
                     filter
@@ -468,12 +452,8 @@ impl FilterSet {
 
                     // Spam prevention:
                     if !spamsafe && GLOBALS.db().read_setting_avoid_spam_on_unsafe_relays() {
-                        filter.authors = GLOBALS
-                            .people
-                            .get_subscribed_pubkeys()
-                            .drain(..)
-                            .map(|pk| pk.into())
-                            .collect();
+                        filter.authors =
+                            GLOBALS.people.get_subscribed_pubkeys().drain(..).collect();
                     }
 
                     filter
@@ -491,25 +471,18 @@ impl FilterSet {
         event_kinds.retain(|f| *f != EventKind::GiftWrap); // gift wrap is not included here
 
         // Any mentions of me (but not in peoples contact lists, for example)
-        let pkh: PublicKeyHex = pubkey.into();
-
         let mut filter = Filter {
             kinds: event_kinds,
             ..Default::default()
         };
 
-        let values = vec![pkh.to_string()];
+        let values = vec![pubkey.as_hex_string()];
         filter.set_tag_values('p', values);
 
         // Spam prevention:
         if !spamsafe && GLOBALS.db().read_setting_avoid_spam_on_unsafe_relays() {
             // As the relay is not spam safe, only take mentions from followers
-            filter.authors = GLOBALS
-                .people
-                .get_subscribed_pubkeys()
-                .drain(..)
-                .map(|pk| pk.into())
-                .collect();
+            filter.authors = GLOBALS.people.get_subscribed_pubkeys().drain(..).collect();
         }
 
         filter

@@ -24,9 +24,9 @@ use crate::RunState;
 use heed::RwTxn;
 use http::StatusCode;
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventKind, EventReference, Filter, Id, IdHex, Metadata,
-    MilliSatoshi, NAddr, NostrBech32, PayRequestData, PreEvent, PrivateKey, Profile, PublicKey,
-    RelayUrl, Tag, UncheckedUrl, Unixtime,
+    EncryptedPrivateKey, Event, EventKind, EventReference, Filter, Id, Metadata, MilliSatoshi,
+    NAddr, NostrBech32, PayRequestData, PreEvent, PrivateKey, Profile, PublicKey, RelayUrl, Tag,
+    UncheckedUrl, Unixtime,
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -3586,15 +3586,13 @@ impl Overlord {
 
         // Create jobs for minions
         for (relay_url, ids) in augment_subs.drain() {
-            let ids_hex: Vec<IdHex> = ids.iter().map(|i| (*i).into()).collect();
-
             manager::engage_minion(
                 relay_url,
                 vec![RelayJob {
                     reason: RelayConnectionReason::FetchAugments,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::Subscribe(FilterSet::Augments(ids_hex)),
+                        detail: ToMinionPayloadDetail::Subscribe(FilterSet::Augments(ids)),
                     },
                 }],
             );

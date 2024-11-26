@@ -75,7 +75,7 @@ use heed::types::{Bytes, Unit};
 use heed::{Database, Env, EnvFlags, EnvOpenOptions, RoTxn, RwTxn};
 use nostr_types::{
     EncryptedPrivateKey, Event, EventKind, EventReference, Filter, Id, MilliSatoshi, NAddr,
-    PublicKey, PublicKeyHex, RelayList, RelayListUsage, RelayUrl, Unixtime,
+    PublicKey, RelayList, RelayListUsage, RelayUrl, Unixtime,
 };
 use paste::paste;
 use speedy::{Readable, Writable};
@@ -1559,12 +1559,11 @@ impl Storage {
             }
         } else if !filter.authors.is_empty() && !filter.kinds.is_empty() {
             // akci
-            for pkh in &filter.authors {
-                let author = PublicKey::try_from_hex_string(pkh.as_str(), true)?;
+            for author in &filter.authors {
                 for kind in &filter.kinds {
                     let iter = {
-                        let start_prefix = AkciKey::from_parts(author, *kind, until, Id([0; 32]));
-                        let end_prefix = AkciKey::from_parts(author, *kind, since, Id([255; 32]));
+                        let start_prefix = AkciKey::from_parts(*author, *kind, until, Id([0; 32]));
+                        let end_prefix = AkciKey::from_parts(*author, *kind, since, Id([255; 32]));
                         let range = (
                             Bound::Included(start_prefix.as_slice()),
                             Bound::Excluded(end_prefix.as_slice()),
@@ -1684,8 +1683,7 @@ impl Storage {
             for result in iter {
                 let (_key, bytes) = result?;
                 if let Some(author) = Event::get_pubkey_from_speedy_bytes(bytes) {
-                    let pkh: PublicKeyHex = author.into();
-                    if filter.authors.contains(&pkh) {
+                    if filter.authors.contains(&author) {
                         let event = Event::read_from_buffer(bytes)?;
                         if filter.event_matches(&event) && screen(&event) {
                             output.insert(event);

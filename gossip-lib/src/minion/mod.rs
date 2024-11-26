@@ -16,7 +16,7 @@ use http::uri::{Parts, Scheme};
 use http::Uri;
 use mime::Mime;
 use nostr_types::{
-    ClientMessage, EventKind, Filter, Id, IdHex, KeySigner, NAddr, PreEvent, PublicKey,
+    ClientMessage, EventKind, Filter, Id, KeySigner, NAddr, PreEvent, PublicKey,
     RelayInformationDocument, RelayUrl, Signer, Tag, Unixtime,
 };
 use reqwest::Response;
@@ -665,10 +665,10 @@ impl Minion {
     async fn get_events(&mut self) -> Result<(), Error> {
         // Collect all the sought events we have not yet asked for, and
         // presumptively mark them as having been asked for.
-        let mut ids: Vec<IdHex> = Vec::new();
+        let mut ids: Vec<Id> = Vec::new();
         for (id, ess) in self.sought_events.iter_mut() {
             if !ess.asked {
-                ids.push((*id).into());
+                ids.push(*id);
                 ess.asked = true;
             }
         }
