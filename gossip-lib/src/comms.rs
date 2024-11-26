@@ -174,8 +174,11 @@ pub enum ToOverlordMessage {
     /// Calls [repost](crate::Overlord::repost)
     Repost(Id),
 
-    /// Calls [search](crate::Overlord::search)
-    Search(String),
+    /// Calls [search](crate::Overlord::search_locally)
+    SearchLocally(String),
+
+    /// Calls [search](crate::Overlord::search_relays)
+    SearchRelays(String),
 
     /// Calls [set_active_person](crate::Overlord::set_active_person)
     SetActivePerson(PublicKey),

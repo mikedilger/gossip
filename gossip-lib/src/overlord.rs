@@ -747,8 +747,11 @@ impl Overlord {
             ToOverlordMessage::Repost(id) => {
                 self.repost(id)?;
             }
-            ToOverlordMessage::Search(text) => {
-                Self::search(text)?;
+            ToOverlordMessage::SearchLocally(text) => {
+                Self::search_locally(text)?;
+            }
+            ToOverlordMessage::SearchRelays(text) => {
+                Self::search_relays(text)?;
             }
             ToOverlordMessage::SetActivePerson(pubkey) => {
                 Self::set_active_person(pubkey).await?;
@@ -2299,7 +2302,7 @@ impl Overlord {
 
     /// Search people and notes in the local database.
     /// Search results eventually arrive in `GLOBALS.people_search_results` and `GLOBALS.note_search_results`
-    pub fn search(mut text: String) -> Result<(), Error> {
+    pub fn search_locally(mut text: String) -> Result<(), Error> {
         if text.len() < 2 {
             GLOBALS
                 .status_queue
@@ -2421,6 +2424,11 @@ impl Overlord {
         *GLOBALS.people_search_results.write() = people_search_results;
         *GLOBALS.note_search_results.write() = note_search_results;
 
+        Ok(())
+    }
+
+    pub fn search_relays(_text: String) -> Result<(), Error> {
+        tracing::error!("SEARCH RELAYS is not yet implemented.");
         Ok(())
     }
 

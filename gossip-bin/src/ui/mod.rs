@@ -176,7 +176,8 @@ enum Page {
     RelaysCoverage,
     RelaysMine,
     RelaysKnownNetwork(Option<RelayUrl>),
-    Search,
+    SearchLocal,
+    SearchRelays,
     Settings,
     HelpHelp,
     HelpStats,
@@ -226,7 +227,8 @@ impl Page {
             Page::RelaysCoverage => (SubMenu::Relays.as_str(), "Coverage Report".into()),
             Page::RelaysMine => (SubMenu::Relays.as_str(), "My Relays".into()),
             Page::RelaysKnownNetwork(_) => (SubMenu::Relays.as_str(), "Known Network".into()),
-            Page::Search => ("Search", "Search".into()),
+            Page::SearchLocal => ("Search Local", "Search Local".into()),
+            Page::SearchRelays => ("Search Relays", "Search Relays".into()),
             Page::Settings => ("Settings", "Settings".into()),
             Page::HelpHelp => (SubMenu::Help.as_str(), "Troubleshooting".into()),
             Page::HelpStats => (SubMenu::Help.as_str(), "Stats".into()),
@@ -273,6 +275,7 @@ impl Page {
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 enum SubMenu {
     Feeds,
+    Search,
     Relays,
     Account,
     Help,
@@ -282,6 +285,7 @@ impl SubMenu {
     fn as_str(&self) -> &'static str {
         match self {
             SubMenu::Feeds => "Feeds",
+            SubMenu::Search => "Search",
             SubMenu::Relays => "Relays",
             SubMenu::Account => "Account",
             SubMenu::Help => "Help",
@@ -291,6 +295,7 @@ impl SubMenu {
     fn as_id_str(&self) -> &'static str {
         match self {
             SubMenu::Feeds => "feeds_submenu_id",
+            SubMenu::Search => "search_submenu_id",
             SubMenu::Account => "account_submenu_id",
             SubMenu::Relays => "relays_submenu_id",
             SubMenu::Help => "help_submenu_id",
@@ -516,7 +521,7 @@ struct GossipUi {
     import_priv: String,
     import_pub: String,
     search: String,
-    entering_search_page: bool,
+    entering_a_search_page: bool,
     editing_petname: bool,
     petname: String,
     deleting_list: Option<PersonList>,
@@ -585,6 +590,7 @@ impl GossipUi {
 
         let mut submenu_ids: HashMap<SubMenu, egui::Id> = HashMap::new();
         submenu_ids.insert(SubMenu::Feeds, egui::Id::new(SubMenu::Feeds.as_id_str()));
+        submenu_ids.insert(SubMenu::Search, egui::Id::new(SubMenu::Search.as_id_str()));
         submenu_ids.insert(
             SubMenu::Account,
             egui::Id::new(SubMenu::Account.as_id_str()),
@@ -766,7 +772,7 @@ impl GossipUi {
             import_priv: "".to_owned(),
             import_pub: "".to_owned(),
             search: "".to_owned(),
-            entering_search_page: false,
+            entering_a_search_page: false,
             editing_petname: false,
             petname: "".to_owned(),
             deleting_list: None,
@@ -911,9 +917,13 @@ impl GossipUi {
                 self.relays.enter_page(some_relay.as_ref());
                 self.open_menu(ctx, SubMenu::Relays);
             }
-            Page::Search => {
-                self.entering_search_page = true;
-                self.close_all_menus_except_feeds(ctx);
+            Page::SearchLocal => {
+                self.entering_a_search_page = true;
+                self.open_menu(ctx, SubMenu::Search);
+            }
+            Page::SearchRelays => {
+                self.entering_a_search_page = true;
+                self.open_menu(ctx, SubMenu::Search);
             }
             Page::Settings => {
                 self.close_all_menus_except_feeds(ctx);
@@ -979,7 +989,7 @@ impl GossipUi {
                 self.add_global_feed(ui, ctx);
                 self.add_personal_notes(ui, ctx);
                 self.add_private_chats(ui, ctx);
-                self.add_search(ui, ctx);
+                self.add_search_submenu(ui, ctx);
 
                 ui.add_space(10.0);
 
@@ -1146,13 +1156,13 @@ impl GossipUi {
         }
     }
 
-    fn add_search(&mut self, ui: &mut Ui, ctx: &Context) {
-        if self
-            .add_selected_label(ui, self.page == Page::Search, "Search")
-            .clicked()
-        {
-            self.set_page(ctx, Page::Search);
-        }
+    fn add_search_submenu(&mut self, ui: &mut Ui, ctx: &Context) {
+        let (mut cstate, header_response) = self.get_openable_menu(ui, ctx, SubMenu::Search);
+        cstate.show_body_indented(&header_response, ui, |ui| {
+            self.add_menu_item_page(ui, Page::SearchLocal, None, true);
+            self.add_menu_item_page(ui, Page::SearchRelays, None, true);
+        });
+        self.after_openable_menu(ui, &cstate);
     }
 
     fn add_people_lists(&mut self, ui: &mut Ui, ctx: &Context) {
@@ -2335,7 +2345,8 @@ impl eframe::App for GossipUi {
                     | Page::RelaysCoverage
                     | Page::RelaysMine
                     | Page::RelaysKnownNetwork(_) => relays::update(self, ctx, frame, ui),
-                    Page::Search => search::update(self, ctx, frame, ui),
+                    Page::SearchLocal => search::update(self, ctx, frame, ui, true),
+                    Page::SearchRelays => search::update(self, ctx, frame, ui, false),
                     Page::Settings => settings::update(self, ctx, frame, ui),
                     Page::HelpHelp | Page::HelpStats | Page::HelpAbout => {
                         help::update(self, ctx, frame, ui)
