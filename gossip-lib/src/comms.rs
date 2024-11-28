@@ -313,6 +313,7 @@ pub enum RelayConnectionReason {
     PostMuteList,
     PostNostrConnect,
     ReadThread,
+    Search,
     SubscribePerson,
     SubscribeGlobal,
 }
@@ -348,6 +349,7 @@ impl RelayConnectionReason {
             PostMetadata => "Posting our metadata",
             PostNostrConnect => "Posting nostrconnect",
             ReadThread => "Reading ancestors to build a thread",
+            Search => "Search",
             SubscribePerson => "Subscribe to the events of a person",
             SubscribeGlobal => "Subscribe to the global feed on a relay",
         }
@@ -376,6 +378,7 @@ impl RelayConnectionReason {
             PostMetadata => false,
             PostNostrConnect => false,
             ReadThread => true,
+            Search => false,
             SubscribePerson => false,
             SubscribeGlobal => false,
         }

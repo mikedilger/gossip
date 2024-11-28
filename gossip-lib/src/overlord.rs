@@ -2427,8 +2427,19 @@ impl Overlord {
         Ok(())
     }
 
-    pub fn search_relays(_text: String) -> Result<(), Error> {
-        tracing::error!("SEARCH RELAYS is not yet implemented.");
+    /// Search all search relays for events matching the text
+    pub fn search_relays(text: String) -> Result<(), Error> {
+        let filter_set = FilterSet::Search(text);
+        let job = RelayJob {
+            reason: RelayConnectionReason::Search,
+            payload: ToMinionPayload {
+                job_id: rand::random::<u64>(),
+                detail: ToMinionPayloadDetail::Subscribe(filter_set),
+            },
+        };
+        let search_relays: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::SEARCH, |_| true)?;
+        manager::run_jobs_on_all_relays(search_relays, vec![job]);
+
         Ok(())
     }
 
