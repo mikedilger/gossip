@@ -747,8 +747,11 @@ impl Overlord {
             ToOverlordMessage::Repost(id) => {
                 self.repost(id)?;
             }
-            ToOverlordMessage::Search(text) => {
-                Self::search(text)?;
+            ToOverlordMessage::SearchLocally(text) => {
+                Self::search_locally(text)?;
+            }
+            ToOverlordMessage::SearchRelays(text) => {
+                Self::search_relays(text)?;
             }
             ToOverlordMessage::SetActivePerson(pubkey) => {
                 Self::set_active_person(pubkey).await?;
@@ -2299,7 +2302,7 @@ impl Overlord {
 
     /// Search people and notes in the local database.
     /// Search results eventually arrive in `GLOBALS.people_search_results` and `GLOBALS.note_search_results`
-    pub fn search(mut text: String) -> Result<(), Error> {
+    pub fn search_locally(mut text: String) -> Result<(), Error> {
         if text.len() < 2 {
             GLOBALS
                 .status_queue
@@ -2420,6 +2423,22 @@ impl Overlord {
 
         *GLOBALS.people_search_results.write() = people_search_results;
         *GLOBALS.note_search_results.write() = note_search_results;
+
+        Ok(())
+    }
+
+    /// Search all search relays for events matching the text
+    pub fn search_relays(text: String) -> Result<(), Error> {
+        let filter_set = FilterSet::Search(text);
+        let job = RelayJob {
+            reason: RelayConnectionReason::Search,
+            payload: ToMinionPayload {
+                job_id: rand::random::<u64>(),
+                detail: ToMinionPayloadDetail::Subscribe(filter_set),
+            },
+        };
+        let search_relays: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::SEARCH, |_| true)?;
+        manager::run_jobs_on_all_relays(search_relays, vec![job]);
 
         Ok(())
     }

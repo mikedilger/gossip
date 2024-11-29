@@ -193,7 +193,9 @@ pub fn process_new_event(
     );
 
     // If we were searching for this event, add it to the search results
-    let is_a_search_result: bool = GLOBALS.events_being_searched_for.read().contains(&event.id);
+    let is_a_search_result: bool = subscription.is_some_and(|s| s.contains("relay_search"))
+        || GLOBALS.events_being_searched_for.read().contains(&event.id);
+
     if is_a_search_result {
         GLOBALS
             .events_being_searched_for

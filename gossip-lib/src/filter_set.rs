@@ -54,6 +54,7 @@ pub enum FilterSet {
     },
     RepliesToId(Id),
     RepliesToAddr(NAddr),
+    Search(String),
 }
 
 impl FilterSet {
@@ -76,6 +77,7 @@ impl FilterSet {
             FilterSet::PersonFeedChunk { .. } => true,
             FilterSet::RepliesToId(_) => false,
             FilterSet::RepliesToAddr(_) => false,
+            FilterSet::Search(_) => true,
         }
     }
 
@@ -118,6 +120,7 @@ impl FilterSet {
             FilterSet::PersonFeedChunk { .. } => "person_feed_chunk",
             FilterSet::RepliesToId(_) => "id_replies",
             FilterSet::RepliesToAddr(_) => "addr_replies",
+            FilterSet::Search(_) => "relay_search",
         }
     }
 
@@ -457,6 +460,18 @@ impl FilterSet {
                     }
 
                     filter
+                };
+                filters.push(filter);
+            }
+            FilterSet::Search(what) => {
+                // Explicitly ignore spam filtering during searches (for now)
+                // We may revisit this decision if spam becomes the main results.
+
+                let event_kinds = crate::feed::feed_displayable_event_kinds(false);
+                let filter = Filter {
+                    kinds: event_kinds,
+                    search: Some(what.to_string()),
+                    ..Default::default()
                 };
                 filters.push(filter);
             }

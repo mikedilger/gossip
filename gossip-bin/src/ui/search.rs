@@ -3,11 +3,40 @@ use eframe::{egui, Frame};
 use egui::widgets::Button;
 use egui::{Context, Label, RichText, Sense, Ui};
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::{FeedKind, PersonTable, Table, GLOBALS};
+use gossip_lib::{FeedKind, PersonTable, Relay, Table, GLOBALS};
 
-pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut Frame, ui: &mut Ui) {
+pub(super) fn update(
+    app: &mut GossipUi,
+    ctx: &Context,
+    _frame: &mut Frame,
+    ui: &mut Ui,
+    local: bool,
+) {
     ui.add_space(10.0);
-    ui.heading("Search notes and users");
+    if local {
+        ui.heading("Search notes and users in local database");
+    } else {
+        ui.heading("Search notes and users on search relays");
+    }
+
+    // Warn if there are no search relays configured
+    if !local {
+        let search_relays: Vec<Relay> = GLOBALS
+            .db()
+            .filter_relays(|relay| relay.has_usage_bits(Relay::SEARCH))
+            .unwrap_or_default();
+
+        if search_relays.is_empty() {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("You must first configure SEARCH relays on the ");
+                if ui.link("relays").clicked() {
+                    app.set_page(ctx, Page::RelaysKnownNetwork(None));
+                }
+                ui.label(" page.");
+            });
+            return;
+        }
+    }
 
     ui.add_space(12.0);
 
@@ -20,9 +49,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut Frame, ui: 
                 .desired_width(600.0),
         );
 
-        if app.entering_search_page {
+        if app.entering_a_search_page {
+            // Focus on the search input
             response.request_focus();
-            app.entering_search_page = false;
+
+            app.entering_a_search_page = false;
         }
 
         if ui.add(Button::new("Search")).clicked() {
@@ -34,9 +65,15 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut Frame, ui: 
     });
 
     if trigger_search {
-        let _ = GLOBALS
-            .to_overlord
-            .send(ToOverlordMessage::Search(app.search.clone()));
+        if local {
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::SearchLocally(app.search.clone()));
+        } else {
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::SearchRelays(app.search.clone()));
+        }
     }
 
     ui.add_space(12.0);

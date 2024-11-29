@@ -174,8 +174,11 @@ pub enum ToOverlordMessage {
     /// Calls [repost](crate::Overlord::repost)
     Repost(Id),
 
-    /// Calls [search](crate::Overlord::search)
-    Search(String),
+    /// Calls [search](crate::Overlord::search_locally)
+    SearchLocally(String),
+
+    /// Calls [search](crate::Overlord::search_relays)
+    SearchRelays(String),
 
     /// Calls [set_active_person](crate::Overlord::set_active_person)
     SetActivePerson(PublicKey),
@@ -310,6 +313,7 @@ pub enum RelayConnectionReason {
     PostMuteList,
     PostNostrConnect,
     ReadThread,
+    Search,
     SubscribePerson,
     SubscribeGlobal,
 }
@@ -345,6 +349,7 @@ impl RelayConnectionReason {
             PostMetadata => "Posting our metadata",
             PostNostrConnect => "Posting nostrconnect",
             ReadThread => "Reading ancestors to build a thread",
+            Search => "Search",
             SubscribePerson => "Subscribe to the events of a person",
             SubscribeGlobal => "Subscribe to the global feed on a relay",
         }
@@ -373,6 +378,7 @@ impl RelayConnectionReason {
             PostMetadata => false,
             PostNostrConnect => false,
             ReadThread => true,
+            Search => false,
             SubscribePerson => false,
             SubscribeGlobal => false,
         }
