@@ -19,13 +19,13 @@ const LIST_VIEW_HEIGHT: f32 = 60.0;
 /// Height of the list view (width always max. available)
 const DETAIL_VIEW_HEIGHT: f32 = 90.0;
 /// Height of the edit view (width always max. available)
-const EDIT_VIEW_HEIGHT: f32 = 270.0;
+const EDIT_VIEW_HEIGHT: f32 = 300.0;
 /// Height required for one auth-permission drop-down
 const EDIT_VIEW_AUTH_PERM_HEIGHT: f32 = 25.0;
 /// Y-offset for first separator
 const HLINE_1_Y_OFFSET: f32 = LIST_VIEW_HEIGHT;
 /// Y-offset for second separator
-const HLINE_2_Y_OFFSET: f32 = 200.0;
+const HLINE_2_Y_OFFSET: f32 = 230.0;
 /// Y top for the detail section
 const DETAIL_SECTION_TOP: f32 = TEXT_TOP + LIST_VIEW_HEIGHT + 20.0;
 /// Space needed for rank adjuster
@@ -79,6 +79,7 @@ const OUTBOX_HOVER_TEXT: &str = "Where you tell others you write to. You should 
 const SPAMSAFE_HOVER_TEXT: &str = "Relay is trusted to filter spam. If not set, replies and mentions from unfollowed people will not be fetched from the relay (when SpamSafe is enabled in settings).";
 const DM_USE_HOVER_TEXT: &str = "Use Relay to receive and send Direct Messages";
 const GLOBAL_FEED_HOVER_TEXT: &str = "Use Relay for Global feed";
+const SEARCH_USE_HOVER_TEXT: &str = "Use Relay in searches";
 
 #[derive(Clone, PartialEq)]
 pub enum RelayEntryView {
@@ -135,6 +136,7 @@ struct UsageBits {
     spamsafe: bool,
     dm: bool,
     global_feed: bool,
+    search: bool,
 }
 
 impl UsageBits {
@@ -149,6 +151,7 @@ impl UsageBits {
             spamsafe: usage_bits & Relay::SPAMSAFE == Relay::SPAMSAFE,
             dm: usage_bits & Relay::DM == Relay::DM,
             global_feed: usage_bits & Relay::GLOBAL == Relay::GLOBAL,
+            search: usage_bits & Relay::SEARCH == Relay::SEARCH,
         }
     }
 
@@ -1145,6 +1148,38 @@ impl RelayEntry {
                 ui,
                 pos + vec2(ui.spacing().item_spacing.x + switch_size.x, 0.0),
                 "Global feed".into(),
+                Align::LEFT,
+                Some(ui.visuals().text_color()),
+                None,
+            );
+        }
+        let pos = pos + vec2(0.0, USAGE_SWITCH_Y_SPACING);
+        {
+            // ---- Search use ----
+            let id = self.make_id("search_use_switch");
+            let sw_rect = Rect::from_min_size(pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET), switch_size);
+            let response = widgets::switch_custom_at(
+                ui,
+                true,
+                &mut self.usage.search,
+                sw_rect,
+                id,
+                knob_fill,
+                on_fill,
+                off_fill,
+            );
+            if response.changed() {
+                modify_relay(&self.relay.url, |relay| {
+                    relay.adjust_usage_bit(Relay::SEARCH, self.usage.search)
+                });
+
+                GLOBALS.db().clear_volatile();
+            }
+            response.on_hover_text(SEARCH_USE_HOVER_TEXT);
+            draw_text_at(
+                ui,
+                pos + vec2(ui.spacing().item_spacing.x + switch_size.x, 0.0),
+                "Search".into(),
                 Align::LEFT,
                 Some(ui.visuals().text_color()),
                 None,
