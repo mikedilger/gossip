@@ -1476,6 +1476,24 @@ fn note_actions(
     if !note.event.kind.is_direct_message_related() {
         let mut my_items: Vec<MoreMenuItem> = Vec::new();
 
+        // njump.me
+        my_items.push(MoreMenuItem::Button(MoreMenuButton::new(
+            "njump.me",
+            Box::new(|ui, _| {
+                let nevent = NEvent {
+                    id: note.event.id,
+                    relays: relays.clone(),
+                    author: None,
+                    kind: None,
+                };
+                let url = format!("https://njump.me/{}", nevent.as_bech32_string());
+                ui.ctx().open_url(egui::OpenUrl {
+                    url: url.clone(),
+                    new_tab: true,
+                });
+            }),
+        )));
+
         if let Some(handlers) = GLOBALS.handlers.get(&note.event.kind) {
             for (label, url) in handlers.value().iter() {
                 let url = if note.event.kind.is_parameterized_replaceable() {
