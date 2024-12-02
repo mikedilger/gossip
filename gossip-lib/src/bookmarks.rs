@@ -145,7 +145,7 @@ impl BookmarkList {
             GLOBALS.identity.encrypt(
                 &public_key,
                 &private_json,
-                ContentEncryptionAlgorithm::Nip04,
+                ContentEncryptionAlgorithm::Nip44v2,
             )?
         };
 

@@ -689,7 +689,7 @@ impl People {
                 GLOBALS.identity.encrypt(
                     &my_pubkey,
                     &private_tags_string,
-                    ContentEncryptionAlgorithm::Nip04,
+                    ContentEncryptionAlgorithm::Nip44v2,
                 )?
             }
         };
