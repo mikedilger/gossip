@@ -32,7 +32,7 @@ impl Default for Handlers {
 fn add_dialog(ui: &mut Ui, app: &mut GossipUi) {
     const DLG_SIZE: egui::Vec2 = vec2(400.0, 260.0);
     let dlg_response = widgets::modal_popup(ui.ctx(), vec2(400.0, 0.0), DLG_SIZE, true, |ui| {
-        ui.heading("Import a handler via nevent");
+        ui.heading("Import a handler via naddr");
         ui.add_space(8.0);
 
         ui.label("To add a new handler, paste its corresponding naddr here:");
