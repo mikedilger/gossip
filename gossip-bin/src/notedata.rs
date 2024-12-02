@@ -88,6 +88,9 @@ pub(crate) struct NoteData {
 
     /// Volatile
     pub volatile: bool,
+
+    /// i-tag
+    pub itag: Option<String>,
 }
 
 impl NoteData {
@@ -284,6 +287,14 @@ impl NoteData {
 
         let volatile = GLOBALS.db().event_is_volatile(event.id);
 
+        let mut itag = None;
+        for tag in &event.tags {
+            if tag.tagname() == "i" {
+                itag = Some(tag.value().to_owned());
+                break;
+            }
+        }
+
         NoteData {
             event,
             delegation,
@@ -304,6 +315,7 @@ impl NoteData {
             encryption,
             bookmarked,
             volatile,
+            itag,
         }
     }
 

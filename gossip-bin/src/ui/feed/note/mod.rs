@@ -572,6 +572,15 @@ pub fn render_note_inner(
                                 }
                             }
                         }
+
+                        if let Some(itag) = &note.itag {
+                            let color = app.theme.notice_marker_text_color();
+                            ui.label(
+                                RichText::new(format!("Comments on: {itag}"))
+                                    .color(color)
+                                    .text_style(TextStyle::Small),
+                            );
+                        }
                     });
                 }
 
