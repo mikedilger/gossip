@@ -23,7 +23,7 @@ use nostr_types::{Event, EventKind, Id, Profile, PublicKey, RelayUrl, UncheckedU
 use parking_lot::RwLock as PRwLock;
 use regex::Regex;
 use rhai::{Engine, AST};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize};
 use std::sync::{Arc, OnceLock};
@@ -195,6 +195,9 @@ pub struct Globals {
 
     /// Blossom Uploads (Path to Url)
     pub blossom_uploads: DashMap<PathBuf, Result<BlobDescriptor, Error>>,
+
+    /// Followers (we keep it in memory only)
+    pub followers: PRwLock<HashMap<PublicKey, HashSet<PublicKey>>>,
 }
 
 lazy_static! {
@@ -271,6 +274,7 @@ lazy_static! {
             handlers: DashMap::new(),
             blossom: OnceLock::new(),
             blossom_uploads: DashMap::new(),
+            followers: PRwLock::new(HashMap::new()),
         }
     };
 }
