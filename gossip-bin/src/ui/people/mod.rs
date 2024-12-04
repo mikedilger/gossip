@@ -2,6 +2,7 @@ use super::{GossipUi, Page};
 use eframe::egui;
 use egui::{Context, Ui};
 
+mod followers;
 mod list;
 mod lists;
 mod person;
@@ -27,5 +28,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         list::update(app, ctx, _frame, ui, plist);
     } else if matches!(app.page, Page::Person(_)) {
         person::update(app, ctx, _frame, ui);
+    } else if let Page::PersonFollowers(who) = app.page {
+        followers::update(app, ctx, _frame, ui, who);
     }
 }
