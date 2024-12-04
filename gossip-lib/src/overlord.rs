@@ -3102,7 +3102,11 @@ impl Overlord {
 
         // Query relays for contact lists to get the count updated
         let mut relays = Relay::choose_relays(0, |r| r.is_good_for_advertise())?;
-        relays.sort_by(|a, b| b.score_plus_connected().partial_cmp(&a.score_plus_connected()).unwrap());
+        relays.sort_by(|a, b| {
+            b.score_plus_connected()
+                .partial_cmp(&a.score_plus_connected())
+                .unwrap()
+        });
         relays.truncate(GLOBALS.db().read_setting_num_relays_for_counting() as usize);
         let relays: Vec<RelayUrl> = relays.iter().map(|r| r.url.clone()).collect();
         manager::run_jobs_on_all_relays(

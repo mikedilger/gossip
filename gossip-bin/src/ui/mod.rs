@@ -912,9 +912,12 @@ impl GossipUi {
                     .to_overlord
                     .send(ToOverlordMessage::UpdateMetadata(*pubkey));
             }
-            Page::PersonFollowers(_) => {
+            Page::PersonFollowers(pubkey) => {
                 self.close_all_menus_except_feeds(ctx);
-                // FIXME: instruct the overlord to start fetching this data
+                // Make sure we are tracking them
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::TrackFollowers(*pubkey));
             }
             Page::YourKeys | Page::YourMetadata | Page::YourDelegation | Page::YourNostrConnect => {
                 self.open_menu(ctx, SubMenu::Account);

@@ -1,7 +1,6 @@
 use super::GossipUi;
 use eframe::egui;
 use egui::{Context, RichText, Ui};
-use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{Globals, Person, PersonTable, Table, GLOBALS};
 use nostr_types::PublicKey;
 
@@ -12,11 +11,6 @@ pub(super) fn update(
     ui: &mut Ui,
     pubkey: PublicKey,
 ) {
-    // Make sure we are tracking them
-    let _ = GLOBALS
-        .to_overlord
-        .send(ToOverlordMessage::TrackFollowers(pubkey));
-
     let person = match PersonTable::read_record(pubkey, None) {
         Ok(Some(p)) => p,
         _ => Person::new(pubkey.to_owned()),
