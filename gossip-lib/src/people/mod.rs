@@ -1,3 +1,6 @@
+mod sortable_pubkey;
+pub use sortable_pubkey::SortablePubkey;
+
 use crate::comms::ToOverlordMessage;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
