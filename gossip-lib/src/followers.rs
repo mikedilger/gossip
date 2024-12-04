@@ -1,6 +1,6 @@
+use crate::people::SortablePubkey;
 use nostr_types::PublicKey;
 use std::collections::BTreeSet;
-use crate::people::SortablePubkey;
 
 pub struct Followers {
     pub who: Option<PublicKey>,
@@ -26,7 +26,12 @@ impl Followers {
         self.set.insert(follower.into());
     }
 
-    pub fn get_range(&mut self, start: usize, amount: usize) -> Vec<PublicKey> {
-        self.set.iter().skip(start).take(amount).map(|k| (*k).into()).collect()
+    pub fn get_range(&self, start: usize, amount: usize) -> Vec<PublicKey> {
+        self.set
+            .iter()
+            .skip(start)
+            .take(amount)
+            .map(|k| (*k).into())
+            .collect()
     }
 }

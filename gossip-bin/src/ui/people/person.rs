@@ -541,7 +541,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
 
                             ui.add_space(BTN_SPACING);
 
-                            if widgets::Button::primary(&app.theme, "Count Followers")
+                            if widgets::Button::primary(&app.theme, "View Followers")
                                 .show(ui)
                                 .clicked()
                             {
