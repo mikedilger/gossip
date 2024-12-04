@@ -223,6 +223,9 @@ pub enum ToOverlordMessage {
     /// Calls [test_relay](crate::Overlord::test_relay)
     TestRelay(RelayUrl),
 
+    /// Calls [track_followers](crate::Overlord::track_followers)
+    TrackFollowers(PublicKey),
+
     /// Calls [unlock_key](crate::Overlord::unlock_key)
     UnlockKey(String),
 

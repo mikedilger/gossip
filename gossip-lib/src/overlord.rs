@@ -802,6 +802,9 @@ impl Overlord {
             ToOverlordMessage::TestRelay(relay_url) => {
                 Self::test_relay(relay_url);
             }
+            ToOverlordMessage::TrackFollowers(pubkey) => {
+                self.track_followers(pubkey).await?;
+            }
             ToOverlordMessage::UnlockKey(password) => {
                 Self::unlock_key(password)?;
             }
@@ -3067,6 +3070,49 @@ impl Overlord {
                 }
             }
         }));
+    }
+
+    // Start tracking the followers of this pubkey if we are not already
+    async fn track_followers(&self, pubkey: PublicKey) -> Result<(), Error> {
+        use std::collections::HashSet;
+
+        // Add them to the GLOBAL.followers hashmap, so that when ContactLists
+        // come in they will be counted.
+        std::mem::drop(tokio::spawn(async move {
+            use std::collections::hash_map::Entry;
+
+            let mut need_contact_list_scan = false;
+
+            // Block until we get access, then add them
+            if let Entry::Vacant(entry) = GLOBALS.followers.write().entry(pubkey) {
+                need_contact_list_scan = true;
+                entry.insert(HashSet::new());
+            }
+
+            if need_contact_list_scan {
+                // Once that is done, process all ContactLists in our database that match
+                let mut filter = Filter {
+                    kinds: vec![EventKind::ContactList],
+                    ..Default::default()
+                };
+                let values = vec![pubkey.as_hex_string()];
+                filter.set_tag_values('p', values);
+                match GLOBALS.db().find_events_by_filter(&filter, |_| true) {
+                    Ok(contact_lists) => {
+                        for event in &contact_lists {
+                            // Trusting our database find command, we can directly
+                            // insert these
+                            crate::process::update_global_follower_direct(pubkey, event.pubkey);
+                        }
+                    }
+                    Err(e) => tracing::error!("{e}"),
+                }
+            }
+        }));
+
+        // TBD: Pick relays (how?) and subscribe to FilterSet::Followers for pubkey
+
+        Ok(())
     }
 
     async fn test_relay_inner(relay_url: RelayUrl) -> Result<RelayTestResults, Error> {
