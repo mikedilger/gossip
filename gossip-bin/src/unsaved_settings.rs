@@ -50,6 +50,7 @@ pub struct UnsavedSettings {
     // Relay settings
     pub num_relays_per_person: u8,
     pub max_relays: u8,
+    pub num_relays_for_counting: u8,
 
     // Feed Settings
     pub load_more_count: u64,
@@ -145,6 +146,7 @@ impl Default for UnsavedSettings {
             relay_auth_requires_approval: default_setting!(relay_auth_requires_approval),
             num_relays_per_person: default_setting!(num_relays_per_person),
             max_relays: default_setting!(max_relays),
+            num_relays_for_counting: default_setting!(num_relays_for_counting),
             load_more_count: default_setting!(load_more_count),
             reposts: default_setting!(reposts),
             show_long_form: default_setting!(show_long_form),
@@ -233,6 +235,7 @@ impl UnsavedSettings {
             relay_auth_requires_approval: load_setting!(relay_auth_requires_approval),
             num_relays_per_person: load_setting!(num_relays_per_person),
             max_relays: load_setting!(max_relays),
+            num_relays_for_counting: load_setting!(num_relays_for_counting),
             load_more_count: load_setting!(load_more_count),
             reposts: load_setting!(reposts),
             show_long_form: load_setting!(show_long_form),
@@ -317,6 +320,7 @@ impl UnsavedSettings {
         save_setting!(relay_auth_requires_approval, self, txn);
         save_setting!(num_relays_per_person, self, txn);
         save_setting!(max_relays, self, txn);
+        save_setting!(num_relays_for_counting, self, txn);
         save_setting!(load_more_count, self, txn);
         save_setting!(reposts, self, txn);
         save_setting!(show_long_form, self, txn);

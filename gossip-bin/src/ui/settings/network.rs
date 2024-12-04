@@ -51,6 +51,14 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         ui.add(Slider::new(&mut app.unsaved_settings.max_relays, 5..=100).text("relays"));
     });
 
+    ui.horizontal(|ui| {
+        ui.label("Number of relays to query when counting things: ")
+            .on_hover_text("We will pick the N best relays we can find to do this.");
+        ui.add(
+            Slider::new(&mut app.unsaved_settings.num_relays_for_counting, 5..=100).text("relays"),
+        );
+    });
+
     ui.add_space(10.0);
     ui.heading("HTTP Fetch Settings");
     ui.add_space(10.0);
