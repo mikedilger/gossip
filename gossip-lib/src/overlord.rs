@@ -3074,43 +3074,50 @@ impl Overlord {
 
     // Start tracking the followers of this pubkey if we are not already
     async fn track_followers(&self, pubkey: PublicKey) -> Result<(), Error> {
+        use std::collections::hash_map::Entry;
         use std::collections::HashSet;
 
         // Add them to the GLOBAL.followers hashmap, so that when ContactLists
         // come in they will be counted.
-        std::mem::drop(tokio::spawn(async move {
-            use std::collections::hash_map::Entry;
+        if let Entry::Vacant(entry) = GLOBALS.followers.write().entry(pubkey) {
+            entry.insert(HashSet::new());
+        } else {
+            // We are already tracking them.
+            return Ok(());
+        }
 
-            let mut need_contact_list_scan = false;
+        // Once that is done, process all ContactLists in our database that match
+        let mut filter = Filter {
+            kinds: vec![EventKind::ContactList],
+            ..Default::default()
+        };
+        let values = vec![pubkey.as_hex_string()];
+        filter.set_tag_values('p', values);
+        let contact_lists = GLOBALS.db().find_events_by_filter(&filter, |_| true)?;
+        for event in &contact_lists {
+            // Trusting our database find command, we can directly
+            // insert these
+            crate::process::update_global_follower_direct(pubkey, event.pubkey);
+        }
 
-            // Block until we get access, then add them
-            if let Entry::Vacant(entry) = GLOBALS.followers.write().entry(pubkey) {
-                need_contact_list_scan = true;
-                entry.insert(HashSet::new());
-            }
+        // Query relays for contact lists to get the count updated
+        let mut relays = Relay::choose_relays(0, |r| r.is_good_for_advertise())?;
+        relays.sort_by(|a, b| b.score_plus_connected().partial_cmp(&a.score_plus_connected()).unwrap());
+        relays.truncate(GLOBALS.db().read_setting_num_relays_for_counting() as usize);
+        let relays: Vec<RelayUrl> = relays.iter().map(|r| r.url.clone()).collect();
+        manager::run_jobs_on_all_relays(
+            relays,
+            vec![RelayJob {
+                reason: RelayConnectionReason::Counting,
+                payload: ToMinionPayload {
+                    job_id: rand::random::<u64>(),
+                    detail: ToMinionPayloadDetail::Subscribe(FilterSet::FollowersOf(pubkey)),
+                },
+            }],
+        );
 
-            if need_contact_list_scan {
-                // Once that is done, process all ContactLists in our database that match
-                let mut filter = Filter {
-                    kinds: vec![EventKind::ContactList],
-                    ..Default::default()
-                };
-                let values = vec![pubkey.as_hex_string()];
-                filter.set_tag_values('p', values);
-                match GLOBALS.db().find_events_by_filter(&filter, |_| true) {
-                    Ok(contact_lists) => {
-                        for event in &contact_lists {
-                            // Trusting our database find command, we can directly
-                            // insert these
-                            crate::process::update_global_follower_direct(pubkey, event.pubkey);
-                        }
-                    }
-                    Err(e) => tracing::error!("{e}"),
-                }
-            }
-        }));
-
-        // TBD: Pick relays (how?) and subscribe to FilterSet::Followers for pubkey
+        // NEXT: some of these relays will fail us. We need to detect those and fall back to
+        // more relays.
 
         Ok(())
     }

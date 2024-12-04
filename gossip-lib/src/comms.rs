@@ -298,6 +298,7 @@ pub(crate) enum ToMinionPayloadDetail {
 pub enum RelayConnectionReason {
     Advertising,
     Config,
+    Counting,
     Discovery,
     FetchAugments,
     FetchDirectMessages,
@@ -334,6 +335,7 @@ impl RelayConnectionReason {
         match *self {
             Discovery => "Searching for other people's Relay Lists",
             Config => "Reading our client configuration",
+            Counting => "Counting",
             FetchInbox => "Searching for inbox of us",
             FetchAugments => "Fetching events that augment other events (likes, zaps, deletions)",
             FetchDirectMessages => "Fetching direct messages",
@@ -363,6 +365,7 @@ impl RelayConnectionReason {
         match *self {
             Discovery => false,
             Config => false,
+            Counting => false,
             FetchInbox => true,
             FetchAugments => false,
             FetchDirectMessages => true,
