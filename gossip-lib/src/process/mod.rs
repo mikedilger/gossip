@@ -8,7 +8,7 @@ use crate::storage::{PersonTable, Table};
 use crate::Relay;
 use heed::RwTxn;
 use nostr_types::{
-    Event, EventKind, EventReference, Filter, Id, NAddr, NostrBech32, RelayUrl, Unixtime,
+    Event, EventKind, EventReference, Filter, Id, NAddr, NostrBech32, PublicKey, RelayUrl, Unixtime,
 };
 use std::sync::atomic::Ordering;
 
@@ -802,4 +802,26 @@ pub fn reprocess_relay_lists() -> Result<(usize, usize), Error> {
     txn.commit()?;
 
     Ok(counts)
+}
+
+// NOTE: this only updates for pubkeys that already have an entry in GLOBALS.followers
+pub fn update_global_followers(event: &Event) {
+    // Get who we are following out of GLOBALS.followers just once, so we aren't
+    // borrowing it
+    let tracking: Vec<PublicKey> = GLOBALS.followers.read().keys().map(|rk| *rk).collect();
+
+    for (followed, _, _) in event.people() {
+        if tracking.contains(&followed) {
+            // Add them as a follower
+            update_global_follower_direct(followed, event.pubkey);
+        }
+    }
+}
+
+pub fn update_global_follower_direct(followed: PublicKey, follower: PublicKey) {
+    let _ = GLOBALS
+        .followers
+        .write()
+        .get_mut(&followed)
+        .and_then(|set| Some(set.insert(follower)));
 }

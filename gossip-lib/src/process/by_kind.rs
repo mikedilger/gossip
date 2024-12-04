@@ -273,6 +273,8 @@ pub fn process_somebody_elses_contact_list(event: &Event, force: bool) -> Result
     use crate::storage::Storage;
     use nostr_types::{RelayList, RelayListUsage, SimpleRelayList};
 
+    super::update_global_followers(event);
+
     // Only if we follow them... update their followings record and the FoF
     if GLOBALS
         .people
@@ -328,6 +330,8 @@ fn update_or_allocate_person_list_from_event(
     event: &Event,
 ) -> Result<(PersonList, PersonListMetadata), Error> {
     use nostr_types::{EventKind, Tag};
+
+    super::update_global_followers(event);
 
     // Determine PersonList and fetch Metadata
     let (list, mut metadata, new) = crate::people::fetch_current_personlist_matching_event(event)?;
