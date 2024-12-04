@@ -802,6 +802,9 @@ impl Overlord {
             ToOverlordMessage::TestRelay(relay_url) => {
                 Self::test_relay(relay_url);
             }
+            ToOverlordMessage::TrackFollowers(pubkey) => {
+                self.track_followers(pubkey).await?;
+            }
             ToOverlordMessage::UnlockKey(password) => {
                 Self::unlock_key(password)?;
             }
@@ -3067,6 +3070,56 @@ impl Overlord {
                 }
             }
         }));
+    }
+
+    // Start tracking the followers of this pubkey if we are not already
+    async fn track_followers(&self, pubkey: PublicKey) -> Result<(), Error> {
+        // Dont do anything if we are already tracking this pubkey
+        if GLOBALS.followers.read().who == Some(pubkey) {
+            return Ok(());
+        }
+
+        // Reset
+        GLOBALS.followers.write().reset(pubkey);
+
+        // Process all ContactLists in our database that match
+        let mut filter = Filter {
+            kinds: vec![EventKind::ContactList],
+            ..Default::default()
+        };
+        let values = vec![pubkey.as_hex_string()];
+        filter.set_tag_values('p', values);
+        let contact_lists = GLOBALS.db().find_events_by_filter(&filter, |_| true)?;
+        for event in &contact_lists {
+            // Trusting our database find command, and that followers hasn't
+            // changed
+            GLOBALS.followers.write().add_follower(event.pubkey);
+        }
+
+        // Query relays for contact lists to get the count updated
+        let mut relays = Relay::choose_relays(0, |r| r.is_good_for_advertise())?;
+        relays.sort_by(|a, b| {
+            b.score_plus_connected()
+                .partial_cmp(&a.score_plus_connected())
+                .unwrap()
+        });
+        relays.truncate(GLOBALS.db().read_setting_num_relays_for_counting() as usize);
+        let relays: Vec<RelayUrl> = relays.iter().map(|r| r.url.clone()).collect();
+        manager::run_jobs_on_all_relays(
+            relays,
+            vec![RelayJob {
+                reason: RelayConnectionReason::Counting,
+                payload: ToMinionPayload {
+                    job_id: rand::random::<u64>(),
+                    detail: ToMinionPayloadDetail::Subscribe(FilterSet::FollowersOf(pubkey)),
+                },
+            }],
+        );
+
+        // NEXT: some of these relays will fail us. We need to detect those and fall back to
+        // more relays.
+
+        Ok(())
     }
 
     async fn test_relay_inner(relay_url: RelayUrl) -> Result<RelayTestResults, Error> {

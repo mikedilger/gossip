@@ -1,0 +1,47 @@
+use super::GossipUi;
+use eframe::egui;
+use egui::{Context, RichText, Ui};
+use gossip_lib::{Person, PersonTable, Table, GLOBALS};
+use nostr_types::PublicKey;
+
+pub(super) fn update(
+    app: &mut GossipUi,
+    _ctx: &Context,
+    _frame: &mut eframe::Frame,
+    ui: &mut Ui,
+    pubkey: PublicKey,
+) {
+    let person = match PersonTable::read_record(pubkey, None) {
+        Ok(Some(p)) => p,
+        _ => Person::new(pubkey.to_owned()),
+    };
+
+    ui.add_space(10.0);
+    ui.horizontal(|ui| {
+        ui.add_space(10.0);
+        ui.label(
+            RichText::new(person.best_name())
+                .size(22.0)
+                .color(app.theme.accent_color()),
+        );
+    });
+
+    ui.add_space(5.0);
+
+    ui.vertical(|ui| {
+        if let Some(followers) = GLOBALS.followers.try_read() {
+            if let Some(who) = followers.who {
+                if who == pubkey {
+                    let count = followers.set.len();
+                    ui.label(format!("FOUND {} PEOPLE", count));
+                } else {
+                    ui.label("MISMATCH BUG");
+                }
+            } else {
+                ui.label("NOT TRACKED BUG");
+            }
+        } else {
+            ui.label("Busy counting...");
+        }
+    });
+}

@@ -538,6 +538,15 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                     );
                                 }
                             }
+
+                            ui.add_space(BTN_SPACING);
+
+                            if widgets::Button::primary(&app.theme, "Count Followers")
+                                .show(ui)
+                                .clicked()
+                            {
+                                app.set_page(ctx, Page::PersonFollowers(pubkey));
+                            }
                         });
                     });
                 });

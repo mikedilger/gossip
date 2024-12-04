@@ -626,6 +626,7 @@ impl Storage {
     );
     def_setting!(num_relays_per_person, b"num_relays_per_person", u8, 2);
     def_setting!(max_relays, b"max_relays", u8, 50);
+    def_setting!(num_relays_for_counting, b"num_relays_for_counting", u8, 15);
     def_setting!(load_more_count, b"load_more_count", u64, 35);
     def_setting!(reposts, b"reposts", bool, true);
     def_setting!(show_long_form, b"show_long_form", bool, false);

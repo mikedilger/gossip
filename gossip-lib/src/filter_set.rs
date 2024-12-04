@@ -29,6 +29,7 @@ pub enum FilterSet {
     Config,
     Discover(Vec<PublicKey>),
     DmChannel(DmChannel),
+    FollowersOf(PublicKey),
     GeneralFeedFuture {
         pubkeys: Vec<PublicKey>,
         anchor: Unixtime,
@@ -64,6 +65,7 @@ impl FilterSet {
             FilterSet::Config => false,
             FilterSet::Discover(_) => true,
             FilterSet::DmChannel(_) => false,
+            FilterSet::FollowersOf(_) => true,
             FilterSet::GeneralFeedFuture { .. } => false,
             FilterSet::GeneralFeedChunk { .. } => true,
             FilterSet::Giftwraps(_) => false,
@@ -83,6 +85,7 @@ impl FilterSet {
 
     pub fn can_have_duplicates(&self) -> bool {
         match self {
+            FilterSet::FollowersOf(_) => true,
             FilterSet::GeneralFeedChunk { .. } => true,
             FilterSet::GlobalFeedChunk(_) => true,
             FilterSet::InboxFeedChunk(_) => true,
@@ -107,6 +110,7 @@ impl FilterSet {
             FilterSet::Config => "config_feed",
             FilterSet::Discover(_) => "discover_feed",
             FilterSet::DmChannel(_) => "dm_channel",
+            FilterSet::FollowersOf(_) => "followers_of",
             FilterSet::GeneralFeedFuture { .. } => "general_feed",
             FilterSet::GeneralFeedChunk { .. } => "general_feed_chunk",
             FilterSet::Giftwraps(_) => "giftwraps",
@@ -224,6 +228,15 @@ impl FilterSet {
                 };
                 // tagging the user
                 filter.set_tag_values('p', authors.iter().map(|x| x.as_hex_string()).collect());
+                filters.push(filter);
+            }
+            FilterSet::FollowersOf(pubkey) => {
+                let mut filter = Filter {
+                    kinds: vec![EventKind::ContactList],
+                    ..Default::default()
+                };
+                let values = vec![pubkey.as_hex_string()];
+                filter.set_tag_values('p', values);
                 filters.push(filter);
             }
             FilterSet::GeneralFeedFuture { pubkeys, anchor } => {

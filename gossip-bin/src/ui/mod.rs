@@ -168,6 +168,7 @@ enum Page {
     PeopleLists,
     PeopleList(PersonList),
     Person(PublicKey),
+    PersonFollowers(PublicKey),
     YourKeys,
     YourMetadata,
     YourDelegation,
@@ -219,6 +220,10 @@ impl Page {
                 let name = gossip_lib::names::best_name_from_pubkey_lookup(pk);
                 ("Profile", name)
             }
+            Page::PersonFollowers(pk) => {
+                let name = gossip_lib::names::best_name_from_pubkey_lookup(pk);
+                ("Followers", name)
+            }
             Page::YourKeys => (SubMenu::Account.as_str(), "Keys".into()),
             Page::YourMetadata => (SubMenu::Account.as_str(), "Profile".into()),
             Page::YourDelegation => (SubMenu::Account.as_str(), "Delegation".into()),
@@ -263,6 +268,7 @@ impl Page {
             Page::Feed(_) => name_cat(self),
             Page::PeopleLists | Page::PeopleList(_) => cat_name(self),
             Page::Person(_) => name_cat(self),
+            Page::PersonFollowers(_) => name_cat(self),
             Page::YourKeys | Page::YourMetadata | Page::YourDelegation | Page::YourNostrConnect => {
                 cat_name(self)
             }
@@ -905,6 +911,13 @@ impl GossipUi {
                 let _ = GLOBALS
                     .to_overlord
                     .send(ToOverlordMessage::UpdateMetadata(*pubkey));
+            }
+            Page::PersonFollowers(pubkey) => {
+                self.close_all_menus_except_feeds(ctx);
+                // Make sure we are tracking them
+                let _ = GLOBALS
+                    .to_overlord
+                    .send(ToOverlordMessage::TrackFollowers(*pubkey));
             }
             Page::YourKeys | Page::YourMetadata | Page::YourDelegation | Page::YourNostrConnect => {
                 self.open_menu(ctx, SubMenu::Account);
@@ -2334,9 +2347,10 @@ impl eframe::App for GossipUi {
                     Page::HandlerKinds => handler::update_all_kinds(self, ctx, ui),
                     Page::Handlers(kind) => handler::update_kind(self, ctx, ui, kind),
                     Page::Notifications => notifications::update(self, ui),
-                    Page::PeopleLists | Page::PeopleList(_) | Page::Person(_) => {
-                        people::update(self, ctx, frame, ui)
-                    }
+                    Page::PeopleLists
+                    | Page::PeopleList(_)
+                    | Page::Person(_)
+                    | Page::PersonFollowers(_) => people::update(self, ctx, frame, ui),
                     Page::YourKeys
                     | Page::YourMetadata
                     | Page::YourDelegation

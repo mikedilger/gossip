@@ -5,6 +5,7 @@ use crate::delegation::Delegation;
 use crate::error::Error;
 use crate::feed::Feed;
 use crate::fetcher::Fetcher;
+use crate::followers::Followers;
 use crate::gossip_identity::GossipIdentity;
 use crate::media::Media;
 use crate::minion::MinionExitReason;
@@ -195,6 +196,9 @@ pub struct Globals {
 
     /// Blossom Uploads (Path to Url)
     pub blossom_uploads: DashMap<PathBuf, Result<BlobDescriptor, Error>>,
+
+    /// Followers (we keep it in memory only, for just one person)
+    pub followers: PRwLock<Followers>,
 }
 
 lazy_static! {
@@ -271,6 +275,7 @@ lazy_static! {
             handlers: DashMap::new(),
             blossom: OnceLock::new(),
             blossom_uploads: DashMap::new(),
+            followers: PRwLock::new(Followers::default()),
         }
     };
 }

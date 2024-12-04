@@ -803,3 +803,18 @@ pub fn reprocess_relay_lists() -> Result<(usize, usize), Error> {
 
     Ok(counts)
 }
+
+// NOTE: this only updates for pubkeys that already have an entry in GLOBALS.followers
+pub fn update_global_followers(event: &Event) {
+    let who = match GLOBALS.followers.read().who {
+        Some(pk) => pk,
+        None => return,
+    };
+
+    for (followed, _, _) in event.people() {
+        if followed == who {
+            GLOBALS.followers.write().add_follower(event.pubkey);
+            return;
+        }
+    }
+}
