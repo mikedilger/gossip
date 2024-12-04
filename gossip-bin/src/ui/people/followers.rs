@@ -1,7 +1,7 @@
 use super::GossipUi;
 use eframe::egui;
 use egui::{Context, RichText, Ui};
-use gossip_lib::{Globals, Person, PersonTable, Table, GLOBALS};
+use gossip_lib::{Person, PersonTable, Table, GLOBALS};
 use nostr_types::PublicKey;
 
 pub(super) fn update(
@@ -29,11 +29,16 @@ pub(super) fn update(
     ui.add_space(5.0);
 
     ui.vertical(|ui| {
-        if let Some(handle) = GLOBALS.followers.try_read() {
-            if let Some(set) = handle.get(&pubkey) {
-                ui.label(format!("FOUND {} PEOPLE", set.len()));
+        if let Some(followers) = GLOBALS.followers.try_read() {
+            if let Some(who) = followers.who {
+                if who == pubkey {
+                    let count = followers.set.len();
+                    ui.label(format!("FOUND {} PEOPLE", count));
+                } else {
+                    ui.label("MISMATCH BUG");
+                }
             } else {
-                ui.label("Not tracked");
+                ui.label("NOT TRACKED BUG");
             }
         } else {
             ui.label("Busy counting...");

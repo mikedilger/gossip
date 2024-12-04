@@ -5,6 +5,7 @@ use crate::delegation::Delegation;
 use crate::error::Error;
 use crate::feed::Feed;
 use crate::fetcher::Fetcher;
+use crate::followers::Followers;
 use crate::gossip_identity::GossipIdentity;
 use crate::media::Media;
 use crate::minion::MinionExitReason;
@@ -23,7 +24,7 @@ use nostr_types::{Event, EventKind, Id, Profile, PublicKey, RelayUrl, UncheckedU
 use parking_lot::RwLock as PRwLock;
 use regex::Regex;
 use rhai::{Engine, AST};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize};
 use std::sync::{Arc, OnceLock};
@@ -196,8 +197,8 @@ pub struct Globals {
     /// Blossom Uploads (Path to Url)
     pub blossom_uploads: DashMap<PathBuf, Result<BlobDescriptor, Error>>,
 
-    /// Followers (we keep it in memory only)
-    pub followers: PRwLock<HashMap<PublicKey, HashSet<PublicKey>>>,
+    /// Followers (we keep it in memory only, for just one person)
+    pub followers: PRwLock<Followers>,
 }
 
 lazy_static! {
@@ -274,7 +275,7 @@ lazy_static! {
             handlers: DashMap::new(),
             blossom: OnceLock::new(),
             blossom_uploads: DashMap::new(),
-            followers: PRwLock::new(HashMap::new()),
+            followers: PRwLock::new(Followers::default()),
         }
     };
 }

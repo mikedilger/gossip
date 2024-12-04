@@ -3074,19 +3074,15 @@ impl Overlord {
 
     // Start tracking the followers of this pubkey if we are not already
     async fn track_followers(&self, pubkey: PublicKey) -> Result<(), Error> {
-        use std::collections::hash_map::Entry;
-        use std::collections::HashSet;
-
-        // Add them to the GLOBAL.followers hashmap, so that when ContactLists
-        // come in they will be counted.
-        if let Entry::Vacant(entry) = GLOBALS.followers.write().entry(pubkey) {
-            entry.insert(HashSet::new());
-        } else {
-            // We are already tracking them.
+        // Dont do anything if we are already tracking this pubkey
+        if GLOBALS.followers.read().who == Some(pubkey) {
             return Ok(());
         }
 
-        // Once that is done, process all ContactLists in our database that match
+        // Reset
+        GLOBALS.followers.write().reset(pubkey);
+
+        // Process all ContactLists in our database that match
         let mut filter = Filter {
             kinds: vec![EventKind::ContactList],
             ..Default::default()
@@ -3095,9 +3091,9 @@ impl Overlord {
         filter.set_tag_values('p', values);
         let contact_lists = GLOBALS.db().find_events_by_filter(&filter, |_| true)?;
         for event in &contact_lists {
-            // Trusting our database find command, we can directly
-            // insert these
-            crate::process::update_global_follower_direct(pubkey, event.pubkey);
+            // Trusting our database find command, and that followers hasn't
+            // changed
+            GLOBALS.followers.write().add_follower(event.pubkey);
         }
 
         // Query relays for contact lists to get the count updated
