@@ -167,6 +167,12 @@ impl Overlord {
                 GLOBALS.db().rebuild_event_indices(None)?;
             }
 
+            // If we need to rebuild indexes, do so now
+            if GLOBALS.db().get_flag_rebuild_tag_index_needed() {
+                tracing::info!("Rebuilding tag index...");
+                GLOBALS.db().rebuild_event_tags_index(None)?;
+            }
+
             // If we need to reapply relay lists, do so now
             if GLOBALS.db().get_flag_reprocess_relay_lists_needed() {
                 tracing::info!("Reprocessing relay lists...");

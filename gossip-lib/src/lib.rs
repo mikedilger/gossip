@@ -238,6 +238,7 @@ pub fn init(rapid: bool, command_mode: bool) -> Result<(), Error> {
         // If we need to rebuild relationships
         if GLOBALS.db().get_flag_rebuild_relationships_needed()
             || GLOBALS.db().get_flag_rebuild_indexes_needed()
+            || GLOBALS.db().get_flag_rebuild_tag_index_needed()
             || GLOBALS.db().get_flag_reprocess_relay_lists_needed()
             || GLOBALS.db().get_flag_rebuild_fof_needed()
         {

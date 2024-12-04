@@ -1,10 +1,14 @@
 use crate::error::Error;
 use crate::storage::{RawDatabase, Storage};
 use heed::{types::Bytes, DatabaseFlags, RwTxn};
-use nostr_types::{EventV2, EventV3, PublicKeyHex, TagV3};
+use nostr_types::{EventKind, EventV2, EventV3, PublicKeyHex, TagV3};
 use std::sync::Mutex;
 
 pub(super) const INDEXED_TAGS: [&str; 4] = ["a", "d", "p", "delegation"];
+
+// This indexes these tags, except for "p" tags we only index it if
+//   1) the "p" tag is our user, or
+//   2) the event is a ContactList
 
 // TODO: If this had reverse created_at, we could much more quickly find
 //       inbox messages.
@@ -79,13 +83,17 @@ impl Storage {
             if !INDEXED_TAGS.contains(&&*tagname) {
                 continue;
             }
-            // For 'p' tags, only index them if 'p' is our user
+
+            // For 'p' tags, only index them if 'p' is our user, or if the event is
+            // a ContactList
             if tagname == "p" {
-                match &pk {
-                    None => continue,
-                    Some(pk) => {
-                        if value != pk.as_str() {
-                            continue;
+                if event.kind != EventKind::ContactList {
+                    match &pk {
+                        None => continue,
+                        Some(pk) => {
+                            if value != pk.as_str() {
+                                continue;
+                            }
                         }
                     }
                 }
@@ -143,13 +151,16 @@ impl Storage {
             if !INDEXED_TAGS.contains(&tagname) {
                 continue;
             }
-            // For 'p' tags, only index them if 'p' is our user
+            // For 'p' tags, only index them if 'p' is our user, or if the event is
+            // a ContactList
             if tagname == "p" {
-                match &pk {
-                    None => continue,
-                    Some(pk) => {
-                        if value != pk.as_str() {
-                            continue;
+                if event.kind != EventKind::ContactList {
+                    match &pk {
+                        None => continue,
+                        Some(pk) => {
+                            if value != pk.as_str() {
+                                continue;
+                            }
                         }
                     }
                 }

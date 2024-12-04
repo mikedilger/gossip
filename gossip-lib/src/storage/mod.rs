@@ -586,6 +586,7 @@ impl Storage {
         false
     );
     def_flag!(rebuild_indexes_needed, b"rebuild_indexes_needed", false);
+    def_flag!(rebuild_tag_index_needed, b"rebuild_tag_index_needed", false);
     def_flag!(
         reprocess_relay_lists_needed,
         b"reprocess_relay_lists_needed",
@@ -2443,6 +2444,7 @@ impl Storage {
             let event = Event::read_from_buffer(val)?;
             self.write_event_tag_index(&event, Some(txn))?;
         }
+        self.set_flag_rebuild_tag_index_needed(false, Some(txn))?;
 
         maybe_local_txn_commit!(local_txn);
 
