@@ -54,7 +54,7 @@ pub(super) fn update(
         let count = followers.set.len();
         ui.heading(format!("{} Followers", count));
 
-        let height: f32 = 42.0; // 42 or 43, from testing
+        let height: f32 = 48.0;
 
         app.vert_scroll_area()
             .show_rows(ui, height, followers.set.len(), |ui, range| {
@@ -91,7 +91,7 @@ fn render_person_line(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, person: Pe
                 };
 
                 let mut response =
-                    widgets::paint_avatar(ui, &person, &avatar, widgets::AvatarSize::Mini);
+                    widgets::paint_avatar(ui, &person, &avatar, widgets::AvatarSize::Feed);
 
                 ui.add_space(20.0);
 
