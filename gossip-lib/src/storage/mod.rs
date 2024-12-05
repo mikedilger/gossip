@@ -1520,8 +1520,7 @@ impl Storage {
         if !filter.ids.is_empty() {
             // Use events table directly, we have specific ids
 
-            for idhex in filter.ids.iter() {
-                let id: Id = idhex.clone().into();
+            for id in filter.ids.iter() {
                 if output.len() >= limit {
                     break;
                 }
