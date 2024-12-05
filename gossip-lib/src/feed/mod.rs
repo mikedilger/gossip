@@ -29,6 +29,8 @@ pub struct Feed {
 
     current_feed_kind: Arc<RwLock<FeedKind>>,
     current_feed_events: Arc<RwLock<Vec<Id>>>,
+    current_inbox_events: Arc<RwLock<Vec<Id>>>,
+    inbox_is_indirect: AtomicBool,
     feed_anchors: DashMap<String, Unixtime>,
 
     // We only recompute the feed at specified intervals (or when they switch)
@@ -53,6 +55,8 @@ impl Feed {
             switching: AtomicBool::new(false),
             current_feed_kind: Arc::new(RwLock::new(FeedKind::List(PersonList::Followed, false))),
             current_feed_events: Arc::new(RwLock::new(Vec::new())),
+            current_inbox_events: Arc::new(RwLock::new(Vec::new())),
+            inbox_is_indirect: AtomicBool::new(false),
             feed_anchors: DashMap::new(),
             interval_ms: Arc::new(RwLock::new(10000)), // Every 10 seconds, until we load from settings
             last_computed: Arc::new(RwLock::new(None)),
@@ -67,8 +71,15 @@ impl Feed {
     /// This doesn't deal with minion subscriptions.
     pub(crate) fn load_more(&self) -> Result<Unixtime, Error> {
         let anchor_key = self.current_feed_kind.read_arc().anchor_key();
+
+        let current_events = if matches!(self.get_feed_kind(), FeedKind::Inbox(_)) {
+            &self.current_inbox_events
+        } else {
+            &self.current_feed_events
+        };
+
         // Load the timestamp of the earliest event in the feed so far
-        if let Some(earliest_id) = self.current_feed_events.read_arc().iter().next_back() {
+        if let Some(earliest_id) = current_events.read_arc().iter().next_back() {
             let earliest_event = GLOBALS.db().read_event(*earliest_id)?;
             if let Some(event) = earliest_event {
                 // Move the anchor back to the earliest event we have so far
@@ -258,7 +269,16 @@ impl Feed {
     /// Read the followed feed
     pub fn get_feed_events(&self) -> Vec<Id> {
         self.sync_maybe_periodic_recompute();
-        self.current_feed_events.read_arc().clone()
+        if matches!(self.get_feed_kind(), FeedKind::Inbox(_)) {
+            self.current_inbox_events.read_arc().clone()
+        } else {
+            self.current_feed_events.read_arc().clone()
+        }
+    }
+
+    /// Read the inbox
+    pub fn get_inbox_events(&self) -> Vec<Id> {
+        self.current_inbox_events.read_arc().clone()
     }
 
     pub fn get_last_computed_time(&self) -> Option<Instant> {
@@ -370,60 +390,8 @@ impl Feed {
                 *self.current_feed_events.write_arc() = GLOBALS.current_bookmarks.read().clone();
             }
             FeedKind::Inbox(indirect) => {
-                if let Some(my_pubkey) = GLOBALS.identity.public_key() {
-                    // indirect = everything that 'p' tags me
-                    // otherwise, only things that reply to my events
-                    //   (filter on Storage::is_my_event(id))
-                    //
-                    // We also might want to look where I am mentioned in the contents,
-                    // BUT we would have to scan all events which is not cheap so we
-                    // don't do this.
-
-                    // All displayable events that 'p' tag me
-                    let filter = {
-                        let mut filter = Filter::new();
-                        filter.kinds = feed_displayable_event_kinds(false);
-                        filter.add_tag_value('p', my_pubkey.as_hex_string());
-                        filter
-                    };
-
-                    let screen_spam = {
-                        if GLOBALS.db().read_setting_apply_spam_filter_on_inbox() {
-                            |event: &Event| {
-                                use crate::spam_filter::{
-                                    filter_event, EventFilterAction, EventFilterCaller,
-                                };
-                                filter_event(event.clone(), EventFilterCaller::Inbox, false)
-                                    == EventFilterAction::Allow
-                            }
-                        } else {
-                            |_: &Event| true
-                        }
-                    };
-
-                    let screen = |e: &Event| {
-                        screen_spam(e)
-                            && e.pubkey != my_pubkey
-                            && (indirect // don't screen further, keep all the 'p' tags
-                                || (
-                                    // Either it is a direct reply
-                                        match e.replies_to() {
-                                            None => false,
-                                            Some(EventReference::Id { id, .. }) =>
-                                                matches!(GLOBALS.db().is_my_event(id), Ok(true)),
-                                            Some(EventReference::Addr(NAddr { author, .. })) => author == my_pubkey,
-                                        }
-                                    || // or we are referenced in the content
-                                        e.people_referenced_in_content()
-                                        .iter()
-                                        .any(|p| *p == my_pubkey)
-                                ))
-                    };
-
-                    let events =
-                        Self::load_event_range(anchor, filter, true, false, screen).await?;
-                    *self.current_feed_events.write_arc() = events;
-                }
+                // See below, we always recompute inbox
+                self.inbox_is_indirect.store(indirect, Ordering::Relaxed);
             }
             FeedKind::Thread { .. } => {
                 // Potentially update thread parent to a higher parent
@@ -474,6 +442,64 @@ impl Feed {
                 let events = GLOBALS.db().load_volatile_events(screen);
                 *self.current_feed_events.write_arc() = events.iter().map(|e| e.id).collect();
             }
+        }
+
+        // We recompute the inbox always, because we need to watch for changes so we can update
+        // the notification light
+        if let Some(my_pubkey) = GLOBALS.identity.public_key() {
+            // indirect = everything that 'p' tags me
+            let indirect = self.inbox_is_indirect.load(Ordering::Relaxed);
+
+            // otherwise, only things that reply to my events
+            //   (filter on Storage::is_my_event(id))
+            //
+            // We also might want to look where I am mentioned in the contents,
+            // BUT we would have to scan all events which is not cheap so we
+            // don't do this.
+
+            // All displayable events that 'p' tag me
+            let filter = {
+                let mut filter = Filter::new();
+                filter.kinds = feed_displayable_event_kinds(false);
+                filter.add_tag_value('p', my_pubkey.as_hex_string());
+                filter
+            };
+
+            let screen_spam = {
+                if GLOBALS.db().read_setting_apply_spam_filter_on_inbox() {
+                    |event: &Event| {
+                        use crate::spam_filter::{
+                            filter_event, EventFilterAction, EventFilterCaller,
+                        };
+                        filter_event(event.clone(), EventFilterCaller::Inbox, false)
+                            == EventFilterAction::Allow
+                    }
+                } else {
+                    |_: &Event| true
+                }
+            };
+
+            let screen = |e: &Event| {
+                screen_spam(e)
+                    && e.pubkey != my_pubkey
+                    && (indirect // don't screen further, keep all the 'p' tags
+                        || (
+                            // Either it is a direct reply
+                            match e.replies_to() {
+                                None => false,
+                                Some(EventReference::Id { id, .. }) =>
+                                    matches!(GLOBALS.db().is_my_event(id), Ok(true)),
+                                Some(EventReference::Addr(NAddr { author, .. })) => author == my_pubkey,
+                            }
+                            || // or we are referenced in the content
+                                e.people_referenced_in_content()
+                                .iter()
+                                .any(|p| *p == my_pubkey)
+                        ))
+            };
+
+            let events = Self::load_event_range(anchor, filter, true, false, screen).await?;
+            *self.current_inbox_events.write_arc() = events;
         }
 
         *self.last_computed.write_arc() = Some(Instant::now());

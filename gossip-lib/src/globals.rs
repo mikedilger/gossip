@@ -113,6 +113,9 @@ pub struct Globals {
     /// How many unread direct messages
     pub unread_dms: AtomicUsize,
 
+    /// Does inbox have new messages
+    pub unread_inbox: AtomicUsize,
+
     /// Delegation handling
     pub delegation: Delegation,
 
@@ -246,6 +249,7 @@ lazy_static! {
             bytes_read: AtomicUsize::new(0),
             open_subscriptions: AtomicUsize::new(0),
             unread_dms: AtomicUsize::new(0),
+            unread_inbox: AtomicUsize::new(0),
             delegation: Delegation::default(),
             media: Media::new(),
             events_being_searched_for: PRwLock::new(Vec::new()),

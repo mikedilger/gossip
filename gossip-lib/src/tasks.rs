@@ -82,8 +82,21 @@ async fn do_general_tasks(tick: usize) {
             let unread = channels.iter().map(|c| c.unread_message_count).sum();
             GLOBALS.unread_dms.store(unread, Ordering::Relaxed);
         }
+
+        update_inbox_indicator().await;
     }
 
     // Update handlers for quick menu rendering
     let _ = GLOBALS.update_handlers();
+}
+
+async fn update_inbox_indicator() {
+    let ids = GLOBALS.feed.get_inbox_events();
+    let mut count: usize = 0;
+    for id in ids {
+        if matches!(GLOBALS.db().is_event_viewed(id), Ok(false)) {
+            count += 1;
+        }
+    }
+    GLOBALS.unread_inbox.store(count, Ordering::Relaxed);
 }
