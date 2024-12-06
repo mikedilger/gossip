@@ -914,6 +914,12 @@ impl GossipUi {
             }
             Page::PersonFollowers(pubkey) => {
                 self.close_all_menus_except_feeds(ctx);
+
+                // Possibly reset followers
+                if GLOBALS.followers.read().who != Some(*pubkey) {
+                    GLOBALS.followers.write().reset(*pubkey);
+                }
+
                 // Make sure we are tracking them
                 let _ = GLOBALS
                     .to_overlord
