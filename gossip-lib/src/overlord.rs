@@ -18,7 +18,7 @@ use crate::relay;
 use crate::relay::Relay;
 use crate::relay_picker::RelayAssignment;
 use crate::relay_test_results::{RelayTestResult, RelayTestResults};
-use crate::storage::types::HandlerKey;
+use crate::storage::types::{HandlerKey, ScoreFactors};
 use crate::storage::{PersonTable, Table};
 use crate::RunState;
 use heed::RwTxn;
@@ -3099,8 +3099,8 @@ impl Overlord {
         // Query relays for contact lists to get the count updated
         let mut relays = Relay::choose_relays(0, |r| r.is_good_for_advertise())?;
         relays.sort_by(|a, b| {
-            b.score_plus_connected()
-                .partial_cmp(&a.score_plus_connected())
+            b.adjusted_score(ScoreFactors::FULLY_ADJUSTED)
+                .partial_cmp(&a.adjusted_score(ScoreFactors::FULLY_ADJUSTED))
                 .unwrap()
         });
         relays.truncate(GLOBALS.db().read_setting_num_relays_for_counting() as usize);

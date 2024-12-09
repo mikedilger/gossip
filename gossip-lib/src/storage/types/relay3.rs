@@ -225,15 +225,22 @@ impl Relay3 {
         score
     }
 
-    /// This also checks if we are already connected to a relay and those scores
-    /// are doubled (and normalized to 0.0 to 1.0)
-    pub fn score_plus_connected(&self) -> f32 {
-        let score = self.score();
-        if GLOBALS.connected_relays.contains_key(&self.url) {
-            score
-        } else {
-            score * 0.5
+    /// This adjusts the score based on two other optional factors
+    pub fn adjusted_score(&self, factors: ScoreFactors) -> f32 {
+        let mut score = self.score();
+        if factors.connected {
+            if !GLOBALS.connected_relays.contains_key(&self.url) {
+                score = score / 2.0;
+            }
         }
+        if factors.success_count {
+            if self.success_count > 0 {
+                score = score * (self.success_count as f32).log10();
+            } else {
+                score = 0.0;
+            }
+        }
+        score
     }
 
     pub fn choose_relays<F>(bits: u64, f: F) -> Result<Vec<Relay3>, Error>
@@ -256,4 +263,35 @@ impl Relay3 {
             .map(|r| r.url.clone())
             .collect())
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ScoreFactors {
+    /// Double the score of relays currently connected
+    pub connected: bool,
+
+    /// Increase the score of relays with more total successful connections
+    pub success_count: bool,
+}
+
+impl ScoreFactors {
+    pub const BASE: ScoreFactors = ScoreFactors {
+        connected: false,
+        success_count: false,
+    };
+
+    pub const PREFER_CONNECTED_IGNORE_COUNT: ScoreFactors = ScoreFactors {
+        connected: true,
+        success_count: false,
+    };
+
+    pub const PREFER_COUNT_IGNORE_CONNECTED: ScoreFactors = ScoreFactors {
+        connected: false,
+        success_count: true,
+    };
+
+    pub const FULLY_ADJUSTED: ScoreFactors = ScoreFactors {
+        connected: true,
+        success_count: true,
+    };
 }

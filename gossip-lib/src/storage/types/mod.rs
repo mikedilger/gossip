@@ -56,7 +56,7 @@ mod relay2;
 pub use relay2::Relay2;
 
 mod relay3;
-pub use relay3::Relay3;
+pub use relay3::{Relay3, ScoreFactors};
 
 use crate::error::Error;
 use nostr_types::{Id, PublicKey};

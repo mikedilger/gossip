@@ -1,6 +1,7 @@
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
-use crate::relay::{self, ScoreFactors};
+use crate::relay;
+use crate::storage::types::ScoreFactors;
 use dashmap::DashMap;
 pub use nostr_types::{PublicKey, RelayUrl, RelayUsage, Unixtime};
 
@@ -174,7 +175,7 @@ impl RelayPicker {
             let best_relays: Vec<(RelayUrl, f32)> = relay::get_best_relays_with_score(
                 *pubkey,
                 RelayUsage::Outbox,
-                ScoreFactors::RelayScorePlusConnected,
+                ScoreFactors::FULLY_ADJUSTED,
             )?;
 
             self.person_relay_scores.insert(*pubkey, best_relays);
