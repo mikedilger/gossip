@@ -915,15 +915,15 @@ impl GossipUi {
             Page::PersonFollowers(pubkey) => {
                 self.close_all_menus_except_feeds(ctx);
 
-                // Possibly reset followers
                 if GLOBALS.followers.read().who != Some(*pubkey) {
+                    // Switch tracking to them
                     GLOBALS.followers.write().reset(*pubkey);
-                }
 
-                // Make sure we are tracking them
-                let _ = GLOBALS
-                    .to_overlord
-                    .send(ToOverlordMessage::TrackFollowers(*pubkey));
+                    // Initiate pulling of contact lists referencing them
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::TrackFollowers(*pubkey));
+                }
             }
             Page::YourKeys | Page::YourMetadata | Page::YourDelegation | Page::YourNostrConnect => {
                 self.open_menu(ctx, SubMenu::Account);

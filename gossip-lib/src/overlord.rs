@@ -3074,13 +3074,13 @@ impl Overlord {
 
     // Start tracking the followers of this pubkey if we are not already
     async fn track_followers(&self, pubkey: PublicKey) -> Result<(), Error> {
-        // Dont do anything if we are already tracking this pubkey
-        if GLOBALS.followers.read().who == Some(pubkey) {
-            return Ok(());
+        // The UI will handle resetting GLOBALS.followers. Abort if we have a mismatch
+        if GLOBALS.followers.read().who != Some(pubkey) {
+            return Err(ErrorKind::General(
+                "Follower mismatch, overlord ignoring request.".to_owned(),
+            )
+            .into());
         }
-
-        // Reset
-        GLOBALS.followers.write().reset(pubkey);
 
         // Process all ContactLists in our database that match
         let mut filter = Filter {
