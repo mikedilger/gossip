@@ -805,6 +805,9 @@ impl Overlord {
             ToOverlordMessage::TrackFollowers(pubkey) => {
                 self.track_followers(pubkey).await?;
             }
+            ToOverlordMessage::TrackFollows(pubkey) => {
+                self.track_follows(pubkey).await?;
+            }
             ToOverlordMessage::UnlockKey(password) => {
                 Self::unlock_key(password)?;
             }
@@ -3091,9 +3094,8 @@ impl Overlord {
         filter.set_tag_values('p', values);
         let contact_lists = GLOBALS.db().find_events_by_filter(&filter, |_| true)?;
         for event in &contact_lists {
-            // Trusting our database find command, and that followers hasn't
-            // changed
-            GLOBALS.followers.write().add_follower(event.pubkey);
+            // Trusting our database find command, and that followers hasn't changed
+            GLOBALS.followers.write().add(event.pubkey);
         }
 
         // Query relays for contact lists to get the count updated
@@ -3118,6 +3120,34 @@ impl Overlord {
 
         // NEXT: some of these relays will fail us. We need to detect those and fall back to
         // more relays.
+
+        Ok(())
+    }
+
+    async fn track_follows(&self, pubkey: PublicKey) -> Result<(), Error> {
+        // The UI will handle resetting GLOBALS.follows. Abort if we have a mismatch
+        if GLOBALS.follows.read().who != Some(pubkey) {
+            return Err(ErrorKind::General(
+                "Follows mismatch, overlord ignoring request.".to_owned(),
+            )
+            .into());
+        }
+
+        // Compute and fill in GLOBALS.follows from database
+        let filter = Filter {
+            kinds: vec![EventKind::ContactList],
+            authors: vec![pubkey],
+            ..Default::default()
+        };
+        let contact_lists = GLOBALS.db().find_events_by_filter(&filter, |_| true)?;
+        if !contact_lists.is_empty() {
+            for (pk, _, _) in contact_lists[0].people() {
+                GLOBALS.follows.write().add(pk);
+            }
+        }
+
+        // Since we already subscribe to their metadata, and that includes their
+        // contact list, we don't have to subscribe to anything here.
 
         Ok(())
     }

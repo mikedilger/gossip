@@ -5,13 +5,12 @@ use crate::delegation::Delegation;
 use crate::error::Error;
 use crate::feed::Feed;
 use crate::fetcher::Fetcher;
-use crate::followers::Followers;
 use crate::gossip_identity::GossipIdentity;
 use crate::media::Media;
 use crate::minion::MinionExitReason;
 use crate::misc::ZapState;
 use crate::pending::Pending;
-use crate::people::{People, Person};
+use crate::people::{FollowList, People, Person};
 use crate::relay::Relay;
 use crate::relay_picker::RelayPicker;
 use crate::relay_test_results::RelayTestResults;
@@ -198,7 +197,10 @@ pub struct Globals {
     pub blossom_uploads: DashMap<PathBuf, Result<BlobDescriptor, Error>>,
 
     /// Followers (we keep it in memory only, for just one person)
-    pub followers: PRwLock<Followers>,
+    pub followers: PRwLock<FollowList>,
+
+    /// Follows (we keep it in memory only, for just one person)
+    pub follows: PRwLock<FollowList>,
 }
 
 lazy_static! {
@@ -275,7 +277,8 @@ lazy_static! {
             handlers: DashMap::new(),
             blossom: OnceLock::new(),
             blossom_uploads: DashMap::new(),
-            followers: PRwLock::new(Followers::default()),
+            followers: PRwLock::new(FollowList::default()),
+            follows: PRwLock::new(FollowList::default()),
         }
     };
 }

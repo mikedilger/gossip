@@ -813,7 +813,7 @@ pub fn update_global_followers(event: &Event) {
 
     for (followed, _, _) in event.people() {
         if followed == who {
-            GLOBALS.followers.write().add_follower(event.pubkey);
+            GLOBALS.followers.write().add(event.pubkey);
             return;
         }
     }

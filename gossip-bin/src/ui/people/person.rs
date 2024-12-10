@@ -541,7 +541,16 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
 
                             ui.add_space(BTN_SPACING);
 
-                            if widgets::Button::primary(&app.theme, "View Followers")
+                            if widgets::Button::primary(&app.theme, "Who they Follow")
+                                .show(ui)
+                                .clicked()
+                            {
+                                app.set_page(ctx, Page::PersonFollows(pubkey));
+                            }
+
+                            ui.add_space(BTN_SPACING);
+
+                            if widgets::Button::primary(&app.theme, "Their Followers")
                                 .show(ui)
                                 .clicked()
                             {

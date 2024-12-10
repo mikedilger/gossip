@@ -29,15 +29,15 @@ pub(super) fn update(
     ui.add_space(5.0);
 
     ui.vertical(|ui| {
-        let followers = match GLOBALS.followers.try_read() {
-            Some(followers) => followers,
+        let follows = match GLOBALS.follows.try_read() {
+            Some(follows) => follows,
             None => {
                 ui.label("Busy counting...");
                 return;
             }
         };
 
-        let who = match followers.who {
+        let who = match follows.who {
             Some(who) => who,
             None => {
                 ui.label("NOT TRACKING ANYONE BUG");
@@ -50,14 +50,14 @@ pub(super) fn update(
             return;
         }
 
-        let count = followers.set.len();
-        ui.heading(format!("{} Followers", count));
+        let count = follows.set.len();
+        ui.heading(format!("{} People Followed", count));
 
         let height: f32 = 48.0;
 
         app.vert_scroll_area()
-            .show_rows(ui, height, followers.set.len(), |ui, range| {
-                for follow_sortable_pubkey in followers
+            .show_rows(ui, height, follows.set.len(), |ui, range| {
+                for follow_sortable_pubkey in follows
                     .set
                     .iter()
                     .skip(range.start)

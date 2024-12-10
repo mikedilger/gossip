@@ -1,5 +1,5 @@
-mod sortable_pubkey;
-pub use sortable_pubkey::SortablePubkey;
+mod follow_list;
+pub use follow_list::FollowList;
 
 use crate::comms::ToOverlordMessage;
 use crate::error::{Error, ErrorKind};

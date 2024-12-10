@@ -96,8 +96,6 @@ pub use fetcher::Fetcher;
 
 mod filter_set;
 
-mod followers;
-
 mod globals;
 pub use globals::{Globals, GLOBALS};
 
@@ -132,7 +130,9 @@ pub use pending::Pending;
 pub use pending::PendingItem;
 
 mod people;
-pub use people::{hash_person_list_event, People, Person, PersonList, PersonListMetadata};
+pub use people::{
+    hash_person_list_event, FollowList, People, Person, PersonList, PersonListMetadata,
+};
 
 mod person_relay;
 pub use person_relay::PersonRelay;

@@ -168,6 +168,7 @@ enum Page {
     PeopleLists,
     PeopleList(PersonList),
     Person(PublicKey),
+    PersonFollows(PublicKey),
     PersonFollowers(PublicKey),
     YourKeys,
     YourMetadata,
@@ -220,6 +221,10 @@ impl Page {
                 let name = gossip_lib::names::best_name_from_pubkey_lookup(pk);
                 ("Profile", name)
             }
+            Page::PersonFollows(pk) => {
+                let name = gossip_lib::names::best_name_from_pubkey_lookup(pk);
+                ("Follows", name)
+            }
             Page::PersonFollowers(pk) => {
                 let name = gossip_lib::names::best_name_from_pubkey_lookup(pk);
                 ("Followers", name)
@@ -268,6 +273,7 @@ impl Page {
             Page::Feed(_) => name_cat(self),
             Page::PeopleLists | Page::PeopleList(_) => cat_name(self),
             Page::Person(_) => name_cat(self),
+            Page::PersonFollows(_) => name_cat(self),
             Page::PersonFollowers(_) => name_cat(self),
             Page::YourKeys | Page::YourMetadata | Page::YourDelegation | Page::YourNostrConnect => {
                 cat_name(self)
@@ -911,6 +917,19 @@ impl GossipUi {
                 let _ = GLOBALS
                     .to_overlord
                     .send(ToOverlordMessage::UpdateMetadata(*pubkey));
+            }
+            Page::PersonFollows(pubkey) => {
+                self.close_all_menus_except_feeds(ctx);
+
+                if GLOBALS.follows.read().who != Some(*pubkey) {
+                    // Switch tracking to them
+                    GLOBALS.follows.write().reset(*pubkey);
+
+                    // Initiate tracking followed
+                    let _ = GLOBALS
+                        .to_overlord
+                        .send(ToOverlordMessage::TrackFollows(*pubkey));
+                }
             }
             Page::PersonFollowers(pubkey) => {
                 self.close_all_menus_except_feeds(ctx);
@@ -2356,6 +2375,7 @@ impl eframe::App for GossipUi {
                     Page::PeopleLists
                     | Page::PeopleList(_)
                     | Page::Person(_)
+                    | Page::PersonFollows(_)
                     | Page::PersonFollowers(_) => people::update(self, ctx, frame, ui),
                     Page::YourKeys
                     | Page::YourMetadata

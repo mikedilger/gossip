@@ -226,6 +226,9 @@ pub enum ToOverlordMessage {
     /// Calls [track_followers](crate::Overlord::track_followers)
     TrackFollowers(PublicKey),
 
+    /// Calls [track_follows](crate::Overlord::track_follows)
+    TrackFollows(PublicKey),
+
     /// Calls [unlock_key](crate::Overlord::unlock_key)
     UnlockKey(String),
 

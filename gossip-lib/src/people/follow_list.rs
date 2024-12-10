@@ -1,5 +1,6 @@
 use nostr_types::PublicKey;
 use std::cmp::Ordering;
+use std::collections::BTreeSet;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SortablePubkey(PublicKey);
@@ -28,5 +29,40 @@ impl From<PublicKey> for SortablePubkey {
 impl From<SortablePubkey> for PublicKey {
     fn from(sp: SortablePubkey) -> PublicKey {
         sp.0
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct FollowList {
+    pub who: Option<PublicKey>,
+    pub set: BTreeSet<SortablePubkey>,
+}
+
+impl Default for FollowList {
+    fn default() -> FollowList {
+        FollowList {
+            who: None,
+            set: BTreeSet::new(),
+        }
+    }
+}
+
+impl FollowList {
+    pub fn reset(&mut self, pubkey: PublicKey) {
+        self.who = Some(pubkey);
+        self.set = BTreeSet::new();
+    }
+
+    pub fn add(&mut self, follower: PublicKey) {
+        self.set.insert(follower.into());
+    }
+
+    pub fn get_range(&self, start: usize, amount: usize) -> Vec<PublicKey> {
+        self.set
+            .iter()
+            .skip(start)
+            .take(amount)
+            .map(|k| (*k).into())
+            .collect()
     }
 }
