@@ -66,6 +66,8 @@ MIT license ([LICENSE MIT](LICENSE.txt) or <http://opensource.org/licenses/MIT>)
 
 All contributions welcome, please check the [development guidelines](docs/DEVELOPING.md) before starting to code.
 
+Please join our [chat](https://chachi.chat/groups.0xchat.com/R2yYwhsTcKO2b65i).
+
 Anyone interested in replacing the GUI with something much better, or keeping it as egui but making it much better, would be greatly appreciated. The project was split into two crates (lib and bin) to make it easier to build a different UI onto the backend.
 
 Any contribution intentionally submitted for inclusion in the work by you, shall be licensed as above, without any additional terms or conditions.

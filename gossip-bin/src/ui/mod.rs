@@ -2545,6 +2545,13 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
                                 "issue on Github",
                                 "https://github.com/mikedilger/gossip/issues"
                             );
+                            ui.label(
+                                RichText::new("or join our").weak()
+                            );
+                            ui.hyperlink_to(
+                                "chat",
+                                "https://chachi.chat/groups.0xchat.com/R2yYwhsTcKO2b65i"
+                            );
                         });
                     });
                 });
