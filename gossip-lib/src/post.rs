@@ -215,7 +215,7 @@ async fn add_tags_mirroring_content(content: &str, tags: &mut Vec<Tag>, direct_m
                 // do nothing
             }
             ContentSegment::Hyperlink(span) => {
-                if let Some(slice) = shattered_content.slice(&span) {
+                if let Some(slice) = shattered_content.slice(span) {
                     if let Some(mimetype) = crate::media_url_mimetype(slice) {
                         add_imeta_tag(slice, mimetype, tags).await;
                     }

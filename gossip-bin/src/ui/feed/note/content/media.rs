@@ -1,6 +1,8 @@
 use crate::ui::GossipUi;
+use eframe::egui::vec2;
 use eframe::{egui, epaint};
 use egui::{Image, Response, RichText, Ui};
+use egui_video::PlayerControls;
 use epaint::Vec2;
 use gossip_lib::{MediaLoadingResult, GLOBALS};
 use nostr_types::{FileMetadata, Url};
@@ -292,22 +294,9 @@ fn try_render_video(
         }
         MediaLoadingResult::Ready(player_ref) => {
             if let Ok(mut player) = player_ref.try_borrow_mut() {
-                let size = media_scale(
-                    show_full_width,
-                    ui,
-                    Vec2 {
-                        x: player.width as f32,
-                        y: player.height as f32,
-                    },
-                );
+                let size = media_scale(show_full_width, ui, vec2(1280.0, 720.0));
 
-                // show the player
-                if !show_full_width {
-                    player.stop();
-                }
-                let response = player.ui(ui, [size.x, size.y]);
-
-                // stop the player when it scrolls out of view
+                let response = ui.allocate_ui(size, |ui| player.render(ui)).response;
                 if !ui.is_rect_visible(response.rect) {
                     player.stop();
                 }

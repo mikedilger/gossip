@@ -63,7 +63,7 @@ use egui::{
 };
 use egui_file_dialog::FileDialog;
 #[cfg(feature = "video-ffmpeg")]
-use egui_video::{AudioDevice, Player};
+use egui_video::Player;
 use egui_winit::egui::Rect;
 use egui_winit::egui::Response;
 use egui_winit::egui::ViewportBuilder;
@@ -415,13 +415,7 @@ impl DraftData {
 
 struct GossipUi {
     #[cfg(feature = "video-ffmpeg")]
-    audio_device: Option<AudioDevice>,
-    #[cfg(feature = "video-ffmpeg")]
     video_players: HashMap<Url, Rc<RefCell<egui_video::Player>>>,
-    // dismissed libsdl2 warning
-    #[cfg(feature = "video-ffmpeg")]
-    warn_no_libsdl2_dismissed: bool,
-
     initializing: bool,
 
     // Rendering
@@ -631,19 +625,6 @@ impl GossipUi {
             )
         };
 
-        #[cfg(feature = "video-ffmpeg")]
-        let audio_device = {
-            let mut device = None;
-            if let Ok(init) = sdl2::init() {
-                if let Ok(audio) = init.audio() {
-                    if let Ok(dev) = egui_video::init_audio_device(&audio) {
-                        device = Some(dev);
-                    }
-                }
-            }
-            device
-        };
-
         // start with a fallback DPI here, unless we are overriding anyways
         // we won't know the native DPI until the `Viewport` has been created
         let (override_dpi, override_dpi_value): (bool, u32) = match read_setting!(override_dpi) {
@@ -707,11 +688,7 @@ impl GossipUi {
 
         GossipUi {
             #[cfg(feature = "video-ffmpeg")]
-            audio_device,
-            #[cfg(feature = "video-ffmpeg")]
             video_players: HashMap::new(),
-            #[cfg(feature = "video-ffmpeg")]
-            warn_no_libsdl2_dismissed: false,
             initializing: true,
             next_frame: Instant::now(),
             override_dpi,
@@ -1706,38 +1683,10 @@ impl GossipUi {
             return MediaLoadingResult::Ready(player.to_owned());
         }
 
-        match GLOBALS.media.get_data(&url, volatile, file_metadata) {
-            MediaLoadingResult::Disabled => MediaLoadingResult::Disabled,
-            MediaLoadingResult::Loading => MediaLoadingResult::Loading,
-            MediaLoadingResult::Ready(bytes) => {
-                if let Ok(player) = Player::new_from_bytes(ctx, &bytes) {
-                    if let Some(audio) = &mut self.audio_device {
-                        if let Ok(player) = player.with_audio(audio) {
-                            let player_ref = Rc::new(RefCell::new(player));
-                            self.video_players.insert(url.clone(), player_ref.clone());
-                            MediaLoadingResult::Ready(player_ref)
-                        } else {
-                            let failure = "Player setup with audio failed".to_owned();
-                            GLOBALS
-                                .media
-                                .set_has_failed(&url.to_unchecked_url(), failure.clone());
-                            MediaLoadingResult::Failed(failure)
-                        }
-                    } else {
-                        let player_ref = Rc::new(RefCell::new(player));
-                        self.video_players.insert(url.clone(), player_ref.clone());
-                        MediaLoadingResult::Ready(player_ref)
-                    }
-                } else {
-                    let failure = "Player setup failed".to_owned();
-                    GLOBALS
-                        .media
-                        .set_has_failed(&url.to_unchecked_url(), failure.clone());
-                    MediaLoadingResult::Failed(failure)
-                }
-            }
-            MediaLoadingResult::Failed(s) => MediaLoadingResult::Failed(s),
-        }
+        let player = Player::new(ctx, &url.to_string());
+        let player_ref = Rc::new(RefCell::new(player));
+        self.video_players.insert(url.clone(), player_ref.clone());
+        MediaLoadingResult::Ready(player_ref)
     }
 
     pub fn show_qr(&mut self, ui: &mut Ui, key: &str) {
@@ -2236,17 +2185,6 @@ impl eframe::App for GossipUi {
             (false, false)
         };
 
-        let has_warning = {
-            #[cfg(feature = "video-ffmpeg")]
-            {
-                !self.warn_no_libsdl2_dismissed && self.audio_device.is_none()
-            }
-            #[cfg(not(feature = "video-ffmpeg"))]
-            {
-                false
-            }
-        };
-
         egui::TopBottomPanel::top("top-panel")
             .frame(
                 egui::Frame::side_top_panel(&self.theme.get_style()).inner_margin(egui::Margin {
@@ -2257,32 +2195,12 @@ impl eframe::App for GossipUi {
                 }),
             )
             .resizable(true)
-            .show_animated(
-                ctx,
-                show_top_post_area || has_warning,
-                |ui| {
-                    self.begin_ui(ui);
-                    #[cfg(feature = "video-ffmpeg")]
-                    {
-                        if has_warning {
-                            widgets::warning_frame(ui, self, |ui, app| {
-                                ui.label("You have compiled gossip with 'video-ffmpeg' option but no audio device was found on your system. Make sure you have followed the instructions at ");
-                                ui.hyperlink("https://github.com/Rust-SDL2/rust-sdl2");
-                                ui.label("and installed 'libsdl2-dev' package for your system.");
-                                ui.end_row();
-                                ui.with_layout(egui::Layout::right_to_left(egui::Align::default()), |ui| {
-                                    if ui.link("Dismiss message").clicked() {
-                                        app.warn_no_libsdl2_dismissed = true;
-                                    }
-                                });
-                            });
-                        }
-                    }
-                    if show_top_post_area {
-                        feed::post::posting_area(self, ctx, frame, ui);
-                    }
-                },
-            );
+            .show_animated(ctx, show_top_post_area, |ui| {
+                self.begin_ui(ui);
+                if show_top_post_area {
+                    feed::post::posting_area(self, ctx, frame, ui);
+                }
+            });
 
         let resizable = true;
 

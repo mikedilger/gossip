@@ -368,8 +368,10 @@ impl Minion {
                 let _ = self.subscription_map.remove(&handle);
             }
             RelayMessage::Count(_subid, _count_result) => {
-                tracing::info!("{} Relay returned count results that we do not yet support",
-                               &self.url);
+                tracing::info!(
+                    "{} Relay returned count results that we do not yet support",
+                    &self.url
+                );
             }
         }
 

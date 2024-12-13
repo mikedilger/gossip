@@ -130,7 +130,7 @@ fn show_pub_key_detail(app: &mut GossipUi, ui: &mut Ui) {
 
         let pkhex: PublicKeyHex = public_key.into();
         ui.horizontal_wrapped(|ui| {
-            ui.label(&format!("Public Key (Hex): {}", pkhex.as_str()));
+            ui.label(format!("Public Key (Hex): {}", pkhex.as_str()));
             if ui.add(CopyButton::new()).clicked() {
                 ui.output_mut(|o| o.copied_text = pkhex.into_string());
             }
@@ -138,7 +138,7 @@ fn show_pub_key_detail(app: &mut GossipUi, ui: &mut Ui) {
 
         let bech32 = public_key.as_bech32_string();
         ui.horizontal_wrapped(|ui| {
-            ui.label(&format!("Public Key (bech32): {}", bech32));
+            ui.label(format!("Public Key (bech32): {}", bech32));
             if ui.add(CopyButton::new()).clicked() {
                 ui.output_mut(|o| o.copied_text = bech32.clone());
             }
@@ -156,7 +156,7 @@ fn show_pub_key_detail(app: &mut GossipUi, ui: &mut Ui) {
 
             let nprofile = profile.as_bech32_string();
             ui.horizontal_wrapped(|ui| {
-                ui.label(&format!("Your Profile: {}", &nprofile));
+                ui.label(format!("Your Profile: {}", &nprofile));
                 if ui.add(CopyButton::new()).clicked() {
                     ui.output_mut(|o| o.copied_text = nprofile.clone());
                 }
@@ -382,7 +382,7 @@ fn offer_delete_or_import_pub_key(app: &mut GossipUi, ui: &mut Ui) {
 
         let pkhex: PublicKeyHex = pk.into();
         ui.horizontal(|ui| {
-            ui.label(&format!("Public Key (Hex): {}", pkhex.as_str()));
+            ui.label(format!("Public Key (Hex): {}", pkhex.as_str()));
             if ui.add(CopyButton::new()).clicked() {
                 ui.output_mut(|o| o.copied_text = pkhex.into_string());
             }
@@ -390,7 +390,7 @@ fn offer_delete_or_import_pub_key(app: &mut GossipUi, ui: &mut Ui) {
 
         let bech32 = pk.as_bech32_string();
         ui.horizontal(|ui| {
-            ui.label(&format!("Public Key (bech32): {}", bech32));
+            ui.label(format!("Public Key (bech32): {}", bech32));
             if ui.add(CopyButton::new()).clicked() {
                 ui.output_mut(|o| o.copied_text = bech32);
             }

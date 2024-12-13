@@ -147,7 +147,7 @@ impl Storage {
             }
 
             // Load up to 6 of their events
-            filter.authors = vec![person.pubkey.into()];
+            filter.authors = vec![person.pubkey];
             let events = match self.find_events_by_filter(&filter, |_| true) {
                 Ok(events) => events,
                 Err(_) => continue, // some error we can't handle right now

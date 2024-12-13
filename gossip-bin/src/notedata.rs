@@ -273,10 +273,10 @@ impl NoteData {
             _ => Person::new(author_pubkey),
         };
 
-        let lists = match GLOBALS.db().read_person_lists(&author_pubkey) {
-            Ok(lists) => lists,
-            _ => HashMap::new(),
-        };
+        let lists = GLOBALS
+            .db()
+            .read_person_lists(&author_pubkey)
+            .unwrap_or_default();
 
         let seen_on = GLOBALS
             .db()

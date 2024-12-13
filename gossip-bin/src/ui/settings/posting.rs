@@ -23,7 +23,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     ui.checkbox(
         &mut app.unsaved_settings.set_user_agent,
-        &format!(
+        format!(
             "Send User-Agent Header to Relays: gossip/{}",
             app.about.version
         ),

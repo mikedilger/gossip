@@ -294,7 +294,7 @@ impl<'t> TextEdit<'t> {
     }
 }
 
-impl<'t> Widget for TextEdit<'t> {
+impl Widget for TextEdit<'_> {
     fn ui(self, ui: &mut egui_winit::egui::Ui) -> egui_winit::egui::Response {
         let output = self.show(ui);
         output.response
