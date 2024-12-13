@@ -234,7 +234,8 @@ pub(super) fn render_hyperlink(
         if let Some(mimetype) = gossip_lib::media_url_mimetype(url.path()) {
             if mimetype.starts_with("image/") {
                 media::show_image(app, ui, nurl, privacy_issue, note.volatile, file_metadata);
-            } else if mimetype.starts_with("video/") {
+            } else if mimetype.starts_with("video/") || mimetype == "application/vnd.apple.mpegurl"
+            {
                 media::show_video(app, ui, nurl, privacy_issue, note.volatile, file_metadata);
             }
         } else {

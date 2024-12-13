@@ -380,6 +380,8 @@ pub fn media_url_mimetype(s: &str) -> Option<&'static str> {
         Some("video/x-ms-wmv")
     } else if lower.ends_with(".3gp") {
         Some("video/3gpp")
+    } else if lower.ends_with(".m3u8") {
+        Some("application/vnd.apple.mpegurl")
     } else {
         None
     }
