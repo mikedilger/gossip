@@ -1519,7 +1519,7 @@ impl Storage {
             // Use events table directly, we have specific ids
 
             for idhex in filter.ids.iter() {
-                let id: Id = idhex.clone().into();
+                let id: Id = *idhex;
                 if output.len() >= limit {
                     break;
                 }
@@ -1918,7 +1918,7 @@ impl Storage {
         if !output.is_empty() {
             use std::cmp::Ordering;
             let mut filter = Filter::new();
-            filter.ids = output.iter().map(|id| (*id).into()).collect();
+            filter.ids = output.to_vec();
             let mut events = self.find_events_by_filter(&filter, |_| true)?;
             events.sort_by(
                 |a, b| match (a.pubkey == event.pubkey, b.pubkey == event.pubkey) {

@@ -352,7 +352,7 @@ impl Feed {
                         .db()
                         .get_people_in_list(list)?
                         .drain(..)
-                        .map(|(pk, _)| pk.into())
+                        .map(|(pk, _)| pk)
                         .collect();
                     filter.kinds = feed_displayable_event_kinds(false);
                     filter
@@ -439,7 +439,7 @@ impl Feed {
             FeedKind::Person(person_pubkey) => {
                 let filter = {
                     let mut filter = Filter::new();
-                    filter.authors = vec![person_pubkey.into()];
+                    filter.authors = vec![person_pubkey];
                     filter.kinds = feed_displayable_event_kinds(false);
                     filter
                 };

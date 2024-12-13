@@ -25,7 +25,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     widgets::page_header(
         ui,
-        &format!("{} ({} relays)", Page::RelaysMine.name(), relays.len()),
+        format!("{} ({} relays)", Page::RelaysMine.name(), relays.len()),
         |ui| {
             if is_editing {
                 ui.disable();

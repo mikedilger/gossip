@@ -2036,7 +2036,7 @@ impl Overlord {
         let mut tags: Vec<Tag> = Vec::new();
         let blossom_servers = GLOBALS.db().read_setting_blossom_servers();
         for server in blossom_servers.split_whitespace() {
-            tags.push(Tag::new(&["server", &server]));
+            tags.push(Tag::new(&["server", server]));
         }
 
         let pre_event = PreEvent {
@@ -2706,7 +2706,7 @@ impl Overlord {
         // Subscribe to replies to root
         if let Some(ref root_eref) = ancestors.root {
             let filter_set = match root_eref {
-                EventReference::Id { id, .. } => FilterSet::RepliesToId((*id).into()),
+                EventReference::Id { id, .. } => FilterSet::RepliesToId(*id),
                 EventReference::Addr(naddr) => FilterSet::RepliesToAddr(naddr.clone()),
             };
             let relays = root_eref.copy_relays();
@@ -2761,7 +2761,7 @@ impl Overlord {
                     reason: RelayConnectionReason::ReadThread,
                     payload: ToMinionPayload {
                         job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::Subscribe(FilterSet::RepliesToId(id.into())),
+                        detail: ToMinionPayloadDetail::Subscribe(FilterSet::RepliesToId(id)),
                     },
                 }];
 

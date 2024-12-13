@@ -29,7 +29,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     widgets::page_header(
         ui,
-        &format!(
+        format!(
             "{} ({} relays)",
             Page::RelaysActivityMonitor.name(),
             relays.len()
