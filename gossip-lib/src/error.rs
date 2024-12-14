@@ -23,6 +23,7 @@ pub enum ErrorKind {
     HttpError(http::Error),
     JoinError(tokio::task::JoinError),
     KeySizeWrong,
+    KeyInvalid,
     Lmdb(heed::Error),
     MaxRelaysReached,
     MpscSend(tokio::sync::mpsc::error::SendError<ToOverlordMessage>),
@@ -126,6 +127,7 @@ impl std::fmt::Display for Error {
             HttpError(e) => write!(f, "HTTP error: {e}"),
             JoinError(e) => write!(f, "Task join error: {e}"),
             KeySizeWrong => write!(f, "Key size is wrong"),
+            KeyInvalid => write!(f, "Key is invalid"),
             Lmdb(e) => write!(f, "LMDB: {e}"),
             MaxRelaysReached => write!(
                 f,

@@ -69,7 +69,7 @@ impl Storage {
                     Some(&mut txn),
                 )?;
                 self.write_event_kci_index(event.kind, event.created_at, event.id, Some(&mut txn))?;
-                self.write_event_tag_index(&event, Some(&mut txn))?;
+                self.write_event_tci_index(&event, Some(&mut txn))?;
             }
             self.db_unindexed_giftwraps1()?
                 .delete(&mut txn, id.as_slice())?;

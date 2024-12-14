@@ -78,7 +78,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
         ui.label(format!(
             "Event Index (Tags): {} records",
-            GLOBALS.db().get_event_tag_index_len().unwrap_or(0)
+            GLOBALS.db().get_event_tci_index_len().unwrap_or(0)
         ));
         ui.add_space(6.0);
 

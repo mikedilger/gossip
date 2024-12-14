@@ -32,7 +32,8 @@ use event_kci_index::KciKey;
 mod event_ek_c_index1;
 mod event_ek_pk_index1;
 mod event_seen_on_relay1;
-mod event_tag_index1;
+mod event_tci_index;
+use event_tci_index::TciKey;
 mod event_viewed1;
 mod events2;
 mod events3;
@@ -85,7 +86,7 @@ use std::ops::Bound;
 use std::time::SystemTime;
 
 use self::event_kci_index::INDEXED_KINDS;
-use self::event_tag_index1::INDEXED_TAGS;
+use self::event_tci_index::INDEXED_TAGS;
 
 type RawDatabase = Database<Bytes, Bytes>;
 type EmptyDatabase = Database<Bytes, Unit>;
@@ -245,7 +246,7 @@ impl Storage {
         // triggered into existence if their migration is necessary.
         let _ = self.db_event_akci_index()?;
         let _ = self.db_event_kci_index()?;
-        let _ = self.db_event_tag_index()?;
+        let _ = self.db_event_tci_index()?;
         let _ = self.db_events()?;
         let _ = self.db_event_seen_on_relay()?;
         let _ = self.db_event_viewed()?;
@@ -297,11 +298,6 @@ impl Storage {
     }
 
     // Database getters ---------------------------------
-
-    #[inline]
-    pub(crate) fn db_event_tag_index(&self) -> Result<RawDatabase, Error> {
-        self.db_event_tag_index1()
-    }
 
     #[inline]
     pub(crate) fn db_events(&self) -> Result<RawDatabase, Error> {
@@ -419,10 +415,10 @@ impl Storage {
         Ok(self.db_event_kci_index()?.len(&txn)?)
     }
 
-    /// The number of records in the event_tag index table
-    pub fn get_event_tag_index_len(&self) -> Result<u64, Error> {
+    /// The number of records in the event_tci index table
+    pub fn get_event_tci_index_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
-        Ok(self.db_event_tag_index()?.len(&txn)?)
+        Ok(self.db_event_tci_index()?.len(&txn)?)
     }
 
     /// The number of records in the relationships_by_addr table
@@ -1537,23 +1533,54 @@ impl Storage {
                 .iter()
                 .all(|t| INDEXED_TAGS.contains(&&*t.0.to_string()))
         {
-            // event_tag_index
-            for tag in &filter.tags {
-                let mut start_key: Vec<u8> = tag.0.to_string().as_bytes().to_owned();
-                start_key.push(b'\"'); // double quote separator, unlikely to be inside of a tagname
-                if let Some(tv) = tag.1.first() {
-                    start_key.extend(tv.as_bytes());
-                }
-                let start_key = key!(&start_key); // limit the size
-                let iter = self.db_event_tag_index()?.prefix_iter(&txn, start_key)?;
-                for result in iter {
-                    let (_key, val) = result?;
-                    // Take the event
-                    let id = Id(val[0..32].try_into()?);
+            // event_tci_index
+            for ftag in &filter.tags {
+                let mut tagname: String = String::new();
+                tagname.push(*ftag.0);
+
+                let iter = {
+                    let start_prefix = TciKey::from_parts(
+                        &tagname, &ftag.1[0], until, Id([0; 32])
+                    );
+                    let end_prefix = TciKey::from_parts(
+                        &tagname, &ftag.1[0], since, Id([255; 32])
+                    );
+                    let range = (
+                        Bound::Included(start_prefix.as_slice()),
+                        Bound::Excluded(end_prefix.as_slice()),
+                    );
+                    self.db_event_tci_index()?.range(&txn, &range)?
+                };
+
+                // Count how many we have found of this author-kind pair, so we
+                // can possibly update `since`
+                let mut paircount = 0;
+
+                'per_event: for result in iter {
+                    let (keybytes, _) = result?;
+                    let key = TciKey::from_bytes(keybytes)?;
+                    let (_, _, created_at, id) = key.into_parts()?;
                     if let Some(bytes) = self.db_events()?.get(&txn, id.as_slice())? {
                         let event = Event::read_from_buffer(bytes)?;
+
+                        // If we have gone beyond since, we can stop early
+                        // (We have to check because `since` might change in this loop)
+                        if created_at < since {
+                            break 'per_event;
+                        }
+
+                        // check against the rest of the filter
                         if filter.event_matches(&event) && screen(&event) {
                             output.insert(event);
+                            paircount += 1;
+
+                            // Stop this pair if limited
+                            if paircount >= limit {
+                                if created_at > since {
+                                    since = created_at;
+                                }
+                                break 'per_event;
+                            }
                         }
                     }
                 }
@@ -1809,12 +1836,12 @@ impl Storage {
     }
 
     // This should be called with the outer giftwrap
-    fn write_event_tag_index<'a>(
+    fn write_event_tci_index<'a>(
         &'a self,
         event: &Event,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        self.write_event3_tag_index1(event, rw_txn)
+        self.write_event3_tci_index(event, rw_txn)
     }
 
     #[inline]
@@ -2384,7 +2411,7 @@ impl Storage {
         // Erase all indices first
         self.db_event_akci_index()?.clear(txn)?;
         self.db_event_kci_index()?.clear(txn)?;
-        self.db_event_tag_index()?.clear(txn)?;
+        self.db_event_tci_index()?.clear(txn)?;
         self.db_hashtags()?.clear(txn)?;
 
         let loop_txn = self.env.read_txn()?;
@@ -2410,7 +2437,7 @@ impl Storage {
                 Some(txn),
             )?;
             self.write_event_kci_index(event.kind, innerevent.created_at, event.id, Some(txn))?;
-            self.write_event_tag_index(
+            self.write_event_tci_index(
                 &event, // this handles giftwrap internally
                 Some(txn),
             )?;
@@ -2436,13 +2463,13 @@ impl Storage {
         let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
         // Erase the index first
-        self.db_event_tag_index()?.clear(txn)?;
+        self.db_event_tci_index()?.clear(txn)?;
 
         let loop_txn = self.env.read_txn()?;
         for result in self.db_events()?.iter(&loop_txn)? {
             let (_key, val) = result?;
             let event = Event::read_from_buffer(val)?;
-            self.write_event_tag_index(&event, Some(txn))?;
+            self.write_event_tci_index(&event, Some(txn))?;
         }
         self.set_flag_rebuild_tag_index_needed(false, Some(txn))?;
 
