@@ -1539,12 +1539,8 @@ impl Storage {
                 tagname.push(*ftag.0);
 
                 let iter = {
-                    let start_prefix = TciKey::from_parts(
-                        &tagname, &ftag.1[0], until, Id([0; 32])
-                    );
-                    let end_prefix = TciKey::from_parts(
-                        &tagname, &ftag.1[0], since, Id([255; 32])
-                    );
+                    let start_prefix = TciKey::from_parts(&tagname, &ftag.1[0], until, Id([0; 32]));
+                    let end_prefix = TciKey::from_parts(&tagname, &ftag.1[0], since, Id([255; 32]));
                     let range = (
                         Bound::Included(start_prefix.as_slice()),
                         Bound::Excluded(end_prefix.as_slice()),

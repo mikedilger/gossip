@@ -381,7 +381,7 @@ impl Feed {
                 let events = if filter.authors.is_empty() {
                     Default::default()
                 } else {
-                    Self::load_event_range(anchor, filter, with_replies, false, |_| true).await?
+                    Self::load_event_range(anchor, filter, with_replies, |_| true).await?
                 };
 
                 *self.current_feed_events.write_arc() = events;
@@ -412,7 +412,7 @@ impl Feed {
                     filter
                 };
 
-                let events = Self::load_event_range(anchor, filter, true, false, |_| true).await?;
+                let events = Self::load_event_range(anchor, filter, true, |_| true).await?;
 
                 *self.current_feed_events.write_arc() = events;
             }
@@ -437,7 +437,7 @@ impl Feed {
                     }
                 };
 
-                let screen = |e: &Event| basic_screen(e, true, false, &dismissed) && screen_spam(e);
+                let screen = |e: &Event| basic_screen(e, true, &dismissed) && screen_spam(e);
 
                 let events = GLOBALS.db().load_volatile_events(screen);
                 *self.current_feed_events.write_arc() = events.iter().map(|e| e.id).collect();
@@ -498,7 +498,7 @@ impl Feed {
                         ))
             };
 
-            let events = Self::load_event_range(anchor, filter, true, false, screen).await?;
+            let events = Self::load_event_range(anchor, filter, true, screen).await?;
             *self.current_inbox_events.write_arc() = events;
         }
 
@@ -513,7 +513,6 @@ impl Feed {
         since: Unixtime,
         filter: Filter,
         include_replies: bool,
-        include_dms: bool,
         screen: F,
     ) -> Result<Vec<Id>, Error>
     where
@@ -523,8 +522,7 @@ impl Feed {
         let limit = GLOBALS.db().read_setting_load_more_count() as usize;
         let dismissed = GLOBALS.dismissed.read().await.clone();
 
-        let outer_screen =
-            |e: &Event| basic_screen(e, include_replies, include_dms, &dismissed) && screen(e);
+        let outer_screen = |e: &Event| basic_screen(e, include_replies, &dismissed) && screen(e);
 
         let mut before_filter = filter;
         let mut after_filter = before_filter.clone();
@@ -552,15 +550,14 @@ impl Feed {
 }
 
 #[inline]
-fn basic_screen(e: &Event, include_replies: bool, include_dms: bool, dismissed: &[Id]) -> bool {
+fn basic_screen(e: &Event, include_replies: bool, dismissed: &[Id]) -> bool {
     let now = Unixtime::now();
 
     e.created_at <= now
         && (include_replies || e.replies_to().is_none())
-        && (include_dms
-            || (e.kind != EventKind::EncryptedDirectMessage
-                && e.kind != EventKind::DmChat
-                && e.kind != EventKind::GiftWrap))
+        && e.kind != EventKind::EncryptedDirectMessage
+        && e.kind != EventKind::DmChat
+        && e.kind != EventKind::GiftWrap
         && !dismissed.contains(&e.id)
         && !e.is_annotation()
 }
