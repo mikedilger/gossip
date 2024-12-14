@@ -85,7 +85,6 @@ impl FilterSet {
 
     pub fn can_have_duplicates(&self) -> bool {
         match self {
-            FilterSet::FollowersOf(_) => true,
             FilterSet::GeneralFeedChunk { .. } => true,
             FilterSet::GlobalFeedChunk(_) => true,
             FilterSet::InboxFeedChunk(_) => true,
