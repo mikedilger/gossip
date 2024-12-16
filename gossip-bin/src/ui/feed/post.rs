@@ -335,7 +335,11 @@ fn dm_posting_area(
         ui.horizontal(|ui| {
             ui.visuals_mut().hyperlink_color = ui.visuals().text_color();
             if ui.link("Cancel").clicked() {
-                app.dm_draft_data.are_you_sure_cancel = true;
+                if app.dm_draft_data.draft.is_empty() {
+                    app.reset_draft();
+                } else {
+                    app.dm_draft_data.are_you_sure_cancel = true;
+                }
             }
         });
 
@@ -347,7 +351,6 @@ fn dm_posting_area(
                     if widgets::Button::primary(&app.theme, "Keep Draft")
                         .show(ui)
                         .clicked()
-                        && !app.dm_draft_data.draft.is_empty()
                     {
                         app.dm_draft_data.are_you_sure_cancel = false;
                     }
@@ -355,7 +358,6 @@ fn dm_posting_area(
                     if widgets::Button::primary(&app.theme, "Erase Draft")
                         .show(ui)
                         .clicked()
-                        && !app.dm_draft_data.draft.is_empty()
                     {
                         app.reset_draft();
                     }
@@ -365,7 +367,6 @@ fn dm_posting_area(
                     if widgets::Button::primary(&app.theme, "Do NOT send")
                         .show(ui)
                         .clicked()
-                        && !app.dm_draft_data.draft.is_empty()
                     {
                         app.dm_draft_data.are_you_sure_send = false;
                     }
@@ -699,7 +700,11 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
             ui.horizontal(|ui| {
                 ui.visuals_mut().hyperlink_color = ui.visuals().text_color();
                 if ui.link("Cancel").clicked() {
-                    app.draft_data.are_you_sure_cancel = true;
+                    if app.draft_data.draft.is_empty() {
+                        app.reset_draft();
+                    } else {
+                        app.draft_data.are_you_sure_cancel = true;
+                    }
                 }
             });
 
@@ -711,7 +716,6 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                         if widgets::Button::primary(&app.theme, "Keep Draft")
                             .show(ui)
                             .clicked()
-                            && (!app.draft_data.draft.is_empty() || app.draft_data.repost.is_some())
                         {
                             app.draft_data.are_you_sure_cancel = false;
                         }
@@ -719,7 +723,6 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                         if widgets::Button::primary(&app.theme, "Erase Draft")
                             .show(ui)
                             .clicked()
-                            && (!app.draft_data.draft.is_empty() || app.draft_data.repost.is_some())
                         {
                             app.reset_draft();
                         }
@@ -729,7 +732,6 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                         if widgets::Button::primary(&app.theme, do_not_send_label)
                             .show(ui)
                             .clicked()
-                            && (!app.draft_data.draft.is_empty() || app.draft_data.repost.is_some())
                         {
                             app.draft_data.are_you_sure_send = false;
                         }
