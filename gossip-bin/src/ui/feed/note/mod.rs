@@ -1344,7 +1344,9 @@ fn note_actions(
         copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
             "to Clipboard",
             Box::new(|ui, _| {
-                ui.output_mut(|o| o.copied_text = note.event.content.clone());
+                ui.output_mut(|o| o.copied_text = note.shattered_content.allocated.clone());
+                // this one doesn't work for DMs:
+                // ui.output_mut(|o| o.copied_text = note.event.content.clone());
             }),
         )));
 
