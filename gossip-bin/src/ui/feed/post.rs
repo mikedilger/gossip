@@ -335,19 +335,57 @@ fn dm_posting_area(
         ui.horizontal(|ui| {
             ui.visuals_mut().hyperlink_color = ui.visuals().text_color();
             if ui.link("Cancel").clicked() {
-                app.reset_draft();
+                app.dm_draft_data.are_you_sure_cancel = true;
             }
         });
 
         ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
             ui.add_space(12.0);
 
-            if widgets::Button::primary(&app.theme, "Send")
-                .show(ui)
-                .clicked()
-                && !app.dm_draft_data.draft.is_empty()
-            {
-                send_now = true;
+            if app.dm_draft_data.are_you_sure_cancel {
+                ui.horizontal(|ui| {
+                    if widgets::Button::primary(&app.theme, "Keep Draft")
+                        .show(ui)
+                        .clicked()
+                        && !app.dm_draft_data.draft.is_empty()
+                    {
+                        app.dm_draft_data.are_you_sure_cancel = false;
+                    }
+
+                    if widgets::Button::primary(&app.theme, "Erase Draft")
+                        .show(ui)
+                        .clicked()
+                        && !app.dm_draft_data.draft.is_empty()
+                    {
+                        app.reset_draft();
+                    }
+                });
+            } else if app.dm_draft_data.are_you_sure_send {
+                ui.horizontal(|ui| {
+                    if widgets::Button::primary(&app.theme, "Do NOT send")
+                        .show(ui)
+                        .clicked()
+                        && !app.dm_draft_data.draft.is_empty()
+                    {
+                        app.dm_draft_data.are_you_sure_send = false;
+                    }
+
+                    if widgets::Button::primary(&app.theme, "Send Now")
+                        .show(ui)
+                        .clicked()
+                        && !app.dm_draft_data.draft.is_empty()
+                    {
+                        send_now = true;
+                    }
+                });
+            } else {
+                if widgets::Button::primary(&app.theme, "Send")
+                    .show(ui)
+                    .clicked()
+                    && !app.dm_draft_data.draft.is_empty()
+                {
+                    app.dm_draft_data.are_you_sure_send = true;
+                }
             }
 
             // Emoji picker
@@ -586,10 +624,10 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
         });
 
     ui.horizontal(|ui| {
-        let send_label = if app.draft_data.repost.is_some() {
-            "Repost note"
+        let (send_label, do_not_send_label, send_label_now) = if app.draft_data.repost.is_some() {
+            ("Repost note", "Do NOT repost", "Repost Now")
         } else {
-            "Send note"
+            ("Send note", "Do NOT send", "Send Now")
         };
 
         if app.draft_data.raw.is_empty() {
@@ -661,22 +699,60 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
             ui.horizontal(|ui| {
                 ui.visuals_mut().hyperlink_color = ui.visuals().text_color();
                 if ui.link("Cancel").clicked() {
-                    app.reset_draft();
+                    app.draft_data.are_you_sure_cancel = true;
                 }
             });
 
             ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                 ui.add_space(12.0);
 
-                ui.horizontal(|ui| {
-                    if widgets::Button::primary(&app.theme, send_label)
-                        .show(ui)
-                        .clicked()
-                        && (!app.draft_data.draft.is_empty() || app.draft_data.repost.is_some())
-                    {
-                        send_now = true;
-                    }
-                });
+                if app.draft_data.are_you_sure_cancel {
+                    ui.horizontal(|ui| {
+                        if widgets::Button::primary(&app.theme, "Keep Draft")
+                            .show(ui)
+                            .clicked()
+                            && (!app.draft_data.draft.is_empty() || app.draft_data.repost.is_some())
+                        {
+                            app.draft_data.are_you_sure_cancel = false;
+                        }
+
+                        if widgets::Button::primary(&app.theme, "Erase Draft")
+                            .show(ui)
+                            .clicked()
+                            && (!app.draft_data.draft.is_empty() || app.draft_data.repost.is_some())
+                        {
+                            app.reset_draft();
+                        }
+                    });
+                } else if app.draft_data.are_you_sure_send {
+                    ui.horizontal(|ui| {
+                        if widgets::Button::primary(&app.theme, do_not_send_label)
+                            .show(ui)
+                            .clicked()
+                            && (!app.draft_data.draft.is_empty() || app.draft_data.repost.is_some())
+                        {
+                            app.draft_data.are_you_sure_send = false;
+                        }
+
+                        if widgets::Button::primary(&app.theme, send_label_now)
+                            .show(ui)
+                            .clicked()
+                            && (!app.draft_data.draft.is_empty() || app.draft_data.repost.is_some())
+                        {
+                            send_now = true;
+                        }
+                    });
+                } else {
+                    ui.horizontal(|ui| {
+                        if widgets::Button::primary(&app.theme, send_label)
+                            .show(ui)
+                            .clicked()
+                            && (!app.draft_data.draft.is_empty() || app.draft_data.repost.is_some())
+                        {
+                            app.draft_data.are_you_sure_send = true;
+                        }
+                    });
+                }
 
                 ui.add_space(7.0);
 
