@@ -276,6 +276,24 @@ impl Feed {
         }
     }
 
+    /// Get a hash representing the feed (as an Id)
+    pub fn get_feed_hash(&self) -> Option<Id> {
+        self.sync_maybe_periodic_recompute();
+        if matches!(self.get_feed_kind(), FeedKind::Inbox(_)) {
+            self.current_inbox_events
+                .read_arc()
+                .iter()
+                .copied()
+                .reduce(|acc, elem| xor_ids(acc, elem))
+        } else {
+            self.current_feed_events
+                .read_arc()
+                .iter()
+                .copied()
+                .reduce(|acc, elem| xor_ids(acc, elem))
+        }
+    }
+
     /// Read the inbox
     pub fn get_inbox_events(&self) -> Vec<Id> {
         self.current_inbox_events.read_arc().clone()
@@ -704,4 +722,15 @@ pub fn feed_augment_event_kinds() -> Vec<EventKind> {
         .drain(..)
         .filter(|k| k.augments_feed_related())
         .collect()
+}
+
+fn xor_ids(id1: Id, id2: Id) -> Id {
+    Id(id1
+        .0
+        .iter()
+        .zip(id2.0.iter())
+        .map(|(&b1, &b2)| b1 ^ b2)
+        .collect::<Vec<u8>>()
+        .try_into()
+        .unwrap())
 }
