@@ -17,6 +17,16 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     });
 
     ui.checkbox(
+        &mut app.unsaved_settings.recompute_feed_periodically,
+        "Recompute feed periodically. If this is off, you will get a refresh button",
+    );
+
+    ui.horizontal(|ui| {
+        ui.label("Recompute feed every (milliseconds): ").on_hover_text("The UI redraws frequently. We recompute the feed less frequently to conserve CPU. Takes effect when the feed next recomputes. I recommend 3500.");
+        ui.add(Slider::new(&mut app.unsaved_settings.feed_recompute_interval_ms, 1000..=12000).text("milliseconds"));
+    });
+
+    ui.checkbox(
         &mut app.unsaved_settings.feed_thread_scroll_to_main_event,
         "Initially scroll to the highlighted note when entering a Thread",
     );

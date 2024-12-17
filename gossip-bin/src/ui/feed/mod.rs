@@ -55,6 +55,10 @@ pub(super) fn enter_feed(app: &mut GossipUi, ctx: &Context, kind: FeedKind) {
     }
 
     app.feeds.last_enter_feed_time = ctx.input(|i| i.time);
+
+    // clear the displayed feed
+    app.displayed_feed = vec![];
+    app.displayed_feed_hash = None;
 }
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
@@ -646,28 +650,30 @@ fn add_left_space(ui: &mut Ui) {
 }
 
 fn recompute_btn(app: &mut GossipUi, ui: &mut Ui) {
-    /*
     if !read_setting!(recompute_feed_periodically) {
         if ui.link("Refresh").clicked() {
             GLOBALS.feed.sync_recompute();
+            app.displayed_feed = GLOBALS.feed.get_feed_events();
+            app.displayed_feed_hash = GLOBALS.feed.get_feed_hash();
         }
+        return;
     }
-    */
+
+    ui.separator();
     if GLOBALS.feed.is_recomputing() {
-        ui.separator();
         ui.label("RECOMPUTING...");
     } else {
         ui.label(" "); // consume the same vertical space
-        let feed_hash = GLOBALS.feed.get_feed_hash();
-        if feed_hash != app.displayed_feed_hash {
-            if app.displayed_feed.is_empty() {
-                app.displayed_feed = GLOBALS.feed.get_feed_events();
-                app.displayed_feed_hash = feed_hash;
-            } else if ui.link("Show New Updates").clicked() {
-                app.displayed_feed = GLOBALS.feed.get_feed_events();
-                app.displayed_feed_hash = feed_hash;
-            }
-        }
     }
 
+    let feed_hash = GLOBALS.feed.get_feed_hash();
+    if feed_hash != app.displayed_feed_hash {
+        if app.displayed_feed.is_empty() {
+            app.displayed_feed = GLOBALS.feed.get_feed_events();
+            app.displayed_feed_hash = feed_hash;
+        } else if ui.link("Show New Updates").clicked() {
+            app.displayed_feed = GLOBALS.feed.get_feed_events();
+            app.displayed_feed_hash = feed_hash;
+        }
+    }
 }

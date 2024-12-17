@@ -991,10 +991,6 @@ impl GossipUi {
             }
         }
 
-        // clear the displayed feed
-        self.displayed_feed = vec![];
-        self.displayed_feed_hash = None;
-
         // clear some search state
         GLOBALS.events_being_searched_for.write().clear();
 
