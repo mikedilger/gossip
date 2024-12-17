@@ -268,6 +268,10 @@ impl Feed {
 
     /// Read the followed feed
     pub fn get_feed_events(&self) -> Vec<Id> {
+        if self.is_switching() {
+            return vec![];
+        }
+
         self.sync_maybe_periodic_recompute();
         if matches!(self.get_feed_kind(), FeedKind::Inbox(_)) {
             self.current_inbox_events.read_arc().clone()
@@ -280,6 +284,10 @@ impl Feed {
 
     /// Get a hash representing the feed (as an Id)
     pub fn get_feed_hash(&self) -> Option<Id> {
+        if self.is_switching() {
+            return None;
+        }
+
         self.sync_maybe_periodic_recompute();
         if matches!(self.get_feed_kind(), FeedKind::Inbox(_)) {
             self.current_inbox_events
@@ -298,6 +306,10 @@ impl Feed {
 
     /// Read the inbox
     pub fn get_inbox_events(&self) -> Vec<Id> {
+        if self.is_switching() {
+            return vec![];
+        }
+
         self.current_inbox_events.read_arc().clone()
     }
 
