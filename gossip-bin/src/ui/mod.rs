@@ -499,6 +499,8 @@ struct GossipUi {
     // Feeds
     feeds: feed::Feeds,
     global_relays: Vec<String>,
+    displayed_feed: Vec<Id>,
+    displayed_feed_hash: Option<Id>,
 
     // General Data
     assets: Assets,
@@ -762,6 +764,8 @@ impl GossipUi {
             settings_tab: SettingsTab::Id,
             feeds: feed::Feeds::default(),
             global_relays: Vec::new(),
+            displayed_feed: Vec::new(),
+            displayed_feed_hash: None,
             // load Assets, but load again when DPI changes
             assets,
             about: About::new(),
@@ -986,6 +990,10 @@ impl GossipUi {
                 self.close_all_menus_except_feeds(ctx);
             }
         }
+
+        // clear the displayed feed
+        self.displayed_feed = vec![];
+        self.displayed_feed_hash = None;
 
         // clear some search state
         GLOBALS.events_being_searched_for.write().clear();

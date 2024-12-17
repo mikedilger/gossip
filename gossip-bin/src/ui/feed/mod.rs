@@ -93,7 +93,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                 .unwrap_or_default()
                 .unwrap_or_default();
 
-            let feed = GLOBALS.feed.get_feed_events();
             let id = format!(
                 "{} {}",
                 Into::<u8>::into(list),
@@ -107,9 +106,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                     add_left_space(ui);
                     let title_job = super::people::layout_list_title(ui, app, &metadata);
                     ui.label(title_job);
-                    recompute_btn(ui);
+                    recompute_btn(app, ui);
 
-                    if !feed.is_empty() || long_wait {
+                    if !app.displayed_feed.is_empty() || long_wait {
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                             ui.add_space(16.0);
 
@@ -144,10 +143,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                 },
             );
             ui.add_space(6.0);
-            render_a_feed(app, ctx, ui, feed, false, &id, load_more);
+            render_a_feed(app, ctx, ui, None, &id, load_more);
         }
         FeedKind::Bookmarks => {
-            let feed = GLOBALS.feed.get_feed_events();
             let id = "bookmarks";
             ui.add_space(10.0);
             ui.allocate_ui_with_layout(
@@ -156,11 +154,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                 |ui| {
                     add_left_space(ui);
                     ui.heading("Bookmarks");
-                    recompute_btn(ui);
+                    recompute_btn(app, ui);
                 },
             );
             ui.add_space(6.0);
-            render_a_feed(app, ctx, ui, feed, false, id, load_more);
+            render_a_feed(app, ctx, ui, None, id, load_more);
         }
         FeedKind::Inbox(indirect) => {
             if read_setting!(public_key).is_none() {
@@ -172,7 +170,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                     ui.label(" to see any replies to that identity.");
                 });
             }
-            let feed = GLOBALS.feed.get_feed_events();
             let id = if indirect { "activity" } else { "inbox" };
             ui.add_space(10.0);
             ui.allocate_ui_with_layout(
@@ -181,7 +178,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                 |ui| {
                     add_left_space(ui);
                     ui.heading("Inbox");
-                    recompute_btn(ui);
+                    recompute_btn(app, ui);
 
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.add_space(16.0);
@@ -206,7 +203,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                 },
             );
             ui.add_space(6.0);
-            render_a_feed(app, ctx, ui, feed, false, id, load_more);
+            render_a_feed(app, ctx, ui, None, id, load_more);
         }
         FeedKind::Thread { id, .. } => {
             if let Some(parent) = GLOBALS.feed.get_thread_parent() {
@@ -228,8 +225,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                     app,
                     ctx,
                     ui,
-                    vec![parent],
-                    true,
+                    Some(parent),
                     &id.as_hex_string(),
                     load_more,
                 );
@@ -246,17 +242,15 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                 } else {
                     ui.heading(gossip_lib::names::best_name_from_pubkey_lookup(&pubkey));
                 }
-                recompute_btn(ui);
+                recompute_btn(app, ui);
             });
             ui.add_space(6.0);
 
-            let feed = GLOBALS.feed.get_feed_events();
             render_a_feed(
                 app,
                 ctx,
                 ui,
-                feed,
-                false,
+                None,
                 &pubkey.as_hex_string(),
                 load_more,
             );
@@ -266,25 +260,23 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
             ui.horizontal(|ui| {
                 add_left_space(ui);
                 ui.heading("GLOBAL");
-                recompute_btn(ui);
+                recompute_btn(app, ui);
             });
             ui.label(app.global_relays.join(", "));
             ui.add_space(6.0);
 
-            let feed = GLOBALS.feed.get_feed_events();
-            render_a_feed(app, ctx, ui, feed, false, "global", load_more);
+            render_a_feed(app, ctx, ui, None, "global", load_more);
         }
         FeedKind::Relay(relay_url) => {
             ui.add_space(10.0);
             ui.horizontal(|ui| {
                 add_left_space(ui);
                 ui.heading(format!("{}", &relay_url));
-                recompute_btn(ui);
+                recompute_btn(app, ui);
             });
             ui.add_space(6.0);
 
-            let feed = GLOBALS.feed.get_feed_events();
-            render_a_feed(app, ctx, ui, feed, false, relay_url.as_str(), load_more);
+            render_a_feed(app, ctx, ui, None, relay_url.as_str(), load_more);
         }
         FeedKind::DmChat(channel) => {
             if !GLOBALS.identity.is_unlocked() {
@@ -297,8 +289,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                     ui.label(" to see DMs.");
                 });
             }
-
-            let feed = GLOBALS.feed.get_feed_events();
 
             ui.add_space(10.0);
             ui.allocate_ui_with_layout(
@@ -325,7 +315,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                     } else {
                         ui.heading(channel.name());
                     }
-                    recompute_btn(ui);
+                    recompute_btn(app, ui);
 
                     if let Some(key) = channel.keys().first() {
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -354,7 +344,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
             );
 
             ui.add_space(6.0);
-            render_dm_feed(app, ui, feed, channel);
+            render_dm_feed(app, ui, channel);
         }
     }
 
@@ -367,8 +357,7 @@ fn render_a_feed(
     app: &mut GossipUi,
     ctx: &Context,
     ui: &mut Ui,
-    feed: Vec<Id>,
-    threaded: bool,
+    parent: Option<Id>,
     scroll_area_id: &str,
     offer_load_more: bool,
 ) {
@@ -381,6 +370,8 @@ fn render_a_feed(
         widgets::giant_spinner(ui, &app.theme);
         return;
     }
+
+    let feed = app.displayed_feed.clone();
 
     app.vert_scroll_area()
         .auto_shrink(false)
@@ -409,32 +400,60 @@ fn render_a_feed(
                         }
                         ui.add_space(50.0);
 
-                        for id in feed.iter().rev() {
+                        if let Some(id) = parent {
                             render_note_maybe_fake(
                                 app,
                                 ctx,
                                 ui,
                                 FeedNoteParams {
-                                    id: *id,
+                                    id,
                                     indent: 0,
                                     as_reply_to: false,
-                                    threaded,
+                                    threaded: true,
                                 },
                             );
+                        } else {
+                            for id in feed.iter().rev() {
+                                render_note_maybe_fake(
+                                    app,
+                                    ctx,
+                                    ui,
+                                    FeedNoteParams {
+                                        id: *id,
+                                        indent: 0,
+                                        as_reply_to: false,
+                                        threaded: false,
+                                    },
+                                );
+                            }
                         }
                     } else {
-                        for id in feed.iter() {
+                        if let Some(id) = parent {
                             render_note_maybe_fake(
                                 app,
                                 ctx,
                                 ui,
                                 FeedNoteParams {
-                                    id: *id,
+                                    id,
                                     indent: 0,
                                     as_reply_to: false,
-                                    threaded,
+                                    threaded: true,
                                 },
                             );
+                        } else {
+                            for id in feed.iter() {
+                                render_note_maybe_fake(
+                                    app,
+                                    ctx,
+                                    ui,
+                                    FeedNoteParams {
+                                        id: *id,
+                                        indent: 0,
+                                        as_reply_to: false,
+                                        threaded: false,
+                                    },
+                                );
+                            }
                         }
 
                         ui.add_space(50.0);
@@ -451,7 +470,8 @@ fn render_a_feed(
         });
 }
 
-fn render_dm_feed(app: &mut GossipUi, ui: &mut Ui, feed: Vec<Id>, channel: DmChannel) {
+fn render_dm_feed(app: &mut GossipUi, ui: &mut Ui, channel: DmChannel) {
+    let feed = app.displayed_feed.clone();
     let scroll_area_id = channel.name();
     let feed_newest_at_bottom = GLOBALS.db().read_setting_feed_newest_at_bottom();
     let iterator: Box<dyn Iterator<Item = &Id>> = if feed_newest_at_bottom {
@@ -625,16 +645,29 @@ fn add_left_space(ui: &mut Ui) {
     ui.add_space(2.0);
 }
 
-fn recompute_btn(ui: &mut Ui) {
+fn recompute_btn(app: &mut GossipUi, ui: &mut Ui) {
+    /*
     if !read_setting!(recompute_feed_periodically) {
         if ui.link("Refresh").clicked() {
             GLOBALS.feed.sync_recompute();
         }
     }
+    */
     if GLOBALS.feed.is_recomputing() {
         ui.separator();
         ui.label("RECOMPUTING...");
     } else {
         ui.label(" "); // consume the same vertical space
+        let feed_hash = GLOBALS.feed.get_feed_hash();
+        if feed_hash != app.displayed_feed_hash {
+            if app.displayed_feed.is_empty() {
+                app.displayed_feed = GLOBALS.feed.get_feed_events();
+                app.displayed_feed_hash = feed_hash;
+            } else if ui.link("Show New Updates").clicked() {
+                app.displayed_feed = GLOBALS.feed.get_feed_events();
+                app.displayed_feed_hash = feed_hash;
+            }
+        }
     }
+
 }

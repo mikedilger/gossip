@@ -271,6 +271,8 @@ impl Feed {
         self.sync_maybe_periodic_recompute();
         if matches!(self.get_feed_kind(), FeedKind::Inbox(_)) {
             self.current_inbox_events.read_arc().clone()
+        } else if matches!(self.get_feed_kind(), FeedKind::Thread { .. }) {
+            vec![]
         } else {
             self.current_feed_events.read_arc().clone()
         }
