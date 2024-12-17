@@ -89,6 +89,11 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
     let load_more = feed_kind.can_load_more();
     let long_wait = ctx.input(|i| i.time) - app.feeds.last_enter_feed_time > LONG_WAIT_TIME;
 
+    // Each feed kind has it's own anchor key string, so we can use that for the egui
+    // scroll widget id, so each scroll widget has it's own memory of where the scrollbar
+    // was last set to.
+    let scroll_widget_id = feed_kind.anchor_key();
+
     match feed_kind {
         FeedKind::List(list, with_replies) => {
             let metadata = GLOBALS
@@ -97,11 +102,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                 .unwrap_or_default()
                 .unwrap_or_default();
 
-            let id = format!(
-                "{} {}",
-                Into::<u8>::into(list),
-                if with_replies { "main" } else { "general" }
-            );
             ui.add_space(10.0);
             ui.allocate_ui_with_layout(
                 Vec2::new(ui.available_width(), ui.spacing().interact_size.y),
@@ -147,10 +147,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                 },
             );
             ui.add_space(6.0);
-            render_a_feed(app, ctx, ui, None, &id, load_more);
+            render_a_feed(app, ctx, ui, None, &scroll_widget_id, load_more);
         }
         FeedKind::Bookmarks => {
-            let id = "bookmarks";
             ui.add_space(10.0);
             ui.allocate_ui_with_layout(
                 Vec2::new(ui.available_width(), ui.spacing().interact_size.y),
@@ -162,7 +161,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                 },
             );
             ui.add_space(6.0);
-            render_a_feed(app, ctx, ui, None, id, load_more);
+            render_a_feed(app, ctx, ui, None, &scroll_widget_id, load_more);
         }
         FeedKind::Inbox(indirect) => {
             if read_setting!(public_key).is_none() {
@@ -174,7 +173,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                     ui.label(" to see any replies to that identity.");
                 });
             }
-            let id = if indirect { "activity" } else { "inbox" };
             ui.add_space(10.0);
             ui.allocate_ui_with_layout(
                 Vec2::new(ui.available_width(), ui.spacing().interact_size.y),
@@ -207,7 +205,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                 },
             );
             ui.add_space(6.0);
-            render_a_feed(app, ctx, ui, None, id, load_more);
+            render_a_feed(app, ctx, ui, None, &scroll_widget_id, load_more);
         }
         FeedKind::Thread { id, .. } => {
             if let Some(parent) = GLOBALS.feed.get_thread_parent() {
@@ -230,7 +228,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                     ctx,
                     ui,
                     Some(parent),
-                    &id.as_hex_string(),
+                    &scroll_widget_id,
                     load_more,
                 );
             } else {
@@ -255,7 +253,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                 ctx,
                 ui,
                 None,
-                &pubkey.as_hex_string(),
+                &scroll_widget_id,
                 load_more,
             );
         }
@@ -269,7 +267,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
             ui.label(app.global_relays.join(", "));
             ui.add_space(6.0);
 
-            render_a_feed(app, ctx, ui, None, "global", load_more);
+            render_a_feed(app, ctx, ui, None, &scroll_widget_id, load_more);
         }
         FeedKind::Relay(relay_url) => {
             ui.add_space(10.0);
@@ -280,7 +278,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
             });
             ui.add_space(6.0);
 
-            render_a_feed(app, ctx, ui, None, relay_url.as_str(), load_more);
+            render_a_feed(app, ctx, ui, None, &scroll_widget_id, load_more);
         }
         FeedKind::DmChat(channel) => {
             if !GLOBALS.identity.is_unlocked() {
