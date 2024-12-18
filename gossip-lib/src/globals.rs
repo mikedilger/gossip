@@ -204,6 +204,9 @@ pub struct Globals {
 
     /// Follows (we keep it in memory only, for just one person)
     pub follows: PRwLock<FollowList>,
+
+    /// Post delay in effect
+    pub post_delay: AtomicBool,
 }
 
 lazy_static! {
@@ -283,6 +286,7 @@ lazy_static! {
             blossom_uploads: DashMap::new(),
             followers: PRwLock::new(FollowList::default()),
             follows: PRwLock::new(FollowList::default()),
+            post_delay: AtomicBool::new(false),
         }
     };
 }

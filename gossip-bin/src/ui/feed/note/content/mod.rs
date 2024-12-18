@@ -212,7 +212,7 @@ pub(super) fn render_hyperlink(
         None => {
             tracing::error!("Corrupt note content");
             return;
-        },
+        }
     };
 
     // Check for a matching imeta tag

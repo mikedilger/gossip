@@ -13,6 +13,7 @@ use gossip_lib::{DmChannel, PersonTable, Relay, Table, GLOBALS};
 use memoize::memoize;
 use nostr_types::{ContentSegment, NostrBech32, NostrUrl, ShatteredContent, Tag};
 use std::collections::HashMap;
+use std::sync::atomic::Ordering;
 
 #[memoize]
 pub fn textarea_highlighter(theme: Theme, text: String, interests: Vec<String>) -> LayoutJob {
@@ -112,7 +113,14 @@ pub(in crate::ui) fn posting_area(
 ) {
     // Posting Area
     ui.vertical(|ui| {
-        if !GLOBALS.identity.is_unlocked() {
+        if GLOBALS.post_delay.load(Ordering::Relaxed) {
+            if widgets::Button::primary(&app.theme, "Undo Send")
+                .show(ui)
+                .clicked()
+            {
+                GLOBALS.post_delay.store(false, Ordering::Relaxed);
+            }
+        } else if !GLOBALS.identity.is_unlocked() {
             ui.horizontal_wrapped(|ui| {
                 if GLOBALS.identity.encrypted_private_key().is_some() {
                     you::offer_unlock_priv_key(app, ui);
@@ -362,30 +370,13 @@ fn dm_posting_area(
                         app.reset_draft();
                     }
                 });
-            } else if app.dm_draft_data.are_you_sure_send {
-                ui.horizontal(|ui| {
-                    if widgets::Button::primary(&app.theme, "Do NOT send")
-                        .show(ui)
-                        .clicked()
-                    {
-                        app.dm_draft_data.are_you_sure_send = false;
-                    }
-
-                    if widgets::Button::primary(&app.theme, "Send Now")
-                        .show(ui)
-                        .clicked()
-                        && !app.dm_draft_data.draft.is_empty()
-                    {
-                        send_now = true;
-                    }
-                });
             } else {
                 if widgets::Button::primary(&app.theme, "Send")
                     .show(ui)
                     .clicked()
                     && !app.dm_draft_data.draft.is_empty()
                 {
-                    app.dm_draft_data.are_you_sure_send = true;
+                    send_now = true;
                 }
             }
 
@@ -625,10 +616,10 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
         });
 
     ui.horizontal(|ui| {
-        let (send_label, do_not_send_label, send_label_now) = if app.draft_data.repost.is_some() {
-            ("Repost note", "Do NOT repost", "Repost Now")
+        let send_label = if app.draft_data.repost.is_some() {
+            "Repost note"
         } else {
-            ("Send note", "Do NOT send", "Send Now")
+            "Send note"
         };
 
         if app.draft_data.raw.is_empty() {
@@ -727,23 +718,6 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                             app.reset_draft();
                         }
                     });
-                } else if app.draft_data.are_you_sure_send {
-                    ui.horizontal(|ui| {
-                        if widgets::Button::primary(&app.theme, do_not_send_label)
-                            .show(ui)
-                            .clicked()
-                        {
-                            app.draft_data.are_you_sure_send = false;
-                        }
-
-                        if widgets::Button::primary(&app.theme, send_label_now)
-                            .show(ui)
-                            .clicked()
-                            && (!app.draft_data.draft.is_empty() || app.draft_data.repost.is_some())
-                        {
-                            send_now = true;
-                        }
-                    });
                 } else {
                     ui.horizontal(|ui| {
                         if widgets::Button::primary(&app.theme, send_label)
@@ -751,7 +725,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                             .clicked()
                             && (!app.draft_data.draft.is_empty() || app.draft_data.repost.is_some())
                         {
-                            app.draft_data.are_you_sure_send = true;
+                            send_now = true;
                         }
                     });
                 }

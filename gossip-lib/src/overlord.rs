@@ -1889,26 +1889,41 @@ impl Overlord {
             }
         };
 
-        // Post them
-        for (event, relay_urls) in prepared_events.drain(..) {
-            // Process this event locally (ignore any error)
-            let _ = crate::process::process_new_event(&event, None, None, false, false);
+        // Set the post-delay mode
+        GLOBALS.post_delay.store(true, Ordering::Relaxed);
 
-            for url in &relay_urls {
-                tracing::debug!("Asking {} to post", url);
+        // Separate thread
+        std::mem::drop(tokio::task::spawn(async move {
+            // Wait 10 seconds
+            tokio::time::sleep(Duration::new(10, 0)).await;
+
+            // Only if still in post_delay mode (e.g. not cancelled)
+            if GLOBALS.post_delay.load(Ordering::Relaxed) {
+                // Turn off post delay mode
+                GLOBALS.post_delay.store(false, Ordering::Relaxed);
+
+                // Post them
+                for (event, relay_urls) in prepared_events.drain(..) {
+                    // Process this event locally (ignore any error)
+                    let _ = crate::process::process_new_event(&event, None, None, false, false);
+
+                    for url in &relay_urls {
+                        tracing::debug!("Asking {} to post", url);
+                    }
+
+                    manager::run_jobs_on_all_relays(
+                        relay_urls,
+                        vec![RelayJob {
+                            reason: RelayConnectionReason::PostEvent,
+                            payload: ToMinionPayload {
+                                job_id: rand::random::<u64>(),
+                                detail: ToMinionPayloadDetail::PostEvents(vec![event.clone()]),
+                            },
+                        }],
+                    );
+                }
             }
-
-            manager::run_jobs_on_all_relays(
-                relay_urls,
-                vec![RelayJob {
-                    reason: RelayConnectionReason::PostEvent,
-                    payload: ToMinionPayload {
-                        job_id: rand::random::<u64>(),
-                        detail: ToMinionPayloadDetail::PostEvents(vec![event.clone()]),
-                    },
-                }],
-            );
-        }
+        }));
 
         Ok(())
     }

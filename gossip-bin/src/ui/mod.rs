@@ -367,7 +367,6 @@ pub struct DraftData {
 
     // Are you sure
     pub are_you_sure_cancel: bool, // true if we are asking
-    pub are_you_sure_send: bool,   // true if we are asking
 
     // If the user is typing a @tag, this is what they typed
     pub tagging_search_substring: Option<String>,
@@ -398,7 +397,6 @@ impl Default for DraftData {
             replying_to: None,
 
             are_you_sure_cancel: false,
-            are_you_sure_send: false,
 
             tagging_search_substring: None,
             tagging_search_selected: None,
@@ -425,7 +423,6 @@ impl DraftData {
         self.repost = None;
         self.replying_to = None;
         self.are_you_sure_cancel = false;
-        self.are_you_sure_send = false;
         self.tagging_search_substring = None;
         self.tagging_search_selected = None;
         self.tagging_search_searched = None;
@@ -2110,7 +2107,9 @@ impl GossipUi {
             return false;
         }
 
-        self.show_post_area || matches!(self.page, Page::Feed(FeedKind::DmChat(_)))
+        self.show_post_area
+            || matches!(self.page, Page::Feed(FeedKind::DmChat(_)))
+            || GLOBALS.post_delay.load(Ordering::Relaxed)
     }
 
     #[inline]
