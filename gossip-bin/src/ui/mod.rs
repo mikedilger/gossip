@@ -2107,9 +2107,7 @@ impl GossipUi {
             return false;
         }
 
-        self.show_post_area
-            || matches!(self.page, Page::Feed(FeedKind::DmChat(_)))
-            || GLOBALS.post_delay.load(Ordering::Relaxed)
+        self.show_post_area || matches!(self.page, Page::Feed(FeedKind::DmChat(_)))
     }
 
     #[inline]

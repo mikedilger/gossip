@@ -135,6 +135,9 @@ pub enum ToOverlordMessage {
     /// Calls [post_again](crate::Overlord::post_again)
     PostAgain(Event),
 
+    /// Calls [post_cancel](crate::Overlord::post_cancel)
+    PostCancel(Id),
+
     /// Calls [post_nip46_event](crate::Overlord::post_nip46_event)
     PostNip46Event(Event, Vec<RelayUrl>),
 

@@ -185,6 +185,16 @@ pub(super) fn render_note(
 
             thin_separator(ui, app.theme.feed_post_separator_stroke(&render_data));
 
+            if GLOBALS.delayed_posts.contains(&id) {
+                if widgets::Button::primary(&app.theme, "Undo Send")
+                    .show(ui)
+                    .clicked()
+                {
+                    let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PostCancel(id));
+                }
+                thin_separator(ui, app.theme.feed_post_separator_stroke(&render_data));
+            }
+
             // Load replies variable for next section, while we have note_data borrowed
             if threaded && !as_reply_to && !app.collapsed.contains(&id) {
                 replies = GLOBALS

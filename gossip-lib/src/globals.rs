@@ -18,7 +18,7 @@ use crate::seeker::Seeker;
 use crate::status::StatusQueue;
 use crate::storage::{HandlersTable, Storage, Table};
 use crate::RunState;
-use dashmap::DashMap;
+use dashmap::{DashMap, DashSet};
 use nostr_types::{Event, EventKind, Id, Profile, PublicKey, RelayUrl, UncheckedUrl};
 use parking_lot::RwLock as PRwLock;
 use regex::Regex;
@@ -205,8 +205,8 @@ pub struct Globals {
     /// Follows (we keep it in memory only, for just one person)
     pub follows: PRwLock<FollowList>,
 
-    /// Post delay in effect
-    pub post_delay: AtomicBool,
+    /// Delayed posts
+    pub delayed_posts: DashSet<Id>,
 }
 
 lazy_static! {
@@ -286,7 +286,7 @@ lazy_static! {
             blossom_uploads: DashMap::new(),
             followers: PRwLock::new(FollowList::default()),
             follows: PRwLock::new(FollowList::default()),
-            post_delay: AtomicBool::new(false),
+            delayed_posts: DashSet::new(),
         }
     };
 }

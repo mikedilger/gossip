@@ -717,6 +717,9 @@ impl Overlord {
             ToOverlordMessage::PostAgain(event) => {
                 self.post_again(event)?;
             }
+            ToOverlordMessage::PostCancel(id) => {
+                self.post_cancel(id);
+            }
             ToOverlordMessage::PostNip46Event(event, relays) => {
                 self.post_nip46_event(event, relays)?;
             }
@@ -1889,23 +1892,28 @@ impl Overlord {
             }
         };
 
-        // Set the post-delay mode
-        GLOBALS.post_delay.store(true, Ordering::Relaxed);
+        for (event, _) in &prepared_events {
+            // Process the event locally (ignore any errors)
+            let _ = crate::process::process_new_event(event, None, None, false, false);
 
-        // Separate thread
+            // Push the event id into delayed_posts.  If it is still there in 10 seconds
+            // it will be sent.  Else we presume other code deleted it (from that DashSet
+            // but also from the database .. their job not ours).
+            GLOBALS.delayed_posts.insert(event.id);
+        }
+
+        // Sync recompute their feeds right now (so they can see what they posted)
+        GLOBALS.feed.sync_recompute();
+
+        // Wait in a separate thread
         std::mem::drop(tokio::task::spawn(async move {
             // Wait 10 seconds
             tokio::time::sleep(Duration::new(10, 0)).await;
 
-            // Only if still in post_delay mode (e.g. not cancelled)
-            if GLOBALS.post_delay.load(Ordering::Relaxed) {
-                // Turn off post delay mode
-                GLOBALS.post_delay.store(false, Ordering::Relaxed);
-
-                // Post them
-                for (event, relay_urls) in prepared_events.drain(..) {
-                    // Process this event locally (ignore any error)
-                    let _ = crate::process::process_new_event(&event, None, None, false, false);
+            for (event, relay_urls) in prepared_events.drain(..) {
+                // Send each event only if it is still there
+                if GLOBALS.delayed_posts.contains(&event.id) {
+                    GLOBALS.delayed_posts.remove(&event.id);
 
                     for url in &relay_urls {
                         tracing::debug!("Asking {} to post", url);
@@ -1947,6 +1955,14 @@ impl Overlord {
         );
 
         Ok(())
+    }
+
+    pub fn post_cancel(&mut self, id: Id) {
+        GLOBALS.delayed_posts.remove(&id);
+        let _ = GLOBALS.db().delete_event(id, None);
+
+        GLOBALS.ui_notes_to_invalidate.write().push(id);
+        GLOBALS.feed.sync_recompute();
     }
 
     pub fn post_nip46_event(&mut self, event: Event, relays: Vec<RelayUrl>) -> Result<(), Error> {

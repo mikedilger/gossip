@@ -13,7 +13,6 @@ use gossip_lib::{DmChannel, PersonTable, Relay, Table, GLOBALS};
 use memoize::memoize;
 use nostr_types::{ContentSegment, NostrBech32, NostrUrl, ShatteredContent, Tag};
 use std::collections::HashMap;
-use std::sync::atomic::Ordering;
 
 #[memoize]
 pub fn textarea_highlighter(theme: Theme, text: String, interests: Vec<String>) -> LayoutJob {
@@ -113,14 +112,7 @@ pub(in crate::ui) fn posting_area(
 ) {
     // Posting Area
     ui.vertical(|ui| {
-        if GLOBALS.post_delay.load(Ordering::Relaxed) {
-            if widgets::Button::primary(&app.theme, "Undo Send")
-                .show(ui)
-                .clicked()
-            {
-                GLOBALS.post_delay.store(false, Ordering::Relaxed);
-            }
-        } else if !GLOBALS.identity.is_unlocked() {
+        if !GLOBALS.identity.is_unlocked() {
             ui.horizontal_wrapped(|ui| {
                 if GLOBALS.identity.encrypted_private_key().is_some() {
                     you::offer_unlock_priv_key(app, ui);
@@ -412,6 +404,11 @@ fn dm_posting_area(
         });
 
         app.reset_draft();
+
+        // So they can see it rendered and see the "Undo Send" button
+        if let Some(pubkey) = GLOBALS.identity.public_key() {
+            app.set_page(ctx, Page::Feed(FeedKind::Person(pubkey)));
+        }
     }
 
     // List tags that will be applied
@@ -806,6 +803,11 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
         }
 
         app.reset_draft();
+
+        // So they can see it rendered and see the "Undo Send" button
+        if let Some(pubkey) = GLOBALS.identity.public_key() {
+            app.set_page(ctx, Page::Feed(FeedKind::Person(pubkey)));
+        }
     }
 
     // List tags that will be applied
