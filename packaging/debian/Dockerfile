@@ -1,4 +1,4 @@
-FROM rust:1.80-bookworm as builder
+FROM rust:1.83-bookworm as builder
 
 RUN apt-get update \
     && apt-get install --no-install-recommends -y \
