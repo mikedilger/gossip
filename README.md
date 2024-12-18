@@ -25,7 +25,7 @@ The following features make gossip different than most other nostr clients so fa
 ## Screenshots
 
 ![Gossip Screenshot, Dark Theme](assets/gossip_screenshot_dark.png)
-
+![Gossip Screenshot, Light Theme](assets/gossip_screenshot_light.png)
 
 ## nostr features supported
 
