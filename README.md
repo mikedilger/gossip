@@ -19,13 +19,12 @@ The following features make gossip different than most other nostr clients so fa
 - **Secure Key Handling**: Gossip handles private keys as securely as reasonable (short of hardware tokens), keeping them encrypted under a passphrase on disk, requiring that passphrase on startup, and zeroing memory before freeing it. This shouldn't really be a point of difference but few other clients bother.
 - **Avoids Browser-Tech**: Gossip avoids web technologies (other than HTTP GET and WebSockets which are necessary for nostr). The web stack is huge, complex, and probably full of undiscovered vulnerabilities, presenting as a huge attack surface. This includes Javascript, the very many and ever-expanding set of web technologies built into browsers and accessible via javascript, and even HTML parsing, rendering, and CSS. This isn't just a pedantic or theoretical concern; people have already had their private key stolen from other nostr clients. We use simple OpenGL-style rendering instead. It's not as pretty but it gets the job done.
 - **Performant**: Gossip aims towards being highly performant, using the LMDB database, the rust language, and coding architectures with performance always in mind. Unless you have quite old hardware, the network speed will probably be your bottleneck.
-- **High user control**: Gossip has (at the time of writing) 64 different settings. When the right value is uncertain, I pick a reasonable default and give the user the mechanism to change it.
-- **Privacy Options**: in case someone wishes to remain secret they should use Gossip over Tor - I recommend using QubesOS do to this. But you could use Whonix or even Tails. Don't just do it on your normal OS, because on a plain OS sometimes data leaks around Tor (things like DNS lookups). Gossip supports using native TLS certificates so you can configure trust for .onion sites. Gossip provides options to support privacy usage such as not loading avatars, not loading images, not necessarily sharing who you follow, etc.
+- **High user control**: Gossip has (at the time of writing) 70 different settings. When the right value is uncertain, I pick a reasonable default and give the user the mechanism to change it.
+- **Privacy Options**: in case someone wishes to remain secret they should use Gossip over Tor. There are many ways to make that happen and you'll have to choose one.  I recommend any of these: `QubesOS`, `Whonix`, `Tails`, `torsocks`. Gossip supports using native TLS certificates so you can configure trust for .onion sites. Gossip provides options to support privacy usage such as not loading avatars, not loading images, not necessarily sharing who you follow, etc.
 
 ## Screenshots
 
-![Gossip Screenshot, Default Light Theme](assets/gossip_screenshot_light.png)
-![Gossip Screenshot, Default Dark Theme](assets/gossip_screenshot_dark.png)
+![Gossip Screenshot, Dark Theme](assets/gossip_screenshot_dark.png)
 
 
 ## nostr features supported
@@ -82,13 +81,14 @@ npub189j8y280mhezlp98ecmdzydn0r8970g4hpqpx3u9tcztynywfczqqr3tg8
 
 ### Mike Dilger
 
-nprofile1qqswuyd9ml6qcxd92h6pleptfrcqucvvjy39vg4wx7mv9wm8kakyujgpzamhxue69uhhyetvv9ujumn0wd68ytnfdenx7tcprpmhxue69uhkzapwdehhxarjwahhy6mn9e3k7mf0qyt8wumn8ghj7etyv4hzumn0wd68ytnvv9hxgtcprdmhxue69uhkummnw3ezumtfddjkg6tvvajhytnrdakj7qgnwaehxw309ahkvenrdpskjm3wwp6kytcpremhxue69uhkummnw3ez6ur4vgh8wetvd3hhyer9wghxuet59uq32amnwvaz7tmwdaehgu3wdau8gu3wv3jhvtct8l34m
+nprofile1qqswuyd9ml6qcxd92h6pleptfrcqucvvjy39vg4wx7mv9wm8kakyujgpypmhxue69uhkx6r0wf6hxtndd94k2erfd3nk2u3wvdhk6w35xs6z7qgwwaehxw309ahx7uewd3hkctcpypmhxue69uhkummnw3ezuetfde6kuer6wasku7nfvuh8xurpvdjj7qgjwaehxw309ahx7um5wf6k2tnrdakj7qgnwaehxw309ahkvenrdpskjm3wwp6kytcgr7z5j
 
 npub1acg6thl5psv62405rljzkj8spesceyfz2c32udakc2ak0dmvfeyse9p35c
-hex: ee11a5dff40c19a555f41fe42b48f00e618c91225622ae37b6c2bb67b76c4e49
+
+hex pub key: ee11a5dff40c19a555f41fe42b48f00e618c91225622ae37b6c2bb67b76c4e49
 
 You can also my NIP-05 address of `mike@mikedilger.com` which will also hook you up with the relays I post to.
 
 I'd prefer if you trusted `mike@mikedilger.com` higher than my public key at this point in time since key management is still pretty bad. That is the inverse of the normal recommendation, but my private key has not been treated very carefully as I never intended it to be my long-term key pair (it just became that over time).  Also, I fully intend to rollover my keys once gossip supports the key-rollover NIP, whatever that is (or will be).
 
-You can tip me at my Bitcoin Lighting address: <decentbun13@walletofsatoshi.com> == lnurl1dp68gurn8ghj7ampd3kx2ar0veekzar0wd5xjtnrdakj7tnhv4kxctttdehhwm30d3h82unvwqhkgetrv4h8gcn4dccnxv563ep
+You can tip me at my Bitcoin Lighting address: greenleaf306199@getalby.com
