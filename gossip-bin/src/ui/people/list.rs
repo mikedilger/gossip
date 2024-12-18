@@ -126,10 +126,11 @@ pub(super) fn update(
                 .show(ui)
                 .clicked()
             {
-                app.set_page(
+                let include_all = crate::ui::read_feed_include_all(
+                    &FeedKind::List(list, true), // 'true/false' isn't considered
                     ctx,
-                    Page::Feed(FeedKind::List(list, app.mainfeed_include_nonroot)),
                 );
+                app.set_page(ctx, Page::Feed(FeedKind::List(list, include_all)));
             }
         });
     });

@@ -491,8 +491,6 @@ struct GossipUi {
     // Page
     page: Page,
     history: Vec<Page>,
-    mainfeed_include_nonroot: bool,
-    inbox_include_indirect: bool,
     submenu_ids: HashMap<SubMenu, egui::Id>,
     settings_tab: SettingsTab,
 
@@ -674,20 +672,11 @@ impl GossipUi {
             None => (false, (cctx.egui_ctx.pixels_per_point() * 72.0) as u32),
         };
 
-        let mainfeed_include_nonroot = cctx
-            .egui_ctx
-            .data_mut(|d| d.get_persisted(egui::Id::new("mainfeed_include_nonroot")))
-            .unwrap_or(false);
-
-        let inbox_include_indirect = cctx
-            .egui_ctx
-            .data_mut(|d| d.get_persisted(egui::Id::new("inbox_include_indirect")))
-            .unwrap_or(false);
-
-        let mut start_page = Page::Feed(FeedKind::List(
-            PersonList::Followed,
-            mainfeed_include_nonroot,
-        ));
+        let include_all = read_feed_include_all(
+            &FeedKind::List(PersonList::Followed, true), // 'true/false' isn't considered
+            &cctx.egui_ctx,
+        );
+        let mut start_page = Page::Feed(FeedKind::List(PersonList::Followed, include_all));
 
         // Possibly enter the wizard instead
         let mut wizard_state: WizardState = Default::default();
@@ -758,8 +747,6 @@ impl GossipUi {
             setting_active_person: false,
             page: start_page,
             history: vec![],
-            mainfeed_include_nonroot,
-            inbox_include_indirect,
             submenu_ids,
             settings_tab: SettingsTab::Id,
             feeds: feed::Feeds::default(),
@@ -1099,9 +1086,13 @@ impl GossipUi {
                     continue;
                 }
                 if list == PersonList::Followed || metadata.favorite {
+                    let include_all = read_feed_include_all(
+                        &FeedKind::List(list, true), // 'true/false' isn't considered
+                        ctx,
+                    );
                     self.add_menu_item_page(
                         ui,
-                        Page::Feed(FeedKind::List(list, self.mainfeed_include_nonroot)),
+                        Page::Feed(FeedKind::List(list, include_all)),
                         Some(&metadata.title),
                         true,
                     );
@@ -1143,16 +1134,17 @@ impl GossipUi {
                 self.set_page(ctx, Page::Feed(FeedKind::Person(pubkey)));
             }
 
+            let include_all = read_feed_include_all(
+                &FeedKind::Inbox(true), // 'true/false' isn't considered
+                ctx,
+            );
             let response = self.add_selected_label(
                 ui,
-                self.page == Page::Feed(FeedKind::Inbox(self.inbox_include_indirect)),
+                self.page == Page::Feed(FeedKind::Inbox(include_all)),
                 "Inbox",
             );
             if response.clicked() {
-                self.set_page(
-                    ctx,
-                    Page::Feed(FeedKind::Inbox(self.inbox_include_indirect)),
-                );
+                self.set_page(ctx, Page::Feed(FeedKind::Inbox(include_all)));
             }
 
             // Add unread messages indicator for inbox
@@ -2642,4 +2634,21 @@ fn wait_for_prune(app: &mut GossipUi, ctx: &Context, status: &str) {
             ui.heading("Please wait for the database prune to complete...");
             ui.label(status);
         });
+}
+
+// For the given feed, get the "include all" switch from persisted storage.
+fn read_feed_include_all(feed_kind: &FeedKind, ctx: &Context) -> bool {
+    let mut key = feed_kind.anchor_key();
+    key.push_str("_include_all");
+    let egui_id = egui::Id::new(key);
+    let include_all: bool = ctx.data_mut(|d| d.get_persisted(egui_id)).unwrap_or(false);
+    include_all
+}
+
+// For the given feed, set the "include all" switch in persisted storage
+fn write_feed_include_all(feed_kind: &FeedKind, ctx: &Context, val: bool) {
+    let mut key = feed_kind.anchor_key();
+    key.push_str("_include_all");
+    let egui_id = egui::Id::new(key);
+    ctx.data_mut(|d| d.insert_persisted(egui_id, val));
 }

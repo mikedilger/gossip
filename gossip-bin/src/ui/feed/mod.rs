@@ -95,7 +95,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
     let scroll_widget_id = feed_kind.anchor_key();
 
     match feed_kind {
-        FeedKind::List(list, with_replies) => {
+        FeedKind::List(list, mut with_replies) => {
             let metadata = GLOBALS
                 .db()
                 .get_person_list_metadata(list)
@@ -126,20 +126,13 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
 
                             ui.add_space(10.0);
                             ui.label(RichText::new("Include replies").size(11.0));
-                            if widgets::Switch::small(&app.theme, &mut app.mainfeed_include_nonroot)
+                            if widgets::Switch::small(&app.theme, &mut with_replies)
                                 .show(ui)
                                 .clicked()
                             {
-                                app.set_page(
-                                    ctx,
-                                    Page::Feed(FeedKind::List(list, app.mainfeed_include_nonroot)),
-                                );
-                                ctx.data_mut(|d| {
-                                    d.insert_persisted(
-                                        egui::Id::new("mainfeed_include_nonroot"),
-                                        app.mainfeed_include_nonroot,
-                                    );
-                                });
+                                let new_feed_kind = FeedKind::List(list, with_replies);
+                                super::write_feed_include_all(&new_feed_kind, ctx, with_replies);
+                                app.set_page(ctx, Page::Feed(new_feed_kind));
                             }
                             ui.label(RichText::new("Main posts").size(11.0));
                         });
@@ -163,7 +156,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
             ui.add_space(6.0);
             render_a_feed(app, ctx, ui, None, &scroll_widget_id, load_more);
         }
-        FeedKind::Inbox(indirect) => {
+        FeedKind::Inbox(mut indirect) => {
             if read_setting!(public_key).is_none() {
                 ui.horizontal_wrapped(|ui| {
                     ui.label("You need to ");
@@ -185,20 +178,13 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.add_space(16.0);
                         ui.label(RichText::new("Everything").size(11.0));
-                        if widgets::Switch::small(&app.theme, &mut app.inbox_include_indirect)
+                        if widgets::Switch::small(&app.theme, &mut indirect)
                             .show(ui)
                             .clicked()
                         {
-                            app.set_page(
-                                ctx,
-                                Page::Feed(FeedKind::Inbox(app.inbox_include_indirect)),
-                            );
-                            ctx.data_mut(|d| {
-                                d.insert_persisted(
-                                    egui::Id::new("inbox_include_indirect"),
-                                    app.inbox_include_indirect,
-                                );
-                            });
+                            let new_feed_kind = FeedKind::Inbox(indirect);
+                            super::write_feed_include_all(&new_feed_kind, ctx, indirect);
+                            app.set_page(ctx, Page::Feed(new_feed_kind));
                         }
                         ui.label(RichText::new("Replies & DM").size(11.0));
                     });
@@ -223,14 +209,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                     }
                 }
 
-                render_a_feed(
-                    app,
-                    ctx,
-                    ui,
-                    Some(parent),
-                    &scroll_widget_id,
-                    load_more,
-                );
+                render_a_feed(app, ctx, ui, Some(parent), &scroll_widget_id, load_more);
             } else {
                 ui.label("THREAD NOT FOUND");
             }
@@ -248,14 +227,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
             });
             ui.add_space(6.0);
 
-            render_a_feed(
-                app,
-                ctx,
-                ui,
-                None,
-                &scroll_widget_id,
-                load_more,
-            );
+            render_a_feed(app, ctx, ui, None, &scroll_widget_id, load_more);
         }
         FeedKind::Global => {
             ui.add_space(10.0);
