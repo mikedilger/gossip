@@ -24,28 +24,39 @@ use super::widgets::list_entry::OUTER_MARGIN_RIGHT;
 const CONTINUE_BTN_TEXT: &str = "Continue \u{25b6}";
 const BACK_BTN_TEXT: &str = "\u{25c0} Go Back";
 
-// Last updated: 2024-10-01
-static DEFAULT_RELAYS: [&str; 20] = [
+// Last updated: 2024-12-18
+static DEFAULT_RELAYS: [&str; 31] = [
     "wss://nostr.mom/",
+    "wss://e.nos.lol/",
     "wss://relay.primal.net/",
+    "wss://a.nos.lol/",
     "wss://nostrue.com/",
     "wss://nostr.einundzwanzig.space/",
     "wss://purplerelay.com/",
-    "wss://relay.nos.social/",
-    "wss://nos.lol/",
-    "wss://relay.damus.io/",
     "wss://bitcoiner.social/",
-    "wss://offchain.pub/",
-    "wss://nostr.cercatrova.me/",
-    "wss://nostr.swiss-enigma.ch/",
-    "wss://nostr.lu.ke/",
-    "wss://nostr.bitcoiner.social/",
-    "wss://nostr.oxtr.dev/",
-    "wss://relay.nostr.net/",
-    "wss://relay.exit.pub/",
-    "wss://nostr-pub.wellorder.net/",
+    "wss://nos.lol/",
     "wss://nostr.data.haus/",
+    "wss://offchain.pub/",
+    "wss://relay.damus.io/",
+    "wss://nostr.oxtr.dev/",
+    "wss://relay.coinos.io/",
+    "wss://nostr.swiss-enigma.ch/",
+    "wss://nostr-01.yakihonne.com/",
+    "wss://nostr.cercatrova.me/",
+    "wss://relays.diggoo.com/",
+    "wss://nostr-02.yakihonne.com/",
+    "wss://soloco.nl/",
+    "wss://nostr-pub.wellorder.net/",
     "wss://nostr.sathoarder.com/",
+    "wss://relay.siamstr.com/",
+    "wss://relay.notoshi.win/",
+    "wss://nostr.lu.ke/",
+    "wss://relay.nostr.net/",
+    "wss://bostr.bitcointxoko.com/",
+    "wss://relay.nostr.jabber.ch/",
+    "wss://wheat.happytavern.co/",
+    "wss://nostr.azzamo.net/",
+    "wss://relay.nostromo.social/",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
