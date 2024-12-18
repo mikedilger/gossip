@@ -294,13 +294,13 @@ impl Feed {
                 .read_arc()
                 .iter()
                 .copied()
-                .reduce(|acc, elem| xor_ids(acc, elem))
+                .reduce(xor_ids)
         } else {
             self.current_feed_events
                 .read_arc()
                 .iter()
                 .copied()
-                .reduce(|acc, elem| xor_ids(acc, elem))
+                .reduce(xor_ids)
         }
     }
 
@@ -404,7 +404,7 @@ impl Feed {
                         .db()
                         .get_people_in_list(list)?
                         .drain(..)
-                        .map(|(pk, _)| pk.into())
+                        .map(|(pk, _)| pk)
                         .collect();
                     filter.kinds = feed_displayable_event_kinds(false);
                     filter
@@ -439,7 +439,7 @@ impl Feed {
             FeedKind::Person(person_pubkey) => {
                 let filter = {
                     let mut filter = Filter::new();
-                    filter.authors = vec![person_pubkey.into()];
+                    filter.authors = vec![person_pubkey];
                     filter.kinds = feed_displayable_event_kinds(false);
                     filter
                 };

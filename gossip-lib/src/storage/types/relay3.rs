@@ -230,12 +230,12 @@ impl Relay3 {
         let mut score = self.score();
         if factors.connected {
             if !GLOBALS.connected_relays.contains_key(&self.url) {
-                score = score / 2.0;
+                score /= 2.0;
             }
         }
         if factors.success_count {
             if self.success_count > 0 {
-                score = score * (self.success_count as f32).log10();
+                score *= (self.success_count as f32).log10();
             } else {
                 score = 0.0;
             }

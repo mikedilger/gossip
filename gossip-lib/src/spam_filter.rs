@@ -121,10 +121,7 @@ fn inner_filter(event_params: EventParams) -> EventFilterAction {
         return EventFilterAction::Allow;
     }
 
-    let author = match PersonTable::read_record(pubkey, None) {
-        Ok(a) => a,
-        Err(_) => None,
-    };
+    let author = PersonTable::read_record(pubkey, None).unwrap_or_default();
 
     let muted = GLOBALS.people.is_person_in_list(&pubkey, PersonList::Muted);
 

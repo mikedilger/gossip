@@ -211,7 +211,7 @@ impl Blossom {
                 Err(e) => {
                     let text = String::from_utf8_lossy(&full);
                     tracing::error!("Failed to deserialize Blossom Blob Descriptor: {}", text);
-                    return Err(e.into());
+                    Err(e.into())
                 }
             }
         } else {

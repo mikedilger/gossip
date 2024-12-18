@@ -224,10 +224,10 @@ pub fn render_dm_note(app: &mut GossipUi, ui: &mut Ui, feed_note_params: FeedNot
 
     if let Some(note_ref) = app.notecache.try_update_and_get(&id) {
         if let Ok(note_data) = note_ref.try_borrow() {
-            let viewed = match GLOBALS.db().is_event_viewed(note_data.event.id) {
-                Ok(answer) => answer,
-                _ => false,
-            };
+            let viewed = GLOBALS
+                .db()
+                .is_event_viewed(note_data.event.id)
+                .unwrap_or_default();
 
             if let Ok(mut note_data) = note_ref.try_borrow_mut() {
                 note_data.repost = Some(RepostType::GenericRepost);

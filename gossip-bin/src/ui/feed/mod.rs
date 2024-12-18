@@ -638,10 +638,7 @@ fn recompute_btn(app: &mut GossipUi, ui: &mut Ui) {
 
     let feed_hash = GLOBALS.feed.get_feed_hash();
     if feed_hash != app.displayed_feed_hash {
-        if app.displayed_feed.is_empty() {
-            app.displayed_feed = GLOBALS.feed.get_feed_events();
-            app.displayed_feed_hash = feed_hash;
-        } else if ui.link("Show New Updates").clicked() {
+        if app.displayed_feed.is_empty() || ui.link("Show New Updates").clicked() {
             app.displayed_feed = GLOBALS.feed.get_feed_events();
             app.displayed_feed_hash = feed_hash;
         }

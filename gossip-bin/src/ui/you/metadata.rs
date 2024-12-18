@@ -150,7 +150,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
 fn view_line(ui: &mut Ui, field: &str, data: Option<&String>) {
     ui.horizontal(|ui| {
-        ui.label(&format!("{}: ", field));
+        ui.label(format!("{}: ", field));
         if let Some(value) = data {
             ui.label(value);
         } else {
@@ -161,7 +161,7 @@ fn view_line(ui: &mut Ui, field: &str, data: Option<&String>) {
 
 fn edit_line(ui: &mut Ui, field: &str, data: &mut Option<String>, edit_color: Color32) {
     ui.horizontal(|ui| {
-        ui.label(&format!("{}: ", field));
+        ui.label(format!("{}: ", field));
         ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
             if data.is_some() {
                 if ui.button("Remove").clicked() {
@@ -189,7 +189,7 @@ fn edit_line(ui: &mut Ui, field: &str, data: &mut Option<String>, edit_color: Co
 fn view_lines_other(ui: &mut Ui, other: &Map<String, Value>) {
     for (field, jsonvalue) in other.iter() {
         ui.horizontal(|ui| {
-            ui.label(&format!("{}: ", field));
+            ui.label(format!("{}: ", field));
             if let Value::String(s) = jsonvalue {
                 ui.label(s.to_owned());
             } else if let Ok(s) = serde_json::to_string(&jsonvalue) {
@@ -206,7 +206,7 @@ fn edit_lines_other(ui: &mut Ui, other: &mut Map<String, Value>, edit_color: Col
     let mut to_remove: Vec<String> = Vec::new();
     for (field, jsonvalue) in other.iter_mut() {
         ui.horizontal(|ui| {
-            ui.label(&format!("{}: ", field));
+            ui.label(format!("{}: ", field));
             if let Value::String(s) = jsonvalue {
                 ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                     if ui.button("Remove").clicked() {

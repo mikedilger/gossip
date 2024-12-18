@@ -135,8 +135,8 @@ impl TciKey {
             .position(|b| *b == b'\"')
             .ok_or::<Error>(ErrorKind::KeyInvalid.into())?;
         let mid = self.0.len() - 32 - std::mem::size_of::<i64>();
-        let tagname = String::from_utf8_lossy(&self.0[0..q]).to_owned();
-        let tagval = String::from_utf8_lossy(&self.0[q + 1..mid]).to_owned();
+        let tagname = String::from_utf8_lossy(&self.0[0..q]).into_owned();
+        let tagval = String::from_utf8_lossy(&self.0[q + 1..mid]).into_owned();
         let created_at = Unixtime(
             (u64::MAX - u64::from_be_bytes(self.0[mid..mid + 8].try_into().unwrap())) as i64,
         );

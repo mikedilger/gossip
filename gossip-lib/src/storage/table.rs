@@ -296,7 +296,7 @@ pub struct TableIterator<'a, I: Record> {
     phantom: std::marker::PhantomData<I>,
 }
 
-impl<'a, I: Record> Iterator for TableIterator<'a, I> {
+impl<I: Record> Iterator for TableIterator<'_, I> {
     type Item = (I::Key, I);
 
     fn next(&mut self) -> Option<Self::Item> {

@@ -18,8 +18,8 @@ impl DefaultTheme {
     }
 }
 
-/// Trait for creating different types of shadows
-/// TODO @dtonon: This must be reviewed as shadow interface changed with egui 0.28
+// Trait for creating different types of shadows
+// TODO @dtonon: This must be reviewed as shadow interface changed with egui 0.28
 // pub trait ShadowBuilder {
 //     fn soft_dark() -> Self;
 //     fn soft_light() -> Self;

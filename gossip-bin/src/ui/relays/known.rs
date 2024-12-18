@@ -27,7 +27,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     widgets::page_header(
         ui,
-        &format!(
+        format!(
             "{} ({} relays)",
             Page::RelaysKnownNetwork(None).name(),
             relays.len()

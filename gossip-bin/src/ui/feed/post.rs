@@ -1070,7 +1070,7 @@ fn do_replacements(draft: &str, replacements: &HashMap<String, ContentSegment>) 
 fn offer_attachment(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, dm: bool) {
     // Skip if no blossom servers configured:
     let blossom_servers = GLOBALS.db().read_setting_blossom_servers();
-    if blossom_servers.split_whitespace().next() == None {
+    if blossom_servers.split_whitespace().next().is_none() {
         return;
     }
 

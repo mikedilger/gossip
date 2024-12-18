@@ -212,7 +212,10 @@ impl Storage {
 
             // Copy to backup file, compacting
             tracing::info!("Compacting LMDB...");
-            if let Err(_) = env.copy_to_file(&backup, heed::CompactionOption::Enabled) {
+            if env
+                .copy_to_file(&backup, heed::CompactionOption::Enabled)
+                .is_err()
+            {
                 // Erase the attempt
                 std::fs::remove_file(&backup)?;
 
@@ -1942,7 +1945,7 @@ impl Storage {
         if !output.is_empty() {
             use std::cmp::Ordering;
             let mut filter = Filter::new();
-            filter.ids = output.iter().map(|id| (*id).into()).collect();
+            filter.ids = output.to_vec();
             let mut events = self.find_events_by_filter(&filter, |_| true)?;
             events.sort_by(
                 |a, b| match (a.pubkey == event.pubkey, b.pubkey == event.pubkey) {

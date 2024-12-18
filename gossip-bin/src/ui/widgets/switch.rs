@@ -130,7 +130,7 @@ impl<'a> Switch<'a> {
     // }
 }
 
-impl<'a> Widget for Switch<'a> {
+impl Widget for Switch<'_> {
     fn ui(self, ui: &mut Ui) -> Response {
         self.show(ui)
     }

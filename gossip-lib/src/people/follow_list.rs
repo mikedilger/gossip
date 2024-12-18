@@ -32,19 +32,10 @@ impl From<SortablePubkey> for PublicKey {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct FollowList {
     pub who: Option<PublicKey>,
     pub set: BTreeSet<SortablePubkey>,
-}
-
-impl Default for FollowList {
-    fn default() -> FollowList {
-        FollowList {
-            who: None,
-            set: BTreeSet::new(),
-        }
-    }
 }
 
 impl FollowList {

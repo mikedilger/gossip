@@ -30,7 +30,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         Page::Person(_) => person::update(app, ctx, _frame, ui),
         Page::PersonFollows(who) => follows::update(app, ctx, _frame, ui, who),
         Page::PersonFollowers(who) => followers::update(app, ctx, _frame, ui, who),
-        _ => return,
+        _ => (),
     }
 }
 
