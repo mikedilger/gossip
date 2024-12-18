@@ -207,7 +207,13 @@ pub(super) fn render_hyperlink(
     note: &Ref<NoteData>,
     linkspan: &Span,
 ) {
-    let link = note.shattered_content.slice(linkspan).unwrap();
+    let link = match note.shattered_content.slice(linkspan) {
+        Some(l) => l,
+        None => {
+            tracing::error!("Corrupt note content");
+            return;
+        },
+    };
 
     // Check for a matching imeta tag
     let mut file_metadata: Option<FileMetadata> = None;
@@ -253,7 +259,13 @@ pub(super) fn render_plain(
     as_deleted: bool,
     content_start: Pos2,
 ) -> bool {
-    let text = note.shattered_content.slice(textspan).unwrap();
+    let text = match note.shattered_content.slice(textspan) {
+        Some(t) => t,
+        None => {
+            tracing::error!("Corrupt note content");
+            return false;
+        }
+    };
 
     let mut first = true;
     for line in text.split('\n') {
