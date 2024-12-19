@@ -183,9 +183,6 @@ impl Media {
                         let sha256hash = hasher.finalize();
                         let hash_str = hex::encode(sha256hash);
                         if hash_str != *x {
-                            if url.as_str() == "https://mikedilger.com/bs.png" {
-                                tracing::error!("Hash Mismatch Computed");
-                            }
                             let error = "Hash Mismatch".to_string();
                             self.set_has_failed(&url.to_unchecked_url(), error.clone());
                             return MediaLoadingResult::Failed(error);
