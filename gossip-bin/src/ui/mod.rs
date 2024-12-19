@@ -57,6 +57,7 @@ use core::cell::RefCell;
 use eframe::egui;
 use eframe::egui::vec2;
 use eframe::egui::FontId;
+use egui::widgets::Slider;
 use egui::{
     Align, Color32, ColorImage, Context, IconData, Image, ImageData, Label, Layout, RichText,
     ScrollArea, Sense, TextureHandle, TextureOptions, Ui, Vec2,
@@ -571,6 +572,7 @@ struct GossipUi {
     //   not authoritative.
     zap_state: ZapState,
     note_being_zapped: Option<Id>,
+    zap_amount_input: u64,
 
     wizard_state: WizardState,
 
@@ -801,6 +803,7 @@ impl GossipUi {
             last_visible_update: Instant::now(),
             zap_state: ZapState::None,
             note_being_zapped: None,
+            zap_amount_input: 10,
             wizard_state,
             theme_test: Default::default(),
             dm_channel_cache: vec![],
@@ -2051,27 +2054,42 @@ impl GossipUi {
                 ui.label("Loading lnurl...");
             }
             ZapState::SeekingAmount(id, pubkey, ref _prd, ref _lnurl) => {
-                let mut amt = 0;
-                ui.label("Zap Amount:");
+                ui.vertical(|ui| {
+                    let mut amt = 0;
 
-                let amounts = [1, 2, 5, 10, 21, 46, 100, 215, 464, 1000, 2154, 4642, 10000];
-                for &amount in &amounts {
-                    if ui.button(amount.to_string()).clicked() {
-                        amt = amount;
+                    ui.horizontal(|ui| {
+                        ui.label("Zap Amount:");
+
+                        let amounts = [1, 2, 5, 10, 21, 46, 100, 215, 464, 1000, 2154, 4642, 10000];
+                        for &amount in &amounts {
+                            if ui.button(amount.to_string()).clicked() {
+                                amt = amount;
+                            }
+                        }
+
+                        if ui.button("Cancel").clicked() {
+                            *GLOBALS.current_zap.write() = ZapState::None;
+                        }
+                    });
+
+                    ui.horizontal(|ui| {
+                        ui.add(
+                            Slider::new(&mut self.zap_amount_input, 1..=1000000).text("Zap Amount"),
+                        );
+                        if ui.button("Zap!").clicked() {
+                            amt = self.zap_amount_input;
+                        }
+                    });
+
+                    if amt > 0 {
+                        let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Zap(
+                            id,
+                            pubkey,
+                            MilliSatoshi(amt * 1_000),
+                            "".to_owned(),
+                        ));
                     }
-                }
-
-                if amt > 0 {
-                    let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Zap(
-                        id,
-                        pubkey,
-                        MilliSatoshi(amt * 1_000),
-                        "".to_owned(),
-                    ));
-                }
-                if ui.button("Cancel").clicked() {
-                    *GLOBALS.current_zap.write() = ZapState::None;
-                }
+                });
             }
             ZapState::LoadingInvoice(_id, _pubkey) => {
                 ui.label("Loading zap invoice...");
