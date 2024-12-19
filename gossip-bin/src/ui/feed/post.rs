@@ -404,11 +404,6 @@ fn dm_posting_area(
         });
 
         app.reset_draft();
-
-        // So they can see it rendered and see the "Undo Send" button
-        if let Some(pubkey) = GLOBALS.identity.public_key() {
-            app.set_page(ctx, Page::Feed(FeedKind::Person(pubkey)));
-        }
     }
 
     // List tags that will be applied
