@@ -1877,9 +1877,11 @@ impl Overlord {
         };
 
         // Prepare events for posting
+        let mut using_giftwraps: bool = false;
         let mut prepared_events = match dm_channel {
             Some(channel) => {
                 if channel.can_use_nip17() {
+                    using_giftwraps = true;
                     crate::post::prepare_post_nip17(author, content, tags, channel, annotation)
                         .await?
                 } else {
@@ -1907,8 +1909,11 @@ impl Overlord {
 
         // Wait in a separate thread
         std::mem::drop(tokio::task::spawn(async move {
-            // Wait 10 seconds
-            tokio::time::sleep(Duration::new(10, 0)).await;
+            // Too difficult to 'Undo Send' on the giftwraps
+            if !using_giftwraps {
+                // Wait 10 seconds
+                tokio::time::sleep(Duration::new(10, 0)).await;
+            }
 
             for (event, relay_urls) in prepared_events.drain(..) {
                 // Send each event only if it is still there
