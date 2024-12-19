@@ -30,6 +30,7 @@ Because NIPs change, full support cannot be guaranteed.
 | 18  | Reposts                              | 0.9      | ✅ full       |
 | 19  | bech32-encoded entities              | 0.4      | ✅ full       |
 | 21  | nostr: URI scheme                    | 0.6      | ✅ full       |
+| 22  | Comment                              | 0.13     | 🟩 partial    | Rendered/indexed, but not created
 | 23  | Long-form Content                    | 0.6      | 🟩 partial    | view as plaintext; no creation
 | 24  | Extra metadata fields and tags       | 0.4      | ✅ full       |
 | 25  | Reactions                            | 0.4      | 🟩 partial    | posting, showing; no downvotes, no reactions to websites, author not shown, no custom emojis
@@ -43,6 +44,7 @@ Because NIPs change, full support cannot be guaranteed.
 | 34  | git stuff                            |          | 🟫 none       |
 | 35  | Torrents                             |          | 🟫 none       |
 | 36  | Sensitive Content                    | 0.4      | ✅ full       | posting with it, showing it, and hiding content (optionally)
+| 37  | Draft Events                         |          | ⬜ none       |
 | 38  | User Statuses                        |          | ⬜ none       |
 | 39  | External Identities in Profiles      |          | ⬜ none       |
 | 40  | Expiration Timestamp                 |          | ⬜ none       |
@@ -63,15 +65,21 @@ Because NIPs change, full support cannot be guaranteed.
 | 57  | Lightning Zaps                       | 0.8      | ✅ full       |
 | 58  | Badges                               |          | ⬜ none       |
 | 59  | Gift Wrap                            | 0.11     | ✅ full       |
+| 60  | Cashu Wallet                         |          | ⬜ none       |
+| 61  | Nutzaps                              |          | ⬜ none       |
 | 64  | Chess (PGN)                          |          | 🟫 none       |
 | 65  | Relay List Metadata                  | 0.4      | ✅ full       |
+| 68  | Picture-first feeds                  |          | ⬜ none       |
+| 69  | Peer-to-peer Order events            |          | ⬜ none       |
 | 70  | Protected Events                     |          | ⬜ none       |
 | 71  | Video Events                         |          | ⬜ none       |
 | 72  | Moderated Communities                |          | ⬜ none       |
 | 73  | External Content IDs                 |          | ⬜ none       |
 | 75  | Zap Goals                            |          | ⬜ none       |
 | 78  | Application-specific data            |          | ⬜ none       | We will use eventually
+| 7D  | Threads                              |          | ⬜ none       |
 | 84  | Highlights                           |          | ⬜ none       |
+| 86  | Relay Management API                 |          | ⬛ n/a        |
 | 89  | Recommended Application Handlers     | 0.13     | 🟩 partial    | We can only launch web handlers
 | 90  | Data Vending Machines                |          | ⬜ none       |
 | 92  | Media Attachments                    |          | 🟩 partial    | We use many NIP-94 fields
@@ -79,7 +87,7 @@ Because NIPs change, full support cannot be guaranteed.
 | 96  | HTTP File Storage Integration        |          | ⬜ none       |
 | 98  | HTTP Auth                            |          | ⬜ none       |
 | 99  | Classified Listings                  |          | ⬜ none       |
-
+| C7  | Chats                                |          | ⬜ none       |
 
 # BUD support
 
