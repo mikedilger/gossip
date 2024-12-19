@@ -827,6 +827,7 @@ impl Storage {
         false
     );
     def_setting!(blossom_servers, b"blossom_servers", String, "".to_string());
+    def_setting!(undo_send_seconds, b"undo_send_seconds", u64, 10);
 
     // -------------------------------------------------------------------
 

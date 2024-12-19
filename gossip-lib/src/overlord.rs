@@ -1911,8 +1911,9 @@ impl Overlord {
         std::mem::drop(tokio::task::spawn(async move {
             // Too difficult to 'Undo Send' on the giftwraps
             if !using_giftwraps {
-                // Wait 10 seconds
-                tokio::time::sleep(Duration::new(10, 0)).await;
+                // Wait for a delay
+                let secs = GLOBALS.db().read_setting_undo_send_seconds();
+                tokio::time::sleep(Duration::new(secs, 0)).await;
             }
 
             for (event, relay_urls) in prepared_events.drain(..) {

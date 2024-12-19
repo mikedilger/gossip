@@ -10,6 +10,12 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.add_space(10.0);
 
     ui.horizontal(|ui| {
+        ui.label("Undo Send (seconds): ")
+            .on_hover_text("How many seconds to wait before you can no longer undo the send.");
+        ui.add(Slider::new(&mut app.unsaved_settings.undo_send_seconds, 0..=120).text("seconds"));
+    });
+
+    ui.horizontal(|ui| {
         ui.label("Proof of Work: ")
             .on_hover_text("The larger the number, the longer it takes.");
         ui.add(Slider::new(&mut app.unsaved_settings.pow, 0..=40).text("leading zero bits"));
