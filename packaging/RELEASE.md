@@ -131,6 +131,13 @@ Substituting for $PREV, $CURRENT and $PACKAGINGDIR:
 SHA256sum * > ./SHA256sums.txt
 ```
 
+Create an announcement nostr event from the gossip account.
+
+Store it in the release files.
+
+Refer to https://github.com/vicariousdrama/nostrcheck as a tool people could use
+to verify it.
+
 ## Phase 6 - Publish
 
 On GitHub, make a new release.
@@ -149,5 +156,5 @@ Publish as the latest release
 
 ## Phase 8 - Announce on NOSTR
 
-- Announce release on nostr under gossip account
+- Announce release on nostr under gossip account (using the event created earlier)
 - Repost as Mike Dilger
