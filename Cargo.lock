@@ -2300,7 +2300,7 @@ dependencies = [
 
 [[package]]
 name = "gossip"
-version = "0.13.0-unstable"
+version = "0.14.0-unstable"
 dependencies = [
  "bech32 0.11.0",
  "blurhash",
@@ -2335,7 +2335,7 @@ dependencies = [
 
 [[package]]
 name = "gossip-lib"
-version = "0.13.0-unstable"
+version = "0.14.0-unstable"
 dependencies = [
  "base64 0.22.1",
  "bech32 0.11.0",
