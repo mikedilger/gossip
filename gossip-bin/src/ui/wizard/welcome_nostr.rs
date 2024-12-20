@@ -13,6 +13,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     if app.wizard_state.has_private_key {
         app.wizard_state.generating = false;
         app.set_page(ctx, Page::Wizard(WizardPage::SetupRelays));
+        return;
     }
 
     ui.add_space(10.0);
@@ -57,7 +58,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
             ui.label(""); // empty cell
             let text = if ready {
-                if app.password.is_empty() {
+                if app.password.is_empty() && !app.wizard_state.generating {
                     "Your password is empty!"
                 } else {
                     ""

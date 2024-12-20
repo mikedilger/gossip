@@ -3,7 +3,6 @@ use eframe::egui;
 use egui::widgets::{Button, Slider};
 use egui::{Align, Context, Layout};
 use egui_winit::egui::{vec2, Ui};
-use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{FeedKind, PersonList, PersonTable, Relay, RunState, Table, GLOBALS};
 use nostr_types::RelayUrl;
 
@@ -303,21 +302,11 @@ fn complete_wizard(app: &mut GossipUi, ctx: &Context) {
     }
 }
 
-fn modify_relay<M>(relay_url: &RelayUrl, mut modify: M)
+fn modify_relay<M>(relay_url: &RelayUrl, modify: M)
 where
     M: FnMut(&mut Relay),
 {
-    // Load relay record
-    let mut relay = GLOBALS.db().read_or_create_relay(relay_url, None).unwrap();
-    let old = relay.clone();
-
-    // Run modification
-    modify(&mut relay);
-
-    // Save relay via the Overlord, so minions can be updated
-    let _ = GLOBALS
-        .to_overlord
-        .send(ToOverlordMessage::UpdateRelay(old, relay));
+    let _ = GLOBALS.db().modify_relay(relay_url, modify, None);
 }
 
 fn continue_button() -> impl egui::Widget {
