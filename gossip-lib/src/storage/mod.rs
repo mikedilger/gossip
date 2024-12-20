@@ -163,7 +163,7 @@ impl Storage {
 
         let stamp = {
             let mut stamp = lmdb_dir.clone();
-            stamp.push(".stamp");
+            stamp.push("stamp.txt");
             stamp
         };
 
@@ -189,7 +189,7 @@ impl Storage {
             backup
         };
 
-        // Rmeove the backup file, ignore errors
+        // Remove the backup file, ignore errors
         let _ = std::fs::remove_file(&backup);
 
         let data = {

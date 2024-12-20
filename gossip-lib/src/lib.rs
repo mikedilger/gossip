@@ -220,7 +220,8 @@ pub fn init(rapid: bool, command_mode: bool) -> Result<(), Error> {
 
     // Initialize storage
     if !command_mode {
-        Storage::compact()?;
+        // Ignore compaction errors
+        let _ = Storage::compact();
     }
     let storage = Storage::new(rapid)?;
     GLOBALS
