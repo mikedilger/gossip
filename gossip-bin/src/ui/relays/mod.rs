@@ -7,7 +7,7 @@ use super::{
 use eframe::egui;
 use egui::{Context, Ui};
 use egui_winit::egui::{vec2, Id, RichText};
-use gossip_lib::{comms::ToOverlordMessage, Relay, GLOBALS};
+use gossip_lib::{comms::ToOverlordMessage, Relay, ScoreFactors, GLOBALS};
 use nostr_types::RelayUrl;
 
 mod active;
@@ -76,6 +76,7 @@ impl RelayUi {
 pub(super) enum RelaySorting {
     #[default]
     Default,
+    Score,
     Rank,
     Name,
     WriteRelays,
@@ -89,6 +90,7 @@ impl RelaySorting {
     pub fn get_name(&self) -> &str {
         match self {
             RelaySorting::Default => "Default",
+            RelaySorting::Score => "Score",
             RelaySorting::Rank => "Rank",
             RelaySorting::Name => "Name",
             RelaySorting::WriteRelays => "Write Relays",
@@ -497,6 +499,11 @@ pub(super) fn relay_sort_combo(app: &mut GossipUi, ui: &mut Ui) {
             );
             ui.selectable_value(
                 &mut app.relays.sort,
+                RelaySorting::Score,
+                RelaySorting::Score.get_name(),
+            );
+            ui.selectable_value(
+                &mut app.relays.sort,
                 RelaySorting::Rank,
                 RelaySorting::Rank.get_name(),
             );
@@ -611,10 +618,16 @@ pub(super) fn relay_filter_combo(app: &mut GossipUi, ui: &mut Ui) {
 #[rustfmt::skip]
 pub(super) fn sort_relay(rui: &RelayUi, a: &Relay, b: &Relay) -> Ordering {
     match rui.sort {
-        RelaySorting::Default => b.get_usage_bits_for_sorting().cmp(&a.get_usage_bits_for_sorting())
-            .then(b.is_good_for_advertise().cmp(&a.is_good_for_advertise()))
-            .then(b.rank.cmp(&a.rank))
-            .then(a.url.cmp(&b.url)),
+        RelaySorting::Default => {
+            let sf = ScoreFactors { connected: false, success_count: true };
+            b.get_usage_bits_for_sorting().cmp(&a.get_usage_bits_for_sorting())
+                .then(b.adjusted_score(sf).partial_cmp(&a.adjusted_score(sf)).unwrap_or(Ordering::Equal))
+                .then(a.url.cmp(&b.url))
+        },
+        RelaySorting::Score => {
+            let sf = ScoreFactors { connected: false, success_count: true };
+            b.adjusted_score(sf).partial_cmp(&a.adjusted_score(sf)).unwrap_or(Ordering::Equal)
+        },
         RelaySorting::Rank => b.rank.cmp(&a.rank)
             .then(b.get_usage_bits_for_sorting().cmp(&a.get_usage_bits_for_sorting()))
             .then(b.is_good_for_advertise().cmp(&a.is_good_for_advertise()))

@@ -15,10 +15,10 @@
 
 /// Relay type, aliased to the latest version
 pub type Relay = crate::storage::types::Relay3;
+pub use crate::storage::types::ScoreFactors;
 
 use crate::error::{Error, ErrorKind};
 use crate::person_relay::PersonRelay;
-use crate::storage::types::ScoreFactors;
 use crate::GLOBALS;
 use nostr_types::{Event, EventKind, Id, PublicKey, RelayUrl, RelayUsage, Unixtime};
 

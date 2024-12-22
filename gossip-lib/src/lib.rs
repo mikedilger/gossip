@@ -148,7 +148,7 @@ pub use profile::Profile;
 mod relationship;
 
 pub mod relay;
-pub use relay::Relay;
+pub use relay::{Relay, ScoreFactors};
 
 pub mod relay_picker;
 pub use relay_picker::RelayPicker;
