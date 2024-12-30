@@ -34,6 +34,7 @@ fn main() -> Result<(), Error> {
     };
     let show_debug = cfg!(debug_assertions) || max_level <= LevelFilter::DEBUG;
     tracing_subscriber::fmt::fmt()
+        .with_writer(std::io::stderr)
         .with_target(false)
         .with_file(show_debug)
         .with_line_number(show_debug)
@@ -41,7 +42,7 @@ fn main() -> Result<(), Error> {
         .init();
 
     let about = about::About::new();
-    println!("Gossip {}", about.version);
+    tracing::info!("Gossip {}", about.version);
 
     // Handle rapid command before initializing the lib
     let mut rapid: bool = false;
