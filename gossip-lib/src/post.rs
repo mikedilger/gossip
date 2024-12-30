@@ -234,7 +234,15 @@ async fn add_tags_mirroring_content(content: &str, tags: &mut Vec<Tag>, direct_m
 
     // Find and tag all hashtags
     for capture in GLOBALS.hashtag_regex.captures_iter(content) {
-        tags.push(Tag::new_hashtag(capture[1][1..].to_string()));
+        let hashtag = capture[1][1..].to_string();
+        let hashtag_lower = hashtag.to_lowercase();
+
+        if hashtag == hashtag_lower {
+            tags.push(Tag::new_hashtag(hashtag));
+        } else {
+            tags.push(Tag::new_hashtag(hashtag));
+            tags.push(Tag::new_hashtag(hashtag_lower));
+        }
     }
 }
 
