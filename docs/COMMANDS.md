@@ -13,6 +13,8 @@ This file may not be up to date. You can see the list of all the commands with `
 
 You can see the details of a particular command with `gossip help <command>`.
 
+Gossip logging goes to stderr, while command output goes to stdout.
+
 ## Commands that launch the GUI program
 
 ### login
