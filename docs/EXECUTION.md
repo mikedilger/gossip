@@ -12,6 +12,9 @@ There are other things you can specify in `RUST_LOG`, such as which level to log
 
 Gossip logs to stderr by default now (this used to be stdout). This helps differentiate log messages from command line outputs.
 
+## Rapid
+
+For some systems with slow storage devices, you can run gossip faster using the `--rapid` command line parameter.  However, a crash can corrupt local data under this mode if your filesystem does not preserve write ordering.
 
 ## Backtraces
 
@@ -19,6 +22,6 @@ This is usually not necessary. But if gossip is panicking you can get backtrace 
 
 ## Command Line Usage
 
-Gossip has a lot of command line commands for tweaking things or extracting bits of information from its database.
+Gossip has a lot of command line commands for tweaking things or extracting bits of information from its database.  These commands to execute are specified on the command line.
 
-See [Gossip Commands](COMMANDS.md)
+Try `gossip help` and see [Gossip Commands](COMMANDS.md)

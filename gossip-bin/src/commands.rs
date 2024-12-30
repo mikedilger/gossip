@@ -24,11 +24,11 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 45] = [
+const COMMANDS: [Command; 44] = [
     Command {
         cmd: "oneshot",
         usage_params: "{depends}",
-        desc: "temporary oneshot action",
+        desc: "(this is for developer use only, please ignore it)",
     },
     Command {
         cmd: "add_person_list",
@@ -191,11 +191,6 @@ const COMMANDS: [Command; 45] = [
         desc: "print the relays the event was seen on",
     },
     Command {
-        cmd: "rapid",
-        usage_params: "",
-        desc: "Use much faster disk access. A crash can corrupt your local data, unless your filesystem preserves write ordering",
-    },
-    Command {
         cmd: "reaction_stats",
         usage_params: "",
         desc: "Show statistics on reactions",
@@ -307,7 +302,6 @@ pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
         "print_relay" => print_relay(command, args)?,
         "print_relays" => print_relays(command)?,
         "print_seen_on" => print_seen_on(command, args)?,
-        "rapid" => {} // is handled early in main.rs
         "reaction_stats" => reaction_stats(command, args)?,
         "rebuild_fof" => rebuild_fof()?,
         "rebuild_indices" => rebuild_indices()?,
@@ -340,7 +334,11 @@ pub fn help(_cmd: Command, mut args: env::Args) -> Result<(), Error> {
         println!("No such command {}", sub);
     } else {
         for c in COMMANDS.iter() {
+            if c.cmd == "oneshot" {
+                continue;
+            }
             println!("  {} {}", c.cmd, c.usage_params);
+            println!("      {}", c.desc);
         }
     }
     Ok(())

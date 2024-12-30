@@ -50,7 +50,7 @@ fn main() -> Result<(), Error> {
         let mut args = env::args();
         let _ = args.next(); // program name
         if let Some(cmd) = args.next() {
-            if &*cmd == "rapid" {
+            if &*cmd == "rapid" || &*cmd == "--rapid" {
                 rapid = true;
             }
         }
