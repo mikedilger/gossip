@@ -2753,13 +2753,15 @@ impl Overlord {
         });
 
         // Subscribe to replies to root
+        let mut root_eref_relays: Vec<RelayUrl> = Vec::new();
         if let Some(ref root_eref) = ancestors.root {
             let filter_set = match root_eref {
                 EventReference::Id { id, .. } => FilterSet::RepliesToId(*id),
                 EventReference::Addr(naddr) => FilterSet::RepliesToAddr(naddr.clone()),
             };
-            let relays = root_eref.copy_relays();
-            for url in relays.iter() {
+            root_eref_relays = root_eref.copy_relays();
+
+            for url in root_eref_relays.iter() {
                 // Subscribe root replies
                 let jobs: Vec<RelayJob> = vec![RelayJob {
                     reason: RelayConnectionReason::ReadThread,
@@ -2801,6 +2803,7 @@ impl Overlord {
             }
 
             // Clean up bonus_relays
+            bonus_relays.retain(|r| !root_eref_relays.contains(r));
             bonus_relays.sort();
             bonus_relays.dedup();
 
