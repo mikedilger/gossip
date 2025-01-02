@@ -123,7 +123,7 @@ const COMMANDS: [Command; 44] = [
     Command {
         cmd: "help",
         usage_params: "<command>",
-        desc: "show this list",
+        desc: "show documentation of <command> if <command is specified, otherwise documentation of all commands",
     },
     Command {
         cmd: "import_encrypted_private_key",
@@ -323,22 +323,29 @@ pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
 }
 
 pub fn help(_cmd: Command, mut args: env::Args) -> Result<(), Error> {
+
     if let Some(sub) = args.next() {
         for c in COMMANDS.iter() {
             if sub == c.cmd {
-                println!("gossip {} {}", c.cmd, c.usage_params);
-                println!("    {}", c.desc);
+                println!("Usage:   gossip {} {}", c.cmd, c.usage_params);
+                println!("");
+                println!("   {}", c.desc);
                 return Ok(());
             }
         }
         println!("No such command {}", sub);
     } else {
+        println!("Usage:   gossip [--rapid] <cmd>");
+        println!("");
+        println!("  --rapid         Use faster storage access at the risk of data corruption");
+        println!("");
+        println!("  <cmd> can be any of these:");
         for c in COMMANDS.iter() {
             if c.cmd == "oneshot" {
                 continue;
             }
-            println!("  {} {}", c.cmd, c.usage_params);
-            println!("      {}", c.desc);
+            println!("    {} {}", c.cmd, c.usage_params);
+            println!("        {}", c.desc);
         }
     }
     Ok(())
