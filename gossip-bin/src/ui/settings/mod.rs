@@ -3,6 +3,20 @@ use crate::unsaved_settings::UnsavedSettings;
 use eframe::egui;
 use egui::{Align, Context, Layout, Ui};
 
+macro_rules! reset_button {
+    ($app:expr, $ui:expr, $setting:ident) => {
+        paste::paste! {
+            if $app.unsaved_settings.[<$setting>] != gossip_lib::Storage::[<get_default_setting_ $setting>]() {
+                if $ui.button("↶")
+                    .on_hover_text("Reset")
+                    .clicked() {
+                    $app.unsaved_settings.[<$setting>] = gossip_lib::Storage::[<get_default_setting_ $setting>]();
+                }
+            }
+        }
+    }
+}
+
 mod content;
 mod database;
 mod id;

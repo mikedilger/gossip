@@ -15,6 +15,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ui.label("When pruning events (below), How long to keep events")
             .on_hover_text("Events older than this will be deleted");
         ui.add(Slider::new(&mut app.unsaved_settings.prune_period_days, 7..=720).text("days"));
+        reset_button!(app, ui, prune_period_days);
     });
 
     ui.horizontal(|ui| {
@@ -23,6 +24,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ui.add(
             Slider::new(&mut app.unsaved_settings.cache_prune_period_days, 7..=720).text("days"),
         );
+        reset_button!(app, ui, cache_prune_period_days);
     });
 
     // Only let them prune after they have saved

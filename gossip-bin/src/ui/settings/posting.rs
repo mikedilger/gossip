@@ -13,28 +13,36 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ui.label("Undo Send (seconds): ")
             .on_hover_text("How many seconds to wait before you can no longer undo the send.");
         ui.add(Slider::new(&mut app.unsaved_settings.undo_send_seconds, 0..=120).text("seconds"));
+        reset_button!(app, ui, undo_send_seconds);
     });
 
     ui.horizontal(|ui| {
         ui.label("Proof of Work: ")
             .on_hover_text("The larger the number, the longer it takes.");
         ui.add(Slider::new(&mut app.unsaved_settings.pow, 0..=40).text("leading zero bits"));
+        reset_button!(app, ui, pow);
     });
 
-    ui.checkbox(
-        &mut app.unsaved_settings.set_client_tag,
-        "Add tag [\"client\",\"gossip\"] to posts",
-    )
-    .on_hover_text("Takes effect immediately.");
+    ui.horizontal(|ui| {
+        ui.checkbox(
+            &mut app.unsaved_settings.set_client_tag,
+            "Add tag [\"client\",\"gossip\"] to posts",
+        )
+        .on_hover_text("Takes effect immediately.");
+        reset_button!(app, ui, set_client_tag);
+    });
 
-    ui.checkbox(
-        &mut app.unsaved_settings.set_user_agent,
-        format!(
-            "Send User-Agent Header to Relays: gossip/{}",
-            app.about.version
-        ),
-    )
-    .on_hover_text("Takes effect on next relay connection.");
+    ui.horizontal(|ui| {
+        ui.checkbox(
+            &mut app.unsaved_settings.set_user_agent,
+            format!(
+                "Send User-Agent Header to Relays: gossip/{}",
+                app.about.version
+            ),
+        )
+        .on_hover_text("Takes effect on next relay connection.");
+        reset_button!(app, ui, set_user_agent);
+    });
 
     ui.add_space(20.0);
 
@@ -48,11 +56,13 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         );
     });
 
-    if ui.button("Publish Blossom Servers").clicked() {
-        let _ = GLOBALS
-            .to_overlord
-            .send(ToOverlordMessage::PushBlossomServers);
-    };
+    ui.horizontal(|ui| {
+        if ui.button("Publish Blossom Servers").clicked() {
+            let _ = GLOBALS
+                .to_overlord
+                .send(ToOverlordMessage::PushBlossomServers);
+        };
+    });
 
     ui.add_space(20.0);
 }

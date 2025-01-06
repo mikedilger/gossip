@@ -7,18 +7,27 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     ui.heading("UI Settings");
 
     ui.add_space(20.0);
-    ui.checkbox(
-        &mut app.unsaved_settings.highlight_unread_events,
-        "Highlight unread events",
-    );
-    ui.checkbox(
-        &mut app.unsaved_settings.posting_area_at_top,
-        "Show posting area at the top instead of the bottom",
-    );
-    ui.checkbox(
-        &mut app.unsaved_settings.feed_newest_at_bottom,
-        "Order feed with newest at bottom (instead of top)",
-    );
+    ui.horizontal(|ui| {
+        ui.checkbox(
+            &mut app.unsaved_settings.highlight_unread_events,
+            "Highlight unread events",
+        );
+        reset_button!(app, ui, highlight_unread_events);
+    });
+    ui.horizontal(|ui| {
+        ui.checkbox(
+            &mut app.unsaved_settings.posting_area_at_top,
+            "Show posting area at the top instead of the bottom",
+        );
+        reset_button!(app, ui, posting_area_at_top);
+    });
+    ui.horizontal(|ui| {
+        ui.checkbox(
+            &mut app.unsaved_settings.feed_newest_at_bottom,
+            "Order feed with newest at bottom (instead of top)",
+        );
+        reset_button!(app, ui, feed_newest_at_bottom);
+    });
 
     ui.add_space(20.0);
     ui.horizontal(|ui| {
@@ -34,6 +43,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 }
             }
         }
+
         let theme_combo = egui::ComboBox::from_id_source("Theme");
         theme_combo.selected_text(&app.unsaved_settings.theme_variant).show_ui(ui, |ui| {
             for theme_variant in ThemeVariant::all() {
@@ -42,7 +52,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 };
             }
         });
+        reset_button!(app, ui, theme_variant);
+
         ui.checkbox(&mut app.unsaved_settings.follow_os_dark_mode, "Follow OS dark-mode").on_hover_text("Follow the operating system setting for dark-mode (requires app-restart to take effect)");
+        reset_button!(app, ui, follow_os_dark_mode);
     });
 
     ui.add_space(20.0);
@@ -50,6 +63,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         let dpi = app.override_dpi_value;
         ui.label("Override DPI: ").on_hover_text("On some systems, DPI is not reported properly. In other cases, people like to zoom in or out. This lets you.");
         ui.checkbox(&mut app.override_dpi, "Override to ");
+
         ui.add(Slider::new(&mut app.override_dpi_value, dpi.min(72)..=dpi.max(400)).clamp_to_range(false).text("DPI"));
 
         ui.add_space(10.0); // indent
@@ -75,29 +89,39 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     });
 
     ui.add_space(20.0);
-    ui.checkbox(
-        &mut app.unsaved_settings.wgpu_renderer,
-        "Enable WGPU renderer (better if your system supports it) APP RESTART REQUIRED",
-    );
+    ui.horizontal(|ui| {
+        ui.checkbox(
+            &mut app.unsaved_settings.wgpu_renderer,
+            "Enable WGPU renderer (better if your system supports it) APP RESTART REQUIRED",
+        );
+        reset_button!(app, ui, wgpu_renderer);
+    });
 
     ui.add_space(20.0);
     ui.horizontal(|ui| {
         let fps = app.unsaved_settings.max_fps;
         ui.label("Maximum FPS: ").on_hover_text("The UI redraws every frame. By limiting the maximum FPS you can reduce load on your CPU. Takes effect immediately. I recommend 10, maybe even less.");
         ui.add(Slider::new(&mut app.unsaved_settings.max_fps, fps.min(2)..=fps.max(60)).clamp_to_range(false).text("Frames per second"));
+        reset_button!(app, ui, max_fps);
     });
 
     ui.add_space(20.0);
-    ui.checkbox(
-        &mut app.unsaved_settings.status_bar,
-        "Show DEBUG statistics in sidebar",
-    );
+    ui.horizontal(|ui| {
+        ui.checkbox(
+            &mut app.unsaved_settings.status_bar,
+            "Show DEBUG statistics in sidebar",
+        );
+        reset_button!(app, ui, status_bar);
+    });
 
     ui.add_space(20.0);
-    ui.checkbox(
-        &mut app.unsaved_settings.inertial_scrolling,
-        "Inertial Scrolling",
-    );
+    ui.horizontal(|ui| {
+        ui.checkbox(
+            &mut app.unsaved_settings.inertial_scrolling,
+            "Inertial Scrolling",
+        );
+        reset_button!(app, ui, inertial_scrolling);
+    });
 
     ui.add_space(10.0);
     ui.horizontal(|ui| {
@@ -110,6 +134,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             .clamp_to_range(false)
             .text("Mouse acceleration"),
         );
+        reset_button!(app, ui, mouse_acceleration);
     });
 
     ui.add_space(20.0);
