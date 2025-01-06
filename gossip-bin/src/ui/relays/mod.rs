@@ -465,19 +465,17 @@ pub(super) fn configure_list_btn(app: &mut GossipUi, ui: &mut Ui) {
             }),
         )));
 
-        if app.page == Page::RelaysMine {
-            items.push(MoreMenuItem::Button(MoreMenuButton::new("Advertise Relay List",
-                Box::new(|_ui, _app| {
-                    let _ = GLOBALS
-                        .to_overlord
-                        .send(ToOverlordMessage::AdvertiseRelayList);
+        items.push(MoreMenuItem::Button(MoreMenuButton::new("Advertise Relay List",
+                                                            Box::new(|_ui, _app| {
+                                                                let _ = GLOBALS
+                                                                    .to_overlord
+                                                                    .send(ToOverlordMessage::AdvertiseRelayList);
 
-                }))
-                .enabled(GLOBALS.identity.is_unlocked())
-                .on_disabled_hover_text("Add or unlock your private key to advertise your relays")
-                .on_hover_text("Advertise my relays. Will send your relay usage information to every relay that seems to be working well so that other people know how to follow and contact you.")
-            ));
-        }
+                                                            }))
+                                        .enabled(GLOBALS.identity.is_unlocked())
+                                        .on_disabled_hover_text("Add or unlock your private key to advertise your relays")
+                                        .on_hover_text("Advertise my relays. Will send your relay usage information to every relay that seems to be working well so that other people know how to follow and contact you.")
+        ));
 
         menu.show_entries(ui, app, response, items);
     });
