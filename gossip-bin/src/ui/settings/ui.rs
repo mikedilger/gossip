@@ -132,7 +132,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 accel.min(0.5)..=accel.max(2.0),
             )
             .clamp_to_range(false)
-            .text("Mouse acceleration"),
+            .text("Mouse scroll-wheel acceleration"),
         );
         reset_button!(app, ui, mouse_acceleration);
     });

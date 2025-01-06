@@ -186,7 +186,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.horizontal(|ui| {
         ui.checkbox(
             &mut app.unsaved_settings.show_deleted_events,
-            "Render delete events, but labeled as deleted",
+            "Render deleted events, but labeled as deleted",
         )
         .on_hover_text(if app.unsaved_settings.show_deleted_events {
             "Disable to exclude all deleted events from rendering"
