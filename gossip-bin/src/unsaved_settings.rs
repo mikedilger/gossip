@@ -70,6 +70,7 @@ pub struct UnsavedSettings {
     pub approve_content_warning: bool,
     pub show_deleted_events: bool,
     pub avoid_spam_on_unsafe_relays: bool,
+    pub limit_inbox_seeking_to_inbox_relays: bool,
     pub apply_spam_filter_on_incoming_events: bool,
     pub apply_spam_filter_on_threads: bool,
     pub apply_spam_filter_on_inbox: bool,
@@ -162,6 +163,7 @@ impl Default for UnsavedSettings {
             approve_content_warning: default_setting!(approve_content_warning),
             show_deleted_events: default_setting!(show_deleted_events),
             avoid_spam_on_unsafe_relays: default_setting!(avoid_spam_on_unsafe_relays),
+            limit_inbox_seeking_to_inbox_relays: default_setting!(limit_inbox_seeking_to_inbox_relays),
             apply_spam_filter_on_incoming_events: default_setting!(
                 apply_spam_filter_on_incoming_events
             ),
@@ -252,6 +254,7 @@ impl UnsavedSettings {
             approve_content_warning: load_setting!(approve_content_warning),
             show_deleted_events: load_setting!(show_deleted_events),
             avoid_spam_on_unsafe_relays: load_setting!(avoid_spam_on_unsafe_relays),
+            limit_inbox_seeking_to_inbox_relays: load_setting!(limit_inbox_seeking_to_inbox_relays),
             apply_spam_filter_on_incoming_events: load_setting!(
                 apply_spam_filter_on_incoming_events
             ),
@@ -338,6 +341,7 @@ impl UnsavedSettings {
         save_setting!(approve_content_warning, self, txn);
         save_setting!(show_deleted_events, self, txn);
         save_setting!(avoid_spam_on_unsafe_relays, self, txn);
+        save_setting!(limit_inbox_seeking_to_inbox_relays, self, txn);
         save_setting!(apply_spam_filter_on_incoming_events, self, txn);
         save_setting!(apply_spam_filter_on_threads, self, txn);
         save_setting!(apply_spam_filter_on_inbox, self, txn);

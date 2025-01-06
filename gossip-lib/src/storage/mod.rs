@@ -803,6 +803,12 @@ impl Storage {
         true
     );
     def_setting!(
+        limit_inbox_seeking_to_inbox_relays,
+        b"limit_inbox_seeking_to_inbox_relays",
+        bool,
+        false
+    );
+    def_setting!(
         apply_spam_filter_on_incoming_events,
         b"apply_spam_filter_on_incoming_events",
         bool,

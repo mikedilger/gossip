@@ -144,25 +144,30 @@ pub fn relays_for_seeking_replies(event: &Event) -> Result<Vec<RelayUrl>, Error>
     //  relays.extend(get_all_reasonable_boxes(tagged_pubkey, RelayUsage::Inbox, num)?);
     //}
 
-    // Seen on relays
-    let mut seen_on: Vec<RelayUrl> = GLOBALS
+    if !GLOBALS
         .db()
-        .get_event_seen_on_relay(event.id)?
-        .drain(..)
-        .map(|(url, _time)| url)
-        .collect();
+        .read_setting_limit_inbox_seeking_to_inbox_relays()
+    {
+        // Seen on relays
+        let mut seen_on: Vec<RelayUrl> = GLOBALS
+            .db()
+            .get_event_seen_on_relay(event.id)?
+            .drain(..)
+            .map(|(url, _time)| url)
+            .collect();
 
-    // Take all inbox relays, and up to 2 seen_on relays that aren't inbox relays
-    let mut extra = 2;
-    for url in seen_on.drain(..) {
-        if extra == 0 {
-            break;
+        // Take all inbox relays, and up to 2 seen_on relays that aren't inbox relays
+        let mut extra = 2;
+        for url in seen_on.drain(..) {
+            if extra == 0 {
+                break;
+            }
+            if relays.contains(&url) {
+                continue;
+            }
+            relays.push(url);
+            extra -= 1;
         }
-        if relays.contains(&url) {
-            continue;
-        }
-        relays.push(url);
-        extra -= 1;
     }
 
     Ok(relays)

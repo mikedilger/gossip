@@ -323,7 +323,6 @@ pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
 }
 
 pub fn help(_cmd: Command, mut args: env::Args) -> Result<(), Error> {
-
     if let Some(sub) = args.next() {
         for c in COMMANDS.iter() {
             if sub == c.cmd {
