@@ -239,13 +239,25 @@ pub fn clickable_label(ui: &mut Ui, enabled: bool, text: impl Into<WidgetText>) 
 }
 
 pub fn break_anywhere_hyperlink_to(ui: &mut Ui, text: impl Into<WidgetText>, url: impl ToString) {
+    let url = url.to_string();
     let mut job = text.into().into_layout_job(
         ui.style(),
         FontSelection::Default,
         ui.layout().vertical_align(),
     );
     job.wrap.break_anywhere = true;
-    ui.hyperlink_to(job, url);
+    let response = ui.hyperlink_to(job, url.clone());
+    MoreMenu::right_click(ui.auto_id_with(&url)).show(
+        ui,
+        response,
+        |ui, is_open| {
+            // actions
+            if ui.button("Copy").clicked() {
+                ui.output_mut(|o| o.copied_text = url);
+                *is_open = false;
+            }
+        },
+    );
 }
 
 pub fn options_menu_button(ui: &mut Ui, theme: &Theme, assets: &Assets) -> Response {

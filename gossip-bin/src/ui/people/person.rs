@@ -422,7 +422,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                         "No DM relays found. This means we cannot use the improved",
                                     );
                                     crate::ui::widgets::break_anywhere_hyperlink_to(
-                                        ui,
+                                         ui,
                                         "NIP-17",
                                         "https://github.com/nostr-protocol/nips/blob/master/17.md",
                                     );

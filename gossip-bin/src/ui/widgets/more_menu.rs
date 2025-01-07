@@ -1,7 +1,7 @@
 use eframe::{
     egui::{
-        Margin, Rect, Response, Rounding, Sense, Stroke, TextStyle, WidgetInfo, WidgetText,
-        WidgetType,
+        Margin, PointerButton, Rect, Response, Rounding, Sense, Stroke, TextStyle, WidgetInfo,
+        WidgetText, WidgetType,
     },
     epaint::PathShape,
 };
@@ -342,6 +342,7 @@ pub(in crate::ui) struct MoreMenu {
     above_or_below: Option<AboveOrBelow>,
     hover_text: Option<String>,
     style: MoreMenuStyle,
+    pointer_button: PointerButton,
 }
 
 impl MoreMenu {
@@ -356,6 +357,7 @@ impl MoreMenu {
             above_or_below: None,
             hover_text: None,
             style: MoreMenuStyle::Simple,
+            pointer_button: PointerButton::Primary,
         }
     }
 
@@ -367,6 +369,22 @@ impl MoreMenu {
             above_or_below: None,
             hover_text: None,
             style: MoreMenuStyle::Bubble,
+            pointer_button: PointerButton::Primary,
+        }
+    }
+
+    pub fn right_click(id: Id) -> Self {
+        Self {
+            id,
+            min_size: Vec2 { x: 0.0, y: 0.0 },
+            max_size: Vec2 {
+                x: f32::INFINITY,
+                y: f32::INFINITY,
+            },
+            above_or_below: None,
+            hover_text: None,
+            style: MoreMenuStyle::Simple,
+            pointer_button: PointerButton::Secondary,
         }
     }
 
@@ -427,7 +445,7 @@ impl MoreMenu {
             response
         };
 
-        if response.clicked() {
+        if response.clicked_by(self.pointer_button) {
             active ^= true;
         }
 
@@ -634,7 +652,7 @@ impl MoreMenu {
             response
         };
 
-        if response.clicked() {
+        if response.clicked_by(self.pointer_button) {
             active ^= true;
         }
 
