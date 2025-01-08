@@ -630,6 +630,7 @@ impl Storage {
     def_setting!(reposts, b"reposts", bool, true);
     def_setting!(show_long_form, b"show_long_form", bool, false);
     def_setting!(show_mentions, b"show_mentions", bool, true);
+    def_setting!(enable_picture_events, b"enable_picture_events", bool, true);
     def_setting!(direct_messages, b"direct_messages", bool, true);
     def_setting!(
         future_allowance_secs,

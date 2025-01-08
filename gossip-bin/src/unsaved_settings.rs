@@ -59,6 +59,7 @@ pub struct UnsavedSettings {
     pub reposts: bool,
     pub show_long_form: bool,
     pub show_mentions: bool,
+    pub enable_picture_events: bool,
     pub direct_messages: bool,
     pub future_allowance_secs: u64,
 
@@ -154,6 +155,7 @@ impl Default for UnsavedSettings {
             reposts: default_setting!(reposts),
             show_long_form: default_setting!(show_long_form),
             show_mentions: default_setting!(show_mentions),
+            enable_picture_events: default_setting!(enable_picture_events),
             direct_messages: default_setting!(direct_messages),
             future_allowance_secs: default_setting!(future_allowance_secs),
             hide_mutes_entirely: default_setting!(hide_mutes_entirely),
@@ -247,6 +249,7 @@ impl UnsavedSettings {
             reposts: load_setting!(reposts),
             show_long_form: load_setting!(show_long_form),
             show_mentions: load_setting!(show_mentions),
+            enable_picture_events: load_setting!(enable_picture_events),
             direct_messages: load_setting!(direct_messages),
             future_allowance_secs: load_setting!(future_allowance_secs),
             hide_mutes_entirely: load_setting!(hide_mutes_entirely),
@@ -334,6 +337,7 @@ impl UnsavedSettings {
         save_setting!(reposts, self, txn);
         save_setting!(show_long_form, self, txn);
         save_setting!(show_mentions, self, txn);
+        save_setting!(enable_picture_events, self, txn);
         save_setting!(direct_messages, self, txn);
         save_setting!(future_allowance_secs, self, txn);
         save_setting!(hide_mutes_entirely, self, txn);

@@ -600,13 +600,14 @@ pub fn enabled_event_kinds() -> Vec<EventKind> {
     let show_long_form = GLOBALS.db().read_setting_show_long_form();
     let direct_messages = GLOBALS.db().read_setting_direct_messages();
     let enable_zap_receipts = GLOBALS.db().read_setting_enable_zap_receipts();
+    let enable_picture_events = GLOBALS.db().read_setting_enable_picture_events();
 
     EventKind::iter()
         .filter(|k| {
             *k == EventKind::Metadata
                 || *k == EventKind::TextNote
                 || *k == EventKind::Comment
-                || *k == EventKind::Picture
+                || ((*k == EventKind::Picture) && enable_picture_events)
             //|| *k == EventKind::RecommendRelay
                 || *k == EventKind::ContactList
                 || ((*k == EventKind::EncryptedDirectMessage) && direct_messages)

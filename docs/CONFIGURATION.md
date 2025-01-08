@@ -270,6 +270,8 @@ viewing in context.
 
 **Enable reposts**  This shows reposted notes.
 
+**Enable picture events**  Download and display picture events (kind 20, NIP-68)
+
 **Show direct messages**  This doesn't seem to do anything anymore and will probably go away. You will see direct messages regardless.
 
 **Show long-form posts**  This shows long form posts as plain text in the main feed. Gossip does not support creating these and it doesn't interpret the markdown. If you enable this, beware that every edit the author creates will generate a new event in your feed. Default is off.
