@@ -606,6 +606,7 @@ pub fn enabled_event_kinds() -> Vec<EventKind> {
             *k == EventKind::Metadata
                 || *k == EventKind::TextNote
                 || *k == EventKind::Comment
+                || *k == EventKind::Picture
             //|| *k == EventKind::RecommendRelay
                 || *k == EventKind::ContactList
                 || ((*k == EventKind::EncryptedDirectMessage) && direct_messages)
