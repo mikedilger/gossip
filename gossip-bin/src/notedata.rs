@@ -199,7 +199,7 @@ impl NoteData {
             EventKind::Picture => {
                 let mut content: String = String::new();
                 for tag in &event.tags {
-                    if tag.tagname()=="imeta" {
+                    if tag.tagname() == "imeta" {
                         for i in 1..tag.len() {
                             let field = tag.get_index(i);
                             if field.starts_with("url ") {
@@ -213,7 +213,7 @@ impl NoteData {
                     }
                 }
                 (content, None)
-            },
+            }
             k => {
                 if k.is_feed_displayable() {
                     (event.content.clone(), Some(format!("kind={:?}", k)))

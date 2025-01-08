@@ -138,7 +138,13 @@ pub(super) fn render_note(
                             // Inner indents first
                             app.theme.feed_post_inner_indent(ui, &render_data);
 
-                            render_note_inside_framing(app, ui, note_ref.clone(), &render_data, &None);
+                            render_note_inside_framing(
+                                app,
+                                ui,
+                                note_ref.clone(),
+                                &render_data,
+                                &None,
+                            );
                         });
                     })
             });
@@ -1302,7 +1308,13 @@ fn render_repost(
                         let top = ui.next_widget_position();
 
                         // FIXME: don't recurse forever
-                        render_note_inside_framing(app, ui, repost_ref.clone(), &render_data, parent_repost);
+                        render_note_inside_framing(
+                            app,
+                            ui,
+                            repost_ref.clone(),
+                            &render_data,
+                            parent_repost,
+                        );
 
                         let bottom = ui.next_widget_position();
 

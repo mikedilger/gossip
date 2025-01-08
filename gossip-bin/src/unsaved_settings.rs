@@ -163,7 +163,9 @@ impl Default for UnsavedSettings {
             approve_content_warning: default_setting!(approve_content_warning),
             show_deleted_events: default_setting!(show_deleted_events),
             avoid_spam_on_unsafe_relays: default_setting!(avoid_spam_on_unsafe_relays),
-            limit_inbox_seeking_to_inbox_relays: default_setting!(limit_inbox_seeking_to_inbox_relays),
+            limit_inbox_seeking_to_inbox_relays: default_setting!(
+                limit_inbox_seeking_to_inbox_relays
+            ),
             apply_spam_filter_on_incoming_events: default_setting!(
                 apply_spam_filter_on_incoming_events
             ),
