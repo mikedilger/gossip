@@ -138,7 +138,7 @@ pub(super) fn render_note(
                             // Inner indents first
                             app.theme.feed_post_inner_indent(ui, &render_data);
 
-                            render_note_inner(app, ui, note_ref.clone(), &render_data, &None);
+                            render_note_inside_framing(app, ui, note_ref.clone(), &render_data, &None);
                         });
                     })
             });
@@ -253,7 +253,7 @@ pub fn render_dm_note(app: &mut GossipUi, ui: &mut Ui, feed_note_params: FeedNot
                     .shadow(app.theme.feed_frame_shadow(&render_data))
                     .stroke(app.theme.feed_frame_stroke(&render_data))
                     .show(ui, |ui| {
-                        render_note_inner(app, ui, note_ref.clone(), &render_data, &None);
+                        render_note_inside_framing(app, ui, note_ref.clone(), &render_data, &None);
                     });
 
             // Mark post as viewed if hovered AND we are not scrolling
@@ -265,7 +265,7 @@ pub fn render_dm_note(app: &mut GossipUi, ui: &mut Ui, feed_note_params: FeedNot
 }
 
 // FIXME, create some way to limit the arguments here.
-pub fn render_note_inner(
+pub fn render_note_inside_framing(
     app: &mut GossipUi,
     ui: &mut Ui,
     note_ref: Rc<RefCell<NoteData>>,
@@ -664,7 +664,7 @@ pub fn render_note_inner(
 
             // MAIN CONTENT
             if !collapsed {
-                render_content(
+                render_note_between_header_and_footer(
                     app,
                     ui,
                     note_ref.clone(),
@@ -1118,7 +1118,7 @@ fn render_subject(ui: &mut Ui, event: &Event) {
     ui.reset_style();
 }
 
-fn render_content(
+fn render_note_between_header_and_footer(
     app: &mut GossipUi,
     ui: &mut Ui,
     note_ref: Rc<RefCell<NoteData>>,
@@ -1302,7 +1302,7 @@ fn render_repost(
                         let top = ui.next_widget_position();
 
                         // FIXME: don't recurse forever
-                        render_note_inner(app, ui, repost_ref.clone(), &render_data, parent_repost);
+                        render_note_inside_framing(app, ui, repost_ref.clone(), &render_data, parent_repost);
 
                         let bottom = ui.next_widget_position();
 
