@@ -2244,6 +2244,13 @@ impl Overlord {
             }
         };
 
+        let mut protected: bool = false;
+        for tag in &reposted_event.tags {
+            if tag.tagname() == "-" {
+                protected = true;
+            }
+        }
+
         let relay_url = {
             let seen_on = GLOBALS.db().get_event_seen_on_relay(reposted_event.id)?;
             if seen_on.is_empty() {
@@ -2296,12 +2303,18 @@ impl Overlord {
                 tags.push(Tag::new(&["client", "gossip"]));
             }
 
+            let content = if protected {
+                String::new()
+            } else {
+                serde_json::to_string(&reposted_event)?
+            };
+
             let pre_event = PreEvent {
                 pubkey: public_key,
                 created_at: Unixtime::now(),
                 kind,
                 tags,
-                content: serde_json::to_string(&reposted_event)?,
+                content,
             };
 
             let powint = GLOBALS.db().read_setting_pow();
