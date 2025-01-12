@@ -341,6 +341,7 @@ pub enum HighlightType {
     Hyperlink,
 }
 
+#[derive(Debug, Clone)]
 pub struct DraftData {
     // The draft text displayed in the edit textbox
     pub draft: String,
@@ -520,6 +521,7 @@ struct GossipUi {
     draft_needs_focus: bool,
     unlock_needs_focus: bool,
     draft_data: DraftData,
+    previous_draft_data: DraftData,
     dm_draft_data: DraftData,
     dm_draft_data_target: Option<DmChannel>,
 
@@ -769,6 +771,7 @@ impl GossipUi {
             draft_needs_focus: false,
             unlock_needs_focus: true,
             draft_data: DraftData::default(),
+            previous_draft_data: DraftData::default(),
             dm_draft_data: DraftData::default(),
             dm_draft_data_target: None,
             editing_metadata: false,
@@ -2114,6 +2117,7 @@ impl GossipUi {
             self.dm_draft_data.clear();
             self.dm_draft_data_target = None;
         } else {
+            self.previous_draft_data = self.draft_data.clone();
             self.draft_data.clear();
             self.show_post_area = false;
             self.draft_needs_focus = false;

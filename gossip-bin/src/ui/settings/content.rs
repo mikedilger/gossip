@@ -60,7 +60,10 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     });
 
     ui.horizontal(|ui| {
-        ui.checkbox(&mut app.unsaved_settings.enable_picture_events, "Enable picture events");
+        ui.checkbox(
+            &mut app.unsaved_settings.enable_picture_events,
+            "Enable picture events",
+        );
         reset_button!(app, ui, enable_picture_events);
     });
 

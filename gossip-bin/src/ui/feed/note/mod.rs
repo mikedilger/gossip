@@ -1027,6 +1027,11 @@ pub fn render_note_inside_framing(
                                         let _ = GLOBALS
                                             .to_overlord
                                             .send(ToOverlordMessage::PostCancel(note.event.id));
+
+                                        // Create a draft with it again
+                                        app.draft_data = app.previous_draft_data.clone();
+                                        app.show_post_area = true;
+                                        app.draft_needs_focus = true;
                                     }
                                 }
                             });

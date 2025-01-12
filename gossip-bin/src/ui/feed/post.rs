@@ -797,11 +797,15 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
             }
         }
 
+        let is_reply = app.draft_data.replying_to.is_some();
+
         app.reset_draft();
 
         // So they can see it rendered and see the "Undo Send" button
-        if let Some(pubkey) = GLOBALS.identity.public_key() {
-            app.set_page(ctx, Page::Feed(FeedKind::Person(pubkey)));
+        if !is_reply {
+            if let Some(pubkey) = GLOBALS.identity.public_key() {
+                app.set_page(ctx, Page::Feed(FeedKind::Person(pubkey)));
+            }
         }
     }
 
