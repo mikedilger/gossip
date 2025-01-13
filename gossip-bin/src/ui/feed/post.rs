@@ -11,7 +11,7 @@ use egui_winit::egui::{vec2, AboveOrBelow, Id};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{DmChannel, PersonTable, Relay, Table, GLOBALS};
 use memoize::memoize;
-use nostr_types::{ContentSegment, NostrBech32, NostrUrl, ShatteredContent, Tag};
+use nostr_types::{ContentSegment, NostrBech32, NostrUrl, ParsedTag, ShatteredContent, Tag};
 use std::collections::HashMap;
 
 #[memoize]
@@ -386,13 +386,16 @@ fn dm_posting_area(
     if send_now {
         let mut tags: Vec<Tag> = Vec::new();
         if app.dm_draft_data.include_content_warning {
-            tags.push(Tag::new_content_warning(&app.dm_draft_data.content_warning));
+            tags.push(
+                ParsedTag::ContentWarning(Some(app.dm_draft_data.content_warning.clone()))
+                    .into_tag(),
+            );
         }
         if let Some(delegatee_tag) = GLOBALS.delegation.get_delegatee_tag() {
             tags.push(delegatee_tag);
         }
         if app.dm_draft_data.include_subject {
-            tags.push(Tag::new_subject(app.dm_draft_data.subject.clone()));
+            tags.push(ParsedTag::Subject(app.dm_draft_data.subject.clone()).into_tag());
         }
 
         let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post {
@@ -762,13 +765,16 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
 
         let mut tags: Vec<Tag> = Vec::new();
         if app.draft_data.include_content_warning {
-            tags.push(Tag::new_content_warning(&app.draft_data.content_warning));
+            tags.push(
+                ParsedTag::ContentWarning(Some(app.dm_draft_data.content_warning.clone()))
+                    .into_tag(),
+            );
         }
         if let Some(delegatee_tag) = GLOBALS.delegation.get_delegatee_tag() {
             tags.push(delegatee_tag);
         }
         if app.draft_data.include_subject {
-            tags.push(Tag::new_subject(app.draft_data.subject.clone()));
+            tags.push(ParsedTag::Subject(app.dm_draft_data.subject.clone()).into_tag());
         }
         match app.draft_data.replying_to {
             Some(replying_to_id) => {

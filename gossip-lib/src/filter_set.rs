@@ -2,7 +2,7 @@
 
 use crate::dm_channel::DmChannel;
 use crate::globals::GLOBALS;
-use nostr_types::{EventKind, Filter, Id, NAddr, PublicKey, Tag, Unixtime};
+use nostr_types::{EventKind, Filter, Id, NAddr, ParsedTag, PublicKey, Unixtime};
 use std::time::Duration;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -462,7 +462,11 @@ impl FilterSet {
                         kinds: event_kinds,
                         ..Default::default()
                     };
-                    let a_tag = Tag::new_address(addr, None);
+                    let a_tag = ParsedTag::Address {
+                        address: addr.clone(),
+                        marker: None,
+                    }
+                    .into_tag();
                     filter.set_tag_values('a', vec![a_tag.value().to_owned()]);
 
                     // Spam prevention:

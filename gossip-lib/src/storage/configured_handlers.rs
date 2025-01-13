@@ -3,7 +3,7 @@ use crate::error::Error;
 use crate::storage::{RawDatabase, Storage};
 use heed::types::Bytes;
 use heed::RwTxn;
-use nostr_types::{EventKind, Filter, PublicKey, Tag};
+use nostr_types::{EventKind, Filter, ParsedTag, PublicKey};
 use std::collections::BTreeSet;
 use std::sync::Mutex;
 
@@ -150,7 +150,11 @@ impl Storage {
         let mut who: BTreeSet<PublicKey> = BTreeSet::new();
 
         let naddr = key.as_naddr(vec![]);
-        let atag = Tag::new_address(&naddr, None);
+        let atag = ParsedTag::Address {
+            address: naddr,
+            marker: None,
+        }
+        .into_tag();
         let mut filter = Filter::new();
         filter.add_event_kind(EventKind::HandlerRecommendation);
         filter.add_tag_value('a', atag.get_index(1).to_string());

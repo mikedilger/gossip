@@ -25,8 +25,8 @@ use heed::RwTxn;
 use http::StatusCode;
 use nostr_types::{
     EncryptedPrivateKey, Event, EventKind, EventReference, Filter, Id, Metadata, MilliSatoshi,
-    NAddr, NostrBech32, PayRequestData, PreEvent, PrivateKey, Profile, PublicKey, RelayUrl, Tag,
-    UncheckedUrl, Unixtime,
+    NAddr, NostrBech32, ParsedTag, PayRequestData, PreEvent, PrivateKey, Profile, PublicKey,
+    RelayUrl, Tag, UncheckedUrl, Unixtime,
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -879,7 +879,13 @@ impl Overlord {
                         unreachable!()
                     };
 
-                tags.push(Tag::new_relay(relay.url.to_unchecked_url(), marker));
+                tags.push(
+                    ParsedTag::RelayUsage {
+                        url: relay.url.to_unchecked_url(),
+                        usage: marker,
+                    }
+                    .into_tag(),
+                );
             }
 
             let pre_event = PreEvent {
@@ -1293,11 +1299,23 @@ impl Overlord {
                 kind: EventKind::FollowSets,
                 author: public_key,
             };
-            let mut tags: Vec<Tag> = vec![Tag::new_address(&ea, None)];
+            let mut tags: Vec<Tag> = vec![ParsedTag::Address {
+                address: ea,
+                marker: None,
+            }
+            .into_tag()];
 
             // Include "e" tags for each event
             for bad_event in &bad_events {
-                tags.push(Tag::new_event(bad_event.id, None, None, Some(public_key)));
+                tags.push(
+                    ParsedTag::Event {
+                        id: bad_event.id,
+                        recommended_relay_url: None,
+                        marker: None,
+                        author_pubkey: Some(public_key),
+                    }
+                    .into_tag(),
+                );
             }
 
             let pre_event = PreEvent {
@@ -1368,10 +1386,16 @@ impl Overlord {
             }
         };
 
-        let mut tags: Vec<Tag> = vec![Tag::new_event(id, None, None, Some(public_key))];
+        let mut tags: Vec<Tag> = vec![ParsedTag::Event {
+            id,
+            recommended_relay_url: None,
+            marker: None,
+            author_pubkey: Some(public_key),
+        }
+        .into_tag()];
 
         if let Some(target_event) = GLOBALS.db().read_event(id)? {
-            tags.push(Tag::new_kind(target_event.kind));
+            tags.push(ParsedTag::Kind(target_event.kind).into_tag());
         }
 
         let event = {
@@ -1802,13 +1826,20 @@ impl Overlord {
             };
 
             let mut tags: Vec<Tag> = vec![
-                Tag::new_event(
+                ParsedTag::Event {
                     id,
-                    relay::recommended_relay_hint(id)?.map(|rr| rr.to_unchecked_url()),
-                    None,
-                    Some(pubkey),
-                ),
-                Tag::new_pubkey(pubkey, None, None),
+                    recommended_relay_url: relay::recommended_relay_hint(id)?
+                        .map(|rr| rr.to_unchecked_url()),
+                    marker: None,
+                    author_pubkey: Some(pubkey),
+                }
+                .into_tag(),
+                ParsedTag::Pubkey {
+                    pubkey,
+                    recommended_relay_url: None,
+                    petname: None,
+                }
+                .into_tag(),
             ];
 
             if GLOBALS.db().read_setting_set_client_tag() {
@@ -2263,15 +2294,26 @@ impl Overlord {
 
         let kind: EventKind;
         let mut tags: Vec<Tag> = vec![
-            Tag::new_pubkey(reposted_event.pubkey, None, None),
-            Tag::new_event(id, relay_url.clone(), None, Some(reposted_event.pubkey)),
+            ParsedTag::Pubkey {
+                pubkey: reposted_event.pubkey,
+                recommended_relay_url: None,
+                petname: None,
+            }
+            .into_tag(),
+            ParsedTag::Event {
+                id,
+                recommended_relay_url: relay_url.clone(),
+                marker: None,
+                author_pubkey: Some(reposted_event.pubkey),
+            }
+            .into_tag(),
         ];
 
         if reposted_event.kind != EventKind::TextNote {
             kind = EventKind::GenericRepost;
 
             // Add 'k' tag
-            tags.push(Tag::new_kind(reposted_event.kind));
+            tags.push(ParsedTag::Kind(reposted_event.kind).into_tag());
 
             if reposted_event.kind.is_replaceable() {
                 let ea = NAddr {
@@ -2284,7 +2326,13 @@ impl Overlord {
                     author: reposted_event.pubkey,
                 };
                 // Add 'a' tag
-                tags.push(Tag::new_address(&ea, None));
+                tags.push(
+                    ParsedTag::Address {
+                        address: ea,
+                        marker: None,
+                    }
+                    .into_tag(),
+                );
             }
         } else {
             kind = EventKind::Repost;
@@ -2890,12 +2938,18 @@ impl Overlord {
                 author: handler_key.pubkey,
             };
 
-            a_tags.push(Tag::new_address(&naddr, Some("web".to_owned())));
+            a_tags.push(
+                ParsedTag::Address {
+                    address: naddr,
+                    marker: Some("web".to_owned()),
+                }
+                .into_tag(),
+            );
         }
 
         // Build the recommendation event
         let event = {
-            let mut tags = vec![Tag::new_identifier(format!("{}", u32::from(kind)))];
+            let mut tags = vec![ParsedTag::Identifier(format!("{}", u32::from(kind))).into_tag()];
             tags.extend(a_tags);
 
             let pre_event = PreEvent {
@@ -3266,13 +3320,19 @@ impl Overlord {
                 created_at: Unixtime::now(),
                 kind: EventKind::Reaction,
                 tags: vec![
-                    Tag::new_event(
-                        outbox_event.id,
-                        Some(relay_url.to_unchecked_url()),
-                        None,
-                        None,
-                    ),
-                    Tag::new_pubkey(pubkey, Some(relay_url.to_unchecked_url()), None),
+                    ParsedTag::Event {
+                        id: outbox_event.id,
+                        recommended_relay_url: Some(relay_url.to_unchecked_url()),
+                        marker: None,
+                        author_pubkey: None,
+                    }
+                    .into_tag(),
+                    ParsedTag::Pubkey {
+                        pubkey,
+                        recommended_relay_url: Some(relay_url.to_unchecked_url()),
+                        petname: None,
+                    }
+                    .into_tag(),
                 ],
                 content: "".to_owned(),
             };
@@ -3942,8 +4002,19 @@ impl Overlord {
             created_at: Unixtime::now(),
             kind: EventKind::ZapRequest,
             tags: vec![
-                Tag::new_event(id, None, None, None),
-                Tag::new_pubkey(target_pubkey, None, None),
+                ParsedTag::Event {
+                    id,
+                    recommended_relay_url: None,
+                    marker: None,
+                    author_pubkey: None,
+                }
+                .into_tag(),
+                ParsedTag::Pubkey {
+                    pubkey: target_pubkey,
+                    recommended_relay_url: None,
+                    petname: None,
+                }
+                .into_tag(),
                 relays_tag,
                 Tag::new(&["amount", &msats_string]),
                 Tag::new(&["lnurl", lnurl.as_str()]),

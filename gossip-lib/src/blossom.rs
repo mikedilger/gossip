@@ -3,7 +3,7 @@ use crate::globals::GLOBALS;
 use base64::Engine;
 use memmap2::Mmap;
 use mime::Mime;
-use nostr_types::{EventKind, PreEvent, Tag, Unixtime};
+use nostr_types::{EventKind, ParsedTag, PreEvent, Tag, Unixtime};
 use reqwest::header::{AUTHORIZATION, CONTENT_LENGTH, CONTENT_TYPE};
 use reqwest::{Body, Client, Response};
 use serde::{Deserialize, Serialize};
@@ -248,7 +248,7 @@ fn authorization(
     };
 
     let mut tags: Vec<Tag> = Vec::new();
-    tags.push(Tag::new_hashtag(format!("{}", verb)));
+    tags.push(ParsedTag::Hashtag(format!("{}", verb)).into_tag());
     tags.push(Tag::new(&["expiration", &format!("{}", expiration)]));
     for hash in &hashes {
         tags.push(Tag::new(&["x", &format!("{}", hash)]));

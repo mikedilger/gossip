@@ -2,8 +2,8 @@ use crate::comms::ToOverlordMessage;
 use crate::globals::GLOBALS;
 use crate::{Error, ErrorKind};
 use nostr_types::{
-    ContentEncryptionAlgorithm, Event, EventKind, PreEvent, PrivateKey, PublicKey, RelayUrl, Tag,
-    Unixtime,
+    ContentEncryptionAlgorithm, Event, EventKind, ParsedTag, PreEvent, PrivateKey, PublicKey,
+    RelayUrl, Tag, Unixtime,
 };
 use serde::Deserialize;
 use speedy::{Readable, Writable};
@@ -418,7 +418,12 @@ fn send_response(
         pubkey: public_key,
         created_at: Unixtime::now(),
         kind: EventKind::NostrConnect,
-        tags: vec![Tag::new_pubkey(peer_pubkey, None, None)],
+        tags: vec![ParsedTag::Pubkey {
+            pubkey: peer_pubkey,
+            recommended_relay_url: None,
+            petname: None,
+        }
+        .into_tag()],
         content: e,
     };
 

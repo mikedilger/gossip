@@ -1,8 +1,8 @@
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use nostr_types::{
-    ContentEncryptionAlgorithm, Event, EventKind, EventReference, Id, PreEvent, RelayUrl, Tag,
-    Unixtime,
+    ContentEncryptionAlgorithm, Event, EventKind, EventReference, Id, ParsedTag, PreEvent,
+    RelayUrl, Tag, Unixtime,
 };
 use std::collections::BTreeMap;
 
@@ -103,13 +103,18 @@ impl BookmarkList {
 
         let er_to_tag = |er: &EventReference| -> Tag {
             match er {
-                EventReference::Id { id, relays, .. } => Tag::new_event(
-                    *id,
-                    relays.first().map(|r| r.to_unchecked_url()),
-                    None,
-                    er.author(),
-                ),
-                EventReference::Addr(ea) => Tag::new_address(ea, None),
+                EventReference::Id { id, relays, .. } => ParsedTag::Event {
+                    id: *id,
+                    recommended_relay_url: relays.first().map(|r| r.to_unchecked_url()),
+                    marker: None,
+                    author_pubkey: er.author(),
+                }
+                .into_tag(),
+                EventReference::Addr(ea) => ParsedTag::Address {
+                    address: ea.clone(),
+                    marker: None,
+                }
+                .into_tag(),
             }
         };
 

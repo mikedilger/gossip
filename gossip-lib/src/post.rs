@@ -5,8 +5,8 @@ use crate::relay;
 use crate::relay::Relay;
 use nostr_types::{
     ContentEncryptionAlgorithm, ContentSegment, Event, EventKind, EventReference, FileMetadata, Id,
-    NAddr, NostrBech32, PreEvent, PublicKey, RelayUrl, ShatteredContent, Tag, UncheckedUrl,
-    Unixtime, Url,
+    NAddr, NostrBech32, ParsedTag, PreEvent, PublicKey, RelayUrl, ShatteredContent, Tag,
+    UncheckedUrl, Unixtime, Url,
 };
 use std::sync::mpsc;
 use std::time::Duration;
@@ -79,10 +79,12 @@ pub fn prepare_post_nip04(
             .identity
             .encrypt(&recipient, &content, ContentEncryptionAlgorithm::Nip04)?;
 
-    let mut tags = vec![Tag::new_pubkey(
-        recipient, None, // FIXME
-        None,
-    )];
+    let mut tags = vec![ParsedTag::Pubkey {
+        pubkey: recipient,
+        recommended_relay_url: None, // FIXME,
+        petname: None,
+    }
+    .into_tag()];
     if annotation {
         tags.push(Tag::new(&["annotation"]))
     }
@@ -238,10 +240,10 @@ async fn add_tags_mirroring_content(content: &str, tags: &mut Vec<Tag>, direct_m
         let hashtag_lower = hashtag.to_lowercase();
 
         if hashtag == hashtag_lower {
-            tags.push(Tag::new_hashtag(hashtag));
+            tags.push(ParsedTag::Hashtag(hashtag).into_tag());
         } else {
-            tags.push(Tag::new_hashtag(hashtag));
-            tags.push(Tag::new_hashtag(hashtag_lower));
+            tags.push(ParsedTag::Hashtag(hashtag).into_tag());
+            tags.push(ParsedTag::Hashtag(hashtag_lower).into_tag());
         }
     }
 }

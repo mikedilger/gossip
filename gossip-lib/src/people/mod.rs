@@ -10,8 +10,8 @@ use crate::storage::{PersonTable, Table};
 use dashmap::{DashMap, DashSet};
 use image::RgbaImage;
 use nostr_types::{
-    ContentEncryptionAlgorithm, Event, EventKind, Metadata, PreEvent, PublicKey, RelayUrl, Tag,
-    UncheckedUrl, Unixtime, Url,
+    ContentEncryptionAlgorithm, Event, EventKind, Metadata, ParsedTag, PreEvent, PublicKey,
+    RelayUrl, Tag, UncheckedUrl, Unixtime, Url,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -596,10 +596,10 @@ impl People {
         // If FollowSets
         if matches!(person_list, PersonList::Custom(_)) {
             // Add d-tag
-            public_tags.push(Tag::new_identifier(metadata.dtag.clone()));
+            public_tags.push(ParsedTag::Identifier(metadata.dtag.clone()).into_tag());
 
             // Add title if using FollowSets
-            let title = Tag::new_title(metadata.title.clone());
+            let title = ParsedTag::Title(metadata.title.clone()).into_tag();
 
             if *metadata.private {
                 private_tags.push(title);
@@ -671,7 +671,12 @@ impl People {
                 }
             };
 
-            let tag = Tag::new_pubkey(*pubkey, recommended_relay_url, petname);
+            let tag = ParsedTag::Pubkey {
+                pubkey: *pubkey,
+                recommended_relay_url,
+                petname: petname,
+            }
+            .into_tag();
             if *private {
                 private_tags.push(tag);
             } else {

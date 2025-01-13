@@ -1,7 +1,7 @@
 use gossip_lib::{Error, ErrorKind, PersonList, PersonListMetadata, PersonTable, Table, GLOBALS};
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventKind, Filter, Id, NAddr, NostrBech32, NostrUrl, PreEvent,
-    PrivateKey, PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime,
+    EncryptedPrivateKey, Event, EventKind, Filter, Id, NAddr, NostrBech32, NostrUrl, ParsedTag,
+    PreEvent, PrivateKey, PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime,
 };
 use std::collections::HashSet;
 use std::env;
@@ -662,7 +662,15 @@ pub fn delete_spam_by_content(cmd: Command, mut args: env::Args) -> Result<(), E
     // Build up a single deletion event
     let mut tags: Vec<Tag> = Vec::new();
     for id in target_ids {
-        tags.push(Tag::new_event(id, None, None, Some(public_key)));
+        tags.push(
+            ParsedTag::Event {
+                id,
+                recommended_relay_url: None,
+                marker: None,
+                author_pubkey: Some(public_key),
+            }
+            .into_tag(),
+        );
     }
     let event = {
         let pre_event = PreEvent {
