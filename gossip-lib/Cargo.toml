@@ -59,7 +59,7 @@ linkify = "0.10"
 memmap2 = "0.9"
 mime = "0.3"
 mime_guess = "2"
-nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "63fafc5e0a178a573fc67f333c1d6be5fdc5c858", features = [ "speedy" ] }
+nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "7aca4b3b927e3b6ada5bef82bab59f7a4fc1bbda", features = [ "speedy" ] }
 parking_lot = { version = "0.12", features = [ "arc_lock", "send_guard" ] }
 paste = "1.0"
 rand = "0.8"
