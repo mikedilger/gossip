@@ -7,7 +7,8 @@ use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::FeedKind;
 use gossip_lib::GLOBALS;
 use nostr_types::{
-    ContentSegment, FileMetadata, Id, IdHex, NAddr, NostrBech32, PublicKey, RelayUrl, Span,
+    ContentSegment, FileMetadata, Id, IdHex, NAddr, NostrBech32, ParsedTag, PublicKey, RelayUrl,
+    Span,
 };
 use std::{
     cell::{Ref, RefCell},
@@ -138,44 +139,52 @@ pub(super) fn render_content(
                 }
                 ContentSegment::TagReference(num) => {
                     if let Some(tag) = note.event.tags.get(*num) {
-                        if let Ok((pubkey, _, _)) = tag.parse_pubkey() {
-                            render_profile_link(app, ui, &pubkey);
-                        } else if let Ok((id, _, _, _)) = tag.parse_event() {
-                            let mut render_link = true;
-                            if read_setting!(show_mentions) {
-                                match note.repost {
-                                    Some(RepostType::MentionOnly)
-                                    | Some(RepostType::CommentMention)
-                                    | Some(RepostType::Kind6Mention) => {
-                                        for (i, cached_id) in note.mentions.iter() {
-                                            if *i == *num {
-                                                if let Some(note_data) =
-                                                    app.notecache.try_update_and_get(cached_id)
-                                                {
-                                                    // TODO block additional repost recursion
-                                                    super::render_repost(
-                                                        app,
-                                                        ui,
-                                                        &note.repost,
-                                                        note_data,
-                                                        content_inner_margin,
-                                                        bottom_of_avatar,
-                                                    );
-                                                    render_link = false;
+                        if let Ok(parsed) = tag.parse() {
+                            match parsed {
+                                ParsedTag::Pubkey { pubkey, .. } => {
+                                    render_profile_link(app, ui, &pubkey);
+                                }
+                                ParsedTag::Event { id, .. } => {
+                                    let mut render_link = true;
+                                    if read_setting!(show_mentions) {
+                                        match note.repost {
+                                            Some(RepostType::MentionOnly)
+                                            | Some(RepostType::CommentMention)
+                                            | Some(RepostType::Kind6Mention) => {
+                                                for (i, cached_id) in note.mentions.iter() {
+                                                    if *i == *num {
+                                                        if let Some(note_data) = app
+                                                            .notecache
+                                                            .try_update_and_get(cached_id)
+                                                        {
+                                                            // TODO block additional repost recursion
+                                                            super::render_repost(
+                                                                app,
+                                                                ui,
+                                                                &note.repost,
+                                                                note_data,
+                                                                content_inner_margin,
+                                                                bottom_of_avatar,
+                                                            );
+                                                            render_link = false;
+                                                        }
+                                                    }
                                                 }
                                             }
+                                            _ => (),
                                         }
                                     }
-                                    _ => (),
+                                    if render_link {
+                                        render_event_link(app, ui, note.event.id, id);
+                                    }
+                                }
+                                ParsedTag::Hashtag(hashtag) => {
+                                    render_hashtag(ui, &hashtag);
+                                }
+                                _ => {
+                                    render_unknown_reference(ui, *num);
                                 }
                             }
-                            if render_link {
-                                render_event_link(app, ui, note.event.id, id);
-                            }
-                        } else if let Ok(hashtag) = tag.parse_hashtag() {
-                            render_hashtag(ui, &hashtag);
-                        } else {
-                            render_unknown_reference(ui, *num);
                         }
                     }
                 }

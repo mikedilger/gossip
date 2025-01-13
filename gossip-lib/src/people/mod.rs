@@ -994,7 +994,7 @@ pub fn hash_person_list_event(list: PersonList) -> Result<u64, Error> {
 
         // Collect public entries
         for tag in &event.tags {
-            if let Ok((pubkey, _, _)) = tag.parse_pubkey() {
+            if let Ok(ParsedTag::Pubkey { pubkey, .. }) = tag.parse() {
                 map.insert(pubkey, metadata.private);
             }
         }
@@ -1005,7 +1005,7 @@ pub fn hash_person_list_event(list: PersonList) -> Result<u64, Error> {
                 let decrypted_content = GLOBALS.identity.decrypt(&my_pubkey, &event.content)?;
                 let tags: Vec<Tag> = serde_json::from_str(&decrypted_content)?;
                 for tag in &tags {
-                    if let Ok((pubkey, _, _)) = tag.parse_pubkey() {
+                    if let Ok(ParsedTag::Pubkey { pubkey, .. }) = tag.parse() {
                         map.insert(pubkey, Private(true));
                     }
                 }

@@ -2444,7 +2444,7 @@ impl Overlord {
                         .db()
                         .find_events_by_filter(&filter, |event| {
                             event.tags.iter().any(|tag| {
-                                if let Ok(d) = tag.parse_identifier() {
+                                if let Ok(ParsedTag::Identifier(d)) = tag.parse() {
                                     if d == ea.d {
                                         return true;
                                     }
@@ -3537,7 +3537,12 @@ impl Overlord {
 
         // Public entries
         for tag in &event.tags {
-            if let Ok((pubkey, rurl, petname)) = tag.parse_pubkey() {
+            if let Ok(ParsedTag::Pubkey {
+                pubkey,
+                recommended_relay_url: rurl,
+                petname,
+            }) = tag.parse()
+            {
                 // If our list is marked private, move these public entries to private ones
                 let private = metadata.private;
 
@@ -3552,7 +3557,7 @@ impl Overlord {
                 }
             }
 
-            if let Ok(title) = tag.parse_title() {
+            if let Ok(ParsedTag::Title(title)) = tag.parse() {
                 metadata.title = title.to_owned();
             }
         }
@@ -3565,11 +3570,11 @@ impl Overlord {
                 let tags: Vec<Tag> = serde_json::from_str(&decrypted_content)?;
 
                 for tag in &tags {
-                    if let Ok((pubkey, _, _)) = tag.parse_pubkey() {
+                    if let Ok(ParsedTag::Pubkey { pubkey, .. }) = tag.parse() {
                         // Save the pubkey
                         entries.push((pubkey.to_owned(), Private(true)));
                     }
-                    if let Ok(title) = tag.parse_title() {
+                    if let Ok(ParsedTag::Title(title)) = tag.parse() {
                         metadata.title = title.to_owned();
                     }
                 }

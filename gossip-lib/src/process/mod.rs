@@ -8,7 +8,7 @@ use crate::storage::{PersonTable, Table};
 use crate::Relay;
 use heed::RwTxn;
 use nostr_types::{
-    Event, EventKind, EventReference, Filter, Id, NAddr, NostrBech32, RelayUrl, Unixtime,
+    Event, EventKind, EventReference, Filter, Id, NAddr, NostrBech32, ParsedTag, RelayUrl, Unixtime,
 };
 use std::sync::atomic::Ordering;
 
@@ -222,28 +222,36 @@ pub fn process_new_event(
     // Create referenced relays and people, and update person_relay associations
     if seen_on.is_some() {
         for tag in event.tags.iter() {
-            if let Ok((_, Some(uurl), _optmarker, _optpubkey)) = tag.parse_event() {
-                if let Ok(url) = RelayUrl::try_from_unchecked_url(&uurl) {
-                    GLOBALS.db().write_relay_if_missing(&url, None)?;
-                }
-            }
-
-            if let Ok((pubkey, maybeurl, _)) = tag.parse_pubkey() {
-                PersonTable::create_record_if_missing(pubkey, None)?;
-
-                if let Some(uncheckedurl) = maybeurl {
-                    if let Ok(url) = RelayUrl::try_from_unchecked_url(&uncheckedurl) {
+            match tag.parse() {
+                Ok(ParsedTag::Event {
+                    recommended_relay_url: Some(rurl),
+                    ..
+                }) => {
+                    if let Ok(url) = RelayUrl::try_from_unchecked_url(&rurl) {
                         GLOBALS.db().write_relay_if_missing(&url, None)?;
-
-                        // upsert person_relay.last_suggested
-                        GLOBALS.db().modify_person_relay(
-                            pubkey,
-                            &url,
-                            |pr| pr.last_suggested = Some(now.0 as u64),
-                            None,
-                        )?;
                     }
                 }
+                Ok(ParsedTag::Pubkey {
+                    pubkey,
+                    recommended_relay_url: maybeurl,
+                    ..
+                }) => {
+                    PersonTable::create_record_if_missing(pubkey, None)?;
+                    if let Some(uncheckedurl) = maybeurl {
+                        if let Ok(url) = RelayUrl::try_from_unchecked_url(&uncheckedurl) {
+                            GLOBALS.db().write_relay_if_missing(&url, None)?;
+
+                            // upsert person_relay.last_suggested
+                            GLOBALS.db().modify_person_relay(
+                                pubkey,
+                                &url,
+                                |pr| pr.last_suggested = Some(now.0 as u64),
+                                None,
+                            )?;
+                        }
+                    }
+                }
+                _ => continue,
             }
         }
     }
@@ -398,7 +406,7 @@ pub(crate) fn process_relationships_of_event(
     // timestamps
     if event.kind == EventKind::Timestamp {
         for tag in &event.tags {
-            if let Ok((id, _, _, _)) = tag.parse_event() {
+            if let Ok(ParsedTag::Event { id, .. }) = tag.parse() {
                 GLOBALS.db().write_relationship_by_id(
                     id,
                     event.id,
@@ -515,7 +523,7 @@ pub(crate) fn process_relationships_of_event(
         }
 
         for tag in &event.tags {
-            if let Ok((id, _, _, _)) = tag.parse_event() {
+            if let Ok(ParsedTag::Event { id, .. }) = tag.parse() {
                 GLOBALS.db().write_relationship_by_id(
                     id,
                     event.id,
@@ -525,9 +533,9 @@ pub(crate) fn process_relationships_of_event(
                     },
                     Some(txn),
                 )?;
-            } else if let Ok((ea, _marker)) = tag.parse_address() {
+            } else if let Ok(ParsedTag::Address { address, .. }) = tag.parse() {
                 GLOBALS.db().write_relationship_by_addr(
-                    ea,
+                    address,
                     event.id,
                     RelationshipByAddr::Labels {
                         label: label.to_owned(),
@@ -542,7 +550,7 @@ pub(crate) fn process_relationships_of_event(
     // ListMutesThread
     if event.kind == EventKind::MuteList {
         for tag in &event.tags {
-            if let Ok((id, _, _, _)) = tag.parse_event() {
+            if let Ok(ParsedTag::Event { id, .. }) = tag.parse() {
                 GLOBALS.db().write_relationship_by_id(
                     id,
                     event.id,
@@ -556,7 +564,7 @@ pub(crate) fn process_relationships_of_event(
     // ListPins
     if event.kind == EventKind::PinList {
         for tag in &event.tags {
-            if let Ok((id, _, _, _)) = tag.parse_event() {
+            if let Ok(ParsedTag::Event { id, .. }) = tag.parse() {
                 GLOBALS.db().write_relationship_by_id(
                     id,
                     event.id,
@@ -591,9 +599,9 @@ pub(crate) fn process_relationships_of_event(
 
     if event.kind == EventKind::LiveChatMessage {
         for tag in &event.tags {
-            if let Ok((ea, _marker)) = tag.parse_address() {
+            if let Ok(ParsedTag::Address { address, .. }) = tag.parse() {
                 GLOBALS.db().write_relationship_by_addr(
-                    ea,
+                    address,
                     event.id,
                     RelationshipByAddr::ChatsWithin,
                     Some(txn),
@@ -604,9 +612,9 @@ pub(crate) fn process_relationships_of_event(
 
     if event.kind == EventKind::BadgeAward {
         for tag in &event.tags {
-            if let Ok((ea, _marker)) = tag.parse_address() {
+            if let Ok(ParsedTag::Address { address, .. }) = tag.parse() {
                 GLOBALS.db().write_relationship_by_addr(
-                    ea,
+                    address,
                     event.id,
                     RelationshipByAddr::AwardsBadge,
                     Some(txn),
@@ -617,9 +625,9 @@ pub(crate) fn process_relationships_of_event(
 
     if event.kind == EventKind::HandlerRecommendation {
         for tag in &event.tags {
-            if let Ok((ea, _marker)) = tag.parse_address() {
+            if let Ok(ParsedTag::Address { address, .. }) = tag.parse() {
                 GLOBALS.db().write_relationship_by_addr(
-                    ea,
+                    address,
                     event.id,
                     RelationshipByAddr::RecommendsHandler,
                     Some(txn),
@@ -630,7 +638,12 @@ pub(crate) fn process_relationships_of_event(
 
     if event.kind == EventKind::Reporting {
         for tag in &event.tags {
-            if let Ok((id, Some(rurl), _, _)) = tag.parse_event() {
+            if let Ok(ParsedTag::Event {
+                id,
+                recommended_relay_url: Some(rurl),
+                ..
+            }) = tag.parse()
+            {
                 let report = &rurl.0;
                 GLOBALS.db().write_relationship_by_id(
                     id,
@@ -674,7 +687,7 @@ pub(crate) fn process_relationships_of_event(
     // JobResult
     if event.kind.is_job_result() {
         for tag in &event.tags {
-            if let Ok((id, _, _, _)) = tag.parse_event() {
+            if let Ok(ParsedTag::Event { id, .. }) = tag.parse() {
                 GLOBALS.db().write_relationship_by_id(
                     id,
                     event.id,

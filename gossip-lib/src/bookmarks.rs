@@ -19,10 +19,14 @@ impl BookmarkList {
 
     fn add_tags(&mut self, tags: &[Tag], private: bool) -> Result<(), Error> {
         for tag in tags.iter() {
-            let bookmark = match tag.tagname() {
-                "e" => {
-                    let (id, opturl, optmarker, optpk) = tag.parse_event()?;
-                    let relays = match opturl {
+            let bookmark = match tag.parse()? {
+                ParsedTag::Event {
+                    id,
+                    recommended_relay_url,
+                    marker,
+                    author_pubkey,
+                } => {
+                    let relays = match recommended_relay_url {
                         Some(url) => match RelayUrl::try_from_unchecked_url(&url) {
                             Ok(rurl) => vec![rurl],
                             Err(_) => vec![],
@@ -31,15 +35,12 @@ impl BookmarkList {
                     };
                     EventReference::Id {
                         id,
-                        author: optpk,
+                        author: author_pubkey,
                         relays,
-                        marker: optmarker,
+                        marker,
                     }
                 }
-                "a" => {
-                    let (addr, _optmarker) = tag.parse_address()?;
-                    EventReference::Addr(addr)
-                }
+                ParsedTag::Address { address, .. } => EventReference::Addr(address),
                 // We don't support other tags (but we have to preserve them)
                 _ => continue,
             };

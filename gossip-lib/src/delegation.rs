@@ -1,6 +1,6 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use nostr_types::{PublicKey, Tag};
+use nostr_types::{ParsedTag, PublicKey, Tag};
 use parking_lot::RwLock;
 
 /// A delegation tag to use when posting events on another's behalf
@@ -24,7 +24,7 @@ impl Delegation {
 
     pub fn get_delegator_pubkey(&self) -> Option<PublicKey> {
         if let Some(tag) = self.get_delegatee_tag() {
-            if let Ok((pubkey, _, _)) = tag.parse_delegation() {
+            if let Ok(ParsedTag::Delegation { pubkey, .. }) = tag.parse() {
                 return Some(pubkey);
             }
         }

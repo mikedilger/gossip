@@ -3,7 +3,7 @@ use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::people::{PersonList, PersonListMetadata};
 use crate::storage::table::Table;
-use nostr_types::{Event, RelayUrl};
+use nostr_types::{Event, ParsedTag, RelayUrl};
 
 // EventKind::Metadata
 pub fn process_metadata(event: &Event) -> Result<(), Error> {
@@ -32,9 +32,9 @@ pub fn process_handler_recommendation(event: &Event) -> Result<(), Error> {
             d = tag.get_index(1).to_owned();
         }
 
-        let (naddr, marker) = match tag.parse_address() {
-            Ok(pair) => pair,
-            Err(_) => continue,
+        let (naddr, marker) = match tag.parse() {
+            Ok(ParsedTag::Address { address, marker }) => (address, marker),
+            _ => continue,
         };
         let marker = match marker {
             Some(m) => m,

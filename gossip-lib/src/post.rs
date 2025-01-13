@@ -333,7 +333,7 @@ fn add_thread_based_tags(
     // Add all the 'p' tags from the note we are replying to (except our own)
     // FIXME: Should we avoid taging people who are muted?
     for tag in &parent.tags {
-        if let Ok((pubkey, _, _)) = tag.parse_pubkey() {
+        if let Ok(ParsedTag::Pubkey { pubkey, .. }) = tag.parse() {
             if pubkey != author {
                 nostr_types::add_pubkey_to_tags(tags, pubkey, None);
             }
@@ -397,7 +397,7 @@ fn add_thread_based_tags(
 
     // Possibly propagate a subject tag
     for tag in &parent.tags {
-        if let Ok(subject) = tag.parse_subject() {
+        if let Ok(ParsedTag::Subject(subject)) = tag.parse() {
             let mut subject = subject.to_owned();
             if !subject.starts_with("Re: ") {
                 subject = format!("Re: {}", subject);
