@@ -1920,8 +1920,29 @@ impl Overlord {
                 }
             }
             None => {
-                crate::post::prepare_post_normal(author, content, tags, in_reply_to, annotation)
-                    .await?
+                if let Some(parent_id) = in_reply_to {
+                    let parent = match GLOBALS.db().read_event(parent_id)? {
+                        Some(e) => e,
+                        None => return Err("Cannot find event we are replying to.".into()),
+                    };
+
+                    if parent.kind == EventKind::TextNote {
+                        crate::post::prepare_post_normal(
+                            author,
+                            content,
+                            tags,
+                            Some(parent),
+                            annotation,
+                        )
+                        .await?
+                    } else {
+                        crate::post::prepare_post_comment(author, content, tags, parent, annotation)
+                            .await?
+                    }
+                } else {
+                    crate::post::prepare_post_normal(author, content, tags, None, annotation)
+                        .await?
+                }
             }
         };
 

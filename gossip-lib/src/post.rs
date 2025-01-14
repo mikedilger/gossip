@@ -15,25 +15,74 @@ pub async fn prepare_post_normal(
     author: PublicKey,
     content: String,
     mut tags: Vec<Tag>,
-    in_reply_to: Option<Id>,
+    in_reply_to: Option<Event>,
     annotation: bool,
 ) -> Result<Vec<(Event, Vec<RelayUrl>)>, Error> {
     add_gossip_tag(&mut tags);
-
-    add_tags_mirroring_content(&content, &mut tags, false).await;
-
-    if let Some(parent_id) = in_reply_to {
-        add_thread_based_tags(author, &mut tags, parent_id)?;
-    }
 
     if annotation {
         tags.push(Tag::new(&["annotation"]))
     }
 
+    if let Some(ref parent) = in_reply_to {
+        add_thread_based_tags(author, &mut tags, parent)?;
+    }
+
+    add_tags_mirroring_content(&content, &mut tags, false).await;
+
     let pre_event = PreEvent {
         pubkey: author,
         created_at: Unixtime::now(),
         kind: EventKind::TextNote,
+        tags,
+        content,
+    };
+
+    let event = {
+        let powint = GLOBALS.db().read_setting_pow();
+        if powint > 0 {
+            let (work_sender, work_receiver) = mpsc::channel();
+            std::thread::spawn(move || {
+                work_logger(work_receiver, powint);
+            });
+            GLOBALS
+                .identity
+                .sign_event_with_pow(pre_event, powint, Some(work_sender))?
+        } else {
+            GLOBALS.identity.sign_event(pre_event)?
+        }
+    };
+
+    let relays = relay::relays_to_post_to(&event)?;
+
+    Ok(vec![(event, relays)])
+}
+
+pub async fn prepare_post_comment(
+    author: PublicKey,
+    content: String,
+    mut tags: Vec<Tag>,
+    parent: Event,
+    annotation: bool,
+) -> Result<Vec<(Event, Vec<RelayUrl>)>, Error> {
+    add_gossip_tag(&mut tags);
+
+    if annotation {
+        tags.push(Tag::new(&["annotation"]))
+    }
+
+    if copy_root_tags(&mut tags, &parent) < 1 {
+        set_parent_as_root_tags(&mut tags, &parent);
+    }
+
+    add_parent_tags(&mut tags, &parent, author);
+
+    add_tags_mirroring_content(&content, &mut tags, false).await;
+
+    let pre_event = PreEvent {
+        pubkey: author,
+        created_at: Unixtime::now(),
+        kind: EventKind::Comment,
         tags,
         content,
     };
@@ -317,14 +366,8 @@ async fn add_imeta_tag(urlstr: &str, mimetype: &str, tags: &mut Vec<Tag>) {
 fn add_thread_based_tags(
     author: PublicKey,
     tags: &mut Vec<Tag>,
-    parent_id: Id,
+    parent: &Event,
 ) -> Result<(), Error> {
-    // Get the event we are replying to
-    let parent = match GLOBALS.db().read_event(parent_id)? {
-        Some(e) => e,
-        None => return Err("Cannot find event we are replying to.".into()),
-    };
-
     // Add a 'p' tag for the author we are replying to (except if it is our own key)
     if parent.pubkey != author {
         nostr_types::add_pubkey_to_tags(tags, parent.pubkey, None);
@@ -370,7 +413,7 @@ fn add_thread_based_tags(
             let ancestor = parent.replies_to();
             if ancestor.is_none() {
                 // parent is the root
-                add_event_to_tags(tags, parent_id, None, Some(parent.pubkey), "root");
+                add_event_to_tags(tags, parent.id, None, Some(parent.pubkey), "root");
             } else {
                 parent_is_root = false;
             }
@@ -379,7 +422,7 @@ fn add_thread_based_tags(
 
     // Add 'reply tags
     let reply_marker = if parent_is_root { "root" } else { "reply" };
-    add_event_to_tags(tags, parent_id, None, Some(parent.pubkey), reply_marker);
+    add_event_to_tags(tags, parent.id, None, Some(parent.pubkey), reply_marker);
     if parent.kind.is_replaceable() {
         // Add an 'a' tag for the note we are replying to
         let d = parent.parameter().unwrap_or("".to_owned());
@@ -445,4 +488,145 @@ fn work_logger(work_receiver: mpsc::Receiver<u8>, powint: u8) {
                 .write(format!("PoW: {work}/{powint}"));
         }
     }
+}
+
+fn copy_root_tags(tags: &mut Vec<Tag>, parent: &Event) -> usize {
+    let mut root_tag_count: usize = 0;
+    // Copy root tags (E, A, K, P) from the parent event
+    for tag in &parent.tags {
+        match tag.parse() {
+            Ok(ParsedTag::RootEvent { .. })
+            | Ok(ParsedTag::RootAddress { .. })
+            | Ok(ParsedTag::RootKind { .. })
+            | Ok(ParsedTag::RootPubkey { .. }) => {
+                root_tag_count += 1;
+                tags.push(tag.clone());
+            }
+            _ => {}
+        }
+    }
+
+    root_tag_count
+}
+
+fn add_parent_tags(tags: &mut Vec<Tag>, parent: &Event, author: PublicKey) {
+    let relay_hint = relay::recommended_relay_hint(parent.id)
+        .ok()
+        .flatten()
+        .map(|rr| rr.to_unchecked_url());
+
+    // k
+    tags.push(ParsedTag::Kind(parent.kind).into_tag());
+
+    // a
+    if parent.kind.is_replaceable() {
+        tags.push(
+            ParsedTag::Address {
+                address: NAddr {
+                    d: parent.parameter().unwrap_or(String::new()),
+                    relays: match relay_hint {
+                        Some(ref h) => vec![h.clone()],
+                        None => vec![],
+                    },
+                    kind: parent.kind,
+                    author: parent.pubkey,
+                },
+                marker: None,
+            }
+            .into_tag(),
+        );
+    }
+
+    // e
+    tags.push(
+        ParsedTag::Event {
+            id: parent.id,
+            recommended_relay_url: relay_hint.clone(),
+            marker: None,
+            author_pubkey: Some(parent.pubkey),
+        }
+        .into_tag(),
+    );
+
+    // p
+    tags.push(
+        ParsedTag::Pubkey {
+            pubkey: parent.pubkey,
+            recommended_relay_url: relay_hint.clone(),
+            petname: None,
+        }
+        .into_tag(),
+    );
+
+    // Copy all 'p' tags from parent except our own pubkey
+    // FIXME: Should we avoid taging people who are muted?
+    for tag in &parent.tags {
+        if let Ok(ParsedTag::Pubkey { pubkey, .. }) = tag.parse() {
+            if pubkey != author {
+                nostr_types::add_pubkey_to_tags(tags, pubkey, None);
+            }
+        }
+    }
+
+    // Possibly propagate a subject tag
+    for tag in &parent.tags {
+        if let Ok(ParsedTag::Subject(subject)) = tag.parse() {
+            let mut subject = subject.to_owned();
+            if !subject.starts_with("Re: ") {
+                subject = format!("Re: {}", subject);
+            }
+            subject = subject.chars().take(80).collect();
+            nostr_types::add_subject_to_tags_if_missing(tags, subject);
+        }
+    }
+}
+
+fn set_parent_as_root_tags(tags: &mut Vec<Tag>, parent: &Event) {
+    let relay_hint = relay::recommended_relay_hint(parent.id)
+        .ok()
+        .flatten()
+        .map(|rr| rr.to_unchecked_url());
+
+    // k
+    tags.push(ParsedTag::RootKind(parent.kind).into_tag());
+
+    // a
+    if parent.kind.is_replaceable() {
+        tags.push(
+            ParsedTag::RootAddress {
+                address: NAddr {
+                    d: parent.parameter().unwrap_or(String::new()),
+                    relays: match relay_hint {
+                        Some(ref h) => vec![h.clone()],
+                        None => vec![],
+                    },
+                    kind: parent.kind,
+                    author: parent.pubkey,
+                },
+                marker: None,
+            }
+            .into_tag(),
+        );
+    }
+
+    // e
+    tags.push(
+        ParsedTag::RootEvent {
+            id: parent.id,
+            recommended_relay_url: relay_hint.clone(),
+            marker: None,
+            author_pubkey: Some(parent.pubkey),
+        }
+        .into_tag(),
+    );
+
+    // p
+    tags.push(
+        ParsedTag::RootPubkey {
+            pubkey: parent.pubkey,
+            recommended_relay_url: relay_hint.clone(),
+            petname: None,
+        }
+        .into_tag(),
+    );
 }
