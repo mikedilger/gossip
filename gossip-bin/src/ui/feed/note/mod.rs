@@ -928,7 +928,10 @@ pub fn render_note_inside_framing(
                                     if let Some(reaction) = note.our_reaction {
                                         ui.label(RichText::new(reaction).size(16.0));
                                     } else if can_sign {
-                                        let bar_id = ui.id().with("emoji_picker");
+                                        let bar_id = ui.id().with(format!(
+                                            "emoji_picker_{}",
+                                            note.event.id.as_hex_string()
+                                        ));
                                         let mut bar_state =
                                             egui::menu::BarState::load(ui.ctx(), bar_id);
 
