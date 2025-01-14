@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use nostr_types::{
     ContentSegment, Event, EventDelegation, EventKind, EventReference, Id, MilliSatoshi, NAddr,
-    NostrBech32, PublicKey, RelayUrl, ShatteredContent, Unixtime,
+    NostrBech32, ParsedTag, PublicKey, RelayUrl, ShatteredContent, Unixtime,
 };
 
 #[derive(PartialEq)]
@@ -138,7 +138,7 @@ impl NoteData {
         let mentions = {
             let mut mentions = Vec::<(usize, Id)>::new();
             for (i, tag) in event.tags.iter().enumerate() {
-                if let Ok((id, _, _, _)) = tag.parse_event() {
+                if let Ok(ParsedTag::Event { id, .. }) = tag.parse() {
                     mentions.push((i, id));
                 }
             }
