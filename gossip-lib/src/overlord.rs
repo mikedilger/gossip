@@ -2516,16 +2516,39 @@ impl Overlord {
                     if let Some(person) = PersonTable::read_record(prof.pubkey, None)? {
                         people_search_results.push(person);
                     } else {
-                        // Create person from profile
+                        // Create person
+                        PersonTable::create_record_if_missing(prof.pubkey, None)?;
+
+                        let relays: Vec<RelayUrl> = prof
+                            .relays
+                            .iter()
+                            .filter_map(|uu| RelayUrl::try_from_unchecked_url(uu).ok())
+                            .collect();
+
+                        for relay in &relays {
+                            GLOBALS.db().modify_person_relay(
+                                prof.pubkey,
+                                relay,
+                                |pr| {
+                                    pr.last_suggested = Some(Unixtime::now().0 as u64);
+                                },
+                                None,
+                            )?;
+                        }
+
                         // fetch data on person
+                        GLOBALS.people.person_of_interest(prof.pubkey);
                     }
                 }
                 NostrBech32::Pubkey(pk) => {
                     if let Some(person) = PersonTable::read_record(pk, None)? {
                         people_search_results.push(person);
                     } else {
-                        // Create person from pubkey
+                        // Create person
+                        PersonTable::create_record_if_missing(pk, None)?;
+
                         // fetch data on person
+                        GLOBALS.people.person_of_interest(pk);
                     }
                 }
                 NostrBech32::Relay(_relay) => (),
