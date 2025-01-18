@@ -14,9 +14,9 @@ pub(super) fn update(
 ) {
     ui.add_space(10.0);
     if local {
-        ui.heading("Search notes and users in local database");
+        ui.heading("Search notes in local database (and users anywhere)");
     } else {
-        ui.heading("Search notes and users on search relays");
+        ui.heading("Search notes on search relays");
     }
 
     // Warn if there are no search relays configured
