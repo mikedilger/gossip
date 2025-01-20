@@ -2369,6 +2369,8 @@ impl Storage {
     }
 
     /// Get DM events (by id) in a channel
+    ///
+    /// Events will be in reverse time order
     pub fn dm_events(&self, channel: &DmChannel) -> Result<Vec<Id>, Error> {
         let my_pubkey = match GLOBALS.identity.public_key() {
             Some(pk) => pk,
@@ -2386,7 +2388,7 @@ impl Storage {
             }
         })?;
 
-        // Sort by rumor's time, not giftwrap's time
+        // Sort by rumor's time reversed, not giftwrap's time
         let mut sortable: Vec<(Unixtime, Event)> = output
             .drain(..)
             .map(|e| {
@@ -2402,7 +2404,10 @@ impl Storage {
             })
             .collect();
 
-        sortable.sort();
+        sortable.sort_by(|a, b| {
+            b.0.cmp(&a.0)
+                .then(b.1.id.cmp(&a.1.id))
+        });
 
         Ok(sortable.iter().map(|(_, e)| e.id).collect())
     }
