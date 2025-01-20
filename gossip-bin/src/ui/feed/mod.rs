@@ -636,17 +636,17 @@ fn recompute_btn(app: &mut GossipUi, ui: &mut Ui) {
         ui.label(" "); // consume the same vertical space
     }
 
-    let in_my_notes = {
-        let mut in_my_notes: bool = false;
+    let update_immediately = {
+        let mut update_immediately: bool = matches!(GLOBALS.feed.get_feed_kind(), FeedKind::DmChat(_));
         if let Some(pubkey) = GLOBALS.identity.public_key() {
-            in_my_notes = GLOBALS.feed.get_feed_kind() == FeedKind::Person(pubkey);
+            update_immediately |= GLOBALS.feed.get_feed_kind() == FeedKind::Person(pubkey);
         }
-        in_my_notes
+        update_immediately
     };
 
     let feed_hash = GLOBALS.feed.get_feed_hash();
     if feed_hash != app.displayed_feed_hash {
-        if app.displayed_feed.is_empty() || in_my_notes || ui.link("Show New Updates").clicked() {
+        if app.displayed_feed.is_empty() || update_immediately || ui.link("Show New Updates").clicked() {
             app.displayed_feed = GLOBALS.feed.get_feed_events();
             app.displayed_feed_hash = feed_hash;
         }
