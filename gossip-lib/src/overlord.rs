@@ -222,7 +222,7 @@ impl Overlord {
         tokio::pin!(minion_task_interval);
 
         'mainloop: loop {
-            tracing::debug!("overlord looping");
+            tracing::trace!("overlord looping");
 
             // Listen on inbox, runstate, and exiting minions
             tokio::select! {
