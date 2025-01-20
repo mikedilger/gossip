@@ -674,7 +674,7 @@ impl People {
             let tag = ParsedTag::Pubkey {
                 pubkey: *pubkey,
                 recommended_relay_url,
-                petname: petname,
+                petname,
             }
             .into_tag();
             if *private {

@@ -525,7 +525,7 @@ fn add_parent_tags(tags: &mut Vec<Tag>, parent: &Event, author: PublicKey) {
         tags.push(
             ParsedTag::Address {
                 address: NAddr {
-                    d: parent.parameter().unwrap_or(String::new()),
+                    d: parent.parameter().unwrap_or_default(),
                     relays: match relay_hint {
                         Some(ref h) => vec![h.clone()],
                         None => vec![],
@@ -597,7 +597,7 @@ fn set_parent_as_root_tags(tags: &mut Vec<Tag>, parent: &Event) {
         tags.push(
             ParsedTag::RootAddress {
                 address: NAddr {
-                    d: parent.parameter().unwrap_or(String::new()),
+                    d: parent.parameter().unwrap_or_default(),
                     relays: match relay_hint {
                         Some(ref h) => vec![h.clone()],
                         None => vec![],
