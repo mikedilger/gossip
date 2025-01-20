@@ -793,6 +793,15 @@ pub fn render_note_inside_framing(
                                         app.show_post_area = true;
 
                                         app.draft_data.replying_to = Some(note.event.id);
+                                        if let Some(subject) = note.event.subject() {
+                                            let mut subject = subject.to_owned();
+                                            if !subject.starts_with("Re: ") {
+                                                subject = format!("Re: {}", subject);
+                                            }
+                                            subject = subject.chars().take(80).collect();
+                                            app.draft_data.subject = subject;
+                                            app.draft_data.include_subject = true;
+                                        }
                                     }
                                 };
 

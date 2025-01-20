@@ -441,12 +441,14 @@ fn add_thread_based_tags(
     // Possibly propagate a subject tag
     for tag in &parent.tags {
         if let Ok(ParsedTag::Subject(subject)) = tag.parse() {
-            let mut subject = subject.to_owned();
-            if !subject.starts_with("Re: ") {
-                subject = format!("Re: {}", subject);
+            if !tags.iter().any(|t| t.tagname() == "subject") {
+                let mut subject = subject.to_owned();
+                if !subject.starts_with("Re: ") {
+                    subject = format!("Re: {}", subject);
+                }
+                subject = subject.chars().take(80).collect();
+                tags.push(ParsedTag::Subject(subject).into_tag());
             }
-            subject = subject.chars().take(80).collect();
-            nostr_types::add_subject_to_tags_if_missing(tags, subject);
         }
     }
 

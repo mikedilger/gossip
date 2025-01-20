@@ -486,7 +486,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                     ui.fonts(|f| f.layout_job(layout_job))
                 };
 
-                if app.draft_data.include_subject && app.draft_data.replying_to.is_none() {
+                if app.draft_data.include_subject {
                     ui.horizontal(|ui| {
                         ui.label("Subject: ");
                         ui.add(
@@ -638,7 +638,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                             app.draft_data.subject = "".to_owned();
                         }),
                     )));
-                } else if app.draft_data.replying_to.is_none() {
+                } else {
                     items.push(MoreMenuItem::Button(MoreMenuButton::new(
                         "Add Subject",
                         Box::new(|_, app| {
