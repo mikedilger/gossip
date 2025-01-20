@@ -766,7 +766,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
         let mut tags: Vec<Tag> = Vec::new();
         if app.draft_data.include_content_warning {
             tags.push(
-                ParsedTag::ContentWarning(Some(app.dm_draft_data.content_warning.clone()))
+                ParsedTag::ContentWarning(Some(app.draft_data.content_warning.clone()))
                     .into_tag(),
             );
         }
@@ -774,7 +774,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
             tags.push(delegatee_tag);
         }
         if app.draft_data.include_subject {
-            tags.push(ParsedTag::Subject(app.dm_draft_data.subject.clone()).into_tag());
+            tags.push(ParsedTag::Subject(app.draft_data.subject.clone()).into_tag());
         }
         match app.draft_data.replying_to {
             Some(replying_to_id) => {
