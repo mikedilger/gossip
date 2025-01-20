@@ -294,7 +294,7 @@ fn dm_posting_area(
         let response = widgets::options_menu_button(ui, &app.theme, &app.assets);
         let menu =
             widgets::MoreMenu::bubble(ui.next_auto_id(), vec2(190.0, 40.0), vec2(190.0, 40.0))
-                .place_above(!read_setting!(posting_area_at_top));
+                .place_above(!read_setting!(dm_posting_area_at_top));
 
         let mut items: Vec<MoreMenuItem> = Vec::new();
         if app.dm_draft_data.include_subject {
@@ -766,8 +766,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
         let mut tags: Vec<Tag> = Vec::new();
         if app.draft_data.include_content_warning {
             tags.push(
-                ParsedTag::ContentWarning(Some(app.draft_data.content_warning.clone()))
-                    .into_tag(),
+                ParsedTag::ContentWarning(Some(app.draft_data.content_warning.clone())).into_tag(),
             );
         }
         if let Some(delegatee_tag) = GLOBALS.delegation.get_delegatee_tag() {

@@ -2318,7 +2318,13 @@ impl eframe::App for GossipUi {
         self.side_panel(ctx);
 
         let (show_top_post_area, show_bottom_post_area) = if self.show_post_area_fn() {
-            if read_setting!(posting_area_at_top) {
+            let posting_area_at_top = if matches!(self.page, Page::Feed(FeedKind::DmChat(_))) {
+                read_setting!(dm_posting_area_at_top)
+            } else {
+                read_setting!(posting_area_at_top)
+            };
+
+            if posting_area_at_top {
                 (true, false)
             } else {
                 (false, true)

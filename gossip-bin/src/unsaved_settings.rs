@@ -95,6 +95,8 @@ pub struct UnsavedSettings {
     pub highlight_unread_events: bool,
     pub feed_newest_at_bottom: bool,
     pub posting_area_at_top: bool,
+    pub dm_feed_newest_at_bottom: bool,
+    pub dm_posting_area_at_top: bool,
     pub status_bar: bool,
     pub image_resize_algorithm: String,
     pub inertial_scrolling: bool,
@@ -189,6 +191,8 @@ impl Default for UnsavedSettings {
             highlight_unread_events: default_setting!(highlight_unread_events),
             feed_newest_at_bottom: default_setting!(feed_newest_at_bottom),
             posting_area_at_top: default_setting!(posting_area_at_top),
+            dm_feed_newest_at_bottom: default_setting!(dm_feed_newest_at_bottom),
+            dm_posting_area_at_top: default_setting!(dm_posting_area_at_top),
             status_bar: default_setting!(status_bar),
             image_resize_algorithm: default_setting!(image_resize_algorithm),
             inertial_scrolling: default_setting!(inertial_scrolling),
@@ -281,6 +285,8 @@ impl UnsavedSettings {
             highlight_unread_events: load_setting!(highlight_unread_events),
             feed_newest_at_bottom: load_setting!(feed_newest_at_bottom),
             posting_area_at_top: load_setting!(posting_area_at_top),
+            dm_feed_newest_at_bottom: load_setting!(dm_feed_newest_at_bottom),
+            dm_posting_area_at_top: load_setting!(dm_posting_area_at_top),
             status_bar: load_setting!(status_bar),
             image_resize_algorithm: load_setting!(image_resize_algorithm),
             inertial_scrolling: load_setting!(inertial_scrolling),
@@ -367,6 +373,8 @@ impl UnsavedSettings {
         save_setting!(highlight_unread_events, self, txn);
         save_setting!(feed_newest_at_bottom, self, txn);
         save_setting!(posting_area_at_top, self, txn);
+        save_setting!(dm_feed_newest_at_bottom, self, txn);
+        save_setting!(dm_posting_area_at_top, self, txn);
         save_setting!(status_bar, self, txn);
         save_setting!(image_resize_algorithm, self, txn);
         save_setting!(inertial_scrolling, self, txn);

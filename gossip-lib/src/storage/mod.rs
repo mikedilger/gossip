@@ -687,8 +687,22 @@ impl Storage {
         bool,
         true
     );
+
     def_setting!(feed_newest_at_bottom, b"feed_newest_at_bottom", bool, false);
     def_setting!(posting_area_at_top, b"posting_area_at_top", bool, true);
+    def_setting!(
+        dm_feed_newest_at_bottom,
+        b"dm_feed_newest_at_bottom",
+        bool,
+        true
+    );
+    def_setting!(
+        dm_posting_area_at_top,
+        b"dm_posting_area_at_top",
+        bool,
+        false
+    );
+
     def_setting!(status_bar, b"status_bar", bool, false);
     def_setting!(
         image_resize_algorithm,
@@ -2404,10 +2418,7 @@ impl Storage {
             })
             .collect();
 
-        sortable.sort_by(|a, b| {
-            b.0.cmp(&a.0)
-                .then(b.1.id.cmp(&a.1.id))
-        });
+        sortable.sort_by(|a, b| b.0.cmp(&a.0).then(b.1.id.cmp(&a.1.id)));
 
         Ok(sortable.iter().map(|(_, e)| e.id).collect())
     }

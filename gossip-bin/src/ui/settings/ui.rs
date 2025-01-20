@@ -14,19 +14,34 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         );
         reset_button!(app, ui, highlight_unread_events);
     });
+
+    ui.horizontal(|ui| {
+        ui.checkbox(
+            &mut app.unsaved_settings.feed_newest_at_bottom,
+            "Order feed with newest at bottom (else top)",
+        );
+        reset_button!(app, ui, feed_newest_at_bottom);
+    });
     ui.horizontal(|ui| {
         ui.checkbox(
             &mut app.unsaved_settings.posting_area_at_top,
-            "Show posting area at the top instead of the bottom",
+            "Show posting area at the top (else bottom)",
         );
         reset_button!(app, ui, posting_area_at_top);
     });
     ui.horizontal(|ui| {
         ui.checkbox(
-            &mut app.unsaved_settings.feed_newest_at_bottom,
-            "Order feed with newest at bottom (instead of top)",
+            &mut app.unsaved_settings.dm_feed_newest_at_bottom,
+            "Order DM feed with newest at bottom (else top)",
         );
-        reset_button!(app, ui, feed_newest_at_bottom);
+        reset_button!(app, ui, dm_feed_newest_at_bottom);
+    });
+    ui.horizontal(|ui| {
+        ui.checkbox(
+            &mut app.unsaved_settings.dm_posting_area_at_top,
+            "Show DM posting area at the top (else bottom)",
+        );
+        reset_button!(app, ui, dm_posting_area_at_top);
     });
 
     ui.add_space(20.0);

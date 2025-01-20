@@ -447,7 +447,7 @@ fn render_a_feed(
 fn render_dm_feed(app: &mut GossipUi, ui: &mut Ui, channel: DmChannel) {
     let feed = app.displayed_feed.clone();
     let scroll_area_id = channel.name();
-    let feed_newest_at_bottom = GLOBALS.db().read_setting_feed_newest_at_bottom();
+    let feed_newest_at_bottom = GLOBALS.db().read_setting_dm_feed_newest_at_bottom();
     let iterator: Box<dyn Iterator<Item = &Id>> = if feed_newest_at_bottom {
         Box::new(feed.iter().rev())
     } else {
@@ -637,7 +637,8 @@ fn recompute_btn(app: &mut GossipUi, ui: &mut Ui) {
     }
 
     let update_immediately = {
-        let mut update_immediately: bool = matches!(GLOBALS.feed.get_feed_kind(), FeedKind::DmChat(_));
+        let mut update_immediately: bool =
+            matches!(GLOBALS.feed.get_feed_kind(), FeedKind::DmChat(_));
         if let Some(pubkey) = GLOBALS.identity.public_key() {
             update_immediately |= GLOBALS.feed.get_feed_kind() == FeedKind::Person(pubkey);
         }
@@ -646,7 +647,10 @@ fn recompute_btn(app: &mut GossipUi, ui: &mut Ui) {
 
     let feed_hash = GLOBALS.feed.get_feed_hash();
     if feed_hash != app.displayed_feed_hash {
-        if app.displayed_feed.is_empty() || update_immediately || ui.link("Show New Updates").clicked() {
+        if app.displayed_feed.is_empty()
+            || update_immediately
+            || ui.link("Show New Updates").clicked()
+        {
             app.displayed_feed = GLOBALS.feed.get_feed_events();
             app.displayed_feed_hash = feed_hash;
         }
