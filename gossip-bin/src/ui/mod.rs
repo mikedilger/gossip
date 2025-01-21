@@ -574,6 +574,7 @@ struct GossipUi {
     //   not authoritative.
     zap_state: ZapState,
     note_being_zapped: Option<Id>,
+    note_showing_zaps: Option<Id>,
     zap_amount_input: u64,
 
     wizard_state: WizardState,
@@ -806,6 +807,7 @@ impl GossipUi {
             last_visible_update: Instant::now(),
             zap_state: ZapState::None,
             note_being_zapped: None,
+            note_showing_zaps: None,
             zap_amount_input: 10,
             wizard_state,
             theme_test: Default::default(),

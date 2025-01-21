@@ -18,7 +18,7 @@ use egui::{
     Align, Context, Frame, Label, Layout, RichText, Sense, Separator, Stroke, TextStyle, Ui,
 };
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::{relay, DmChannel, FeedKind, ZapState, GLOBALS};
+use gossip_lib::{relay, DmChannel, FeedKind, Person, PersonTable, Table, ZapState, GLOBALS};
 use nostr_types::{
     Event, EventDelegation, EventKind, EventReference, IdHex, NAddr, NEvent, NostrUrl, UncheckedUrl,
 };
@@ -923,11 +923,18 @@ pub fn render_note_inside_framing(
                                     }
 
                                     // Show the zap total
-                                    ui.add_enabled(
-                                        can_sign,
-                                        Label::new(format!("{}", note.zaptotal.0 / 1000)),
-                                    )
-                                    .on_hover_cursor(egui::CursorIcon::Default);
+                                    if ui
+                                        .add(Label::new(format!("{}", note.zaptotal.0 / 1000)))
+                                        .on_hover_cursor(egui::CursorIcon::PointingHand)
+                                        .clicked()
+                                    {
+                                        match app.note_showing_zaps {
+                                            Some(id2) if note.event.id == id2 => {
+                                                app.note_showing_zaps = None
+                                            }
+                                            _ => app.note_showing_zaps = Some(note.event.id),
+                                        }
+                                    }
                                 }
 
                                 ui.add_space(24.0);
@@ -1049,25 +1056,63 @@ pub fn render_note_inside_framing(
                             });
 
                             // Below the note zap area
-                            if let Some(zapnoteid) = app.note_being_zapped {
-                                if zapnoteid == note.event.id {
-                                    ui.horizontal_wrapped(|ui| {
-                                        app.render_zap_area(ui);
+                            if app.note_being_zapped == Some(note.event.id) {
+                                ui.horizontal_wrapped(|ui| {
+                                    app.render_zap_area(ui);
+                                });
+                                if ui
+                                    .add(CopyButton::new())
+                                    .on_hover_text("Copy Invoice")
+                                    .clicked()
+                                {
+                                    ui.output_mut(|o| {
+                                        if let ZapState::ReadyToPay(_id, ref invoice) =
+                                            app.zap_state
+                                        {
+                                            o.copied_text = invoice.to_owned();
+                                        }
                                     });
-                                    if ui
-                                        .add(CopyButton::new())
-                                        .on_hover_text("Copy Invoice")
-                                        .clicked()
-                                    {
-                                        ui.output_mut(|o| {
-                                            if let ZapState::ReadyToPay(_id, ref invoice) =
-                                                app.zap_state
-                                            {
-                                                o.copied_text = invoice.to_owned();
-                                            }
-                                        });
-                                    }
                                 }
+                            }
+
+                            // Below the note who-zapped expose
+                            if app.note_showing_zaps == Some(note.event.id) {
+                                ui.add_space(10.0);
+                                ui.horizontal_wrapped(|ui| {
+                                    if let Ok(mut data) = GLOBALS.db().get_zap_data(note.event.id) {
+                                        ui.label("Zappers: ");
+                                        for (pubkey, millisats) in data.drain(..) {
+                                            let avatar = match app.try_get_avatar(ui.ctx(), &pubkey)
+                                            {
+                                                Some(avatar) => avatar,
+                                                None => app.placeholder_avatar.clone(),
+                                            };
+                                            let person =
+                                                match PersonTable::read_record(pubkey, None) {
+                                                    Ok(Some(p)) => p,
+                                                    _ => Person::new(pubkey),
+                                                };
+                                            let response = widgets::paint_avatar_only(
+                                                ui,
+                                                &avatar,
+                                                AvatarSize::Mini.get_size(),
+                                            );
+                                            if response
+                                                .on_hover_ui(|ui| {
+                                                    GLOBALS.people.person_of_interest(pubkey);
+                                                    ui.label(person.best_name());
+                                                })
+                                                .clicked()
+                                            {
+                                                app.set_page(ui.ctx(), Page::Person(pubkey));
+                                            }
+                                            ui.label(format!("{}  ", millisats.0 / 1000));
+                                        }
+                                    }
+                                    if ui.button("close").clicked() {
+                                        app.note_showing_zaps = None;
+                                    }
+                                });
                             }
                         });
 

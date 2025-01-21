@@ -2082,6 +2082,17 @@ impl Storage {
         Ok(total)
     }
 
+    /// Get the zap events zapping a given event
+    pub fn get_zap_data(&self, id: Id) -> Result<Vec<(PublicKey, MilliSatoshi)>, Error> {
+        let mut output: Vec<(PublicKey, MilliSatoshi)> = Vec::new();
+        for (_, rel) in self.find_relationships_by_id(id)? {
+            if let RelationshipById::Zaps { by, amount } = rel {
+                output.push((by, amount));
+            }
+        }
+        Ok(output)
+    }
+
     /// Get whether an event was deleted, and if so the optional reason
     pub fn get_deletions(&self, maybe_deleted_event: &Event) -> Result<Vec<String>, Error> {
         let mut reasons: Vec<String> = Vec::new();
