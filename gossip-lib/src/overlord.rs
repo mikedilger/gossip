@@ -717,8 +717,8 @@ impl Overlord {
             ToOverlordMessage::PostAgain(event) => {
                 self.post_again(event)?;
             }
-            ToOverlordMessage::PostCancel(id) => {
-                self.post_cancel(id);
+            ToOverlordMessage::PostCancel => {
+                self.post_cancel();
             }
             ToOverlordMessage::PostNip46Event(event, relays) => {
                 self.post_nip46_event(event, relays)?;
@@ -1908,11 +1908,9 @@ impl Overlord {
         };
 
         // Prepare events for posting
-        let mut using_giftwraps: bool = false;
         let mut prepared_events = match dm_channel {
             Some(channel) => {
                 if channel.can_use_nip17() {
-                    using_giftwraps = true;
                     crate::post::prepare_post_nip17(author, content, tags, channel, annotation)
                         .await?
                 } else {
@@ -1961,12 +1959,9 @@ impl Overlord {
 
         // Wait in a separate thread
         std::mem::drop(tokio::task::spawn(async move {
-            // Too difficult to 'Undo Send' on the giftwraps
-            if !using_giftwraps {
-                // Wait for a delay
-                let secs = GLOBALS.db().read_setting_undo_send_seconds();
-                tokio::time::sleep(Duration::new(secs, 0)).await;
-            }
+            // Wait for a delay
+            let secs = GLOBALS.db().read_setting_undo_send_seconds();
+            tokio::time::sleep(Duration::new(secs, 0)).await;
 
             for (event, relay_urls) in prepared_events.drain(..) {
                 // Send each event only if it is still there
@@ -2015,11 +2010,13 @@ impl Overlord {
         Ok(())
     }
 
-    pub fn post_cancel(&mut self, id: Id) {
-        GLOBALS.delayed_posts.remove(&id);
-        let _ = GLOBALS.db().delete_event(id, None);
-
-        GLOBALS.ui_notes_to_invalidate.write().push(id);
+    pub fn post_cancel(&mut self) {
+        for refmulti in GLOBALS.delayed_posts.iter( ) {
+            let id = *refmulti;
+            let _ = GLOBALS.db().delete_event(id, None);
+            GLOBALS.ui_notes_to_invalidate.write().push(id);
+        }
+        GLOBALS.delayed_posts.clear();
         GLOBALS.feed.sync_recompute();
     }
 
