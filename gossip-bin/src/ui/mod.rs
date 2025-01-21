@@ -569,6 +569,8 @@ struct GossipUi {
     next_visible_note_ids: Vec<Id>,
     last_visible_update: Instant,
 
+    note_showing_reactions: Option<Id>,
+
     // Zap state, computed once per frame instead of per note
     // zap_state and note_being_zapped are computed from GLOBALS.current_zap and are
     //   not authoritative.
@@ -805,6 +807,7 @@ impl GossipUi {
             visible_note_ids: vec![],
             next_visible_note_ids: vec![],
             last_visible_update: Instant::now(),
+            note_showing_reactions: None,
             zap_state: ZapState::None,
             note_being_zapped: None,
             note_showing_zaps: None,

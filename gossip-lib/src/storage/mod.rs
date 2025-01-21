@@ -2024,6 +2024,17 @@ impl Storage {
             .collect())
     }
 
+    /// Returns the reaction data without processing
+    pub fn get_reactions_raw(&self, id: Id) -> Result<Vec<(PublicKey, String)>, Error> {
+        let mut output: Vec<(PublicKey, String)> = Vec::new();
+        for (_subid, rel) in self.find_relationships_by_id(id)? {
+            if let RelationshipById::ReactsTo { by, reaction } = rel {
+                output.push((by, reaction));
+            }
+        }
+        Ok(output)
+    }
+
     /// Returns the list of reactions and whether or not this account has already reacted to this event
     #[allow(clippy::type_complexity)]
     pub fn get_reactions(&self, id: Id) -> Result<(Vec<(char, usize)>, Option<char>), Error> {

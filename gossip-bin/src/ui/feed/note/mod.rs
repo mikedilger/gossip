@@ -1023,18 +1023,32 @@ pub fn render_note_inside_framing(
                                             },
                                         )
                                         .unwrap_or_default();
+
                                     let reaction_count: usize = note
                                         .reactions
                                         .iter()
                                         .filter_map(|(c, s)| if *c == '+' { None } else { Some(s) })
                                         .sum();
 
-                                    ui.add(
-                                        Label::new(format!("{}+{}", like_count, reaction_count))
+                                    if ui
+                                        .add(
+                                            Label::new(format!(
+                                                "{}+{}",
+                                                like_count, reaction_count
+                                            ))
                                             .sense(Sense::hover()),
-                                    )
-                                    .on_hover_ui(hover_ui)
-                                    .on_disabled_hover_ui(hover_ui);
+                                        )
+                                        .on_hover_ui(hover_ui)
+                                        .on_disabled_hover_ui(hover_ui)
+                                        .clicked()
+                                    {
+                                        match app.note_showing_reactions {
+                                            Some(id2) if note.event.id == id2 => {
+                                                app.note_showing_reactions = None
+                                            }
+                                            _ => app.note_showing_reactions = Some(note.event.id),
+                                        }
+                                    }
                                 }
 
                                 if GLOBALS.delayed_posts.contains(&note.event.id) {
@@ -1055,24 +1069,48 @@ pub fn render_note_inside_framing(
                                 }
                             });
 
-                            // Below the note zap area
-                            if app.note_being_zapped == Some(note.event.id) {
+                            // Below the note reaction detail
+                            if app.note_showing_reactions == Some(note.event.id) {
+                                ui.add_space(10.0);
                                 ui.horizontal_wrapped(|ui| {
-                                    app.render_zap_area(ui);
-                                });
-                                if ui
-                                    .add(CopyButton::new())
-                                    .on_hover_text("Copy Invoice")
-                                    .clicked()
-                                {
-                                    ui.output_mut(|o| {
-                                        if let ZapState::ReadyToPay(_id, ref invoice) =
-                                            app.zap_state
-                                        {
-                                            o.copied_text = invoice.to_owned();
+                                    if let Ok(mut data) =
+                                        GLOBALS.db().get_reactions_raw(note.event.id)
+                                    {
+                                        for (pubkey, reaction) in data.drain(..) {
+                                            let avatar = match app.try_get_avatar(ui.ctx(), &pubkey)
+                                            {
+                                                Some(avatar) => avatar,
+                                                None => app.placeholder_avatar.clone(),
+                                            };
+                                            let person =
+                                                match PersonTable::read_record(pubkey, None) {
+                                                    Ok(Some(p)) => p,
+                                                    _ => Person::new(pubkey),
+                                                };
+                                            let response = widgets::paint_avatar_only(
+                                                ui,
+                                                &avatar,
+                                                AvatarSize::Mini.get_size(),
+                                            );
+                                            if response
+                                                .on_hover_ui(|ui| {
+                                                    GLOBALS.people.person_of_interest(pubkey);
+                                                    ui.label(person.best_name());
+                                                })
+                                                .clicked()
+                                            {
+                                                app.set_page(ui.ctx(), Page::Person(pubkey));
+                                            }
+                                            ui.label(format!("{}  ", reaction));
                                         }
-                                    });
-                                }
+                                    } else {
+                                        ui.label("Cannot load reaction detail.");
+                                    }
+
+                                    if ui.button("close").clicked() {
+                                        app.note_showing_reactions = None;
+                                    }
+                                });
                             }
 
                             // Below the note who-zapped expose
@@ -1113,6 +1151,26 @@ pub fn render_note_inside_framing(
                                         app.note_showing_zaps = None;
                                     }
                                 });
+                            }
+
+                            // Below the note zap area
+                            if app.note_being_zapped == Some(note.event.id) {
+                                ui.horizontal_wrapped(|ui| {
+                                    app.render_zap_area(ui);
+                                });
+                                if ui
+                                    .add(CopyButton::new())
+                                    .on_hover_text("Copy Invoice")
+                                    .clicked()
+                                {
+                                    ui.output_mut(|o| {
+                                        if let ZapState::ReadyToPay(_id, ref invoice) =
+                                            app.zap_state
+                                        {
+                                            o.copied_text = invoice.to_owned();
+                                        }
+                                    });
+                                }
                             }
                         });
 
