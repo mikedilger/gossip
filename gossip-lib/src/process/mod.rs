@@ -515,7 +515,7 @@ pub(crate) fn process_relationships_of_event(
             if t.tagname() == "l" {
                 if t.value() != "" {
                     label = t.value();
-                    if t.get_index(2) != "" {
+                    if !t.get_index(2).is_empty() {
                         namespace = t.get_index(2);
                     }
                 }
