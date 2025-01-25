@@ -84,10 +84,7 @@ impl DmChannel {
     pub fn from_event(event: &Event, my_pubkey: Option<PublicKey>) -> Option<DmChannel> {
         let my_pubkey = match my_pubkey {
             Some(pk) => pk,
-            None => match GLOBALS.identity.public_key() {
-                Some(pk) => pk,
-                None => return None,
-            },
+            None => GLOBALS.identity.public_key()?,
         };
 
         if event.kind == EventKind::EncryptedDirectMessage {

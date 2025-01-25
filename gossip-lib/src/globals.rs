@@ -300,10 +300,7 @@ impl Globals {
     }
 
     pub fn get_your_nprofile() -> Option<Profile> {
-        let public_key = match GLOBALS.identity.public_key() {
-            Some(pk) => pk,
-            None => return None,
-        };
+        let public_key = GLOBALS.identity.public_key()?;
 
         let mut profile = Profile {
             pubkey: public_key,
