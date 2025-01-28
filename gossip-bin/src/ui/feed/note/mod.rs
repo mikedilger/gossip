@@ -1057,9 +1057,8 @@ pub fn render_note_inside_framing(
                                         .show(ui)
                                         .clicked()
                                     {
-                                        let _ = GLOBALS
-                                            .to_overlord
-                                            .send(ToOverlordMessage::PostCancel);
+                                        let _ =
+                                            GLOBALS.to_overlord.send(ToOverlordMessage::PostCancel);
 
                                         // Create a draft with it again
                                         app.draft_data = app.previous_draft_data.clone();
