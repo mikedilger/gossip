@@ -137,55 +137,48 @@ impl FilterSet {
         handle
     }
 
-    pub fn filters(&self, spamsafe: bool) -> Vec<Filter> {
-        let mut filters: Vec<Filter> = Vec::new();
-
+    pub fn filter(&self, spamsafe: bool) -> Option<Filter> {
         match self {
             FilterSet::Augments(ids) => {
                 let event_kinds = crate::feed::feed_augment_event_kinds();
-                let filter = {
-                    let mut filter = Filter {
-                        kinds: event_kinds,
-                        ..Default::default()
-                    };
-                    filter.set_tag_values('e', ids.iter().map(|id| id.as_hex_string()).collect());
-                    filter
+
+                let mut filter = Filter {
+                    kinds: event_kinds,
+                    ..Default::default()
                 };
-                filters.push(filter);
+                filter.set_tag_values('e', ids.iter().map(|id| id.as_hex_string()).collect());
+                Some(filter)
             }
             FilterSet::Config => {
-                if let Some(pubkey) = GLOBALS.identity.public_key() {
-                    filters.push(Filter {
-                        authors: vec![pubkey],
-                        kinds: vec![
-                            EventKind::Metadata,
-                            //EventKind::RecommendRelay,
-                            EventKind::ContactList,
-                            EventKind::MuteList,
-                            EventKind::FollowSets,
-                            EventKind::RelayList,
-                            EventKind::DmRelayList,
-                            EventKind::BookmarkList,
-                            EventKind::UserServerList,
-                        ],
-                        // these are all replaceable, no since required
-                        ..Default::default()
-                    });
-                }
+                let pubkey = GLOBALS.identity.public_key()?;
+
+                Some(Filter {
+                    authors: vec![pubkey],
+                    kinds: vec![
+                        EventKind::Metadata,
+                        //EventKind::RecommendRelay,
+                        EventKind::ContactList,
+                        EventKind::MuteList,
+                        EventKind::FollowSets,
+                        EventKind::RelayList,
+                        EventKind::DmRelayList,
+                        EventKind::BookmarkList,
+                        EventKind::UserServerList,
+                    ],
+                    // these are all replaceable, no since required
+                    ..Default::default()
+                })
             }
             FilterSet::Discover(pubkeys) => {
-                filters.push(Filter {
+                Some(Filter {
                     authors: pubkeys.to_vec(),
                     kinds: vec![EventKind::RelayList, EventKind::DmRelayList],
                     // these are all replaceable, no since required
                     ..Default::default()
-                });
+                })
             }
             FilterSet::DmChannel(channel) => {
-                let pubkey = match GLOBALS.identity.public_key() {
-                    Some(pk) => pk,
-                    None => return vec![],
-                };
+                let pubkey = GLOBALS.identity.public_key()?;
 
                 // note: giftwraps can't be subscribed by channel. they are subscribed more
                 // globally, and have to be limited to recent ones.
@@ -200,7 +193,7 @@ impl FilterSet {
                 };
                 // tagging the user
                 filter.set_tag_values('p', authors.iter().map(|x| x.as_hex_string()).collect());
-                filters.push(filter);
+                Some(filter)
             }
             FilterSet::FollowersOf(pubkey) => {
                 let mut filter = Filter {
@@ -209,11 +202,11 @@ impl FilterSet {
                 };
                 let values = vec![pubkey.as_hex_string()];
                 filter.set_tag_values('p', values);
-                filters.push(filter);
+                Some(filter)
             }
             FilterSet::GeneralFeedFuture { pubkeys, anchor } => {
                 if pubkeys.is_empty() {
-                    return vec![];
+                    return None;
                 }
 
                 // Do not load feed related event kinds, or the limit will be wrong
@@ -221,18 +214,18 @@ impl FilterSet {
 
                 let range = FeedRange::After { since: *anchor };
                 let (since, until, limit) = range.since_until_limit();
-                filters.push(Filter {
+                Some(Filter {
                     authors: pubkeys.to_vec(),
                     kinds: event_kinds,
                     since,
                     until,
                     limit,
                     ..Default::default()
-                });
+                })
             }
             FilterSet::GeneralFeedChunk { pubkeys, anchor } => {
                 if pubkeys.is_empty() {
-                    return vec![];
+                    return None;
                 }
 
                 // Do not load feed related event kinds, or the limit will be wrong
@@ -244,38 +237,37 @@ impl FilterSet {
                     limit,
                 };
                 let (since, until, limit) = range.since_until_limit();
-                filters.push(Filter {
+                Some(Filter {
                     authors: pubkeys.to_vec(),
                     kinds: event_kinds,
                     since,
                     until,
                     limit,
                     ..Default::default()
-                });
+                })
             }
             FilterSet::Giftwraps(range) => {
                 let (since, until, limit) = range.since_until_limit();
-                if let Some(pubkey) = GLOBALS.identity.public_key() {
-                    // Giftwraps cannot be filtered by author so we have to take them regardless
-                    // of the spamsafe designation of the relay.
-                    //
-                    // Sure, the TOTAL number of giftwraps being the limit will be MORE than we need,
-                    // but since giftwraps get backdated, this is probably a good thing.
-                    let filter = {
-                        let mut filter = Filter {
-                            kinds: vec![EventKind::GiftWrap],
-                            // giftwraps may be dated 1 week in the past:
-                            since: since.map(|u| Unixtime(*u - (3600 * 24 * 7))),
-                            until,
-                            limit,
-                            ..Default::default()
-                        };
-                        let values = vec![pubkey.as_hex_string()];
-                        filter.set_tag_values('p', values);
-                        filter
+                let pubkey = GLOBALS.identity.public_key()?;
+                // Giftwraps cannot be filtered by author so we have to take them regardless
+                // of the spamsafe designation of the relay.
+                //
+                // Sure, the TOTAL number of giftwraps being the limit will be MORE than we need,
+                // but since giftwraps get backdated, this is probably a good thing.
+                let filter = {
+                    let mut filter = Filter {
+                        kinds: vec![EventKind::GiftWrap],
+                        // giftwraps may be dated 1 week in the past:
+                        since: since.map(|u| Unixtime(*u - (3600 * 24 * 7))),
+                        until,
+                        limit,
+                        ..Default::default()
                     };
-                    filters.push(filter);
-                }
+                    let values = vec![pubkey.as_hex_string()];
+                    filter.set_tag_values('p', values);
+                    filter
+                };
+                Some(filter)
             }
             FilterSet::GlobalFeedFuture(anchor) => {
                 // Allow all feed related event kinds (excluding DMs)
@@ -284,13 +276,13 @@ impl FilterSet {
 
                 let range = FeedRange::After { since: *anchor };
                 let (since, until, limit) = range.since_until_limit();
-                filters.push(Filter {
+                Some(Filter {
                     kinds: event_kinds.clone(),
                     since,
                     until,
                     limit,
                     ..Default::default()
-                });
+                })
             }
             FilterSet::GlobalFeedChunk(anchor) => {
                 // Allow all feed related event kinds (excluding DMs)
@@ -303,44 +295,44 @@ impl FilterSet {
                     limit,
                 };
                 let (since, until, limit) = range.since_until_limit();
-                filters.push(Filter {
+                Some(Filter {
                     kinds: event_kinds,
                     since,
                     until,
                     limit,
                     ..Default::default()
-                });
+                })
             }
             FilterSet::InboxFeedFuture(anchor) => {
-                if let Some(pubkey) = GLOBALS.identity.public_key() {
-                    let mut filter = Self::inbox_base_filter(pubkey, spamsafe);
+                let pubkey = GLOBALS.identity.public_key()?;
 
-                    let range = FeedRange::After { since: *anchor };
-                    let (since, until, limit) = range.since_until_limit();
-                    filter.since = since;
-                    filter.until = until;
-                    filter.limit = limit;
-                    filters.push(filter);
-                }
+                let mut filter = Self::inbox_base_filter(pubkey, spamsafe);
+
+                let range = FeedRange::After { since: *anchor };
+                let (since, until, limit) = range.since_until_limit();
+                filter.since = since;
+                filter.until = until;
+                filter.limit = limit;
+                Some(filter)
             }
             FilterSet::InboxFeedChunk(anchor) => {
-                if let Some(pubkey) = GLOBALS.identity.public_key() {
-                    let mut filter = Self::inbox_base_filter(pubkey, spamsafe);
+                let pubkey = GLOBALS.identity.public_key()?;
 
-                    let limit = GLOBALS.db().read_setting_load_more_count() as usize;
-                    let range = FeedRange::ChunkBefore {
-                        until: *anchor,
-                        limit,
-                    };
-                    let (since, until, limit) = range.since_until_limit();
-                    filter.since = since;
-                    filter.until = until;
-                    filter.limit = limit;
-                    filters.push(filter.clone());
-                }
+                let mut filter = Self::inbox_base_filter(pubkey, spamsafe);
+
+                let limit = GLOBALS.db().read_setting_load_more_count() as usize;
+                let range = FeedRange::ChunkBefore {
+                    until: *anchor,
+                    limit,
+                };
+                let (since, until, limit) = range.since_until_limit();
+                filter.since = since;
+                filter.until = until;
+                filter.limit = limit;
+                Some(filter)
             }
             FilterSet::Metadata(pubkeys) => {
-                filters.push(Filter {
+                Some(Filter {
                     authors: pubkeys.to_vec(),
                     kinds: vec![
                         EventKind::ContactList,
@@ -352,20 +344,17 @@ impl FilterSet {
                     // FIXME: we could probably get a since-last-fetched-their-metadata here.
                     //        but relays should just return the latest of these.
                     ..Default::default()
-                });
+                })
             }
             FilterSet::Nip46 => {
-                let pubkey = match GLOBALS.identity.public_key() {
-                    Some(pk) => pk,
-                    None => return vec![],
-                };
+                let pubkey = GLOBALS.identity.public_key()?;
 
                 let mut filter = Filter {
                     kinds: vec![EventKind::NostrConnect],
                     ..Default::default()
                 };
                 filter.set_tag_values('p', vec![pubkey.as_hex_string()]);
-                filters.push(filter);
+                Some(filter)
             }
             FilterSet::PersonFeedFuture { pubkey, anchor } => {
                 // Allow all feed related event kinds (excluding DMs)
@@ -374,14 +363,14 @@ impl FilterSet {
 
                 let range = FeedRange::After { since: *anchor };
                 let (since, until, limit) = range.since_until_limit();
-                filters.push(Filter {
+                Some(Filter {
                     authors: vec![*pubkey],
                     kinds: event_kinds,
                     since,
                     until,
                     limit,
                     ..Default::default()
-                });
+                })
             }
             FilterSet::PersonFeedChunk { pubkey, anchor } => {
                 // Allow all feed related event kinds (excluding DMs)
@@ -395,14 +384,14 @@ impl FilterSet {
                 };
 
                 let (since, until, limit) = range.since_until_limit();
-                filters.push(Filter {
+                Some(Filter {
                     authors: vec![*pubkey],
                     kinds: event_kinds,
                     since,
                     until,
                     limit,
                     ..Default::default()
-                });
+                })
             }
             FilterSet::RepliesToId(id) => {
                 // Allow all feed related event kinds (excluding DMs)
@@ -424,7 +413,7 @@ impl FilterSet {
 
                     filter
                 };
-                filters.push(filter);
+                Some(filter)
             }
             FilterSet::RepliesToAddr(addr) => {
                 // Allow all feed related event kinds (excluding DMs)
@@ -450,7 +439,7 @@ impl FilterSet {
 
                     filter
                 };
-                filters.push(filter);
+                Some(filter)
             }
             FilterSet::Search(what) => {
                 // Explicitly ignore spam filtering during searches (for now)
@@ -462,11 +451,9 @@ impl FilterSet {
                     search: Some(what.to_string()),
                     ..Default::default()
                 };
-                filters.push(filter);
+                Some(filter)
             }
         }
-
-        filters
     }
 
     fn inbox_base_filter(pubkey: PublicKey, spamsafe: bool) -> Filter {

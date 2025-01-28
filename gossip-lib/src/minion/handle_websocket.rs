@@ -36,11 +36,8 @@ impl Minion {
                     // from the previous version of said filter.
                     if !handle.starts_with("temp_") {
                         let mut it_matches = false;
-                        for filter in sub.get_filters().iter() {
-                            if filter.event_matches(&event) {
-                                it_matches = true;
-                                break;
-                            }
+                        if sub.get_filter().event_matches(&event) {
+                            it_matches = true;
                         }
                         if !it_matches {
                             tracing::debug!(

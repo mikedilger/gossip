@@ -6,29 +6,29 @@ use std::sync::atomic::Ordering;
 pub struct Subscription {
     id: String,
     job_id: u64,
-    filters: Vec<Filter>,
+    filter: Filter,
     eose: bool,
     clone: bool,
 }
 
 impl Subscription {
-    pub fn new(id: &str, job_id: u64) -> Subscription {
+    pub fn new(id: &str, job_id: u64, filter: Filter) -> Subscription {
         GLOBALS.open_subscriptions.fetch_add(1, Ordering::SeqCst);
         Subscription {
             id: id.to_owned(),
             job_id,
-            filters: vec![],
+            filter,
             eose: false,
             clone: false,
         }
     }
 
-    pub fn set_filters(&mut self, filters: Vec<Filter>) {
-        self.filters = filters;
+    pub fn set_filter(&mut self, filter: Filter) {
+        self.filter = filter;
     }
 
-    pub fn get_filters(&self) -> &[Filter] {
-        &self.filters
+    pub fn get_filter(&self) -> &Filter {
+        &self.filter
     }
 
     pub fn get_id(&self) -> String {
@@ -57,7 +57,7 @@ impl Subscription {
     }
 
     pub fn req_message(&self) -> ClientMessage {
-        ClientMessage::Req(SubscriptionId(self.get_id()), self.filters.clone())
+        ClientMessage::Req(SubscriptionId(self.get_id()), self.filter.clone())
     }
 
     pub fn close_message(&self) -> ClientMessage {
@@ -70,7 +70,7 @@ impl Clone for Subscription {
         Subscription {
             id: self.id.clone(),
             job_id: self.job_id,
-            filters: self.filters.clone(),
+            filter: self.filter.clone(),
             eose: self.eose,
             clone: true,
         }

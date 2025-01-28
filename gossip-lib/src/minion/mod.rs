@@ -630,9 +630,8 @@ impl Minion {
                 // If we aren't running it already, OR if it can have duplicates
                 if !self.subscription_map.has(&handle) || filter_set.can_have_duplicates() {
                     let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
-                    let filters = filter_set.filters(spamsafe);
-                    if !filters.is_empty() {
-                        self.subscribe(filters, &handle, message.job_id).await?;
+                    if let Some(filter) = filter_set.filter(spamsafe) {
+                        self.subscribe(filter, &handle, message.job_id).await?;
                     }
                 } else {
                     // It does not allow duplicates and we are already running it,
@@ -692,7 +691,7 @@ impl Minion {
         let handle = format!("temp_events_{}", self.next_events_subscription_id);
         self.next_events_subscription_id += 1;
 
-        self.subscribe(vec![filter], &handle, job_id).await?;
+        self.subscribe(filter, &handle, job_id).await?;
 
         Ok(())
     }
@@ -716,22 +715,18 @@ impl Minion {
         // The subscription job_id wont be used.
         let job_id: u64 = u64::MAX;
 
-        // create the filters
-        let mut filters: Vec<Filter> = Vec::new();
+        // Create the subscriptions (has to be one per naddr)
         for naddr in naddrs.iter() {
             let mut filter = Filter::new();
             filter.add_author(naddr.author);
             filter.add_event_kind(naddr.kind);
             filter.add_tag_value('d', naddr.d.clone());
-            filters.push(filter);
+
+            let handle = format!("temp_naddrs_{}", self.next_events_subscription_id);
+            self.next_events_subscription_id += 1;
+
+            self.subscribe(filter, &handle, job_id).await?;
         }
-
-        // create a handle for ourselves
-        // This is always a fresh subscription because they handle keeps changing
-        let handle = format!("temp_naddrs_{}", self.next_events_subscription_id);
-        self.next_events_subscription_id += 1;
-
-        self.subscribe(filters, &handle, job_id).await?;
 
         Ok(())
     }
@@ -764,9 +759,10 @@ impl Minion {
             let handle = "temp_subscribe_metadata".to_string();
             let filter_set = FilterSet::Metadata(combined_pubkeys);
             let spamsafe = self.dbrelay.has_usage_bits(Relay::SPAMSAFE);
-            let filters = filter_set.filters(spamsafe);
-            self.subscribe(filters, &handle, combined_job_id.unwrap())
-                .await?;
+            if let Some(filter) = filter_set.filter(spamsafe) {
+                self.subscribe(filter, &handle, combined_job_id.unwrap())
+                    .await?;
+            }
         }
 
         // If we are authenticated
@@ -803,19 +799,9 @@ impl Minion {
         Ok(())
     }
 
-    async fn subscribe(
-        &mut self,
-        filters: Vec<Filter>,
-        handle: &str,
-        job_id: u64,
-    ) -> Result<(), Error> {
+    async fn subscribe(&mut self, filter: Filter, handle: &str, job_id: u64) -> Result<(), Error> {
         // Reset timing of empty subscription period
         self.subscriptions_empty_asof = None;
-
-        if filters.is_empty() {
-            tracing::warn!("EMPTY FILTERS handle={} jobid={}", handle, job_id);
-            return Ok(());
-        }
 
         if self.failed_subs.contains(handle) {
             tracing::debug!(
@@ -839,7 +825,7 @@ impl Minion {
                 None => now.0 as u64,
             });
 
-            sub.set_filters(filters);
+            sub.set_filter(filter);
             let old_job_id = sub.change_job_id(job_id);
             let id = sub.get_id();
             tracing::debug!(
@@ -854,7 +840,7 @@ impl Minion {
                 job_id,
             ))?;
         } else {
-            let id = self.subscription_map.add(handle, job_id, filters);
+            let id = self.subscription_map.add(handle, job_id, filter);
             tracing::debug!(
                 "NEW SUBSCRIPTION on {} handle={}, id={}",
                 &self.url,

@@ -2011,7 +2011,7 @@ impl Overlord {
     }
 
     pub fn post_cancel(&mut self) {
-        for refmulti in GLOBALS.delayed_posts.iter( ) {
+        for refmulti in GLOBALS.delayed_posts.iter() {
             let id = *refmulti;
             let _ = GLOBALS.db().delete_event(id, None);
             GLOBALS.ui_notes_to_invalidate.write().push(id);
@@ -3389,9 +3389,7 @@ impl Overlord {
             filter.add_author(outbox_event.pubkey);
             filter.since = Some(outbox_event.created_at);
 
-            let fetch_result = conn
-                .fetch_events(vec![filter], Duration::from_secs(2))
-                .await?;
+            let fetch_result = conn.fetch_events(filter, Duration::from_secs(2)).await?;
             let close_msg = fetch_result.close_msg.clone();
             if fetch_result.into_events().contains(&outbox_event) {
                 anon_fetched_outbox = RelayTestResult::Pass;
@@ -3418,7 +3416,7 @@ impl Overlord {
         // 4. anon_fetched_inbox
         if anon_posted_inbox == RelayTestResult::Pass {
             let fetch_result = conn
-                .fetch_events(vec![inbox_filter.clone()], Duration::from_secs(2))
+                .fetch_events(inbox_filter.clone(), Duration::from_secs(2))
                 .await?;
             let close_msg = fetch_result.close_msg.clone();
             if fetch_result.into_events().contains(&inbox_event) {
@@ -3432,7 +3430,7 @@ impl Overlord {
         // 5. fetched_inbox
         conn.authenticate_if_challenged().await?;
         let fetch_result = conn
-            .fetch_events(vec![inbox_filter.clone()], Duration::from_secs(2))
+            .fetch_events(inbox_filter.clone(), Duration::from_secs(2))
             .await?;
         let close_msg = fetch_result.close_msg.clone();
         let fetched_inbox: RelayTestResult = if fetch_result.into_events().contains(&inbox_event) {

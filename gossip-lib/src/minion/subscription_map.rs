@@ -19,11 +19,10 @@ impl SubscriptionMap {
         }
     }
 
-    pub fn add(&mut self, handle: &str, job_id: u64, filters: Vec<Filter>) -> String {
+    pub fn add(&mut self, handle: &str, job_id: u64, filter: Filter) -> String {
         let id = format!("{}", self.count);
-        let mut sub = Subscription::new(&id, job_id);
+        let sub = Subscription::new(&id, job_id, filter);
         self.count += 1;
-        sub.set_filters(filters);
         self.handle_to_id.insert(handle.to_owned(), id.clone());
         self.by_id.insert(id.clone(), sub);
         id

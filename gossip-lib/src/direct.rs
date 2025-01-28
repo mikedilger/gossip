@@ -269,30 +269,30 @@ impl Connection {
     /// Fetch events from the relay, and close the subscription on EOSE
     pub async fn fetch_events(
         &mut self,
-        filters: Vec<Filter>,
+        filter: Filter,
         timeout: Duration,
     ) -> Result<FetchResult, Error> {
-        self.fetch_events_inner(filters, timeout, true).await
+        self.fetch_events_inner(filter, timeout, true).await
     }
 
     /// Fetch events from the relay, and keep open the subscription after EOSE
     pub async fn fetch_events_keep_open(
         &mut self,
-        filters: Vec<Filter>,
+        filter: Filter,
         timeout: Duration,
     ) -> Result<FetchResult, Error> {
-        self.fetch_events_inner(filters, timeout, false).await
+        self.fetch_events_inner(filter, timeout, false).await
     }
 
     async fn fetch_events_inner(
         &mut self,
-        filters: Vec<Filter>,
+        filter: Filter,
         timeout: Duration,
         close: bool,
     ) -> Result<FetchResult, Error> {
         let sub_id_usize = self.next_sub_id.fetch_add(1, Ordering::Relaxed);
         let sub_id = SubscriptionId(format!("sub{}", sub_id_usize));
-        let client_message = ClientMessage::Req(sub_id.clone(), filters);
+        let client_message = ClientMessage::Req(sub_id.clone(), filter);
         self.send_message(client_message).await?;
 
         let mut pre_eose_events: Vec<Event> = Vec::new();
