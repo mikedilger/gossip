@@ -3,7 +3,6 @@
 use crate::dm_channel::DmChannel;
 use crate::globals::GLOBALS;
 use nostr_types::{EventKind, Filter, Id, NAddr, ParsedTag, PublicKey, Unixtime};
-use std::time::Duration;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum FeedRange {
@@ -155,24 +154,7 @@ impl FilterSet {
                 filters.push(filter);
             }
             FilterSet::Config => {
-                let since = Unixtime::now() - Duration::from_secs(60 * 60 * 24 * 15);
                 if let Some(pubkey) = GLOBALS.identity.public_key() {
-                    if GLOBALS.identity.is_unlocked() {
-                        // GiftWraps to me, recent only
-                        let giftwrap_since = Unixtime(since.0 - 60 * 60 * 24 * 7);
-                        let giftwrap_filter = {
-                            let mut f = Filter {
-                                kinds: vec![EventKind::GiftWrap],
-                                since: Some(giftwrap_since),
-                                ..Default::default()
-                            };
-                            f.set_tag_values('p', vec![pubkey.as_hex_string()]);
-                            f
-                        };
-                        filters.push(giftwrap_filter);
-                    }
-
-                    // Actual config stuff
                     filters.push(Filter {
                         authors: vec![pubkey],
                         kinds: vec![
@@ -187,15 +169,6 @@ impl FilterSet {
                             EventKind::UserServerList,
                         ],
                         // these are all replaceable, no since required
-                        ..Default::default()
-                    });
-
-                    // Events I posted recently, including feed_displayable and
-                    //  augments (deletions, reactions, timestamp, label,reporting, and zap)
-                    filters.push(Filter {
-                        authors: vec![pubkey],
-                        kinds: crate::feed::feed_related_event_kinds(false), // not DMs
-                        since: Some(since),
                         ..Default::default()
                     });
                 }
