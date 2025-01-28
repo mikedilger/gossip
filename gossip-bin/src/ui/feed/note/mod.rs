@@ -1720,13 +1720,6 @@ fn note_actions(
             )));
         }
         copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
-            "as note1",
-            Box::new(|ui, _| {
-                let nostr_url: NostrUrl = note.event.id.into();
-                ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
-            }),
-        )));
-        copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
             "as hex",
             Box::new(|ui, _| {
                 ui.output_mut(|o| o.copied_text = note.event.id.as_hex_string());
