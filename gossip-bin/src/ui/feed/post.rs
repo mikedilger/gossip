@@ -19,7 +19,7 @@ pub fn textarea_highlighter(theme: Theme, text: String, interests: Vec<String>) 
     let mut job = LayoutJob::default();
 
     // Shatter
-    let shattered_content = ShatteredContent::new(text.clone());
+    let shattered_content = ShatteredContent::new(text.clone(), false);
 
     for segment in shattered_content.segments.iter() {
         match segment {

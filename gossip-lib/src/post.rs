@@ -220,7 +220,7 @@ fn add_gossip_tag(tags: &mut Vec<Tag>) {
 }
 
 async fn add_tags_mirroring_content(content: &str, tags: &mut Vec<Tag>, direct_message: bool) {
-    let shattered_content = ShatteredContent::new(content.to_owned());
+    let shattered_content = ShatteredContent::new(content.to_owned(), false);
     for segment in shattered_content.segments.iter() {
         match segment {
             ContentSegment::NostrUrl(nurl) => {
