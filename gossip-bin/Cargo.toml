@@ -32,7 +32,7 @@ humansize = "2.1"
 image = { version = "0.25", features = [ "png", "jpeg" ] }
 lazy_static = "1.5"
 memoize = "0.4"
-nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "f41a829785e54423e4a3a7742c56c87323d7953c", features = [ "speedy" ] }
+nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "fb9c2ef1ad00ff9bb8465c1a4bcc134f0b6b5bf4", features = [ "speedy" ] }
 paste = "1.0"
 qrcode = "0.14"
 resvg = "0.35.0"
