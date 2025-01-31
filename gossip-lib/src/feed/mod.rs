@@ -609,8 +609,6 @@ pub fn enabled_event_kinds() -> Vec<EventKind> {
         .filter(|k| {
             *k == EventKind::Metadata
                 || *k == EventKind::TextNote
-                || *k == EventKind::Comment
-                || ((*k == EventKind::Picture) && enable_picture_events)
             //|| *k == EventKind::RecommendRelay
                 || *k == EventKind::ContactList
                 || ((*k == EventKind::EncryptedDirectMessage) && direct_messages)
@@ -618,17 +616,28 @@ pub fn enabled_event_kinds() -> Vec<EventKind> {
                 || ((*k == EventKind::Repost) && reposts)
                 || ((*k == EventKind::Reaction) && reactions)
             //|| *k == EventKind::BadgeAward
+            // EventKind::GroupChatMessage
+            // EventKind::GroupChatThreadedReply
+            // EventKind::GroupChatThread
+            // EventKind::GroupChatReply
             //|| *k == EventKind::Seal // -- never subscribed to
                 || ((*k == EventKind::DmChat) && direct_messages)
                 || ((*k == EventKind::GenericRepost) && reposts)
+            // EventKind::ReactionToWebsite
+                || ((*k == EventKind::Picture) && enable_picture_events)
             //|| *k == EventKind::ChannelCreation
             //|| *k == EventKind::ChannelMetadata
             //|| *k == EventKind::ChannelMessage
             //|| *k == EventKind::ChannelHideMessage
             //|| *k == EventKind::ChannelMuteUser
+            // EventKind::ChessPgn
+            // EventKind::WikiMergeRequest
+            // EventKind::Bid
+            // EventKind::BidConfirmation
             // || *k == EventKind::Timestamp
                 || ((*k == EventKind::GiftWrap) && direct_messages)
             // || *k == EventKind::FileMetadata
+                || *k == EventKind::Comment
             // || *k == EventKind::LiveChatMessage
             // || *k == EventKind::Patches
             // || *k == EventKind::GitIssue
@@ -640,17 +649,23 @@ pub fn enabled_event_kinds() -> Vec<EventKind> {
             // || *k == EventKind::ProblemTracker
             // || *k == EventKind::Reporting
             // || *k == EventKind::Label
+            // EventKind::RelayReviews
+            // EventKind::AiEmbeddings
+            // EventKind::Torrent
+            // EventKind::TorrentComment
+            // EventKind::CoinjoinPool
             // || *k == EventKind::CommunityPost
             // || *k == EventKind::CommunityPostApproval
             // || *k == EventKind::JobFeedback
             // || *k == EventKind::ZapGoal
+            // EventKind::TidalLogin
                 || *k == EventKind::ZapRequest
                 || ((*k == EventKind::Zap) && enable_zap_receipts)
             // || *k == EventKind::Highlights
                 || *k == EventKind::MuteList
             // || *k == EventKind::PinList
                 || *k == EventKind::RelayList
-            // || *k == EventKind::BookmarkList
+                || *k == EventKind::BookmarkList
             // || *k == EventKind::CommunityList
             // || *k == EventKind::PublicChatsList
             // || *k == EventKind::BlockedRelaysList
@@ -662,16 +677,19 @@ pub fn enabled_event_kinds() -> Vec<EventKind> {
             // || *k == EventKind::FileStorageServerList
             // || *k == EventKind::WalletInfo
             // || *k == EventKind::LightningPubRpc
-            // || *k == EventKind::Auth -- never subscribed to
+            // || *k == EventKind::Auth -- never subscribed to <------
             // || *k == EventKind::WalletRequest
             // || *k == EventKind::WalletResponse
-            // || *k == EventKind::NostrConnect
+                || *k == EventKind::NostrConnect
+            // || *k == EventKind::Blossom (auth)
             // || *k == EventKind::HttpAuth
                 || *k == EventKind::FollowSets
             // || *k == EventKind::GenericSets
             // || *k == EventKind::RelaySets
             // || *k == EventKind::BookmarkSets
             // || *k == EventKind::CurationSets
+            // EventKind::VideoSets
+            // EventKind::KindMuteSets
             // || *k == EventKind::ProfileBadges
             // || *k == EventKind::BadgeDefinition
             // || *k == EventKind::InterestSets
@@ -682,6 +700,9 @@ pub fn enabled_event_kinds() -> Vec<EventKind> {
                 || ((*k == EventKind::LongFormContent) && show_long_form)
             // || *k == EventKind::DraftLongFormContent
             // || *k == EventKind::EmojiSets
+            // EventKind::ModularArticleHeader
+            // EventKind::ModularArticleContent
+            // EventKind::ModularArticleSets
             // || *k == EventKind::ReleaseArtifactSets
             // || *k == EventKind::AppSpecificData
             // || *k == EventKind::LiveEvent
@@ -689,13 +710,20 @@ pub fn enabled_event_kinds() -> Vec<EventKind> {
             // || *k == EventKind::ClassifiedListing
             // || *k == EventKind::DraftClassifiedListing
             // || *k == EventKind::RepositoryAnnouncement
+            // EventKind::RepositoryStateAnnouncement
             // || *k == EventKind::WikiArticle
+            // EventKind::Redirects
+            // EventKind::LinkSet
+            // EventKind::Feed
             // || *k == EventKind::DateBasedCalendarEvent
             // || *k == EventKind::TimeBasedCalendarEvent
             // || *k == EventKind::Calendar
             // || *k == EventKind::CalendarEventRsvp
-            // || *k == EventKind::HandlerRecommendation
-            // || *k == EventKind::HandlerInformation
+                || *k == EventKind::HandlerRecommendation
+                || *k == EventKind::HandlerInformation
+            // EventKind::VideoEvent
+            // EventKind::ShortFormPortraitVideoEvent
+            // EventKind::VideoViewEvent
             // || *k == EventKind::CommunityDefinition
         })
         .collect()
