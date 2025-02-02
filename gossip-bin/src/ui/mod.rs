@@ -1733,6 +1733,9 @@ impl GossipUi {
                     };
                     if let Some(bh) = &fm.blurhash {
                         if let Some(texture_handle) = self.blurs.get(&url) {
+                            // Repaint at 60fps until until the real image is available
+                            // to avoid display lag
+                            ctx.request_repaint_after(Duration::from_millis(16));
                             return MediaLoadingResult::Ready(texture_handle.clone());
                         } else {
                             if let Ok(rgba_image) =
@@ -1751,11 +1754,17 @@ impl GossipUi {
                                     TextureOptions::default(),
                                 );
                                 self.blurs.insert(url, texture_handle.clone());
+                                // Repaint at 60fps until until the real image is available
+                                // to avoid display lag
+                                ctx.request_repaint_after(Duration::from_millis(16));
                                 return MediaLoadingResult::Ready(texture_handle);
                             }
                         }
                     }
                 }
+                // Request repaints at 60fps so that as soon as the
+                // image is available to avoid display lag
+                ctx.request_repaint_after(Duration::from_millis(16));
                 MediaLoadingResult::Loading
             }
             MediaLoadingResult::Ready(rgba_image) => {
@@ -1795,7 +1804,12 @@ impl GossipUi {
 
         match GLOBALS.media.get_data(&url, volatile, file_metadata) {
             MediaLoadingResult::Disabled => MediaLoadingResult::Disabled,
-            MediaLoadingResult::Loading => MediaLoadingResult::Loading,
+            MediaLoadingResult::Loading => {
+                // Repaint at 60fps until the video is available to avoid
+                // display lag
+                ctx.request_repaint_after(Duration::from_millis(16));
+                MediaLoadingResult::Loading
+            }
             MediaLoadingResult::Ready(bytes) => {
                 if let Ok(player) = Player::new_from_bytes(ctx, &bytes) {
                     if let Some(audio) = &mut self.audio_device {
