@@ -92,7 +92,7 @@ pub use feed::{
 };
 
 mod fetcher;
-pub use fetcher::Fetcher;
+pub use fetcher::{FetchResult, Fetcher};
 
 mod filter_set;
 

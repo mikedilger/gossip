@@ -1404,9 +1404,10 @@ impl GossipUi {
         ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
             // DEBUG status area
             if read_setting!(status_bar) {
-                let in_flight = GLOBALS.fetcher.requests_in_flight();
-                let queued = GLOBALS.fetcher.requests_queued();
-                let m = format!("HF {}/{}", in_flight, queued);
+                let num_stalled = GLOBALS.fetcher.num_requests_stalled();
+                let num_in_flight = GLOBALS.fetcher.num_requests_in_flight();
+
+                let m = format!("HTTP: {} / {}", num_in_flight, num_stalled);
                 ui.add(Label::new(
                     RichText::new(m).color(self.theme.notice_marker_text_color()),
                 ));
@@ -1777,6 +1778,7 @@ impl GossipUi {
                     color_image,
                     TextureOptions::default(),
                 );
+
                 self.images.insert(url, texture_handle.clone());
                 MediaLoadingResult::Ready(texture_handle)
             }
@@ -2235,7 +2237,7 @@ impl eframe::App for GossipUi {
         } else {
             // Wait until the next frame
             std::thread::sleep(self.next_frame - Instant::now());
-            self.next_frame += Duration::from_secs_f32(1.0 / max_fps);
+            self.next_frame = Instant::now() + Duration::from_secs_f32(1.0 / max_fps);
 
             // Redraw at least once per 500ms
             ctx.request_repaint_after(Duration::from_millis(500));

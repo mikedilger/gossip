@@ -1,4 +1,5 @@
 use crate::error::{Error, ErrorKind};
+use crate::fetcher::FetchResult;
 use crate::globals::GLOBALS;
 use dashmap::{DashMap, DashSet};
 use image::imageops;
@@ -7,7 +8,6 @@ use image::{DynamicImage, Rgba, RgbaImage};
 use nostr_types::{FileMetadata, UncheckedUrl, Url};
 use std::fmt;
 use std::sync::atomic::Ordering;
-use std::time::Duration;
 
 pub enum MediaLoadingResult<T> {
     Disabled,
@@ -92,7 +92,7 @@ impl Media {
     pub fn get_image(
         &self,
         url: &Url,
-        use_temp_cache: bool,
+        volatile: bool,
         file_metadata: Option<&FileMetadata>,
     ) -> MediaLoadingResult<RgbaImage> {
         // If we have it, hand it over (we won't need a copy anymore)
@@ -105,7 +105,7 @@ impl Media {
             return MediaLoadingResult::Loading;
         }
 
-        match self.get_data(url, use_temp_cache, file_metadata) {
+        match self.get_data(url, volatile, file_metadata) {
             MediaLoadingResult::Disabled => MediaLoadingResult::Disabled,
             MediaLoadingResult::Loading => MediaLoadingResult::Loading,
             MediaLoadingResult::Ready(bytes) => {
@@ -119,6 +119,7 @@ impl Media {
                 // Finish this later (spawn)
                 let aurl = url.to_owned();
                 tokio::spawn(async move {
+                    let start = std::time::Instant::now();
                     let size = 800 * 3 // 3x feed size, 1x Media page size
                         * GLOBALS
                             .pixels_per_point_times_100
@@ -141,6 +142,8 @@ impl Media {
                                 .set_has_failed(&aurl.to_unchecked_url(), error);
                         }
                     }
+                    let end = std::time::Instant::now();
+                    tracing::debug!(target: "fetcher", "Media processing took {}ms", (end - start).as_millis());
                 });
                 MediaLoadingResult::Loading
             }
@@ -159,7 +162,7 @@ impl Media {
     pub fn get_data(
         &self,
         url: &Url,
-        use_temp_cache: bool,
+        volatile: bool,
         file_metadata: Option<&FileMetadata>,
     ) -> MediaLoadingResult<Vec<u8>> {
         // If it failed before, error out now
@@ -172,13 +175,10 @@ impl Media {
             return MediaLoadingResult::Disabled;
         }
 
-        match GLOBALS.fetcher.try_get(
-            url,
-            Duration::from_secs(60 * 60 * GLOBALS.db().read_setting_media_becomes_stale_hours()),
-            use_temp_cache,
-        ) {
-            Ok(None) => MediaLoadingResult::Loading,
-            Ok(Some(bytes)) => {
+        let use_cache = !volatile;
+        match GLOBALS.fetcher.try_get(url.clone(), use_cache) {
+            Ok(FetchResult::Processing(_)) => MediaLoadingResult::Loading,
+            Ok(FetchResult::Ready(bytes)) => {
                 // Verify metadata hash
                 if let Some(file_metadata) = &file_metadata {
                     if let Some(x) = &file_metadata.x {
@@ -194,8 +194,18 @@ impl Media {
                         }
                     }
                 }
-
                 MediaLoadingResult::Ready(bytes)
+            }
+            Ok(FetchResult::Taken) => {
+                let error = "Already taken (internal bug, media)".to_string();
+                tracing::error!("{}", error);
+                self.set_has_failed(&url.to_unchecked_url(), error.clone());
+                MediaLoadingResult::Failed(error)
+            }
+            Ok(FetchResult::Failed(error)) => {
+                tracing::error!("{}", error);
+                self.set_has_failed(&url.to_unchecked_url(), error.clone());
+                MediaLoadingResult::Failed(error)
             }
             Err(e) => {
                 let error = format!("{e}");

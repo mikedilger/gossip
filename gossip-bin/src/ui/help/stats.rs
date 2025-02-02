@@ -23,15 +23,11 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
         ui.add_space(6.0);
 
-        ui.label(format!(
-            "HTTP Requests in flight: {}",
-            GLOBALS.fetcher.requests_in_flight()
-        ));
+        let num_stalled = GLOBALS.fetcher.num_requests_stalled();
+        let num_in_flight = GLOBALS.fetcher.num_requests_in_flight();
 
-        ui.label(format!(
-            "HTTP Requests queued: {}",
-            GLOBALS.fetcher.requests_queued()
-        ));
+        ui.label(format!("HTTP Requests in flight: {}", num_in_flight));
+        ui.label(format!("HTTP Requests queued: {}", num_stalled));
 
         ui.add_space(6.0);
         ui.separator();

@@ -1,5 +1,6 @@
 use crate::dm_channel::DmChannel;
 use crate::error::{Error, ErrorKind};
+use crate::fetcher::FetchResult;
 use crate::globals::GLOBALS;
 use crate::relay;
 use crate::relay::Relay;
@@ -9,7 +10,6 @@ use nostr_types::{
     UncheckedUrl, Unixtime, Url,
 };
 use std::sync::mpsc;
-use std::time::Duration;
 
 pub async fn prepare_post_normal(
     author: PublicKey,
@@ -305,15 +305,9 @@ async fn add_imeta_tag(urlstr: &str, mimetype: &str, tags: &mut Vec<Tag>) {
     };
 
     // Fetch the link and wait for it
-    GLOBALS.fetcher.fetch(url.clone(), false).await;
-
-    // Pick up the result from the fetcher
-    let bytes = match GLOBALS.fetcher.try_get(
-        &url,
-        Duration::from_secs(60 * 60 * GLOBALS.db().read_setting_media_becomes_stale_hours()),
-        false,
-    ) {
-        Ok(Some(b)) => b,
+    let use_cache = true;
+    let bytes = match GLOBALS.fetcher.get(url.clone(), use_cache).await {
+        Ok(FetchResult::Ready(b)) => b,
         _ => return,
     };
 

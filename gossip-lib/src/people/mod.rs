@@ -3,6 +3,7 @@ pub use follow_list::FollowList;
 
 use crate::comms::ToOverlordMessage;
 use crate::error::{Error, ErrorKind};
+use crate::fetcher::FetchResult;
 use crate::globals::GLOBALS;
 use crate::misc::{Freshness, Private};
 use crate::relay;
@@ -413,14 +414,11 @@ impl People {
             }
         };
 
-        match GLOBALS.fetcher.try_get(
-            &url,
-            Duration::from_secs(60 * 60 * GLOBALS.db().read_setting_avatar_becomes_stale_hours()),
-            false,
-        ) {
-            // cache expires in 3 days
-            Ok(None) => None,
-            Ok(Some(bytes)) => {
+        // cache expires in 3 days
+
+        let use_cache = true;
+        match GLOBALS.fetcher.try_get(url, use_cache) {
+            Ok(FetchResult::Ready(bytes)) => {
                 // Finish this later (spawn)
                 let apubkey = *pubkey;
                 tokio::spawn(async move {
@@ -448,6 +446,19 @@ impl People {
                 self.avatars_pending_processing.insert(pubkey.to_owned());
                 None
             }
+            Ok(FetchResult::Taken) => {
+                tracing::error!("Already taken (internal error (people)");
+                // this cannot recover without new metadata
+                GLOBALS.failed_avatars.write().insert(*pubkey);
+                None
+            }
+            Ok(FetchResult::Failed(s)) => {
+                tracing::error!("Fetch error: {s}");
+                // this cannot recover without new metadata
+                GLOBALS.failed_avatars.write().insert(*pubkey);
+                None
+            }
+            Ok(_) => None,
             Err(e) => {
                 tracing::error!("{}", e);
                 // this cannot recover without new metadata

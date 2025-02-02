@@ -46,6 +46,8 @@ pub(crate) fn start_background_tasks() {
             }
 
             do_general_tasks(tick).await;
+
+            do_debug_tasks(tick).await;
         }
 
         tracing::info!("Stopping general background tasks");
@@ -53,9 +55,6 @@ pub(crate) fn start_background_tasks() {
 }
 
 async fn do_online_tasks(tick: usize) {
-    // Do fetcher tasks every tick
-    GLOBALS.fetcher.process_queue().await;
-
     // Do seeker tasks 2 ticks
     if tick % 2 == 0 {
         GLOBALS.seeker.run_once().await;
@@ -101,4 +100,10 @@ async fn update_inbox_indicator() {
         }
     }
     GLOBALS.unread_inbox.store(count, Ordering::Relaxed);
+}
+
+async fn do_debug_tasks(tick: usize) {
+    if tick % 20 == 0 {
+        tracing::debug!(target: "fetcher", "DEBUG FETCHER STATS: {}", GLOBALS.fetcher.stats());
+    }
 }
