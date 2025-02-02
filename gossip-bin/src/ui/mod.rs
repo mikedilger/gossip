@@ -1355,11 +1355,7 @@ impl GossipUi {
                     (egui::Stroke::new(1.0, self.theme.neutral_300()), None)
                 };
             let (color, text, text_color_override) = if self.unsaved_settings.offline {
-                (
-                    self.theme.amber_100(),
-                    "OFFLINE",
-                    active_color_override,
-                )
+                (self.theme.amber_100(), "OFFLINE", active_color_override)
             } else {
                 (
                     Color32::TRANSPARENT,
@@ -1390,9 +1386,9 @@ impl GossipUi {
                     // switch
                     let response =
                         widgets::Switch::small(&self.theme, &mut self.unsaved_settings.offline)
-                        .with_label(text)
-                        .with_label_color(text_color_override)
-                        .show(ui);
+                            .with_label(text)
+                            .with_label_color(text_color_override)
+                            .show(ui);
 
                     if response.changed() {
                         if let Err(e) = self.unsaved_settings.save() {
@@ -1401,7 +1397,6 @@ impl GossipUi {
                     }
                 });
         });
-
     }
 
     fn add_debug_area(&mut self, ui: &mut Ui) {
