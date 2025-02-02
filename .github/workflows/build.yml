@@ -27,12 +27,12 @@ jobs:
           path: target/release/gossip.exe
           name: gossip.exe
       - if: matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           path: target/release/gossip*
           name: gossip_linux
       - if: matrix.os == 'macos-latest'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           path: target/release/gossip*
           name: gossip_macos
