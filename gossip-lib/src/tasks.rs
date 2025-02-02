@@ -5,6 +5,8 @@ use std::sync::atomic::Ordering;
 use std::time::Duration;
 use tokio::time::Instant;
 
+const TICK: u64 = 500;
+
 pub(crate) fn start_background_tasks() {
     tracing::info!("Starting general background tasks");
 
@@ -15,7 +17,7 @@ pub(crate) fn start_background_tasks() {
             return;
         }
 
-        let sleep_future = tokio::time::sleep(Duration::from_millis(1000));
+        let sleep_future = tokio::time::sleep(Duration::from_millis(TICK));
         tokio::pin!(sleep_future);
         let mut tick: usize = 0;
 
@@ -26,7 +28,7 @@ pub(crate) fn start_background_tasks() {
 
             tokio::select! {
                 _ = &mut sleep_future => {
-                    sleep_future.as_mut().reset(Instant::now() + Duration::from_millis(1000))
+                    sleep_future.as_mut().reset(Instant::now() + Duration::from_millis(TICK))
                 },
                 _ = read_runstate.wait_for(|runstate| *runstate == RunState::ShuttingDown) => break,
                 _ = recompute_bookmarks_future => {
@@ -51,16 +53,16 @@ pub(crate) fn start_background_tasks() {
 }
 
 async fn do_online_tasks(tick: usize) {
-    // Do fetcher tasks (every 2 seconds)
+    // Do fetcher tasks every tick
+    GLOBALS.fetcher.process_queue().await;
+
+    // Do seeker tasks 2 ticks
     if tick % 2 == 0 {
-        GLOBALS.fetcher.process_queue().await;
+        GLOBALS.seeker.run_once().await;
     }
 
-    // Do seeker tasks (every second)
-    GLOBALS.seeker.run_once().await;
-
-    // Update pending every 12 seconds
-    if tick % 12 == 0 {
+    // Update pending every 5 ticks
+    if tick % 5 == 0 {
         if let Err(e) = GLOBALS.pending.compute_pending() {
             if !matches!(e.kind, ErrorKind::NoPrivateKey) {
                 tracing::error!("{:?}", e);
@@ -68,15 +70,15 @@ async fn do_online_tasks(tick: usize) {
         }
     }
 
-    // Update people metadata every 2 seconds
-    if tick % 2 == 0 {
+    // Update people metadata every 3 ticks
+    if tick % 3 == 0 {
         GLOBALS.people.maybe_fetch_metadata().await;
     }
 }
 
 async fn do_general_tasks(tick: usize) {
-    // Update GLOBALS.unread_dms count (every 3 seconds)
-    if tick % 3 == 0 {
+    // Update GLOBALS.unread_dms count every 2 ticks
+    if tick % 2 == 0 {
         // Update unread dm channels, whether or not we are in that feed
         if let Ok(channels) = GLOBALS.db().dm_channels() {
             let unread = channels.iter().map(|c| c.unread_message_count).sum();
