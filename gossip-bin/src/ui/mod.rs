@@ -442,8 +442,6 @@ struct GossipUi {
     #[cfg(feature = "video-ffmpeg")]
     warn_no_libsdl2_dismissed: bool,
 
-    initializing: bool,
-
     // Rendering
     next_frame: Instant,
     override_dpi: bool,
@@ -453,6 +451,7 @@ struct GossipUi {
     current_scroll_offset: f32,
     // How far we should scroll in future frames
     future_scroll_offset: f32,
+    frame_count: usize,
 
     // Ui timers
     popups: HashMap<egui::Id, HashMap<egui::Id, Box<dyn widgets::InformationPopup>>>,
@@ -728,13 +727,13 @@ impl GossipUi {
             video_players: HashMap::new(),
             #[cfg(feature = "video-ffmpeg")]
             warn_no_libsdl2_dismissed: false,
-            initializing: true,
             next_frame: Instant::now(),
             override_dpi,
             override_dpi_value,
             original_dpi_value: override_dpi_value,
             current_scroll_offset: 0.0,
             future_scroll_offset: 0.0,
+            frame_count: 0,
             popups: HashMap::new(),
             modal: None,
             qr_codes: HashMap::new(),
@@ -1003,7 +1002,9 @@ impl GossipUi {
             .show(ctx, |ui| {
                 ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                     notifications::draw_icons(self, ui);
-                    ui.add_space(10.0);
+                    ui.add_space(2.0);
+                    self.render_spinner(ui);
+                    ui.add_space(8.0);
                     self.render_status_queue_area(ui);
                     ui.add_space(10.0);
                     self.add_offline_switch(ui);
@@ -2148,6 +2149,31 @@ impl GossipUi {
         ScrollArea::vertical().enable_scrolling(self.enable_ui())
     }
 
+    fn render_spinner(&self, ui: &mut Ui) {
+        let spinner = match self.frame_count % 8 {
+            /* braille spinner
+            0 => "⣾",
+            1 => "⣽",
+            2 => "⣻",
+            3 => "⢿",
+            4 => "⡿",
+            5 => "⣟",
+            6 => "⣯",
+            7 => "⣷",
+             */
+            0 => "┤",
+            1 => "┘",
+            2 => "┴",
+            3 => "└",
+            4 => "├",
+            5 => "┌",
+            6 => "┬",
+            7 => "┐",
+            _ => " ",
+        };
+        ui.label(spinner);
+    }
+
     fn render_status_queue_area(&self, ui: &mut Ui) {
         let messages = GLOBALS.status_queue.read().read_all();
         if ui
@@ -2174,9 +2200,7 @@ impl GossipUi {
 impl eframe::App for GossipUi {
     fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame) {
         // Run only on first frame
-        if self.initializing {
-            self.initializing = false;
-
+        if self.frame_count == 0 {
             // Initialize scaling, now that we have a Viewport
             self.init_scaling(ctx);
 
@@ -2186,6 +2210,9 @@ impl eframe::App for GossipUi {
             // Init first page
             self.set_page_inner(ctx, self.page.clone());
         }
+
+        // next frame
+        self.frame_count += 1;
 
         let max_fps = read_setting!(max_fps) as f32;
 
