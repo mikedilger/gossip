@@ -100,6 +100,11 @@ impl Media {
             return MediaLoadingResult::Ready(th.1);
         }
 
+        // If it is pending processing, don't get it again
+        if self.media_pending_processing.contains(url) {
+            return MediaLoadingResult::Loading;
+        }
+
         match self.get_data(url, use_temp_cache, file_metadata) {
             MediaLoadingResult::Disabled => MediaLoadingResult::Disabled,
             MediaLoadingResult::Loading => MediaLoadingResult::Loading,
