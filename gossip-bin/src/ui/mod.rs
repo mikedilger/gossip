@@ -992,6 +992,25 @@ impl GossipUi {
         self.page = page;
     }
 
+    fn bottom_panel(&mut self, ctx: &Context) {
+        egui::TopBottomPanel::bottom("notification-panel")
+            .show_separator_line(true)
+            .frame(
+                egui::Frame::none()
+                    .inner_margin(egui::Margin::symmetric(0.0, 0.0))
+                    .fill(self.theme.navigation_bg_fill()),
+            )
+            .show(ctx, |ui| {
+                ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+                    notifications::draw_icons(self, ui);
+                    ui.add_space(10.0);
+                    self.render_status_queue_area(ui);
+                    ui.add_space(10.0);
+                    self.add_offline_switch(ui);
+                });
+            });
+    }
+
     fn side_panel(&mut self, ctx: &Context) {
         egui::SidePanel::left("main-navigation-panel")
             .show_separator_line(false)
@@ -1049,7 +1068,7 @@ impl GossipUi {
                 #[cfg(debug_assertions)]
                 self.add_theme_test(ui, ctx);
 
-                self.add_status_area(ui, ctx);
+                self.add_debug_area(ui);
                 self.add_plus_icon(ui, ctx);
             });
     }
@@ -1317,11 +1336,9 @@ impl GossipUi {
         }
     }
 
-    fn add_status_area(&mut self, ui: &mut Ui, _ctx: &Context) {
-        ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
-            notifications::draw_icons(self, ui);
-
-            let (frame_stroke, active_color_override) =
+    fn add_offline_switch(&mut self, ui: &mut Ui) {
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            let (_frame_stroke, active_color_override) =
                 if self.theme.dark_mode && self.unsaved_settings.offline {
                     (
                         egui::Stroke::new(1.0, Color32::TRANSPARENT),
@@ -1340,7 +1357,7 @@ impl GossipUi {
             let (color, text, text_color_override) = if self.unsaved_settings.offline {
                 (
                     self.theme.amber_100(),
-                    "Offline",
+                    "OFFLINE",
                     active_color_override,
                 )
             } else {
@@ -1351,40 +1368,31 @@ impl GossipUi {
                 )
             };
             const PADDING: egui::Margin = egui::Margin {
-                left: 20.0,
-                right: 20.0,
-                top: 7.0,
-                bottom: 7.0,
+                left: 16.0,
+                right: 16.0,
+                top: 5.0,
+                bottom: 5.0,
             };
             egui::Frame::none()
                 .rounding(egui::Rounding::ZERO)
                 .outer_margin(egui::Margin {
-                    left: -20.0,
-                    right: -20.0,
-                    top: 10.0,
-                    bottom: -13.0,
+                    left: 0.0,
+                    right: 0.0,
+                    top: 0.0,
+                    bottom: 0.0,
                 })
                 .inner_margin(PADDING)
                 .fill(color)
                 .show(ui, |ui| {
-                    ui.set_height(16.0);
-                    ui.set_width(ui.available_width());
-
-                    // draw top frame line
-                    let ui_rect = ui.available_rect_before_wrap();
-                    let x_range = egui::Rangef::new(
-                        ui_rect.left() - PADDING.left,
-                        ui_rect.right() + PADDING.right,
-                    );
-                    ui.painter()
-                        .hline(x_range, ui_rect.top() - PADDING.top, frame_stroke);
+                    ui.set_height(25.0);
+                    ui.set_width(115.0);
 
                     // switch
                     let response =
                         widgets::Switch::small(&self.theme, &mut self.unsaved_settings.offline)
-                            .with_label(text)
-                            .with_label_color(text_color_override)
-                            .show(ui);
+                        .with_label(text)
+                        .with_label_color(text_color_override)
+                        .show(ui);
 
                     if response.changed() {
                         if let Err(e) = self.unsaved_settings.save() {
@@ -1392,44 +1400,47 @@ impl GossipUi {
                         }
                     }
                 });
+        });
 
+    }
+
+    fn add_debug_area(&mut self, ui: &mut Ui) {
+        ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
             // DEBUG status area
             if read_setting!(status_bar) {
                 let in_flight = GLOBALS.fetcher.requests_in_flight();
                 let queued = GLOBALS.fetcher.requests_queued();
-                let m = format!("HTTP {}/{}", in_flight, queued);
+                let m = format!("HF {}/{}", in_flight, queued);
                 ui.add(Label::new(
                     RichText::new(m).color(self.theme.notice_marker_text_color()),
                 ));
 
                 let subs = GLOBALS.open_subscriptions.load(Ordering::Relaxed);
-                let m = format!("R-SUBS {}", subs);
+                let m = format!("RS {}", subs);
                 ui.add(Label::new(
                     RichText::new(m).color(self.theme.notice_marker_text_color()),
                 ));
 
                 let relays = GLOBALS.connected_relays.len();
-                let m = format!("R-CONN {}", relays);
+                let m = format!("RC {}", relays);
                 ui.add(Label::new(
                     RichText::new(m).color(self.theme.notice_marker_text_color()),
                 ));
 
                 let events = GLOBALS.db().get_event_len().unwrap_or(0);
-                let m = format!("E-STORE {}", events);
+                let m = format!("ES {}", events);
                 ui.add(Label::new(
                     RichText::new(m).color(self.theme.notice_marker_text_color()),
                 ));
 
                 let processed = GLOBALS.events_processed.load(Ordering::Relaxed);
-                let m = format!("E-IN {}", processed);
+                let m = format!("EI {}", processed);
                 ui.add(Label::new(
                     RichText::new(m).color(self.theme.notice_marker_text_color()),
                 ));
 
                 ui.separator();
             }
-
-            self.render_status_queue_area(ui);
         });
     }
 
@@ -2318,6 +2329,9 @@ impl eframe::App for GossipUi {
                 self.modal = None;
             }
         }
+
+        // Bottom Panel
+        self.bottom_panel(ctx);
 
         // Side panel
         self.side_panel(ctx);

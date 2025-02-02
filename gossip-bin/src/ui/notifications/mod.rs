@@ -187,16 +187,16 @@ pub(super) fn draw_icons(app: &mut GossipUi, ui: &mut Ui) {
     let frame_response = egui::Frame::none()
         .rounding(egui::Rounding::ZERO)
         .outer_margin(egui::Margin {
-            left: -20.0,
-            right: -20.0,
-            top: 10.0,
-            bottom: -20.0,
+            left: 0.0,
+            right: 0.0,
+            top: 0.0,
+            bottom: 0.0,
         })
         .inner_margin(egui::Margin {
-            left: 20.0,
-            right: 20.0,
-            top: 7.0,
-            bottom: 7.0,
+            left: 16.0,
+            right: 16.0,
+            top: 5.0,
+            bottom: 5.0,
         })
         .fill(if app.theme.dark_mode {
             app.theme.neutral_700()
@@ -204,8 +204,10 @@ pub(super) fn draw_icons(app: &mut GossipUi, ui: &mut Ui) {
             app.theme.neutral_300()
         })
         .show(ui, |ui| {
-            ui.set_height(90.0);
-            ui.set_width(ui.available_width());
+            //ui.set_height(26.0);
+            //ui.set_width(112.0);
+            ui.set_height(25.0);
+            ui.set_width(150.0);
             egui_extras::StripBuilder::new(ui)
                 .size(egui_extras::Size::relative(0.3))
                 .size(egui_extras::Size::relative(0.3))
@@ -213,7 +215,7 @@ pub(super) fn draw_icons(app: &mut GossipUi, ui: &mut Ui) {
                 .cell_layout(egui::Layout::centered_and_justified(
                     egui::Direction::LeftToRight,
                 ))
-                .vertical(|mut strip| {
+                .horizontal(|mut strip| {
                     strip.cell(|ui| {
                         ui.set_min_size(SIZE);
                         ui.set_max_size(SIZE);
