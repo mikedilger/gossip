@@ -29,7 +29,7 @@ type Ws =
 
 /// The result from fetching events
 #[derive(Debug)]
-pub struct FetchResult {
+pub struct RelayFetchResult {
     /// If fetch_events_keep_open was used, this will be the open SubscriptionId
     pub sub_id: Option<SubscriptionId>,
 
@@ -44,7 +44,7 @@ pub struct FetchResult {
     pub close_msg: Option<String>,
 }
 
-impl FetchResult {
+impl RelayFetchResult {
     // Convert a fetch result into a `Vec<Event>`
     pub fn into_events(self) -> Vec<Event> {
         let mut v: Vec<Event> = self.pre_eose_events;
@@ -271,7 +271,7 @@ impl Connection {
         &mut self,
         filter: Filter,
         timeout: Duration,
-    ) -> Result<FetchResult, Error> {
+    ) -> Result<RelayFetchResult, Error> {
         self.fetch_events_inner(filter, timeout, true).await
     }
 
@@ -280,7 +280,7 @@ impl Connection {
         &mut self,
         filter: Filter,
         timeout: Duration,
-    ) -> Result<FetchResult, Error> {
+    ) -> Result<RelayFetchResult, Error> {
         self.fetch_events_inner(filter, timeout, false).await
     }
 
@@ -289,7 +289,7 @@ impl Connection {
         filter: Filter,
         timeout: Duration,
         close: bool,
-    ) -> Result<FetchResult, Error> {
+    ) -> Result<RelayFetchResult, Error> {
         let sub_id_usize = self.next_sub_id.fetch_add(1, Ordering::Relaxed);
         let sub_id = SubscriptionId(format!("sub{}", sub_id_usize));
         let client_message = ClientMessage::Req(sub_id.clone(), filter);
@@ -308,14 +308,14 @@ impl Connection {
                 }
 
                 if eose_happened {
-                    return Ok(FetchResult {
+                    return Ok(RelayFetchResult {
                         sub_id: if close { None } else { Some(sub_id) },
                         pre_eose_events,
                         post_eose_events: Some(post_eose_events),
                         close_msg: None,
                     });
                 } else {
-                    return Ok(FetchResult {
+                    return Ok(RelayFetchResult {
                         sub_id: if close { None } else { Some(sub_id) },
                         pre_eose_events,
                         post_eose_events: None,
@@ -336,14 +336,14 @@ impl Connection {
                 RelayMessage::Closed(sub, msg) => {
                     if sub == sub_id {
                         if eose_happened {
-                            return Ok(FetchResult {
+                            return Ok(RelayFetchResult {
                                 sub_id: if close { None } else { Some(sub_id) },
                                 pre_eose_events,
                                 post_eose_events: Some(post_eose_events),
                                 close_msg: Some(msg),
                             });
                         } else {
-                            return Ok(FetchResult {
+                            return Ok(RelayFetchResult {
                                 sub_id: if close { None } else { Some(sub_id) },
                                 pre_eose_events,
                                 post_eose_events: None,
