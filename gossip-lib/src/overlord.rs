@@ -1130,12 +1130,22 @@ impl Overlord {
 
     /// Adds or removes a bookmark, and publishes new bookmarks list
     pub fn bookmark_add(&mut self, er: EventReference, private: bool) -> Result<(), Error> {
-        let added = GLOBALS.bookmarks.write_arc().add(er, private)?;
+        let added = GLOBALS.bookmarks.write_arc().add(er.clone(), private)?;
 
         if added {
             GLOBALS.recompute_current_bookmarks.notify_one();
             let event = GLOBALS.bookmarks.read_arc().into_event()?;
             self.post_bookmarks(event)?;
+
+            if let Some(event) = GLOBALS.db().read_event_reference(&er)? {
+                // Invalidate the rendering of the note
+                GLOBALS.ui_notes_to_invalidate.write().push(event.id);
+            }
+
+            // Recompute bookmark feed
+            if GLOBALS.feed.get_feed_kind() == FeedKind::Bookmarks {
+                GLOBALS.feed.sync_recompute();
+            }
         }
 
         Ok(())
@@ -1143,12 +1153,22 @@ impl Overlord {
 
     /// Adds or removes a bookmark, and publishes new bookmarks list
     pub fn bookmark_rm(&mut self, er: EventReference) -> Result<(), Error> {
-        let removed = GLOBALS.bookmarks.write_arc().remove(er)?;
+        let removed = GLOBALS.bookmarks.write_arc().remove(er.clone())?;
 
         if removed {
             GLOBALS.recompute_current_bookmarks.notify_one();
             let event = GLOBALS.bookmarks.read_arc().into_event()?;
             self.post_bookmarks(event)?;
+
+            if let Some(event) = GLOBALS.db().read_event_reference(&er)? {
+                // Invalidate the rendering of the note
+                GLOBALS.ui_notes_to_invalidate.write().push(event.id);
+            }
+
+            // Recompute bookmark feed
+            if GLOBALS.feed.get_feed_kind() == FeedKind::Bookmarks {
+                GLOBALS.feed.sync_recompute();
+            }
         }
 
         Ok(())
