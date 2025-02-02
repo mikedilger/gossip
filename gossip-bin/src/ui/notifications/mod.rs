@@ -204,7 +204,7 @@ pub(super) fn draw_icons(app: &mut GossipUi, ui: &mut Ui) {
             app.theme.neutral_300()
         })
         .show(ui, |ui| {
-            ui.set_height(30.0);
+            ui.set_height(90.0);
             ui.set_width(ui.available_width());
             egui_extras::StripBuilder::new(ui)
                 .size(egui_extras::Size::relative(0.3))
@@ -213,7 +213,7 @@ pub(super) fn draw_icons(app: &mut GossipUi, ui: &mut Ui) {
                 .cell_layout(egui::Layout::centered_and_justified(
                     egui::Direction::LeftToRight,
                 ))
-                .horizontal(|mut strip| {
+                .vertical(|mut strip| {
                     strip.cell(|ui| {
                         ui.set_min_size(SIZE);
                         ui.set_max_size(SIZE);

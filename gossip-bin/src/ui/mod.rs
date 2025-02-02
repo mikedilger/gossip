@@ -204,7 +204,7 @@ impl Page {
 impl Page {
     pub fn to_readable(&self) -> (&'static str /* Category */, String /* Name */) {
         match self {
-            Page::DmChatList => (SubMenu::Feeds.as_str(), "Private chats".into()),
+            Page::DmChatList => (SubMenu::Feeds.as_str(), "Private msgs".into()),
             Page::Feed(feedkind) => ("Feed", feedkind.to_string()),
             Page::HandlerKinds => ("Event Handlers", "Event Handlers".into()),
             Page::Handlers(kind) => ("Event Handler", format!("{:?}", kind)),
@@ -1340,13 +1340,13 @@ impl GossipUi {
             let (color, text, text_color_override) = if self.unsaved_settings.offline {
                 (
                     self.theme.amber_100(),
-                    "Offline mode - ON",
+                    "Offline",
                     active_color_override,
                 )
             } else {
                 (
                     Color32::TRANSPARENT,
-                    "Offline mode",
+                    "Go offline",
                     Some(self.theme.neutral_500()),
                 )
             };
@@ -1397,31 +1397,31 @@ impl GossipUi {
             if read_setting!(status_bar) {
                 let in_flight = GLOBALS.fetcher.requests_in_flight();
                 let queued = GLOBALS.fetcher.requests_queued();
-                let m = format!("HTTP: {} / {}", in_flight, queued);
+                let m = format!("HTTP {}/{}", in_flight, queued);
                 ui.add(Label::new(
                     RichText::new(m).color(self.theme.notice_marker_text_color()),
                 ));
 
                 let subs = GLOBALS.open_subscriptions.load(Ordering::Relaxed);
-                let m = format!("RELAY SUBSC {}", subs);
+                let m = format!("R-SUBS {}", subs);
                 ui.add(Label::new(
                     RichText::new(m).color(self.theme.notice_marker_text_color()),
                 ));
 
                 let relays = GLOBALS.connected_relays.len();
-                let m = format!("RELAYS CONN {}", relays);
+                let m = format!("R-CONN {}", relays);
                 ui.add(Label::new(
                     RichText::new(m).color(self.theme.notice_marker_text_color()),
                 ));
 
                 let events = GLOBALS.db().get_event_len().unwrap_or(0);
-                let m = format!("EVENTS STOR {}", events);
+                let m = format!("E-STORE {}", events);
                 ui.add(Label::new(
                     RichText::new(m).color(self.theme.notice_marker_text_color()),
                 ));
 
                 let processed = GLOBALS.events_processed.load(Ordering::Relaxed);
-                let m = format!("EVENTS RECV {}", processed);
+                let m = format!("E-IN {}", processed);
                 ui.add(Label::new(
                     RichText::new(m).color(self.theme.notice_marker_text_color()),
                 ));
