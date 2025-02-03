@@ -207,6 +207,10 @@ pub struct Globals {
 
     /// Delayed posts
     pub delayed_posts: DashSet<Id>,
+
+    /// Notify the UI to redraw. When this gets notified, the UI will
+    /// wake from it's sleep and redraw immediately
+    pub notify_ui_redraw: Notify,
 }
 
 lazy_static! {
@@ -287,6 +291,7 @@ lazy_static! {
             followers: PRwLock::new(FollowList::default()),
             follows: PRwLock::new(FollowList::default()),
             delayed_posts: DashSet::new(),
+            notify_ui_redraw: Notify::new(),
         }
     };
 }

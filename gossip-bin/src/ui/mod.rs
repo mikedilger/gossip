@@ -2235,8 +2235,13 @@ impl eframe::App for GossipUi {
         if self.future_scroll_offset != 0.0 {
             ctx.request_repaint();
         } else {
-            // Wait until the next frame
-            std::thread::sleep(self.next_frame - Instant::now());
+            // Wait until the next frame, OR until GLOBALS.notify_ui_redraw is notified
+            GLOBALS.runtime.block_on(async {
+                tokio::select! {
+                    _ = tokio::time::sleep(self.next_frame - Instant::now()) => { },
+                    _ = GLOBALS.notify_ui_redraw.notified() => { },
+                }
+            });
             self.next_frame = Instant::now() + Duration::from_secs_f32(1.0 / max_fps);
 
             // Redraw at least once per 500ms
