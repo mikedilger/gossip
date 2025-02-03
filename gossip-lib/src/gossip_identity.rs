@@ -77,7 +77,7 @@ impl GossipIdentity {
             .map(|e| e.id)
             .collect();
 
-        GLOBALS.ui_notes_to_invalidate.write().extend(dms);
+        GLOBALS.ui_invalidate_notes(&dms);
 
         // Recompute bookmarks (including the private part)
         if let Some(pk) = self.public_key() {

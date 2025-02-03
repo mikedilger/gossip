@@ -109,7 +109,7 @@ pub fn process_new_event(
     }
 
     // Invalidate the note itself (due to seen_on probably changing)
-    GLOBALS.ui_notes_to_invalidate.write().push(event.id);
+    GLOBALS.ui_invalidate_note(event.id);
 
     // Bail out if duplicate (in most cases)
     if duplicate && !process_even_if_duplicate {
@@ -263,7 +263,7 @@ pub fn process_new_event(
     // and invalidate UI events that need to be redrawn because those relationships
     // affect their rendering.
     let invalid_ids = process_relationships_of_event(event, None)?;
-    GLOBALS.ui_notes_to_invalidate.write().extend(&invalid_ids);
+    GLOBALS.ui_invalidate_notes(&invalid_ids);
 
     if event.kind.is_feed_displayable() {
         process_feed_displayable_content(event, seen_on.as_ref(), now)?;

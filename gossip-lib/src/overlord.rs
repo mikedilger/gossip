@@ -1139,7 +1139,7 @@ impl Overlord {
 
             if let Some(event) = GLOBALS.db().read_event_reference(&er)? {
                 // Invalidate the rendering of the note
-                GLOBALS.ui_notes_to_invalidate.write().push(event.id);
+                GLOBALS.ui_invalidate_note(event.id);
             }
 
             // Recompute bookmark feed
@@ -1162,7 +1162,7 @@ impl Overlord {
 
             if let Some(event) = GLOBALS.db().read_event_reference(&er)? {
                 // Invalidate the rendering of the note
-                GLOBALS.ui_notes_to_invalidate.write().push(event.id);
+                GLOBALS.ui_invalidate_note(event.id);
             }
 
             // Recompute bookmark feed
@@ -2034,7 +2034,7 @@ impl Overlord {
         for refmulti in GLOBALS.delayed_posts.iter() {
             let id = *refmulti;
             let _ = GLOBALS.db().delete_event(id, None);
-            GLOBALS.ui_notes_to_invalidate.write().push(id);
+            GLOBALS.ui_invalidate_note(id);
         }
         GLOBALS.delayed_posts.clear();
         GLOBALS.feed.sync_recompute();
@@ -3653,7 +3653,7 @@ impl Overlord {
             GLOBALS
                 .db()
                 .add_person_to_list(pubkey, list, *private, Some(&mut txn))?;
-            GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
+            GLOBALS.ui_invalidate_person(*pubkey);
         }
 
         let last_edit = if merge { now } else { event.created_at };

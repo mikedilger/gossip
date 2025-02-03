@@ -85,8 +85,7 @@ pub async fn validate_nip05(person: Person) -> Result<(), Error> {
         }
     }
 
-    // UI cache invalidation (so notes of the person get rerendered)
-    GLOBALS.ui_people_to_invalidate.write().push(person.pubkey);
+    GLOBALS.ui_invalidate_person(person.pubkey);
 
     if valid {
         update_relays(&nip05, nip05file, &person.pubkey)?;

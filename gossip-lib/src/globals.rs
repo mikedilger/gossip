@@ -25,7 +25,7 @@ use regex::Regex;
 use rhai::{Engine, AST};
 use std::collections::HashSet;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
 use std::sync::{Arc, OnceLock};
 use tokio::runtime::Runtime;
 use tokio::sync::{broadcast, mpsc, Mutex, Notify, RwLock};
@@ -302,6 +302,26 @@ impl Globals {
             Some(s) => s,
             None => panic!("Storage call before initialization"),
         }
+    }
+
+    pub fn ui_invalidate_note(&self, id: Id) {
+        self.ui_notes_to_invalidate.write().push(id);
+        self.notify_ui_redraw.notify_waiters();
+    }
+
+    pub fn ui_invalidate_notes(&self, ids: &[Id]) {
+        self.ui_notes_to_invalidate.write().extend(ids);
+        self.notify_ui_redraw.notify_waiters();
+    }
+
+    pub fn ui_invalidate_person(&self, pubkey: PublicKey) {
+        self.ui_people_to_invalidate.write().push(pubkey);
+        self.notify_ui_redraw.notify_waiters();
+    }
+
+    pub fn ui_invalidate_all(&self) {
+        self.ui_invalidate_all.store(true, Ordering::Relaxed);
+        self.notify_ui_redraw.notify_waiters();
     }
 
     pub fn get_your_nprofile() -> Option<Profile> {

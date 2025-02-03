@@ -306,7 +306,7 @@ impl People {
                 person.nip05_last_checked = None; // we haven't checked this one yet
             }
             PersonTable::write_record(&mut person, None)?;
-            GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
+            GLOBALS.ui_invalidate_person(*pubkey);
         }
 
         // Remove from failed avatars list so the UI will try to fetch the avatar again if missing
@@ -770,7 +770,7 @@ impl People {
             }
         }
 
-        GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
+        GLOBALS.ui_invalidate_person(*pubkey);
 
         let _ = GLOBALS
             .to_overlord
@@ -782,7 +782,7 @@ impl People {
     /// Clear a person list
     pub(crate) fn clear_person_list(&self, list: PersonList) -> Result<(), Error> {
         GLOBALS.db().clear_person_list(list, None)?;
-        GLOBALS.ui_invalidate_all.store(false, Ordering::Relaxed);
+        GLOBALS.ui_invalidate_all();
         Ok(())
     }
 
@@ -815,7 +815,7 @@ impl People {
 
         txn.commit()?;
 
-        GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
+        GLOBALS.ui_invalidate_person(*pubkey);
 
         Ok(())
     }
@@ -880,7 +880,7 @@ impl People {
                 }
                 person.nip05_valid = nip05_valid;
                 person.nip05_last_checked = Some(nip05_last_checked);
-                GLOBALS.ui_people_to_invalidate.write().push(*pubkey);
+                GLOBALS.ui_invalidate_person(*pubkey);
             },
             None,
         )?;
