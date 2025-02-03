@@ -541,6 +541,9 @@ impl Feed {
         self.recompute_lock.store(false, Ordering::Relaxed);
         self.switching.store(false, Ordering::Relaxed);
 
+        // Wake the UI
+        GLOBALS.notify_ui_redraw.notify_waiters();
+
         Ok(())
     }
 
