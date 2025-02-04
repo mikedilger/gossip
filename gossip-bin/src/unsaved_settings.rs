@@ -101,6 +101,7 @@ pub struct UnsavedSettings {
     pub image_resize_algorithm: String,
     pub inertial_scrolling: bool,
     pub mouse_acceleration: f32,
+    pub frame_spinner: bool,
     pub wgpu_renderer: bool,
 
     // Staletime settings
@@ -197,6 +198,7 @@ impl Default for UnsavedSettings {
             image_resize_algorithm: default_setting!(image_resize_algorithm),
             inertial_scrolling: default_setting!(inertial_scrolling),
             mouse_acceleration: default_setting!(mouse_acceleration),
+            frame_spinner: default_setting!(frame_spinner),
             wgpu_renderer: default_setting!(wgpu_renderer),
             relay_list_becomes_stale_minutes: default_setting!(relay_list_becomes_stale_minutes),
             metadata_becomes_stale_minutes: default_setting!(metadata_becomes_stale_minutes),
@@ -291,6 +293,7 @@ impl UnsavedSettings {
             image_resize_algorithm: load_setting!(image_resize_algorithm),
             inertial_scrolling: load_setting!(inertial_scrolling),
             mouse_acceleration: load_setting!(mouse_acceleration),
+            frame_spinner: load_setting!(frame_spinner),
             wgpu_renderer: load_setting!(wgpu_renderer),
             relay_list_becomes_stale_minutes: load_setting!(relay_list_becomes_stale_minutes),
             metadata_becomes_stale_minutes: load_setting!(metadata_becomes_stale_minutes),
@@ -379,6 +382,7 @@ impl UnsavedSettings {
         save_setting!(image_resize_algorithm, self, txn);
         save_setting!(inertial_scrolling, self, txn);
         save_setting!(mouse_acceleration, self, txn);
+        save_setting!(frame_spinner, self, txn);
         save_setting!(wgpu_renderer, self, txn);
         save_setting!(relay_list_becomes_stale_minutes, self, txn);
         save_setting!(metadata_becomes_stale_minutes, self, txn);

@@ -1002,9 +1002,13 @@ impl GossipUi {
             .show(ctx, |ui| {
                 ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                     notifications::draw_icons(self, ui);
-                    ui.add_space(2.0);
-                    self.render_spinner(ui);
-                    ui.add_space(8.0);
+                    if read_setting!(frame_spinner) {
+                        ui.add_space(2.0);
+                        self.render_spinner(ui);
+                        ui.add_space(8.0);
+                    } else {
+                        ui.add_space(10.0);
+                    }
                     self.render_status_queue_area(ui);
                     ui.add_space(10.0);
                     self.add_offline_switch(ui);
@@ -2165,9 +2169,9 @@ impl GossipUi {
         ScrollArea::vertical().enable_scrolling(self.enable_ui())
     }
 
+    #[inline]
     fn render_spinner(&self, ui: &mut Ui) {
         let spinner = match self.frame_count % 8 {
-            /* braille spinner
             0 => "⣾",
             1 => "⣽",
             2 => "⣻",
@@ -2176,7 +2180,7 @@ impl GossipUi {
             5 => "⣟",
             6 => "⣯",
             7 => "⣷",
-             */
+            /*
             0 => "┤",
             1 => "┘",
             2 => "┴",
@@ -2185,6 +2189,7 @@ impl GossipUi {
             5 => "┌",
             6 => "┬",
             7 => "┐",
+            */
             _ => " ",
         };
         ui.label(spinner);

@@ -153,4 +153,13 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     });
 
     ui.add_space(20.0);
+    ui.horizontal(|ui| {
+        ui.checkbox(
+            &mut app.unsaved_settings.frame_spinner,
+            "Show a spinner that spins every frame",
+        );
+        reset_button!(app, ui, frame_spinner);
+    });
+
+    ui.add_space(20.0);
 }
