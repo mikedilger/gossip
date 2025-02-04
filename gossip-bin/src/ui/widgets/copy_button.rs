@@ -1,6 +1,6 @@
 use eframe::{
     egui,
-    epaint::{self, ColorMode, PathStroke},
+    epaint::{self, PathStroke},
 };
 use egui::{Color32, Pos2, Response, Sense, Shape, Ui, Vec2, Widget};
 use epaint::PathShape;
@@ -50,10 +50,7 @@ impl CopyButton {
             stroke: if let Some(stroke) = &self.stroke {
                 stroke.clone()
             } else {
-                PathStroke {
-                    width: 1.0,
-                    color: ColorMode::Solid(Color32::from_rgb(0x8d, 0x7f, 0x73)),
-                }
+                PathStroke::new(1.0, Color32::from_rgb(0x8d, 0x7f, 0x73)).middle()
             },
         }));
 
@@ -85,10 +82,7 @@ impl CopyButton {
             stroke: if let Some(stroke) = &self.stroke {
                 stroke.clone()
             } else {
-                PathStroke {
-                    width: 1.0,
-                    color: ColorMode::Solid(Color32::from_rgb(0x8d, 0x7f, 0x73)),
-                }
+                PathStroke::new(1.0, Color32::from_rgb(0x8d, 0x7f, 0x73)).middle()
             },
         }));
     }
