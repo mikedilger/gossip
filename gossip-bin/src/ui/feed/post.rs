@@ -1104,10 +1104,10 @@ fn offer_attachment(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, dm: bool) {
             app.uploading = None;
         }
     } else if ui.button(RichText::new("📎").size(14.0)).clicked() {
-        app.file_dialog.select_file();
+        app.file_dialog.pick_file();
     }
     app.file_dialog.update(ctx);
-    if let Some(pathbuf) = app.file_dialog.take_selected() {
+    if let Some(pathbuf) = app.file_dialog.take_picked() {
         app.uploading = Some(pathbuf.clone());
         let _ = GLOBALS
             .to_overlord
