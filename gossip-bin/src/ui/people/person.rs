@@ -50,7 +50,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     });
 
     app.vert_scroll_area()
-        .id_source("person page")
+        .id_salt("person page")
         .max_width(f32::INFINITY)
         .auto_shrink([false, false])
         .show(ui, |ui| {

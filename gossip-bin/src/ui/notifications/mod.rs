@@ -489,7 +489,7 @@ fn approve_style(theme: &Theme, style: &mut Style) {
 }
 
 pub fn notification_filter_combo(app: &mut GossipUi, ui: &mut Ui) {
-    let filter_combo = egui::ComboBox::from_id_source(egui::Id::from("NotificationFilterCombo"));
+    let filter_combo = egui::ComboBox::from_id_salt(egui::Id::from("NotificationFilterCombo"));
     filter_combo
         .selected_text(app.notification_data.filter.get_name())
         .width(210.0)

@@ -1450,7 +1450,7 @@ fn permission_combo(
     title: impl Into<WidgetText>,
 ) -> Option<Response> {
     ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
-        let auth_combo = egui::ComboBox::from_id_source(ui.next_auto_id());
+        let auth_combo = egui::ComboBox::from_id_salt(ui.next_auto_id());
         let response = auth_combo
             .width(70.0)
             .selected_text(permission.to_string())

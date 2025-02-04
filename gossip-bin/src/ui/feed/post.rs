@@ -223,7 +223,7 @@ fn dm_posting_area(
 
     let draft_response = ui.add(
         text_edit_multiline!(app, app.dm_draft_data.draft)
-            .id_source(compose_area_id)
+            .id_salt(compose_area_id)
             .hint_text("Type your message here")
             .desired_width(f32::INFINITY)
             .lock_focus(true)

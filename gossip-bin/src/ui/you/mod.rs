@@ -20,99 +20,97 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         ui.separator();
         ui.add_space(10.0);
 
-        app.vert_scroll_area()
-            .id_source("your_keys")
-            .show(ui, |ui| {
-                if GLOBALS.identity.is_unlocked() {
-                    ui.heading("Ready to sign events");
+        app.vert_scroll_area().id_salt("your_keys").show(ui, |ui| {
+            if GLOBALS.identity.is_unlocked() {
+                ui.heading("Ready to sign events");
 
-                    ui.add_space(10.0);
-                    ui.separator();
-                    ui.add_space(10.0);
+                ui.add_space(10.0);
+                ui.separator();
+                ui.add_space(10.0);
 
-                    show_pub_key_detail(app, ui);
+                show_pub_key_detail(app, ui);
 
-                    ui.add_space(10.0);
-                    ui.separator();
-                    ui.add_space(10.0);
+                ui.add_space(10.0);
+                ui.separator();
+                ui.add_space(10.0);
 
-                    show_priv_key_detail(app, ui);
+                show_priv_key_detail(app, ui);
 
-                    ui.add_space(10.0);
-                    ui.separator();
-                    ui.add_space(10.0);
+                ui.add_space(10.0);
+                ui.separator();
+                ui.add_space(10.0);
 
-                    offer_change_password(app, ui);
+                offer_change_password(app, ui);
 
-                    ui.add_space(10.0);
-                    ui.separator();
-                    ui.add_space(10.0);
+                ui.add_space(10.0);
+                ui.separator();
+                ui.add_space(10.0);
 
-                    offer_export_priv_key(app, ui);
+                offer_export_priv_key(app, ui);
 
-                    ui.add_space(10.0);
-                    ui.separator();
-                    ui.add_space(10.0);
+                ui.add_space(10.0);
+                ui.separator();
+                ui.add_space(10.0);
 
-                    offer_delete(app, ui);
-                } else if GLOBALS.identity.has_private_key() {
-                    Frame::none()
-                        .stroke(Stroke {
-                            width: 2.0,
-                            color: Color32::RED,
-                        })
-                        .inner_margin(Margin {
-                            left: 10.0,
-                            right: 10.0,
-                            top: 10.0,
-                            bottom: 10.0,
-                        })
-                        .show(ui, |ui| {
-                            ui.heading("Passphrase Needed");
-                            offer_unlock_priv_key(app, ui);
-                        });
+                offer_delete(app, ui);
+            } else if GLOBALS.identity.has_private_key() {
+                Frame::none()
+                    .stroke(Stroke {
+                        width: 2.0,
+                        color: Color32::RED,
+                    })
+                    .inner_margin(Margin {
+                        left: 10.0,
+                        right: 10.0,
+                        top: 10.0,
+                        bottom: 10.0,
+                    })
+                    .show(ui, |ui| {
+                        ui.heading("Passphrase Needed");
+                        offer_unlock_priv_key(app, ui);
+                    });
 
-                    ui.add_space(10.0);
-                    ui.separator();
-                    ui.add_space(10.0);
+                ui.add_space(10.0);
+                ui.separator();
+                ui.add_space(10.0);
 
-                    show_pub_key_detail(app, ui);
+                show_pub_key_detail(app, ui);
 
-                    ui.add_space(10.0);
-                    ui.separator();
-                    ui.add_space(10.0);
+                ui.add_space(10.0);
+                ui.separator();
+                ui.add_space(10.0);
 
-                    offer_delete(app, ui);
-                } else if GLOBALS.identity.public_key().is_some() {
-                    show_pub_key_detail(app, ui);
+                offer_delete(app, ui);
+            } else if GLOBALS.identity.public_key().is_some() {
+                show_pub_key_detail(app, ui);
 
-                    ui.add_space(10.0);
-                    ui.separator();
-                    ui.add_space(10.0);
+                ui.add_space(10.0);
+                ui.separator();
+                ui.add_space(10.0);
 
-                    offer_import_priv_key(app, ui);
+                offer_import_priv_key(app, ui);
 
-                    ui.add_space(10.0);
-                    ui.separator();
-                    ui.add_space(10.0);
+                ui.add_space(10.0);
+                ui.separator();
+                ui.add_space(10.0);
 
-                    offer_delete_or_import_pub_key(app, ui);
-                } else {
-                    offer_generate(app, ui);
+                offer_delete_or_import_pub_key(app, ui);
+            } else {
+                offer_generate(app, ui);
 
-                    ui.add_space(10.0);
-                    ui.separator();
-                    ui.add_space(10.0);
+                ui.add_space(10.0);
+                ui.separator();
+                ui.add_space(10.0);
 
-                    offer_import_priv_key(app, ui);
+                offer_import_priv_key(app, ui);
 
-                    ui.add_space(10.0);
-                    ui.separator();
-                    ui.add_space(10.0);
+                ui.add_space(10.0);
+                ui.separator();
+                ui.add_space(10.0);
 
-                    offer_delete_or_import_pub_key(app, ui);
-                }
-            });
+                offer_delete_or_import_pub_key(app, ui);
+            }
+        });
     } else if app.page == Page::YourMetadata {
         metadata::update(app, ctx, _frame, ui);
     } else if app.page == Page::YourDelegation {

@@ -83,7 +83,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     ui.separator();
 
     egui::ScrollArea::new([true, true])
-        .id_source("settings")
+        .id_salt("settings")
         .show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.selectable_value(&mut app.settings_tab, SettingsTab::Id, "Identity");

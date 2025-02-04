@@ -167,8 +167,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 tried its best.", read_setting!(num_relays_per_person)));
 
         ui.add_space(10.0);
-        let id_source = ui.auto_id_with("relay-coverage-scroll");
-        app.vert_scroll_area().id_source(id_source).show(ui, |ui| {
+        let id_salt = ui.auto_id_with("relay-coverage-scroll");
+        app.vert_scroll_area().id_salt(id_salt).show(ui, |ui| {
             for elem in GLOBALS.relay_picker.pubkey_counts_iter() {
                 let pk = elem.key();
                 let count = elem.value();

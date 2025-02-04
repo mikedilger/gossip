@@ -159,18 +159,13 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     }
 }
 
-pub(super) fn relay_scroll_list(
-    app: &mut GossipUi,
-    ui: &mut Ui,
-    relays: Vec<Relay>,
-    id_source: Id,
-) {
+pub(super) fn relay_scroll_list(app: &mut GossipUi, ui: &mut Ui, relays: Vec<Relay>, id_salt: Id) {
     let scroll_size = ui.available_size_before_wrap();
     let is_editing = app.relays.edit.is_some();
-    let enable_scroll = !is_editing && !egui::ScrollArea::is_scrolling(ui, id_source);
+    let enable_scroll = !is_editing && !egui::ScrollArea::is_scrolling(ui, id_salt);
 
     app.vert_scroll_area()
-        .id_source(id_source)
+        .id_salt(id_salt)
         .enable_scrolling(enable_scroll)
         .show(ui, |ui| {
             let mut pos_last_entry = ui.cursor().left_top();
@@ -485,7 +480,7 @@ pub(super) fn configure_list_btn(app: &mut GossipUi, ui: &mut Ui) {
 /// Draw relay sort comboBox
 ///
 pub(super) fn relay_sort_combo(app: &mut GossipUi, ui: &mut Ui) {
-    let sort_combo = egui::ComboBox::from_id_source(Id::from("RelaySortCombo"));
+    let sort_combo = egui::ComboBox::from_id_salt(Id::from("RelaySortCombo"));
     sort_combo
         .width(130.0)
         .selected_text("Sort by ".to_string() + app.relays.sort.get_name())
@@ -542,7 +537,7 @@ pub(super) fn relay_sort_combo(app: &mut GossipUi, ui: &mut Ui) {
 /// Draw relay filter comboBox
 ///
 pub(super) fn relay_filter_combo(app: &mut GossipUi, ui: &mut Ui) {
-    let filter_combo = egui::ComboBox::from_id_source(Id::from("RelayFilterCombo"));
+    let filter_combo = egui::ComboBox::from_id_salt(Id::from("RelayFilterCombo"));
     filter_combo
         .selected_text(app.relays.filter.get_name())
         .show_ui(ui, |ui| {

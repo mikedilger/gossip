@@ -50,9 +50,9 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         },
     );
 
-    let id_source: Id = "MyRelaysScroll".into();
+    let id_salt: Id = "MyRelaysScroll".into();
 
-    super::relay_scroll_list(app, ui, relays, id_source);
+    super::relay_scroll_list(app, ui, relays, id_salt);
 }
 
 fn get_relays(app: &mut GossipUi) -> Vec<Relay> {

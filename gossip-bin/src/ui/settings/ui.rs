@@ -59,7 +59,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             }
         }
 
-        let theme_combo = egui::ComboBox::from_id_source("Theme");
+        let theme_combo = egui::ComboBox::from_id_salt("Theme");
         theme_combo.selected_text(&app.unsaved_settings.theme_variant).show_ui(ui, |ui| {
             for theme_variant in ThemeVariant::all() {
                 if ui.add(egui::widgets::SelectableLabel::new(theme_variant.name() == app.unsaved_settings.theme_variant, theme_variant.name())).clicked() {

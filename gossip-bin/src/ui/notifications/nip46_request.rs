@@ -141,7 +141,7 @@ impl<'a> Notification<'a> for Nip46Request {
 
                 strip.cell(|ui| {
                     egui::CollapsingHeader::new("Details")
-                        .id_source(&self.command.id)
+                        .id_salt(&self.command.id)
                         .show_unindented(ui, |ui| {
                             for param in &self.command.params {
                                 if let Ok(obj) = serde_json::from_str::<serde_json::Value>(param) {

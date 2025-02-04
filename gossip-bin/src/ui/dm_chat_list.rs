@@ -57,7 +57,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     let is_signer_ready = GLOBALS.identity.is_unlocked();
 
     app.vert_scroll_area()
-        .id_source("dm_chat_list")
+        .id_salt("dm_chat_list")
         .show(ui, |ui| {
             let color = app.theme.accent_color();
             for channeldata in channels.drain(..) {

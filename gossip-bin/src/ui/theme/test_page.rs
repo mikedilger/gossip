@@ -62,7 +62,7 @@ pub(in crate::ui) fn update(
     });
 
     app.vert_scroll_area()
-        .id_source(ui.auto_id_with("theme_test"))
+        .id_salt(ui.auto_id_with("theme_test"))
         .show(ui, |ui| {
             button_test(app, ui);
 

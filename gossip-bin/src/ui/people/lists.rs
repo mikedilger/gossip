@@ -46,7 +46,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     let color = app.theme.accent_color();
 
     app.vert_scroll_area()
-        .id_source("people_lists_scroll")
+        .id_salt("people_lists_scroll")
         .enable_scrolling(enabled)
         .show(ui, |ui| {
             for (list, metadata) in all_lists {

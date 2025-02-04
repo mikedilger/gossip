@@ -350,7 +350,7 @@ fn render_a_feed(
     app.vert_scroll_area()
         .auto_shrink(false)
         .stick_to_bottom(feed_newest_at_bottom)
-        .id_source(scroll_area_id)
+        .id_salt(scroll_area_id)
         .show(ui, |ui| {
             egui::Frame::none()
                 .outer_margin(egui::Margin {
@@ -457,7 +457,7 @@ fn render_dm_feed(app: &mut GossipUi, ui: &mut Ui, channel: DmChannel) {
     app.vert_scroll_area()
         .auto_shrink(false)
         .stick_to_bottom(feed_newest_at_bottom)
-        .id_source(scroll_area_id)
+        .id_salt(scroll_area_id)
         .show(ui, |ui| {
             for id in iterator {
                 note::render_dm_note(
