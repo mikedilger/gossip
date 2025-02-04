@@ -130,14 +130,8 @@ pub fn run() -> Result<(), Error> {
 
     let options = eframe::NativeOptions {
         viewport,
-        default_theme: if read_setting!(dark_mode) {
-            egui::Theme::Dark
-        } else {
-            egui::Theme::Light
-        },
         centered: true,
         vsync: true,
-        follow_system_theme: read_setting!(follow_os_dark_mode),
         renderer: if read_setting!(wgpu_renderer) {
             eframe::Renderer::Wgpu
         } else {
@@ -609,6 +603,16 @@ impl GossipUi {
 
                 // Sharper text
                 to.round_text_to_pixels = true;
+            });
+
+            cctx.egui_ctx.options_mut(|o| {
+                o.theme_preference = if read_setting!(follow_os_dark_mode) {
+                    egui::ThemePreference::System
+                } else if read_setting!(dark_mode) {
+                    egui::ThemePreference::Dark
+                } else {
+                    egui::ThemePreference::Light
+                }
             });
         }
 
