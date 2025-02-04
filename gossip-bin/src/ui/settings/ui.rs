@@ -1,6 +1,6 @@
 use crate::ui::{GossipUi, ThemeVariant};
 use eframe::egui;
-use egui::widgets::{Button, Slider};
+use egui::widgets::{Button, Slider, SliderClamping};
 use egui::{Context, Ui};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
@@ -79,7 +79,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         ui.label("Override DPI: ").on_hover_text("On some systems, DPI is not reported properly. In other cases, people like to zoom in or out. This lets you.");
         ui.checkbox(&mut app.override_dpi, "Override to ");
 
-        ui.add(Slider::new(&mut app.override_dpi_value, dpi.min(72)..=dpi.max(400)).clamp_to_range(false).text("DPI"));
+        ui.add(Slider::new(&mut app.override_dpi_value, dpi.min(72)..=dpi.max(400)).clamping(SliderClamping::Always).text("DPI"));
 
         ui.add_space(10.0); // indent
 
@@ -116,7 +116,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     ui.horizontal(|ui| {
         let fps = app.unsaved_settings.max_fps;
         ui.label("Maximum FPS: ").on_hover_text("The UI redraws every frame. By limiting the maximum FPS you can reduce load on your CPU. Takes effect immediately. I recommend 10, maybe even less.");
-        ui.add(Slider::new(&mut app.unsaved_settings.max_fps, fps.min(2)..=fps.max(60)).clamp_to_range(false).text("Frames per second"));
+        ui.add(Slider::new(&mut app.unsaved_settings.max_fps, fps.min(2)..=fps.max(60)).clamping(SliderClamping::Always).text("Frames per second"));
         reset_button!(app, ui, max_fps);
     });
 
@@ -146,7 +146,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 &mut app.unsaved_settings.mouse_acceleration,
                 accel.min(0.5)..=accel.max(2.0),
             )
-            .clamp_to_range(false)
+            .clamping(SliderClamping::Always)
             .text("Mouse scroll-wheel acceleration"),
         );
         reset_button!(app, ui, mouse_acceleration);
