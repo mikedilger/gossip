@@ -131,9 +131,9 @@ pub fn run() -> Result<(), Error> {
     let options = eframe::NativeOptions {
         viewport,
         default_theme: if read_setting!(dark_mode) {
-            eframe::Theme::Dark
+            egui::Theme::Dark
         } else {
-            eframe::Theme::Light
+            egui::Theme::Light
         },
         centered: true,
         vsync: true,
