@@ -735,7 +735,7 @@ fn profile_item_frame(
             prepared.content_ui.min_rect().right_top() + vec2(-10.0, 0.0),
             vec2(10.0, 10.0),
         );
-        // prepared.content_ui.allocate_ui_at_rect(sym_rect, |ui| {
+        // prepared.content_ui.allocate_new_ui(UiBuilder::new().max_rect(sym_rect), |ui| {
         //     ui.add_sized(sym_rect.size(), symbol)
         // });
         egui::Area::new(ui.auto_id_with(label + "_sym"))

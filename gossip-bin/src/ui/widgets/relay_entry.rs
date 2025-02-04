@@ -1295,7 +1295,7 @@ impl RelayEntry {
 
         let perm_rect = Rect::from_min_size(pos, PERMISSION_SECTION_SIZE);
 
-        ui.allocate_ui_at_rect(perm_rect, |ui| {
+        ui.allocate_new_ui(UiBuilder::new().max_rect(perm_rect), |ui| {
             if self.conn_require_permission {
                 let mut connect_permission = Permission::from(self.relay.allow_connect);
                 let response = permission_combo(ui, &mut connect_permission, "Allow Connect:");

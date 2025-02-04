@@ -16,6 +16,7 @@ use crate::{AVATAR_SIZE_F32, AVATAR_SIZE_REPOST_F32};
 use eframe::egui::{self, vec2, Align2, Margin, Response};
 use egui::{
     Align, Context, Frame, Label, Layout, RichText, Sense, Separator, Stroke, TextStyle, Ui,
+    UiBuilder,
 };
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{relay, DmChannel, FeedKind, Person, PersonTable, Table, ZapState, GLOBALS};
@@ -1187,7 +1188,7 @@ pub fn render_note_inside_framing(
                                     + ui.spacing().item_spacing.y,
                             );
                         let ui_rect = egui::Rect::from_points(&[top_left, bottom_right]);
-                        ui.allocate_ui_at_rect(ui_rect, |ui| {
+                        ui.allocate_new_ui(UiBuilder::new().max_rect(ui_rect), |ui| {
                             ui.with_layout(
                                 egui::Layout::right_to_left(egui::Align::default()),
                                 |ui| {
