@@ -121,6 +121,9 @@ impl Fetcher {
                 //       should not persist after this function call completes
                 std::mem::drop(tokio::spawn(async move {
                     GLOBALS.fetcher.process(url).await;
+
+                    // Notify the UI to redraw now that the image loading is complete
+                    GLOBALS.notify_ui_redraw.notify_waiters();
                 }));
 
                 Ok(FetchResult::Processing(FetchState::Starting))
@@ -136,6 +139,9 @@ impl Fetcher {
                 refmut.value_mut().state = FetchState::Starting;
                 std::mem::drop(tokio::spawn(async move {
                     GLOBALS.fetcher.process(url).await;
+
+                    // Notify the UI to redraw now that the image loading is complete
+                    GLOBALS.notify_ui_redraw.notify_waiters();
                 }));
 
                 Ok(FetchResult::Processing(FetchState::Starting))
@@ -184,6 +190,9 @@ impl Fetcher {
         if start {
             // Run the fetch
             GLOBALS.fetcher.process(url.clone()).await;
+
+            // Notify the UI to redraw now that the image loading is complete
+            GLOBALS.notify_ui_redraw.notify_waiters();
         }
 
         loop {

@@ -208,8 +208,7 @@ pub struct Globals {
     /// Delayed posts
     pub delayed_posts: DashSet<Id>,
 
-    /// Notify the UI to redraw. When this gets notified, the UI will
-    /// wake from it's sleep and redraw immediately
+    /// Notify the UI to redraw.
     pub notify_ui_redraw: Notify,
 }
 

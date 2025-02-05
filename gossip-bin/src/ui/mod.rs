@@ -724,6 +724,17 @@ impl GossipUi {
                 .store(max_image_side, Ordering::Relaxed);
         }
 
+        // Start a thread that listens on GLOBALS.notify_ui_redraw and informs
+        // the Context to redraw.  This can't be done in update() because update()
+        // is only run periodically.
+        let copy_context = cctx.egui_ctx.clone();
+        GLOBALS.runtime.spawn(async move {
+            loop {
+                GLOBALS.notify_ui_redraw.notified().await;
+                copy_context.request_repaint();
+            }
+        });
+
         GossipUi {
             #[cfg(feature = "video-ffmpeg")]
             audio_device,
@@ -1742,9 +1753,6 @@ impl GossipUi {
                     };
                     if let Some(bh) = &fm.blurhash {
                         if let Some(texture_handle) = self.blurs.get(&url) {
-                            // Repaint at 60fps until until the real image is available
-                            // to avoid display lag
-                            ctx.request_repaint_after(Duration::from_millis(16));
                             return MediaLoadingResult::Ready(texture_handle.clone());
                         } else {
                             if let Ok(rgba_image) =
@@ -1763,17 +1771,11 @@ impl GossipUi {
                                     TextureOptions::default(),
                                 );
                                 self.blurs.insert(url, texture_handle.clone());
-                                // Repaint at 60fps until until the real image is available
-                                // to avoid display lag
-                                ctx.request_repaint_after(Duration::from_millis(16));
                                 return MediaLoadingResult::Ready(texture_handle);
                             }
                         }
                     }
                 }
-                // Request repaints at 60fps so that as soon as the
-                // image is available to avoid display lag
-                ctx.request_repaint_after(Duration::from_millis(16));
                 MediaLoadingResult::Loading
             }
             MediaLoadingResult::Ready(rgba_image) => {
@@ -1815,9 +1817,6 @@ impl GossipUi {
         match GLOBALS.media.get_data(&url, volatile, file_metadata) {
             MediaLoadingResult::Disabled => MediaLoadingResult::Disabled,
             MediaLoadingResult::Loading => {
-                // Repaint at 60fps until the video is available to avoid
-                // display lag
-                ctx.request_repaint_after(Duration::from_millis(16));
                 MediaLoadingResult::Loading
             }
             MediaLoadingResult::Ready(bytes) => {
@@ -2223,6 +2222,11 @@ impl GossipUi {
 }
 
 impl eframe::App for GossipUi {
+    // This runs whenever repainting has been scheduled. Egui detects and schedules things
+    // like mouse input, cursor flash, fade in, etc, and schedules repaints for these.
+    //
+    // We also have to schedule repaints when something changes with things like
+    // ctx.schedule_repaint()
     fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame) {
         // Run only on first frame
         if self.frame_count == 0 {
@@ -2236,26 +2240,20 @@ impl eframe::App for GossipUi {
             self.set_page_inner(ctx, self.page.clone());
         }
 
-        // next frame
         self.frame_count += 1;
 
-        let max_fps = read_setting!(max_fps) as f32;
-
-        if self.future_scroll_offset != 0.0 {
-            ctx.request_repaint();
-        } else {
-            // Wait until the next frame, OR until GLOBALS.notify_ui_redraw is notified
-            GLOBALS.runtime.block_on(async {
-                tokio::select! {
-                    _ = tokio::time::sleep(self.next_frame - Instant::now()) => { },
-                    _ = GLOBALS.notify_ui_redraw.notified() => { },
-                }
-            });
-            self.next_frame = Instant::now() + Duration::from_secs_f32(1.0 / max_fps);
-
-            // Redraw at least once per 500ms
-            ctx.request_repaint_after(Duration::from_millis(500));
+        // Enforce FPS limiting.
+        // No amount of notifies or request_repaint()s can bypass this.
+        let presleep_now = Instant::now();
+        if self.next_frame > presleep_now {
+            std::thread::sleep(self.next_frame - presleep_now);
         }
+        self.next_frame = {
+            let max_fps = read_setting!(max_fps) as f32;
+            Instant::now() + Duration::from_secs_f32(1.0 / max_fps)
+        };
+
+        // tracing::warn!("REPAINT: {:?}", ctx.repaint_causes());
 
         if *GLOBALS.read_runstate.borrow() == RunState::ShuttingDown {
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
@@ -2298,14 +2296,28 @@ impl eframe::App for GossipUi {
             {
                 self.future_scroll_offset += requested_scroll;
 
-                // Move by 10% of future scroll offsets
-                self.current_scroll_offset = 0.1 * self.future_scroll_offset;
+                let now = Instant::now();
+                let duration = if self.next_frame > now {
+                    self.next_frame - Instant::now()
+                } else {
+                    Duration::from_secs_f32(0.0)
+                };
+
+                self.current_scroll_offset = self.future_scroll_offset
+                    * 4.0
+                    * duration.as_secs_f32();
+
                 self.future_scroll_offset -= self.current_scroll_offset;
 
                 // Friction stop when slow enough
                 if self.future_scroll_offset < 1.0 && self.future_scroll_offset > -1.0 {
                     self.future_scroll_offset = 0.0;
                 }
+            }
+
+            if self.future_scroll_offset != 0.0 {
+                // This is probably already handled by egui/src/response.rs:656
+                ctx.request_repaint(); // repaint immediately for smooth scrolling
             }
         } else {
             // Changes to the input state have no effect on the scrolling, because it was copied

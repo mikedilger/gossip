@@ -653,7 +653,7 @@ impl Storage {
     def_setting!(set_client_tag, b"set_client_tag", bool, false);
     def_setting!(set_user_agent, b"set_user_agent", bool, false);
     def_setting!(delegatee_tag, b"delegatee_tag", String, String::new());
-    def_setting!(max_fps, b"max_fps", u32, 12);
+    def_setting!(max_fps, b"max_fps", u32, 60);
     def_setting!(
         recompute_feed_periodically,
         b"recompute_feed_periodically",

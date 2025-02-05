@@ -144,6 +144,10 @@ impl Media {
                     }
                     let end = std::time::Instant::now();
                     tracing::debug!(target: "fetcher", "Media processing took {}ms", (end - start).as_millis());
+
+                    // Notify the UI to redraw now that the image is available
+                    GLOBALS.notify_ui_redraw.notify_waiters();
+
                 });
                 MediaLoadingResult::Loading
             }

@@ -48,6 +48,8 @@ pub(crate) fn start_background_tasks() {
             do_general_tasks(tick).await;
 
             do_debug_tasks(tick).await;
+
+            GLOBALS.feed.sync_maybe_periodic_recompute();
         }
 
         tracing::info!("Stopping general background tasks");

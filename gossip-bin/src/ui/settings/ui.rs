@@ -115,8 +115,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     ui.add_space(20.0);
     ui.horizontal(|ui| {
         let fps = app.unsaved_settings.max_fps;
-        ui.label("Maximum FPS: ").on_hover_text("The UI redraws every frame. By limiting the maximum FPS you can reduce load on your CPU. Takes effect immediately. I recommend 10, maybe even less.");
-        ui.add(Slider::new(&mut app.unsaved_settings.max_fps, fps.min(2)..=fps.max(60)).clamping(SliderClamping::Always).text("Frames per second"));
+        ui.label("Maximum FPS: ").on_hover_text("The UI redraws whenever data changes, and avoids redraws where it can.  When scrolling/fading/animating, redraws repeat as fast as possible (possibly limited by your monitor refresh I'm not sure). You can limit these redraws by setting a maximum FPS, thus reducing the load on your CPU in exchange for poor visual results during scrolling/fading/animating. Takes effect immediately. Default is 60fps.");
+        ui.add(Slider::new(&mut app.unsaved_settings.max_fps, fps.min(15)..=fps.max(120)).clamping(SliderClamping::Always).text("Frames per second"));
         reset_button!(app, ui, max_fps);
     });
 
