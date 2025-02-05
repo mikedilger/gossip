@@ -7,7 +7,7 @@ use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::FeedKind;
 use gossip_lib::GLOBALS;
 use nostr_types::{
-    ContentSegment, FileMetadata, Id, IdHex, NAddr, NostrBech32, ParsedTag, PublicKey, RelayUrl,
+    ContentSegment, FileMetadata, Id, IdHex, NAddr, NostrBech32, NostrUrl, ParsedTag, PublicKey, RelayUrl,
     Span,
 };
 use std::{
@@ -331,8 +331,9 @@ pub(super) fn render_event_link(
     referenced_by_id: Id,
     link_to_id: Id,
 ) {
-    let idhex: IdHex = link_to_id.into();
-    let name = format!("#{}", gossip_lib::names::hex_id_short(&idhex));
+    let nurl = NostrUrl(NostrBech32::Id(link_to_id));
+    let name = format!("{}", nurl);
+
     if ui.link(&name).clicked() {
         app.set_page(
             ui.ctx(),
