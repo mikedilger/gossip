@@ -106,9 +106,9 @@ pub fn run() -> Result<(), Error> {
     });
 
     let viewport = ViewportBuilder {
+        title: Some("Gossip".to_string()),
         #[cfg(target_os = "linux")]
         app_id: Some("gossip".to_string()),
-        inner_size: Some(egui::vec2(700.0, 900.0)),
         min_inner_size: Some(egui::vec2(800.0, 600.0)),
         resizable: Some(true),
         decorations: Some(true),
@@ -2304,7 +2304,7 @@ impl eframe::App for GossipUi {
                 };
 
                 self.current_scroll_offset = self.future_scroll_offset
-                    * 4.0
+                    * 5.0
                     * duration.as_secs_f32();
 
                 self.future_scroll_offset -= self.current_scroll_offset;
