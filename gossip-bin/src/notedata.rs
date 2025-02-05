@@ -271,8 +271,10 @@ impl NoteData {
                     } else {
                         Some(RepostType::MentionOnly)
                     }
-                } else {
+                } else if event.kind == EventKind::TextNote || event.kind == EventKind::Comment {
                     Some(RepostType::CommentMention)
+                } else {
+                    None
                 }
             } else {
                 None
