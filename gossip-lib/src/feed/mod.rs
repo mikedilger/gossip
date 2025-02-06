@@ -607,6 +607,7 @@ pub fn enabled_event_kinds() -> Vec<EventKind> {
     let direct_messages = GLOBALS.db().read_setting_direct_messages();
     let enable_zap_receipts = GLOBALS.db().read_setting_enable_zap_receipts();
     let enable_picture_events = GLOBALS.db().read_setting_enable_picture_events();
+    let comments = GLOBALS.db().read_setting_enable_comments();
 
     EventKind::iter()
         .filter(|k| {
@@ -640,7 +641,7 @@ pub fn enabled_event_kinds() -> Vec<EventKind> {
             // || *k == EventKind::Timestamp
                 || ((*k == EventKind::GiftWrap) && direct_messages)
             // || *k == EventKind::FileMetadata
-                || *k == EventKind::Comment
+                || ((*k == EventKind::Comment) && comments)
             // || *k == EventKind::LiveChatMessage
             // || *k == EventKind::Patches
             // || *k == EventKind::GitIssue
