@@ -2335,7 +2335,7 @@ impl eframe::App for GossipUi {
 
         let mut reapply = false;
         let mut theme = Theme::from_settings();
-        if theme.follow_os_dark_mode {
+        if read_setting!(follow_os_dark_mode) {
             // detect if the OS has changed dark/light mode
             let os_dark_mode = ctx.style().visuals.dark_mode;
             if os_dark_mode != theme.dark_mode {

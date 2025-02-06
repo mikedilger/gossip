@@ -32,7 +32,6 @@ pub enum ThemeVariant {
 pub struct Theme {
     pub variant: ThemeVariant,
     pub dark_mode: bool,
-    pub follow_os_dark_mode: bool,
 }
 
 impl Theme {
@@ -43,7 +42,6 @@ impl Theme {
                 _ => ThemeVariant::Default,
             },
             dark_mode: read_setting!(dark_mode),
-            follow_os_dark_mode: read_setting!(follow_os_dark_mode),
         }
     }
 }
