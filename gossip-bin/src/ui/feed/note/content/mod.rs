@@ -7,7 +7,7 @@ use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::FeedKind;
 use gossip_lib::GLOBALS;
 use nostr_types::{
-    ContentSegment, FileMetadata, Id, IdHex, NAddr, NostrBech32, NostrUrl, ParsedTag, PublicKey, RelayUrl,
+    ContentSegment, FileMetadata, Id, NAddr, NostrBech32, NostrUrl, ParsedTag, PublicKey, RelayUrl,
     Span,
 };
 use std::{

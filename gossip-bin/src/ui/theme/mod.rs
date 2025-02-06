@@ -651,7 +651,9 @@ pub(super) fn font_definitions() -> FontDefinitions {
 
     font_data.insert(
         "DejaVuSans".to_owned(),
-        Arc::new(FontData::from_static(include_bytes!("../../../../fonts/DejaVuSansSansEmoji.ttf"))),
+        Arc::new(FontData::from_static(include_bytes!(
+            "../../../../fonts/DejaVuSansSansEmoji.ttf"
+        ))),
     );
     font_data.insert(
         "DejaVuSansBold".to_owned(),
@@ -663,7 +665,9 @@ pub(super) fn font_definitions() -> FontDefinitions {
     if cfg!(feature = "lang-cjk") {
         font_data.insert(
             "NotoSansCJK".to_owned(),
-            Arc::new(FontData::from_static(include_bytes!("../../../../fonts/NotoSansCJK-Regular.ttc"))),
+            Arc::new(FontData::from_static(include_bytes!(
+                "../../../../fonts/NotoSansCJK-Regular.ttc"
+            ))),
         );
         font_data.insert(
             "NotoSansThai".to_owned(),
@@ -675,49 +679,60 @@ pub(super) fn font_definitions() -> FontDefinitions {
 
     font_data.insert(
         "Inconsolata".to_owned(),
-        Arc::new(FontData::from_static(include_bytes!("../../../../fonts/Inconsolata-Regular.ttf")).tweak(
-            #[cfg(not(target_os = "macos"))]
-            FontTweak {
-                scale: 1.22,            // This font is smaller than DejaVuSans
-                y_offset_factor: -0.18, // and too low
-                y_offset: 0.0,
-                baseline_offset_factor: 0.0,
-            },
-            #[cfg(target_os = "macos")]
-            FontTweak {
-                scale: 1.22,            // This font is smaller than DejaVuSans
-                y_offset_factor: -0.05, // and too low
-                y_offset: 0.0,
-                baseline_offset_factor: 0.0,
-            },
-        )),
+        Arc::new(
+            FontData::from_static(include_bytes!("../../../../fonts/Inconsolata-Regular.ttf"))
+                .tweak(
+                    #[cfg(not(target_os = "macos"))]
+                    FontTweak {
+                        scale: 1.22,            // This font is smaller than DejaVuSans
+                        y_offset_factor: -0.18, // and too low
+                        y_offset: 0.0,
+                        baseline_offset_factor: 0.0,
+                    },
+                    #[cfg(target_os = "macos")]
+                    FontTweak {
+                        scale: 1.22,            // This font is smaller than DejaVuSans
+                        y_offset_factor: -0.05, // and too low
+                        y_offset: 0.0,
+                        baseline_offset_factor: 0.0,
+                    },
+                ),
+        ),
     );
 
     // Some good looking emojis. Use as first priority:
     font_data.insert(
         "NotoEmoji-Regular".to_owned(),
-        Arc::new(FontData::from_static(include_bytes!("../../../../fonts/NotoEmoji-Regular.ttf")).tweak(
-            FontTweak {
-                scale: 1.1, // make them a touch larger
-                y_offset_factor: 0.0,
-                y_offset: 0.0,
-                baseline_offset_factor: 0.0,
-            },
-        )),
+        Arc::new(
+            FontData::from_static(include_bytes!("../../../../fonts/NotoEmoji-Regular.ttf")).tweak(
+                FontTweak {
+                    scale: 1.1, // make them a touch larger
+                    y_offset_factor: 0.0,
+                    y_offset: 0.0,
+                    baseline_offset_factor: 0.0,
+                },
+            ),
+        ),
     );
 
     // For fallback purposes
     font_data.insert(
         "Hack".to_owned(),
-        Arc::new(FontData::from_static(include_bytes!("../../../../fonts/Hack-Regular.ttf"))),
+        Arc::new(FontData::from_static(include_bytes!(
+            "../../../../fonts/Hack-Regular.ttf"
+        ))),
     );
     font_data.insert(
         "Ubuntu-Light".to_owned(),
-        Arc::new(FontData::from_static(include_bytes!("../../../../fonts/Ubuntu-Light.ttf"))),
+        Arc::new(FontData::from_static(include_bytes!(
+            "../../../../fonts/Ubuntu-Light.ttf"
+        ))),
     );
     font_data.insert(
         "emoji-icon-font".to_owned(),
-        Arc::new(FontData::from_static(include_bytes!("../../../../fonts/emoji-icon-font.ttf"))),
+        Arc::new(FontData::from_static(include_bytes!(
+            "../../../../fonts/emoji-icon-font.ttf"
+        ))),
     );
 
     let mut proportional = vec![

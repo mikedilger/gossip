@@ -234,7 +234,7 @@ pub(super) fn update_kind(app: &mut GossipUi, _ctx: &Context, ui: &mut Ui, kind:
                                 handler_detail(ui, app, &handler, kind);
                             }
 
-                            ui.interact_bg(egui::Sense::click())
+                            ui.interact(ui.min_rect(), ui.unique_id(), egui::Sense::click())
                         })
                         .inner
                     },

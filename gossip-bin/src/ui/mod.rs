@@ -1816,9 +1816,7 @@ impl GossipUi {
 
         match GLOBALS.media.get_data(&url, volatile, file_metadata) {
             MediaLoadingResult::Disabled => MediaLoadingResult::Disabled,
-            MediaLoadingResult::Loading => {
-                MediaLoadingResult::Loading
-            }
+            MediaLoadingResult::Loading => MediaLoadingResult::Loading,
             MediaLoadingResult::Ready(bytes) => {
                 if let Ok(player) = Player::new_from_bytes(ctx, &bytes) {
                     if let Some(audio) = &mut self.audio_device {
@@ -2303,9 +2301,8 @@ impl eframe::App for GossipUi {
                     Duration::from_secs_f32(0.0)
                 };
 
-                self.current_scroll_offset = self.future_scroll_offset
-                    * 5.0
-                    * duration.as_secs_f32();
+                self.current_scroll_offset =
+                    self.future_scroll_offset * 5.0 * duration.as_secs_f32();
 
                 self.future_scroll_offset -= self.current_scroll_offset;
 
