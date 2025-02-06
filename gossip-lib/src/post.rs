@@ -377,6 +377,10 @@ fn add_thread_based_tags(
         }
     }
 
+    let parent_relay: Option<UncheckedUrl> = GLOBALS.db().get_event_seen_on_relay(parent.id)?
+        .pop()
+        .map(|(rurl, _)| rurl.to_unchecked_url());
+
     // Possibly add a tag to the 'root'
     let mut parent_is_root = true;
     match parent.replies_to_root() {
@@ -407,7 +411,7 @@ fn add_thread_based_tags(
             let ancestor = parent.replies_to();
             if ancestor.is_none() {
                 // parent is the root
-                add_event_to_tags(tags, parent.id, None, Some(parent.pubkey), "root");
+                add_event_to_tags(tags, parent.id, parent_relay.clone(), Some(parent.pubkey), "root");
             } else {
                 parent_is_root = false;
             }
@@ -416,7 +420,7 @@ fn add_thread_based_tags(
 
     // Add 'reply tags
     let reply_marker = if parent_is_root { "root" } else { "reply" };
-    add_event_to_tags(tags, parent.id, None, Some(parent.pubkey), reply_marker);
+    add_event_to_tags(tags, parent.id, parent_relay, Some(parent.pubkey), reply_marker);
     if parent.kind.is_replaceable() {
         // Add an 'a' tag for the note we are replying to
         let d = parent.parameter().unwrap_or("".to_owned());
