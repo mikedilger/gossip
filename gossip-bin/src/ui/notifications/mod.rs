@@ -88,7 +88,7 @@ pub(super) fn calc(app: &mut GossipUi) {
 
         let mut new_active: Vec<NotificationHandle> = Vec::new();
 
-        for (item, time) in GLOBALS.pending.read().iter() {
+        for (item, time) in GLOBALS.pending.read().iter().rev() {
             match item {
                 PendingItem::RelayConnectionRequest { relay, .. } => {
                     let new_entry = ConnRequest::new(item.clone(), *time);
