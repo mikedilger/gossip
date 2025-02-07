@@ -24,7 +24,7 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 44] = [
+const COMMANDS: [Command; 46] = [
     Command {
         cmd: "oneshot",
         usage_params: "{depends}",
@@ -221,6 +221,16 @@ const COMMANDS: [Command; 44] = [
         desc: "Reprocess relay lists (including kind 3 contents)",
     },
     Command {
+        cmd: "reset_relay_auth",
+        usage_params: "",
+        desc: "Reset allow authentication settings on all relays (to unstated)",
+    },
+    Command {
+        cmd: "reset_relay_connnect",
+        usage_params: "",
+        desc: "Reset allow connection settings on all relays (to unstated)",
+    },
+    Command {
         cmd: "theme",
         usage_params: "<dark | light>",
         desc: "Start gossip with the selected theme",
@@ -308,6 +318,8 @@ pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
         "rename_person_list" => rename_person_list(command, args)?,
         "reprocess_recent" => reprocess_recent(command)?,
         "reprocess_relay_lists" => reprocess_relay_lists()?,
+        "reset_relay_auth" => reset_relay_auth()?,
+        "reset_relay_connect" => reset_relay_connect()?,
         "theme" => {
             set_theme(command, args)?;
             return Ok(false);
@@ -1180,6 +1192,20 @@ pub fn reprocess_relay_lists() -> Result<(), Error> {
     let (c1, c2) = gossip_lib::process::reprocess_relay_lists()?;
     println!("Reprocessed {} contact lists", c1);
     println!("Reprocessed {} relay lists", c2);
+    Ok(())
+}
+
+pub fn reset_relay_auth() -> Result<(), Error> {
+    GLOBALS.db().modify_all_relays(|relay| {
+        relay.allow_auth = None;
+    }, None)?;
+    Ok(())
+}
+
+pub fn reset_relay_connect() -> Result<(), Error> {
+    GLOBALS.db().modify_all_relays(|relay| {
+        relay.allow_connect = None;
+    }, None)?;
     Ok(())
 }
 
