@@ -458,7 +458,7 @@ impl Overlord {
                 }
                 Err(e) => {
                     Self::bump_failure_count(&url);
-                    tracing::error!("Minion {} completed with error: {}", &url, e);
+                    tracing::warn!("Minion {} completed with error: {}", &url, e);
                     exclusion = 60 * 2;
                     if let ErrorKind::RelayRejectedUs = e.kind {
                         exclusion = 60 * 10;
