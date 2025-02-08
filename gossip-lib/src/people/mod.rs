@@ -453,7 +453,7 @@ impl People {
                 None
             }
             Ok(FetchResult::Failed(s)) => {
-                tracing::error!("Fetch error: {s}");
+                tracing::warn!("Fetch error: {s}");
                 // this cannot recover without new metadata
                 GLOBALS.failed_avatars.write().insert(*pubkey);
                 None
