@@ -22,7 +22,7 @@ With [scoop](https://scoop.sh/) on **Microsoft Windows**: `scoop install extras/
 
 ## Common issues
 - **Linux (AppImage)**: commonly used AppImageLauncher doesn't work with this image so far, manual run can't be used while AppImageLauncher installed on machine, proceed with the .deb
-- **Linux (Flatpak)**: if used altogether with Flatsel, user must gain privilege for at least a single folder location in order to be able adding an attachment for the note later on. 
+- **Linux (Flatpak)**: if used altogether with Flatseal, user must gain privilege for at least a single folder location in order to be able adding an attachment for the note later on. 
 
 ## Building from Source
 
