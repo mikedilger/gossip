@@ -701,7 +701,8 @@ impl ThemeDef for DefaultTheme {
 
     fn navigation_bg_fill(dark_mode: bool) -> eframe::egui::Color32 {
         if dark_mode {
-            Self::neutral_800()
+            // Self::neutral_800()
+            Color32::from_rgb(0x30, 0x30, 0x30)
         } else {
             Self::neutral_100()
         }
