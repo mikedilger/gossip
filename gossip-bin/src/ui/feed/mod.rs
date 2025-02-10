@@ -493,6 +493,7 @@ fn render_load_more(app: &mut GossipUi, ui: &mut Ui) {
                 let _ = GLOBALS
                     .to_overlord
                     .send(ToOverlordMessage::LoadMoreCurrentFeed);
+                app.update_once_immediately = true;
             }
 
             // draw some nice lines left and right of the button
@@ -653,6 +654,10 @@ fn recompute_btn(app: &mut GossipUi, ui: &mut Ui) {
         {
             app.displayed_feed = GLOBALS.feed.get_feed_events();
             app.displayed_feed_hash = feed_hash;
+        } else if app.update_once_immediately {
+            app.displayed_feed = GLOBALS.feed.get_feed_events();
+            app.displayed_feed_hash = feed_hash;
+            app.update_once_immediately = false;
         }
     }
 }

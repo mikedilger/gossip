@@ -491,6 +491,7 @@ struct GossipUi {
     global_relays: Vec<String>,
     displayed_feed: Vec<Id>,
     displayed_feed_hash: Option<Id>,
+    update_once_immediately: bool,
 
     // General Data
     assets: Assets,
@@ -771,6 +772,8 @@ impl GossipUi {
             global_relays: Vec::new(),
             displayed_feed: Vec::new(),
             displayed_feed_hash: None,
+            update_once_immediately: false,
+
             // load Assets, but load again when DPI changes
             assets,
             about: About::new(),
