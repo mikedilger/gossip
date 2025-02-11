@@ -13,7 +13,13 @@ Using the flatpak:
 
       flatpak run com.mikedilger.gossip
 
-4) If you get an eframe/glutin error, switch to the wgpu backend with this command, then
-   afterwards you can run it normally as in step (2)
+
+Common issues:
+------------------
+
+1) If you get an eframe/glutin error, switch to the wgpu backend with this command, then
+      afterwards you can run it normally as in step (2)
 
       flatpak run com.mikedilger.gossip wgpu_renderer true
+
+2) If using with Flatseal, the user must enable access to at least one folder to add an attachment to the post.
