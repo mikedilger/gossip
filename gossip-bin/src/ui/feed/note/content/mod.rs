@@ -7,7 +7,7 @@ use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::FeedKind;
 use gossip_lib::GLOBALS;
 use nostr_types::{
-    ContentSegment, FileMetadata, Id, NAddr, NostrBech32, NostrUrl, ParsedTag, PublicKey, RelayUrl,
+    ContentSegment, FileMetadata, Id, NAddr, NEvent, NostrBech32, NostrUrl, ParsedTag, PublicKey, RelayUrl,
     Span,
 };
 use std::{
@@ -90,7 +90,7 @@ pub(super) fn render_content(
                                 }
                             }
                             if render_link {
-                                render_event_link(app, ui, note.event.id, ne.id);
+                                render_nevent1_link(app, ui, ne.clone(), note.event.id);
                             }
                         }
                         NostrBech32::Id(id) => {
@@ -119,7 +119,7 @@ pub(super) fn render_content(
                                 }
                             }
                             if render_link {
-                                render_event_link(app, ui, note.event.id, *id);
+                                render_note1_link(app, ui, note.event.id, *id);
                             }
                         }
                         NostrBech32::Profile(prof) => {
@@ -144,7 +144,7 @@ pub(super) fn render_content(
                                 ParsedTag::Pubkey { pubkey, .. } => {
                                     render_profile_link(app, ui, &pubkey);
                                 }
-                                ParsedTag::Event { id, .. } => {
+                                ParsedTag::Event { id, recommended_relay_url, .. } => {
                                     let mut render_link = true;
                                     if read_setting!(show_mentions) {
                                         match note.repost {
@@ -175,7 +175,17 @@ pub(super) fn render_content(
                                         }
                                     }
                                     if render_link {
-                                        render_event_link(app, ui, note.event.id, id);
+                                        if let Some(rurl) = recommended_relay_url {
+                                            let nevent = NEvent {
+                                                id,
+                                                relays: vec![rurl],
+                                                kind: None,
+                                                author: None,
+                                            };
+                                            render_nevent1_link(app, ui, nevent, note.event.id);
+                                        } else {
+                                            render_note1_link(app, ui, note.event.id, id);
+                                        }
                                     }
                                 }
                                 ParsedTag::Hashtag(hashtag) => {
@@ -325,7 +335,7 @@ pub fn render_relay_link(app: &mut GossipUi, ui: &mut Ui, relay_url: RelayUrl) {
     };
 }
 
-pub(super) fn render_event_link(
+pub fn render_note1_link(
     app: &mut GossipUi,
     ui: &mut Ui,
     referenced_by_id: Id,
@@ -339,6 +349,28 @@ pub(super) fn render_event_link(
             ui.ctx(),
             Page::Feed(FeedKind::Thread {
                 id: link_to_id,
+                referenced_by: referenced_by_id,
+                author: None,
+            }),
+        );
+    };
+}
+
+pub fn render_nevent1_link(
+    app: &mut GossipUi,
+    ui: &mut Ui,
+    nevent: NEvent,
+    referenced_by_id: Id,
+) {
+    let id = nevent.id;
+    let nurl = NostrUrl(NostrBech32::NEvent(nevent));
+    let name = format!("{}", nurl);
+
+    if ui.link(&name).clicked() {
+        app.set_page(
+            ui.ctx(),
+            Page::Feed(FeedKind::Thread {
+                id,
                 referenced_by: referenced_by_id,
                 author: None,
             }),
