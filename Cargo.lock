@@ -1408,7 +1408,7 @@ checksum = "92773504d58c093f6de2459af4af33faa518c13451eb8f2b5698ed3d36e7c813"
 [[package]]
 name = "ecolor"
 version = "0.30.0"
-source = "git+https://github.com/mikedilger/egui?rev=e4c7ef9cec4c9694f2897a24684d502fe91a3f40#e4c7ef9cec4c9694f2897a24684d502fe91a3f40"
+source = "git+https://github.com/mikedilger/egui?rev=edc28711696ca81d5b322f94419b465d06a84b50#edc28711696ca81d5b322f94419b465d06a84b50"
 dependencies = [
  "bytemuck",
  "emath",
@@ -1418,7 +1418,7 @@ dependencies = [
 [[package]]
 name = "eframe"
 version = "0.30.0"
-source = "git+https://github.com/mikedilger/egui?rev=e4c7ef9cec4c9694f2897a24684d502fe91a3f40#e4c7ef9cec4c9694f2897a24684d502fe91a3f40"
+source = "git+https://github.com/mikedilger/egui?rev=edc28711696ca81d5b322f94419b465d06a84b50#edc28711696ca81d5b322f94419b465d06a84b50"
 dependencies = [
  "ahash 0.8.11",
  "bytemuck",
@@ -1458,7 +1458,7 @@ dependencies = [
 [[package]]
 name = "egui"
 version = "0.30.0"
-source = "git+https://github.com/mikedilger/egui?rev=e4c7ef9cec4c9694f2897a24684d502fe91a3f40#e4c7ef9cec4c9694f2897a24684d502fe91a3f40"
+source = "git+https://github.com/mikedilger/egui?rev=edc28711696ca81d5b322f94419b465d06a84b50#edc28711696ca81d5b322f94419b465d06a84b50"
 dependencies = [
  "accesskit",
  "ahash 0.8.11",
@@ -1474,7 +1474,7 @@ dependencies = [
 [[package]]
 name = "egui-file-dialog"
 version = "0.7.0"
-source = "git+https://github.com/mikedilger/egui-file-dialog?rev=ce12a3c889f6e7450622d30dc124772c093014b1#ce12a3c889f6e7450622d30dc124772c093014b1"
+source = "git+https://github.com/mikedilger/egui-file-dialog?rev=70faa10e7201a328bcb2f16ce7657454b2c98476#70faa10e7201a328bcb2f16ce7657454b2c98476"
 dependencies = [
  "directories",
  "dunce",
@@ -1486,7 +1486,7 @@ dependencies = [
 [[package]]
 name = "egui-video"
 version = "0.1.0"
-source = "git+https://github.com/mikedilger/egui-video?rev=8b1fa59a66d8217e7cdc64cac26f08c508cb462d#8b1fa59a66d8217e7cdc64cac26f08c508cb462d"
+source = "git+https://github.com/mikedilger/egui-video?rev=7d141c6b17bfb9f107ace653dc259533f6b34d96#7d141c6b17bfb9f107ace653dc259533f6b34d96"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1503,7 +1503,7 @@ dependencies = [
 [[package]]
 name = "egui-wgpu"
 version = "0.30.0"
-source = "git+https://github.com/mikedilger/egui?rev=e4c7ef9cec4c9694f2897a24684d502fe91a3f40#e4c7ef9cec4c9694f2897a24684d502fe91a3f40"
+source = "git+https://github.com/mikedilger/egui?rev=edc28711696ca81d5b322f94419b465d06a84b50#edc28711696ca81d5b322f94419b465d06a84b50"
 dependencies = [
  "ahash 0.8.11",
  "bytemuck",
@@ -1522,7 +1522,7 @@ dependencies = [
 [[package]]
 name = "egui-winit"
 version = "0.30.0"
-source = "git+https://github.com/mikedilger/egui?rev=e4c7ef9cec4c9694f2897a24684d502fe91a3f40#e4c7ef9cec4c9694f2897a24684d502fe91a3f40"
+source = "git+https://github.com/mikedilger/egui?rev=edc28711696ca81d5b322f94419b465d06a84b50#edc28711696ca81d5b322f94419b465d06a84b50"
 dependencies = [
  "accesskit_winit",
  "ahash 0.8.11",
@@ -1541,7 +1541,7 @@ dependencies = [
 [[package]]
 name = "egui_extras"
 version = "0.30.0"
-source = "git+https://github.com/mikedilger/egui?rev=e4c7ef9cec4c9694f2897a24684d502fe91a3f40#e4c7ef9cec4c9694f2897a24684d502fe91a3f40"
+source = "git+https://github.com/mikedilger/egui?rev=edc28711696ca81d5b322f94419b465d06a84b50#edc28711696ca81d5b322f94419b465d06a84b50"
 dependencies = [
  "ahash 0.8.11",
  "egui",
@@ -1555,7 +1555,7 @@ dependencies = [
 [[package]]
 name = "egui_glow"
 version = "0.30.0"
-source = "git+https://github.com/mikedilger/egui?rev=e4c7ef9cec4c9694f2897a24684d502fe91a3f40#e4c7ef9cec4c9694f2897a24684d502fe91a3f40"
+source = "git+https://github.com/mikedilger/egui?rev=edc28711696ca81d5b322f94419b465d06a84b50#edc28711696ca81d5b322f94419b465d06a84b50"
 dependencies = [
  "ahash 0.8.11",
  "bytemuck",
@@ -1578,7 +1578,7 @@ checksum = "60b1af1c220855b6ceac025d3f6ecdd2b7c4894bfe9cd9bda4fbb4bc7c0d4cf0"
 [[package]]
 name = "emath"
 version = "0.30.0"
-source = "git+https://github.com/mikedilger/egui?rev=e4c7ef9cec4c9694f2897a24684d502fe91a3f40#e4c7ef9cec4c9694f2897a24684d502fe91a3f40"
+source = "git+https://github.com/mikedilger/egui?rev=edc28711696ca81d5b322f94419b465d06a84b50#edc28711696ca81d5b322f94419b465d06a84b50"
 dependencies = [
  "bytemuck",
  "serde",
@@ -1655,7 +1655,7 @@ dependencies = [
 [[package]]
 name = "epaint"
 version = "0.30.0"
-source = "git+https://github.com/mikedilger/egui?rev=e4c7ef9cec4c9694f2897a24684d502fe91a3f40#e4c7ef9cec4c9694f2897a24684d502fe91a3f40"
+source = "git+https://github.com/mikedilger/egui?rev=edc28711696ca81d5b322f94419b465d06a84b50#edc28711696ca81d5b322f94419b465d06a84b50"
 dependencies = [
  "ab_glyph",
  "ahash 0.8.11",
@@ -1673,7 +1673,7 @@ dependencies = [
 [[package]]
 name = "epaint_default_fonts"
 version = "0.30.0"
-source = "git+https://github.com/mikedilger/egui?rev=e4c7ef9cec4c9694f2897a24684d502fe91a3f40#e4c7ef9cec4c9694f2897a24684d502fe91a3f40"
+source = "git+https://github.com/mikedilger/egui?rev=edc28711696ca81d5b322f94419b465d06a84b50#edc28711696ca81d5b322f94419b465d06a84b50"
 
 [[package]]
 name = "equivalent"
