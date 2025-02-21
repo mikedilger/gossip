@@ -109,10 +109,13 @@ pub(super) enum RelayFilter {
     Configured,
     Write,
     Read,
-    Advertise,
     Private,
-    Hidden,
+    Discover,
+    SpamSafe,
+    DM,
+    Search,
     Global,
+    Hidden,
     AlwaysAllowConnect,
     NeverAllowConnect,
     AlwaysAllowAuthenticate,
@@ -126,10 +129,13 @@ impl RelayFilter {
             RelayFilter::Configured => "Configured",
             RelayFilter::Write => "Write",
             RelayFilter::Read => "Read",
-            RelayFilter::Advertise => "Advertise",
             RelayFilter::Private => "Private",
-            RelayFilter::Hidden => "Hidden",
+            RelayFilter::Discover => "Discover",
+            RelayFilter::SpamSafe => "SpamSafe",
+            RelayFilter::DM => "DM",
+            RelayFilter::Search => "Search",
             RelayFilter::Global => "Global Feed",
+            RelayFilter::Hidden => "Hidden",
             RelayFilter::AlwaysAllowConnect => "Always allow connect",
             RelayFilter::NeverAllowConnect => "Never allow connect",
             RelayFilter::AlwaysAllowAuthenticate => "Always allow auth",
@@ -563,23 +569,38 @@ pub(super) fn relay_filter_combo(app: &mut GossipUi, ui: &mut Ui) {
             );
             ui.selectable_value(
                 &mut app.relays.filter,
-                RelayFilter::Advertise,
-                RelayFilter::Advertise.get_name(),
-            );
-            ui.selectable_value(
-                &mut app.relays.filter,
                 RelayFilter::Private,
                 RelayFilter::Private.get_name(),
             );
             ui.selectable_value(
                 &mut app.relays.filter,
-                RelayFilter::Hidden,
-                RelayFilter::Hidden.get_name(),
+                RelayFilter::Discover,
+                RelayFilter::Discover.get_name(),
+            );
+            ui.selectable_value(
+                &mut app.relays.filter,
+                RelayFilter::SpamSafe,
+                RelayFilter::SpamSafe.get_name(),
+            );
+            ui.selectable_value(
+                &mut app.relays.filter,
+                RelayFilter::DM,
+                RelayFilter::DM.get_name(),
+            );
+            ui.selectable_value(
+                &mut app.relays.filter,
+                RelayFilter::Search,
+                RelayFilter::Search.get_name(),
             );
             ui.selectable_value(
                 &mut app.relays.filter,
                 RelayFilter::Global,
                 RelayFilter::Global.get_name(),
+            );
+            ui.selectable_value(
+                &mut app.relays.filter,
+                RelayFilter::Hidden,
+                RelayFilter::Hidden.get_name(),
             );
             ui.selectable_value(
                 &mut app.relays.filter,
@@ -660,14 +681,17 @@ pub(super) fn filter_relay(rui: &RelayUi, ri: &Relay) -> bool {
         RelayFilter::Configured => ri.has_any_usage_bit(),
         RelayFilter::Write => ri.has_usage_bits(Relay::WRITE),
         RelayFilter::Read => ri.has_usage_bits(Relay::READ),
-        RelayFilter::Advertise => ri.is_good_for_advertise(),
         RelayFilter::Private => {
             ri.has_any_usage_bit()
                 && !ri.has_usage_bits(Relay::INBOX)
                 && !ri.has_usage_bits(Relay::OUTBOX)
         }
-        RelayFilter::Hidden => ri.hidden,
+        RelayFilter::Discover => ri.has_usage_bits(Relay::DISCOVER),
+        RelayFilter::SpamSafe => ri.has_usage_bits(Relay::SPAMSAFE),
+        RelayFilter::DM => ri.has_usage_bits(Relay::DM),
+        RelayFilter::Search => ri.has_usage_bits(Relay::SEARCH),
         RelayFilter::Global => ri.has_usage_bits(Relay::GLOBAL),
+        RelayFilter::Hidden => ri.hidden,
         RelayFilter::AlwaysAllowConnect => ri.allow_connect == Some(true),
         RelayFilter::NeverAllowConnect => ri.allow_connect == Some(false),
         RelayFilter::AlwaysAllowAuthenticate => ri.allow_auth == Some(true),
