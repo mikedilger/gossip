@@ -2451,6 +2451,9 @@ impl Overlord {
     /// Search people and notes in the local database.
     /// Search results eventually arrive in `GLOBALS.people_search_results` and `GLOBALS.note_search_results`
     pub fn search_locally(mut text: String) -> Result<(), Error> {
+        GLOBALS.people_search_results.write().clear();
+        GLOBALS.note_search_results.write().clear();
+
         if text.len() < 2 {
             GLOBALS
                 .status_queue
@@ -2458,6 +2461,9 @@ impl Overlord {
                 .write("You must enter at least 2 characters to search.".to_string());
             return Ok(());
         }
+
+        GLOBALS.searching.store(true, Ordering::Relaxed);
+
         text = text.to_lowercase();
 
         let mut people_search_results: Vec<Person> = Vec::new();
@@ -2595,11 +2601,17 @@ impl Overlord {
         *GLOBALS.people_search_results.write() = people_search_results;
         *GLOBALS.note_search_results.write() = note_search_results;
 
+        GLOBALS.searching.store(false, Ordering::Relaxed);
+
         Ok(())
     }
 
     /// Search all search relays for events matching the text
     pub fn search_relays(text: String) -> Result<(), Error> {
+        GLOBALS.people_search_results.write().clear();
+        GLOBALS.note_search_results.write().clear();
+        GLOBALS.searching.store(true, Ordering::Relaxed);
+
         let filter_set = FilterSet::Search(text);
         let job = RelayJob {
             reason: RelayConnectionReason::Search,
@@ -2610,6 +2622,9 @@ impl Overlord {
         };
         let search_relays: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::SEARCH, |_| true)?;
         manager::run_jobs_on_all_relays(search_relays, vec![job]);
+
+        // FIXME: ideally we would turn off 'GLOBALS.searching' once all of these
+        // subscriptions complete.
 
         Ok(())
     }

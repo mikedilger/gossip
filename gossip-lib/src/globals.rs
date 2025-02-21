@@ -123,6 +123,7 @@ pub struct Globals {
     pub media: Media,
 
     /// Search results
+    pub searching: AtomicBool,
     pub events_being_searched_for: PRwLock<Vec<Id>>, // being searched for
     //pub naddrs_being_searched_for: PRwLock<Vec<NAddr>>, // being searched for
     pub people_search_results: PRwLock<Vec<Person>>,
@@ -258,6 +259,7 @@ lazy_static! {
             unread_inbox: AtomicUsize::new(0),
             delegation: Delegation::default(),
             media: Media::new(),
+            searching: AtomicBool::new(false),
             events_being_searched_for: PRwLock::new(Vec::new()),
             //naddrs_being_searched_for: PRwLock::new(Vec::new()),
             people_search_results: PRwLock::new(Vec::new()),

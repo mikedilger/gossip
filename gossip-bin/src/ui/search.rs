@@ -4,6 +4,7 @@ use egui::widgets::Button;
 use egui::{Context, Label, RichText, Sense, Ui};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{FeedKind, PersonTable, Relay, Table, GLOBALS};
+use std::sync::atomic::Ordering;
 
 pub(super) fn update(
     app: &mut GossipUi,
@@ -157,12 +158,18 @@ pub(super) fn update(
             }
         }
 
-        if people.is_empty() && notes.is_empty() {
+        if GLOBALS.searching.load(Ordering::Relaxed) {
+            app.search_started = true;
             ui.add_space(8.0);
             ui.separator();
             ui.add_space(8.0);
-
+            ui.label("Searching...");
+        } else if app.search_started && people.is_empty() && notes.is_empty() {
+            ui.add_space(8.0);
+            ui.separator();
+            ui.add_space(8.0);
             ui.label("No results found.");
         }
+        // else the results are showing
     });
 }

@@ -537,6 +537,7 @@ struct GossipUi {
     import_pub: String,
     search: String,
     entering_a_search_page: bool,
+    search_started: bool,
     editing_petname: bool,
     petname: String,
     deleting_list: Option<PersonList>,
@@ -807,6 +808,7 @@ impl GossipUi {
             import_pub: "".to_owned(),
             search: "".to_owned(),
             entering_a_search_page: false,
+            search_started: false,
             editing_petname: false,
             petname: "".to_owned(),
             deleting_list: None,
@@ -982,10 +984,12 @@ impl GossipUi {
             }
             Page::SearchLocal => {
                 self.entering_a_search_page = true;
+                self.search_started = false;
                 self.open_menu(ctx, SubMenu::Search);
             }
             Page::SearchRelays => {
                 self.entering_a_search_page = true;
+                self.search_started = false;
                 self.open_menu(ctx, SubMenu::Search);
             }
             Page::Settings => {
