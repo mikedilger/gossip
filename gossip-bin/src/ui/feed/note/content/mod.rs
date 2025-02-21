@@ -7,8 +7,8 @@ use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::FeedKind;
 use gossip_lib::GLOBALS;
 use nostr_types::{
-    ContentSegment, FileMetadata, Id, NAddr, NEvent, NostrBech32, NostrUrl, ParsedTag, PublicKey, RelayUrl,
-    Span,
+    ContentSegment, FileMetadata, Id, NAddr, NEvent, NostrBech32, NostrUrl, ParsedTag, PublicKey,
+    RelayUrl, Span,
 };
 use std::{
     cell::{Ref, RefCell},
@@ -144,7 +144,11 @@ pub(super) fn render_content(
                                 ParsedTag::Pubkey { pubkey, .. } => {
                                     render_profile_link(app, ui, &pubkey);
                                 }
-                                ParsedTag::Event { id, recommended_relay_url, .. } => {
+                                ParsedTag::Event {
+                                    id,
+                                    recommended_relay_url,
+                                    ..
+                                } => {
                                     let mut render_link = true;
                                     if read_setting!(show_mentions) {
                                         match note.repost {
@@ -335,12 +339,7 @@ pub fn render_relay_link(app: &mut GossipUi, ui: &mut Ui, relay_url: RelayUrl) {
     };
 }
 
-pub fn render_note1_link(
-    app: &mut GossipUi,
-    ui: &mut Ui,
-    referenced_by_id: Id,
-    link_to_id: Id,
-) {
+pub fn render_note1_link(app: &mut GossipUi, ui: &mut Ui, referenced_by_id: Id, link_to_id: Id) {
     let nurl = NostrUrl(NostrBech32::Id(link_to_id));
     let name = format!("{}", nurl);
 
@@ -356,12 +355,7 @@ pub fn render_note1_link(
     };
 }
 
-pub fn render_nevent1_link(
-    app: &mut GossipUi,
-    ui: &mut Ui,
-    nevent: NEvent,
-    referenced_by_id: Id,
-) {
+pub fn render_nevent1_link(app: &mut GossipUi, ui: &mut Ui, nevent: NEvent, referenced_by_id: Id) {
     let id = nevent.id;
     let nurl = NostrUrl(NostrBech32::NEvent(nevent));
     let name = format!("{}", nurl);

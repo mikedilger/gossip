@@ -1196,16 +1196,22 @@ pub fn reprocess_relay_lists() -> Result<(), Error> {
 }
 
 pub fn reset_relay_auth() -> Result<(), Error> {
-    GLOBALS.db().modify_all_relays(|relay| {
-        relay.allow_auth = None;
-    }, None)?;
+    GLOBALS.db().modify_all_relays(
+        |relay| {
+            relay.allow_auth = None;
+        },
+        None,
+    )?;
     Ok(())
 }
 
 pub fn reset_relay_connect() -> Result<(), Error> {
-    GLOBALS.db().modify_all_relays(|relay| {
-        relay.allow_connect = None;
-    }, None)?;
+    GLOBALS.db().modify_all_relays(
+        |relay| {
+            relay.allow_connect = None;
+        },
+        None,
+    )?;
     Ok(())
 }
 
