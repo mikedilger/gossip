@@ -119,7 +119,7 @@ pub(super) fn render_content(
                                 }
                             }
                             if render_link {
-                                render_note1_link(app, ui, note.event.id, *id);
+                                render_note_id_link(app, ui, note.event.id, *id);
                             }
                         }
                         NostrBech32::Profile(prof) => {
@@ -188,7 +188,7 @@ pub(super) fn render_content(
                                             };
                                             render_nevent1_link(app, ui, nevent, note.event.id);
                                         } else {
-                                            render_note1_link(app, ui, note.event.id, id);
+                                            render_note_id_link(app, ui, note.event.id, id);
                                         }
                                     }
                                 }
@@ -339,20 +339,14 @@ pub fn render_relay_link(app: &mut GossipUi, ui: &mut Ui, relay_url: RelayUrl) {
     };
 }
 
-pub fn render_note1_link(app: &mut GossipUi, ui: &mut Ui, referenced_by_id: Id, link_to_id: Id) {
-    let nurl = NostrUrl(NostrBech32::Id(link_to_id));
-    let name = format!("{}", nurl);
-
-    if ui.link(&name).clicked() {
-        app.set_page(
-            ui.ctx(),
-            Page::Feed(FeedKind::Thread {
-                id: link_to_id,
-                referenced_by: referenced_by_id,
-                author: None,
-            }),
-        );
+pub fn render_note_id_link(app: &mut GossipUi, ui: &mut Ui, referenced_by_id: Id, link_to_id: Id) {
+    let nevent = NEvent {
+        id: link_to_id,
+        relays: vec![],
+        kind: None,
+        author: None,
     };
+    render_nevent1_link(app, ui, nevent, referenced_by_id)
 }
 
 pub fn render_nevent1_link(app: &mut GossipUi, ui: &mut Ui, nevent: NEvent, referenced_by_id: Id) {
