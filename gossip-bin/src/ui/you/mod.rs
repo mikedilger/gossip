@@ -205,8 +205,8 @@ fn show_priv_key_detail(_app: &mut GossipUi, ui: &mut Ui) {
         ui.label(&*format!(
             "Private Key security is {}",
             match key_security {
-                KeySecurity::Weak => "weak",
-                KeySecurity::Medium => "medium",
+                KeySecurity::Weak => "weak: The raw key was either imported or has been exported",
+                KeySecurity::Medium => "medium: The raw key was locally generated and never exported",
                 KeySecurity::NotTracked => "not tracked",
             }
         ));
