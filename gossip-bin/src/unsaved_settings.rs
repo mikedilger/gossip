@@ -1,5 +1,4 @@
 use gossip_lib::{Error, RunState, Storage, GLOBALS};
-use nostr_types::PublicKey;
 use paste::paste;
 
 macro_rules! load_setting {
@@ -34,7 +33,6 @@ macro_rules! save_setting {
 #[derive(Clone, Debug, PartialEq)]
 pub struct UnsavedSettings {
     // ID settings
-    pub public_key: Option<PublicKey>,
     pub log_n: u8,
     pub login_at_startup: bool,
 
@@ -140,7 +138,6 @@ pub struct UnsavedSettings {
 impl Default for UnsavedSettings {
     fn default() -> UnsavedSettings {
         UnsavedSettings {
-            public_key: default_setting!(public_key),
             log_n: default_setting!(log_n),
             login_at_startup: default_setting!(login_at_startup),
             offline: default_setting!(offline),
@@ -240,7 +237,6 @@ impl Default for UnsavedSettings {
 impl UnsavedSettings {
     pub fn load() -> UnsavedSettings {
         UnsavedSettings {
-            public_key: load_setting!(public_key),
             log_n: load_setting!(log_n),
             login_at_startup: load_setting!(login_at_startup),
             offline: load_setting!(offline),
@@ -332,7 +328,6 @@ impl UnsavedSettings {
 
     pub fn save(&self) -> Result<(), Error> {
         let mut txn = GLOBALS.db().get_write_txn()?;
-        save_setting!(public_key, self, txn);
         save_setting!(log_n, self, txn);
         save_setting!(login_at_startup, self, txn);
         save_setting!(offline, self, txn);
