@@ -122,8 +122,8 @@ fn render_searched_person_maybe_fake(
     ctx: &Context,
     _frame: &mut Frame,
     ui: &mut Ui,
-    person: &Person)
-{
+    person: &Person,
+) {
     let screen_rect = ctx.input(|i| i.screen_rect); // Rect
     let pos2 = ui.next_widget_position();
     let height = match app.search_person_height.get(&person.pubkey) {
@@ -132,7 +132,8 @@ fn render_searched_person_maybe_fake(
             let top = ui.next_widget_position();
             render_searched_person(app, ctx, ui, person);
             let bottom = ui.next_widget_position();
-            app.search_person_height.insert(person.pubkey, bottom.y - top.y);
+            app.search_person_height
+                .insert(person.pubkey, bottom.y - top.y);
             return;
         }
     };
@@ -147,12 +148,7 @@ fn render_searched_person_maybe_fake(
     }
 }
 
-fn render_searched_person(
-    app: &mut GossipUi,
-    ctx: &Context,
-    ui: &mut Ui,
-    person: &Person)
-{
+fn render_searched_person(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, person: &Person) {
     ui.add_space(8.0);
     ui.separator();
     ui.add_space(8.0);
@@ -164,22 +160,16 @@ fn render_searched_person(
         } else {
             app.placeholder_avatar.clone()
         };
-        if widgets::paint_avatar(ui, person, &avatar, widgets::AvatarSize::Feed)
-            .clicked()
-        {
+        if widgets::paint_avatar(ui, person, &avatar, widgets::AvatarSize::Feed).clicked() {
             app.set_page(ctx, Page::Person(person.pubkey));
         };
 
         ui.vertical(|ui| {
-            ui.label(
-                RichText::new(gossip_lib::names::pubkey_short(&person.pubkey)).weak(),
-            );
+            ui.label(RichText::new(gossip_lib::names::pubkey_short(&person.pubkey)).weak());
             GossipUi::render_person_name_line(app, ui, person, false);
         });
     });
 }
-
-
 
 // If offscreen, this just makes blank space so the scrollbar doesn't get messed up.
 // By doing this, we increase performance by a lot (not all the avatars need fetching
@@ -189,8 +179,8 @@ fn render_searched_note_maybe_fake(
     ctx: &Context,
     _frame: &mut Frame,
     ui: &mut Ui,
-    event: &Event)
-{
+    event: &Event,
+) {
     let screen_rect = ctx.input(|i| i.screen_rect); // Rect
     let pos2 = ui.next_widget_position();
     let height = match app.search_note_height.get(&event.id) {
@@ -214,12 +204,7 @@ fn render_searched_note_maybe_fake(
     }
 }
 
-fn render_searched_note(
-    app: &mut GossipUi,
-    ctx: &Context,
-    ui: &mut Ui,
-    event: &Event)
-{
+fn render_searched_note(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, event: &Event) {
     ui.add_space(8.0);
     ui.separator();
     ui.add_space(8.0);
