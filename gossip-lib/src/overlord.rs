@@ -3505,12 +3505,6 @@ impl Overlord {
         };
         password.zeroize();
 
-        // Update public key from private key
-        let public_key = GLOBALS.identity.public_key().unwrap();
-        GLOBALS
-            .db()
-            .write_setting_public_key(&Some(public_key), None)?;
-
         Ok(())
     }
 
