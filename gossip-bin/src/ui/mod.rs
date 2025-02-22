@@ -551,6 +551,10 @@ struct GossipUi {
     nostr_connect_relay1: String,
     nostr_connect_relay2: String,
 
+    // search result
+    search_note_height: HashMap<Id, f32>,
+    search_person_height: HashMap<PublicKey, f32>,
+
     // Collapsed threads
     collapsed: Vec<Id>,
 
@@ -821,6 +825,8 @@ impl GossipUi {
             nostr_connect_name: "".to_owned(),
             nostr_connect_relay1: "".to_owned(),
             nostr_connect_relay2: "".to_owned(),
+            search_note_height: HashMap::new(),
+            search_person_height: HashMap::new(),
             collapsed: vec![],
             opened: HashSet::new(),
             visible_note_ids: vec![],
