@@ -2761,12 +2761,20 @@ impl Overlord {
         referenced_by: Id,
         author: Option<PublicKey>,
     ) -> Result<(), Error> {
-        let eref = EventReference::Id {
+
+        let mut eref = EventReference::Id {
             id,
             author,
             relays: vec![],
             marker: None,
         };
+
+        // Improve the eref if the referencing event has better data
+        if let Some(ev) = GLOBALS.db().read_event(referenced_by)? {
+            if let Some(er) = ev.replies_to() {
+                eref = er;
+            }
+        }
 
         let ancestors = crate::misc::get_event_ancestors(eref)?;
 
