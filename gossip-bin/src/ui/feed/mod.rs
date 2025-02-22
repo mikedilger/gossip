@@ -535,7 +535,7 @@ fn render_note_maybe_fake(
 
     // If too far off of the screen, don't actually render the post, just make some space
     // so the scrollbar isn't messed up
-    let height = match app.height.get(&id) {
+    let height = match app.feed_note_height.get(&id) {
         Some(h) => *h,
         None => {
             // render the actual post and return

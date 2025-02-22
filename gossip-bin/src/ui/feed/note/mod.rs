@@ -31,7 +31,7 @@ const CONTENT_MARGIN_RIGHT: f32 = 35.0;
 pub struct NoteRenderData {
     /// Height of the post
     /// This is only used in feed_post_inner_indent() and is often just set to 0.0, but should
-    /// be taken from app.height if we can get that data.
+    /// be taken from app.feed_note_height if we can get that data.
     pub height: f32,
 
     /// Has this post been seen yet?
@@ -104,7 +104,7 @@ pub(super) fn render_note(
                 }
             };
 
-            let height = match app.height.get(&id) {
+            let height = match app.feed_note_height.get(&id) {
                 Some(h) => *h,
                 None => 0.0,
             };
@@ -152,7 +152,7 @@ pub(super) fn render_note(
 
             // Store actual rendered height for future reference
             let bottom = ui.next_widget_position();
-            app.height.insert(id, bottom.y - top.y);
+            app.feed_note_height.insert(id, bottom.y - top.y);
 
             // scroll to this note if it's the main note of a thread and the user hasn't scrolled yet
             if is_main_event && app.feeds.thread_needs_scroll {
@@ -1281,7 +1281,7 @@ fn render_note_between_header_and_footer(
                         ui.label(RichText::new(text).monospace().italics());
                         if ui.button("Show Post").clicked() {
                             app.approved.insert(event.id);
-                            app.height.remove(&event.id); // will need to be recalculated.
+                            app.feed_note_height.remove(&event.id); // will need to be recalculated.
                         }
                     } else if note.repost == Some(RepostType::Kind6Embedded) {
                         if note.embedded_event.is_some() {
