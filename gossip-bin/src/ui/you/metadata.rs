@@ -56,96 +56,103 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         }
     }
 
-    let edit_color = app.theme.input_text_color();
-    if app.editing_metadata {
-        edit_line(ui, "Name", &mut app.metadata.name, edit_color);
-        ui.add_space(18.0);
-        edit_line(ui, "About", &mut app.metadata.about, edit_color);
-        ui.add_space(18.0);
-        edit_line(ui, "Picture", &mut app.metadata.picture, edit_color);
-        ui.add_space(18.0);
-        edit_line(ui, "NIP-05", &mut app.metadata.nip05, edit_color);
-        ui.add_space(18.0);
-        edit_lines_other(ui, &mut app.metadata.other, edit_color);
-        ui.add_space(18.0);
-    } else {
-        view_line(ui, "Name", view_metadata.name.as_ref());
-        ui.add_space(18.0);
-        view_line(ui, "About", view_metadata.about.as_ref());
-        ui.add_space(18.0);
-        view_line(ui, "Picture", view_metadata.picture.as_ref());
-        ui.add_space(18.0);
-        view_line(ui, "NIP-05", view_metadata.nip05.as_ref());
-        ui.add_space(18.0);
-        view_lines_other(ui, &view_metadata.other);
-        ui.add_space(18.0);
-    }
-
-    ui.with_layout(Layout::top_down(Align::Center), |ui| {
-        if app.editing_metadata {
-            ui.horizontal(|ui| {
-                ui.label("Add new field: ");
-                ui.add(text_edit_line!(app, app.new_metadata_fieldname).desired_width(120.0));
-                if ui.button("ADD").clicked() {
-                    app.metadata.other.insert(
-                        app.new_metadata_fieldname.clone(),
-                        Value::String("".to_owned()),
-                    );
-                    app.new_metadata_fieldname = "".to_owned();
-                }
-            });
-        }
-
-        ui.horizontal(|ui| {
+    app.vert_scroll_area()
+        .auto_shrink(true)
+        .id_salt("metadata_scroll")
+        .show(ui, |ui| {
+            let edit_color = app.theme.input_text_color();
             if app.editing_metadata {
-                if ui.button("CANCEL (revert)").clicked() {
-                    app.editing_metadata = false;
-                    // revert any changes:
-                    app.metadata = match you.metadata() {
-                        Some(m) => m.to_owned(),
-                        None => Metadata::new(),
-                    };
-                }
-                if ui
-                    .button("SAVE")
-                    .on_hover_text("Finishes editing and publishes.")
-                    .clicked()
-                {
-                    app.editing_metadata = false;
-                    let mut new_you = you.clone();
-                    *new_you.metadata_mut() = Some(app.metadata.clone());
-                    let _ = PersonTable::write_record(&mut new_you, None);
-                    let _ = GLOBALS
-                        .to_overlord
-                        .send(ToOverlordMessage::PushMetadata(app.metadata.clone()));
-                }
-            } else if !GLOBALS.identity.is_unlocked() {
-                ui.horizontal(|ui| {
-                    ui.label("You need to");
-                    if ui.link("unlock your private key").clicked() {
-                        app.set_page(ctx, Page::YourKeys);
-                    }
-                    ui.label("to edit/save metadata.");
-                });
-            } else if GLOBALS
-                .db()
-                .filter_relays(|r| r.has_usage_bits(Relay::WRITE))
-                .unwrap_or_default()
-                .is_empty()
-            {
-                ui.horizontal(|ui| {
-                    ui.label("You need to");
-                    if ui.link("configure write relays").clicked() {
-                        app.set_page(ctx, Page::RelaysKnownNetwork(None));
-                    }
-                    ui.label("to edit/save metadata.");
-                });
-            } else if ui.button("EDIT").clicked() {
-                app.editing_metadata = true;
-                app.metadata = view_metadata.to_owned();
+                edit_line(ui, "Name", &mut app.metadata.name, edit_color);
+                ui.add_space(18.0);
+                edit_line(ui, "About", &mut app.metadata.about, edit_color);
+                ui.add_space(18.0);
+                edit_line(ui, "Picture", &mut app.metadata.picture, edit_color);
+                ui.add_space(18.0);
+                edit_line(ui, "NIP-05", &mut app.metadata.nip05, edit_color);
+                ui.add_space(18.0);
+                edit_lines_other(ui, &mut app.metadata.other, edit_color);
+                ui.add_space(18.0);
+            } else {
+                view_line(ui, "Name", view_metadata.name.as_ref());
+                ui.add_space(18.0);
+                view_line(ui, "About", view_metadata.about.as_ref());
+                ui.add_space(18.0);
+                view_line(ui, "Picture", view_metadata.picture.as_ref());
+                ui.add_space(18.0);
+                view_line(ui, "NIP-05", view_metadata.nip05.as_ref());
+                ui.add_space(18.0);
+                view_lines_other(ui, &view_metadata.other);
+                ui.add_space(18.0);
             }
+
+            ui.with_layout(Layout::top_down(Align::Center), |ui| {
+                if app.editing_metadata {
+                    ui.horizontal(|ui| {
+                        ui.label("Add new field: ");
+                        ui.add(
+                            text_edit_line!(app, app.new_metadata_fieldname).desired_width(120.0),
+                        );
+                        if ui.button("ADD").clicked() {
+                            app.metadata.other.insert(
+                                app.new_metadata_fieldname.clone(),
+                                Value::String("".to_owned()),
+                            );
+                            app.new_metadata_fieldname = "".to_owned();
+                        }
+                    });
+                }
+
+                ui.horizontal(|ui| {
+                    if app.editing_metadata {
+                        if ui.button("CANCEL (revert)").clicked() {
+                            app.editing_metadata = false;
+                            // revert any changes:
+                            app.metadata = match you.metadata() {
+                                Some(m) => m.to_owned(),
+                                None => Metadata::new(),
+                            };
+                        }
+                        if ui
+                            .button("SAVE")
+                            .on_hover_text("Finishes editing and publishes.")
+                            .clicked()
+                        {
+                            app.editing_metadata = false;
+                            let mut new_you = you.clone();
+                            *new_you.metadata_mut() = Some(app.metadata.clone());
+                            let _ = PersonTable::write_record(&mut new_you, None);
+                            let _ = GLOBALS
+                                .to_overlord
+                                .send(ToOverlordMessage::PushMetadata(app.metadata.clone()));
+                        }
+                    } else if !GLOBALS.identity.is_unlocked() {
+                        ui.horizontal(|ui| {
+                            ui.label("You need to");
+                            if ui.link("unlock your private key").clicked() {
+                                app.set_page(ctx, Page::YourKeys);
+                            }
+                            ui.label("to edit/save metadata.");
+                        });
+                    } else if GLOBALS
+                        .db()
+                        .filter_relays(|r| r.has_usage_bits(Relay::WRITE))
+                        .unwrap_or_default()
+                        .is_empty()
+                    {
+                        ui.horizontal(|ui| {
+                            ui.label("You need to");
+                            if ui.link("configure write relays").clicked() {
+                                app.set_page(ctx, Page::RelaysKnownNetwork(None));
+                            }
+                            ui.label("to edit/save metadata.");
+                        });
+                    } else if ui.button("EDIT").clicked() {
+                        app.editing_metadata = true;
+                        app.metadata = view_metadata.to_owned();
+                    }
+                });
+            });
         });
-    });
 }
 
 fn view_line(ui: &mut Ui, field: &str, data: Option<&String>) {
