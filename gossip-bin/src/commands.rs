@@ -24,7 +24,7 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 46] = [
+const COMMANDS: [Command; 47] = [
     Command {
         cmd: "oneshot",
         usage_params: "{depends}",
@@ -134,6 +134,11 @@ const COMMANDS: [Command; 46] = [
         cmd: "import_event",
         usage_params: "<event_json>",
         desc: "import and process a JSON event",
+    },
+    Command {
+        cmd: "keys",
+        usage_params: "",
+        desc: "Show keys (public and encrypted private)",
     },
     Command {
         cmd: "login",
@@ -295,6 +300,7 @@ pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
         "help" => help(command, args)?,
         "import_encrypted_private_key" => import_encrypted_private_key(command, args)?,
         "import_event" => import_event(command, args)?,
+        "keys" => keys()?,
         "login" => {
             login()?;
             return Ok(false);
@@ -822,9 +828,11 @@ pub fn import_encrypted_private_key(cmd: Command, mut args: env::Args) -> Result
 
     // Verify first
     let mut password = rpassword::prompt_password("Password: ").unwrap();
-    let _private_key = epk.decrypt(&password)?;
+    let private_key = epk.decrypt(&password)?;
     password.zeroize();
+    let public_key = private_key.public_key();
 
+    GLOBALS.db().write_setting_public_key(&Some(public_key), None)?;
     GLOBALS.db().write_encrypted_private_key(Some(&epk), None)?;
 
     println!("Saved.");
@@ -851,6 +859,20 @@ pub fn import_event(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     GLOBALS.runtime.block_on(job)?;
 
     println!("Ok.");
+    Ok(())
+}
+
+pub fn keys() -> Result<(), Error> {
+    match GLOBALS.db().read_encrypted_private_key()? {
+        Some(epk) => println!("epk: {epk}"),
+        None => println!("No encrypted private key"),
+    };
+
+    match GLOBALS.db().read_setting_public_key() {
+        Some(pk) => println!("public key: {}", pk.as_bech32_string()),
+        None => println!("No public key"),
+    };
+
     Ok(())
 }
 
