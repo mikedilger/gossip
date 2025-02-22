@@ -151,11 +151,6 @@ pub(super) fn update(
 
         // remote <-> local buttons
         ui.horizontal(|ui|{
-            if app.people_list.cache_local_hash == app.people_list.cache_remote_hash {
-                ui.label("List is synchronized");
-                ui.add_space(10.0);
-            }
-
             if ui
                 .button("↓ Overwrite ↓")
                 .on_hover_text(
@@ -205,6 +200,11 @@ pub(super) fn update(
                 });
             }
         });
+
+        if app.people_list.cache_local_hash == app.people_list.cache_remote_hash {
+            ui.label("List is synchronized");
+            ui.add_space(10.0);
+        }
 
         ui.add_space(5.0);
 
