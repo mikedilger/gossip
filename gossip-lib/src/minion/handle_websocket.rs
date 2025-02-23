@@ -236,24 +236,7 @@ impl Minion {
                 }
 
                 self.auth_challenge = challenge.to_owned();
-                if GLOBALS.db().read_setting_relay_auth_requires_approval() {
-                    match self.dbrelay.allow_auth {
-                        Some(true) => self.authenticate().await?,
-                        Some(false) => self.fake_authenticate().await?,
-                        None => {
-                            if let Some(pubkey) = GLOBALS.identity.public_key() {
-                                GLOBALS.pending.insert(
-                                    crate::pending::PendingItem::RelayAuthenticationRequest {
-                                        account: pubkey,
-                                        relay: self.url.clone(),
-                                    },
-                                );
-                            }
-                        }
-                    }
-                } else {
-                    self.authenticate().await?
-                }
+                self.maybe_authenticate().await?;
             }
             RelayMessage::Closed(subid, message) => {
                 let handle = self
@@ -315,7 +298,7 @@ impl Minion {
                                 match self.auth_state {
                                     AuthState::None => {
                                         // authenticate
-                                        self.authenticate().await?;
+                                        self.maybe_authenticate().await?;
 
                                         // cork and retry once auth completes
                                         self.subscriptions_waiting_for_auth

@@ -555,7 +555,7 @@ impl Minion {
             }
             ToMinionPayloadDetail::AuthApproved => {
                 self.dbrelay.allow_auth = Some(true); // save in our memory copy of the relay
-                self.authenticate().await?;
+                self.maybe_authenticate().await?;
                 if let Some(pubkey) = GLOBALS.identity.public_key() {
                     GLOBALS.pending.remove(
                         &crate::pending::PendingItem::RelayAuthenticationRequest {
@@ -567,7 +567,7 @@ impl Minion {
             }
             ToMinionPayloadDetail::AuthDeclined => {
                 self.dbrelay.allow_auth = Some(false); // save in our memory copy of the relay
-                self.fake_authenticate().await?;
+                self.maybe_authenticate().await?;
                 if let Some(pubkey) = GLOBALS.identity.public_key() {
                     GLOBALS.pending.remove(
                         &crate::pending::PendingItem::RelayAuthenticationRequest {
@@ -910,7 +910,30 @@ impl Minion {
         Ok(())
     }
 
-    async fn authenticate(&mut self) -> Result<(), Error> {
+    async fn maybe_authenticate(&mut self) -> Result<(), Error> {
+        if GLOBALS.db().read_setting_relay_auth_requires_approval() {
+            match self.dbrelay.allow_auth {
+                Some(true) => self.real_authenticate().await?,
+                Some(false) => self.fake_authenticate().await?,
+                None => {
+                    if let Some(pubkey) = GLOBALS.identity.public_key() {
+                        GLOBALS.pending.insert(
+                            crate::pending::PendingItem::RelayAuthenticationRequest {
+                                account: pubkey,
+                                relay: self.url.clone(),
+                            },
+                        );
+                    }
+                }
+            }
+        } else {
+            self.real_authenticate().await?;
+        }
+
+        Ok(())
+    }
+
+    async fn real_authenticate(&mut self) -> Result<(), Error> {
         if self.auth_state.is_authenticated()
             || self.auth_state.is_waiting()
             || self.auth_state.failed()
