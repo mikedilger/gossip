@@ -2761,7 +2761,6 @@ impl Overlord {
         referenced_by: Id,
         author: Option<PublicKey>,
     ) -> Result<(), Error> {
-
         let mut eref = EventReference::Id {
             id,
             author,
