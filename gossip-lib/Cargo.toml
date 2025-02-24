@@ -39,50 +39,50 @@ rustls-tls-native = [
 appimage = []
 
 [dependencies]
-base64 = "0.22"
-bech32 = "0.11"
-blurhash = { version = "0.2", features = [ "image" ] }
-dashmap = "6.0"
-dirs = "5.0"
-encoding_rs = "0.8"
-filetime = "0.2"
-futures = "0.3"
-futures-util = "0.3"
-heed = { version = "0.20", features = [ "read-txn-no-tls" ] }
-hex = "0.4"
-http = "1.1"
-image = { version = "0.25", features = [ "png", "jpeg" ] }
-infer = "0.16"
-kamadak-exif = "0.5"
-lazy_static = "1.5"
-linkify = "0.10"
-memmap2 = "0.9"
-mime = "0.3"
-mime_guess = "2"
-nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "a4d5c8f94b19c1306edcfeea51644541b02172bd", features = [ "speedy" ] }
-parking_lot = { version = "0.12", features = [ "arc_lock", "send_guard" ] }
-paste = "1.0"
-rand = "0.8"
-regex = "1.10"
-reqwest = { version = "0.12", default-features=false, features = ["brotli", "deflate", "gzip", "json", "stream"] }
-resvg = "0.43"
-rhai = { version = "1.19", features = [ "std", "sync" ]}
-sdl2 = { version = "0.37", features = ["bundled"], optional = true }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-sha2 = "0.10"
-speedy = "0.8.7"
-tempdir = "0.3"
-textnonce = "1"
-tiny-skia = "0.11"
-tokio = { version = "1", features = ["full"] }
-tracing = "0.1"
-tokio-tungstenite = { version = "0.23", default-features = false, features = [ "connect", "handshake" ] }
-tungstenite = { version = "0.23", default-features = false }
-url = "2.5"
-usvg = "0.43"
-watcher = { git = "https://github.com/mikedilger/watcher", rev = "a4e7e70c396bca4630aa0ba0a15d54ea103cb0e9" }
-zeroize = "1.8"
+base64 = { workspace = true }
+bech32 = { workspace = true }
+blurhash = { workspace = true, features = ["image"] }
+dashmap = { workspace = true }
+dirs = { workspace = true }
+encoding_rs = { workspace = true }
+filetime = { workspace = true }
+futures = { workspace = true }
+futures-util = { workspace = true }
+heed = { workspace = true, features = ["read-txn-no-tls"] }
+hex = { workspace = true }
+http = { workspace = true }
+image = { workspace = true, features = ["png", "jpeg"] }
+infer = { workspace = true }
+kamadak-exif = { workspace = true }
+lazy_static = { workspace = true }
+linkify = { workspace = true }
+memmap2 = { workspace = true }
+mime = { workspace = true }
+mime_guess = { workspace = true }
+nostr-types = { workspace = true, features = [ "speedy" ] }
+parking_lot = { workspace = true, features = ["arc_lock", "send_guard"] }
+paste = { workspace = true }
+rand = { workspace = true }
+regex = { workspace = true }
+reqwest = { workspace = true, features = ["brotli", "deflate", "gzip", "json", "stream"] }
+resvg = { workspace = true }
+rhai = { workspace = true, features = ["std", "sync"] }
+sdl2 = { workspace = true, features = ["bundled"], optional = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+speedy = { workspace = true }
+tempdir = { workspace = true }
+textnonce = { workspace = true }
+tiny-skia = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+tracing = { workspace = true }
+tokio-tungstenite = { workspace = true, features = ["connect", "handshake"] }
+tungstenite = { workspace = true }
+url = { workspace = true }
+usvg = { workspace = true }
+watcher = { workspace = true }
+zeroize = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
-normpath = "1.1"
+normpath = { workspace = true }

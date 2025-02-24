@@ -6,6 +6,66 @@ members = [
 ]
 resolver = "2"
 
+[workspace.dependencies]
+base64 = "0.22"
+bech32 = "0.11"
+blurhash = "0.2"
+chrono = "0.4.38"
+dashmap = "6.0"
+dirs = "5.0"
+eframe = { git = "https://github.com/mikedilger/egui", rev = "edc28711696ca81d5b322f94419b465d06a84b50" }
+egui-file-dialog = { git = "https://github.com/mikedilger/egui-file-dialog", rev = "70faa10e7201a328bcb2f16ce7657454b2c98476" }
+egui-video = { git = "https://github.com/mikedilger/egui-video", rev = "7d141c6b17bfb9f107ace653dc259533f6b34d96" }
+egui-winit = { git = "https://github.com/mikedilger/egui", rev = "edc28711696ca81d5b322f94419b465d06a84b50" }
+egui_extras = { git = "https://github.com/mikedilger/egui", rev = "edc28711696ca81d5b322f94419b465d06a84b50" }
+encoding_rs = "0.8"
+filetime = "0.2"
+futures = "0.3"
+futures-util = "0.3"
+gossip-cache = { path = "gossip-cache" }
+gossip-lib = { path = "gossip-lib" }
+heed = "0.20"
+hex = "0.4"
+http = "1.1"
+humansize = "2.1"
+image = "0.25"
+infer = "0.16"
+kamadak-exif = "0.5"
+lazy_static = "1.5"
+linkify = "0.10"
+memmap2 = "0.9"
+memoize = "0.4"
+mime = "0.3"
+mime_guess = "2"
+normpath = "1.1"
+nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "a4d5c8f94b19c1306edcfeea51644541b02172bd" }
+parking_lot = "0.12"
+paste = "1.0"
+qrcode = "0.14"
+rand = "0.8"
+regex = "1.10"
+reqwest = { version = "0.12", default-features = false }
+rhai = "1.19"
+rpassword = "7.3"
+resvg = "0.43"
+sdl2 = "0.37"
+serde = "1.0"
+serde_json = "1.0"
+sha2 = "0.10"
+speedy = "0.8.7"
+tempdir = "0.3"
+textnonce = "1"
+time = "0.3"
+tiny-skia = "0.11"
+tokio = "1"
+tokio-tungstenite = { version = "0.23", default-features = false }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+tungstenite = { version = "0.23", default-features = false }
+url = "2.5"
+watcher = { git = "https://github.com/mikedilger/watcher", rev = "a4e7e70c396bca4630aa0ba0a15d54ea103cb0e9" }
+zeroize = "1.8"
+
 # When compiling gossip crates themselves (in 'dev' mode), optimize a little bit
 # (for fast compiles of our changes)
 [profile.dev]
