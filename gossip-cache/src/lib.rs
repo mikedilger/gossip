@@ -75,6 +75,12 @@ impl NoteCache {
     }
 }
 
+impl Default for NoteCache {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(PartialEq)]
 pub enum RepostType {
     /// Damus style, kind 6 repost where the reposted note's JSON
