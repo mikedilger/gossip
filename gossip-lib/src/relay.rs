@@ -139,6 +139,9 @@ pub fn relays_for_seeking_replies(event: &Event) -> Result<Vec<RelayUrl>, Error>
     // Inboxes of the author
     relays.extend(get_all_pubkey_inboxes(event.pubkey)?);
 
+    // All of the user's READ relays
+    relays.extend(Relay::choose_relay_urls(Relay::READ, |_| true)?);
+
     // Inboxes of the 'p' tagged people, up to num
     //for (tagged_pubkey, _opt_relay_url, _opt_marker) in event.people() {
     //  relays.extend(get_all_reasonable_boxes(tagged_pubkey, RelayUsage::Inbox, num)?);
