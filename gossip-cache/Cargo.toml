@@ -10,6 +10,6 @@ edition = "2024"
 
 [dependencies]
 gossip-lib = { path = "../gossip-lib" }
-nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "e019bb7065c3576a76974e8b9e902a25afb6c497", features = [ "speedy" ] }
+nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "a4d5c8f94b19c1306edcfeea51644541b02172bd", features = [ "speedy" ] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
