@@ -1155,12 +1155,18 @@ impl RelayEntry {
         }
         let pos = pos + vec2(0.0, USAGE_SWITCH_Y_SPACING);
         {
+            let search_is_supported = if let Some(nip11) = &self.relay.nip11 {
+                nip11.supported_nips.contains(&50)
+            } else {
+                false
+            };
+
             // ---- Search use ----
             let id = self.make_id("search_use_switch");
             let sw_rect = Rect::from_min_size(pos - vec2(0.0, USAGE_SWITCH_Y_OFFSET), switch_size);
             let response = widgets::switch_custom_at(
                 ui,
-                true,
+                search_is_supported || self.usage.search,
                 &mut self.usage.search,
                 sw_rect,
                 id,
