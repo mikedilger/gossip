@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::ops::Add;
 use std::rc::Rc;
 
-use crate::notedata::{EncryptionType, NoteData, RepostType};
+use gossip_cache::{EncryptionType, NoteData, RepostType};
 
 use super::FeedNoteParams;
 use crate::ui::widgets::{

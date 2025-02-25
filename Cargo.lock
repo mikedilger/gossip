@@ -2219,6 +2219,7 @@ dependencies = [
  "egui-video",
  "egui-winit",
  "egui_extras",
+ "gossip-cache",
  "gossip-lib",
  "humansize",
  "image",
@@ -2240,6 +2241,16 @@ dependencies = [
  "url",
  "usvg 0.35.0",
  "zeroize",
+]
+
+[[package]]
+name = "gossip-cache"
+version = "0.14.0-unstable"
+dependencies = [
+ "gossip-lib",
+ "nostr-types",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

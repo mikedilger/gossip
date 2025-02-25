@@ -1,14 +1,82 @@
-use gossip_lib::GLOBALS;
-use gossip_lib::{Person, PersonList, PersonTable, Private, Table};
-use std::collections::HashMap;
-
+use gossip_lib::{GLOBALS, Person, PersonList, PersonTable, Private, Table};
 use nostr_types::{
     ContentSegment, Event, EventDelegation, EventKind, EventReference, Id, MilliSatoshi, NAddr,
     NostrBech32, ParsedTag, PublicKey, RelayUrl, ShatteredContent, Unixtime,
 };
 
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
+
+/// a 'note' is a processed event
+pub struct NoteCache {
+    notes: HashMap<Id, Rc<RefCell<NoteData>>>,
+}
+
+impl NoteCache {
+    pub fn new() -> NoteCache {
+        NoteCache {
+            notes: HashMap::new(),
+        }
+    }
+
+    /*
+    /// Drop NoteData objects that do not have a
+    /// correlated event in the event cache
+    pub fn invalidate_missing_events(&mut self) {
+        self.notes.retain(|id,_| GLOBALS.events.contains_key(id));
+    }
+     */
+
+    /// Drop NoteData for a specific note
+    pub fn invalidate_note(&mut self, id: &Id) {
+        self.notes.remove(id);
+    }
+
+    pub fn invalidate_all(&mut self) {
+        self.notes.clear();
+    }
+
+    /// Drop all NoteData for a given person
+    pub fn invalidate_person(&mut self, pubkey: &PublicKey) {
+        self.notes
+            .retain(|_, note| note.borrow().author.pubkey != *pubkey);
+    }
+
+    pub fn try_update_and_get(&mut self, id: &Id) -> Option<Rc<RefCell<NoteData>>> {
+        if self.notes.contains_key(id) {
+            // get a mutable reference to update reactions, then give it back
+            if let Some(pair) = self.notes.get(id) {
+                if let Ok(mut mut_ref) = pair.try_borrow_mut() {
+                    mut_ref.update();
+                }
+            }
+            // return from cache
+            return self._try_get_and_borrow(id);
+        } else {
+            // otherwise try to create new and add to cache
+            if let Ok(Some(event)) = GLOBALS.db().read_event(*id) {
+                let note = NoteData::new(event);
+                // add to cache
+                let ref_note = Rc::new(RefCell::new(note));
+                self.notes.insert(*id, ref_note);
+                return self._try_get_and_borrow(id);
+            }
+        }
+
+        None
+    }
+
+    fn _try_get_and_borrow(&self, id: &Id) -> Option<Rc<RefCell<NoteData>>> {
+        if let Some(value) = self.notes.get(id) {
+            return Some(value.clone());
+        }
+        None
+    }
+}
+
 #[derive(PartialEq)]
-pub(crate) enum RepostType {
+pub enum RepostType {
     /// Damus style, kind 6 repost where the reposted note's JSON
     /// is included in the content
     Kind6Embedded,
@@ -24,14 +92,14 @@ pub(crate) enum RepostType {
 }
 
 #[derive(PartialEq, Default)]
-pub(crate) enum EncryptionType {
+pub enum EncryptionType {
     #[default]
     None,
     Nip04,
     Giftwrap,
 }
 
-pub(crate) struct NoteData {
+pub struct NoteData {
     /// Original Event object, as received from nostr
     pub event: Event,
 
@@ -339,7 +407,7 @@ impl NoteData {
         }
     }
 
-    pub(super) fn update(&mut self) {
+    pub fn update(&mut self) {
         // Update reactions
         let (mut reactions, our_reaction) = GLOBALS
             .db()
@@ -372,15 +440,15 @@ impl NoteData {
     }
 
     #[allow(dead_code)]
-    pub(super) fn followed(&self) -> bool {
+    pub fn followed(&self) -> bool {
         self.lists.contains_key(&PersonList::Followed)
     }
 
-    pub(super) fn muted(&self) -> bool {
+    pub fn muted(&self) -> bool {
         self.lists.contains_key(&PersonList::Muted)
     }
 
-    pub(super) fn event_reference(&self) -> EventReference {
+    pub fn event_reference(&self) -> EventReference {
         if self.event.kind.is_replaceable() {
             EventReference::Addr(NAddr {
                 d: self.event.parameter().unwrap_or("".to_owned()),

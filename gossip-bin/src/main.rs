@@ -8,8 +8,6 @@
 mod about;
 mod commands;
 mod date_ago;
-mod notecache;
-mod notedata;
 mod ui;
 mod unsaved_settings;
 

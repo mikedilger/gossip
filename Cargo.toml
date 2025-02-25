@@ -2,6 +2,7 @@
 members = [
   "gossip-lib",
   "gossip-bin",
+  "gossip-cache",
 ]
 resolver = "2"
 
