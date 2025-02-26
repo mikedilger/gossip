@@ -1657,7 +1657,7 @@ impl Storage {
                                 // pair.
                                 // NOTE that this optimization is difficult to implement
                                 // for other replaceable event situations
-                                if kind.is_replaceable() {
+                                if kind.is_replaceable() && !kind.is_parameterized_replaceable() {
                                     break 'per_event;
                                 }
                             }
