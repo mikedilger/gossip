@@ -605,13 +605,14 @@ impl Minion {
 
                 for event in events.drain(..) {
                     let id = event.id;
+                    let kind = event.kind;
                     self.posting_ids.insert(id, message.job_id);
                     let msg = ClientMessage::Event(Box::new(event));
                     let wire = serde_json::to_string(&msg)?;
                     let ws_stream = self.stream.as_mut().unwrap();
                     self.last_message_sent = wire.clone();
                     ws_stream.send(WsMessage::Text(wire)).await?;
-                    tracing::info!("Posted event to {}", &self.url);
+                    tracing::info!("Posted event kind={} to {}", kind, &self.url);
                 }
             }
             ToMinionPayloadDetail::Shutdown => {
