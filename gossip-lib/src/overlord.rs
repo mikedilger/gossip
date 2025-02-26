@@ -1974,6 +1974,15 @@ impl Overlord {
             GLOBALS.delayed_posts.insert(event.id);
         }
 
+        // Get my latest relay list event (pr #1801)
+        let opt_relay_list_event = {
+            let mut filter = Filter::new();
+            filter.add_author(author);
+            filter.kinds = vec![EventKind::RelayList];
+            let mut relay_lists = GLOBALS.db().find_events_by_filter(&filter, |_| true)?;
+            relay_lists.pop()
+        };
+
         // Sync recompute their feeds right now (so they can see what they posted)
         GLOBALS.feed.sync_recompute();
 
@@ -1992,13 +2001,18 @@ impl Overlord {
                         tracing::debug!("Asking {} to post", url);
                     }
 
+                    let events = match opt_relay_list_event {
+                        Some(ref rl) => vec![event, rl.clone()],
+                        None => vec![event]
+                    };
+
                     manager::run_jobs_on_all_relays(
                         relay_urls,
                         vec![RelayJob {
                             reason: RelayConnectionReason::PostEvent,
                             payload: ToMinionPayload {
                                 job_id: rand::random::<u64>(),
-                                detail: ToMinionPayloadDetail::PostEvents(vec![event.clone()]),
+                                detail: ToMinionPayloadDetail::PostEvents(events),
                             },
                         }],
                     );
