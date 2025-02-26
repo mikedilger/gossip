@@ -6,6 +6,20 @@ members = [
 ]
 resolver = "2"
 
+[workspace.dependencies]
+bech32 = "0.11"
+blurhash = { version = "0.2", features = [ "image" ] }
+image = { version = "0.25", features = [ "png", "jpeg" ] }
+lazy_static = "1.5"
+nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "a4d5c8f94b19c1306edcfeea51644541b02172bd", features = [ "speedy" ] }
+paste = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+url = "2.5"
+zeroize = "1.8"
+
 # When compiling gossip crates themselves (in 'dev' mode), optimize a little bit
 # (for fast compiles of our changes)
 [profile.dev]
