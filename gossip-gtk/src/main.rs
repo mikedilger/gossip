@@ -6,9 +6,12 @@
 #![allow(clippy::assigning_clones)]
 
 mod about;
+mod app;
+use app::App;
 
 use gossip_lib::{Error, GLOBALS};
 use std::env;
+use std::thread;
 use std::env::Args;
 use std::iter::Peekable;
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
@@ -17,7 +20,8 @@ fn main() -> Result<(), Error> {
     setup_logging();
 
     let about = about::About::new();
-    tracing::info!("Gossip-GTK {}", about.version);
+    tracing::info!("{} {}", about.name, about.version);
+    tracing::info!("  {}", about.description);
 
     // Handle rapid command before initializing the lib
     let (rapid, args) = check_rapid();
@@ -44,7 +48,16 @@ fn main() -> Result<(), Error> {
         }
     }
 
-    tracing::error!("TBD");
+    // We run our main async code on a separate thread, not just a
+    // separate task. This leave the main thread for UI work only.
+    let _async_thread = thread::spawn(move || {
+        GLOBALS.runtime.block_on(gossip_lib::run());
+    });
+
+    // Start the Relm4 (gtk) App
+    let app = relm4::RelmApp::new("com.mikedilger.gossip");
+    app.with_args(vec![])
+        .run_async::<App>(());
 
     Ok(())
 }
