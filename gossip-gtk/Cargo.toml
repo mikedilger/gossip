@@ -33,6 +33,8 @@ serde_json.workspace = true
 seshat-unicode = "0.3"
 tokio.workspace = true
 tokio-tungstenite.workspace = true
+tracing.workspace = true
+tracing-subscriber = { version = "0.3", features = [ "std", "env-filter" ] }
 tungstenite.workspace = true
 zeroize.workspace = true
 

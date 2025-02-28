@@ -2476,6 +2476,8 @@ dependencies = [
  "seshat-unicode",
  "tokio",
  "tokio-tungstenite",
+ "tracing",
+ "tracing-subscriber",
  "tungstenite",
  "zeroize",
 ]
