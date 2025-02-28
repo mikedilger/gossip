@@ -146,6 +146,7 @@ pub(in crate::ui) fn show_contact_search(
 
                             // to workaround https://github.com/emilk/egui/issues/4147
                             // we will interact again, OVER the painted avatar and text
+                            /*
                             let response = ui
                                 .interact(
                                     response.rect,
@@ -153,6 +154,7 @@ pub(in crate::ui) fn show_contact_search(
                                     egui::Sense::click(),
                                 )
                                 .on_hover_cursor(egui::CursorIcon::PointingHand);
+                             */
 
                             let clicked = response.clicked();
                             if clicked || (enter_key && is_selected) {
