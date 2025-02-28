@@ -54,6 +54,7 @@ pub(in crate::ui) fn show_contact_search(
         area.show(ui.ctx(), |ui| {
             frame.show(ui, |ui| {
                 app.vert_scroll_area()
+                    .id_salt("contactsearch")
                     .max_width(super::TAGG_WIDTH)
                     .max_height(250.0)
                     .show(ui, |ui| {
@@ -136,9 +137,12 @@ pub(in crate::ui) fn show_contact_search(
 
                             prepared.end(ui);
 
+                            /* This forces scroll back to the top over and over.
+                               need a different solution.
                             if is_selected {
                                 response.scroll_to_me(None)
                             }
+                            */
 
                             // to workaround https://github.com/emilk/egui/issues/4147
                             // we will interact again, OVER the painted avatar and text
