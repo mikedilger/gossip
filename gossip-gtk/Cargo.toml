@@ -1,0 +1,38 @@
+[package]
+name = "gossip-gtk"
+version = "0.14.0-unstable"
+description = "A social media client for nostr"
+authors = ["Mike Dilger <mike@mikedilger.com>"]
+license = "MIT"
+repository = "https://github.com/mikedilger/gossip"
+homepage = "https://github.com/mikedilger/gossip"
+default-run = "gossip-gtk"
+edition = "2024"
+
+[features]
+default = [ "rustls-tls-native" ]
+native-tls = [ "gossip-lib/native-tls" ]
+rustls-tls = [ "gossip-lib/rustls-tls" ]
+rustls-tls-native = [ "gossip-lib/rustls-tls-native" ]
+lang-cjk = [ "gossip-lib/lang-cjk" ]
+
+[dependencies]
+base64.workspace = true
+futures.workspace = true
+futures-util.workspace = true
+gossip-lib = { path = "../gossip-lib" }
+http.workspace = true
+nostr-types.workspace = true
+rand.workspace = true
+relm4 = "0.9"
+relm4-components = "0.9"
+rpassword.workspace = true
+rprompt = "2.1"
+serde.workspace = true
+serde_json.workspace = true
+seshat-unicode = "0.3"
+tokio.workspace = true
+tokio-tungstenite.workspace = true
+tungstenite.workspace = true
+zeroize.workspace = true
+

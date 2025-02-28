@@ -37,7 +37,7 @@ nostr-types = { workspace = true }
 paste = { workspace = true }
 qrcode = "0.14"
 resvg = "0.35"
-rpassword = "7.3"
+rpassword = { workspace = true }
 sdl2 = { version = "0.37", features = ["bundled"], optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

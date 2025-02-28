@@ -39,18 +39,18 @@ rustls-tls-native = [
 appimage = []
 
 [dependencies]
-base64 = "0.22"
+base64 = { workspace = true }
 bech32 = { workspace = true }
 blurhash = { workspace = true }
 dashmap = "6.0"
 dirs = "5.0"
 encoding_rs = "0.8"
 filetime = "0.2"
-futures = "0.3"
-futures-util = "0.3"
+futures = { workspace = true }
+futures-util = { workspace = true }
 heed = { version = "0.20", features = [ "read-txn-no-tls" ] }
 hex = "0.4"
-http = "1.1"
+http = { workspace = true }
 image = { workspace = true }
 infer = "0.16"
 kamadak-exif = "0.5"
@@ -62,7 +62,7 @@ mime_guess = "2"
 nostr-types = { workspace = true }
 parking_lot = { version = "0.12", features = [ "arc_lock", "send_guard" ] }
 paste = { workspace = true }
-rand = "0.8"
+rand = { workspace = true }
 regex = "1.10"
 reqwest = { version = "0.12", default-features=false, features = ["brotli", "deflate", "gzip", "json", "stream"] }
 resvg = "0.43"
@@ -77,8 +77,8 @@ textnonce = "1"
 tiny-skia = "0.11"
 tokio = { workspace = true }
 tracing = { workspace = true }
-tokio-tungstenite = { version = "0.23", default-features = false, features = [ "connect", "handshake" ] }
-tungstenite = { version = "0.23", default-features = false }
+tokio-tungstenite = { workspace = true }
+tungstenite = { workspace = true }
 url = { workspace = true }
 usvg = "0.43"
 watcher = { git = "https://github.com/mikedilger/watcher", rev = "a4e7e70c396bca4630aa0ba0a15d54ea103cb0e9" }
