@@ -1,42 +1,34 @@
-use relm4::component::{AsyncComponentParts, AsyncComponentSender, SimpleAsyncComponent};
-use relm4::gtk;
+mod page;
+use page::Page;
 
-pub struct App;
+mod gtk;
+
+use gossip_lib::GLOBALS;
+use std::sync::atomic::Ordering;
+
+pub struct App {
+    pub forced_page: Option<Page>,
+    pub page: Page,
+}
 
 impl App {
     fn new() -> App {
-        App
-    }
-}
-
-impl SimpleAsyncComponent for App {
-    type Init = ();
-    type Input = ();
-    type Output = ();
-    type Root = gtk::Window;
-    type Widgets = ();
-
-    fn init_root() -> Self::Root {
-        gtk::Window::builder()
-            .title("Gossip GTK")
-            .default_width(800)
-            .default_height(600)
-            .build()
+        App {
+            forced_page: None,
+            page: Page::Tbd,
+        }
     }
 
-    async fn init(
-        _data: (),
-        _window: Self::Root,
-        _sender: AsyncComponentSender<Self>,
-    ) -> AsyncComponentParts<Self> {
-        let model = App::new();
-        let widgets = ();
-        AsyncComponentParts { model, widgets }
-    }
-
-    async fn update(&mut self, _message: Self::Input, _sender: AsyncComponentSender<Self>) {
-    }
-
-    fn update_view(&self, _widgets: &mut Self::Widgets, _sender: AsyncComponentSender<Self>) {
+    pub fn maybe_force_page(&mut self) {
+        if GLOBALS.wait_for_login.load(Ordering::Relaxed) {
+            self.forced_page = Some(Page::LoginPage);
+        }
+        if GLOBALS.wait_for_data_migration.load(Ordering::Relaxed) {
+            self.forced_page = Some(Page::WaitForMigration);
+        }
+        let optstatus = GLOBALS.prune_status.read();
+        if let Some(status) = optstatus.as_ref() {
+            self.forced_page = Some(Page::WaitForPruning(status.clone()));
+        }
     }
 }
