@@ -2516,6 +2516,7 @@ dependencies = [
  "reqwest",
  "resvg 0.43.0",
  "rhai",
+ "rpassword",
  "sdl2",
  "serde",
  "serde_json",

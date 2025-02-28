@@ -67,6 +67,7 @@ regex = "1.10"
 reqwest = { version = "0.12", default-features=false, features = ["brotli", "deflate", "gzip", "json", "stream"] }
 resvg = "0.43"
 rhai = { version = "1.19", features = [ "std", "sync" ]}
+rpassword = { workspace = true }
 sdl2 = { version = "0.37", features = ["bundled"], optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

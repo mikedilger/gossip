@@ -6,7 +6,6 @@
 #![allow(clippy::assigning_clones)]
 
 mod about;
-mod commands;
 
 use gossip_lib::{Error, GLOBALS};
 use std::env;
@@ -32,7 +31,7 @@ fn main() -> Result<(), Error> {
 
     // If we were handed a command, execute the command and return
     if command_mode {
-        match commands::handle_command(args) {
+        match gossip_lib::commands::handle_command(args) {
             Err(e) => {
                 println!("{}", e);
                 return Ok(());

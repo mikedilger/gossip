@@ -1,10 +1,9 @@
-use gossip_lib::{Error, ErrorKind, PersonList, PersonListMetadata, PersonTable, Table, GLOBALS};
+use crate::{Error, ErrorKind, PersonList, PersonListMetadata, PersonTable, Table, GLOBALS};
 use nostr_types::{
     EncryptedPrivateKey, Event, EventKind, Filter, Id, NAddr, NostrBech32, NostrUrl, ParsedTag,
     PreEvent, PrivateKey, PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime,
 };
 use std::collections::HashSet;
-use std::env;
 use zeroize::Zeroize;
 
 #[derive(Debug, Clone)]
@@ -262,7 +261,7 @@ const COMMANDS: [Command; 47] = [
     },
 ];
 
-pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
+pub fn handle_command<I: Iterator<Item=String>>(mut args: I) -> Result<bool, Error> {
     let command_string = args.next().unwrap(); // must be there or we would not have been called
 
     let mut command: Option<Command> = None;
@@ -340,7 +339,7 @@ pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
     Ok(true)
 }
 
-pub fn help(_cmd: Command, mut args: env::Args) -> Result<(), Error> {
+pub fn help<I: Iterator<Item=String>>(_cmd: Command, mut args: I) -> Result<(), Error> {
     if let Some(sub) = args.next() {
         for c in COMMANDS.iter() {
             if sub == c.cmd {
@@ -368,12 +367,12 @@ pub fn help(_cmd: Command, mut args: env::Args) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn oneshot(_cmd: Command, mut _args: env::Args) -> Result<(), Error> {
+pub fn oneshot<I: Iterator<Item=String>>(_cmd: Command, mut _args: I) -> Result<(), Error> {
     // This code area is reserved for doing things that do not get committed
     Ok(())
 }
 
-pub fn add_person_list(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+pub fn add_person_list<I: Iterator<Item=String>>(cmd: Command, mut args: I) -> Result<(), Error> {
     let listname = match args.next() {
         Some(s) => s,
         None => return cmd.usage("Missing listname parameter".to_string()),
@@ -407,7 +406,7 @@ pub fn backdate_eose() -> Result<(), Error> {
     Ok(())
 }
 
-pub fn bech32_decode(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+pub fn bech32_decode<I: Iterator<Item=String>>(cmd: Command, mut args: I) -> Result<(), Error> {
     let mut param = match args.next() {
         Some(s) => s,
         None => return cmd.usage("Missing bech32string parameter".to_string()),
@@ -490,7 +489,7 @@ pub fn bech32_decode(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn bech32_encode_naddr(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+pub fn bech32_encode_naddr<I: Iterator<Item=String>>(cmd: Command, mut args: I) -> Result<(), Error> {
     let kind: EventKind = match args.next() {
         Some(integer) => integer.parse::<u32>()?.into(),
         None => return cmd.usage("Missing kind parameter".to_string()),
@@ -533,7 +532,7 @@ pub fn clear_timeouts() -> Result<(), Error> {
         .modify_all_relays(|r| r.avoid_until = None, None)
 }
 
-pub fn decrypt(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+pub fn decrypt<I: Iterator<Item=String>>(cmd: Command, mut args: I) -> Result<(), Error> {
     let pubkey = match args.next() {
         Some(s) => match PublicKey::try_from_hex_string(&s, true) {
             Ok(pk) => pk,
@@ -555,7 +554,7 @@ pub fn decrypt(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn delete_by_kind(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+pub fn delete_by_kind<I: Iterator<Item=String>>(cmd: Command, mut args: I) -> Result<(), Error> {
     let kind: EventKind = match args.next() {
         Some(integer) => integer.parse::<u32>()?.into(),
         None => return cmd.usage("Missing kind parameter".to_string()),
@@ -583,7 +582,7 @@ pub fn delete_by_kind(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn delete_spam_by_content(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+pub fn delete_spam_by_content<I: Iterator<Item=String>>(cmd: Command, mut args: I) -> Result<(), Error> {
     let mut kind: EventKind = match args.next() {
         Some(integer) => integer.parse::<u32>()?.into(),
         None => return cmd.usage("Missing kind parameter".to_string()),
@@ -705,13 +704,13 @@ pub fn delete_spam_by_content(cmd: Command, mut args: env::Args) -> Result<(), E
 
     let job = tokio::task::spawn(async move {
         // Process this event locally
-        if let Err(e) = gossip_lib::process::process_new_event(&event, None, None, false, false) {
+        if let Err(e) = crate::process::process_new_event(&event, None, None, false, false) {
             println!("ERROR: {}", e);
         } else {
             // Post the event to all the relays
             for relay in relays {
                 let mut conn =
-                    match gossip_lib::direct::Connection::new(relay.as_str().to_owned()).await {
+                    match crate::direct::Connection::new(relay.as_str().to_owned()).await {
                         Ok(conn) => conn,
                         Err(e) => {
                             println!("ERROR: {}", e);
@@ -735,7 +734,7 @@ pub fn delete_spam_by_content(cmd: Command, mut args: env::Args) -> Result<(), E
     Ok(())
 }
 
-pub fn delete_relay(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+pub fn delete_relay<I: Iterator<Item=String>>(cmd: Command, mut args: I) -> Result<(), Error> {
     let rurl = match args.next() {
         Some(urlstr) => RelayUrl::try_from_str(&urlstr)?,
         None => return cmd.usage("Missing relay url parameter".to_string()),
@@ -746,7 +745,7 @@ pub fn delete_relay(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn override_dpi(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+pub fn override_dpi<I: Iterator<Item=String>>(cmd: Command, mut args: I) -> Result<(), Error> {
     let dpi = match args.next() {
         Some(dpistr) => dpistr.parse::<u32>()?,
         None => return cmd.usage("Missing DPI value".to_string()),
@@ -759,7 +758,7 @@ pub fn override_dpi(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn disable_relay(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+pub fn disable_relay<I: Iterator<Item=String>>(cmd: Command, mut args: I) -> Result<(), Error> {
     let rurl = match args.next() {
         Some(urlstr) => RelayUrl::try_from_str(&urlstr)?,
         None => return cmd.usage("Missing relay url parameter".to_string()),
@@ -778,7 +777,7 @@ pub fn disable_relay(cmd: Command, mut args: env::Args) -> Result<(), Error> {
 }
 
 pub fn dump_handlers() -> Result<(), Error> {
-    use gossip_lib::HandlersTable;
+    use crate::HandlersTable;
 
     let mut last_kind = EventKind::Other(12345);
 
@@ -818,7 +817,7 @@ pub fn dump_handlers() -> Result<(), Error> {
     Ok(())
 }
 
-pub fn import_encrypted_private_key(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+pub fn import_encrypted_private_key<I: Iterator<Item=String>>(cmd: Command, mut args: I) -> Result<(), Error> {
     let input = match args.next() {
         Some(input) => input,
         None => return cmd.usage("Missing ncryptsec parameter".to_string()),
@@ -841,7 +840,7 @@ pub fn import_encrypted_private_key(cmd: Command, mut args: env::Args) -> Result
     Ok(())
 }
 
-pub fn import_event(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+pub fn import_event<I: Iterator<Item=String>>(cmd: Command, mut args: I) -> Result<(), Error> {
     let event = match args.next() {
         Some(json) => {
             let e: Event = serde_json::from_str(&json)?;
@@ -853,7 +852,7 @@ pub fn import_event(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     login()?;
 
     let job = tokio::task::spawn(async move {
-        if let Err(e) = gossip_lib::process::process_new_event(&event, None, None, false, true) {
+        if let Err(e) = crate::process::process_new_event(&event, None, None, false, true) {
             println!("ERROR: {}", e);
         }
     });
@@ -878,7 +877,7 @@ pub fn keys() -> Result<(), Error> {
     Ok(())
 }
 
-pub fn print_event(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+pub fn print_event<I: Iterator<Item=String>>(cmd: Command, mut args: I) -> Result<(), Error> {
     let idstr = match args.next() {
         Some(id) => id,
         None => return cmd.usage("Missing idhex parameter".to_string()),
@@ -894,7 +893,7 @@ pub fn print_event(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn print_relay(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+pub fn print_relay<I: Iterator<Item=String>>(cmd: Command, mut args: I) -> Result<(), Error> {
     if let Some(url) = args.next() {
         let rurl = RelayUrl::try_from_str(&url)?;
         if let Some(relay) = GLOBALS.db().read_relay(&rurl)? {
@@ -916,7 +915,7 @@ pub fn print_relays(_cmd: Command) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn print_seen_on(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+pub fn print_seen_on<I: Iterator<Item=String>>(cmd: Command, mut args: I) -> Result<(), Error> {
     let idstr = match args.next() {
         Some(id) => id,
         None => return cmd.usage("Missing idhex parameter".to_string()),
@@ -987,7 +986,7 @@ pub fn print_person_lists(_cmd: Command) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn print_person(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+pub fn print_person<I: Iterator<Item=String>>(cmd: Command, mut args: I) -> Result<(), Error> {
     let pubkey = match args.next() {
         Some(s) => match PublicKey::try_from_hex_string(&s, true) {
             Ok(pk) => pk,
@@ -1001,7 +1000,7 @@ pub fn print_person(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn print_person_relays(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+pub fn print_person_relays<I: Iterator<Item=String>>(cmd: Command, mut args: I) -> Result<(), Error> {
     let pubkey = match args.next() {
         Some(s) => match PublicKey::try_from_hex_string(&s, true) {
             Ok(pk) => pk,
@@ -1017,7 +1016,7 @@ pub fn print_person_relays(cmd: Command, mut args: env::Args) -> Result<(), Erro
     Ok(())
 }
 
-pub fn events_of_kind(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+pub fn events_of_kind<I: Iterator<Item=String>>(cmd: Command, mut args: I) -> Result<(), Error> {
     let kind: EventKind = match args.next() {
         Some(integer) => integer.parse::<u32>()?.into(),
         None => return cmd.usage("Missing kind parameter".to_string()),
@@ -1033,7 +1032,7 @@ pub fn events_of_kind(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn events_of_pubkey(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+pub fn events_of_pubkey<I: Iterator<Item=String>>(cmd: Command, mut args: I) -> Result<(), Error> {
     let pubkey = match args.next() {
         Some(s) => match PublicKey::try_from_hex_string(&s, true) {
             Ok(pk) => pk,
@@ -1053,7 +1052,7 @@ pub fn events_of_pubkey(cmd: Command, mut args: env::Args) -> Result<(), Error> 
     Ok(())
 }
 
-pub fn events_of_pubkey_and_kind(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+pub fn events_of_pubkey_and_kind<I: Iterator<Item=String>>(cmd: Command, mut args: I) -> Result<(), Error> {
     let pubkey = match args.next() {
         Some(s) => match PublicKey::try_from_hex_string(&s, true) {
             Ok(pk) => pk,
@@ -1090,7 +1089,7 @@ pub fn export_encrypted_key() -> Result<(), Error> {
     Ok(())
 }
 
-pub fn force_migration_level(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+pub fn force_migration_level<I: Iterator<Item=String>>(cmd: Command, mut args: I) -> Result<(), Error> {
     let level = match args.next() {
         Some(l) => l.parse::<u32>()?,
         None => return cmd.usage("Missing level parameter".to_string()),
@@ -1101,7 +1100,7 @@ pub fn force_migration_level(cmd: Command, mut args: env::Args) -> Result<(), Er
     Ok(())
 }
 
-pub fn ungiftwrap(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+pub fn ungiftwrap<I: Iterator<Item=String>>(cmd: Command, mut args: I) -> Result<(), Error> {
     let idstr = match args.next() {
         Some(id) => id,
         None => return cmd.usage("Missing idhex parameter".to_string()),
@@ -1151,7 +1150,7 @@ pub fn giftwraps(_cmd: Command) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn reaction_stats(_cmd: Command, mut _args: env::Args) -> Result<(), Error> {
+pub fn reaction_stats<I: Iterator<Item=String>>(_cmd: Command, mut _args: I) -> Result<(), Error> {
     use std::collections::HashMap;
     let mut reactions: HashMap<String, usize> = HashMap::new();
     let mut filter = Filter::new();
@@ -1197,7 +1196,7 @@ pub fn reprocess_recent(_cmd: Command) -> Result<(), Error> {
 
         let mut count = 0;
         for event in events.iter() {
-            if let Err(e) = gossip_lib::process::process_new_event(event, None, None, false, true) {
+            if let Err(e) = crate::process::process_new_event(event, None, None, false, true) {
                 println!("ERROR: {}", e);
             }
             count += 1;
@@ -1213,7 +1212,7 @@ pub fn reprocess_recent(_cmd: Command) -> Result<(), Error> {
 }
 
 pub fn reprocess_relay_lists() -> Result<(), Error> {
-    let (c1, c2) = gossip_lib::process::reprocess_relay_lists()?;
+    let (c1, c2) = crate::process::reprocess_relay_lists()?;
     println!("Reprocessed {} contact lists", c1);
     println!("Reprocessed {} relay lists", c2);
     Ok(())
@@ -1239,7 +1238,7 @@ pub fn reset_relay_connect() -> Result<(), Error> {
     Ok(())
 }
 
-pub fn set_theme(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+pub fn set_theme<I: Iterator<Item=String>>(cmd: Command, mut args: I) -> Result<(), Error> {
     let theme = match args.next() {
         Some(s) => s,
         None => return cmd.usage("Missing theme selection".to_string()),
@@ -1260,7 +1259,7 @@ pub fn set_theme(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn verify(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+pub fn verify<I: Iterator<Item=String>>(cmd: Command, mut args: I) -> Result<(), Error> {
     let idstr = match args.next() {
         Some(id) => id,
         None => return cmd.usage("Missing idhex parameter".to_string()),
@@ -1279,7 +1278,7 @@ pub fn verify(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn verify_json(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+pub fn verify_json<I: Iterator<Item=String>>(cmd: Command, mut args: I) -> Result<(), Error> {
     let json = match args.next() {
         Some(json) => json,
         None => return cmd.usage("Missing json parameter".to_string()),
@@ -1300,7 +1299,7 @@ pub fn rebuild_indices() -> Result<(), Error> {
     Ok(())
 }
 
-pub fn rename_person_list(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+pub fn rename_person_list<I: Iterator<Item=String>>(cmd: Command, mut args: I) -> Result<(), Error> {
     let number: u8 = match args.next() {
         Some(number) => number.parse::<u8>()?,
         None => return cmd.usage("Missing number parameter".to_string()),
@@ -1348,7 +1347,7 @@ pub fn offline() -> Result<(), Error> {
     Ok(())
 }
 
-pub fn wgpu_renderer(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+pub fn wgpu_renderer<I: Iterator<Item=String>>(cmd: Command, mut args: I) -> Result<(), Error> {
     let enable = match args.next() {
         Some(str) => str.parse::<bool>()?,
         None => return cmd.usage("Missing true|false value".to_string()),

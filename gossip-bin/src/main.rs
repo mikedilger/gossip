@@ -6,7 +6,6 @@
 #![allow(clippy::assigning_clones)]
 
 mod about;
-mod commands;
 mod date_ago;
 mod ui;
 mod unsaved_settings;
@@ -69,7 +68,7 @@ fn main() -> Result<(), Error> {
 
     // If we were handed a command, execute the command and return
     if args.len() > 0 {
-        match commands::handle_command(args) {
+        match gossip_lib::commands::handle_command(args) {
             Err(e) => {
                 println!("{}", e);
                 return Ok(());

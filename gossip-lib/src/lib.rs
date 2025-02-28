@@ -70,6 +70,8 @@ pub use blossom::Blossom;
 pub mod bookmarks;
 pub use bookmarks::BookmarkList;
 
+pub mod commands;
+
 /// Defines messages sent to the overlord
 pub mod comms;
 
