@@ -18,6 +18,7 @@ lang-cjk = [ "gossip-lib/lang-cjk" ]
 
 [dependencies]
 base64.workspace = true
+bech32.workspace = true
 futures.workspace = true
 futures-util.workspace = true
 gossip-lib = { path = "../gossip-lib" }
