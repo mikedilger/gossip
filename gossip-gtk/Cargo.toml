@@ -23,10 +23,12 @@ futures.workspace = true
 futures-util.workspace = true
 gossip-lib = { path = "../gossip-lib" }
 http.workspace = true
+libadwaita = { version = "0.7", features = [ "v1_5" ] }
 nostr-types.workspace = true
 rand.workspace = true
 relm4 = "0.9"
 relm4-components = "0.9"
+relm4-macros = "0.9"
 rpassword.workspace = true
 rprompt = "2.1"
 serde.workspace = true

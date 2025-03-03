@@ -3,6 +3,9 @@ use page::Page;
 
 mod gtk;
 
+mod message;
+use message::Message;
+
 use gossip_lib::GLOBALS;
 use std::sync::atomic::Ordering;
 
