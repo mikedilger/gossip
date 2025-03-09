@@ -1,0 +1,15 @@
+Root(Window)
+  LoginPage
+  WaitPage
+  Wizard
+  Normal
+    Sidebar
+      Menu
+    MainArea
+
+
+AdwToastOverlay
+adw_toast_overlay_add_toast()
+adw_toast_overlay_dismiss_all()
+adw_toast_dismiss()
+
