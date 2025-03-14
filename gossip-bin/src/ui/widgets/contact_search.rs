@@ -52,11 +52,11 @@ pub(in crate::ui) fn show_contact_search(
     // show search results
     if is_open {
         area.show(ui.ctx(), |ui| {
+            ui.set_max_height(250.0);
             frame.show(ui, |ui| {
                 app.vert_scroll_area()
                     .id_salt("contactsearch")
                     .max_width(super::TAGG_WIDTH)
-                    .max_height(250.0)
                     .show(ui, |ui| {
                         for (i, pair) in search_results.iter().enumerate() {
                             let avatar = if let Some(avatar) = app.try_get_avatar(ui.ctx(), &pair.1)
