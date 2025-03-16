@@ -2003,7 +2003,7 @@ impl Overlord {
 
                     let events = match opt_relay_list_event {
                         Some(ref rl) => vec![event, rl.clone()],
-                        None => vec![event]
+                        None => vec![event],
                     };
 
                     manager::run_jobs_on_all_relays(
