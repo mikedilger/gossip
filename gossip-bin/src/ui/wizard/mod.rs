@@ -23,40 +23,46 @@ use super::widgets::list_entry::OUTER_MARGIN_RIGHT;
 const CONTINUE_BTN_TEXT: &str = "Continue \u{25b6}";
 const BACK_BTN_TEXT: &str = "\u{25c0} Go Back";
 
-// Last updated: 2024-12-18
-static DEFAULT_RELAYS: [&str; 31] = [
+// Last updated: 2025-03-17
+static DEFAULT_RELAYS: [&str; 36] = [
     "wss://nostr.mom/",
     "wss://e.nos.lol/",
     "wss://relay.primal.net/",
     "wss://a.nos.lol/",
+    "wss://relay.nos.social/",
     "wss://nostrue.com/",
     "wss://nostr.einundzwanzig.space/",
-    "wss://purplerelay.com/",
     "wss://bitcoiner.social/",
     "wss://nos.lol/",
-    "wss://nostr.data.haus/",
+    "wss://relay.nostr.band/",
     "wss://offchain.pub/",
     "wss://relay.damus.io/",
-    "wss://nostr.oxtr.dev/",
-    "wss://relay.coinos.io/",
-    "wss://nostr.swiss-enigma.ch/",
-    "wss://nostr-01.yakihonne.com/",
+    "wss://relay.fountain.fm/",
     "wss://nostr.cercatrova.me/",
-    "wss://relays.diggoo.com/",
-    "wss://nostr-02.yakihonne.com/",
-    "wss://soloco.nl/",
-    "wss://nostr-pub.wellorder.net/",
-    "wss://nostr.sathoarder.com/",
-    "wss://relay.siamstr.com/",
-    "wss://relay.notoshi.win/",
-    "wss://nostr.lu.ke/",
-    "wss://relay.nostr.net/",
+    "wss://nostr.oxtr.dev/",
+    "wss://relay.nostr.wirednet.jp/",
+    "wss://nostr.data.haus/",
+    "wss://freelay.sovbit.host/",
     "wss://bostr.bitcointxoko.com/",
-    "wss://relay.nostr.jabber.ch/",
-    "wss://wheat.happytavern.co/",
+    "wss://relay.notoshi.win/",
+    "wss://relay.coinos.io/",
+    "wss://relay.siamstr.com/",
+    "wss://nostr.gleeze.com/",
+    "wss://relay.exit.pub/",
+    "wss://nostr-pub.wellorder.net/",
+    "wss://nostr.swiss-enigma.ch/",
+    "wss://relay.lumina.rocks/",
+    "wss://nostr-01.yakihonne.com/",
+    "wss://nostr-02.yakihonne.com/",
+    "wss://nostr-verified.wellorder.net/",
+    "wss://kitchen.zap.cooking/",
+    "wss://relay.artx.market/",
+    "wss://orangepiller.org/",
+    "wss://relay.nostr.net/",
     "wss://nostr.azzamo.net/",
-    "wss://relay.nostromo.social/",
+    "wss://wheat.happytavern.co/",
 ];
+
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum WizardPage {
