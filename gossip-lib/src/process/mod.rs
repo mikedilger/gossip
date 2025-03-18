@@ -288,6 +288,7 @@ pub fn process_new_event(
         EventKind::Repost => by_kind::process_repost(event, verify)?,
         EventKind::NostrConnect => by_kind::process_nostr_connect(event, seen_on.clone())?,
         EventKind::UserServerList => by_kind::process_user_server_list(event, ours)?,
+        EventKind::RequestToVanish => by_kind::process_request_to_vanish(event)?,
         _ => {}
     }
 

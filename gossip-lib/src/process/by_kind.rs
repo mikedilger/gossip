@@ -2,8 +2,9 @@ use crate::comms::ToOverlordMessage;
 use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::people::{PersonList, PersonListMetadata};
-use crate::storage::table::Table;
-use nostr_types::{Event, ParsedTag, RelayUrl};
+use crate::storage::{PersonTable, Table};
+use nostr_types::{Event, Filter, ParsedTag, RelayUrl};
+use std::collections::HashMap;
 
 // EventKind::Metadata
 pub fn process_metadata(event: &Event) -> Result<(), Error> {
@@ -381,4 +382,56 @@ fn update_or_allocate_person_list_from_event(
     }
 
     Ok((list, metadata))
+}
+
+// EventKind::RequestToVanish
+pub fn process_request_to_vanish(event: &Event) -> Result<(), Error> {
+    // Only honor if a 'relay' tag is set to 'ALL_RELAYS'
+    let mut honor: bool = false;
+    for tag in &event.tags {
+        if tag.tagname() == "relay" {
+            if tag.get_index(1) == "ALL_RELAYS" {
+                honor = true;
+                break;
+            }
+        }
+    }
+    if !honor {
+        return Ok(());
+    }
+
+    let mut txn = GLOBALS.db().get_write_txn()?;
+
+    // Remove the person from all lists
+    GLOBALS
+        .db()
+        .write_person_lists(&event.pubkey, HashMap::new(), Some(&mut txn))?;
+
+    // Delete the person relay records
+    GLOBALS
+        .db()
+        .delete_person_relays(|pr| pr.pubkey == event.pubkey, Some(&mut txn))?;
+
+    // Delete everything authored by this pubkey that is before the created at
+    let mut filter = Filter::new();
+    filter.add_author(event.pubkey);
+    filter.until = Some(event.created_at);
+    for e in GLOBALS.db().find_events_by_filter(&filter, |_| true)? {
+        GLOBALS.db().delete_event(e.id, Some(&mut txn))?;
+    }
+
+    // Delete giftwraps to this pubkey before the created at
+    let mut filter = Filter::new();
+    filter.add_tag_value('p', event.pubkey.as_hex_string());
+    filter.until = Some(event.created_at);
+    for e in GLOBALS.db().find_events_by_filter(&filter, |_| true)? {
+        GLOBALS.db().delete_event(e.id, Some(&mut txn))?;
+    }
+
+    // Delete the person
+    PersonTable::delete_record(event.pubkey, Some(&mut txn))?;
+
+    txn.commit()?;
+
+    Ok(())
 }

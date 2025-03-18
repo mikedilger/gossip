@@ -63,7 +63,6 @@ static DEFAULT_RELAYS: [&str; 36] = [
     "wss://wheat.happytavern.co/",
 ];
 
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum WizardPage {
     WelcomeGossip,
