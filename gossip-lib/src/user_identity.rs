@@ -11,19 +11,19 @@ use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use tokio::task;
 
-pub struct GossipIdentity {
+pub struct UserIdentity {
     pub inner: Arc<RwLock<Identity>>,
 }
 
-impl Default for GossipIdentity {
-    fn default() -> GossipIdentity {
-        GossipIdentity {
+impl Default for UserIdentity {
+    fn default() -> UserIdentity {
+        UserIdentity {
             inner: Arc::new(RwLock::new(Identity::default())),
         }
     }
 }
 
-impl GossipIdentity {
+impl UserIdentity {
     pub(crate) fn load(&self) -> Result<(), Error> {
         let pk = GLOBALS.db().read_setting_public_key();
         let epk = GLOBALS.db().read_encrypted_private_key()?;
@@ -35,7 +35,7 @@ impl GossipIdentity {
         Ok(())
     }
 
-    // Any function that changes GossipIdentity should run this to save back changes
+    // Any function that changes UserIdentity should run this to save back changes
     fn on_change(&self) -> Result<(), Error> {
         let binding = self.inner.read_arc();
         let (pk, epk) = match *binding {
@@ -48,7 +48,7 @@ impl GossipIdentity {
         Ok(())
     }
 
-    // Any function that changes GossipIdentity and changes the key should run this instead
+    // Any function that changes UserIdentity and changes the key should run this instead
     fn on_keychange(&self) -> Result<(), Error> {
         self.on_change()?;
         if !matches!(*self.inner.read_arc(), Identity::None) {

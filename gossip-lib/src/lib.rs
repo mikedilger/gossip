@@ -99,9 +99,6 @@ mod filter_set;
 mod globals;
 pub use globals::{Globals, GLOBALS};
 
-mod gossip_identity;
-pub use gossip_identity::GossipIdentity;
-
 pub mod manager;
 
 mod media;
@@ -169,6 +166,9 @@ pub use storage::types::*;
 pub use storage::{FollowingsTable, HandlersTable, PersonTable, Storage, Table};
 
 mod tasks;
+
+mod user_identity;
+pub use user_identity::UserIdentity;
 
 #[macro_use]
 extern crate lazy_static;

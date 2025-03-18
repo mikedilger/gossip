@@ -5,7 +5,6 @@ use crate::delegation::Delegation;
 use crate::error::Error;
 use crate::feed::Feed;
 use crate::fetcher::Fetcher;
-use crate::gossip_identity::GossipIdentity;
 use crate::media::Media;
 use crate::minion::MinionExitReason;
 use crate::misc::ZapState;
@@ -17,6 +16,7 @@ use crate::relay_test_results::RelayTestResults;
 use crate::seeker::Seeker;
 use crate::status::StatusQueue;
 use crate::storage::{HandlersTable, Storage, Table};
+use crate::user_identity::UserIdentity;
 use crate::RunState;
 use dashmap::{DashMap, DashSet};
 use nostr_types::{Event, EventKind, Id, Profile, PublicKey, RelayUrl, UncheckedUrl};
@@ -80,7 +80,7 @@ pub struct Globals {
     pub relay_picker: RelayPicker,
 
     /// Wrapped Identity wrapping a Signer
-    pub identity: GossipIdentity,
+    pub identity: UserIdentity,
 
     /// Dismissed Events
     pub dismissed: RwLock<Vec<Id>>,
@@ -243,7 +243,7 @@ lazy_static! {
             people: People::new(),
             connected_relays: DashMap::new(),
             relay_picker: Default::default(),
-            identity: GossipIdentity::default(),
+            identity: UserIdentity::default(),
             dismissed: RwLock::new(Vec::new()),
             feed: Feed::new(),
             fetcher: Fetcher::new(),
