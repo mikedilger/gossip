@@ -525,6 +525,41 @@ impl Storage {
         }
     }
 
+    /// Write the client's encrypted private key
+    pub fn write_client_encrypted_private_key<'a>(
+        &'a self,
+        epk: Option<&EncryptedPrivateKey>,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        let bytes = epk.map(|e| &e.0).write_to_vec()?;
+
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
+
+        self.db_general()?
+            .put(txn, b"client_encrypted_private_key", &bytes)?;
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
+    }
+
+    /// Read the client's encrypted private key
+    pub fn read_client_encrypted_private_key(&self) -> Result<Option<EncryptedPrivateKey>, Error> {
+        let txn = self.env.read_txn()?;
+
+        match self
+            .db_general()?
+            .get(&txn, b"client_encrypted_private_key")?
+        {
+            None => Ok(None),
+            Some(bytes) => {
+                let os = Option::<String>::read_from_buffer(bytes)?;
+                Ok(os.map(EncryptedPrivateKey))
+            }
+        }
+    }
+
     /// Write NIP-46 unconnected server
     #[allow(dead_code)]
     pub fn write_nip46_unconnected_server<'a>(
@@ -598,6 +633,12 @@ impl Storage {
     // This defines functions for read_{setting} and write_{setting} for each
     // setting value
     def_setting!(public_key, b"public_key", Option::<PublicKey>, None);
+    def_setting!(
+        client_public_key,
+        b"client_public_key",
+        Option::<PublicKey>,
+        None
+    );
     def_setting!(log_n, b"log_n", u8, 18);
     def_setting!(login_at_startup, b"login_at_startup", bool, true);
     def_setting!(offline, b"offline", bool, false);

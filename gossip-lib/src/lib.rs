@@ -70,6 +70,9 @@ pub use blossom::Blossom;
 pub mod bookmarks;
 pub use bookmarks::BookmarkList;
 
+mod client_identity;
+pub use client_identity::ClientIdentity;
+
 /// Defines messages sent to the overlord
 pub mod comms;
 
