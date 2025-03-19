@@ -662,6 +662,9 @@ impl Overlord {
                     if let Err(e2) = GLOBALS.identity.delete_identity() {
                         panic!("{}\n{}", e, e2);
                     }
+                    if let Err(e2) = GLOBALS.client_identity.delete_identity() {
+                        panic!("{}\n{}", e, e2);
+                    }
 
                     GLOBALS.status_queue.write().write(format!("{}", e));
                 }
@@ -1177,6 +1180,10 @@ impl Overlord {
     /// Change the user's passphrase.
     pub async fn change_passphrase(mut old: String, mut new: String) -> Result<(), Error> {
         GLOBALS.identity.change_passphrase(&old, &new).await?;
+        GLOBALS
+            .client_identity
+            .change_passphrase(&old, &new)
+            .await?;
         old.zeroize();
         new.zeroize();
         Ok(())
@@ -1471,6 +1478,7 @@ impl Overlord {
     /// Delete private key and any delegation setup
     pub async fn delete_priv() -> Result<(), Error> {
         GLOBALS.identity.delete_identity()?;
+        GLOBALS.client_identity.delete_identity()?;
         Self::delegation_reset().await?;
         GLOBALS
             .status_queue
@@ -1482,6 +1490,7 @@ impl Overlord {
     /// Delete public key (only if no private key exists) and any delegation setup
     pub async fn delete_pub() -> Result<(), Error> {
         GLOBALS.identity.clear_public_key()?;
+        GLOBALS.client_identity.clear_public_key()?;
         Self::delegation_reset().await?;
         Ok(())
     }
@@ -1614,6 +1623,7 @@ impl Overlord {
     /// Generate an identity (private key) and keep encrypted under the given passphrase
     pub fn generate_private_key(mut password: String) -> Result<(), Error> {
         GLOBALS.identity.generate_private_key(&password)?;
+        GLOBALS.client_identity.generate_private_key(&password)?;
         password.zeroize();
         Ok(())
     }
@@ -1636,6 +1646,7 @@ impl Overlord {
             match GLOBALS.identity.set_encrypted_private_key(epk, &password) {
                 Ok(_) => {
                     GLOBALS.identity.unlock(&password)?;
+                    GLOBALS.client_identity.generate_private_key(&password)?;
                     password.zeroize();
                 }
                 Err(err) => {
@@ -1659,6 +1670,7 @@ impl Overlord {
             } else {
                 let privkey = maybe_pk1.unwrap_or_else(|_| maybe_pk2.unwrap());
                 GLOBALS.identity.set_private_key(privkey, &password)?;
+                GLOBALS.client_identity.generate_private_key(&password)?;
                 password.zeroize();
             }
         }
@@ -3516,6 +3528,13 @@ impl Overlord {
                 .write()
                 .write("The passphrase is wrong, try again".to_owned());
         };
+
+        // Create client identity if it doesn't yet exist
+        if !GLOBALS.client_identity.has_private_key() {
+            GLOBALS.client_identity.generate_private_key(&password)?;
+        }
+        let _ = GLOBALS.client_identity.unlock(&password);
+
         password.zeroize();
 
         Ok(())

@@ -233,8 +233,11 @@ pub fn init(rapid: bool, command_mode: bool) -> Result<(), Error> {
         .expect("Storage attempted to be setup twice!");
     GLOBALS.db().init()?;
 
-    // Load signer from settings
+    // Load user identity
     GLOBALS.identity.load()?;
+
+    // Load client identity
+    GLOBALS.client_identity.load()?;
 
     // Load delegation tag
     GLOBALS.delegation.load()?;

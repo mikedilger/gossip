@@ -1,5 +1,6 @@
 use crate::blossom::{BlobDescriptor, Blossom};
 use crate::bookmarks::BookmarkList;
+use crate::client_identity::ClientIdentity;
 use crate::comms::{RelayJob, ToMinionMessage, ToOverlordMessage};
 use crate::delegation::Delegation;
 use crate::error::Error;
@@ -79,8 +80,11 @@ pub struct Globals {
     /// The relay picker, used to pick the next relay
     pub relay_picker: RelayPicker,
 
-    /// Wrapped Identity wrapping a Signer
+    /// User identity wrapping a Signer
     pub identity: UserIdentity,
+
+    /// Client identity wrapping a Signer
+    pub client_identity: ClientIdentity,
 
     /// Dismissed Events
     pub dismissed: RwLock<Vec<Id>>,
@@ -244,6 +248,7 @@ lazy_static! {
             connected_relays: DashMap::new(),
             relay_picker: Default::default(),
             identity: UserIdentity::default(),
+            client_identity: ClientIdentity::default(),
             dismissed: RwLock::new(Vec::new()),
             feed: Feed::new(),
             fetcher: Fetcher::new(),
