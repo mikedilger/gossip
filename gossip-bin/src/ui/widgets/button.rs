@@ -19,7 +19,6 @@ enum ButtonType {
 enum ButtonVariant {
     Normal,
     Small,
-    // Wide,
 }
 
 /// Clickable button with text
@@ -30,6 +29,7 @@ pub struct Button<'a> {
     theme: &'a Theme,
     text: Option<WidgetText>,
     with_danger_hover: bool,
+    desired_width: Option<f32>,
 }
 
 impl<'a> Button<'a> {
@@ -40,6 +40,7 @@ impl<'a> Button<'a> {
             theme,
             text: Some(text.into()),
             with_danger_hover: false,
+            desired_width: None,
         }
     }
 
@@ -50,6 +51,7 @@ impl<'a> Button<'a> {
             theme,
             text: Some(text.into()),
             with_danger_hover: false,
+            desired_width: None,
         }
     }
 
@@ -60,6 +62,7 @@ impl<'a> Button<'a> {
             theme,
             text: Some(text.into()),
             with_danger_hover: false,
+            desired_width: None,
         }
     }
 
@@ -77,16 +80,15 @@ impl<'a> Button<'a> {
         self
     }
 
-    // /// Make this a wide button.
-    // pub fn wide(mut self, wide: bool) -> Self {
-    //     if wide {
-    //         self.variant = ButtonVariant::Wide;
-    //     }
-    //     self
-    // }
+    /// Set desired width
+    pub fn with_width(mut self, width: f32) -> Self {
+        self.desired_width = Some(width);
+        self
+    }
 
     pub fn draw_default(self, ui: &mut Ui) -> Response {
-        let (text, desired_size, padding) = Self::layout(ui, self.text, self.variant);
+        let (text, desired_size, padding) = Self::layout(ui, self.text, self.variant,
+                                                         self.desired_width);
         let (rect, response) = Self::allocate(ui, &text, desired_size);
         Self::draw(
             ui,
@@ -102,7 +104,8 @@ impl<'a> Button<'a> {
     }
 
     pub fn draw_hovered(self, ui: &mut Ui) -> Response {
-        let (text, desired_size, padding) = Self::layout(ui, self.text, self.variant);
+        let (text, desired_size, padding) = Self::layout(ui, self.text, self.variant,
+                                                         self.desired_width);
         let (rect, response) = Self::allocate(ui, &text, desired_size);
         Self::draw(
             ui,
@@ -118,7 +121,8 @@ impl<'a> Button<'a> {
     }
 
     pub fn draw_active(self, ui: &mut Ui) -> Response {
-        let (text, desired_size, padding) = Self::layout(ui, self.text, self.variant);
+        let (text, desired_size, padding) = Self::layout(ui, self.text, self.variant,
+                                                         self.desired_width);
         let (rect, response) = Self::allocate(ui, &text, desired_size);
         Self::draw(
             ui,
@@ -134,7 +138,8 @@ impl<'a> Button<'a> {
     }
 
     pub fn draw_disabled(self, ui: &mut Ui) -> Response {
-        let (text, desired_size, padding) = Self::layout(ui, self.text, self.variant);
+        let (text, desired_size, padding) = Self::layout(ui, self.text, self.variant,
+                                                         self.desired_width);
         let (rect, response) = Self::allocate(ui, &text, desired_size);
         Self::draw(
             ui,
@@ -150,7 +155,8 @@ impl<'a> Button<'a> {
     }
 
     pub fn draw_focused(self, ui: &mut Ui) -> Response {
-        let (text, desired_size, padding) = Self::layout(ui, self.text, self.variant);
+        let (text, desired_size, padding) = Self::layout(ui, self.text, self.variant,
+                                                         self.desired_width);
         let (rect, response) = Self::allocate(ui, &text, desired_size);
         Self::draw(
             ui,
@@ -166,7 +172,8 @@ impl<'a> Button<'a> {
     }
 
     pub fn show(self, ui: &mut Ui) -> Response {
-        let (text, desired_size, padding) = Self::layout(ui, self.text, self.variant);
+        let (text, desired_size, padding) = Self::layout(ui, self.text, self.variant,
+                                                         self.desired_width);
         let (rect, response) = Self::allocate(ui, &text, desired_size);
         let state = super::interact_widget_state(ui, &response);
         Self::draw(
@@ -194,6 +201,7 @@ impl Button<'_> {
         ui: &mut Ui,
         text: Option<WidgetText>,
         variant: ButtonVariant,
+        desired_width: Option<f32>,
     ) -> (Option<Arc<Galley>>, Vec2, Vec2) {
         let frame = ui.visuals().button_frame;
 
@@ -201,9 +209,6 @@ impl Button<'_> {
             match variant {
                 ButtonVariant::Normal => Vec2::new(14.0, 3.0),
                 ButtonVariant::Small => Vec2::new(4.0, 1.0),
-                // ButtonVariant::Wide => {
-                //     button_padding.x *= 3.0;
-                // }
             }
         } else {
             Vec2::ZERO
@@ -221,12 +226,18 @@ impl Button<'_> {
         }
         desired_size += 2.0 * button_padding;
         match variant {
-            // ButtonVariang::Wide |
             ButtonVariant::Normal => {
                 desired_size.y = desired_size.y.at_least(ui.spacing().interact_size.y);
             }
             ButtonVariant::Small => {}
         }
+
+        if let Some(dw) = desired_width {
+            if desired_size.x < dw {
+                desired_size.x = dw;
+            }
+        }
+
         (text, desired_size, button_padding)
     }
 

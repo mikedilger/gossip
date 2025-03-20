@@ -1101,8 +1101,15 @@ impl GossipUi {
                 #[cfg(debug_assertions)]
                 self.add_theme_test(ui, ctx);
 
-                self.add_debug_area(ui);
-                self.add_plus_icon(ui, ctx);
+                ui.with_layout(
+                    Layout::bottom_up(Align::Center),
+                    |ui| {
+                        ui.add_space(6.0);
+                        self.add_unlock_or_post(ui);
+                        ui.add_space(6.0);
+                        self.add_debug_area(ui);
+                    }
+                );
             });
     }
 
@@ -1473,65 +1480,28 @@ impl GossipUi {
         });
     }
 
-    fn add_plus_icon(&mut self, ui: &mut Ui, ctx: &Context) {
+    fn add_unlock_or_post(&mut self, ui: &mut Ui) {
         if !self.show_post_area_fn() && self.page.show_post_icon() {
-            let feed_newest_at_bottom = GLOBALS.db().read_setting_feed_newest_at_bottom();
-            let pos = if feed_newest_at_bottom {
-                let top_right = ui.ctx().screen_rect().right_top();
-                top_right + Vec2::new(-crate::AVATAR_SIZE_F32 * 2.0, crate::AVATAR_SIZE_F32 * 2.0)
+            let text = if GLOBALS.identity.is_unlocked() {
+                " Post "
             } else {
-                let bottom_right = ui.ctx().screen_rect().right_bottom();
-                bottom_right
-                    + Vec2::new(-crate::AVATAR_SIZE_F32 * 2.0, -crate::AVATAR_SIZE_F32 * 2.0)
+                "Unlock"
             };
 
-            egui::Area::new(ui.next_auto_id().with("plus"))
-                .movable(false)
-                .interactable(true)
-                .fixed_pos(pos)
-                .constrain(true)
-                .show(ctx, |ui| {
-                    self.begin_ui(ui);
-                    egui::Frame::popup(&self.theme.get_style())
-                        .rounding(egui::Rounding::same(crate::AVATAR_SIZE_F32 / 2.0)) // need the rounding for the shadow
-                        .stroke(egui::Stroke::NONE)
-                        .fill(Color32::TRANSPARENT)
-                        .shadow(egui::epaint::Shadow::NONE)
-                        .show(ui, |ui| {
-                            let text = if GLOBALS.identity.is_unlocked() {
-                                RichText::new("+").size(22.5)
-                            } else {
-                                RichText::new("\u{1f513}").size(20.0)
-                            };
-                            let fill_color = {
-                                let fill_color_tuple = self.theme.accent_color().to_tuple();
-                                Color32::from_rgba_premultiplied(
-                                    fill_color_tuple.0,
-                                    fill_color_tuple.1,
-                                    fill_color_tuple.2,
-                                    170, // 2/3 transparent
-                                )
-                            };
-                            let response = ui.add_sized(
-                                [crate::AVATAR_SIZE_F32, crate::AVATAR_SIZE_F32],
-                                egui::Button::new(
-                                    text.color(self.theme.get_style().visuals.panel_fill),
-                                )
-                                .stroke(egui::Stroke::NONE)
-                                .rounding(egui::Rounding::same(crate::AVATAR_SIZE_F32))
-                                .fill(fill_color),
-                            );
-                            if response.clicked() {
-                                self.show_post_area = true;
-                                if GLOBALS.identity.is_unlocked() {
-                                    self.draft_needs_focus = true;
-                                } else {
-                                    self.unlock_needs_focus = true;
-                                }
-                            }
-                            response.on_hover_cursor(egui::CursorIcon::PointingHand);
-                        });
-                });
+            let width = ui.available_width();
+
+            let response = widgets::Button::primary(&self.theme, text)
+                .with_width(width - 8.0)
+                .show(ui);
+            if response.clicked() {
+                self.show_post_area = true;
+                if GLOBALS.identity.is_unlocked() {
+                    self.draft_needs_focus = true;
+                } else {
+                    self.unlock_needs_focus = true;
+                }
+            }
+            response.on_hover_cursor(egui::CursorIcon::PointingHand);
         }
     }
 
