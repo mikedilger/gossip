@@ -26,7 +26,7 @@ use regex::Regex;
 use rhai::{Engine, AST};
 use std::collections::HashSet;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, OnceLock};
 use tokio::runtime::Runtime;
 use tokio::sync::{broadcast, mpsc, Mutex, Notify, RwLock};
@@ -128,6 +128,7 @@ pub struct Globals {
 
     /// Search results
     pub searching: AtomicBool,
+    pub search_job: AtomicU64,
     pub events_being_searched_for: PRwLock<Vec<Id>>, // being searched for
     //pub naddrs_being_searched_for: PRwLock<Vec<NAddr>>, // being searched for
     pub people_search_results: PRwLock<Vec<Person>>,
@@ -265,6 +266,7 @@ lazy_static! {
             delegation: Delegation::default(),
             media: Media::new(),
             searching: AtomicBool::new(false),
+            search_job: AtomicU64::new(0),
             events_being_searched_for: PRwLock::new(Vec::new()),
             //naddrs_being_searched_for: PRwLock::new(Vec::new()),
             people_search_results: PRwLock::new(Vec::new()),

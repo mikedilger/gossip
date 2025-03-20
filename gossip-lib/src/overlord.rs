@@ -1829,6 +1829,12 @@ impl Overlord {
                 return Ok(());
             }
 
+            // If a search job, turn off GLOBALS.searching
+            if GLOBALS.search_job.load(Ordering::Relaxed) == job_id {
+                GLOBALS.search_job.store(0, Ordering::Relaxed);
+                GLOBALS.searching.store(false, Ordering::Relaxed);
+            }
+
             if let Some(mut refmut) = GLOBALS.connected_relays.get_mut(&relay_url) {
                 // Remove job by job_id
                 refmut
@@ -2646,11 +2652,12 @@ impl Overlord {
                 detail: ToMinionPayloadDetail::Subscribe(filter_set),
             },
         };
+
+        // remember the search job, so searching can detect when it is completed
+        GLOBALS.search_job.store(job.payload.job_id, Ordering::Relaxed);
+
         let search_relays: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::SEARCH, |_| true)?;
         manager::run_jobs_on_all_relays(search_relays, vec![job]);
-
-        // FIXME: ideally we would turn off 'GLOBALS.searching' once all of these
-        // subscriptions complete.
 
         Ok(())
     }
