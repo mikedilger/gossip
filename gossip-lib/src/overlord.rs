@@ -2654,7 +2654,9 @@ impl Overlord {
         };
 
         // remember the search job, so searching can detect when it is completed
-        GLOBALS.search_job.store(job.payload.job_id, Ordering::Relaxed);
+        GLOBALS
+            .search_job
+            .store(job.payload.job_id, Ordering::Relaxed);
 
         let search_relays: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::SEARCH, |_| true)?;
         manager::run_jobs_on_all_relays(search_relays, vec![job]);

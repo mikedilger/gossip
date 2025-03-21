@@ -87,8 +87,8 @@ impl<'a> Button<'a> {
     }
 
     pub fn draw_default(self, ui: &mut Ui) -> Response {
-        let (text, desired_size, padding) = Self::layout(ui, self.text, self.variant,
-                                                         self.desired_width);
+        let (text, desired_size, padding) =
+            Self::layout(ui, self.text, self.variant, self.desired_width);
         let (rect, response) = Self::allocate(ui, &text, desired_size);
         Self::draw(
             ui,
@@ -104,8 +104,8 @@ impl<'a> Button<'a> {
     }
 
     pub fn draw_hovered(self, ui: &mut Ui) -> Response {
-        let (text, desired_size, padding) = Self::layout(ui, self.text, self.variant,
-                                                         self.desired_width);
+        let (text, desired_size, padding) =
+            Self::layout(ui, self.text, self.variant, self.desired_width);
         let (rect, response) = Self::allocate(ui, &text, desired_size);
         Self::draw(
             ui,
@@ -121,8 +121,8 @@ impl<'a> Button<'a> {
     }
 
     pub fn draw_active(self, ui: &mut Ui) -> Response {
-        let (text, desired_size, padding) = Self::layout(ui, self.text, self.variant,
-                                                         self.desired_width);
+        let (text, desired_size, padding) =
+            Self::layout(ui, self.text, self.variant, self.desired_width);
         let (rect, response) = Self::allocate(ui, &text, desired_size);
         Self::draw(
             ui,
@@ -138,8 +138,8 @@ impl<'a> Button<'a> {
     }
 
     pub fn draw_disabled(self, ui: &mut Ui) -> Response {
-        let (text, desired_size, padding) = Self::layout(ui, self.text, self.variant,
-                                                         self.desired_width);
+        let (text, desired_size, padding) =
+            Self::layout(ui, self.text, self.variant, self.desired_width);
         let (rect, response) = Self::allocate(ui, &text, desired_size);
         Self::draw(
             ui,
@@ -155,8 +155,8 @@ impl<'a> Button<'a> {
     }
 
     pub fn draw_focused(self, ui: &mut Ui) -> Response {
-        let (text, desired_size, padding) = Self::layout(ui, self.text, self.variant,
-                                                         self.desired_width);
+        let (text, desired_size, padding) =
+            Self::layout(ui, self.text, self.variant, self.desired_width);
         let (rect, response) = Self::allocate(ui, &text, desired_size);
         Self::draw(
             ui,
@@ -172,8 +172,8 @@ impl<'a> Button<'a> {
     }
 
     pub fn show(self, ui: &mut Ui) -> Response {
-        let (text, desired_size, padding) = Self::layout(ui, self.text, self.variant,
-                                                         self.desired_width);
+        let (text, desired_size, padding) =
+            Self::layout(ui, self.text, self.variant, self.desired_width);
         let (rect, response) = Self::allocate(ui, &text, desired_size);
         let state = super::interact_widget_state(ui, &response);
         Self::draw(

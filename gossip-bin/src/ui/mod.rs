@@ -1101,15 +1101,12 @@ impl GossipUi {
                 #[cfg(debug_assertions)]
                 self.add_theme_test(ui, ctx);
 
-                ui.with_layout(
-                    Layout::bottom_up(Align::Center),
-                    |ui| {
-                        ui.add_space(6.0);
-                        self.add_unlock_or_post(ui);
-                        ui.add_space(6.0);
-                        self.add_debug_area(ui);
-                    }
-                );
+                ui.with_layout(Layout::bottom_up(Align::Center), |ui| {
+                    ui.add_space(6.0);
+                    self.add_unlock_or_post(ui);
+                    ui.add_space(6.0);
+                    self.add_debug_area(ui);
+                });
             });
     }
 
