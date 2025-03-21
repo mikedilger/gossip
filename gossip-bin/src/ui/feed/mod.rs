@@ -135,6 +135,19 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                                 app.set_page(ctx, Page::Feed(new_feed_kind));
                             }
                             ui.label(RichText::new("Main posts").size(11.0));
+
+                            if widgets::Button::bordered(&app.theme, "Mark all read")
+                                .small(true)
+                                .show(ui)
+                                .clicked()
+                            {
+                                let feed = app.displayed_feed.clone();
+                                let mut txn = GLOBALS.db().get_write_txn().unwrap();
+                                for id in feed.iter() {
+                                    let _ = GLOBALS.db().mark_event_viewed(*id, Some(&mut txn));
+                                }
+                                let _ = txn.commit();
+                            }
                         });
                     }
                 },
@@ -187,6 +200,19 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                             app.set_page(ctx, Page::Feed(new_feed_kind));
                         }
                         ui.label(RichText::new("Replies & DM").size(11.0));
+
+                        if widgets::Button::bordered(&app.theme, "Mark all read")
+                            .small(true)
+                            .show(ui)
+                            .clicked()
+                        {
+                            let feed = app.displayed_feed.clone();
+                            let mut txn = GLOBALS.db().get_write_txn().unwrap();
+                            for id in feed.iter() {
+                                let _ = GLOBALS.db().mark_event_viewed(*id, Some(&mut txn));
+                            }
+                            let _ = txn.commit();
+                        }
                     });
                 },
             );
