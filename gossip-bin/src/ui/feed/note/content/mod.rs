@@ -193,7 +193,7 @@ pub(super) fn render_content(
                                     }
                                 }
                                 ParsedTag::Hashtag(hashtag) => {
-                                    render_hashtag(ui, &hashtag);
+                                    render_hashtag(app, ui, &hashtag);
                                 }
                                 _ => {
                                     render_unknown_reference(ui, *num);
@@ -208,6 +208,9 @@ pub(super) fn render_content(
                         // returns true if it did a 'show more'
                         break;
                     }
+                }
+                ContentSegment::Hashtag(ht) => {
+                    render_hashtag(app, ui, ht);
                 }
             }
         }
@@ -403,12 +406,14 @@ pub(super) fn render_parameterized_event_link(
     };
 }
 
-pub(super) fn render_hashtag(ui: &mut Ui, s: &String) {
-    if ui.link(format!("#{}", s)).clicked() {
-        GLOBALS
-            .status_queue
-            .write()
-            .write("Gossip doesn't have a hashtag feed yet.".to_owned());
+pub(super) fn render_hashtag(app: &mut GossipUi, ui: &mut Ui, s: &String) {
+    let hashtag = format!("#{}", s);
+    if ui.link(&hashtag).clicked() {
+        app.search = hashtag.to_ascii_lowercase();
+        app.set_page(ui.ctx(), Page::SearchLocal);
+        let _ = GLOBALS
+            .to_overlord
+            .send(ToOverlordMessage::SearchLocally(app.search.clone()));
     }
 }
 

@@ -151,9 +151,6 @@ pub struct Globals {
     /// Current zap data, for UI
     pub current_zap: PRwLock<ZapState>,
 
-    /// Hashtag regex
-    pub hashtag_regex: Regex,
-
     /// Tagging regex
     pub tagging_regex: Regex,
 
@@ -276,7 +273,6 @@ lazy_static! {
             ui_invalidate_all: AtomicBool::new(false),
             max_image_side: AtomicUsize::new(2048),
             current_zap: PRwLock::new(ZapState::None),
-            hashtag_regex: Regex::new(r"(?ms)(?:^|\s)(#[\w\p{Extended_Pictographic}]+)\b").unwrap(),
             tagging_regex: Regex::new(r"(?ms)(?:^|\s)@([\w\p{Extended_Pictographic}]+)\b").unwrap(),
             storage: OnceLock::new(),
             events_processed: AtomicU32::new(0),

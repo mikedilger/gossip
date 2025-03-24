@@ -55,6 +55,14 @@ pub fn textarea_highlighter(theme: Theme, text: String, interests: Vec<String>) 
                     theme.highlight_text_format(HighlightType::Hyperlink),
                 );
             }
+            ContentSegment::Hashtag(ht) => {
+                let chunk = ht.to_owned();
+                job.append(
+                    &chunk,
+                    0.0,
+                    theme.highlight_text_format(HighlightType::Hyperlink),
+                );
+            }
             ContentSegment::Plain(span) => {
                 let chunk = shattered_content.slice(span).unwrap();
 

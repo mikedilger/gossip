@@ -275,6 +275,9 @@ async fn add_tags_mirroring_content(content: &str, tags: &mut Vec<Tag>, direct_m
             ContentSegment::Plain(_span) => {
                 // do nothing
             }
+            ContentSegment::Hashtag(hashtag) => {
+                tags.push(ParsedTag::Hashtag(hashtag.to_ascii_lowercase()).into_tag());
+            }
         }
     }
 
@@ -282,19 +285,6 @@ async fn add_tags_mirroring_content(content: &str, tags: &mut Vec<Tag>, direct_m
     // (This was a bad idea to do this late in the process, it breaks links that contain
     //  nostr urls)
     // content = NostrUrl::urlize(&content);
-
-    // Find and tag all hashtags
-    for capture in GLOBALS.hashtag_regex.captures_iter(content) {
-        let hashtag = capture[1][1..].to_string();
-        let hashtag_lower = hashtag.to_lowercase();
-
-        if hashtag == hashtag_lower {
-            tags.push(ParsedTag::Hashtag(hashtag).into_tag());
-        } else {
-            tags.push(ParsedTag::Hashtag(hashtag).into_tag());
-            tags.push(ParsedTag::Hashtag(hashtag_lower).into_tag());
-        }
-    }
 }
 
 async fn add_imeta_tag(urlstr: &str, mimetype: &str, tags: &mut Vec<Tag>) {

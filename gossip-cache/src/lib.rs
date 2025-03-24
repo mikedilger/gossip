@@ -322,6 +322,7 @@ impl NoteData {
                 }
                 ContentSegment::Hyperlink(_) => (),
                 ContentSegment::Plain(_) => (),
+                ContentSegment::Hashtag(_) => (),
             }
         }
 
