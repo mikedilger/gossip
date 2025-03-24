@@ -2628,7 +2628,20 @@ impl Overlord {
             false
         })?);
 
-        note_search_results.extend(GLOBALS.db().search_events(&text)?);
+        if text.starts_with('#') {
+            // FIXME: stop at white space
+            let hashtag = text[1..].to_owned();
+
+            let ids = GLOBALS.db().get_event_ids_with_hashtag(&hashtag)?;
+            for id in ids {
+                if let Some(event) = GLOBALS.db().read_event(id)? {
+                    note_search_results.push(event);
+                }
+            }
+        } else {
+            // Full text search
+            note_search_results.extend(GLOBALS.db().search_events(&text)?);
+        }
 
         *GLOBALS.people_search_results.write() = people_search_results;
         *GLOBALS.note_search_results.write() = note_search_results;
