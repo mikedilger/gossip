@@ -56,7 +56,7 @@ pub fn textarea_highlighter(theme: Theme, text: String, interests: Vec<String>) 
                 );
             }
             ContentSegment::Hashtag(ht) => {
-                let chunk = ht.to_owned();
+                let chunk = format!("#{}", ht);
                 job.append(
                     &chunk,
                     0.0,
