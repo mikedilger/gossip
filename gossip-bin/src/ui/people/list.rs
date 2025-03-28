@@ -859,10 +859,11 @@ pub(super) fn render_more_list_actions(
 }
 
 fn recalc_add_contact_search(app: &mut GossipUi, output: &mut TextEditOutput) {
-    // only recalc if search text changed
-    if app.people_list.add_contact_search.len() > 2 && output.cursor_range.is_some() {
+    // only recalc if search text changed and the search box is focused
+    if app.people_list.add_contact_search.len() > 2 {
         if Some(&app.people_list.add_contact_search)
             != app.people_list.add_contact_searched.as_ref()
+            && output.cursor_range.is_some()
         {
             let mut pairs = GLOBALS
                 .people
