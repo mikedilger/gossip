@@ -233,7 +233,7 @@ pub(crate) fn load_image_bytes(
     if default_size > max_image_side {
         default_size = max_image_side;
     }
-    if let Ok(mut image) = image::load_from_memory(image_bytes) {
+    let mut image = if let Ok(mut image) = image::load_from_memory(image_bytes) {
         image = adjust_orientation(image_bytes, image);
         if square {
             image = crop_square(image);
@@ -252,11 +252,7 @@ pub(crate) fn load_image_bytes(
             // This preserves aspect ratio. The sizes represent bounds.
             image = image.resize(default_size, default_size, algo);
         }
-        let mut image = image.into_rgba8();
-        if round {
-            round_image(&mut image);
-        }
-        Ok(image)
+        image.into_rgba8()
     } else {
         let opt = usvg::Options::default();
         let rtree = usvg::Tree::from_data(image_bytes, &opt)?;
@@ -272,10 +268,12 @@ pub(crate) fn load_image_bytes(
         let mut pixmap = tiny_skia::Pixmap::new(w, h)
             .ok_or::<Error>(ErrorKind::General("Invalid image size".to_owned()).into())?;
         resvg::render(&rtree, Default::default(), &mut pixmap.as_mut());
-        let image = RgbaImage::from_raw(w, h, pixmap.take())
-            .ok_or::<Error>(ErrorKind::ImageFailure.into())?;
-        Ok(image)
+        RgbaImage::from_raw(w, h, pixmap.take()).ok_or::<Error>(ErrorKind::ImageFailure.into())?
+    };
+    if round {
+        round_image(&mut image);
     }
+    Ok(image)
 }
 
 fn adjust_orientation(image_bytes: &[u8], image: DynamicImage) -> DynamicImage {
