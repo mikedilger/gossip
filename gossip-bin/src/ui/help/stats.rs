@@ -49,116 +49,117 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         ui.add_space(6.0);
 
         ui.label(format!(
-            "General: {} records",
-            GLOBALS.db().get_general_len().unwrap_or(0)
+            "General: {} bytes",
+            GLOBALS.db().get_general_size().unwrap_or(0)
         ));
         ui.add_space(6.0);
 
         ui.label(format!(
-            "Events: {} records",
-            GLOBALS.db().get_event_len().unwrap_or(0)
+            "Events: {} bytes, {} events",
+            GLOBALS.db().get_event_size().unwrap_or(0),
+            GLOBALS.db().get_event_len().unwrap_or(0),
         ));
         ui.add_space(6.0);
 
         ui.label(format!(
-            "Event Index (Author + Kind): {} records",
-            GLOBALS.db().get_event_akci_index_len().unwrap_or(0)
+            "Event Index (Author + Kind): {} bytes",
+            GLOBALS.db().get_event_akci_index_size().unwrap_or(0)
         ));
         ui.add_space(6.0);
 
         ui.label(format!(
-            "Event Index (Kind): {} records",
-            GLOBALS.db().get_event_kci_index_len().unwrap_or(0)
+            "Event Index (Kind): {} bytes",
+            GLOBALS.db().get_event_kci_index_size().unwrap_or(0)
         ));
         ui.add_space(6.0);
 
         ui.label(format!(
-            "Event Index (Tags): {} records",
-            GLOBALS.db().get_event_tci_index_len().unwrap_or(0)
+            "Event Index (Tags): {} bytes",
+            GLOBALS.db().get_event_tci_index_size().unwrap_or(0)
         ));
         ui.add_space(6.0);
 
         ui.label(format!(
-            "Event Seen on Relay: {} records",
-            GLOBALS.db().get_event_seen_on_relay_len().unwrap_or(0)
+            "Event Seen on Relay: {} bytes",
+            GLOBALS.db().get_event_seen_on_relay_size().unwrap_or(0)
         ));
         ui.add_space(6.0);
 
         ui.label(format!(
-            "Event Viewed: {} records",
-            GLOBALS.db().get_event_viewed_len().unwrap_or(0)
+            "Event Viewed: {} bytes",
+            GLOBALS.db().get_event_viewed_size().unwrap_or(0)
         ));
         ui.add_space(6.0);
 
         ui.label(format!(
-            "Hashtags: {} records",
-            GLOBALS.db().get_hashtags_len().unwrap_or(0)
+            "Hashtags: {} bytes",
+            GLOBALS.db().get_hashtags_size().unwrap_or(0)
         ));
         ui.add_space(6.0);
 
         ui.label(format!(
-            "Relays: {} records",
-            GLOBALS.db().get_relays_len().unwrap_or(0)
+            "Relays: {} bytes",
+            GLOBALS.db().get_relays_size().unwrap_or(0)
         ));
         ui.add_space(6.0);
 
         ui.label(format!(
-            "People: {} records",
-            PersonTable::num_records().unwrap_or(0)
+            "People: {} bytes",
+            PersonTable::bytes_used().unwrap_or(0)
         ));
         ui.add_space(6.0);
 
         ui.label(format!(
-            "Person-Relays: {} records",
-            GLOBALS.db().get_person_relays_len().unwrap_or(0)
+            "Person-Relays: {} bytes",
+            GLOBALS.db().get_person_relays_size().unwrap_or(0)
         ));
         ui.add_space(6.0);
 
         ui.label(format!(
-            "Person-Lists: {} records",
-            GLOBALS.db().get_person_lists_len().unwrap_or(0)
+            "Person-Lists: {} bytes",
+            GLOBALS.db().get_person_lists_size().unwrap_or(0)
         ));
         ui.add_space(6.0);
 
         ui.label(format!(
-            "Event Relationships By Id: {} records",
-            GLOBALS.db().get_relationships_by_id_len().unwrap_or(0)
+            "Event Relationships By Id: {} bytes",
+            GLOBALS.db().get_relationships_by_id_size().unwrap_or(0)
         ));
         ui.add_space(6.0);
 
         ui.label(format!(
-            "Event Relationships By Addr: {} records",
-            GLOBALS.db().get_relationships_by_addr_len().unwrap_or(0)
+            "Event Relationships By Addr: {} bytes",
+            GLOBALS.db().get_relationships_by_addr_size().unwrap_or(0)
         ));
         ui.add_space(6.0);
 
         ui.label(format!(
-            "Nip46 Servers: {} records",
-            GLOBALS.db().get_nip46servers_len().unwrap_or(0)
+            "Nip46 Servers: {} bytes",
+            GLOBALS.db().get_nip46servers_size().unwrap_or(0)
         ));
         ui.add_space(6.0);
 
         ui.label(format!(
-            "Followings: {} records",
-            FollowingsTable::num_records().unwrap_or(0)
+            "Followings: {} bytes",
+            FollowingsTable::bytes_used().unwrap_or(0)
         ));
         ui.add_space(6.0);
 
         ui.label(format!(
-            "FoF: {} records",
-            GLOBALS.db().get_fof_len().unwrap_or(0)
+            "FoF: {} bytes",
+            GLOBALS.db().get_fof_size().unwrap_or(0)
         ));
         ui.add_space(6.0);
 
         ui.label(format!(
-            "Handlers: {} records",
-            HandlersTable::num_records().unwrap_or(0)
+            "Handlers: {} bytes",
+            HandlersTable::bytes_used().unwrap_or(0)
         ));
         ui.add_space(6.0);
 
         ui.label(format!(
-            "Configured Handlers: {} records",
-            GLOBALS.db().get_configured_handlers_len().unwrap_or(0)
+            "Configured Handlers: {} bytes",
+            GLOBALS.db().get_configured_handlers_size().unwrap_or(0)
         ));
         ui.add_space(6.0);
     });

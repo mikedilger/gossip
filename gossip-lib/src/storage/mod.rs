@@ -364,101 +364,133 @@ impl Storage {
 
     // Database length functions ---------------------------------
 
-    /// The number of records in the general table
-    pub fn get_general_len(&self) -> Result<u64, Error> {
+    /// The number of bytes in the general table
+    pub fn get_general_size(&self) -> Result<usize, Error> {
         let txn = self.env.read_txn()?;
-        Ok(self.db_general()?.len(&txn)?)
+        let stat = self.db_general()?.stat(&txn)?;
+
+        Ok(stat.page_size as usize
+            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2) as usize)
     }
 
-    /// The number of records in the event_seen_on table
+    /// The number of bytes in the event_seen_on table
     #[inline]
-    pub fn get_event_seen_on_relay_len(&self) -> Result<u64, Error> {
-        self.get_event_seen_on_relay1_len()
+    pub fn get_event_seen_on_relay_size(&self) -> Result<usize, Error> {
+        self.get_event_seen_on_relay1_size()
     }
 
-    /// The number of records in the event_viewed table
+    /// The number of bytes in the event_viewed table
     #[inline]
-    pub fn get_event_viewed_len(&self) -> Result<u64, Error> {
-        self.get_event_viewed1_len()
+    pub fn get_event_viewed_size(&self) -> Result<usize, Error> {
+        self.get_event_viewed1_size()
     }
 
-    /// The number of records in the hashtags table
-    pub fn get_hashtags_len(&self) -> Result<u64, Error> {
+    /// The number of bytes in the hashtags table
+    pub fn get_hashtags_size(&self) -> Result<usize, Error> {
         let txn = self.env.read_txn()?;
-        Ok(self.db_hashtags()?.len(&txn)?)
+        let stat = self.db_hashtags()?.stat(&txn)?;
+        Ok(stat.page_size as usize
+            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2) as usize)
     }
 
-    /// The number of records in the nip46servers table
-    pub fn get_nip46servers_len(&self) -> Result<u64, Error> {
+    /// The number of bytes in the nip46servers table
+    pub fn get_nip46servers_size(&self) -> Result<usize, Error> {
         let txn = self.env.read_txn()?;
-        Ok(self.db_nip46servers()?.len(&txn)?)
+        let stat = self.db_nip46servers()?.stat(&txn)?;
+        Ok(stat.page_size as usize
+            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2) as usize)
     }
 
-    /// The number of records in the relays table
+    /// The number of bytes in the relays table
     #[inline]
-    pub fn get_relays_len(&self) -> Result<u64, Error> {
-        self.get_relays3_len()
+    pub fn get_relays_size(&self) -> Result<usize, Error> {
+        self.get_relays3_size()
     }
 
-    /// The number of records in the event table
+    /// The number of bytes in the event table
+    pub fn get_event_size(&self) -> Result<usize, Error> {
+        let txn = self.env.read_txn()?;
+        let stat = self.db_events()?.stat(&txn)?;
+        Ok(stat.page_size as usize
+            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2) as usize)
+    }
+
+    /// The number of events in the event table
     pub fn get_event_len(&self) -> Result<u64, Error> {
         let txn = self.env.read_txn()?;
         Ok(self.db_events()?.len(&txn)?)
     }
 
-    /// The number of records in the event_akci_index table
-    pub fn get_event_akci_index_len(&self) -> Result<u64, Error> {
+    /// The number of bytes in the event_akci_index table
+    pub fn get_event_akci_index_size(&self) -> Result<usize, Error> {
         let txn = self.env.read_txn()?;
-        Ok(self.db_event_akci_index()?.len(&txn)?)
+        let stat = self.db_event_akci_index()?.stat(&txn)?;
+        Ok(stat.page_size as usize
+            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2) as usize)
     }
 
-    /// The number of records in the event_kci_index table
-    pub fn get_event_kci_index_len(&self) -> Result<u64, Error> {
+    /// The number of bytes in the event_kci_index table
+    pub fn get_event_kci_index_size(&self) -> Result<usize, Error> {
         let txn = self.env.read_txn()?;
-        Ok(self.db_event_kci_index()?.len(&txn)?)
+        let stat = self.db_event_kci_index()?.stat(&txn)?;
+        Ok(stat.page_size as usize
+            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2) as usize)
     }
 
-    /// The number of records in the event_tci index table
-    pub fn get_event_tci_index_len(&self) -> Result<u64, Error> {
+    /// The number of bytes in the event_tci index table
+    pub fn get_event_tci_index_size(&self) -> Result<usize, Error> {
         let txn = self.env.read_txn()?;
-        Ok(self.db_event_tci_index()?.len(&txn)?)
+        let stat = self.db_event_tci_index()?.stat(&txn)?;
+        Ok(stat.page_size as usize
+            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2) as usize)
     }
 
-    /// The number of records in the relationships_by_addr table
+    /// The number of bytes in the relationships_by_addr table
     #[inline]
-    pub fn get_relationships_by_addr_len(&self) -> Result<u64, Error> {
+    pub fn get_relationships_by_addr_size(&self) -> Result<usize, Error> {
         let txn = self.env.read_txn()?;
-        Ok(self.db_relationships_by_addr()?.len(&txn)?)
+        let stat = self.db_relationships_by_addr()?.stat(&txn)?;
+        Ok(stat.page_size as usize
+            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2) as usize)
     }
 
-    /// The number of records in the relationships_by_id table
+    /// The number of bytes in the relationships_by_id table
     #[inline]
-    pub fn get_relationships_by_id_len(&self) -> Result<u64, Error> {
+    pub fn get_relationships_by_id_size(&self) -> Result<usize, Error> {
         let txn = self.env.read_txn()?;
-        Ok(self.db_relationships_by_id()?.len(&txn)?)
+        let stat = self.db_relationships_by_id()?.stat(&txn)?;
+        Ok(stat.page_size as usize
+            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2) as usize)
     }
 
-    /// The number of records in the person_relays table
+    /// The number of bytes in the person_relays table
     #[inline]
-    pub fn get_person_relays_len(&self) -> Result<u64, Error> {
-        self.get_person_relays2_len()
+    pub fn get_person_relays_size(&self) -> Result<usize, Error> {
+        self.get_person_relays2_size()
     }
 
-    /// The number of records in the person_lists table
-    pub fn get_person_lists_len(&self) -> Result<u64, Error> {
+    /// The number of bytes in the person_lists table
+    pub fn get_person_lists_size(&self) -> Result<usize, Error> {
         let txn = self.env.read_txn()?;
-        Ok(self.db_person_lists()?.len(&txn)?)
+        let stat = self.db_person_lists()?.stat(&txn)?;
+        Ok(stat.page_size as usize
+            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2) as usize)
     }
 
-    /// The number of records in the fof table
-    pub fn get_fof_len(&self) -> Result<u64, Error> {
+    /// The number of bytes in the fof table
+    pub fn get_fof_size(&self) -> Result<usize, Error> {
         let txn = self.env.read_txn()?;
-        Ok(self.db_fof()?.len(&txn)?)
+        let stat = self.db_fof()?.stat(&txn)?;
+        Ok(stat.page_size as usize
+            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2) as usize)
     }
 
-    pub fn get_configured_handlers_len(&self) -> Result<u64, Error> {
+    /// The number of bytes in the configured handlers table
+    pub fn get_configured_handlers_size(&self) -> Result<usize, Error> {
         let txn = self.env.read_txn()?;
-        Ok(self.db_configured_handlers()?.len(&txn)?)
+        let stat = self.db_configured_handlers()?.stat(&txn)?;
+        Ok(stat.page_size as usize
+            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2) as usize)
     }
 
     // General key-value functions --------------------------------------------------

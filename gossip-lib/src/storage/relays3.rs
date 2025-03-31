@@ -44,9 +44,11 @@ impl Storage {
         }
     }
 
-    pub(crate) fn get_relays3_len(&self) -> Result<u64, Error> {
+    pub(crate) fn get_relays3_size(&self) -> Result<usize, Error> {
         let txn = self.env.read_txn()?;
-        Ok(self.db_relays3()?.len(&txn)?)
+        let stat = self.db_relays3()?.stat(&txn)?;
+        Ok(stat.page_size as usize
+            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2) as usize)
     }
 
     #[allow(dead_code)]

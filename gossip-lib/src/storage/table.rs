@@ -19,6 +19,15 @@ pub trait Table {
         Ok(Self::db()?.len(&txn)?)
     }
 
+    /// Bytes used
+    #[allow(dead_code)]
+    fn bytes_used() -> Result<usize, Error> {
+        let txn = GLOBALS.db().env.read_txn()?;
+        let stat = Self::db()?.stat(&txn)?;
+        Ok(stat.page_size as usize
+            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2) as usize)
+    }
+
     /// Write a record
     /// (it needs to be mutable for possible stabilization)
     #[allow(dead_code)]
