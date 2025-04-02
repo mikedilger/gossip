@@ -5,6 +5,7 @@ use nostr_types::{
 };
 use std::collections::HashSet;
 use std::env;
+use std::time::Duration;
 use zeroize::Zeroize;
 
 #[derive(Debug, Clone)]
@@ -24,7 +25,7 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 47] = [
+const COMMANDS: [Command; 49] = [
     Command {
         cmd: "oneshot",
         usage_params: "{depends}",
@@ -196,6 +197,16 @@ const COMMANDS: [Command; 47] = [
         desc: "print the relays the event was seen on",
     },
     Command {
+        cmd: "prune_old_events",
+        usage_params: "",
+        desc: "prune old events (according to current prune settings)",
+    },
+    Command {
+        cmd: "prune_unused_people",
+        usage_params: "",
+        desc: "prune unused people",
+    },
+    Command {
         cmd: "reaction_stats",
         usage_params: "",
         desc: "Show statistics on reactions",
@@ -318,6 +329,8 @@ pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
         "print_relay" => print_relay(command, args)?,
         "print_relays" => print_relays(command)?,
         "print_seen_on" => print_seen_on(command, args)?,
+        "prune_old_events" => prune_old_events()?,
+        "prune_unused_people" => prune_unused_people()?,
         "reaction_stats" => reaction_stats(command, args)?,
         "rebuild_fof" => rebuild_fof()?,
         "rebuild_indices" => rebuild_indices()?,
@@ -925,6 +938,32 @@ pub fn print_seen_on(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     for (url, when) in GLOBALS.db().get_event_seen_on_relay(id)? {
         println!("{} at {}", url, when);
     }
+    Ok(())
+}
+
+pub fn prune_old_events() -> Result<(), Error> {
+    println!("Pruning miscellaneous tables...");
+    GLOBALS.db().prune_misc()?;
+
+    let now = Unixtime::now();
+    let then = now
+        - Duration::new(
+            GLOBALS.db().read_setting_prune_period_days() * 60 * 60 * 24,
+            0,
+        );
+
+    println!("Pruning old events...");
+    let count = GLOBALS.db().prune_old_events(then)?;
+
+    println!("Database has been pruned. {count} events removed.");
+    Ok(())
+}
+
+pub fn prune_unused_people() -> Result<(), Error> {
+    println!("Pruning unused people...");
+    let count = GLOBALS.db().prune_unused_people()?;
+
+    println!("Database has been pruned. {count} people removed.");
     Ok(())
 }
 
