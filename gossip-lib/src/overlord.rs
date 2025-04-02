@@ -2115,6 +2115,14 @@ impl Overlord {
 
     /// Prune old events from the database
     pub fn prune_old_events() -> Result<(), Error> {
+        // Go offline
+        let mut need_to_go_back_online: bool = false;
+        if !GLOBALS.db().read_setting_offline() {
+            need_to_go_back_online = true;
+            GLOBALS.db().write_setting_offline(&true, None)?;
+            let _ = GLOBALS.write_runstate.send(RunState::Offline);
+        }
+
         GLOBALS
             .status_queue
             .write()
@@ -2135,6 +2143,12 @@ impl Overlord {
             "Database has been pruned. {} events removed.",
             count
         ));
+
+        // Go online
+        if need_to_go_back_online {
+            GLOBALS.db().write_setting_offline(&false, None)?;
+            let _ = GLOBALS.write_runstate.send(RunState::Online);
+        }
 
         Ok(())
     }
