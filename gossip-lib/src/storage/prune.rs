@@ -80,54 +80,59 @@ impl Storage {
 
         // Actually delete
         {
-            let mut txn = self.env.write_txn()?;
 
             // Delete from event_seen_on_relay
             tracing::info!(
                 "PRUNE: deleting {} records from event_seen_on_relay",
                 event_seen_on_relay_deletions.len()
             );
+            let mut txn = self.env.write_txn()?;
             for deletion in event_seen_on_relay_deletions.drain(..) {
                 self.db_event_seen_on_relay()?.delete(&mut txn, &deletion)?;
             }
-
             txn.commit()?;
-            let mut txn = self.env.write_txn()?;
 
             // Delete from event_viewed
-            for id in &ids {
-                let _ = self.db_event_viewed()?.delete(&mut txn, id.as_slice());
+            let mut txn = self.env.write_txn()?;
+            for (n, id) in ids.iter().enumerate() {
+                self.db_event_viewed()?.delete(&mut txn, id.as_slice())?;
+                if n % 100_000 == 0 {
+                    txn.commit()?;
+                    txn = self.env.write_txn()?;
+                }
             }
+            txn.commit()?;
             tracing::info!("PRUNE: deleted {} records from event_viewed", ids.len());
 
-            txn.commit()?;
-            let mut txn = self.env.write_txn()?;
 
             // Delete from hashtags
             tracing::info!("PRUNE: deleting {} records from hashtags", hashtag_deletions.len());
+            let mut txn = self.env.write_txn()?;
             for deletion in hashtag_deletions.drain(..) {
                 self.db_hashtags()?
                     .delete_one_duplicate(&mut txn, &deletion.0, &deletion.1)?;
             }
-
             txn.commit()?;
-            let mut txn = self.env.write_txn()?;
+
 
             // Delete from relationships
             tracing::info!("PRUNE: deleting {} relationships", relationship_deletions.len());
+            let mut txn = self.env.write_txn()?;
             for deletion in relationship_deletions.drain(..) {
                 self.db_relationships_by_id()?.delete(&mut txn, &deletion)?;
             }
-
             txn.commit()?;
-            let mut txn = self.env.write_txn()?;
 
             // delete from events
             tracing::info!("PRUNE: deleting {} records from events", ids.len());
-            for id in &ids {
-                let _ = self.db_events()?.delete(&mut txn, id.as_slice());
+            let mut txn = self.env.write_txn()?;
+            for (n, id) in ids.iter().enumerate() {
+                self.db_events()?.delete(&mut txn, id.as_slice())?;
+                if n % 100_000 == 0 {
+                    txn.commit()?;
+                    txn = self.env.write_txn()?;
+                }
             }
-
             txn.commit()?;
             tracing::info!("PRUNE: complete");
         }
