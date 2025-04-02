@@ -2,15 +2,31 @@ use super::table::Table;
 use super::{PersonTable, Storage};
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use nostr_types::{Event, Filter, Id, PublicKey, Unixtime};
+use nostr_types::{Event, EventReference, Filter, Id, PublicKey, Unixtime};
+use speedy::Readable;
 use std::collections::HashSet;
 
 impl Storage {
     // Prune -------------------------------------------------------
 
     /// Remove all events (and related data) with a created_at before `from`
-    /// and all related indexes.
+    /// and all related indexes.  Keep events from the user and all
+    /// threads they have participated in, as well as bookmarks.
     pub fn prune_old_events(&self, from: Unixtime) -> Result<usize, Error> {
+
+        // Extract the root IDs of threads that the user has participated in
+        let mut roots: HashSet<EventReference> = HashSet::new();
+        let mut check_roots: bool = false;
+        if let Some(pk) = GLOBALS.identity.public_key() {
+            check_roots = true;
+            let mut filter = Filter::new();
+            filter.add_author(pk);
+            for event in self.find_events_by_filter(&filter, |_| true)? {
+                if let Some(er) = event.replies_to_root() {
+                    roots.insert(er);
+                }
+            }
+        }
 
         // Prepare
         let mut ids: HashSet<Id> = HashSet::new();
@@ -23,20 +39,28 @@ impl Storage {
             // Extract the Ids of events to delete.
             for result in self.db_events()?.iter(&txn)? {
                 let (_key, val) = result?;
-                if let Some(created_at) = Event::get_created_at_from_speedy_bytes(val) {
-                    if created_at < from {
-                        if let Some(id) = Event::get_id_from_speedy_bytes(val) {
-                            // Do not prune bookmarks, regardless of how old they are
-                            if GLOBALS.current_bookmarks.read().contains(&id) {
+                let event = Event::read_from_buffer(val)?;
+                if event.created_at < from {
+
+                    // Do not prune bookmarks, regardless of how old they are
+                    if GLOBALS.current_bookmarks.read().contains(&event.id) {
+                        continue;
+                    }
+
+                    if check_roots {
+                        // Do not prune if part of a conversation that the user
+                        // has engaged in
+                        if let Some(er) = event.replies_to_root() {
+                            if roots.contains(&er) {
                                 continue;
                             }
-
-                            ids.insert(id);
-                            // Too bad but we can't delete it now, other threads
-                            // might try to access it still. We have to delete it from
-                            // all the other maps first.
                         }
                     }
+
+                    ids.insert(event.id);
+                    // Too bad but we can't delete it now, other threads
+                    // might try to access it still. We have to delete it from
+                    // all the other maps first.
                 }
             }
 
