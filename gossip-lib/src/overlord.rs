@@ -2150,7 +2150,10 @@ impl Overlord {
                 "Database has been pruned. {} events removed.",
                 count
             )),
-            Err(e) => GLOBALS.status_queue.write().write(format!("{e}")),
+            Err(e) => {
+                GLOBALS.status_queue.write().write(format!("{e}"));
+                return Err(e);
+            },
         }
 
         Ok(())
