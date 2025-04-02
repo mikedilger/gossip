@@ -2137,17 +2137,20 @@ impl Overlord {
                 GLOBALS.db().read_setting_prune_period_days() * 60 * 60 * 24,
                 0,
             );
-        let count = GLOBALS.db().prune_old_events(then)?;
-
-        GLOBALS.status_queue.write().write(format!(
-            "Database has been pruned. {} events removed.",
-            count
-        ));
+        let result = GLOBALS.db().prune_old_events(then);
 
         // Go online
         if need_to_go_back_online {
             GLOBALS.db().write_setting_offline(&false, None)?;
             let _ = GLOBALS.write_runstate.send(RunState::Online);
+        }
+
+        match result {
+            Ok(count) => GLOBALS.status_queue.write().write(format!(
+                "Database has been pruned. {} events removed.",
+                count
+            )),
+            Err(e) => GLOBALS.status_queue.write().write(format!("{e}")),
         }
 
         Ok(())
