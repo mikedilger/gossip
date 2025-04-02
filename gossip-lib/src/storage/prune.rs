@@ -149,7 +149,6 @@ impl Storage {
     ///
     /// Returns number of people deleted
     pub fn prune_unused_people(&self) -> Result<usize, Error> {
-        let mut txn = self.get_write_txn()?;
 
         let ekinds = crate::enabled_event_kinds();
         let frkinds = crate::feed_related_event_kinds(true);
@@ -203,6 +202,10 @@ impl Storage {
                     .to_owned(),
             );
 
+            tracing::info!("Deleting {}", person.pubkey.as_hex_string());
+
+            let mut txn = self.get_write_txn()?;
+
             // Delete their events
             for event in &events {
                 self.delete_event(event.id, Some(&mut txn))?;
@@ -213,11 +216,12 @@ impl Storage {
 
             // Delete their person record
             PersonTable::delete_record(person.pubkey, Some(&mut txn))?;
+
+            txn.commit()?;
         }
 
         tracing::info!("PRUNE: deleted {} records from people", count);
 
-        txn.commit()?;
 
         Ok(count)
     }
