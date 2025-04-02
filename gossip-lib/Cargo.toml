@@ -48,7 +48,7 @@ encoding_rs = "0.8"
 filetime = "0.2"
 futures = "0.3"
 futures-util = "0.3"
-heed = { version = "0.20", features = [ "read-txn-no-tls" ] }
+heed = { version = "0.21", features = [ "read-txn-no-tls" ] }
 hex = "0.4"
 http = "1.1"
 image = { workspace = true }
