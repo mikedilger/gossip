@@ -27,6 +27,9 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         reset_button!(app, ui, cache_prune_period_days);
     });
 
+    ui.add_space(20.0);
+    ui.label("Pruning is best done from the command line when gossip is not running. See https://github.com/mikedilger/gossip/tree/master/docs/PRUNING.md");
+
     // Only let them prune after they have saved
     let stored_settings = UnsavedSettings::load();
     if stored_settings == app.unsaved_settings {
