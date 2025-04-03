@@ -2,7 +2,7 @@ use super::table::Table;
 use super::{PersonTable, Storage};
 use crate::error::Error;
 use crate::globals::GLOBALS;
-use nostr_types::{Event, EventReference, Filter, Id, PublicKey, Unixtime};
+use nostr_types::{Event, EventKind, EventReference, Filter, Id, PublicKey, Unixtime};
 use speedy::Readable;
 use std::collections::HashSet;
 
@@ -16,9 +16,9 @@ impl Storage {
 
         // Extract the root IDs of threads that the user has participated in
         let mut roots: HashSet<EventReference> = HashSet::new();
-        let mut check_roots: bool = false;
-        if let Some(pk) = GLOBALS.identity.public_key() {
-            check_roots = true;
+
+        let user = GLOBALS.identity.public_key();
+        if let Some(pk) = user {
             let mut filter = Filter::new();
             filter.add_author(pk);
             for event in self.find_events_by_filter(&filter, |_| true)? {
@@ -49,7 +49,33 @@ impl Storage {
                         continue;
                     }
 
-                    if check_roots {
+                    if let Some(pk) = user {
+                        // Do not prune certain kinds
+                        // (this is probably incomplete)
+                        if event.kind == EventKind::Metadata ||
+                            event.kind == EventKind::ContactList ||
+                            event.kind == EventKind::EncryptedDirectMessage ||
+                            event.kind == EventKind::EventDeletion ||
+                            event.kind == EventKind::GiftWrap ||
+                            event.kind == EventKind::MuteList ||
+                            event.kind == EventKind::PinList ||
+                            event.kind == EventKind::RelayList ||
+                            event.kind == EventKind::BookmarkList ||
+                            event.kind == EventKind::FollowSets
+                        {
+                            continue;
+                        }
+
+                        // Do not prune any event authored by the user
+                        if event.pubkey == pk {
+                            continue;
+                        }
+
+                        // Do not prune any event that tags the user
+                        if event.is_tagged(&pk) {
+                            continue;
+                        }
+
                         // Do not prune if part of a conversation that the user
                         // has engaged in
                         if let Some(er) = event.replies_to_root() {

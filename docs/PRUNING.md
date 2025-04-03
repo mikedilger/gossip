@@ -12,17 +12,6 @@ on startup from time to time, but you can do it manually.
 3. Copy: `mdb_copy -c lmdb lmdb2`
 4. Switch to the copy: `mv lmdb lmdb.old; mv lmdb2 lmdb; rm -rf ./lmdb.old`
 
-## Removing old events
-
-Old events can be pruned. We don't delete your events no matter how old they are, and
-we also preserve entire threads that you participated in.
-
-1. Fire up gossip and adjust the pruning time in Settings > Storage
-2. Exit gossip
-3. Run `gossip prune_old_events`
-
-You can clean LMDB cruft afterwards.
-
 ## Removing unused person records
 
 This takes a very long time and only shrinks the database by a small amount.
@@ -31,6 +20,17 @@ This takes a very long time and only shrinks the database by a small amount.
 
 You can break out and start again at any time. It will quickly get back to where
 it left off.
+
+You can clean LMDB cruft afterwards.
+
+## Removing old events
+
+Old events can be pruned. We don't delete your events no matter how old they are, and
+we also preserve entire threads that you participated in.
+
+1. Fire up gossip and adjust the pruning time in Settings > Storage
+2. Exit gossip
+3. Run `gossip prune_old_events`
 
 You can clean LMDB cruft afterwards.
 
