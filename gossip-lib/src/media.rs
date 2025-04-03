@@ -79,8 +79,9 @@ impl Media {
     }
 
     /// Retry a failed Url
-    pub fn retry_failed(&self, unchecked_url: &UncheckedUrl) {
-        self.failed_media.remove(unchecked_url);
+    pub fn retry_failed(&self, url: Url) {
+        GLOBALS.fetcher.clear_for_retry(url.clone());
+        self.failed_media.remove(&url.to_unchecked_url());
     }
 
     /// Get an image by Url

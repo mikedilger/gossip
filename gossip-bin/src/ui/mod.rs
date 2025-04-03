@@ -1697,8 +1697,8 @@ impl GossipUi {
         GLOBALS.media.check_url(unchecked_url)
     }
 
-    pub fn retry_media(&self, url: &Url) {
-        GLOBALS.media.retry_failed(&url.to_unchecked_url());
+    pub fn retry_media(&self, url: Url) {
+        GLOBALS.media.retry_failed(url);
     }
 
     pub fn has_media_loading_failed(&self, url_string: &str) -> Option<String> {

@@ -37,7 +37,10 @@ fn draw_reload_media(ui: &mut Ui, app: &mut GossipUi, url: Url) {
             .on_hover_text(error)
             .clicked()
         {
-            app.retry_media(&url);
+            // FIXME: if the user clicks to retry loading and the loading fails
+            // again the blurhash (if it exists) of the image will
+            // flash for a frame and diseppear, what an annoying effect.
+            app.retry_media(url);
         }
     }
 }
