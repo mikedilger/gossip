@@ -423,6 +423,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                     );
                                     crate::ui::widgets::break_anywhere_hyperlink_to(
                                         ui,
+                                        app,
                                         "NIP-17",
                                         "https://github.com/nostr-protocol/nips/blob/master/17.md",
                                     );

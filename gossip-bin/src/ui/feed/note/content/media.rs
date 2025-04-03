@@ -1,3 +1,4 @@
+use crate::ui::widgets::{self};
 use crate::ui::GossipUi;
 use eframe::{egui, epaint};
 use egui::{Image, Response, RichText, Ui};
@@ -46,29 +47,9 @@ pub fn show_image(
                 GLOBALS.status_queue.write().write("Fetch Media setting is disabled. Right-click link to open in browser or copy URL".to_owned());
             }
         }
-        // context menu
+
         response.context_menu(|ui| {
-            if ui.button("Open in browser").clicked() {
-                let modifiers = ui.ctx().input(|i| i.modifiers);
-                ui.ctx().output_mut(|o| {
-                    o.open_url = Some(egui::output::OpenUrl {
-                        url: url_string.clone(),
-                        new_tab: modifiers.any(),
-                    });
-                });
-            }
-            if ui.button("Copy URL").clicked() {
-                ui.output_mut(|o| o.copied_text = url_string.clone());
-            }
-            if let Some(error) = app.has_media_loading_failed(url_string.as_str()) {
-                if ui
-                    .button("Retry loading ...")
-                    .on_hover_text(error)
-                    .clicked()
-                {
-                    app.retry_media(&url);
-                }
-            }
+            widgets::show_media_link_context(ui, app, url);
         });
     }
 
@@ -122,29 +103,9 @@ pub fn show_video(
                 GLOBALS.status_queue.write().write("Fetch Media setting is disabled. Right-click link to open in browser or copy URL".to_owned());
             }
         }
-        // context menu
+
         response.context_menu(|ui| {
-            if ui.button("Open in browser").clicked() {
-                let modifiers = ui.ctx().input(|i| i.modifiers);
-                ui.ctx().output_mut(|o| {
-                    o.open_url = Some(egui::output::OpenUrl {
-                        url: url_string.clone(),
-                        new_tab: modifiers.any(),
-                    });
-                });
-            }
-            if ui.button("Copy URL").clicked() {
-                ui.output_mut(|o| o.copied_text = url_string.clone());
-            }
-            if let Some(error) = app.has_media_loading_failed(url_string.as_str()) {
-                if ui
-                    .button("Retry loading ...")
-                    .on_hover_text(error)
-                    .clicked()
-                {
-                    app.retry_media(&url);
-                }
-            }
+            widgets::show_media_link_context(ui, app, url);
         });
     }
 
