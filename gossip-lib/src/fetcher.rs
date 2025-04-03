@@ -239,7 +239,12 @@ impl Fetcher {
     }
 
     /// Prune
-    pub(crate) async fn prune(&self, age: Duration) -> Result<usize, Error> {
+    pub async fn prune(&self, age: Duration) -> Result<usize, Error> {
+        // Maybe partially initialize
+        if self.client.read().unwrap().is_none() {
+            *self.cache_dir.write().unwrap() = Profile::cache_dir(false)?;
+        }
+
         let mut count: usize = 0;
         let cache_path = self.cache_dir.read().unwrap().to_owned();
         let mut entries = tokio::fs::read_dir(cache_path.as_path()).await?;

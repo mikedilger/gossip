@@ -141,15 +141,6 @@ pub enum ToOverlordMessage {
     /// Calls [post_nip46_event](crate::Overlord::post_nip46_event)
     PostNip46Event(Event, Vec<RelayUrl>),
 
-    /// Calls [prune_cache](crate::Overlord::prune_cache)
-    PruneCache,
-
-    /// Calls [prune_old_events](crate::Overlord::prune_old_events)
-    PruneOldEvents,
-
-    /// Calls [prune_unused_people](crate::Overlord::prune_unused_people)
-    PruneUnusedPeople,
-
     /// Calls [push_blossom_servers](crate::Overlord::push_blossom_servers)
     PushBlossomServers,
 

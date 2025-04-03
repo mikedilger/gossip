@@ -25,7 +25,7 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 49] = [
+const COMMANDS: [Command; 50] = [
     Command {
         cmd: "oneshot",
         usage_params: "{depends}",
@@ -197,6 +197,11 @@ const COMMANDS: [Command; 49] = [
         desc: "print the relays the event was seen on",
     },
     Command {
+        cmd: "prune_cache",
+        usage_params: "",
+        desc: "prune old cached files",
+    },
+    Command {
         cmd: "prune_old_events",
         usage_params: "",
         desc: "prune old events (according to current prune settings)",
@@ -329,6 +334,7 @@ pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
         "print_relay" => print_relay(command, args)?,
         "print_relays" => print_relays(command)?,
         "print_seen_on" => print_seen_on(command, args)?,
+        "prune_cache" => prune_cache()?,
         "prune_old_events" => prune_old_events()?,
         "prune_unused_people" => prune_unused_people()?,
         "reaction_stats" => reaction_stats(command, args)?,
@@ -938,6 +944,24 @@ pub fn print_seen_on(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     for (url, when) in GLOBALS.db().get_event_seen_on_relay(id)? {
         println!("{} at {}", url, when);
     }
+    Ok(())
+}
+
+pub fn prune_cache() -> Result<(), Error> {
+    let age = Duration::new(
+        GLOBALS.db().read_setting_cache_prune_period_days() * 60 * 60 * 24,
+        0,
+    );
+
+    let job = tokio::task::spawn(async move {
+        match GLOBALS.fetcher.prune(age).await {
+            Ok(count) => println!("Cache has been pruned. {} files removed.", count),
+            Err(e) => eprintln!("{e}"),
+        }
+    });
+
+    GLOBALS.runtime.block_on(job)?;
+
     Ok(())
 }
 

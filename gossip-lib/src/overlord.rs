@@ -726,15 +726,6 @@ impl Overlord {
             ToOverlordMessage::PostNip46Event(event, relays) => {
                 self.post_nip46_event(event, relays)?;
             }
-            ToOverlordMessage::PruneCache => {
-                Self::prune_cache().await?;
-            }
-            ToOverlordMessage::PruneOldEvents => {
-                Self::prune_old_events()?;
-            }
-            ToOverlordMessage::PruneUnusedPeople => {
-                Self::prune_unused_people()?;
-            }
             ToOverlordMessage::PushBlossomServers => {
                 self.push_blossom_servers().await?;
             }
@@ -2087,112 +2078,6 @@ impl Overlord {
                 },
             }],
         );
-
-        Ok(())
-    }
-
-    /// Prune the cache (downloaded files)
-    pub async fn prune_cache() -> Result<(), Error> {
-        GLOBALS
-            .status_queue
-            .write()
-            .write("Pruning cache, please be patient..".to_owned());
-
-        let age = Duration::new(
-            GLOBALS.db().read_setting_cache_prune_period_days() * 60 * 60 * 24,
-            0,
-        );
-
-        let count = GLOBALS.fetcher.prune(age).await?;
-
-        GLOBALS
-            .status_queue
-            .write()
-            .write(format!("Cache has been pruned. {} files removed.", count));
-
-        Ok(())
-    }
-
-    /// Prune old events from the database
-    pub fn prune_old_events() -> Result<(), Error> {
-        // Go offline
-        let mut need_to_go_back_online: bool = false;
-        if !GLOBALS.db().read_setting_offline() {
-            need_to_go_back_online = true;
-            GLOBALS.db().write_setting_offline(&true, None)?;
-            let _ = GLOBALS.write_runstate.send(RunState::Offline);
-        }
-
-        GLOBALS
-            .status_queue
-            .write()
-            .write("Pruning old events, please be patient..".to_owned());
-
-        // Prune misc while we are at it (we have no other UI action)
-        GLOBALS.db().prune_misc()?;
-
-        let now = Unixtime::now();
-        let then = now
-            - Duration::new(
-                GLOBALS.db().read_setting_prune_period_days() * 60 * 60 * 24,
-                0,
-            );
-        let result = GLOBALS.db().prune_old_events(then);
-
-        // Go online
-        if need_to_go_back_online {
-            GLOBALS.db().write_setting_offline(&false, None)?;
-            let _ = GLOBALS.write_runstate.send(RunState::Online);
-        }
-
-        match result {
-            Ok(count) => GLOBALS.status_queue.write().write(format!(
-                "Database has been pruned. {} events removed.",
-                count
-            )),
-            Err(e) => {
-                GLOBALS.status_queue.write().write(format!("{e}"));
-                return Err(e);
-            },
-        }
-
-        Ok(())
-    }
-
-    /// Prune unused people
-    pub fn prune_unused_people() -> Result<(), Error> {
-        // Go offline
-        let mut need_to_go_back_online: bool = false;
-        if !GLOBALS.db().read_setting_offline() {
-            need_to_go_back_online = true;
-            GLOBALS.db().write_setting_offline(&true, None)?;
-            let _ = GLOBALS.write_runstate.send(RunState::Offline);
-        }
-
-        *GLOBALS.prune_status.write() = Some("pruning...".to_owned());
-
-        match GLOBALS.db().prune_unused_people() {
-            Ok(count) => {
-                GLOBALS.status_queue.write().write(format!(
-                    "Database has been pruned. {} people removed.",
-                    count
-                ));
-            }
-            Err(e) => {
-                GLOBALS
-                    .status_queue
-                    .write()
-                    .write(format!("Database prune error: {e}"));
-            }
-        }
-
-        *GLOBALS.prune_status.write() = None;
-
-        // Go online
-        if need_to_go_back_online {
-            GLOBALS.db().write_setting_offline(&false, None)?;
-            let _ = GLOBALS.write_runstate.send(RunState::Online);
-        }
 
         Ok(())
     }

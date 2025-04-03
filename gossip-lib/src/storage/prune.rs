@@ -26,6 +26,8 @@ impl Storage {
                     roots.insert(er);
                 }
             }
+            tracing::info!("Preserving {} conversations that you have participated in",
+                           roots.len());
         }
 
         // Prepare
