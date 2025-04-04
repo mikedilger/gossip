@@ -388,6 +388,49 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                         });
                     });
 
+                    // INBOX relays
+                    make_frame().show(ui, |ui| {
+                        ui.vertical(|ui| {
+                            ui.horizontal(|ui| {
+                                item_label(ui, "Inbox Relays");
+                                if show_fetch_now {
+                                    ui.add(Label::new(
+                                        RichText::new(show_fetch_reason)
+                                            .small()
+                                            .color(app.theme.warning_marker_text_color()),
+                                    ));
+                                    if ui.add(egui::Button::new("Fetch now").small()).clicked() {
+                                        app.setting_active_person = true;
+                                        let _ = GLOBALS.to_overlord.send(
+                                            ToOverlordMessage::SubscribeDiscover(
+                                                vec![person.pubkey],
+                                                None,
+                                            ),
+                                        );
+                                        let _ = GLOBALS
+                                            .to_overlord
+                                            .send(ToOverlordMessage::SetActivePerson(pubkey));
+                                    }
+                                }
+                            });
+                            ui.add_space(ITEM_V_SPACE);
+                            ui.horizontal_wrapped(|ui| {
+                                let relays = GLOBALS.people.get_active_person_read_relays();
+                                for relay_url in relays {
+                                    if ui
+                                        .link(relay_url.host().to_string())
+                                        .clicked()
+                                    {
+                                        app.set_page(
+                                            ctx,
+                                            Page::RelaysKnownNetwork(Some(relay_url)),
+                                        );
+                                    }
+                                }
+                            });
+                        });
+                    });
+
                     // DM Relays
                     make_frame().show(ui, |ui| {
                         ui.vertical(|ui| {

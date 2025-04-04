@@ -37,6 +37,7 @@ pub struct People {
     // active person's relays (pull from db as needed)
     active_person: RwLock<Option<PublicKey>>,
     active_persons_write_relays: RwLock<Vec<RelayUrl>>,
+    active_persons_read_relays: RwLock<Vec<RelayUrl>>,
     active_persons_dm_relays: RwLock<Vec<RelayUrl>>,
 
     // We fetch (with Fetcher), process, and temporarily hold avatars
@@ -72,6 +73,7 @@ impl People {
         People {
             active_person: RwLock::new(None),
             active_persons_write_relays: RwLock::new(vec![]),
+            active_persons_read_relays: RwLock::new(vec![]),
             active_persons_dm_relays: RwLock::new(vec![]),
             avatars_temp: DashMap::new(),
             avatars_pending_processing: DashSet::new(),
@@ -893,10 +895,10 @@ impl People {
         *self.active_person.write().await = Some(pubkey);
 
         // Load their relays
-        let best_relays = relay::get_all_pubkey_outboxes(pubkey)?;
-        *self.active_persons_write_relays.write().await = best_relays;
-
-        // Load their DM relays
+        let write_relays = relay::get_all_pubkey_outboxes(pubkey)?;
+        *self.active_persons_write_relays.write().await = write_relays;
+        let read_relays = relay::get_all_pubkey_inboxes(pubkey)?;
+        *self.active_persons_read_relays.write().await = read_relays;
         let dm_relays = relay::get_dm_relays(pubkey)?;
         *self.active_persons_dm_relays.write().await = dm_relays;
 
@@ -915,6 +917,11 @@ impl People {
     /// DO NOT CALL FROM LIB, ONLY FROM UI
     pub fn get_active_person_write_relays(&self) -> Vec<RelayUrl> {
         self.active_persons_write_relays.blocking_read().clone()
+    }
+
+    /// DO NOT CALL FROM LIB, ONLY FROM UI
+    pub fn get_active_person_read_relays(&self) -> Vec<RelayUrl> {
+        self.active_persons_read_relays.blocking_read().clone()
     }
 
     /// DO NOT CALL FROM LIB, ONLY FROM UI
