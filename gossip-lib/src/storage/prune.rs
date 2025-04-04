@@ -13,7 +13,6 @@ impl Storage {
     /// and all related indexes.  Keep events from the user and all
     /// threads they have participated in, as well as bookmarks.
     pub fn prune_old_events(&self, from: Unixtime) -> Result<usize, Error> {
-
         // Extract the root IDs of threads that the user has participated in
         let mut roots: HashSet<EventReference> = HashSet::new();
 
@@ -26,8 +25,10 @@ impl Storage {
                     roots.insert(er);
                 }
             }
-            tracing::info!("Preserving {} conversations that you have participated in",
-                           roots.len());
+            tracing::info!(
+                "Preserving {} conversations that you have participated in",
+                roots.len()
+            );
         }
 
         // Prepare
@@ -43,7 +44,6 @@ impl Storage {
                 let (_key, val) = result?;
                 let event = Event::read_from_buffer(val)?;
                 if event.created_at < from {
-
                     // Do not prune bookmarks, regardless of how old they are
                     if GLOBALS.current_bookmarks.read().contains(&event.id) {
                         continue;
@@ -51,16 +51,16 @@ impl Storage {
 
                     // Do not prune certain kinds
                     // (this is probably incomplete)
-                    if event.kind == EventKind::Metadata ||
-                        event.kind == EventKind::ContactList ||
-                        event.kind == EventKind::EncryptedDirectMessage ||
-                        event.kind == EventKind::EventDeletion ||
-                        event.kind == EventKind::GiftWrap ||
-                        event.kind == EventKind::MuteList ||
-                        event.kind == EventKind::PinList ||
-                        event.kind == EventKind::RelayList ||
-                        event.kind == EventKind::BookmarkList ||
-                        event.kind == EventKind::FollowSets
+                    if event.kind == EventKind::Metadata
+                        || event.kind == EventKind::ContactList
+                        || event.kind == EventKind::EncryptedDirectMessage
+                        || event.kind == EventKind::EventDeletion
+                        || event.kind == EventKind::GiftWrap
+                        || event.kind == EventKind::MuteList
+                        || event.kind == EventKind::PinList
+                        || event.kind == EventKind::RelayList
+                        || event.kind == EventKind::BookmarkList
+                        || event.kind == EventKind::FollowSets
                     {
                         continue;
                     }
@@ -132,7 +132,6 @@ impl Storage {
 
         // Actually delete
         {
-
             // Delete from event_seen_on_relay
             tracing::info!(
                 "PRUNE: deleting {} records from event_seen_on_relay",
@@ -156,9 +155,11 @@ impl Storage {
             txn.commit()?;
             tracing::info!("PRUNE: deleted {} records from event_viewed", ids.len());
 
-
             // Delete from hashtags
-            tracing::info!("PRUNE: deleting {} records from hashtags", hashtag_deletions.len());
+            tracing::info!(
+                "PRUNE: deleting {} records from hashtags",
+                hashtag_deletions.len()
+            );
             let mut txn = self.env.write_txn()?;
             for deletion in hashtag_deletions.drain(..) {
                 self.db_hashtags()?
@@ -166,9 +167,11 @@ impl Storage {
             }
             txn.commit()?;
 
-
             // Delete from relationships
-            tracing::info!("PRUNE: deleting {} relationships", relationship_deletions.len());
+            tracing::info!(
+                "PRUNE: deleting {} relationships",
+                relationship_deletions.len()
+            );
             let mut txn = self.env.write_txn()?;
             for deletion in relationship_deletions.drain(..) {
                 self.db_relationships_by_id()?.delete(&mut txn, &deletion)?;
@@ -201,7 +204,6 @@ impl Storage {
     ///
     /// Returns number of people deleted
     pub fn prune_unused_people(&self) -> Result<usize, Error> {
-
         let ekinds = crate::enabled_event_kinds();
         let frkinds = crate::feed_related_event_kinds(true);
 
@@ -273,7 +275,6 @@ impl Storage {
         }
 
         tracing::info!("PRUNE: deleted {} records from people", count);
-
 
         Ok(count)
     }

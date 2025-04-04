@@ -2870,7 +2870,7 @@ impl Storage {
     /// that will always only look a the first environment opened.
     pub fn event_iterator_rawinit<'a>(
         &'a self,
-        ro_txn: &'a RoTxn<'_>
+        ro_txn: &'a RoTxn<'_>,
     ) -> Result<heed::RoIter<'a, heed::types::Bytes, heed::types::Bytes>, Error> {
         // Open the events database, low-level
         let db = self

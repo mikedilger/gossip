@@ -1376,22 +1376,21 @@ impl GossipUi {
     fn add_offline_switch(&mut self, ui: &mut Ui) {
         let offline = GLOBALS.db().read_setting_offline();
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            let (_frame_stroke, active_color_override) =
-                if self.theme.dark_mode && offline {
-                    (
-                        egui::Stroke::new(1.0, Color32::TRANSPARENT),
-                        Some(self.theme.neutral_900()),
-                    )
-                } else if self.theme.dark_mode && !offline {
-                    (
-                        egui::Stroke::new(1.0, self.theme.neutral_900()),
-                        Some(self.theme.neutral_900()),
-                    )
-                } else if !self.theme.dark_mode && offline {
-                    (egui::Stroke::new(1.0, Color32::TRANSPARENT), None)
-                } else {
-                    (egui::Stroke::new(1.0, self.theme.neutral_300()), None)
-                };
+            let (_frame_stroke, active_color_override) = if self.theme.dark_mode && offline {
+                (
+                    egui::Stroke::new(1.0, Color32::TRANSPARENT),
+                    Some(self.theme.neutral_900()),
+                )
+            } else if self.theme.dark_mode && !offline {
+                (
+                    egui::Stroke::new(1.0, self.theme.neutral_900()),
+                    Some(self.theme.neutral_900()),
+                )
+            } else if !self.theme.dark_mode && offline {
+                (egui::Stroke::new(1.0, Color32::TRANSPARENT), None)
+            } else {
+                (egui::Stroke::new(1.0, self.theme.neutral_300()), None)
+            };
             let (color, text, text_color_override) = if offline {
                 (self.theme.amber_100(), "OFFLINE", active_color_override)
             } else {

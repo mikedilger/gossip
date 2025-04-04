@@ -904,8 +904,8 @@ pub fn keys() -> Result<(), Error> {
 }
 
 pub fn import_lmdb_events(cmd: Command, mut args: env::Args) -> Result<(), Error> {
-    use std::io::Write;
     use speedy::Readable;
+    use std::io::Write;
 
     let lmdb_str = match args.next() {
         Some(s) => s,
@@ -921,9 +921,7 @@ pub fn import_lmdb_events(cmd: Command, mut args: env::Args) -> Result<(), Error
     for result in iter {
         let (_key, bytes) = result?;
         let event = Event::read_from_buffer(bytes)?;
-        gossip_lib::process::process_new_event(
-            &event, None, None, false, false
-        )?;
+        gossip_lib::process::process_new_event(&event, None, None, false, false)?;
         count += 1;
         if count % 1000 == 0 {
             print!(".");
