@@ -242,7 +242,8 @@ pub fn get_best_relays_with_score(
         .filter(|pr| !crate::storage::Storage::url_is_banned(&pr.url))
         .collect();
 
-    let mut output: Vec<(RelayUrl, f32)> = Vec::new();
+    let mut strong: Vec<(RelayUrl, f32)> = Vec::new();
+    let mut weak: Vec<(RelayUrl, f32)> = Vec::new();
 
     let now = Unixtime::now();
     for pr in person_relays.drain(..) {
@@ -259,7 +260,17 @@ pub fn get_best_relays_with_score(
         // Multiply them (max is the relay score, or the association score)
         let score = association_score * multiplier;
 
-        output.push((pr.url, score));
+        // Only accept declared relays
+        if association_score < 1.0 {
+            weak.push((pr.url, score));
+        } else {
+            strong.push((pr.url, score));
+        }
+    }
+
+    let mut output: Vec<(RelayUrl, f32)> = strong.clone();
+    if output.len() == 0 {
+        output.extend(weak);
     }
 
     output.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
