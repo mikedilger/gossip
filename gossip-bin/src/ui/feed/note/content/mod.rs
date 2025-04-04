@@ -409,7 +409,7 @@ pub(super) fn render_parameterized_event_link(
 pub(super) fn render_hashtag(app: &mut GossipUi, ui: &mut Ui, s: &String) {
     let hashtag = format!("#{}", s);
     if ui.link(&hashtag).clicked() {
-        app.search = hashtag.to_ascii_lowercase();
+        app.search = s.to_ascii_lowercase();
         app.set_page(ui.ctx(), Page::SearchLocal);
         let _ = GLOBALS
             .to_overlord
