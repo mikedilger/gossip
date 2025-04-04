@@ -34,8 +34,14 @@ pub fn get_some_pubkey_outboxes(pubkey: PublicKey) -> Result<Vec<RelayUrl>, Erro
     Ok(relays)
 }
 
-// Get all person outboxes for informational
+// Get all person outboxes
 pub fn get_all_pubkey_outboxes(pubkey: PublicKey) -> Result<Vec<RelayUrl>, Error> {
+    // Why 0.125?
+    //   if declared they will get an association score of at least 1.0
+    //   by default based on relay rank, they will get a relay score of 0.33333
+    //   modified by success rate, and 50% success rate will give 75% of this number, which is 0.25
+    //   plus-connected cuts it in half if not connected, so 0.125, and we want to include all
+    //   declared relays even that aren't connected down to 50% success rate.
     let relays =
         get_best_relays_with_score(pubkey, RelayUsage::Outbox, ScoreFactors::FULLY_ADJUSTED)?
             .iter()
@@ -46,7 +52,6 @@ pub fn get_all_pubkey_outboxes(pubkey: PublicKey) -> Result<Vec<RelayUrl>, Error
 }
 
 // Get all the inboxes to post something to them
-// (also if they have none, we substitute our write relays)
 pub fn get_all_pubkey_inboxes(pubkey: PublicKey) -> Result<Vec<RelayUrl>, Error> {
     // Why 0.125?
     //   if declared they will get an association score of at least 1.0
@@ -54,30 +59,13 @@ pub fn get_all_pubkey_inboxes(pubkey: PublicKey) -> Result<Vec<RelayUrl>, Error>
     //   modified by success rate, and 50% success rate will give 75% of this number, which is 0.25
     //   plus-connected cuts it in half if not connected, so 0.125, and we want to include all
     //   declared relays even that aren't connected down to 50% success rate.
-    let mut relays: Vec<(RelayUrl, f32)> =
-        get_best_relays_with_score(pubkey, RelayUsage::Inbox, ScoreFactors::BASE)?
-            .drain(..)
-            .filter(|(_, score)| *score > 0.125)
-            .collect();
-
-    let num = GLOBALS.db().read_setting_num_relays_per_person() as usize;
-    let how_many_more = num.saturating_sub(relays.len());
-    if how_many_more > 0 {
-        // substitute our write relays
-        let additional: Vec<(RelayUrl, f32)> = GLOBALS
-            .db()
-            .filter_relays(|r| {
-                // not already in their list
-                !relays.iter().any(|(url, _)| *url == r.url) && r.has_usage_bits(Relay::WRITE)
-            })?
+    let relays =
+        get_best_relays_with_score(pubkey, RelayUsage::Inbox, ScoreFactors::FULLY_ADJUSTED)?
             .iter()
-            .map(|r| (r.url.clone(), 0.01))
-            .take(how_many_more)
+            .filter(|(_, score)| *score > 0.125)
+            .map(|(url, _score)| url.to_owned())
             .collect();
-        relays.extend(additional);
-    }
-
-    Ok(relays.drain(..).map(|(url, _score)| url).collect())
+    Ok(relays)
 }
 
 /// This gets NIP-17 DM relays only.
