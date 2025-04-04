@@ -49,23 +49,23 @@ impl Storage {
                         continue;
                     }
 
-                    if let Some(pk) = user {
-                        // Do not prune certain kinds
-                        // (this is probably incomplete)
-                        if event.kind == EventKind::Metadata ||
-                            event.kind == EventKind::ContactList ||
-                            event.kind == EventKind::EncryptedDirectMessage ||
-                            event.kind == EventKind::EventDeletion ||
-                            event.kind == EventKind::GiftWrap ||
-                            event.kind == EventKind::MuteList ||
-                            event.kind == EventKind::PinList ||
-                            event.kind == EventKind::RelayList ||
-                            event.kind == EventKind::BookmarkList ||
-                            event.kind == EventKind::FollowSets
-                        {
-                            continue;
-                        }
+                    // Do not prune certain kinds
+                    // (this is probably incomplete)
+                    if event.kind == EventKind::Metadata ||
+                        event.kind == EventKind::ContactList ||
+                        event.kind == EventKind::EncryptedDirectMessage ||
+                        event.kind == EventKind::EventDeletion ||
+                        event.kind == EventKind::GiftWrap ||
+                        event.kind == EventKind::MuteList ||
+                        event.kind == EventKind::PinList ||
+                        event.kind == EventKind::RelayList ||
+                        event.kind == EventKind::BookmarkList ||
+                        event.kind == EventKind::FollowSets
+                    {
+                        continue;
+                    }
 
+                    if let Some(pk) = user {
                         // Do not prune any event authored by the user
                         if event.pubkey == pk {
                             continue;
