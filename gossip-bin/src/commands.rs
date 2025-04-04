@@ -25,7 +25,7 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 51] = [
+const COMMANDS: [Command; 52] = [
     Command {
         cmd: "oneshot",
         usage_params: "{depends}",
@@ -65,6 +65,11 @@ const COMMANDS: [Command; 51] = [
         cmd: "delete_by_kind",
         usage_params: "<kind>",
         desc: "deletes all events of the given kind (be careful!)",
+    },
+    Command {
+        cmd: "delete_by_id",
+        usage_params: "<id>",
+        desc: "deletes event of the given id",
     },
     Command {
         cmd: "delete_spam_by_content",
@@ -307,6 +312,7 @@ pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
         "clear_timeouts" => clear_timeouts()?,
         "decrypt" => decrypt(command, args)?,
         "delete_by_kind" => delete_by_kind(command, args)?,
+        "delete_by_id" => delete_by_id(command, args)?,
         "delete_spam_by_content" => delete_spam_by_content(command, args)?,
         "delete_relay" => delete_relay(command, args)?,
         "dpi" => override_dpi(command, args)?,
@@ -604,6 +610,22 @@ pub fn delete_by_kind(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     txn.commit()?;
 
     println!("Deleted {} events", target_ids.len());
+
+    Ok(())
+}
+
+pub fn delete_by_id(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+    let idstr = match args.next() {
+        Some(id) => id,
+        None => return cmd.usage("Missing idhex parameter".to_string()),
+    };
+
+    let id = match Id::try_from_hex_string(&idstr) {
+        Ok(id) => id,
+        Err(_) => Id::try_from_bech32_string(&idstr)?
+    };
+
+    GLOBALS.db().delete_event(id, None)?;
 
     Ok(())
 }
