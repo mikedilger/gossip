@@ -25,7 +25,7 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 50] = [
+const COMMANDS: [Command; 51] = [
     Command {
         cmd: "oneshot",
         usage_params: "{depends}",
@@ -135,6 +135,11 @@ const COMMANDS: [Command; 50] = [
         cmd: "import_event",
         usage_params: "<event_json>",
         desc: "import and process a JSON event",
+    },
+    Command {
+        cmd: "import_lmdb_events",
+        usage_params: "<other_lmdb_dir>",
+        desc: "Import all events from a given LMDB directory and insert them into the live database",
     },
     Command {
         cmd: "keys",
@@ -321,6 +326,7 @@ pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
             login()?;
             return Ok(false);
         }
+        "import_lmdb_events" => import_lmdb_events(command, args)?,
         "offline" => {
             offline()?;
             return Ok(false);
@@ -893,6 +899,37 @@ pub fn keys() -> Result<(), Error> {
         Some(pk) => println!("public key: {}", pk.as_bech32_string()),
         None => println!("No public key"),
     };
+
+    Ok(())
+}
+
+pub fn import_lmdb_events(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+    use std::io::Write;
+    use speedy::Readable;
+
+    let lmdb_str = match args.next() {
+        Some(s) => s,
+        None => return cmd.usage("Missing other_lmdb_dir parameter".to_string()),
+    };
+
+    let storage2 = gossip_lib::Storage::new(lmdb_str, false)?;
+    let txn2 = storage2.get_read_txn()?;
+    let iter = storage2.event_iterator_rawinit(&txn2)?;
+
+    let mut count = 0;
+    let mut stdout = std::io::stdout();
+    for result in iter {
+        let (_key, bytes) = result?;
+        let event = Event::read_from_buffer(bytes)?;
+        gossip_lib::process::process_new_event(
+            &event, None, None, false, false
+        )?;
+        count += 1;
+        if count % 1000 == 0 {
+            print!(".");
+            let _ = stdout.flush();
+        }
+    }
 
     Ok(())
 }
