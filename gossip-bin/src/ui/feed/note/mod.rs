@@ -732,7 +732,7 @@ pub fn render_note_inside_framing(
                                 ui.add(Label::new(
                                     RichText::new(format!("proxied from {}: ", proxy)).color(color),
                                 ));
-                                crate::ui::widgets::break_anywhere_hyperlink_to(ui, &id, &id);
+                                crate::ui::widgets::break_anywhere_hyperlink_to(ui, app, &id, &id);
                             });
                         });
                 }

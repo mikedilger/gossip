@@ -190,6 +190,7 @@ fn inner(app: &mut GossipUi, ui: &mut Ui, background: Background) {
             ui.label(RichText::new("•").color(Color32::from_gray(128)));
             crate::ui::widgets::break_anywhere_hyperlink_to(
                 ui,
+                app,
                 "https://hyperlink.example.com",
                 "https://hyperlink.example.com",
             );

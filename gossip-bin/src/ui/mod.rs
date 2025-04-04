@@ -1698,8 +1698,8 @@ impl GossipUi {
         GLOBALS.media.check_url(unchecked_url)
     }
 
-    pub fn retry_media(&self, url: &Url) {
-        GLOBALS.media.retry_failed(&url.to_unchecked_url());
+    pub fn retry_media(&self, url: Url) {
+        GLOBALS.media.retry_failed(url);
     }
 
     pub fn has_media_loading_failed(&self, url_string: &str) -> Option<String> {
@@ -2662,14 +2662,14 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
                             ui.label(
                                 RichText::new("Do you need help? Open an").weak()
                             );
-                            ui.hyperlink_to(
+                            crate::ui::widgets::break_anywhere_hyperlink_to(ui, app,
                                 "issue on Github",
                                 "https://github.com/mikedilger/gossip/issues"
                             );
                             ui.label(
                                 RichText::new("or join our").weak()
                             );
-                            ui.hyperlink_to(
+                            crate::ui::widgets::break_anywhere_hyperlink_to(ui, app,
                                 "chat",
                                 "https://chachi.chat/groups.0xchat.com/R2yYwhsTcKO2b65i"
                             );
