@@ -15,6 +15,7 @@ nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "5d9b3e
 paste = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+speedy = "0.8.7"
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 url = "2.5"

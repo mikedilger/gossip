@@ -1376,22 +1376,21 @@ impl GossipUi {
     fn add_offline_switch(&mut self, ui: &mut Ui) {
         let offline = GLOBALS.db().read_setting_offline();
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            let (_frame_stroke, active_color_override) =
-                if self.theme.dark_mode && offline {
-                    (
-                        egui::Stroke::new(1.0, Color32::TRANSPARENT),
-                        Some(self.theme.neutral_900()),
-                    )
-                } else if self.theme.dark_mode && !offline {
-                    (
-                        egui::Stroke::new(1.0, self.theme.neutral_900()),
-                        Some(self.theme.neutral_900()),
-                    )
-                } else if !self.theme.dark_mode && offline {
-                    (egui::Stroke::new(1.0, Color32::TRANSPARENT), None)
-                } else {
-                    (egui::Stroke::new(1.0, self.theme.neutral_300()), None)
-                };
+            let (_frame_stroke, active_color_override) = if self.theme.dark_mode && offline {
+                (
+                    egui::Stroke::new(1.0, Color32::TRANSPARENT),
+                    Some(self.theme.neutral_900()),
+                )
+            } else if self.theme.dark_mode && !offline {
+                (
+                    egui::Stroke::new(1.0, self.theme.neutral_900()),
+                    Some(self.theme.neutral_900()),
+                )
+            } else if !self.theme.dark_mode && offline {
+                (egui::Stroke::new(1.0, Color32::TRANSPARENT), None)
+            } else {
+                (egui::Stroke::new(1.0, self.theme.neutral_300()), None)
+            };
             let (color, text, text_color_override) = if offline {
                 (self.theme.amber_100(), "OFFLINE", active_color_override)
             } else {
@@ -1698,8 +1697,8 @@ impl GossipUi {
         GLOBALS.media.check_url(unchecked_url)
     }
 
-    pub fn retry_media(&self, url: &Url) {
-        GLOBALS.media.retry_failed(&url.to_unchecked_url());
+    pub fn retry_media(&self, url: Url) {
+        GLOBALS.media.retry_failed(url);
     }
 
     pub fn has_media_loading_failed(&self, url_string: &str) -> Option<String> {
@@ -2662,14 +2661,14 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
                             ui.label(
                                 RichText::new("Do you need help? Open an").weak()
                             );
-                            ui.hyperlink_to(
+                            crate::ui::widgets::break_anywhere_hyperlink_to(ui, app,
                                 "issue on Github",
                                 "https://github.com/mikedilger/gossip/issues"
                             );
                             ui.label(
                                 RichText::new("or join our").weak()
                             );
-                            ui.hyperlink_to(
+                            crate::ui::widgets::break_anywhere_hyperlink_to(ui, app,
                                 "chat",
                                 "https://chachi.chat/groups.0xchat.com/R2yYwhsTcKO2b65i"
                             );

@@ -9,6 +9,9 @@ pub use button::Button;
 mod contact_search;
 pub(super) use contact_search::{capture_keyboard_for_search, show_contact_search};
 
+mod link_context_menu;
+pub(super) use link_context_menu::{show_link_context, show_media_link_context};
+
 mod copy_button;
 pub(crate) mod list_entry;
 pub use copy_button::{CopyButton, COPY_SYMBOL_SIZE};
@@ -238,14 +241,22 @@ pub fn clickable_label(ui: &mut Ui, enabled: bool, text: impl Into<WidgetText>) 
     ui.add_enabled(enabled, label)
 }
 
-pub fn break_anywhere_hyperlink_to(ui: &mut Ui, text: impl Into<WidgetText>, url: impl ToString) {
+pub fn break_anywhere_hyperlink_to(
+    ui: &mut Ui,
+    app: &mut GossipUi,
+    text: impl Into<WidgetText>,
+    url: impl ToString,
+) {
     let mut job = text.into().into_layout_job(
         ui.style(),
         FontSelection::Default,
         ui.layout().vertical_align(),
     );
     job.wrap.break_anywhere = true;
-    ui.hyperlink_to(job, url);
+    let url_string = url.to_string();
+    ui.hyperlink_to(job, url).context_menu(|ui| {
+        show_link_context(ui, app, url_string);
+    });
 }
 
 pub fn options_menu_button(ui: &mut Ui, theme: &Theme, assets: &Assets) -> Response {

@@ -83,6 +83,7 @@ use speedy::{Readable, Writable};
 use std::collections::{BTreeSet, HashMap};
 use std::fs;
 use std::ops::Bound;
+use std::path::Path;
 use std::time::SystemTime;
 
 use self::event_kci_index::INDEXED_KINDS;
@@ -102,7 +103,7 @@ pub struct Storage {
 }
 
 impl Storage {
-    fn new_env(rapid: bool) -> Result<Env, Error> {
+    fn new_env<P: AsRef<Path> + std::fmt::Debug>(dir: P, rapid: bool) -> Result<Env, Error> {
         let mut builder = EnvOpenOptions::new();
 
         let flags = if rapid {
@@ -134,12 +135,11 @@ impl Storage {
         //       after the database has been launched.
         builder.map_size(1048576 * 1024 * 24); // 24 GB
 
-        let dir = Profile::lmdb_dir()?;
         let env = unsafe {
             match builder.open(&dir) {
                 Ok(env) => env,
                 Err(e) => {
-                    tracing::error!("Unable to open LMDB at {}", dir.display());
+                    tracing::error!("Unable to open LMDB at {:?}", dir);
                     return Err(e.into());
                 }
             }
@@ -148,8 +148,8 @@ impl Storage {
         Ok(env)
     }
 
-    pub(crate) fn new(rapid: bool) -> Result<Storage, Error> {
-        let env = Self::new_env(rapid)?;
+    pub fn new<P: AsRef<Path> + std::fmt::Debug>(dir: P, rapid: bool) -> Result<Storage, Error> {
+        let env = Self::new_env(dir, rapid)?;
 
         Ok(Storage {
             env,
@@ -206,7 +206,7 @@ impl Storage {
 
         {
             // Open env
-            let env = Self::new_env(false)?;
+            let env = Self::new_env(lmdb_dir, false)?;
 
             env.force_sync()?;
 
@@ -2863,5 +2863,26 @@ impl Storage {
         }
 
         Ok(())
+    }
+
+    /// This function is for gossip-bin command "import_lmdb_events" which has to use a
+    /// database from a separate LMDB environment. Our db_events() enforces a singleton
+    /// that will always only look a the first environment opened.
+    pub fn event_iterator_rawinit<'a>(
+        &'a self,
+        ro_txn: &'a RoTxn<'_>,
+    ) -> Result<heed::RoIter<'a, heed::types::Bytes, heed::types::Bytes>, Error> {
+        // Open the events database, low-level
+        let db = self
+            .env
+            .database_options()
+            .types::<Bytes, Bytes>()
+            .name("events3")
+            .open(&ro_txn)?
+            .ok_or::<Error>(ErrorKind::General("Events database not found!".to_string()).into())?;
+
+        let iter = db.iter(&ro_txn)?;
+
+        Ok(iter)
     }
 }

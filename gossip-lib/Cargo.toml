@@ -71,7 +71,7 @@ sdl2 = { version = "0.37", features = ["bundled"], optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = "0.10"
-speedy = "0.8.7"
+speedy = { workspace = true }
 tempdir = "0.3"
 textnonce = "1"
 tiny-skia = "0.11"

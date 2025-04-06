@@ -25,7 +25,7 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 50] = [
+const COMMANDS: [Command; 52] = [
     Command {
         cmd: "oneshot",
         usage_params: "{depends}",
@@ -65,6 +65,11 @@ const COMMANDS: [Command; 50] = [
         cmd: "delete_by_kind",
         usage_params: "<kind>",
         desc: "deletes all events of the given kind (be careful!)",
+    },
+    Command {
+        cmd: "delete_by_id",
+        usage_params: "<id>",
+        desc: "deletes event of the given id",
     },
     Command {
         cmd: "delete_spam_by_content",
@@ -135,6 +140,11 @@ const COMMANDS: [Command; 50] = [
         cmd: "import_event",
         usage_params: "<event_json>",
         desc: "import and process a JSON event",
+    },
+    Command {
+        cmd: "import_lmdb_events",
+        usage_params: "<other_lmdb_dir>",
+        desc: "Import all events from a given LMDB directory and insert them into the live database",
     },
     Command {
         cmd: "keys",
@@ -302,6 +312,7 @@ pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
         "clear_timeouts" => clear_timeouts()?,
         "decrypt" => decrypt(command, args)?,
         "delete_by_kind" => delete_by_kind(command, args)?,
+        "delete_by_id" => delete_by_id(command, args)?,
         "delete_spam_by_content" => delete_spam_by_content(command, args)?,
         "delete_relay" => delete_relay(command, args)?,
         "dpi" => override_dpi(command, args)?,
@@ -321,6 +332,7 @@ pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
             login()?;
             return Ok(false);
         }
+        "import_lmdb_events" => import_lmdb_events(command, args)?,
         "offline" => {
             offline()?;
             return Ok(false);
@@ -598,6 +610,22 @@ pub fn delete_by_kind(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     txn.commit()?;
 
     println!("Deleted {} events", target_ids.len());
+
+    Ok(())
+}
+
+pub fn delete_by_id(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+    let idstr = match args.next() {
+        Some(id) => id,
+        None => return cmd.usage("Missing idhex parameter".to_string()),
+    };
+
+    let id = match Id::try_from_hex_string(&idstr) {
+        Ok(id) => id,
+        Err(_) => Id::try_from_bech32_string(&idstr)?
+    };
+
+    GLOBALS.db().delete_event(id, None)?;
 
     Ok(())
 }
@@ -893,6 +921,35 @@ pub fn keys() -> Result<(), Error> {
         Some(pk) => println!("public key: {}", pk.as_bech32_string()),
         None => println!("No public key"),
     };
+
+    Ok(())
+}
+
+pub fn import_lmdb_events(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+    use speedy::Readable;
+    use std::io::Write;
+
+    let lmdb_str = match args.next() {
+        Some(s) => s,
+        None => return cmd.usage("Missing other_lmdb_dir parameter".to_string()),
+    };
+
+    let storage2 = gossip_lib::Storage::new(lmdb_str, false)?;
+    let txn2 = storage2.get_read_txn()?;
+    let iter = storage2.event_iterator_rawinit(&txn2)?;
+
+    let mut count = 0;
+    let mut stdout = std::io::stdout();
+    for result in iter {
+        let (_key, bytes) = result?;
+        let event = Event::read_from_buffer(bytes)?;
+        gossip_lib::process::process_new_event(&event, None, None, false, false)?;
+        count += 1;
+        if count % 1000 == 0 {
+            print!(".");
+            let _ = stdout.flush();
+        }
+    }
 
     Ok(())
 }

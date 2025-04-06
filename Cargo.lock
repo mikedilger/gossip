@@ -2233,6 +2233,7 @@ dependencies = [
  "sdl2",
  "serde",
  "serde_json",
+ "speedy",
  "time",
  "tiny-skia 0.10.0",
  "tokio",

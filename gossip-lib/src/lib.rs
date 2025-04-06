@@ -226,7 +226,8 @@ pub fn init(rapid: bool, command_mode: bool) -> Result<(), Error> {
         // Ignore compaction errors
         let _ = Storage::compact();
     }
-    let storage = Storage::new(rapid)?;
+    let dir = Profile::lmdb_dir()?;
+    let storage = Storage::new(dir, rapid)?;
     GLOBALS
         .storage
         .set(storage)

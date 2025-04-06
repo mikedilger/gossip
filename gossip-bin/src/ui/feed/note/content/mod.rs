@@ -270,10 +270,10 @@ pub(super) fn render_hyperlink(
                 media::show_video(app, ui, nurl, privacy_issue, note.volatile, file_metadata);
             }
         } else {
-            crate::ui::widgets::break_anywhere_hyperlink_to(ui, link, link);
+            crate::ui::widgets::break_anywhere_hyperlink_to(ui, app, link, link);
         }
     } else {
-        crate::ui::widgets::break_anywhere_hyperlink_to(ui, link, link);
+        crate::ui::widgets::break_anywhere_hyperlink_to(ui, app, link, link);
     }
 }
 

@@ -41,6 +41,7 @@ rpassword = "7.3"
 sdl2 = { version = "0.37", features = ["bundled"], optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+speedy = { workspace = true }
 time = { version = "0.3", features = [ "formatting", "macros" ] }
 tiny-skia = "0.10.0"
 tokio = { workspace = true }
