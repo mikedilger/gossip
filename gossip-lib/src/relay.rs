@@ -257,7 +257,7 @@ pub fn get_best_relays_with_score(
     }
 
     let mut output: Vec<(RelayUrl, f32)> = strong.clone();
-    if output.len() == 0 {
+    if output.is_empty() {
         output.extend(weak);
     }
 

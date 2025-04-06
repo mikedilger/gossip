@@ -47,7 +47,7 @@ impl Storage {
         let txn = self.env.read_txn()?;
         let stat = self.db_event_seen_on_relay1()?.stat(&txn)?;
         Ok(stat.page_size as usize
-            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2) as usize)
+            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2))
     }
 
     pub(crate) fn add_event_seen_on_relay1<'a>(

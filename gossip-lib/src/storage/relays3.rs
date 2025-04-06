@@ -48,7 +48,7 @@ impl Storage {
         let txn = self.env.read_txn()?;
         let stat = self.db_relays3()?.stat(&txn)?;
         Ok(stat.page_size as usize
-            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2) as usize)
+            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2))
     }
 
     #[allow(dead_code)]

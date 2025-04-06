@@ -25,7 +25,7 @@ pub trait Table {
         let txn = GLOBALS.db().env.read_txn()?;
         let stat = Self::db()?.stat(&txn)?;
         Ok(stat.page_size as usize
-            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2) as usize)
+            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2))
     }
 
     /// Write a record

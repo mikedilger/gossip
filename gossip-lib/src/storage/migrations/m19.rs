@@ -32,10 +32,7 @@ impl Storage {
             let maybe_map = match self.db_general()?.get(txn, b"custom_person_list_map") {
                 Err(_) => None,
                 Ok(None) => None,
-                Ok(Some(bytes)) => match <BTreeMap<u8, String>>::read_from_buffer(bytes) {
-                    Ok(val) => Some(val),
-                    Err(_) => None,
-                },
+                Ok(Some(bytes)) => <BTreeMap<u8, String>>::read_from_buffer(bytes).ok(),
             };
             maybe_map.unwrap_or_else(|| {
                 let mut m = BTreeMap::new();

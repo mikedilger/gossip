@@ -2533,10 +2533,9 @@ impl Overlord {
             false
         })?);
 
-        if text.starts_with('#') {
-            // FIXME: stop at white space
-            let hashtag = text[1..].to_owned();
-
+        // FIXME: stop at white space
+        if let Some(hashtag) = text.strip_prefix('#') {
+            let hashtag = hashtag.to_string();
             let ids = GLOBALS.db().get_event_ids_with_hashtag(&hashtag)?;
             for id in ids {
                 if let Some(event) = GLOBALS.db().read_event(id)? {

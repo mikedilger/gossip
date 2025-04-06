@@ -370,7 +370,7 @@ impl Storage {
         let stat = self.db_general()?.stat(&txn)?;
 
         Ok(stat.page_size as usize
-            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2) as usize)
+            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2))
     }
 
     /// The number of bytes in the event_seen_on table
@@ -390,7 +390,7 @@ impl Storage {
         let txn = self.env.read_txn()?;
         let stat = self.db_hashtags()?.stat(&txn)?;
         Ok(stat.page_size as usize
-            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2) as usize)
+            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2))
     }
 
     /// The number of bytes in the nip46servers table
@@ -398,7 +398,7 @@ impl Storage {
         let txn = self.env.read_txn()?;
         let stat = self.db_nip46servers()?.stat(&txn)?;
         Ok(stat.page_size as usize
-            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2) as usize)
+            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2))
     }
 
     /// The number of bytes in the relays table
@@ -412,7 +412,7 @@ impl Storage {
         let txn = self.env.read_txn()?;
         let stat = self.db_events()?.stat(&txn)?;
         Ok(stat.page_size as usize
-            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2) as usize)
+            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2))
     }
 
     /// The number of events in the event table
@@ -426,7 +426,7 @@ impl Storage {
         let txn = self.env.read_txn()?;
         let stat = self.db_event_akci_index()?.stat(&txn)?;
         Ok(stat.page_size as usize
-            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2) as usize)
+            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2))
     }
 
     /// The number of bytes in the event_kci_index table
@@ -434,7 +434,7 @@ impl Storage {
         let txn = self.env.read_txn()?;
         let stat = self.db_event_kci_index()?.stat(&txn)?;
         Ok(stat.page_size as usize
-            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2) as usize)
+            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2))
     }
 
     /// The number of bytes in the event_tci index table
@@ -442,7 +442,7 @@ impl Storage {
         let txn = self.env.read_txn()?;
         let stat = self.db_event_tci_index()?.stat(&txn)?;
         Ok(stat.page_size as usize
-            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2) as usize)
+            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2))
     }
 
     /// The number of bytes in the relationships_by_addr table
@@ -451,7 +451,7 @@ impl Storage {
         let txn = self.env.read_txn()?;
         let stat = self.db_relationships_by_addr()?.stat(&txn)?;
         Ok(stat.page_size as usize
-            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2) as usize)
+            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2))
     }
 
     /// The number of bytes in the relationships_by_id table
@@ -460,7 +460,7 @@ impl Storage {
         let txn = self.env.read_txn()?;
         let stat = self.db_relationships_by_id()?.stat(&txn)?;
         Ok(stat.page_size as usize
-            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2) as usize)
+            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2))
     }
 
     /// The number of bytes in the person_relays table
@@ -474,7 +474,7 @@ impl Storage {
         let txn = self.env.read_txn()?;
         let stat = self.db_person_lists()?.stat(&txn)?;
         Ok(stat.page_size as usize
-            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2) as usize)
+            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2))
     }
 
     /// The number of bytes in the fof table
@@ -482,7 +482,7 @@ impl Storage {
         let txn = self.env.read_txn()?;
         let stat = self.db_fof()?.stat(&txn)?;
         Ok(stat.page_size as usize
-            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2) as usize)
+            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2))
     }
 
     /// The number of bytes in the configured handlers table
@@ -490,7 +490,7 @@ impl Storage {
         let txn = self.env.read_txn()?;
         let stat = self.db_configured_handlers()?.stat(&txn)?;
         Ok(stat.page_size as usize
-            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2) as usize)
+            * (stat.branch_pages + stat.leaf_pages + stat.overflow_pages + 2))
     }
 
     // General key-value functions --------------------------------------------------
@@ -2878,10 +2878,10 @@ impl Storage {
             .database_options()
             .types::<Bytes, Bytes>()
             .name("events3")
-            .open(&ro_txn)?
+            .open(ro_txn)?
             .ok_or::<Error>(ErrorKind::General("Events database not found!".to_string()).into())?;
 
-        let iter = db.iter(&ro_txn)?;
+        let iter = db.iter(ro_txn)?;
 
         Ok(iter)
     }
