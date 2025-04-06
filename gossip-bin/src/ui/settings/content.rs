@@ -114,9 +114,9 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.horizontal(|ui| {
         ui.checkbox(
             &mut app.unsaved_settings.limit_inbox_seeking_to_inbox_relays,
-            "Limit inbox seeking to inbox relays",
+            "Limit inbox events to events that came from your inbox relays",
         )
-            .on_hover_text("By default gossip looks for replies in your inbox relays, but also on other relays the parent was seen on and where any referencing event was seen. With this setting, it won't do that, which may help avoid spam. Note however that if the event is downloaded some other way (such as when seeking replies to threads) this won't stop that event from appearing in your inbox.");
+            .on_hover_text("By default gossip looks for replies in your inbox relays, but also on other relays the parent was seen on and where any referencing event was seen. With this setting, it won't do that, which may help avoid spam. It also constructs your inbox feed only from events that came from your inbox relays.");
         reset_button!(app, ui, limit_inbox_seeking_to_inbox_relays);
     });
 
