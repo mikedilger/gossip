@@ -622,7 +622,7 @@ pub fn delete_by_id(cmd: Command, mut args: env::Args) -> Result<(), Error> {
 
     let id = match Id::try_from_hex_string(&idstr) {
         Ok(id) => id,
-        Err(_) => Id::try_from_bech32_string(&idstr)?
+        Err(_) => Id::try_from_bech32_string(&idstr)?,
     };
 
     GLOBALS.db().delete_event(id, None)?;
