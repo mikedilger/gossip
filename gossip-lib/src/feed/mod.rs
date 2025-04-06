@@ -6,6 +6,7 @@ use crate::error::{Error, ErrorKind};
 use crate::filter_set::FilterSet;
 use crate::globals::GLOBALS;
 use crate::people::PersonList;
+use crate::relay::Relay;
 use dashmap::DashMap;
 use nostr_types::{
     Event, EventKind, EventReference, Filter, Id, NAddr, PublicKey, RelayUrl, Unixtime,
@@ -520,11 +521,8 @@ impl Feed {
             let limit_inbox_seeking = GLOBALS
                 .db()
                 .read_setting_limit_inbox_seeking_to_inbox_relays();
-            let inbox_relays: HashSet<RelayUrl> = GLOBALS
-                .db()
-                .filter_relays(|r| r.has_usage_bits(crate::relay::Relay::INBOX))?
+            let inbox_relays: HashSet<RelayUrl> = Relay::choose_relay_urls(Relay::INBOX, |_| true)?
                 .into_iter()
-                .map(|r| r.url)
                 .collect();
             let screen_limit_inbox = |event: &Event| -> bool {
                 if limit_inbox_seeking {
