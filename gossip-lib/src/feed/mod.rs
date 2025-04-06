@@ -520,8 +520,11 @@ impl Feed {
             let limit_inbox_seeking = GLOBALS
                 .db()
                 .read_setting_limit_inbox_seeking_to_inbox_relays();
-            let inbox_relays: HashSet<RelayUrl> = crate::relay::get_all_pubkey_inboxes(my_pubkey)?
-                .drain(..)
+            let inbox_relays: HashSet<RelayUrl> = GLOBALS
+                .db()
+                .filter_relays(|r| r.has_usage_bits(crate::relay::Relay::INBOX))?
+                .into_iter()
+                .map(|r| r.url)
                 .collect();
             let screen_limit_inbox = |event: &Event| -> bool {
                 if limit_inbox_seeking {
