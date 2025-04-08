@@ -96,7 +96,7 @@ impl BookmarkList {
         Ok(bml)
     }
 
-    pub fn into_event(&self) -> Result<Event, Error> {
+    pub async fn into_event(&self) -> Result<Event, Error> {
         let public_key = match GLOBALS.identity.public_key() {
             None => return Err(ErrorKind::NoPublicKey.into()),
             Some(pk) => pk,
@@ -163,7 +163,7 @@ impl BookmarkList {
             content,
         };
 
-        GLOBALS.identity.sign_event(pre_event)
+        GLOBALS.identity.sign_event(pre_event).await
     }
 
     pub fn get_bookmark_feed(&self) -> Result<Vec<Id>, Error> {

@@ -961,7 +961,7 @@ impl Minion {
             ],
             content: "".to_string(),
         };
-        let event = GLOBALS.identity.sign_event(pre_event)?;
+        let event = GLOBALS.identity.sign_event(pre_event).await?;
         let id = event.id;
         let msg = ClientMessage::Auth(Box::new(event));
         let wire = serde_json::to_string(&msg)?;
@@ -993,7 +993,7 @@ impl Minion {
             ],
             content: "".to_string(),
         };
-        let event = self.fake_auth_signer.sign_event(pre_event)?;
+        let event = self.fake_auth_signer.sign_event(pre_event).await?;
         let id = event.id;
         let msg = ClientMessage::Auth(Box::new(event));
         let wire = serde_json::to_string(&msg)?;

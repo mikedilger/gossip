@@ -9,7 +9,13 @@ impl Default for StatusQueue {
     fn default() -> StatusQueue {
         StatusQueue {
             head: 0,
-            messages: ["".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned()],
+            messages: [
+                "".to_owned(),
+                "".to_owned(),
+                "".to_owned(),
+                "".to_owned(),
+                "".to_owned(),
+            ],
         }
     }
 }

@@ -12,7 +12,8 @@ mod ui;
 mod unsaved_settings;
 
 use gossip_lib::{Error, RunState, GLOBALS};
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::{env, thread};
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 
@@ -67,18 +68,25 @@ fn main() -> Result<(), Error> {
     // Setup async, and allow non-async code the context to spawn tasks
     let _main_rt = GLOBALS.runtime.enter(); // <-- this allows it.
 
-    // If we were handed a command, execute the command and return
+    // If we were handed a command, execute the command and (usually) return
+    let exit: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
+    let exit2 = exit.clone();
     if args.len() > 0 {
-        match commands::handle_command(args) {
-            Err(e) => {
-                println!("{}", e);
-                return Ok(());
-            }
-            Ok(exit) => {
-                if exit {
-                    return Ok(());
+        GLOBALS.runtime.block_on(async {
+            let exit = match commands::handle_command(args).await {
+                Err(e) => {
+                    println!("{}", e);
+                    true
                 }
+                Ok(exit) => exit,
+            };
+            if exit {
+                exit2.store(true, Ordering::Relaxed);
             }
+        });
+
+        if exit.load(Ordering::Relaxed) {
+            return Ok(());
         }
     }
 

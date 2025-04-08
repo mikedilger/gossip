@@ -17,7 +17,7 @@ mod by_kind;
 /// This is mainly used internally to gossip-lib, but you can use it to stuff events
 /// into gossip from other sources. This processes a new event, saving the results into
 /// the database and also populating the GLOBALS maps.
-pub fn process_new_event(
+pub async fn process_new_event(
     event: &Event,
     seen_on: Option<RelayUrl>,
     subscription: Option<String>,
@@ -285,8 +285,8 @@ pub fn process_new_event(
         EventKind::FollowSets => by_kind::process_follow_sets(event, ours)?,
         EventKind::RelayList => by_kind::process_relay_list(event)?,
         EventKind::DmRelayList => by_kind::process_dm_relay_list(event)?,
-        EventKind::Repost => by_kind::process_repost(event, verify)?,
-        EventKind::NostrConnect => by_kind::process_nostr_connect(event, seen_on.clone())?,
+        EventKind::Repost => by_kind::process_repost(event, verify).await?,
+        EventKind::NostrConnect => by_kind::process_nostr_connect(event, seen_on.clone()).await?,
         EventKind::UserServerList => by_kind::process_user_server_list(event, ours)?,
         EventKind::RequestToVanish => by_kind::process_request_to_vanish(event)?,
         _ => {}

@@ -89,7 +89,8 @@ impl Minion {
                     Some(handle),
                     true,
                     false,
-                )?;
+                )
+                .await?;
             }
             RelayMessage::Notice(msg) => {
                 tracing::warn!("{}: NOTICE: {}", &self.url, msg);

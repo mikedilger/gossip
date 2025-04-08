@@ -288,7 +288,7 @@ const COMMANDS: [Command; 52] = [
     },
 ];
 
-pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
+pub async fn handle_command(mut args: env::Args) -> Result<bool, Error> {
     let command_string = args.next().unwrap(); // must be there or we would not have been called
 
     let mut command: Option<Command> = None;
@@ -313,7 +313,7 @@ pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
         "decrypt" => decrypt(command, args)?,
         "delete_by_kind" => delete_by_kind(command, args)?,
         "delete_by_id" => delete_by_id(command, args)?,
-        "delete_spam_by_content" => delete_spam_by_content(command, args)?,
+        "delete_spam_by_content" => delete_spam_by_content(command, args).await?,
         "delete_relay" => delete_relay(command, args)?,
         "dpi" => override_dpi(command, args)?,
         "disable_relay" => disable_relay(command, args)?,
@@ -326,13 +326,13 @@ pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
         "giftwraps" => giftwraps(command)?,
         "help" => help(command, args)?,
         "import_encrypted_private_key" => import_encrypted_private_key(command, args)?,
-        "import_event" => import_event(command, args)?,
+        "import_event" => import_event(command, args).await?,
         "keys" => keys()?,
         "login" => {
             login()?;
             return Ok(false);
         }
-        "import_lmdb_events" => import_lmdb_events(command, args)?,
+        "import_lmdb_events" => import_lmdb_events(command, args).await?,
         "offline" => {
             offline()?;
             return Ok(false);
@@ -353,7 +353,7 @@ pub fn handle_command(mut args: env::Args) -> Result<bool, Error> {
         "rebuild_fof" => rebuild_fof()?,
         "rebuild_indices" => rebuild_indices()?,
         "rename_person_list" => rename_person_list(command, args)?,
-        "reprocess_recent" => reprocess_recent(command)?,
+        "reprocess_recent" => reprocess_recent(command).await?,
         "reprocess_relay_lists" => reprocess_relay_lists()?,
         "reset_relay_auth" => reset_relay_auth()?,
         "reset_relay_connect" => reset_relay_connect()?,
@@ -630,7 +630,7 @@ pub fn delete_by_id(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn delete_spam_by_content(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+pub async fn delete_spam_by_content(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     let mut kind: EventKind = match args.next() {
         Some(integer) => integer.parse::<u32>()?.into(),
         None => return cmd.usage("Missing kind parameter".to_string()),
@@ -746,13 +746,15 @@ pub fn delete_spam_by_content(cmd: Command, mut args: env::Args) -> Result<(), E
             content: "spam".to_owned(),
         };
         // Should we add a pow? Maybe the relay needs it.
-        GLOBALS.identity.sign_event(pre_event)?
+        GLOBALS.identity.sign_event(pre_event).await?
     };
     println!("{}", serde_json::to_string(&event).unwrap());
 
     let job = tokio::task::spawn(async move {
         // Process this event locally
-        if let Err(e) = gossip_lib::process::process_new_event(&event, None, None, false, false) {
+        if let Err(e) =
+            gossip_lib::process::process_new_event(&event, None, None, false, false).await
+        {
             println!("ERROR: {}", e);
         } else {
             // Post the event to all the relays
@@ -888,7 +890,7 @@ pub fn import_encrypted_private_key(cmd: Command, mut args: env::Args) -> Result
     Ok(())
 }
 
-pub fn import_event(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+pub async fn import_event(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     let event = match args.next() {
         Some(json) => {
             let e: Event = serde_json::from_str(&json)?;
@@ -900,7 +902,9 @@ pub fn import_event(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     login()?;
 
     let job = tokio::task::spawn(async move {
-        if let Err(e) = gossip_lib::process::process_new_event(&event, None, None, false, true) {
+        if let Err(e) =
+            gossip_lib::process::process_new_event(&event, None, None, false, true).await
+        {
             println!("ERROR: {}", e);
         }
     });
@@ -925,7 +929,7 @@ pub fn keys() -> Result<(), Error> {
     Ok(())
 }
 
-pub fn import_lmdb_events(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+pub async fn import_lmdb_events(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     use speedy::Readable;
     use std::io::Write;
 
@@ -943,7 +947,7 @@ pub fn import_lmdb_events(cmd: Command, mut args: env::Args) -> Result<(), Error
     for result in iter {
         let (_key, bytes) = result?;
         let event = Event::read_from_buffer(bytes)?;
-        gossip_lib::process::process_new_event(&event, None, None, false, false)?;
+        gossip_lib::process::process_new_event(&event, None, None, false, false).await?;
         count += 1;
         if count % 1000 == 0 {
             print!(".");
@@ -1297,7 +1301,7 @@ pub fn rebuild_fof() -> Result<(), Error> {
     Ok(())
 }
 
-pub fn reprocess_recent(_cmd: Command) -> Result<(), Error> {
+pub async fn reprocess_recent(_cmd: Command) -> Result<(), Error> {
     login()?;
 
     let job = tokio::task::spawn(async move {
@@ -1317,7 +1321,9 @@ pub fn reprocess_recent(_cmd: Command) -> Result<(), Error> {
 
         let mut count = 0;
         for event in events.iter() {
-            if let Err(e) = gossip_lib::process::process_new_event(event, None, None, false, true) {
+            if let Err(e) =
+                gossip_lib::process::process_new_event(event, None, None, false, true).await
+            {
                 println!("ERROR: {}", e);
             }
             count += 1;

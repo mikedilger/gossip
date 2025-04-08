@@ -185,7 +185,7 @@ pub fn process_dm_relay_list(event: &Event) -> Result<(), Error> {
 }
 
 // EventKind::Repost
-pub fn process_repost(event: &Event, verify: bool) -> Result<(), Error> {
+pub async fn process_repost(event: &Event, verify: bool) -> Result<(), Error> {
     use crate::misc::Freshness;
     use crate::people::People;
     use nostr_types::EventReference;
@@ -206,7 +206,14 @@ pub fn process_repost(event: &Event, verify: bool) -> Result<(), Error> {
         }
 
         // process the inner event
-        crate::process::process_new_event(&inner_event, None, None, verify, false)?;
+        Box::pin(crate::process::process_new_event(
+            &inner_event,
+            None,
+            None,
+            verify,
+            false,
+        ))
+        .await?;
 
         // Seek additional info for this event by id and author
         GLOBALS
@@ -242,8 +249,8 @@ pub fn process_repost(event: &Event, verify: bool) -> Result<(), Error> {
 }
 
 // EventKind::NostrConnect
-pub fn process_nostr_connect(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Error> {
-    crate::nostr_connect_server::handle_command(event, seen_on)?;
+pub async fn process_nostr_connect(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Error> {
+    crate::nostr_connect_server::handle_command(event, seen_on).await?;
 
     Ok(())
 }

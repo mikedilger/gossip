@@ -607,10 +607,10 @@ impl Overlord {
                 self.blossom_upload(pathbuf).await?;
             }
             ToOverlordMessage::BookmarkAdd(er, private) => {
-                self.bookmark_add(er, private)?;
+                self.bookmark_add(er, private).await?;
             }
             ToOverlordMessage::BookmarkRm(er) => {
-                self.bookmark_rm(er)?;
+                self.bookmark_rm(er).await?;
             }
             ToOverlordMessage::ChangePassphrase { old, new } => {
                 Self::change_passphrase(old, new).await?;
@@ -628,10 +628,10 @@ impl Overlord {
                 Self::delegation_reset().await?;
             }
             ToOverlordMessage::DeletePersonList(list) => {
-                self.delete_person_list(list)?;
+                self.delete_person_list(list).await?;
             }
             ToOverlordMessage::DeletePost(id) => {
-                self.delete_post(id)?;
+                self.delete_post(id).await?;
             }
             ToOverlordMessage::DeletePriv => {
                 Self::delete_priv().await?;
@@ -702,7 +702,8 @@ impl Overlord {
                 }
             }
             ToOverlordMessage::Nip46ServerOpApprovalResponse(pubkey, parsed_command, approval) => {
-                self.nip46_server_op_approval_response(pubkey, parsed_command, approval)?;
+                self.nip46_server_op_approval_response(pubkey, parsed_command, approval)
+                    .await?;
             }
             ToOverlordMessage::RefreshScoresAndPickRelays => {
                 self.refresh_scores_and_pick_relays().await?;
@@ -733,13 +734,13 @@ impl Overlord {
                 self.push_person_list(person_list).await?;
             }
             ToOverlordMessage::PushMetadata(metadata) => {
-                self.push_metadata(metadata)?;
+                self.push_metadata(metadata).await?;
             }
             ToOverlordMessage::RankRelay(relay_url, rank) => {
                 Self::rank_relay(relay_url, rank)?;
             }
             ToOverlordMessage::React(id, pubkey, emoji) => {
-                self.react(id, pubkey, emoji)?;
+                self.react(id, pubkey, emoji).await?;
             }
             ToOverlordMessage::ReengageMinion(url, jobs) => {
                 manager::engage_minion(url, jobs);
@@ -748,7 +749,7 @@ impl Overlord {
                 self.refresh_subscribed_metadata()?;
             }
             ToOverlordMessage::Repost(id) => {
-                self.repost(id)?;
+                self.repost(id).await?;
             }
             ToOverlordMessage::SearchLocally(text) => {
                 Self::search_locally(text)?;
@@ -890,7 +891,7 @@ impl Overlord {
                 content: "".to_string(),
             };
 
-            GLOBALS.identity.sign_event(pre_event)?
+            GLOBALS.identity.sign_event(pre_event).await?
         };
 
         let dmevent = {
@@ -910,7 +911,7 @@ impl Overlord {
                 content: "".to_string(),
             };
 
-            GLOBALS.identity.sign_event(pre_event)?
+            GLOBALS.identity.sign_event(pre_event).await?
         };
 
         let mut relays = Relay::choose_relays(0, |r| r.is_good_for_advertise())?;
@@ -1102,9 +1103,9 @@ impl Overlord {
         Ok(())
     }
 
-    fn post_bookmarks(&mut self, event: Event) -> Result<(), Error> {
+    async fn post_bookmarks(&mut self, event: Event) -> Result<(), Error> {
         // Process this event locally (ignore any error)
-        let _ = crate::process::process_new_event(&event, None, None, false, false);
+        let _ = crate::process::process_new_event(&event, None, None, false, false).await;
 
         let config_relays: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
 
@@ -1123,13 +1124,13 @@ impl Overlord {
     }
 
     /// Adds or removes a bookmark, and publishes new bookmarks list
-    pub fn bookmark_add(&mut self, er: EventReference, private: bool) -> Result<(), Error> {
+    pub async fn bookmark_add(&mut self, er: EventReference, private: bool) -> Result<(), Error> {
         let added = GLOBALS.bookmarks.write_arc().add(er.clone(), private)?;
 
         if added {
             GLOBALS.recompute_current_bookmarks.notify_one();
-            let event = GLOBALS.bookmarks.read_arc().into_event()?;
-            self.post_bookmarks(event)?;
+            let event = GLOBALS.bookmarks.read_arc().into_event().await?;
+            self.post_bookmarks(event).await?;
 
             if let Some(event) = GLOBALS.db().read_event_reference(&er)? {
                 // Invalidate the rendering of the note
@@ -1146,13 +1147,13 @@ impl Overlord {
     }
 
     /// Adds or removes a bookmark, and publishes new bookmarks list
-    pub fn bookmark_rm(&mut self, er: EventReference) -> Result<(), Error> {
+    pub async fn bookmark_rm(&mut self, er: EventReference) -> Result<(), Error> {
         let removed = GLOBALS.bookmarks.write_arc().remove(er.clone())?;
 
         if removed {
             GLOBALS.recompute_current_bookmarks.notify_one();
-            let event = GLOBALS.bookmarks.read_arc().into_event()?;
-            self.post_bookmarks(event)?;
+            let event = GLOBALS.bookmarks.read_arc().into_event().await?;
+            self.post_bookmarks(event).await?;
 
             if let Some(event) = GLOBALS.db().read_event_reference(&er)? {
                 // Invalidate the rendering of the note
@@ -1243,7 +1244,7 @@ impl Overlord {
     }
 
     /// Delete a person list
-    pub fn delete_person_list(&mut self, list: PersonList) -> Result<(), Error> {
+    pub async fn delete_person_list(&mut self, list: PersonList) -> Result<(), Error> {
         // Get the metadata first, we need it to delete events
         let metadata = match GLOBALS.db().get_person_list_metadata(list)? {
             Some(m) => m,
@@ -1345,11 +1346,11 @@ impl Overlord {
             };
 
             // Should we add a pow? Maybe the relay needs it.
-            GLOBALS.identity.sign_event(pre_event)?
+            GLOBALS.identity.sign_event(pre_event).await?
         };
 
         // Process this event locally
-        crate::process::process_new_event(&event, None, None, false, false)?;
+        crate::process::process_new_event(&event, None, None, false, false).await?;
 
         // Determine which relays to post this to
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
@@ -1395,7 +1396,7 @@ impl Overlord {
     }
 
     /// Delete a post
-    pub fn delete_post(&mut self, id: Id) -> Result<(), Error> {
+    pub async fn delete_post(&mut self, id: Id) -> Result<(), Error> {
         let public_key = match GLOBALS.identity.public_key() {
             Some(pk) => pk,
             None => {
@@ -1426,11 +1427,11 @@ impl Overlord {
             };
 
             // Should we add a pow? Maybe the relay needs it.
-            GLOBALS.identity.sign_event(pre_event)?
+            GLOBALS.identity.sign_event(pre_event).await?
         };
 
         // Process this event locally
-        crate::process::process_new_event(&event, None, None, false, false)?;
+        crate::process::process_new_event(&event, None, None, false, false).await?;
 
         // Determine which relays to post this to
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
@@ -1765,7 +1766,7 @@ impl Overlord {
     }
 
     /// Process approved nip46 server operation
-    pub fn nip46_server_op_approval_response(
+    pub async fn nip46_server_op_approval_response(
         &mut self,
         pubkey: PublicKey,
         parsed_command: ParsedCommand,
@@ -1791,7 +1792,7 @@ impl Overlord {
             GLOBALS.db().write_nip46server(&server, None)?;
 
             // Handle it
-            server.handle(&parsed_command)?;
+            server.handle(&parsed_command).await?;
         }
 
         Ok(())
@@ -1844,7 +1845,7 @@ impl Overlord {
 
     /// React to a post. The backend doesn't read the event, so you have to supply the
     /// pubkey author too.
-    pub fn react(&mut self, id: Id, pubkey: PublicKey, reaction: char) -> Result<(), Error> {
+    pub async fn react(&mut self, id: Id, pubkey: PublicKey, reaction: char) -> Result<(), Error> {
         let event = {
             let public_key = match GLOBALS.identity.public_key() {
                 Some(pk) => pk,
@@ -1891,9 +1892,10 @@ impl Overlord {
                 });
                 GLOBALS
                     .identity
-                    .sign_event_with_pow(pre_event, powint, Some(work_sender))?
+                    .sign_event_with_pow(pre_event, powint, Some(work_sender))
+                    .await?
             } else {
-                GLOBALS.identity.sign_event(pre_event)?
+                GLOBALS.identity.sign_event(pre_event).await?
             }
         };
 
@@ -1914,7 +1916,7 @@ impl Overlord {
         );
 
         // Process the message for ourself
-        crate::process::process_new_event(&event, None, None, false, false)?;
+        crate::process::process_new_event(&event, None, None, false, false).await?;
 
         Ok(())
     }
@@ -1943,7 +1945,7 @@ impl Overlord {
                     crate::post::prepare_post_nip17(author, content, tags, channel, annotation)
                         .await?
                 } else {
-                    crate::post::prepare_post_nip04(author, content, channel, annotation)?
+                    crate::post::prepare_post_nip04(author, content, channel, annotation).await?
                 }
             }
             None => {
@@ -1975,7 +1977,7 @@ impl Overlord {
 
         for (event, _) in &prepared_events {
             // Process the event locally (ignore any errors)
-            let _ = crate::process::process_new_event(event, None, None, false, false);
+            let _ = crate::process::process_new_event(event, None, None, false, false).await;
 
             // Push the event id into delayed_posts.  If it is still there in 10 seconds
             // it will be sent.  Else we presume other code deleted it (from that DashSet
@@ -2102,7 +2104,7 @@ impl Overlord {
             content: "".to_string(),
         };
 
-        let event = GLOBALS.identity.sign_event(pre_event)?;
+        let event = GLOBALS.identity.sign_event(pre_event).await?;
 
         let config_relays: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
 
@@ -2130,7 +2132,7 @@ impl Overlord {
         let event = GLOBALS.people.generate_person_list_event(list).await?;
 
         // process event locally
-        crate::process::process_new_event(&event, None, None, false, false)?;
+        crate::process::process_new_event(&event, None, None, false, false).await?;
 
         // Push to all of the relays we post to
         // Send it the event to pull our followers
@@ -2153,7 +2155,7 @@ impl Overlord {
     }
 
     /// Publish the user's metadata
-    pub fn push_metadata(&mut self, metadata: Metadata) -> Result<(), Error> {
+    pub async fn push_metadata(&mut self, metadata: Metadata) -> Result<(), Error> {
         let public_key = match GLOBALS.identity.public_key() {
             Some(pk) => pk,
             None => return Err((ErrorKind::NoPrivateKey, file!(), line!()).into()), // not even a public key
@@ -2167,7 +2169,7 @@ impl Overlord {
             content: serde_json::to_string(&metadata)?,
         };
 
-        let event = GLOBALS.identity.sign_event(pre_event)?;
+        let event = GLOBALS.identity.sign_event(pre_event).await?;
 
         // Push to all of the relays we post to
         // Send it the event to pull our followers
@@ -2238,7 +2240,7 @@ impl Overlord {
     }
 
     /// Repost a post by `Id`
-    pub fn repost(&mut self, id: Id) -> Result<(), Error> {
+    pub async fn repost(&mut self, id: Id) -> Result<(), Error> {
         let reposted_event = match GLOBALS.db().read_event(id)? {
             Some(event) => event,
             None => {
@@ -2348,14 +2350,15 @@ impl Overlord {
                 });
                 GLOBALS
                     .identity
-                    .sign_event_with_pow(pre_event, powint, Some(work_sender))?
+                    .sign_event_with_pow(pre_event, powint, Some(work_sender))
+                    .await?
             } else {
-                GLOBALS.identity.sign_event(pre_event)?
+                GLOBALS.identity.sign_event(pre_event).await?
             }
         };
 
         // Process this event locally
-        crate::process::process_new_event(&event, None, None, false, false)?;
+        crate::process::process_new_event(&event, None, None, false, false).await?;
 
         // Determine which relays to post this to
         let mut relay_urls: Vec<RelayUrl> = Vec::new();
@@ -2995,11 +2998,11 @@ impl Overlord {
                 content: "".to_string(),
             };
 
-            GLOBALS.identity.sign_event(pre_event)?
+            GLOBALS.identity.sign_event(pre_event).await?
         };
 
         // Process this event locally
-        crate::process::process_new_event(&event, None, None, false, false)?;
+        crate::process::process_new_event(&event, None, None, false, false).await?;
 
         // Post the event to our outboxes
         let write_relays = relay::relays_to_post_to(&event)?;
@@ -3314,7 +3317,7 @@ impl Overlord {
                 tags: vec![],
                 content: format!("This is an automated test of the suitability of {} for inbox/outbox/dm usage. Please disregard.", relay_url),
             };
-            GLOBALS.identity.sign_event(pre_event)?
+            GLOBALS.identity.sign_event(pre_event).await?
         };
 
         let mut conn1 = crate::direct::Connection::new(relay_url.as_str().to_owned()).await?;
@@ -3371,7 +3374,7 @@ impl Overlord {
                 ],
                 content: "".to_owned(),
             };
-            stranger.sign_event(pre_event)?
+            stranger.sign_event(pre_event).await?
         };
 
         let mut conn = crate::direct::Connection::new(relay_url.as_str().to_owned()).await?;
@@ -4061,7 +4064,7 @@ impl Overlord {
             content: comment,
         };
 
-        let event = GLOBALS.identity.sign_event(pre_event)?;
+        let event = GLOBALS.identity.sign_event(pre_event).await?;
 
         let serialized_event = serde_json::to_string(&event)?;
 

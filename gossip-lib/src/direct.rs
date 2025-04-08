@@ -257,7 +257,7 @@ impl Connection {
                 ],
                 content: "".to_string(),
             };
-            let event = GLOBALS.identity.sign_event(pre_event)?;
+            let event = GLOBALS.identity.sign_event(pre_event).await?;
             self.auth_state = AuthState::InProgress(event.id);
             self.send_message(ClientMessage::Auth(Box::new(event)))
                 .await?;

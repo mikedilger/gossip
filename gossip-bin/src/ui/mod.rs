@@ -59,8 +59,8 @@ use eframe::egui::vec2;
 use eframe::egui::FontId;
 use egui::widgets::Slider;
 use egui::{
-    Align, Color32, ColorImage, Context, IconData, Image, ImageData, Label, Layout,
-    Pos2, RichText, ScrollArea, Sense, TextureHandle, TextureOptions, Ui, Vec2,
+    Align, Color32, ColorImage, Context, IconData, Image, ImageData, Label, Layout, Pos2, RichText,
+    ScrollArea, Sense, TextureHandle, TextureOptions, Ui, Vec2,
 };
 use egui_file_dialog::FileDialog;
 #[cfg(feature = "video-ffmpeg")]
@@ -2177,28 +2177,28 @@ impl GossipUi {
     }
 
     /*
-    fn render_status_queue_area(&self, ui: &mut Ui) {
-        let messages = GLOBALS.status_queue.read().read_all();
-        if ui
-            .add(Label::new(RichText::new(&messages[0])).sense(Sense::click()))
-            .clicked()
-        {
-            GLOBALS.status_queue.write().dismiss(0);
-        }
-        if ui
-            .add(Label::new(RichText::new(&messages[1]).small()).sense(Sense::click()))
-            .clicked()
-        {
-            GLOBALS.status_queue.write().dismiss(1);
-        }
-        if ui
-            .add(Label::new(RichText::new(&messages[2]).weak().small()).sense(Sense::click()))
-            .clicked()
-        {
-            GLOBALS.status_queue.write().dismiss(2);
-        }
-}
-    */
+        fn render_status_queue_area(&self, ui: &mut Ui) {
+            let messages = GLOBALS.status_queue.read().read_all();
+            if ui
+                .add(Label::new(RichText::new(&messages[0])).sense(Sense::click()))
+                .clicked()
+            {
+                GLOBALS.status_queue.write().dismiss(0);
+            }
+            if ui
+                .add(Label::new(RichText::new(&messages[1]).small()).sense(Sense::click()))
+                .clicked()
+            {
+                GLOBALS.status_queue.write().dismiss(1);
+            }
+            if ui
+                .add(Label::new(RichText::new(&messages[2]).weak().small()).sense(Sense::click()))
+                .clicked()
+            {
+                GLOBALS.status_queue.write().dismiss(2);
+            }
+    }
+        */
 }
 
 impl eframe::App for GossipUi {
@@ -2539,7 +2539,7 @@ impl eframe::App for GossipUi {
                             GLOBALS.status_queue.write().dismiss(i);
                         };
                         response
-                    }
+                    },
                 );
                 y = response.rect.min.y - 50.0;
             }

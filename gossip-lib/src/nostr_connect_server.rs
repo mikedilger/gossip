@@ -100,7 +100,7 @@ pub struct Nip46Server {
 }
 
 impl Nip46Server {
-    pub fn handle(&mut self, cmd: &ParsedCommand) -> Result<(), Error> {
+    pub async fn handle(&mut self, cmd: &ParsedCommand) -> Result<(), Error> {
         let ParsedCommand {
             ref id,
             ref method,
@@ -113,7 +113,7 @@ impl Nip46Server {
             "get_public_key" => self.get_public_key(),
             "sign_event" => {
                 if self.sign_approval.is_approved() {
-                    self.sign_event(params)
+                    self.sign_event(params).await
                 } else if self.sign_approval == Approval::Ask {
                     Err(ErrorKind::Nip46NeedApproval.into())
                 } else {
@@ -171,14 +171,17 @@ impl Nip46Server {
         };
 
         match result {
-            Ok(answer) => send_response(
-                id.to_owned(),
-                answer,
-                "".to_owned(),
-                self.peer_pubkey,
-                self.relays.clone(),
-                *algo,
-            )?,
+            Ok(answer) => {
+                send_response(
+                    id.to_owned(),
+                    answer,
+                    "".to_owned(),
+                    self.peer_pubkey,
+                    self.relays.clone(),
+                    *algo,
+                )
+                .await?
+            }
             Err(e) => {
                 if matches!(e.kind, ErrorKind::Nip46NeedApproval) {
                     return Err(e);
@@ -190,7 +193,8 @@ impl Nip46Server {
                         self.peer_pubkey,
                         self.relays.clone(),
                         *algo,
-                    )?;
+                    )
+                    .await?;
                 }
             }
         }
@@ -206,7 +210,7 @@ impl Nip46Server {
         }
     }
 
-    fn sign_event(&self, params: &[String]) -> Result<String, Error> {
+    async fn sign_event(&self, params: &[String]) -> Result<String, Error> {
         if params.is_empty() {
             return Err("sign_event: requires a parameter".into());
         }
@@ -231,7 +235,7 @@ impl Nip46Server {
             content,
         };
 
-        let event = GLOBALS.identity.sign_event(pre_event)?;
+        let event = GLOBALS.identity.sign_event(pre_event).await?;
 
         let event_str = serde_json::to_string(&event)?;
 
@@ -390,7 +394,7 @@ fn parse_command(peer_pubkey: PublicKey, contents: &str) -> Result<ParsedCommand
     }
 }
 
-fn send_response(
+async fn send_response(
     id: String,
     result: String,
     error: String,
@@ -427,7 +431,7 @@ fn send_response(
         content: e,
     };
 
-    let event = GLOBALS.identity.sign_event(pre_event)?;
+    let event = GLOBALS.identity.sign_event(pre_event).await?;
 
     GLOBALS
         .to_overlord
@@ -436,7 +440,7 @@ fn send_response(
     Ok(())
 }
 
-pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Error> {
+pub async fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Error> {
     // If we have a server for that pubkey
     if let Some(mut server) = GLOBALS.db().read_nip46server(event.pubkey)? {
         // Parse the command
@@ -452,7 +456,8 @@ pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Er
                         event.pubkey,
                         server.relays.clone(),
                         PrivateKey::detect_encryption_algorithm(&event.content),
-                    )?;
+                    )
+                    .await?;
                 }
 
                 // Return the error
@@ -461,7 +466,7 @@ pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Er
         };
 
         // Handle the command
-        if let Err(e) = server.handle(&parsed_command) {
+        if let Err(e) = server.handle(&parsed_command).await {
             if matches!(e.kind, ErrorKind::Nip46NeedApproval) {
                 GLOBALS
                     .pending
@@ -499,7 +504,8 @@ pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Er
                     event.pubkey,
                     vec![seen_on_relay],
                     PrivateKey::detect_encryption_algorithm(&event.content),
-                )?;
+                )
+                .await?;
             }
 
             // And return the error
@@ -526,7 +532,8 @@ pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Er
                 event.pubkey,
                 vec![seen_on_relay],
                 algo,
-            )?;
+            )
+            .await?;
             return Ok(()); // no need to pass back error
         }
     };
@@ -545,7 +552,8 @@ pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Er
             event.pubkey,
             reply_relays,
             algo,
-        )?;
+        )
+        .await?;
         return Ok(()); // no need to pass back error
     }
 
@@ -557,7 +565,8 @@ pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Er
             event.pubkey,
             reply_relays,
             algo,
-        )?;
+        )
+        .await?;
         return Ok(()); // no need to pass back error
     }
 
@@ -571,7 +580,8 @@ pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Er
                 event.pubkey,
                 reply_relays,
                 algo,
-            )?;
+            )
+            .await?;
             return Err(ErrorKind::NoPublicKey.into());
         }
     };
@@ -585,7 +595,8 @@ pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Er
             event.pubkey,
             reply_relays,
             algo,
-        )?;
+        )
+        .await?;
         return Ok(()); // no need to pass back error
     }
 
@@ -597,7 +608,8 @@ pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Er
             event.pubkey,
             reply_relays,
             algo,
-        )?;
+        )
+        .await?;
         return Ok(()); // no need to pass back error
     }
 
@@ -627,7 +639,8 @@ pub fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<(), Er
         event.pubkey,
         reply_relays,
         algo,
-    )?;
+    )
+    .await?;
 
     Ok(())
 }

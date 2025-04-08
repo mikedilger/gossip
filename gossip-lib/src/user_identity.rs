@@ -190,11 +190,11 @@ impl UserIdentity {
         Ok(self.inner.read_arc().key_security()?)
     }
 
-    pub fn sign_event(&self, input: PreEvent) -> Result<Event, Error> {
-        Ok(self.inner.read_arc().sign_event(input)?)
+    pub async fn sign_event(&self, input: PreEvent) -> Result<Event, Error> {
+        Ok(self.inner.read_arc().sign_event(input).await?)
     }
 
-    pub fn sign_event_with_pow(
+    pub async fn sign_event_with_pow(
         &self,
         input: PreEvent,
         zero_bits: u8,
@@ -203,7 +203,8 @@ impl UserIdentity {
         Ok(self
             .inner
             .read_arc()
-            .sign_event_with_pow(input, zero_bits, work_sender)?)
+            .sign_event_with_pow(input, zero_bits, work_sender)
+            .await?)
     }
 
     pub fn export_private_key_bech32(&self, pass: &str) -> Result<(String, bool), Error> {
@@ -257,7 +258,7 @@ impl UserIdentity {
         Ok(self.inner.read_arc().encrypt(other, plaintext, algo)?)
     }
 
-    pub fn create_metadata_event(
+    pub async fn create_metadata_event(
         &self,
         input: PreEvent,
         metadata: Metadata,
@@ -265,10 +266,11 @@ impl UserIdentity {
         Ok(self
             .inner
             .read_arc()
-            .create_metadata_event(input, metadata)?)
+            .create_metadata_event(input, metadata)
+            .await?)
     }
 
-    pub fn create_zap_request_event(
+    pub async fn create_zap_request_event(
         &self,
         recipient_pubkey: PublicKey,
         zapped_event: Option<Id>,
@@ -276,16 +278,20 @@ impl UserIdentity {
         relays: Vec<String>,
         content: String,
     ) -> Result<Event, Error> {
-        Ok(self.inner.read_arc().create_zap_request_event(
-            recipient_pubkey,
-            zapped_event,
-            millisatoshis,
-            relays,
-            content,
-        )?)
+        Ok(self
+            .inner
+            .read_arc()
+            .create_zap_request_event(
+                recipient_pubkey,
+                zapped_event,
+                millisatoshis,
+                relays,
+                content,
+            )
+            .await?)
     }
 
-    pub fn generate_delegation_signature(
+    pub async fn generate_delegation_signature(
         &self,
         delegated_pubkey: PublicKey,
         delegation_conditions: &DelegationConditions,
@@ -293,11 +299,12 @@ impl UserIdentity {
         Ok(self
             .inner
             .read_arc()
-            .generate_delegation_signature(delegated_pubkey, delegation_conditions)?)
+            .generate_delegation_signature(delegated_pubkey, delegation_conditions)
+            .await?)
     }
 
-    pub fn giftwrap(&self, input: PreEvent, pubkey: PublicKey) -> Result<Event, Error> {
-        Ok(self.inner.read_arc().giftwrap(input, pubkey)?)
+    pub async fn giftwrap(&self, input: PreEvent, pubkey: PublicKey) -> Result<Event, Error> {
+        Ok(self.inner.read_arc().giftwrap(input, pubkey).await?)
     }
 
     pub fn verify_delegation_signature(

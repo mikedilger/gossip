@@ -129,11 +129,11 @@ impl ClientIdentity {
         Ok(self.inner.read_arc().key_security()?)
     }
 
-    pub fn sign_event(&self, input: PreEvent) -> Result<Event, Error> {
-        Ok(self.inner.read_arc().sign_event(input)?)
+    pub async fn sign_event(&self, input: PreEvent) -> Result<Event, Error> {
+        Ok(self.inner.read_arc().sign_event(input).await?)
     }
 
-    pub fn sign_event_with_pow(
+    pub async fn sign_event_with_pow(
         &self,
         input: PreEvent,
         zero_bits: u8,
@@ -142,7 +142,8 @@ impl ClientIdentity {
         Ok(self
             .inner
             .read_arc()
-            .sign_event_with_pow(input, zero_bits, work_sender)?)
+            .sign_event_with_pow(input, zero_bits, work_sender)
+            .await?)
     }
 
     pub fn export_private_key_bech32(&self, pass: &str) -> Result<(String, bool), Error> {

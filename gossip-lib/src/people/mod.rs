@@ -723,7 +723,7 @@ impl People {
             content,
         };
 
-        GLOBALS.identity.sign_event(pre_event)
+        GLOBALS.identity.sign_event(pre_event).await
     }
 
     /// Follow (or unfollow) the public key

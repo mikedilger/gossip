@@ -126,7 +126,8 @@ impl Blossom {
                 "Check if exists".to_owned(),
                 Unixtime::now() + Duration::new(60, 0),
                 vec![],
-            )?;
+            )
+            .await?;
 
             req_builder = req_builder.header(AUTHORIZATION, format!("Nostr {}", authorization))
         };
@@ -158,7 +159,8 @@ impl Blossom {
                 "Download".to_owned(),
                 Unixtime::now() + Duration::new(60, 0),
                 vec![],
-            )?;
+            )
+            .await?;
 
             req_builder = req_builder.header(AUTHORIZATION, format!("Nostr {}", authorization))
         };
@@ -191,7 +193,8 @@ impl Blossom {
             "Upload".to_owned(),
             Unixtime::now() + Duration::new(60, 0),
             vec![hash],
-        )?;
+        )
+        .await?;
 
         let url = format!("{}upload", base_url);
         let response = self
@@ -236,7 +239,7 @@ impl Blossom {
 }
 
 // This returns the base64 encoded authorization event
-fn authorization(
+async fn authorization(
     verb: BlossomVerb,
     purpose: String,
     expiration: Unixtime,
@@ -263,7 +266,7 @@ fn authorization(
         content: purpose,
     };
 
-    let event = GLOBALS.identity.sign_event(pre_event)?;
+    let event = GLOBALS.identity.sign_event(pre_event).await?;
     let event_json = serde_json::to_string(&event)?;
     let base64 = base64::engine::general_purpose::STANDARD.encode(&event_json);
 
