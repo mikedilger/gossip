@@ -95,9 +95,9 @@ impl Minion {
                 tracing::warn!("{}: NOTICE: {}", &self.url, msg);
             }
             RelayMessage::Notify(msg) => {
-                // We currently don't support this as a user-facing UI element, but we
-                // can at least log it:
-                tracing::warn!("{}: NOTIFY: {}", &self.url, msg);
+                let message = format!("{}: NOTIFY: {}", &self.url, msg);
+                tracing::warn!(message);
+                GLOBALS.status_queue.write().write(message);
             }
             RelayMessage::Eose(subid) => {
                 let handle = self
