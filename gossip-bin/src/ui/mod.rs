@@ -453,10 +453,6 @@ struct GossipUi {
     // Modal dialogue
     modal: Option<Rc<ModalEntry>>,
 
-    // Toasts
-    toasts: HashMap<usize, String>,
-    next_toast_num: usize,
-
     // QR codes being rendered (in feed or elsewhere)
     // the f32's are the recommended image size
     qr_codes: HashMap<String, Result<(TextureHandle, f32, f32), Error>>,
@@ -745,10 +741,6 @@ impl GossipUi {
             }
         });
 
-        let mut toasts: HashMap<usize, String> = HashMap::new();
-        toasts.insert(0, "This is an example toast".to_string());
-        toasts.insert(1, "This is a second example toast".to_string());
-
         GossipUi {
             #[cfg(feature = "video-ffmpeg")]
             audio_device,
@@ -765,8 +757,6 @@ impl GossipUi {
             frame_count: 0,
             popups: HashMap::new(),
             modal: None,
-            toasts,
-            next_toast_num: 2,
             qr_codes: HashMap::new(),
             notecache: NoteCache::new(),
             notification_data: NotificationData::new(),
@@ -1047,7 +1037,7 @@ impl GossipUi {
                     } else {
                         ui.add_space(10.0);
                     }
-                    self.render_status_queue_area(ui);
+                    // self.render_status_queue_area(ui);
                     ui.add_space(10.0);
                     self.add_offline_switch(ui);
                 });
@@ -2186,6 +2176,7 @@ impl GossipUi {
         ui.label(spinner);
     }
 
+    /*
     fn render_status_queue_area(&self, ui: &mut Ui) {
         let messages = GLOBALS.status_queue.read().read_all();
         if ui
@@ -2206,17 +2197,8 @@ impl GossipUi {
         {
             GLOBALS.status_queue.write().dismiss(2);
         }
-    }
-
-    fn add_toast(&mut self, s: String) {
-        let num = self.next_toast_num;
-        self.next_toast_num += 1;
-        self.toasts.insert(num, s);
-    }
-
-    fn rm_toast(&mut self, u: usize) {
-        self.toasts.remove(&u);
-    }
+}
+    */
 }
 
 impl eframe::App for GossipUi {
@@ -2538,27 +2520,29 @@ impl eframe::App for GossipUi {
         let central_panel_response = ir.response;
 
         // Render toasts
-        let toasts = self.toasts.clone();
         let mut y = central_panel_response.rect.max.y - 100.0;
-        for (u, s) in &toasts {
-            let pos = Pos2 {
-                x: central_panel_response.rect.max.x - 100.0,
-                y,
-            };
-            let response = egui::containers::popup::show_tooltip_at(
-                ctx,
-                central_panel_response.layer_id,
-                egui::Id::new(u),
-                pos,
-                |ui| -> Response {
-                    let response = ui.add(Label::new(s).sense(Sense::click()));
-                    if response.clicked() {
-                        self.rm_toast(*u);
-                    };
-                    response
-                }
-            );
-            y = response.rect.min.y - 50.0;
+        let messages = GLOBALS.status_queue.read().read_all();
+        for (i, s) in messages.iter().enumerate() {
+            if s.len() > 0 {
+                let pos = Pos2 {
+                    x: central_panel_response.rect.max.x - 100.0,
+                    y,
+                };
+                let response = egui::containers::popup::show_tooltip_at(
+                    ctx,
+                    central_panel_response.layer_id,
+                    egui::Id::new(format!("status_toast_{i}")),
+                    pos,
+                    |ui| -> Response {
+                        let response = ui.add(Label::new(s).sense(Sense::click()));
+                        if response.clicked() {
+                            GLOBALS.status_queue.write().dismiss(i);
+                        };
+                        response
+                    }
+                );
+                y = response.rect.min.y - 50.0;
+            }
         }
     }
 }

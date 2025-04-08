@@ -2,14 +2,14 @@
 /// representing errors that occurred in disconnected backend processes.
 pub struct StatusQueue {
     head: usize,
-    messages: [String; 3],
+    messages: [String; 5],
 }
 
 impl Default for StatusQueue {
     fn default() -> StatusQueue {
         StatusQueue {
             head: 0,
-            messages: ["".to_owned(), "".to_owned(), "".to_owned()],
+            messages: ["".to_owned(), "".to_owned(), "".to_owned(), "".to_owned(), "".to_owned()],
         }
     }
 }
@@ -21,11 +21,13 @@ impl StatusQueue {
         sq
     }
 
-    pub fn read_all(&self) -> [String; 3] {
+    pub fn read_all(&self) -> [String; 5] {
         [
             self.messages[self.head].clone(),
-            self.messages[(self.head + 1) % 3].clone(),
-            self.messages[(self.head + 2) % 3].clone(),
+            self.messages[(self.head + 1) % 5].clone(),
+            self.messages[(self.head + 2) % 5].clone(),
+            self.messages[(self.head + 3) % 5].clone(),
+            self.messages[(self.head + 4) % 5].clone(),
         ]
     }
 
@@ -34,11 +36,11 @@ impl StatusQueue {
     }
 
     pub fn write(&mut self, message: String) {
-        self.head = (self.head + 2) % 3; // like -1, but modular safe
+        self.head = (self.head + 4) % 5; // like -1, but modular safe
         self.messages[self.head] = message;
     }
 
     pub fn dismiss(&mut self, offset: usize) {
-        self.messages[(self.head + offset) % 3] = "".to_owned();
+        self.messages[(self.head + offset) % 5] = "".to_owned();
     }
 }
