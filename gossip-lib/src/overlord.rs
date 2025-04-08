@@ -158,19 +158,19 @@ impl Overlord {
             // If we need to rebuild relationships, do so now
             if GLOBALS.db().get_flag_rebuild_relationships_needed() {
                 tracing::info!("Rebuilding relationships...");
-                GLOBALS.db().rebuild_relationships(None)?;
+                GLOBALS.db().rebuild_relationships(None).await?;
             }
 
             // If we need to rebuild indexes, do so now
             if GLOBALS.db().get_flag_rebuild_indexes_needed() {
                 tracing::info!("Rebuilding event indices...");
-                GLOBALS.db().rebuild_event_indices(None)?;
+                GLOBALS.db().rebuild_event_indices(None).await?;
             }
 
             // If we need to rebuild indexes, do so now
             if GLOBALS.db().get_flag_rebuild_tag_index_needed() {
                 tracing::info!("Rebuilding tag index...");
-                GLOBALS.db().rebuild_event_tags_index(None)?;
+                GLOBALS.db().rebuild_event_tags_index(None).await?;
             }
 
             // If we need to reapply relay lists, do so now
@@ -673,7 +673,7 @@ impl Overlord {
                 Self::hide_or_show_relay(relay_url, hidden)?;
             }
             ToOverlordMessage::ImportPriv { privkey, password } => {
-                Self::import_priv(privkey, password)?;
+                Self::import_priv(privkey, password).await?;
             }
             ToOverlordMessage::ImportPub(pubstr) => {
                 Self::import_pub(pubstr)?;
@@ -807,7 +807,7 @@ impl Overlord {
                 self.track_follows(pubkey).await?;
             }
             ToOverlordMessage::UnlockKey(password) => {
-                Self::unlock_key(password)?;
+                Self::unlock_key(password).await?;
             }
             ToOverlordMessage::UpdateMetadata(pubkey) => {
                 self.update_metadata(pubkey)?;
@@ -1632,12 +1632,12 @@ impl Overlord {
     }
 
     /// Import a private key
-    pub fn import_priv(mut privkey: String, mut password: String) -> Result<(), Error> {
+    pub async fn import_priv(mut privkey: String, mut password: String) -> Result<(), Error> {
         if privkey.starts_with("ncryptsec") {
             let epk = EncryptedPrivateKey(privkey);
             match GLOBALS.identity.set_encrypted_private_key(epk, &password) {
                 Ok(_) => {
-                    GLOBALS.identity.unlock(&password)?;
+                    GLOBALS.identity.unlock(&password).await?;
                     GLOBALS.client_identity.generate_private_key(&password)?;
                     password.zeroize();
                 }
@@ -3449,8 +3449,8 @@ impl Overlord {
 
     /// Unlock the private key with the given passphrase so that gossip can use it.
     /// This is akin to logging in.
-    pub fn unlock_key(mut password: String) -> Result<(), Error> {
-        if let Err(e) = GLOBALS.identity.unlock(&password) {
+    pub async fn unlock_key(mut password: String) -> Result<(), Error> {
+        if let Err(e) = GLOBALS.identity.unlock(&password).await {
             tracing::error!("{}", e);
             GLOBALS
                 .status_queue
@@ -3602,7 +3602,8 @@ impl Overlord {
         if list != PersonList::Followed && !event.content.is_empty() {
             if GLOBALS.identity.is_unlocked() {
                 // Private entries
-                let decrypted_content = GLOBALS.identity.decrypt(&my_pubkey, &event.content)?;
+                let decrypted_content =
+                    GLOBALS.identity.decrypt(&my_pubkey, &event.content).await?;
 
                 let tags: Vec<Tag> = serde_json::from_str(&decrypted_content)?;
 

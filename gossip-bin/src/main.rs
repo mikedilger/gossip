@@ -62,11 +62,13 @@ fn main() -> Result<(), Error> {
         let _ = args.next(); // rapid param
     }
 
-    // Initialize the lib
-    gossip_lib::init(rapid, args.len() > 0)?;
-
     // Setup async, and allow non-async code the context to spawn tasks
     let _main_rt = GLOBALS.runtime.enter(); // <-- this allows it.
+
+    // Initialize the lib
+    GLOBALS
+        .runtime
+        .block_on(async { gossip_lib::init(rapid, args.len() > 0).await })?;
 
     // If we were handed a command, execute the command and (usually) return
     let exit: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));

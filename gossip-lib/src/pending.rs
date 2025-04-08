@@ -217,7 +217,7 @@ impl Pending {
         *self.pending_hash.write() = calculate_pending_hash(&pending);
     }
 
-    pub fn compute_pending(&self) -> Result<(), Error> {
+    pub async fn compute_pending(&self) -> Result<(), Error> {
         let mypubkey = match GLOBALS.identity.public_key() {
             Some(pk) => pk,
             None => return Ok(()), // nothing pending if no identity
@@ -293,7 +293,7 @@ impl Pending {
 
             // If mismatched, should be re-synced
             let stored_hash = GLOBALS.db().hash_person_list(*list)?;
-            let last_event_hash = crate::people::hash_person_list_event(*list)?;
+            let last_event_hash = crate::people::hash_person_list_event(*list).await?;
             if stored_hash != last_event_hash {
                 self.insert(PendingItem::PersonListOutOfSync(*list));
                 continue;

@@ -125,10 +125,10 @@ pub async fn prepare_post_nip04(
         dm_channel.keys()[0]
     };
 
-    let content =
-        GLOBALS
-            .identity
-            .encrypt(&recipient, &content, ContentEncryptionAlgorithm::Nip04)?;
+    let content = GLOBALS
+        .identity
+        .encrypt(&recipient, &content, ContentEncryptionAlgorithm::Nip04)
+        .await?;
 
     let mut tags = vec![ParsedTag::Pubkey {
         pubkey: recipient,

@@ -168,7 +168,7 @@ pub async fn process_new_event(
         GLOBALS.db().write_event_volatile(event.to_owned());
     } else if event.kind.is_replaceable() {
         // Bail if the event is an already-replaced replaceable event
-        if !GLOBALS.db().replace_event(event, None)? {
+        if !GLOBALS.db().replace_event(event, None).await? {
             tracing::trace!(
                 "{}: Old Event: {} {:?} @{}",
                 seen_on.as_ref().map(|r| r.as_str()).unwrap_or("_"),
@@ -180,7 +180,7 @@ pub async fn process_new_event(
         }
     } else {
         // This will ignore if it is already there
-        GLOBALS.db().write_event(event, None)?;
+        GLOBALS.db().write_event(event, None).await?;
     }
 
     // Log
@@ -209,7 +209,7 @@ pub async fn process_new_event(
     let mut event: &Event = event; // take ownership of this reference
     let mut rumor_event: Event;
     if event.kind == EventKind::GiftWrap {
-        if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(event) {
+        if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(event).await {
             rumor_event = rumor.into_event_with_bad_signature();
             rumor_event.id = event.id; // Lie so it's handled with the giftwrap's id
             event = &rumor_event;
@@ -262,7 +262,7 @@ pub async fn process_new_event(
     // Save event relationships (whether from a relay or not)
     // and invalidate UI events that need to be redrawn because those relationships
     // affect their rendering.
-    let invalid_ids = process_relationships_of_event(event, None)?;
+    let invalid_ids = process_relationships_of_event(event, None).await?;
     GLOBALS.ui_invalidate_notes(&invalid_ids);
 
     if event.kind.is_feed_displayable() {
@@ -280,9 +280,9 @@ pub async fn process_new_event(
         EventKind::Metadata => by_kind::process_metadata(event)?,
         EventKind::HandlerRecommendation => by_kind::process_handler_recommendation(event)?,
         EventKind::HandlerInformation => by_kind::process_handler_information(event)?,
-        EventKind::ContactList => by_kind::process_contact_list(event)?,
-        EventKind::MuteList => by_kind::process_mute_list(event, ours)?,
-        EventKind::FollowSets => by_kind::process_follow_sets(event, ours)?,
+        EventKind::ContactList => by_kind::process_contact_list(event).await?,
+        EventKind::MuteList => by_kind::process_mute_list(event, ours).await?,
+        EventKind::FollowSets => by_kind::process_follow_sets(event, ours).await?,
         EventKind::RelayList => by_kind::process_relay_list(event)?,
         EventKind::DmRelayList => by_kind::process_dm_relay_list(event)?,
         EventKind::Repost => by_kind::process_repost(event, verify).await?,
@@ -389,7 +389,7 @@ fn process_feed_displayable_content(
 
 /// Process relationships of an event.
 /// This returns IDs that should be UI invalidated (must be redrawn)
-pub(crate) fn process_relationships_of_event(
+pub(crate) async fn process_relationships_of_event(
     event: &Event,
     rw_txn: Option<&mut RwTxn<'_>>,
 ) -> Result<Vec<Id>, Error> {
@@ -588,7 +588,7 @@ pub(crate) fn process_relationships_of_event(
                         .get_replaceable_event(EventKind::BookmarkList, pk, "")?
                 {
                     if newest_event == *event {
-                        *GLOBALS.bookmarks.write_arc() = BookmarkList::from_event(event)?;
+                        *GLOBALS.bookmarks.write_arc() = BookmarkList::from_event(event).await?;
                         GLOBALS.recompute_current_bookmarks.notify_one();
                     }
                 }

@@ -55,7 +55,7 @@ impl UserIdentity {
             // Rebuild the event tag index if the identity changes
             // since the 'p' tags it needs to index just changed.
             task::spawn(async move {
-                if let Err(e) = GLOBALS.db().rebuild_event_tags_index(None) {
+                if let Err(e) = GLOBALS.db().rebuild_event_tags_index(None).await {
                     tracing::error!("{}", e);
                 }
             });
@@ -65,7 +65,7 @@ impl UserIdentity {
     }
 
     // Any function that unlocks the private key should run this
-    fn on_unlock(&self) -> Result<(), Error> {
+    async fn on_unlock(&self) -> Result<(), Error> {
         let mut filter = Filter::new();
         filter.kinds = vec![EventKind::EncryptedDirectMessage, EventKind::GiftWrap];
 
@@ -86,13 +86,13 @@ impl UserIdentity {
                     .db()
                     .get_replaceable_event(EventKind::BookmarkList, pk, "")?
             {
-                *GLOBALS.bookmarks.write_arc() = BookmarkList::from_event(&event)?;
+                *GLOBALS.bookmarks.write_arc() = BookmarkList::from_event(&event).await?;
                 GLOBALS.recompute_current_bookmarks.notify_one();
             }
         }
 
         // Index any waiting GiftWraps
-        GLOBALS.db().index_unindexed_giftwraps()?;
+        GLOBALS.db().index_unindexed_giftwraps().await?;
 
         // Update wait for login condition
         GLOBALS
@@ -140,7 +140,7 @@ impl UserIdentity {
         Ok(())
     }
 
-    pub fn unlock(&self, pass: &str) -> Result<(), Error> {
+    pub async fn unlock(&self, pass: &str) -> Result<(), Error> {
         self.inner.write_arc().unlock(pass)?;
 
         // If older version, re-encrypt with new version at default 2^18 rounds
@@ -152,7 +152,7 @@ impl UserIdentity {
             }
         }
 
-        self.on_unlock()?;
+        self.on_unlock().await?;
 
         Ok(())
     }
@@ -207,55 +207,61 @@ impl UserIdentity {
             .await?)
     }
 
-    pub fn export_private_key_bech32(&self, pass: &str) -> Result<(String, bool), Error> {
+    pub async fn export_private_key_bech32(&self, pass: &str) -> Result<(String, bool), Error> {
         let log_n = GLOBALS.db().read_setting_log_n();
         Ok(self
             .inner
             .write_arc()
-            .export_private_key_in_bech32(pass, log_n)?)
+            .export_private_key_in_bech32(pass, log_n)
+            .await?)
     }
 
-    pub fn export_private_key_hex(&self, pass: &str) -> Result<(String, bool), Error> {
+    pub async fn export_private_key_hex(&self, pass: &str) -> Result<(String, bool), Error> {
         let log_n = GLOBALS.db().read_setting_log_n();
         Ok(self
             .inner
             .write_arc()
-            .export_private_key_in_hex(pass, log_n)?)
+            .export_private_key_in_hex(pass, log_n)
+            .await?)
     }
 
-    pub fn unwrap_giftwrap(&self, event: &Event) -> Result<Rumor, Error> {
-        Ok(self.inner.read_arc().unwrap_giftwrap(event)?)
-    }
-
-    /// @deprecated for migrations only
-    pub fn unwrap_giftwrap1(&self, event: &EventV1) -> Result<RumorV1, Error> {
-        Ok(self.inner.read_arc().unwrap_giftwrap1(event)?)
+    pub async fn unwrap_giftwrap(&self, event: &Event) -> Result<Rumor, Error> {
+        Ok(self.inner.read_arc().unwrap_giftwrap(event).await?)
     }
 
     /// @deprecated for migrations only
-    pub fn unwrap_giftwrap2(&self, event: &EventV2) -> Result<RumorV2, Error> {
-        Ok(self.inner.read_arc().unwrap_giftwrap2(event)?)
+    pub async fn unwrap_giftwrap1(&self, event: &EventV1) -> Result<RumorV1, Error> {
+        Ok(self.inner.read_arc().unwrap_giftwrap1(event).await?)
     }
 
-    pub fn decrypt_event_contents(&self, event: &Event) -> Result<String, Error> {
-        Ok(self.inner.read_arc().decrypt_event_contents(event)?)
+    /// @deprecated for migrations only
+    pub async fn unwrap_giftwrap2(&self, event: &EventV2) -> Result<RumorV2, Error> {
+        Ok(self.inner.read_arc().unwrap_giftwrap2(event).await?)
     }
 
-    pub fn decrypt(&self, other: &PublicKey, ciphertext: &str) -> Result<String, Error> {
-        Ok(self.inner.read_arc().decrypt(other, ciphertext)?)
+    pub async fn decrypt_event_contents(&self, event: &Event) -> Result<String, Error> {
+        Ok(self.inner.read_arc().decrypt_event_contents(event).await?)
     }
 
-    pub fn nip44_conversation_key(&self, other: &PublicKey) -> Result<[u8; 32], Error> {
-        Ok(self.inner.read_arc().nip44_conversation_key(other)?)
+    pub async fn decrypt(&self, other: &PublicKey, ciphertext: &str) -> Result<String, Error> {
+        Ok(self.inner.read_arc().decrypt(other, ciphertext).await?)
     }
 
-    pub fn encrypt(
+    pub async fn nip44_conversation_key(&self, other: &PublicKey) -> Result<[u8; 32], Error> {
+        Ok(self.inner.read_arc().nip44_conversation_key(other).await?)
+    }
+
+    pub async fn encrypt(
         &self,
         other: &PublicKey,
         plaintext: &str,
         algo: ContentEncryptionAlgorithm,
     ) -> Result<String, Error> {
-        Ok(self.inner.read_arc().encrypt(other, plaintext, algo)?)
+        Ok(self
+            .inner
+            .read_arc()
+            .encrypt(other, plaintext, algo)
+            .await?)
     }
 
     pub async fn create_metadata_event(

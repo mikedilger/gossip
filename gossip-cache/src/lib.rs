@@ -179,7 +179,10 @@ impl NoteData {
             encryption = EncryptionType::Giftwrap;
             // Use the rumor for subsequent processing, but swap for the Giftwrap's id
             // since that is the effective event (database-accessible, deletable, etc)
-            if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(&event) {
+            let result = GLOBALS
+                .runtime
+                .block_on(async { GLOBALS.identity.unwrap_giftwrap(&event).await });
+            if let Ok(rumor) = result {
                 let id = event.id;
                 event = rumor.into_event_with_bad_signature();
                 event.id = id; // lie, keep the giftwrap id
@@ -259,7 +262,10 @@ impl NoteData {
             EventKind::Repost => ("".to_owned(), embedded_event_error),
             EventKind::GenericRepost => ("".to_owned(), None),
             EventKind::EncryptedDirectMessage => {
-                match GLOBALS.identity.decrypt_event_contents(&event) {
+                let result = GLOBALS
+                    .runtime
+                    .block_on(async { GLOBALS.identity.decrypt_event_contents(&event).await });
+                match result {
                     Ok(m) => (m, None),
                     Err(_) => ("".to_owned(), Some("DECRYPTION FAILED".to_owned())),
                 }

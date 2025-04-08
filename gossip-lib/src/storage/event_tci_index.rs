@@ -49,7 +49,7 @@ impl Storage {
         }
     }
 
-    pub fn write_event3_tci_index<'a>(
+    pub async fn write_event3_tci_index<'a>(
         &'a self,
         event: &EventV3,
         rw_txn: Option<&mut RwTxn<'a>>,
@@ -62,7 +62,7 @@ impl Storage {
         //   Use the pubkey and created_at of the rumor
         let mut innerevent: &EventV3 = event;
         let rumor: EventV3;
-        if let Some(r) = self.switch_to_rumor3(event, txn)? {
+        if let Some(r) = self.switch_to_rumor3(event, txn).await? {
             rumor = r;
             innerevent = &rumor;
         }

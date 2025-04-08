@@ -15,7 +15,7 @@ impl Storage {
         Ok(())
     }
 
-    pub(super) fn m20_migrate<'a>(
+    pub(super) async fn m20_migrate<'a>(
         &'a self,
         prefix: &str,
         txn: &mut RwTxn<'a>,
@@ -24,7 +24,7 @@ impl Storage {
         tracing::info!("{prefix}: initializing person list event metadata...");
 
         // Migrate
-        self.m20_initialize_person_list_event_metadata(txn)?;
+        self.m20_initialize_person_list_event_metadata(txn).await?;
 
         Ok(())
     }
@@ -92,7 +92,7 @@ impl Storage {
         Ok(events)
     }
 
-    fn m20_initialize_person_list_event_metadata<'a>(
+    async fn m20_initialize_person_list_event_metadata<'a>(
         &'a self,
         txn: &mut RwTxn<'a>,
     ) -> Result<(), Error> {
@@ -115,7 +115,7 @@ impl Storage {
                 metadata.event_private_len = {
                     let mut private_len: Option<usize> = None;
                     if !matches!(list, PersonList1::Followed) && GLOBALS.identity.is_unlocked() {
-                        if let Ok(bytes) = GLOBALS.identity.decrypt(&pk, &event.content) {
+                        if let Ok(bytes) = GLOBALS.identity.decrypt(&pk, &event.content).await {
                             if let Ok(vectags) = serde_json::from_str::<Vec<TagV2>>(&bytes) {
                                 private_len = Some(vectags.len());
                             }

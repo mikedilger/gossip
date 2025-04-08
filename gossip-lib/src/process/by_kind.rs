@@ -127,11 +127,11 @@ pub fn process_handler_information(event: &Event) -> Result<(), Error> {
 }
 
 // EventKind::ContactList
-pub fn process_contact_list(event: &Event) -> Result<(), Error> {
+pub async fn process_contact_list(event: &Event) -> Result<(), Error> {
     if let Some(pubkey) = GLOBALS.identity.public_key() {
         if event.pubkey == pubkey {
             // Updates stamps and counts, does NOT change membership
-            let (_personlist, _metadata) = update_or_allocate_person_list_from_event(event)?;
+            let (_personlist, _metadata) = update_or_allocate_person_list_from_event(event).await?;
         } else {
             process_somebody_elses_contact_list(event, false)?;
         }
@@ -143,18 +143,18 @@ pub fn process_contact_list(event: &Event) -> Result<(), Error> {
 }
 
 // EventKind::MuteList
-pub fn process_mute_list(event: &Event, ours: bool) -> Result<(), Error> {
+pub async fn process_mute_list(event: &Event, ours: bool) -> Result<(), Error> {
     if ours {
-        let (_personlist, _metadata) = update_or_allocate_person_list_from_event(event)?;
+        let (_personlist, _metadata) = update_or_allocate_person_list_from_event(event).await?;
     }
 
     Ok(())
 }
 
 // EventKind::FollowSets
-pub fn process_follow_sets(event: &Event, ours: bool) -> Result<(), Error> {
+pub async fn process_follow_sets(event: &Event, ours: bool) -> Result<(), Error> {
     if ours {
-        let (_personlist, _metadata) = update_or_allocate_person_list_from_event(event)?;
+        let (_personlist, _metadata) = update_or_allocate_person_list_from_event(event).await?;
     }
 
     Ok(())
@@ -334,7 +334,7 @@ pub fn process_somebody_elses_contact_list(event: &Event, force: bool) -> Result
 
 // This updates the event data and maybe the title, but it does NOT update the list
 // (that happens only when the user overwrites/merges)
-fn update_or_allocate_person_list_from_event(
+async fn update_or_allocate_person_list_from_event(
     event: &Event,
 ) -> Result<(PersonList, PersonListMetadata), Error> {
     use nostr_types::{EventKind, Tag};
@@ -354,7 +354,11 @@ fn update_or_allocate_person_list_from_event(
             metadata.event_private_len = None;
         } else if GLOBALS.identity.is_unlocked() {
             let mut private_len: Option<usize> = None;
-            if let Ok(bytes) = GLOBALS.identity.decrypt(&event.pubkey, &event.content) {
+            if let Ok(bytes) = GLOBALS
+                .identity
+                .decrypt(&event.pubkey, &event.content)
+                .await
+            {
                 if let Ok(vectags) = serde_json::from_str::<Vec<Tag>>(&bytes) {
                     private_len = Some(vectags.iter().filter(|t| t.tagname() == "p").count());
                 }

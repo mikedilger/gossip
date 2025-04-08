@@ -968,7 +968,10 @@ fn refresh_list_data(app: &mut GossipUi, list: PersonList) {
         }
     }
 
-    app.people_list.cache_remote_hash = gossip_lib::hash_person_list_event(list).unwrap_or(1);
+    let option = GLOBALS
+        .runtime
+        .block_on(async { gossip_lib::hash_person_list_event(list).await });
+    app.people_list.cache_remote_hash = option.unwrap_or(1);
 
     app.people_list.cache_remote_tag = if metadata.event_created_at.0 == 0 {
         "REMOTE: not found on Active Relays".to_owned()

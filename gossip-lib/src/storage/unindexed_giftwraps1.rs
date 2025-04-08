@@ -43,7 +43,7 @@ impl Storage {
         }
     }
 
-    pub(crate) fn index_unindexed_giftwraps1(&self) -> Result<(), Error> {
+    pub(crate) async fn index_unindexed_giftwraps1(&self) -> Result<(), Error> {
         if !GLOBALS.identity.is_unlocked() {
             return Err(ErrorKind::NoPrivateKey.into());
         }
@@ -69,7 +69,7 @@ impl Storage {
                     Some(&mut txn),
                 )?;
                 self.write_event_kci_index(event.kind, event.created_at, event.id, Some(&mut txn))?;
-                self.write_event_tci_index(&event, Some(&mut txn))?;
+                self.write_event_tci_index(&event, Some(&mut txn)).await?;
             }
             self.db_unindexed_giftwraps1()?
                 .delete(&mut txn, id.as_slice())?;

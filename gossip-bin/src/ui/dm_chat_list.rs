@@ -15,7 +15,10 @@ use std::time::{Duration, Instant};
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     // Possibly refresh DM channels (every 5 seconds)
     if app.dm_channel_next_refresh < Instant::now() {
-        app.dm_channel_cache = match GLOBALS.db().dm_channels() {
+        let result = GLOBALS
+            .runtime
+            .block_on(async { GLOBALS.db().dm_channels().await });
+        app.dm_channel_cache = match result {
             Ok(channels) => {
                 app.dm_channel_error = None;
                 channels

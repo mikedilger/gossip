@@ -174,12 +174,17 @@ pub(super) fn offer_unlock_priv_key(app: &mut GossipUi, ui: &mut Ui) {
             app.unlock_needs_focus = false;
         }
         if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-            let _ = gossip_lib::Overlord::unlock_key(app.password.clone());
+            GLOBALS.runtime.block_on(async {
+                let _ = gossip_lib::Overlord::unlock_key(app.password.clone()).await;
+            });
             app.password.zeroize();
             app.password = "".to_owned();
             app.draft_needs_focus = true;
         }
         if ui.button("Unlock Private Key").clicked() {
+            GLOBALS.runtime.block_on(async {
+                let _ = gossip_lib::Overlord::unlock_key(app.password.clone()).await;
+            });
             let _ = gossip_lib::Overlord::unlock_key(app.password.clone());
             app.password.zeroize();
             app.password = "".to_owned();
@@ -277,7 +282,13 @@ fn offer_export_priv_key(app: &mut GossipUi, ui: &mut Ui) {
     });
 
     if ui.button("Export Private Key as bech32").clicked() {
-        match GLOBALS.identity.export_private_key_bech32(&app.password) {
+        let mut p = app.password.clone();
+        let result = GLOBALS.runtime.block_on(async move {
+            let result = GLOBALS.identity.export_private_key_bech32(&p).await;
+            p.zeroize();
+            result
+        });
+        match result {
             Ok((mut bech32, _)) => {
                 println!("Exported private key (bech32): {}", bech32);
                 bech32.zeroize();
@@ -291,7 +302,13 @@ fn offer_export_priv_key(app: &mut GossipUi, ui: &mut Ui) {
         app.password = "".to_owned();
     }
     if ui.button("Export Private Key as hex").clicked() {
-        match GLOBALS.identity.export_private_key_hex(&app.password) {
+        let mut p = app.password.clone();
+        let result = GLOBALS.runtime.block_on(async move {
+            let result = GLOBALS.identity.export_private_key_hex(&p).await;
+            p.zeroize();
+            result
+        });
+        match result {
             Ok((mut hex, _)) => {
                 println!("Exported private key (hex): {}", hex);
                 hex.zeroize();

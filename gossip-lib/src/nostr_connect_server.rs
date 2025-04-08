@@ -123,7 +123,7 @@ impl Nip46Server {
             "get_relays" => self.get_relays(),
             "nip04_encrypt" => {
                 if self.encrypt_approval.is_approved() {
-                    self.nip04_encrypt(params)
+                    self.nip04_encrypt(params).await
                 } else if self.encrypt_approval == Approval::Ask {
                     Err(ErrorKind::Nip46NeedApproval.into())
                 } else {
@@ -132,7 +132,7 @@ impl Nip46Server {
             }
             "nip04_decrypt" => {
                 if self.decrypt_approval.is_approved() {
-                    self.nip04_decrypt(params)
+                    self.nip04_decrypt(params).await
                 } else if self.decrypt_approval == Approval::Ask {
                     Err(ErrorKind::Nip46NeedApproval.into())
                 } else {
@@ -141,7 +141,7 @@ impl Nip46Server {
             }
             "nip44_get_key" => {
                 if self.encrypt_approval.is_approved() || self.decrypt_approval.is_approved() {
-                    self.nip44_get_key(params)
+                    self.nip44_get_key(params).await
                 } else if self.encrypt_approval == Approval::Ask {
                     Err(ErrorKind::Nip46NeedApproval.into())
                 } else {
@@ -150,7 +150,7 @@ impl Nip46Server {
             }
             "nip44_encrypt" => {
                 if self.encrypt_approval.is_approved() {
-                    self.nip44_encrypt(params)
+                    self.nip44_encrypt(params).await
                 } else if self.encrypt_approval == Approval::Ask {
                     Err(ErrorKind::Nip46NeedApproval.into())
                 } else {
@@ -159,7 +159,7 @@ impl Nip46Server {
             }
             "nip44_decrypt" => {
                 if self.decrypt_approval.is_approved() {
-                    self.nip44_decrypt(params)
+                    self.nip44_decrypt(params).await
                 } else if self.decrypt_approval == Approval::Ask {
                     Err(ErrorKind::Nip46NeedApproval.into())
                 } else {
@@ -247,56 +247,61 @@ impl Nip46Server {
         Ok(answer)
     }
 
-    fn nip04_encrypt(&self, params: &[String]) -> Result<String, Error> {
+    async fn nip04_encrypt(&self, params: &[String]) -> Result<String, Error> {
         if params.len() < 2 {
             return Err("nip04_encrypt: requires two parameters".into());
         }
         let other_pubkey = PublicKey::try_from_hex_string(&params[0], true)?;
-        let ciphertext = GLOBALS.identity.encrypt(
-            &other_pubkey,
-            &params[1],
-            ContentEncryptionAlgorithm::Nip04,
-        )?;
+        let ciphertext = GLOBALS
+            .identity
+            .encrypt(&other_pubkey, &params[1], ContentEncryptionAlgorithm::Nip04)
+            .await?;
         Ok(ciphertext)
     }
 
-    fn nip04_decrypt(&self, params: &[String]) -> Result<String, Error> {
+    async fn nip04_decrypt(&self, params: &[String]) -> Result<String, Error> {
         if params.len() < 2 {
             return Err("nip04_decrypt: requires two parameters".into());
         }
         let other_pubkey = PublicKey::try_from_hex_string(&params[0], true)?;
-        GLOBALS.identity.decrypt(&other_pubkey, &params[1])
+        GLOBALS.identity.decrypt(&other_pubkey, &params[1]).await
     }
 
-    fn nip44_get_key(&self, params: &[String]) -> Result<String, Error> {
+    async fn nip44_get_key(&self, params: &[String]) -> Result<String, Error> {
         if params.is_empty() {
             return Err("nip44_get_key: requires a parameter".into());
         }
         let other_pubkey = PublicKey::try_from_hex_string(&params[0], true)?;
-        let ck = GLOBALS.identity.nip44_conversation_key(&other_pubkey)?;
+        let ck = GLOBALS
+            .identity
+            .nip44_conversation_key(&other_pubkey)
+            .await?;
         let ckhex = hex::encode(ck);
         Ok(ckhex)
     }
 
-    fn nip44_encrypt(&self, params: &[String]) -> Result<String, Error> {
+    async fn nip44_encrypt(&self, params: &[String]) -> Result<String, Error> {
         if params.len() < 2 {
             return Err("nip44_encrypt: requires two parameters".into());
         }
         let other_pubkey = PublicKey::try_from_hex_string(&params[0], true)?;
-        let ciphertext = GLOBALS.identity.encrypt(
-            &other_pubkey,
-            &params[1],
-            ContentEncryptionAlgorithm::Nip44v2,
-        )?;
+        let ciphertext = GLOBALS
+            .identity
+            .encrypt(
+                &other_pubkey,
+                &params[1],
+                ContentEncryptionAlgorithm::Nip44v2,
+            )
+            .await?;
         Ok(ciphertext)
     }
 
-    fn nip44_decrypt(&self, params: &[String]) -> Result<String, Error> {
+    async fn nip44_decrypt(&self, params: &[String]) -> Result<String, Error> {
         if params.len() < 2 {
             return Err("nip44_decrypt: requires two parameters".into());
         }
         let other_pubkey = PublicKey::try_from_hex_string(&params[0], true)?;
-        let plaintext = GLOBALS.identity.decrypt(&other_pubkey, &params[1])?;
+        let plaintext = GLOBALS.identity.decrypt(&other_pubkey, &params[1]).await?;
         Ok(plaintext)
     }
 
@@ -329,10 +334,10 @@ pub struct ParsedCommand {
     pub algo: ContentEncryptionAlgorithm,
 }
 
-fn parse_command(peer_pubkey: PublicKey, contents: &str) -> Result<ParsedCommand, Error> {
+async fn parse_command(peer_pubkey: PublicKey, contents: &str) -> Result<ParsedCommand, Error> {
     let algo = PrivateKey::detect_encryption_algorithm(contents);
 
-    let bytes = GLOBALS.identity.decrypt(&peer_pubkey, contents)?;
+    let bytes = GLOBALS.identity.decrypt(&peer_pubkey, contents).await?;
 
     let json: serde_json::Value = serde_json::from_str(&bytes)?;
 
@@ -416,7 +421,7 @@ async fn send_response(
     });
     let s = output.to_string();
 
-    let e = GLOBALS.identity.encrypt(&peer_pubkey, &s, algo)?;
+    let e = GLOBALS.identity.encrypt(&peer_pubkey, &s, algo).await?;
 
     let pre_event = PreEvent {
         pubkey: public_key,
@@ -444,7 +449,7 @@ pub async fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<
     // If we have a server for that pubkey
     if let Some(mut server) = GLOBALS.db().read_nip46server(event.pubkey)? {
         // Parse the command
-        let parsed_command = match parse_command(event.pubkey, &event.content) {
+        let parsed_command = match parse_command(event.pubkey, &event.content).await {
             Ok(pc) => pc,
             Err(e) => {
                 if let ErrorKind::Nip46ParsingError(ref id, ref msg) = e.kind {
@@ -492,7 +497,7 @@ pub async fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<
 
     // Check for a `connect` command
     // which is the only command available to unconfigured pubkeys
-    let parsed_command = match parse_command(event.pubkey, &event.content) {
+    let parsed_command = match parse_command(event.pubkey, &event.content).await {
         Ok(parsed_command) => parsed_command,
         Err(e) => {
             // Send back the error if we have one for them

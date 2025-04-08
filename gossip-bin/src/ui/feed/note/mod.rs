@@ -638,7 +638,10 @@ pub fn render_note_inside_framing(
                             .clicked()
                         {
                             if note.event.kind.is_direct_message_related() {
-                                if let Some(channel) = DmChannel::from_event(&note.event, None) {
+                                let option = GLOBALS.runtime.block_on(async {
+                                    DmChannel::from_event(&note.event, None).await
+                                });
+                                if let Some(channel) = option {
                                     next_page = Some(Page::Feed(FeedKind::DmChat(channel)));
                                 } else {
                                     GLOBALS.status_queue.write().write(
@@ -768,9 +771,10 @@ pub fn render_note_inside_framing(
                                     .on_hover_text("Reply")
                                     .clicked()
                                     {
-                                        if let Some(channel) =
-                                            DmChannel::from_event(&note.event, None)
-                                        {
+                                        let option = GLOBALS.runtime.block_on(async {
+                                            DmChannel::from_event(&note.event, None).await
+                                        });
+                                        if let Some(channel) = option {
                                             app.draft_needs_focus = true;
                                             app.show_post_area = true;
 

@@ -2622,7 +2622,10 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
                         });
 
                         if submitted {
-                            let _ = gossip_lib::Overlord::unlock_key(app.password.clone());
+                            let p = app.password.clone();
+                            GLOBALS.runtime.block_on(async {
+                                let _ = gossip_lib::Overlord::unlock_key(p).await;
+                            });
                             app.password.zeroize();
                             app.password = "".to_owned();
                             app.draft_needs_focus = true;

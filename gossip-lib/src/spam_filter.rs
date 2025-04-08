@@ -73,22 +73,10 @@ pub fn filter_event(event: Event, caller: EventFilterCaller, spamsafe: bool) -> 
     if GLOBALS.spam_filter.is_none() {
         EventFilterAction::Allow
     } else if event.kind == EventKind::GiftWrap {
-        if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(&event) {
-            // id from giftwrap, the rest from rumor
-            let event_params = EventParams {
-                id,
-                pubkey: rumor.pubkey,
-                kind: rumor.kind,
-                content: rumor.content,
-                tags: rumor.tags,
-                pow,
-                caller,
-                spamsafe,
-            };
-            inner_filter(event_params)
-        } else {
-            EventFilterAction::Allow
-        }
+        // Spam filtering is NOT async and we cannot unwrap GiftWrap events using a
+        // remote signer.  So we simply dont' apply spam filtering to GiftWraps
+        // anymore.  FIXME Ww could post-apply it somehow outside of this function.
+        EventFilterAction::Allow
     } else {
         let event_params = EventParams {
             id,

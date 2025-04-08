@@ -310,7 +310,7 @@ pub async fn handle_command(mut args: env::Args) -> Result<bool, Error> {
         "bech32_decode" => bech32_decode(command, args)?,
         "bech32_encode_naddr" => bech32_encode_naddr(command, args)?,
         "clear_timeouts" => clear_timeouts()?,
-        "decrypt" => decrypt(command, args)?,
+        "decrypt" => decrypt(command, args).await?,
         "delete_by_kind" => delete_by_kind(command, args)?,
         "delete_by_id" => delete_by_id(command, args)?,
         "delete_spam_by_content" => delete_spam_by_content(command, args).await?,
@@ -323,13 +323,13 @@ pub async fn handle_command(mut args: env::Args) -> Result<bool, Error> {
         "events_of_pubkey_and_kind" => events_of_pubkey_and_kind(command, args)?,
         "export_encrypted_key" => export_encrypted_key()?,
         "force_migration_level" => force_migration_level(command, args)?,
-        "giftwraps" => giftwraps(command)?,
+        "giftwraps" => giftwraps(command).await?,
         "help" => help(command, args)?,
         "import_encrypted_private_key" => import_encrypted_private_key(command, args)?,
         "import_event" => import_event(command, args).await?,
         "keys" => keys()?,
         "login" => {
-            login()?;
+            login().await?;
             return Ok(false);
         }
         "import_lmdb_events" => import_lmdb_events(command, args).await?,
@@ -351,7 +351,7 @@ pub async fn handle_command(mut args: env::Args) -> Result<bool, Error> {
         "prune_unused_people" => prune_unused_people()?,
         "reaction_stats" => reaction_stats(command, args)?,
         "rebuild_fof" => rebuild_fof()?,
-        "rebuild_indices" => rebuild_indices()?,
+        "rebuild_indices" => rebuild_indices().await?,
         "rename_person_list" => rename_person_list(command, args)?,
         "reprocess_recent" => reprocess_recent(command).await?,
         "reprocess_relay_lists" => reprocess_relay_lists()?,
@@ -361,7 +361,7 @@ pub async fn handle_command(mut args: env::Args) -> Result<bool, Error> {
             set_theme(command, args)?;
             return Ok(false);
         }
-        "ungiftwrap" => ungiftwrap(command, args)?,
+        "ungiftwrap" => ungiftwrap(command, args).await?,
         "verify" => verify(command, args)?,
         "verify_json" => verify_json(command, args)?,
         "wgpu_renderer" => wgpu_renderer(command, args)?,
@@ -564,7 +564,7 @@ pub fn clear_timeouts() -> Result<(), Error> {
         .modify_all_relays(|r| r.avoid_until = None, None)
 }
 
-pub fn decrypt(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+pub async fn decrypt(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     let pubkey = match args.next() {
         Some(s) => match PublicKey::try_from_hex_string(&s, true) {
             Ok(pk) => pk,
@@ -578,9 +578,9 @@ pub fn decrypt(cmd: Command, mut args: env::Args) -> Result<(), Error> {
         None => return cmd.usage("Missing ciphertext parameter".to_string()),
     };
 
-    login()?;
+    login().await?;
 
-    let plaintext = GLOBALS.identity.decrypt(&pubkey, &ciphertext)?;
+    let plaintext = GLOBALS.identity.decrypt(&pubkey, &ciphertext).await?;
     println!("{}", plaintext);
 
     Ok(())
@@ -653,7 +653,7 @@ pub async fn delete_spam_by_content(cmd: Command, mut args: env::Args) -> Result
 
     // Login if we need to look into GiftWraps
     if kind == EventKind::GiftWrap {
-        login()?;
+        login().await?;
     }
 
     // Get all event ids of the kind/since
@@ -669,7 +669,7 @@ pub async fn delete_spam_by_content(cmd: Command, mut args: env::Args) -> Result
     for event in events {
         let mut matches = false;
         if kind == EventKind::GiftWrap {
-            if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(&event) {
+            if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(&event).await {
                 if rumor.content.contains(&substring) {
                     matches = true;
                 }
@@ -899,7 +899,7 @@ pub async fn import_event(cmd: Command, mut args: env::Args) -> Result<(), Error
         None => return cmd.usage("Missing event parameter".to_string()),
     };
 
-    login()?;
+    login().await?;
 
     let job = tokio::task::spawn(async move {
         if let Err(e) =
@@ -1225,7 +1225,7 @@ pub fn force_migration_level(cmd: Command, mut args: env::Args) -> Result<(), Er
     Ok(())
 }
 
-pub fn ungiftwrap(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+pub async fn ungiftwrap(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     let idstr = match args.next() {
         Some(id) => id,
         None => return cmd.usage("Missing idhex parameter".to_string()),
@@ -1244,17 +1244,17 @@ pub fn ungiftwrap(cmd: Command, mut args: env::Args) -> Result<(), Error> {
         None => return Err(ErrorKind::EventNotFound.into()),
     };
 
-    login()?;
+    login().await?;
 
-    let rumor = GLOBALS.identity.unwrap_giftwrap(&event)?;
+    let rumor = GLOBALS.identity.unwrap_giftwrap(&event).await?;
 
     println!("{}", serde_json::to_string(&rumor)?);
 
     Ok(())
 }
 
-pub fn giftwraps(_cmd: Command) -> Result<(), Error> {
-    login()?;
+pub async fn giftwraps(_cmd: Command) -> Result<(), Error> {
+    login().await?;
 
     let mut filter = Filter::new();
     filter.add_event_kind(EventKind::GiftWrap);
@@ -1266,7 +1266,7 @@ pub fn giftwraps(_cmd: Command) -> Result<(), Error> {
             event.id.as_hex_string(),
             event.created_at
         );
-        match GLOBALS.identity.unwrap_giftwrap(event) {
+        match GLOBALS.identity.unwrap_giftwrap(event).await {
             Ok(rumor) => println!("{}", serde_json::to_string(&rumor)?),
             Err(e) => println!("  {}", e),
         }
@@ -1302,7 +1302,7 @@ pub fn rebuild_fof() -> Result<(), Error> {
 }
 
 pub async fn reprocess_recent(_cmd: Command) -> Result<(), Error> {
-    login()?;
+    login().await?;
 
     let job = tokio::task::spawn(async move {
         let mut ago = Unixtime::now();
@@ -1418,10 +1418,10 @@ pub fn verify_json(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn rebuild_indices() -> Result<(), Error> {
+pub async fn rebuild_indices() -> Result<(), Error> {
     println!("Login required in order to reindex DMs and GiftWraps");
-    login()?;
-    GLOBALS.db().rebuild_event_indices(None)?;
+    login().await?;
+    GLOBALS.db().rebuild_event_indices(None).await?;
 
     Ok(())
 }
@@ -1450,7 +1450,7 @@ pub fn rename_person_list(cmd: Command, mut args: env::Args) -> Result<(), Error
     Ok(())
 }
 
-pub fn login() -> Result<(), Error> {
+pub async fn login() -> Result<(), Error> {
     if !GLOBALS.identity.is_unlocked() {
         let mut password = rpassword::prompt_password("Password: ").unwrap();
         if !GLOBALS.identity.has_private_key() {
@@ -1460,7 +1460,7 @@ pub fn login() -> Result<(), Error> {
             };
             GLOBALS.identity.set_encrypted_private_key(epk, &password)?;
         } else {
-            GLOBALS.identity.unlock(&password)?;
+            GLOBALS.identity.unlock(&password).await?;
         }
         password.zeroize();
     } else {
