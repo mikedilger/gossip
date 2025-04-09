@@ -6,8 +6,8 @@ use speedy::Readable;
 
 impl Storage {
     pub(super) fn m36_trigger(&self) -> Result<(), Error> {
-        let _ = self.db_relays2()?;
-        let _ = self.db_person_relays2()?;
+        self.db_relays2()?;
+        self.db_person_relays2()?;
         Ok(())
     }
 

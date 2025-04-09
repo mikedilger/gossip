@@ -6,8 +6,8 @@ use speedy::{Readable, Writable};
 
 impl Storage {
     pub(super) fn m34_trigger(&self) -> Result<(), Error> {
-        let _ = self.db_person_relays1()?;
-        let _ = self.db_person_relays2()?;
+        self.db_person_relays1()?;
+        self.db_person_relays2()?;
         Ok(())
     }
 

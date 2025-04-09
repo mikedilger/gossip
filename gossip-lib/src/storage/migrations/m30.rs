@@ -4,8 +4,8 @@ use heed::RwTxn;
 
 impl Storage {
     pub(super) fn m30_trigger(&self) -> Result<(), Error> {
-        let _ = self.db_event_ek_pk_index1()?;
-        let _ = self.db_event_ek_c_index1()?;
+        self.db_event_ek_pk_index1()?;
+        self.db_event_ek_c_index1()?;
         Ok(())
     }
 

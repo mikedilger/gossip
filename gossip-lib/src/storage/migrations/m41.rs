@@ -8,10 +8,10 @@ use std::sync::OnceLock;
 
 impl Storage {
     pub(super) fn m41_trigger(&self) -> Result<(), Error> {
-        let _ = self.db_events()?;
-        let _ = self.db_event_akci_index()?;
-        let _ = Person3Table::db()?;
-        let _ = Person4Table::db()?;
+        self.db_events()?;
+        self.db_event_akci_index()?;
+        Person3Table::db()?;
+        Person4Table::db()?;
         Ok(())
     }
 

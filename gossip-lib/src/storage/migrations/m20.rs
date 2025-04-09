@@ -10,8 +10,8 @@ use std::ops::Bound;
 
 impl Storage {
     pub(super) fn m20_trigger(&self) -> Result<(), Error> {
-        let _ = self.db_person_lists_metadata1()?;
-        let _ = self.db_events2()?;
+        self.db_person_lists_metadata1()?;
+        self.db_events2()?;
         Ok(())
     }
 

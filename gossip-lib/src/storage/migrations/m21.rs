@@ -5,8 +5,8 @@ use heed::RwTxn;
 
 impl Storage {
     pub(super) fn m21_trigger(&self) -> Result<(), Error> {
-        let _ = self.db_person_lists_metadata1()?;
-        let _ = self.db_person_lists_metadata2()?;
+        self.db_person_lists_metadata1()?;
+        self.db_person_lists_metadata2()?;
         Ok(())
     }
 

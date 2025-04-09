@@ -120,7 +120,7 @@ impl Storage {
         let mut local_txn = None;
         let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-        let _ = self.db_events3()?.delete(txn, id.as_slice());
+        self.db_events3()?.delete(txn, id.as_slice())?;
 
         maybe_local_txn_commit!(local_txn);
 

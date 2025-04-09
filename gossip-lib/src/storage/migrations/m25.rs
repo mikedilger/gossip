@@ -6,8 +6,8 @@ use speedy::Readable;
 
 impl Storage {
     pub(super) fn m25_trigger(&self) -> Result<(), Error> {
-        let _ = self.db_events2()?;
-        let _ = self.db_events3()?;
+        self.db_events2()?;
+        self.db_events3()?;
         Ok(())
     }
 

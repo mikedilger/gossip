@@ -5,7 +5,7 @@ use heed::RwTxn;
 
 impl Storage {
     pub(super) fn m28_trigger(&self) -> Result<(), Error> {
-        let _ = self.db_people2()?;
+        self.db_people2()?;
         Ok(())
     }
 

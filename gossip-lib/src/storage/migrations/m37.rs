@@ -4,10 +4,10 @@ use heed::RwTxn;
 
 impl Storage {
     pub(super) fn m37_trigger(&self) -> Result<(), Error> {
-        let _ = self.db_relationships_by_id1()?;
-        let _ = self.db_relationships_by_id2()?;
-        let _ = self.db_relationships_by_addr1()?;
-        let _ = self.db_relationships_by_addr2()?;
+        self.db_relationships_by_id1()?;
+        self.db_relationships_by_id2()?;
+        self.db_relationships_by_addr1()?;
+        self.db_relationships_by_addr2()?;
         Ok(())
     }
 

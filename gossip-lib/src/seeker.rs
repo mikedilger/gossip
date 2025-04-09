@@ -179,7 +179,7 @@ impl Seeker {
         }
 
         for (id, state) in updates.drain(..) {
-            let _ = self.events.insert(id, state);
+            self.events.insert(id, state);
         }
     }
 
@@ -265,10 +265,10 @@ impl Seeker {
         for (id, replacement) in updates.drain(..) {
             match replacement {
                 Some(state) => {
-                    let _ = self.events.insert(id, state);
+                    self.events.insert(id, state);
                 }
                 None => {
-                    let _ = self.events.remove(&id);
+                    self.events.remove(&id);
                 }
             }
         }

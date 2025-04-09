@@ -97,7 +97,7 @@ impl Storage {
         let mut local_txn = None;
         let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-        let _ = self.db_nip46servers2()?.delete(txn, key);
+        self.db_nip46servers2()?.delete(txn, key)?;
 
         maybe_local_txn_commit!(local_txn);
 

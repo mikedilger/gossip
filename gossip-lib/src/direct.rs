@@ -142,8 +142,8 @@ impl Connection {
     /// Disconnect from the relay
     pub async fn disconnect(&mut self) -> Result<(), Error> {
         let msg = Message::Close(None);
-        let _ = self.inner_send_message(msg).await;
-        let _ = self.websocket.close(None).await;
+        self.inner_send_message(msg).await?;
+        self.websocket.close(None).await?;
         self.disconnected = true;
         Ok(())
     }
@@ -261,7 +261,7 @@ impl Connection {
             self.auth_state = AuthState::InProgress(event.id);
             self.send_message(ClientMessage::Auth(Box::new(event)))
                 .await?;
-            let _ = self.wait_for_message(Duration::from_secs(1)).await?; // to await response
+            self.wait_for_message(Duration::from_secs(1)).await?; // to await response
         }
         Ok(())
     }

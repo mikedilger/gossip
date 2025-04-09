@@ -7,8 +7,8 @@ use nostr_types::{EventKind, Filter};
 
 impl Storage {
     pub(super) fn m43_trigger(&self) -> Result<(), Error> {
-        let _ = self.db_configured_handlers()?;
-        let _ = HandlersTable::db()?;
+        self.db_configured_handlers()?;
+        HandlersTable::db()?;
         Ok(())
     }
 

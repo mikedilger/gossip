@@ -917,7 +917,7 @@ impl Overlord {
         let mut relays = Relay::choose_relays(0, |r| r.is_good_for_advertise())?;
         relays.sort_by(|a, b| a.score().partial_cmp(&b.score()).unwrap());
 
-        let _ = GLOBALS
+        GLOBALS
             .advertise_jobs_remaining
             .fetch_add(relays.len(), Ordering::SeqCst);
 
@@ -960,7 +960,7 @@ impl Overlord {
             }],
         );
 
-        let _ = GLOBALS
+        GLOBALS
             .advertise_jobs_remaining
             .fetch_sub(1, Ordering::SeqCst);
 
@@ -1105,7 +1105,7 @@ impl Overlord {
 
     async fn post_bookmarks(&mut self, event: Event) -> Result<(), Error> {
         // Process this event locally (ignore any error)
-        let _ = crate::process::process_new_event(&event, None, None, false, false).await;
+        crate::process::process_new_event(&event, None, None, false, false).await?;
 
         let config_relays: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
 
@@ -1977,7 +1977,7 @@ impl Overlord {
 
         for (event, _) in &prepared_events {
             // Process the event locally (ignore any errors)
-            let _ = crate::process::process_new_event(event, None, None, false, false).await;
+            crate::process::process_new_event(event, None, None, false, false).await?;
 
             // Push the event id into delayed_posts.  If it is still there in 10 seconds
             // it will be sent.  Else we presume other code deleted it (from that DashSet
@@ -3462,7 +3462,7 @@ impl Overlord {
         if !GLOBALS.client_identity.has_private_key() {
             GLOBALS.client_identity.generate_private_key(&password)?;
         }
-        let _ = GLOBALS.client_identity.unlock(&password);
+        GLOBALS.client_identity.unlock(&password)?;
 
         password.zeroize();
 

@@ -190,7 +190,7 @@ impl Storage {
         };
 
         // Remove the backup file, ignore errors
-        let _ = std::fs::remove_file(&backup);
+        std::fs::remove_file(&backup)?;
 
         let data = {
             let mut data = lmdb_dir.clone();
@@ -224,7 +224,7 @@ impl Storage {
             }
 
             env.force_sync()?;
-            let _ = env.prepare_for_closing();
+            env.prepare_for_closing();
         }
 
         // Move the data out of the way
@@ -247,26 +247,26 @@ impl Storage {
         //
         // old-version databases will be handled by their migration code and only
         // triggered into existence if their migration is necessary.
-        let _ = self.db_event_akci_index()?;
-        let _ = self.db_event_kci_index()?;
-        let _ = self.db_event_tci_index()?;
-        let _ = self.db_events()?;
-        let _ = self.db_event_seen_on_relay()?;
-        let _ = self.db_event_viewed()?;
-        let _ = self.db_hashtags()?;
-        let _ = self.db_nip46servers()?;
-        let _ = self.db_person_relays()?;
-        let _ = self.db_relationships_by_id()?;
-        let _ = self.db_relationships_by_addr()?;
-        let _ = self.db_relays()?;
-        let _ = self.db_unindexed_giftwraps()?;
-        let _ = self.db_person_lists()?;
-        let _ = self.db_person_lists_metadata()?;
-        let _ = self.db_fof()?;
-        let _ = self.db_configured_handlers()?;
-        let _ = PersonTable::db()?;
-        let _ = FollowingsTable::db()?;
-        let _ = HandlersTable::db()?;
+        self.db_event_akci_index()?;
+        self.db_event_kci_index()?;
+        self.db_event_tci_index()?;
+        self.db_events()?;
+        self.db_event_seen_on_relay()?;
+        self.db_event_viewed()?;
+        self.db_hashtags()?;
+        self.db_nip46servers()?;
+        self.db_person_relays()?;
+        self.db_relationships_by_id()?;
+        self.db_relationships_by_addr()?;
+        self.db_relays()?;
+        self.db_unindexed_giftwraps()?;
+        self.db_person_lists()?;
+        self.db_person_lists_metadata()?;
+        self.db_fof()?;
+        self.db_configured_handlers()?;
+        PersonTable::db()?;
+        FollowingsTable::db()?;
+        HandlersTable::db()?;
 
         // Do migrations
         match self.read_migration_level()? {

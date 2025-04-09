@@ -224,7 +224,7 @@ pub async fn init(rapid: bool, command_mode: bool) -> Result<(), Error> {
     // Initialize storage
     if !command_mode {
         // Ignore compaction errors
-        let _ = Storage::compact();
+        Storage::compact()?;
     }
     let dir = Profile::lmdb_dir()?;
     let storage = Storage::new(dir, rapid)?;

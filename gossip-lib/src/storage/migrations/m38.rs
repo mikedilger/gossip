@@ -5,8 +5,8 @@ use heed::RwTxn;
 
 impl Storage {
     pub(super) fn m38_trigger(&self) -> Result<(), Error> {
-        let _ = self.db_relays2()?;
-        let _ = self.db_relays3()?;
+        self.db_relays2()?;
+        self.db_relays3()?;
         Ok(())
     }
 

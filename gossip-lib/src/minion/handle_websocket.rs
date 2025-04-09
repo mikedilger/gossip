@@ -346,7 +346,7 @@ impl Minion {
 
                 // Remove the subscription
                 tracing::debug!("{}: removed subscription {}", &self.url, handle);
-                let _ = self.subscription_map.remove(&handle);
+                self.subscription_map.remove(&handle);
             }
             RelayMessage::Count(_subid, _count_result) => {
                 tracing::info!(

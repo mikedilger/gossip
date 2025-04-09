@@ -5,8 +5,8 @@ use heed::RwTxn;
 
 impl Storage {
     pub(super) fn m24_trigger(&self) -> Result<(), Error> {
-        let _ = self.db_relays1()?;
-        let _ = self.db_relays2()?;
+        self.db_relays1()?;
+        self.db_relays2()?;
         Ok(())
     }
 

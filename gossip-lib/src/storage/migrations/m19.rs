@@ -8,7 +8,7 @@ use std::collections::{BTreeMap, HashMap};
 
 impl Storage {
     pub(super) fn m19_trigger(&self) -> Result<(), Error> {
-        let _ = self.db_person_lists_metadata1()?;
+        self.db_person_lists_metadata1()?;
         Ok(())
     }
 

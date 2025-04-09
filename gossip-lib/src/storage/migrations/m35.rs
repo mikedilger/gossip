@@ -6,8 +6,8 @@ use std::sync::OnceLock;
 
 impl Storage {
     pub(super) fn m35_trigger(&self) -> Result<(), Error> {
-        let _ = self.db_people2()?;
-        let _ = Person3Table::db()?;
+        self.db_people2()?;
+        Person3Table::db()?;
         Ok(())
     }
 

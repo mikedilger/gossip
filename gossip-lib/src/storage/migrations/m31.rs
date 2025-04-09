@@ -9,7 +9,7 @@ use std::collections::HashMap;
 
 impl Storage {
     pub(super) fn m31_trigger(&self) -> Result<(), Error> {
-        let _ = self.db_person_lists2()?;
+        self.db_person_lists2()?;
         Ok(())
     }
 

@@ -4,8 +4,8 @@ use heed::RwTxn;
 
 impl Storage {
     pub(super) fn m40_trigger(&self) -> Result<(), Error> {
-        let _ = self.db_relationships_by_addr2()?;
-        let _ = self.db_relationships_by_addr3()?;
+        self.db_relationships_by_addr2()?;
+        self.db_relationships_by_addr3()?;
         Ok(())
     }
 

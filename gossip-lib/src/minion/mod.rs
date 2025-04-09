@@ -111,7 +111,7 @@ pub struct Minion {
 
 impl Drop for Minion {
     fn drop(&mut self) {
-        let _ = GLOBALS
+        GLOBALS
             .loading_more
             .fetch_sub(self.loading_more, Ordering::SeqCst);
     }
@@ -181,7 +181,7 @@ impl Minion {
             if let ToMinionPayloadDetail::Subscribe(filter_set) = &message.detail {
                 if filter_set.is_loading_more() {
                     self.loading_more += 1;
-                    let _ = GLOBALS.loading_more.fetch_add(1, Ordering::SeqCst);
+                    GLOBALS.loading_more.fetch_add(1, Ordering::SeqCst);
                 }
             }
         }
@@ -625,7 +625,7 @@ impl Minion {
                 // Bump loading more count
                 if !self.initial_handling && filter_set.is_loading_more() {
                     self.loading_more += 1;
-                    let _ = GLOBALS.loading_more.fetch_add(1, Ordering::SeqCst);
+                    GLOBALS.loading_more.fetch_add(1, Ordering::SeqCst);
                 }
 
                 // If we aren't running it already, OR if it can have duplicates
@@ -881,7 +881,7 @@ impl Minion {
         // If it was a chunk, update loading_more
         if handle.contains("_feed_chunk") {
             self.loading_more -= 1;
-            let _ = GLOBALS.loading_more.fetch_sub(1, Ordering::SeqCst);
+            GLOBALS.loading_more.fetch_sub(1, Ordering::SeqCst);
         }
         let subscription = self.subscription_map.get(handle).unwrap();
         let wire = serde_json::to_string(&subscription.close_message())?;
