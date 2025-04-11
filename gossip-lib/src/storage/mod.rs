@@ -190,7 +190,7 @@ impl Storage {
         };
 
         // Remove the backup file, ignore errors
-        std::fs::remove_file(&backup)?;
+        let _ = std::fs::remove_file(&backup);
 
         let data = {
             let mut data = lmdb_dir.clone();
