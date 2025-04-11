@@ -59,7 +59,7 @@ use eframe::egui::vec2;
 use eframe::egui::FontId;
 use egui::widgets::Slider;
 use egui::{
-    Align, Color32, ColorImage, Context, IconData, Image, ImageData, Label, Layout, Pos2, RichText,
+    Align, Color32, ColorImage, Context, IconData, Image, ImageData, Label, Layout, RichText,
     ScrollArea, Sense, TextureHandle, TextureOptions, Ui, Vec2,
 };
 use egui_file_dialog::FileDialog;
@@ -1037,7 +1037,7 @@ impl GossipUi {
                     } else {
                         ui.add_space(10.0);
                     }
-                    // self.render_status_queue_area(ui);
+                    self.render_status_queue_area(ui);
                     ui.add_space(10.0);
                     self.add_offline_switch(ui);
                 });
@@ -2176,29 +2176,27 @@ impl GossipUi {
         ui.label(spinner);
     }
 
-    /*
-        fn render_status_queue_area(&self, ui: &mut Ui) {
-            let messages = GLOBALS.status_queue.read().read_all();
-            if ui
-                .add(Label::new(RichText::new(&messages[0])).sense(Sense::click()))
-                .clicked()
-            {
-                GLOBALS.status_queue.write().dismiss(0);
-            }
-            if ui
-                .add(Label::new(RichText::new(&messages[1]).small()).sense(Sense::click()))
-                .clicked()
-            {
-                GLOBALS.status_queue.write().dismiss(1);
-            }
-            if ui
-                .add(Label::new(RichText::new(&messages[2]).weak().small()).sense(Sense::click()))
-                .clicked()
-            {
-                GLOBALS.status_queue.write().dismiss(2);
-            }
+    fn render_status_queue_area(&self, ui: &mut Ui) {
+        let messages = GLOBALS.status_queue.read().read_all();
+        if ui
+            .add(Label::new(RichText::new(&messages[0])).sense(Sense::click()))
+            .clicked()
+        {
+            GLOBALS.status_queue.write().dismiss(0);
+        }
+        if ui
+            .add(Label::new(RichText::new(&messages[1]).small()).sense(Sense::click()))
+            .clicked()
+        {
+            GLOBALS.status_queue.write().dismiss(1);
+        }
+        if ui
+            .add(Label::new(RichText::new(&messages[2]).weak().small()).sense(Sense::click()))
+            .clicked()
+        {
+            GLOBALS.status_queue.write().dismiss(2);
+        }
     }
-        */
 }
 
 impl eframe::App for GossipUi {
@@ -2475,7 +2473,7 @@ impl eframe::App for GossipUi {
             ZapState::ReadyToPay(id, _) => Some(id),
         };
 
-        let ir = egui::CentralPanel::default()
+        egui::CentralPanel::default()
             .frame({
                 let frame = egui::Frame::central_panel(&self.theme.get_style());
                 frame.inner_margin(egui::Margin {
@@ -2516,34 +2514,6 @@ impl eframe::App for GossipUi {
                     Page::Wizard(_) => unreachable!(),
                 }
             });
-
-        let central_panel_response = ir.response;
-
-        // Render toasts
-        let mut y = central_panel_response.rect.max.y - 100.0;
-        let messages = GLOBALS.status_queue.read().read_all();
-        for (i, s) in messages.iter().enumerate() {
-            if s.len() > 0 {
-                let pos = Pos2 {
-                    x: central_panel_response.rect.max.x - 100.0,
-                    y,
-                };
-                let response = egui::containers::popup::show_tooltip_at(
-                    ctx,
-                    central_panel_response.layer_id,
-                    egui::Id::new(format!("status_toast_{i}")),
-                    pos,
-                    |ui| -> Response {
-                        let response = ui.add(Label::new(s).sense(Sense::click()));
-                        if response.clicked() {
-                            GLOBALS.status_queue.write().dismiss(i);
-                        };
-                        response
-                    },
-                );
-                y = response.rect.min.y - 50.0;
-            }
-        }
     }
 }
 
