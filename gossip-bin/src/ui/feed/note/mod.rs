@@ -975,6 +975,9 @@ pub fn render_note_inside_framing(
                                                     ),
                                                 );
                                             }
+                                            if app.is_scrolling() {
+                                                ui.close_menu();
+                                            }
                                         });
                                         bar_state.store(ui.ctx(), bar_id);
                                     } else {
