@@ -1,5 +1,5 @@
 use crate::bookmarks::BookmarkList;
-use crate::error::Error;
+use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use nostr_types::{
     ContentEncryptionAlgorithm, DelegationConditions, EncryptedPrivateKey, Event, EventKind,
@@ -41,7 +41,8 @@ impl UserIdentity {
         let (pk, epk) = match *binding {
             Identity::None => (None, None),
             Identity::Public(pk) => (Some(pk), None),
-            Identity::Signer(ref bs) => (Some(bs.public_key()), bs.encrypted_private_key()),
+            Identity::LockableSigner(ref bs) => (Some(bs.public_key()), bs.encrypted_private_key()),
+            Identity::FullSigner(ref bs) => (Some(bs.public_key()), bs.encrypted_private_key()),
         };
         GLOBALS.db().write_setting_public_key(&pk, None)?;
         GLOBALS.db().write_encrypted_private_key(epk, None)?;
@@ -207,22 +208,30 @@ impl UserIdentity {
             .await?)
     }
 
+    pub fn key_is_exportable(&self) -> bool {
+        matches!(*self.inner.read_arc(), Identity::FullSigner(_))
+    }
+
     pub async fn export_private_key_bech32(&self, pass: &str) -> Result<(String, bool), Error> {
-        let log_n = GLOBALS.db().read_setting_log_n();
-        Ok(self
-            .inner
-            .write_arc()
-            .export_private_key_in_bech32(pass, log_n)
-            .await?)
+        let mut binding = self.inner.write_arc();
+        match *binding {
+            Identity::FullSigner(ref mut bs) => {
+                let log_n = GLOBALS.db().read_setting_log_n();
+                Ok(bs.export_private_key_in_bech32(pass, log_n).await?)
+            }
+            _ => Err(ErrorKind::KeyNotExportable.into()),
+        }
     }
 
     pub async fn export_private_key_hex(&self, pass: &str) -> Result<(String, bool), Error> {
-        let log_n = GLOBALS.db().read_setting_log_n();
-        Ok(self
-            .inner
-            .write_arc()
-            .export_private_key_in_hex(pass, log_n)
-            .await?)
+        let mut binding = self.inner.write_arc();
+        match *binding {
+            Identity::FullSigner(ref mut bs) => {
+                let log_n = GLOBALS.db().read_setting_log_n();
+                Ok(bs.export_private_key_in_hex(pass, log_n).await?)
+            }
+            _ => Err(ErrorKind::KeyNotExportable.into()),
+        }
     }
 
     pub async fn unwrap_giftwrap(&self, event: &Event) -> Result<Rumor, Error> {

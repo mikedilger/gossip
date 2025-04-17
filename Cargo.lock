@@ -2299,9 +2299,9 @@ dependencies = [
  "textnonce",
  "tiny-skia 0.11.4",
  "tokio",
- "tokio-tungstenite",
+ "tokio-tungstenite 0.23.1",
  "tracing",
- "tungstenite",
+ "tungstenite 0.23.0",
  "url",
  "usvg 0.43.0",
  "watcher",
@@ -3517,7 +3517,7 @@ dependencies = [
 [[package]]
 name = "nostr-types"
 version = "0.8.0-unstable"
-source = "git+https://github.com/mikedilger/nostr-types?rev=1f03c17fd2cf3062e80fe846024784bc741e36f4#1f03c17fd2cf3062e80fe846024784bc741e36f4"
+source = "git+https://github.com/mikedilger/nostr-types?rev=48c99009a84687f19a16d7754e5f48d8c7cfa7ed#48c99009a84687f19a16d7754e5f48d8c7cfa7ed"
 dependencies = [
  "aes",
  "aho-corasick",
@@ -3529,8 +3529,10 @@ dependencies = [
  "chacha20poly1305",
  "core-net",
  "derive_more",
+ "futures-util",
  "hex",
  "hmac",
+ "http",
  "lazy_static",
  "lightning-invoice",
  "linkify",
@@ -3540,14 +3542,19 @@ dependencies = [
  "rand 0.8.5",
  "rand_core 0.6.4",
  "regex",
+ "reqwest",
  "scrypt",
  "secp256k1 0.29.1",
  "serde",
  "serde_json",
  "sha2",
  "speedy",
+ "textnonce",
  "thiserror 1.0.69",
  "thread-priority",
+ "tokio",
+ "tokio-tungstenite 0.26.2",
+ "tungstenite 0.26.2",
  "unicode-normalization",
  "url",
  "zeroize",
@@ -6018,8 +6025,20 @@ dependencies = [
  "tokio",
  "tokio-native-tls",
  "tokio-rustls",
- "tungstenite",
+ "tungstenite 0.23.0",
  "webpki-roots",
+]
+
+[[package]]
+name = "tokio-tungstenite"
+version = "0.26.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7a9daff607c6d2bf6c16fd681ccb7eecc83e4e2cdc1ca067ffaadfca5de7f084"
+dependencies = [
+ "futures-util",
+ "log",
+ "tokio",
+ "tungstenite 0.26.2",
 ]
 
 [[package]]
@@ -6211,6 +6230,23 @@ dependencies = [
  "thiserror 1.0.69",
  "utf-8",
  "webpki-roots",
+]
+
+[[package]]
+name = "tungstenite"
+version = "0.26.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4793cb5e56680ecbb1d843515b23b6de9a75eb04b66643e256a396d43be33c13"
+dependencies = [
+ "bytes",
+ "data-encoding",
+ "http",
+ "httparse",
+ "log",
+ "rand 0.9.0",
+ "sha1",
+ "thiserror 2.0.12",
+ "utf-8",
 ]
 
 [[package]]

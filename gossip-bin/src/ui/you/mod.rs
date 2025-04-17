@@ -46,7 +46,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.separator();
                 ui.add_space(10.0);
 
-                offer_export_priv_key(app, ui);
+                if GLOBALS.identity.key_is_exportable() {
+                    offer_export_priv_key(app, ui);
+                }
 
                 ui.add_space(10.0);
                 ui.separator();

@@ -756,8 +756,7 @@ impl Fetcher {
         {
             if !self.host_load.contains_key(host) {
                 let num_permits = GLOBALS.db().read_setting_fetcher_max_requests_per_host();
-                self
-                    .host_load
+                self.host_load
                     .entry(host.to_string())
                     .or_insert(Arc::new(Semaphore::new(num_permits)));
             }
