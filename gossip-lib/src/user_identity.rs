@@ -3,14 +3,15 @@ use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use nostr_types::{
     ContentEncryptionAlgorithm, DelegationConditions, EncryptedPrivateKey, Event, EventKind,
-    EventV1, EventV2, Filter, Id, Identity, KeySecurity, Metadata, PreEvent, PrivateKey, PublicKey,
-    Rumor, RumorV1, RumorV2, Signature,
+    EventV1, EventV2, Filter, Id, Identity, KeySecurity, LockableSigner, Metadata, PreEvent,
+    PrivateKey, PublicKey, Rumor, RumorV1, RumorV2, Signature,
 };
 use parking_lot::RwLock;
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use tokio::task;
 
+#[derive(Debug, Clone)]
 pub struct UserIdentity {
     pub inner: Arc<RwLock<Identity>>,
 }
@@ -33,6 +34,10 @@ impl UserIdentity {
             (None, _) => *self.inner.write_arc() = Identity::None,
         }
         Ok(())
+    }
+
+    pub fn inner_lockable(&self) -> Option<Arc<dyn LockableSigner>> {
+        self.inner.read_arc().inner_lockable()
     }
 
     // Any function that changes UserIdentity should run this to save back changes

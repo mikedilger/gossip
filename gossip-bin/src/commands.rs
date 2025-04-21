@@ -759,18 +759,20 @@ pub async fn delete_spam_by_content(cmd: Command, mut args: env::Args) -> Result
         } else {
             // Post the event to all the relays
             for relay in relays {
-                let mut conn =
-                    match gossip_lib::direct::Connection::new(relay.as_str().to_owned()).await {
-                        Ok(conn) => conn,
-                        Err(e) => {
-                            println!("ERROR: {}", e);
-                            continue;
-                        }
-                    };
-                if let Err(e) = conn
-                    .post_event(event.clone(), std::time::Duration::from_secs(3))
-                    .await
+                let mut conn = match nostr_types::client::Client::connect(
+                    relay.as_str(),
+                    std::time::Duration::from_secs(3),
+                    Some(GLOBALS.identity.inner_lockable().unwrap()),
+                )
+                .await
                 {
+                    Ok(conn) => conn,
+                    Err(e) => {
+                        println!("ERROR: {}", e);
+                        continue;
+                    }
+                };
+                if let Err(e) = conn.post_event(event.clone()).await {
                     println!("ERROR: {}", e);
                 }
                 let _ = conn.disconnect().await;

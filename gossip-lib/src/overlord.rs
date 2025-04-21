@@ -3320,22 +3320,21 @@ impl Overlord {
             GLOBALS.identity.sign_event(pre_event).await?
         };
 
-        let mut conn1 = crate::direct::Connection::new(relay_url.as_str().to_owned()).await?;
+        let mut conn1 = nostr_types::client::Client::connect(
+            relay_url.as_str(),
+            Duration::new(5, 0),
+            Some(GLOBALS.identity.inner_lockable().unwrap()),
+        )
+        .await?;
 
         // 1. posted_outbox
         conn1.authenticate_if_challenged().await?;
-        match conn1
-            .post_event(outbox_event.clone(), Duration::from_secs(2))
-            .await?
-        {
+        match conn1.post_event(outbox_event.clone()).await? {
             (true, _) => posted_outbox = RelayTestResult::Pass,
             (false, msg) => {
                 if msg.starts_with("auth-required:") {
                     conn1.authenticate_if_challenged().await?;
-                    match conn1
-                        .post_event(outbox_event.clone(), Duration::from_secs(2))
-                        .await?
-                    {
+                    match conn1.post_event(outbox_event.clone()).await? {
                         (true, _) => posted_outbox = RelayTestResult::Pass,
                         (false, msg) => posted_outbox = RelayTestResult::Fail(msg),
                     }
@@ -3377,7 +3376,12 @@ impl Overlord {
             stranger.sign_event(pre_event).await?
         };
 
-        let mut conn = crate::direct::Connection::new(relay_url.as_str().to_owned()).await?;
+        let mut conn = nostr_types::client::Client::connect(
+            relay_url.as_str(),
+            Duration::new(5, 0),
+            Some(GLOBALS.identity.inner_lockable().unwrap()),
+        )
+        .await?;
 
         // 2. anon_fetched_outbox
         if posted_outbox == RelayTestResult::Pass {
@@ -3386,7 +3390,7 @@ impl Overlord {
             filter.add_author(outbox_event.pubkey);
             filter.since = Some(outbox_event.created_at);
 
-            let fetch_result = conn.fetch_events(filter, Duration::from_secs(2)).await?;
+            let fetch_result = conn.fetch_events(filter).await?;
             let close_msg = fetch_result.close_msg.clone();
             if fetch_result.into_events().contains(&outbox_event) {
                 anon_fetched_outbox = RelayTestResult::Pass;
@@ -3397,10 +3401,7 @@ impl Overlord {
         }
 
         // 3. anon_posted_inbox
-        let anon_posted_inbox: RelayTestResult = match conn
-            .post_event(inbox_event.clone(), Duration::from_secs(2))
-            .await?
-        {
+        let anon_posted_inbox: RelayTestResult = match conn.post_event(inbox_event.clone()).await? {
             (true, _) => RelayTestResult::Pass,
             (false, msg) => RelayTestResult::Fail(msg),
         };
@@ -3412,9 +3413,7 @@ impl Overlord {
 
         // 4. anon_fetched_inbox
         if anon_posted_inbox == RelayTestResult::Pass {
-            let fetch_result = conn
-                .fetch_events(inbox_filter.clone(), Duration::from_secs(2))
-                .await?;
+            let fetch_result = conn.fetch_events(inbox_filter.clone()).await?;
             let close_msg = fetch_result.close_msg.clone();
             if fetch_result.into_events().contains(&inbox_event) {
                 anon_fetched_inbox = RelayTestResult::Pass;
@@ -3426,9 +3425,7 @@ impl Overlord {
 
         // 5. fetched_inbox
         conn.authenticate_if_challenged().await?;
-        let fetch_result = conn
-            .fetch_events(inbox_filter.clone(), Duration::from_secs(2))
-            .await?;
+        let fetch_result = conn.fetch_events(inbox_filter.clone()).await?;
         let close_msg = fetch_result.close_msg.clone();
         let fetched_inbox: RelayTestResult = if fetch_result.into_events().contains(&inbox_event) {
             RelayTestResult::Pass

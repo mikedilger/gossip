@@ -8,6 +8,7 @@ use parking_lot::RwLock;
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
 
+#[derive(Debug, Clone)]
 pub struct ClientIdentity {
     pub inner: Arc<RwLock<Identity>>,
 }

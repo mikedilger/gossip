@@ -82,9 +82,6 @@ pub use delegation::Delegation;
 mod dm_channel;
 pub use dm_channel::{DmChannel, DmChannelData};
 
-// direct quick-temporary communication with relays, without overlord/minion involvement
-pub mod direct;
-
 mod error;
 pub use error::{Error, ErrorKind};
 

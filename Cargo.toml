@@ -11,7 +11,7 @@ bech32 = "0.11"
 blurhash = { version = "0.2", features = [ "image" ] }
 image = { version = "0.25", features = [ "png", "jpeg" ] }
 lazy_static = "1.5"
-nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "c7f05c72d368231552f7fc8c8333d4c90f84ea2f", features = [ "speedy", "client" ] }
+nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "99017253c7558ecf67616760600dfa96ce30d774", features = [ "speedy", "client" ] }
 paste = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
