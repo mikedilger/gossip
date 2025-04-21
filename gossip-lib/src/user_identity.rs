@@ -184,7 +184,7 @@ impl UserIdentity {
     }
 
     pub fn encrypted_private_key(&self) -> Option<EncryptedPrivateKey> {
-        self.inner.read_arc().encrypted_private_key().cloned()
+        self.inner.read_arc().encrypted_private_key()
     }
 
     pub fn key_security(&self) -> Result<KeySecurity, Error> {

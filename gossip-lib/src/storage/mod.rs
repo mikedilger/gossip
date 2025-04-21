@@ -528,10 +528,10 @@ impl Storage {
     /// Write the user's encrypted private key
     pub fn write_encrypted_private_key<'a>(
         &'a self,
-        epk: Option<&EncryptedPrivateKey>,
+        epk: Option<EncryptedPrivateKey>,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let bytes = epk.map(|e| &e.0).write_to_vec()?;
+        let bytes = epk.map(|e| e.0).write_to_vec()?;
 
         let mut local_txn = None;
         let txn = maybe_local_txn!(self, rw_txn, local_txn);
@@ -560,10 +560,10 @@ impl Storage {
     /// Write the client's encrypted private key
     pub fn write_client_encrypted_private_key<'a>(
         &'a self,
-        epk: Option<&EncryptedPrivateKey>,
+        epk: Option<EncryptedPrivateKey>,
         rw_txn: Option<&mut RwTxn<'a>>,
     ) -> Result<(), Error> {
-        let bytes = epk.map(|e| &e.0).write_to_vec()?;
+        let bytes = epk.map(|e| e.0).write_to_vec()?;
 
         let mut local_txn = None;
         let txn = maybe_local_txn!(self, rw_txn, local_txn);

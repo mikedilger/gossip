@@ -884,7 +884,7 @@ pub fn import_encrypted_private_key(cmd: Command, mut args: env::Args) -> Result
     GLOBALS
         .db()
         .write_setting_public_key(&Some(public_key), None)?;
-    GLOBALS.db().write_encrypted_private_key(Some(&epk), None)?;
+    GLOBALS.db().write_encrypted_private_key(Some(epk), None)?;
 
     println!("Saved.");
     Ok(())
