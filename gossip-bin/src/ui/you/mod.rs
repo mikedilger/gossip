@@ -187,7 +187,6 @@ pub(super) fn offer_unlock_priv_key(app: &mut GossipUi, ui: &mut Ui) {
             GLOBALS.runtime.block_on(async {
                 let _ = gossip_lib::Overlord::unlock_key(app.password.clone()).await;
             });
-            let _ = gossip_lib::Overlord::unlock_key(app.password.clone());
             app.password.zeroize();
             app.password = "".to_owned();
             app.draft_needs_focus = true;

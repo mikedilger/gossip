@@ -1005,7 +1005,9 @@ impl GossipUi {
                 self.open_menu(ctx, SubMenu::Help);
             }
             Page::Notifications => {
-                let _ = GLOBALS.pending.compute_pending();
+                GLOBALS.runtime.block_on(async {
+                    let _ = GLOBALS.pending.compute_pending().await;
+                });
                 self.close_all_menus_except_feeds(ctx);
             }
             _ => {
