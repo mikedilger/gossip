@@ -1,8 +1,8 @@
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use nostr_types::{
-    ContentEncryptionAlgorithm, EncryptedPrivateKey, Event, EventV1, EventV2, Identity,
-    KeySecurity, PreEvent, PublicKey, Rumor, RumorV1, RumorV2,
+    ContentEncryptionAlgorithm, EncryptedPrivateKey, Event, Identity, KeySecurity, PreEvent,
+    PublicKey, Rumor,
 };
 use parking_lot::RwLock;
 use std::sync::mpsc::Sender;
@@ -176,16 +176,6 @@ impl ClientIdentity {
 
     pub async fn unwrap_giftwrap(&self, event: &Event) -> Result<Rumor, Error> {
         Ok(self.inner.read_arc().unwrap_giftwrap(event).await?)
-    }
-
-    /// @deprecated for migrations only
-    pub async fn unwrap_giftwrap1(&self, event: &EventV1) -> Result<RumorV1, Error> {
-        Ok(self.inner.read_arc().unwrap_giftwrap1(event).await?)
-    }
-
-    /// @deprecated for migrations only
-    pub async fn unwrap_giftwrap2(&self, event: &EventV2) -> Result<RumorV2, Error> {
-        Ok(self.inner.read_arc().unwrap_giftwrap2(event).await?)
     }
 
     pub async fn decrypt_event_contents(&self, event: &Event) -> Result<String, Error> {
