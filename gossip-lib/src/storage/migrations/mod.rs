@@ -1,14 +1,8 @@
-// Migrations before m23 (except critical ones) are dropped from gossip-0.11
-// so you must run gossip-0.9 or gossip-0.10 at least once to come up to
-// m23 (or m28) first.
+// Migrations before m26 are dropped from gossip-0.15
+// so you must run gossip-0.14 at least once to come up to m26.
 
-mod m19; // Creates person list metadata
-mod m20; // Initializes person list metadata
-mod m21; // Migrates person list metadata
-mod m22; // Migrates person list metadata again
-mod m23;
-mod m24;
-mod m25;
+mod m0; // initial setup, this must include all initialization up to MAX level
+
 mod m26;
 mod m27;
 mod m28;
@@ -37,31 +31,14 @@ use crate::error::{Error, ErrorKind};
 use heed::RwTxn;
 
 impl Storage {
-    const MIN_MIGRATION_LEVEL: u32 = 23;
+    const MIN_MIGRATION_LEVEL: u32 = 25;
     const MAX_MIGRATION_LEVEL: u32 = 47;
 
     /// Initialize the database from empty
     pub(super) async fn init_from_empty(&self) -> Result<(), Error> {
-        // Migrations that modify old data are not necessary here if we don't
-        // have any old data.  These are migrations that create data or subsequently
-        // modify that created data
-        #[rustfmt::skip]
-        let necessary: Vec<u32> = vec![
-            19,  // Creates person list metadata
-            20,  // Initializes person list metadata
-            21,  // Migrates person list metadata
-            22,  // Migrates person list metadata again
-        ];
-
-        for level in necessary.iter() {
-            self.trigger(*level)?;
-            let mut txn = self.env.write_txn()?;
-            self.migrate_inner(*level, &mut txn).await?;
-            self.write_migration_level(*level, Some(&mut txn))?;
-            txn.commit()?;
-        }
-
+        self.trigger(0)?;
         let mut txn = self.env.write_txn()?;
+        self.migrate_inner(0, &mut txn).await?;
         self.write_migration_level(Self::MAX_MIGRATION_LEVEL, Some(&mut txn))?;
         txn.commit()?;
 
@@ -77,7 +54,7 @@ impl Storage {
             eprintln!(
                 "This version of gossip cannot handle your old database. You have two options:"
             );
-            eprintln!("Option 1: Run gossip 0.9 or 0.10 at least once to upgrade, or");
+            eprintln!("Option 1: Run gossip 0.14 at least once to upgrade, or");
             eprintln!(
                 "Option 2: Delete your database directory {} and restart to start fresh",
                 lmdb_dir
@@ -109,13 +86,7 @@ impl Storage {
 
     fn trigger(&self, level: u32) -> Result<(), Error> {
         match level {
-            19 => self.m19_trigger()?,
-            20 => self.m20_trigger()?,
-            21 => self.m21_trigger()?,
-            22 => self.m22_trigger()?,
-            23 => self.m23_trigger()?,
-            24 => self.m24_trigger()?,
-            25 => self.m25_trigger()?,
+            0 => self.m0_trigger()?,
             26 => self.m26_trigger()?,
             27 => self.m27_trigger()?,
             28 => self.m28_trigger()?,
@@ -147,13 +118,7 @@ impl Storage {
     async fn migrate_inner<'a>(&'a self, level: u32, txn: &mut RwTxn<'a>) -> Result<(), Error> {
         let prefix = format!("LMDB Migration {}", level);
         match level {
-            19 => self.m19_migrate(&prefix, txn)?,
-            20 => self.m20_migrate(&prefix, txn).await?,
-            21 => self.m21_migrate(&prefix, txn)?,
-            22 => self.m22_migrate(&prefix, txn)?,
-            23 => self.m23_migrate(&prefix, txn)?,
-            24 => self.m24_migrate(&prefix, txn)?,
-            25 => self.m25_migrate(&prefix, txn).await?,
+            0 => self.m0_migrate(&prefix, txn)?,
             26 => self.m26_migrate(&prefix, txn)?,
             27 => self.m27_migrate(&prefix, txn)?,
             28 => self.m28_migrate(&prefix, txn)?,

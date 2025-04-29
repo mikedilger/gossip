@@ -13,12 +13,6 @@ pub use person4::Person4;
 mod person_list1;
 pub use person_list1::PersonList1;
 
-mod person_list_metadata1;
-pub use person_list_metadata1::PersonListMetadata1;
-
-mod person_list_metadata2;
-pub use person_list_metadata2::PersonListMetadata2;
-
 mod person_list_metadata3;
 pub use person_list_metadata3::PersonListMetadata3;
 
@@ -48,9 +42,6 @@ pub use relationship_by_id1::RelationshipById1;
 
 mod relationship_by_id2;
 pub use relationship_by_id2::RelationshipById2;
-
-mod relay1;
-pub use relay1::Relay1;
 
 mod relay2;
 pub use relay2::Relay2;
