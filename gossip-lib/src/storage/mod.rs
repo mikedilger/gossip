@@ -71,8 +71,8 @@ use filetime::FileTime;
 use heed::types::{Bytes, Unit};
 use heed::{Database, Env, EnvFlags, EnvOpenOptions, RoTxn, RwTxn};
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventKind, EventReference, Filter, Id, MilliSatoshi, NAddr,
-    PublicKey, RelayList, RelayListUsage, RelayUrl, Unixtime,
+    EncryptedPrivateKey, Event, EventKind, EventReference, Filter, Id, Identity, MilliSatoshi,
+    NAddr, PublicKey, RelayList, RelayListUsage, RelayUrl, Unixtime,
 };
 use paste::paste;
 use speedy::{Readable, Writable};
@@ -519,6 +519,70 @@ impl Storage {
             .db_general()?
             .get(&txn, b"migration_level")?
             .map(|bytes| u32::from_be_bytes(bytes[..4].try_into().unwrap())))
+    }
+
+    /// Write identity
+    pub fn write_identity<'a>(
+        &'a self,
+        identity: &Identity,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        let bytes = serde_json::to_vec(identity)?;
+
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
+
+        self.db_general()?
+            .put(txn, b"identity", bytes.as_slice())?;
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
+    }
+
+    /// Read identity
+    pub fn read_identity(&self) -> Result<Option<Identity>, Error> {
+        let txn = self.env.read_txn()?;
+
+        match self.db_general()?.get(&txn, b"identity")? {
+            None => Ok(None),
+            Some(bytes) => {
+                let identity: Identity = serde_json::from_slice(bytes)?;
+                Ok(Some(identity))
+            }
+        }
+    }
+
+    /// Write client identity
+    pub fn write_client_identity<'a>(
+        &'a self,
+        client_identity: &Identity,
+        rw_txn: Option<&mut RwTxn<'a>>,
+    ) -> Result<(), Error> {
+        let bytes = serde_json::to_vec(client_identity)?;
+
+        let mut local_txn = None;
+        let txn = maybe_local_txn!(self, rw_txn, local_txn);
+
+        self.db_general()?
+            .put(txn, b"client_identity", bytes.as_slice())?;
+
+        maybe_local_txn_commit!(local_txn);
+
+        Ok(())
+    }
+
+    /// Read client identity
+    pub fn read_client_identity(&self) -> Result<Option<Identity>, Error> {
+        let txn = self.env.read_txn()?;
+
+        match self.db_general()?.get(&txn, b"client_identity")? {
+            None => Ok(None),
+            Some(bytes) => {
+                let identity: Identity = serde_json::from_slice(bytes)?;
+                Ok(Some(identity))
+            }
+        }
     }
 
     /// Write the user's encrypted private key
