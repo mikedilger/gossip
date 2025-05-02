@@ -40,6 +40,7 @@ impl ClientIdentity {
             Identity::None => (None, None),
             Identity::Public(pk) => (Some(pk), None),
             Identity::Private(ref ks) => (Some(ks.public_key()), ks.encrypted_private_key()),
+            Identity::Remote(ref bc) => (Some(bc.public_key()), None),
         };
         GLOBALS.db().write_setting_client_public_key(&pk, None)?;
         GLOBALS.db().write_client_encrypted_private_key(epk, None)?;

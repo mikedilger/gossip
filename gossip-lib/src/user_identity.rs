@@ -51,6 +51,7 @@ impl UserIdentity {
             Identity::None => (None, None),
             Identity::Public(pk) => (Some(pk), None),
             Identity::Private(ref ks) => (Some(ks.public_key()), ks.encrypted_private_key()),
+            Identity::Remote(ref bs) => (Some(bs.public_key()), None),
         };
         GLOBALS.db().write_setting_public_key(&pk, None)?;
         GLOBALS.db().write_encrypted_private_key(epk, None)?;
