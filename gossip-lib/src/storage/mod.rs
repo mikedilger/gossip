@@ -71,8 +71,8 @@ use filetime::FileTime;
 use heed::types::{Bytes, Unit};
 use heed::{Database, Env, EnvFlags, EnvOpenOptions, RoTxn, RwTxn};
 use nostr_types::{
-    EncryptedPrivateKey, Event, EventKind, EventReference, Filter, Id, Identity, MilliSatoshi,
-    NAddr, PublicKey, RelayList, RelayListUsage, RelayUrl, Unixtime,
+    Event, EventKind, EventReference, Filter, Id, Identity, MilliSatoshi, NAddr, PublicKey,
+    RelayList, RelayListUsage, RelayUrl, Unixtime,
 };
 use paste::paste;
 use speedy::{Readable, Writable};
@@ -532,8 +532,7 @@ impl Storage {
         let mut local_txn = None;
         let txn = maybe_local_txn!(self, rw_txn, local_txn);
 
-        self.db_general()?
-            .put(txn, b"identity", bytes.as_slice())?;
+        self.db_general()?.put(txn, b"identity", bytes.as_slice())?;
 
         maybe_local_txn_commit!(local_txn);
 
@@ -581,73 +580,6 @@ impl Storage {
             Some(bytes) => {
                 let identity: Identity = serde_json::from_slice(bytes)?;
                 Ok(Some(identity))
-            }
-        }
-    }
-
-    /// Write the user's encrypted private key
-    pub fn write_encrypted_private_key<'a>(
-        &'a self,
-        epk: Option<EncryptedPrivateKey>,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error> {
-        let bytes = epk.map(|e| e.0).write_to_vec()?;
-
-        let mut local_txn = None;
-        let txn = maybe_local_txn!(self, rw_txn, local_txn);
-
-        self.db_general()?
-            .put(txn, b"encrypted_private_key", &bytes)?;
-
-        maybe_local_txn_commit!(local_txn);
-
-        Ok(())
-    }
-
-    /// Read the user's encrypted private key
-    pub fn read_encrypted_private_key(&self) -> Result<Option<EncryptedPrivateKey>, Error> {
-        let txn = self.env.read_txn()?;
-
-        match self.db_general()?.get(&txn, b"encrypted_private_key")? {
-            None => Ok(None),
-            Some(bytes) => {
-                let os = Option::<String>::read_from_buffer(bytes)?;
-                Ok(os.map(EncryptedPrivateKey))
-            }
-        }
-    }
-
-    /// Write the client's encrypted private key
-    pub fn write_client_encrypted_private_key<'a>(
-        &'a self,
-        epk: Option<EncryptedPrivateKey>,
-        rw_txn: Option<&mut RwTxn<'a>>,
-    ) -> Result<(), Error> {
-        let bytes = epk.map(|e| e.0).write_to_vec()?;
-
-        let mut local_txn = None;
-        let txn = maybe_local_txn!(self, rw_txn, local_txn);
-
-        self.db_general()?
-            .put(txn, b"client_encrypted_private_key", &bytes)?;
-
-        maybe_local_txn_commit!(local_txn);
-
-        Ok(())
-    }
-
-    /// Read the client's encrypted private key
-    pub fn read_client_encrypted_private_key(&self) -> Result<Option<EncryptedPrivateKey>, Error> {
-        let txn = self.env.read_txn()?;
-
-        match self
-            .db_general()?
-            .get(&txn, b"client_encrypted_private_key")?
-        {
-            None => Ok(None),
-            Some(bytes) => {
-                let os = Option::<String>::read_from_buffer(bytes)?;
-                Ok(os.map(EncryptedPrivateKey))
             }
         }
     }
@@ -1278,7 +1210,7 @@ impl Storage {
 
         // Determine if this is our own DM relay list
         let mut ours = false;
-        if let Some(pubkey) = self.read_setting_public_key() {
+        if let Some(pubkey) = GLOBALS.identity.public_key() {
             if event.pubkey == pubkey {
                 tracing::info!("Processing our own dm relay list");
                 ours = true;
@@ -1373,7 +1305,7 @@ impl Storage {
         }
 
         let mut ours = false;
-        if let Some(pubkey) = self.read_setting_public_key() {
+        if let Some(pubkey) = GLOBALS.identity.public_key() {
             if event.pubkey == pubkey {
                 tracing::info!("Processing our own relay list");
                 ours = true;

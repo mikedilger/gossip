@@ -21,7 +21,7 @@ impl DmChannel {
         vec.dedup();
 
         let can_use_nip17 = {
-            if let Some(pk) = GLOBALS.db().read_setting_public_key() {
+            if let Some(pk) = GLOBALS.identity.public_key() {
                 if !matches!(GLOBALS.db().has_dm_relays(pk), Ok(true)) {
                     false
                 } else {

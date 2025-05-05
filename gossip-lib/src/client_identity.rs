@@ -2,7 +2,7 @@ use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use nostr_types::{
     ContentEncryptionAlgorithm, EncryptedPrivateKey, Event, ExportableSigner, Identity,
-    KeySecurity, PreEvent, PublicKey, Rumor, Signer,
+    KeySecurity, PreEvent, PublicKey, Rumor,
 };
 use parking_lot::RwLock;
 use std::sync::mpsc::Sender;
@@ -23,27 +23,18 @@ impl Default for ClientIdentity {
 
 impl ClientIdentity {
     pub(crate) fn load(&self) -> Result<(), Error> {
-        let pk = GLOBALS.db().read_setting_client_public_key();
-        let epk = GLOBALS.db().read_client_encrypted_private_key()?;
-        match (pk, epk) {
-            (Some(pk), Some(epk)) => *self.inner.write_arc() = Identity::from_locked_parts(pk, epk),
-            (Some(pk), None) => *self.inner.write_arc() = Identity::Public(pk),
-            (None, _) => *self.inner.write_arc() = Identity::None,
-        }
+        let identity = GLOBALS
+            .db()
+            .read_client_identity()?
+            .unwrap_or(Identity::None);
+        *self.inner.write_arc() = identity;
         Ok(())
     }
 
     // Any function that changes ClientIdentity should run this to save back changes
     fn on_change(&self) -> Result<(), Error> {
         let binding = self.inner.read_arc();
-        let (pk, epk) = match *binding {
-            Identity::None => (None, None),
-            Identity::Public(pk) => (Some(pk), None),
-            Identity::Private(ref ks) => (Some(ks.public_key()), ks.encrypted_private_key()),
-            Identity::Remote(ref bc) => (Some(bc.public_key()), None),
-        };
-        GLOBALS.db().write_setting_client_public_key(&pk, None)?;
-        GLOBALS.db().write_client_encrypted_private_key(epk, None)?;
+        GLOBALS.db().write_client_identity(&binding, None)?;
         Ok(())
     }
 

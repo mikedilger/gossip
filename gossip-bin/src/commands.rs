@@ -877,16 +877,10 @@ pub fn import_encrypted_private_key(cmd: Command, mut args: env::Args) -> Result
 
     let epk = EncryptedPrivateKey(input);
 
-    // Verify first
     let mut password = rpassword::prompt_password("Password: ").unwrap();
-    let private_key = epk.decrypt(&password)?;
-    password.zeroize();
-    let public_key = private_key.public_key();
 
-    GLOBALS
-        .db()
-        .write_setting_public_key(&Some(public_key), None)?;
-    GLOBALS.db().write_encrypted_private_key(Some(epk), None)?;
+    GLOBALS.identity.set_encrypted_private_key(epk, &password)?;
+    password.zeroize();
 
     println!("Saved.");
     Ok(())
@@ -918,12 +912,12 @@ pub async fn import_event(cmd: Command, mut args: env::Args) -> Result<(), Error
 }
 
 pub fn keys() -> Result<(), Error> {
-    match GLOBALS.db().read_encrypted_private_key()? {
+    match GLOBALS.identity.encrypted_private_key() {
         Some(epk) => println!("epk: {epk}"),
         None => println!("No encrypted private key"),
     };
 
-    match GLOBALS.db().read_setting_public_key() {
+    match GLOBALS.identity.public_key() {
         Some(pk) => println!("public key: {}", pk.as_bech32_string()),
         None => println!("No public key"),
     };
@@ -1206,7 +1200,7 @@ pub fn events_of_pubkey_and_kind(cmd: Command, mut args: env::Args) -> Result<()
 }
 
 pub fn export_encrypted_key() -> Result<(), Error> {
-    let epk = match GLOBALS.db().read_encrypted_private_key()? {
+    let epk = match GLOBALS.identity.encrypted_private_key() {
         Some(epk) => epk,
         None => return Err(ErrorKind::NoPrivateKey.into()),
     };
@@ -1456,7 +1450,7 @@ pub async fn login() -> Result<(), Error> {
     if !GLOBALS.identity.is_unlocked() {
         let mut password = rpassword::prompt_password("Password: ").unwrap();
         if !GLOBALS.identity.has_private_key() {
-            let epk = match GLOBALS.db().read_encrypted_private_key()? {
+            let epk = match GLOBALS.identity.encrypted_private_key() {
                 Some(epk) => epk,
                 None => return Err(ErrorKind::NoPrivateKey.into()),
             };

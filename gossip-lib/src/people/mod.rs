@@ -993,7 +993,7 @@ pub(crate) fn fetch_current_personlist_matching_event(
 // as opposed to GLOBALS.db().hash_person_list(list)
 pub async fn hash_person_list_event(list: PersonList) -> Result<u64, Error> {
     // we cannot do anything without an identity setup first
-    let my_pubkey = match GLOBALS.db().read_setting_public_key() {
+    let my_pubkey = match GLOBALS.identity.public_key() {
         Some(pk) => pk,
         None => return Err(ErrorKind::NoPublicKey.into()),
     };

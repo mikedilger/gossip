@@ -1,4 +1,5 @@
 use crate::error::{Error, ErrorKind};
+use crate::globals::GLOBALS;
 use crate::storage::{EmptyDatabase, Storage};
 use heed::types::{Bytes, Unit};
 use heed::RwTxn;
@@ -68,7 +69,7 @@ impl Storage {
         }
 
         // our user's public key
-        let pk: Option<PublicKeyHex> = self.read_setting_public_key().map(|p| p.into());
+        let pk: Option<PublicKeyHex> = GLOBALS.identity.public_key().map(|p| p.into());
 
         // Index tags from giftwrap and rumor
         let mut tags: Vec<TagV3> = event.tags.clone();

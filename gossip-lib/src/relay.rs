@@ -96,7 +96,7 @@ pub fn recommended_relay_hint(reply_to: Id) -> Result<Option<RelayUrl>, Error> {
     let seen_on_relays: Vec<(RelayUrl, Unixtime)> =
         GLOBALS.db().get_event_seen_on_relay(reply_to)?;
 
-    let maybepubkey = GLOBALS.db().read_setting_public_key();
+    let maybepubkey = GLOBALS.identity.public_key();
     if let Some(pubkey) = maybepubkey {
         let my_inbox_relays: Vec<RelayUrl> = get_all_pubkey_inboxes(pubkey)?;
 

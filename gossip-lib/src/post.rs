@@ -166,7 +166,7 @@ pub async fn prepare_post_nip17(
         return Err(ErrorKind::UsersCantUseNip17.into());
     }
 
-    let our_pk = match GLOBALS.db().read_setting_public_key() {
+    let our_pk = match GLOBALS.identity.public_key() {
         Some(pk) => pk,
         None => return Err(ErrorKind::NoPublicKey.into()),
     };

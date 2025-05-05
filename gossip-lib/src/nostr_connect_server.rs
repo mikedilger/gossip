@@ -35,7 +35,7 @@ impl Nip46UnconnectedServer {
     }
 
     pub fn connection_token(&self) -> Result<String, Error> {
-        let public_key = match GLOBALS.db().read_setting_public_key() {
+        let public_key = match GLOBALS.identity.public_key() {
             Some(pk) => pk,
             None => return Err(ErrorKind::NoPublicKey.into()),
         };
@@ -215,7 +215,7 @@ impl Nip46Server {
             return Err("sign_event: requires a parameter".into());
         }
 
-        let public_key = match GLOBALS.db().read_setting_public_key() {
+        let public_key = match GLOBALS.identity.public_key() {
             Some(pk) => pk,
             None => return Err(ErrorKind::NoPublicKey.into()),
         };
@@ -409,7 +409,7 @@ async fn send_response(
 ) -> Result<(), Error> {
     use serde_json::json;
 
-    let public_key = match GLOBALS.db().read_setting_public_key() {
+    let public_key = match GLOBALS.identity.public_key() {
         Some(pk) => pk,
         None => return Err(ErrorKind::NoPublicKey.into()),
     };
@@ -575,7 +575,7 @@ pub async fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<
         return Ok(()); // no need to pass back error
     }
 
-    let public_key = match GLOBALS.db().read_setting_public_key() {
+    let public_key = match GLOBALS.identity.public_key() {
         Some(pk) => pk,
         None => {
             send_response(

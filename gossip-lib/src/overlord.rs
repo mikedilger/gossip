@@ -3529,7 +3529,7 @@ impl Overlord {
     /// Update the local person list from the last event received.
     pub async fn update_person_list(&mut self, list: PersonList, merge: bool) -> Result<(), Error> {
         // we cannot do anything without an identity setup first
-        let my_pubkey = match GLOBALS.db().read_setting_public_key() {
+        let my_pubkey = match GLOBALS.identity.public_key() {
             Some(pk) => pk,
             None => {
                 GLOBALS
