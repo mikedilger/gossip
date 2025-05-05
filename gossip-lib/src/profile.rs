@@ -46,21 +46,21 @@ impl Profile {
             .ok_or::<Error>("Cannot find a directory to store application data.".into())?;
 
         // Canonicalize (follow symlinks, resolve ".." paths)
-        let data_dir = normalize(data_dir)?;
+        let data_dir = normalize(data_dir);
 
         // Push "gossip" to data_dir, or override with GOSSIP_DIR
         let base_dir = match env::var("GOSSIP_DIR") {
             Ok(dir) => {
                 tracing::info!("Using GOSSIP_DIR: {}", dir);
                 // Note, this must pre-exist
-                normalize(dir)?
+                normalize(dir)
             }
             Err(_) => {
                 let mut base_dir = data_dir;
                 base_dir.push("gossip");
                 // We canonicalize here because gossip might be a link, but if it
                 // doesn't exist yet we have to just go with basedir
-                normalize(base_dir.as_path()).unwrap_or(base_dir)
+                normalize(base_dir.as_path())
             }
         };
 
@@ -215,11 +215,14 @@ impl Profile {
 }
 
 #[cfg(not(windows))]
-fn normalize<P: AsRef<Path>>(path: P) -> Result<PathBuf, Error> {
-    Ok(fs::canonicalize(path)?)
+fn normalize<P: AsRef<Path>>(path: P) -> PathBuf {
+    fs::canonicalize(&path).unwrap_or(path.as_ref().to_path_buf())
 }
 
 #[cfg(windows)]
-fn normalize<P: AsRef<Path>>(path: P) -> Result<PathBuf, Error> {
-    Ok(path.as_ref().normalize()?.into_path_buf())
+fn normalize<P: AsRef<Path>>(path: P) -> PathBuf {
+    match path.as_ref().normalize() {
+        Ok(p) => p.into_path_buf(),
+        Err(_) => path.as_ref().to_path_buf()
+    }
 }
