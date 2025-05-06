@@ -2,7 +2,7 @@ use crate::bookmarks::BookmarkList;
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
 use nostr_types::{
-    ContentEncryptionAlgorithm, DelegationConditions, EncryptedPrivateKey, Event, EventKind,
+    nip46, ContentEncryptionAlgorithm, DelegationConditions, EncryptedPrivateKey, Event, EventKind,
     ExportableSigner, Filter, Id, Identity, KeySecurity, LockableSigner, Metadata, PreEvent,
     PrivateKey, PublicKey, Rumor, Signature,
 };
@@ -133,6 +133,16 @@ impl UserIdentity {
     pub(crate) fn set_private_key(&self, pk: PrivateKey, pass: &str) -> Result<(), Error> {
         let log_n = GLOBALS.db().read_setting_log_n();
         let identity = Identity::from_private_key(pk, pass, log_n)?;
+        *self.inner.write_arc() = identity;
+        self.on_keychange()?;
+        Ok(())
+    }
+
+    pub(crate) fn set_remote_signer(
+        &self,
+        bunker_client: nip46::BunkerClient,
+    ) -> Result<(), Error> {
+        let identity = Identity::Remote(bunker_client);
         *self.inner.write_arc() = identity;
         self.on_keychange()?;
         Ok(())
