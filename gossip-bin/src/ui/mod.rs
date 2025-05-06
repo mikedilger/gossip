@@ -596,6 +596,7 @@ impl Drop for GossipUi {
         self.password.zeroize();
         self.password2.zeroize();
         self.password3.zeroize();
+        self.import_priv.zeroize();
     }
 }
 
