@@ -26,6 +26,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
     render_wizard_path_choice(ui, app, WizardPath::ImportFromKey(true));
 
+    render_wizard_path_choice(ui, app, WizardPath::RemoteSigner);
+
     render_wizard_path_choice(ui, app, WizardPath::FollowOnlyNoKeys);
 
     ui.add_space(20.0); // vertical space
@@ -47,6 +49,12 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                         app.wizard_state.new_user = false;
                         app.set_page(ctx, Page::Wizard(WizardPage::ImportKeys))
                     }
+                    WizardPath::RemoteSigner => {
+                        app.wizard_state.new_user = false;
+                        app.password = "".to_owned();
+                        app.password2 = "".to_owned();
+                        app.set_page(ctx, Page::Wizard(WizardPage::SetupRemoteSigner))
+                    }
                     WizardPath::FollowOnlyNoKeys => {
                         app.wizard_state.new_user = false;
                         app.wizard_state.follow_only = true;
@@ -63,6 +71,7 @@ fn wizard_path_name(path: WizardPath) -> &'static str {
     match path {
         WizardPath::CreateNewAccount => "Create a New Nostr Account",
         WizardPath::ImportFromKey(_) => "I Already have a Nostr Account",
+        WizardPath::RemoteSigner => "I want to use a Remote Signer",
         WizardPath::FollowOnlyNoKeys => "Just follow people (no account)",
     }
 }

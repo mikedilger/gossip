@@ -7,8 +7,13 @@ pub enum WizardPath {
     /// the user wants to import an existing account from
     /// a private (true) or public key (false)
     ImportFromKey(bool),
+
+    /// the user wants to use a remote signer
+    RemoteSigner,
+
     /// the user wants to create a new account
     CreateNewAccount,
+
     /// the user only wants to create a local follow list
     /// without setting up any keys
     FollowOnlyNoKeys,
@@ -21,6 +26,7 @@ pub struct WizardState {
     pub last_status_queue_message: String,
     pub new_user: bool,
     pub follow_only: bool,
+    pub remote_signer_url: String,
     pub relay_url: String,
     pub relay_list_sought: bool,
     pub metadata_copied: bool,
@@ -52,6 +58,7 @@ impl Default for WizardState {
             last_status_queue_message: "".to_owned(),
             new_user: false,
             follow_only: false,
+            remote_signer_url: "".to_owned(),
             relay_url: "".to_owned(),
             relay_list_sought: true,
             metadata_copied: false,

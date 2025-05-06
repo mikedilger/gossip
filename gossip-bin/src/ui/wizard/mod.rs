@@ -13,6 +13,7 @@ mod import_public_key;
 mod read_nostr_config;
 mod setup_metadata;
 mod setup_relays;
+mod setup_remote_signer;
 mod welcome_gossip;
 mod welcome_nostr;
 
@@ -70,6 +71,7 @@ pub(super) enum WizardPage {
     ImportKeys,
     ImportPrivateKey,
     ImportPublicKey,
+    SetupRemoteSigner,
     ReadNostrConfig,
     SetupRelays,
     SetupMetadata,
@@ -84,6 +86,7 @@ impl WizardPage {
             WizardPage::ImportKeys => "Import Keys",
             WizardPage::ImportPrivateKey => "Import a Private Key",
             WizardPage::ImportPublicKey => "Import only a Public Key",
+            WizardPage::SetupRemoteSigner => "Setup Remote Signer",
             WizardPage::ReadNostrConfig => "Read your Nostr Configuration Data",
             WizardPage::SetupRelays => "Setup Relays",
             WizardPage::SetupMetadata => "Setup your Metadata",
@@ -222,6 +225,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
                 WizardPage::ImportKeys => import_keys::update(app, ctx, frame, ui),
                 WizardPage::ImportPrivateKey => import_private_key::update(app, ctx, frame, ui),
                 WizardPage::ImportPublicKey => import_public_key::update(app, ctx, frame, ui),
+                WizardPage::SetupRemoteSigner => setup_remote_signer::update(app, ctx, frame, ui),
                 WizardPage::ReadNostrConfig => read_nostr_config::update(app, ctx, frame, ui),
                 WizardPage::SetupRelays => setup_relays::update(app, ctx, frame, ui),
                 WizardPage::SetupMetadata => setup_metadata::update(app, ctx, frame, ui),
@@ -322,6 +326,7 @@ fn back_button() -> impl egui::Widget {
     egui::Button::new(BACK_BTN_TEXT).min_size(vec2(80.0, 0.0))
 }
 
+// This adds a 'continue'
 fn continue_control(
     ui: &mut Ui,
     app: &mut GossipUi,
@@ -337,6 +342,7 @@ fn continue_control(
     });
 }
 
+// This adds a 'back' and a 'continue'
 fn wizard_controls(
     ui: &mut Ui,
     app: &mut GossipUi,
