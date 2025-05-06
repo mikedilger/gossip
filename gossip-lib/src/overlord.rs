@@ -779,6 +779,9 @@ impl Overlord {
             } => {
                 self.set_thread_feed(id, referenced_by, author)?;
             }
+            ToOverlordMessage::SetupRemoteSigner(url, new_password) => {
+                self.setup_remote_signer(url, new_password).await?;
+            }
             ToOverlordMessage::ShareHandlerRecommendations(kind) => {
                 self.share_handler_recommendations(kind).await?;
             }
@@ -2919,6 +2922,30 @@ impl Overlord {
                 manager::engage_minion(url.to_owned(), jobs);
             }
         }
+
+        Ok(())
+    }
+
+    pub async fn setup_remote_signer(
+        &mut self,
+        url: String,
+        new_password: String,
+    ) -> Result<(), Error> {
+        // Safety: If we already have a working private key identity, do not clobber it
+        if GLOBALS.identity.has_private_key() {
+            return Err(ErrorKind::General(
+                "This action would clobber your private key. Refusing for safety reasons."
+                    .to_string(),
+            )
+            .into());
+        }
+
+        let mut pre_bunker_client =
+            nostr_types::nip46::PreBunkerClient::new_from_url(&url, &new_password)?;
+
+        let bunker_client = pre_bunker_client.initialize().await?;
+
+        GLOBALS.identity.set_remote_signer(bunker_client)?;
 
         Ok(())
     }

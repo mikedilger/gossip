@@ -196,6 +196,9 @@ pub enum ToOverlordMessage {
         author: Option<PublicKey>,
     },
 
+    /// Calls [setup_remote_signer](crate::Overlord::setup_remote_signer)
+    SetupRemoteSigner(String, String),
+
     /// Calls [share_handler_recommendations](crate::Overlord::share_handler_recommendations)
     ShareHandlerRecommendations(EventKind),
 
