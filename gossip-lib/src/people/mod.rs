@@ -548,7 +548,7 @@ impl People {
         person_list: PersonList,
     ) -> Result<Event, Error> {
         if !GLOBALS.identity.is_unlocked() {
-            return Err((ErrorKind::NoPrivateKey, file!(), line!()).into());
+            return Err(ErrorKind::NoPrivateKey.into());
         }
 
         // Get the personlist metadata (dtag, etc)

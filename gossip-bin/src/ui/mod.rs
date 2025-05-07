@@ -1893,10 +1893,8 @@ impl GossipUi {
 
                     Some((texture_handle, x, y))
                 } else {
-                    self.qr_codes.insert(
-                        key.to_string(),
-                        Err(("Could not make a QR", file!(), line!()).into()),
-                    );
+                    self.qr_codes
+                        .insert(key.to_string(), Err("Could not make a QR".into()));
 
                     None
                 }

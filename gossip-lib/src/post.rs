@@ -116,7 +116,7 @@ pub async fn prepare_post_nip04(
     annotation: bool,
 ) -> Result<Vec<(Event, Vec<RelayUrl>)>, Error> {
     if dm_channel.keys().len() > 1 {
-        return Err((ErrorKind::GroupDmsNotSupported, file!(), line!()).into());
+        return Err(ErrorKind::GroupDmsNotSupported.into());
     }
 
     let recipient = if dm_channel.keys().is_empty() {

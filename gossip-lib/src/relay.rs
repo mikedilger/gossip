@@ -219,7 +219,7 @@ pub fn get_best_relays_with_score(
     score_factors: ScoreFactors,
 ) -> Result<Vec<(RelayUrl, f32)>, Error> {
     if usage != RelayUsage::Outbox && usage != RelayUsage::Inbox {
-        return Err((ErrorKind::UnsupportedRelayUsage, file!(), line!()).into());
+        return Err(ErrorKind::UnsupportedRelayUsage.into());
     }
 
     // Load person relays, filtering out banned URLs

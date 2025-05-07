@@ -108,7 +108,7 @@ pub async fn get_and_follow_nip05(
     // Get their pubkey
     let pubkey = match nip05file.names.get(&user) {
         Some(pk) => PublicKey::try_from_hex_string(pk, true)?,
-        None => return Err((ErrorKind::Nip05KeyNotFound, file!(), line!()).into()),
+        None => return Err(ErrorKind::Nip05KeyNotFound.into()),
     };
 
     // Save person
@@ -169,13 +169,13 @@ pub fn parse_nip05(nip05: &str) -> Result<(String, String), Error> {
 
     // Require two parts
     if parts.len() != 2 {
-        Err((ErrorKind::InvalidDnsId, file!(), line!()).into())
+        Err(ErrorKind::InvalidDnsId.into())
     } else {
         let domain = parts.pop().unwrap();
         let user = parts.pop().unwrap();
         if domain.len() < 4 {
             // smallest non-TLD domain is like 't.co'
-            return Err((ErrorKind::InvalidDnsId, file!(), line!()).into());
+            return Err(ErrorKind::InvalidDnsId.into());
         }
         Ok((user.to_string(), domain.to_string()))
     }

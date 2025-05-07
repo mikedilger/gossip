@@ -1,6 +1,7 @@
 use crate::comms::{ToMinionMessage, ToOverlordMessage};
 use crate::people::PersonList;
 use nostr_types::RelayUrl;
+use std::panic::Location;
 
 /// Error kinds that can occur in gossip-lib
 #[derive(Debug)]
@@ -94,20 +95,19 @@ pub enum ErrorKind {
 #[derive(Debug)]
 pub struct Error {
     pub kind: ErrorKind,
-    pub file: Option<&'static str>,
-    pub line: Option<u32>,
+    location: &'static Location<'static>,
 }
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}, {}", self.kind, self.location)
+    }
+}
+
+impl std::fmt::Display for ErrorKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use ErrorKind::*;
-        if let Some(file) = self.file {
-            write!(f, "{file}:")?;
-        }
-        if let Some(line) = self.line {
-            write!(f, "{line}:")?;
-        }
-        match &self.kind {
+        match self {
             BadNostrConnectString => write!(f, "Bad nostrconnect string"),
             BlossomError(s) => write!(f, "Blossom error: {s}"),
             BroadcastSend(s) => write!(f, "Error broadcasting: {s}"),
@@ -201,184 +201,279 @@ impl std::fmt::Display for Error {
     }
 }
 
-impl<E> From<(E, &'static str, u32)> for Error
-where
-    ErrorKind: From<E>,
-{
-    fn from(triplet: (E, &'static str, u32)) -> Error {
+// Note: we impl Into because our typical pattern is InnerError::Variant.into()
+//       when we tried implementing From, the location was deep in rust code's
+//       blanket into implementation, which wasn't the line number we wanted.
+//
+//       As for converting other error types, the try! macro uses From so it
+//       is correct.
+#[allow(clippy::from_over_into)]
+impl Into<Error> for ErrorKind {
+    #[track_caller]
+    fn into(self) -> Error {
         Error {
-            kind: triplet.0.into(),
-            file: Some(triplet.1),
-            line: Some(triplet.2),
+            kind: self,
+            location: Location::caller(),
         }
     }
 }
 
-impl<E> From<E> for Error
-where
-    ErrorKind: From<E>,
-{
-    fn from(intoek: E) -> Error {
+impl From<tokio::sync::broadcast::error::SendError<ToMinionMessage>> for Error {
+    #[track_caller]
+    fn from(e: tokio::sync::broadcast::error::SendError<ToMinionMessage>) -> Error {
         Error {
-            kind: intoek.into(),
-            file: None,
-            line: None,
+            kind: ErrorKind::BroadcastSend(format!("{}", e)),
+            location: Location::caller(),
         }
     }
 }
 
-impl From<tokio::sync::broadcast::error::SendError<ToMinionMessage>> for ErrorKind {
-    fn from(e: tokio::sync::broadcast::error::SendError<ToMinionMessage>) -> ErrorKind {
-        ErrorKind::BroadcastSend(format!("{}", e))
+impl From<tokio::sync::broadcast::error::RecvError> for Error {
+    #[track_caller]
+    fn from(e: tokio::sync::broadcast::error::RecvError) -> Error {
+        Error {
+            kind: ErrorKind::BroadcastReceive(e),
+            location: Location::caller(),
+        }
     }
 }
 
-impl From<tokio::sync::broadcast::error::RecvError> for ErrorKind {
-    fn from(e: tokio::sync::broadcast::error::RecvError) -> ErrorKind {
-        ErrorKind::BroadcastReceive(e)
+impl From<String> for Error {
+    #[track_caller]
+    fn from(s: String) -> Error {
+        Error {
+            kind: ErrorKind::General(s),
+            location: Location::caller(),
+        }
     }
 }
 
-impl From<String> for ErrorKind {
-    fn from(s: String) -> ErrorKind {
-        ErrorKind::General(s)
+impl From<&str> for Error {
+    #[track_caller]
+    fn from(s: &str) -> Error {
+        Error {
+            kind: ErrorKind::General(s.to_string()),
+            location: Location::caller(),
+        }
     }
 }
 
-impl From<&str> for ErrorKind {
-    fn from(s: &str) -> ErrorKind {
-        ErrorKind::General(s.to_string())
+impl From<http::Error> for Error {
+    #[track_caller]
+    fn from(e: http::Error) -> Error {
+        Error {
+            kind: ErrorKind::HttpError(e),
+            location: Location::caller(),
+        }
     }
 }
 
-impl From<http::Error> for ErrorKind {
-    fn from(e: http::Error) -> ErrorKind {
-        ErrorKind::HttpError(e)
+impl From<tokio::task::JoinError> for Error {
+    #[track_caller]
+    fn from(e: tokio::task::JoinError) -> Error {
+        Error {
+            kind: ErrorKind::JoinError(e),
+            location: Location::caller(),
+        }
     }
 }
 
-impl From<tokio::task::JoinError> for ErrorKind {
-    fn from(e: tokio::task::JoinError) -> ErrorKind {
-        ErrorKind::JoinError(e)
+impl From<tokio::sync::mpsc::error::SendError<ToOverlordMessage>> for Error {
+    #[track_caller]
+    fn from(e: tokio::sync::mpsc::error::SendError<ToOverlordMessage>) -> Error {
+        Error {
+            kind: ErrorKind::MpscSend(e),
+            location: Location::caller(),
+        }
     }
 }
 
-impl From<tokio::sync::mpsc::error::SendError<ToOverlordMessage>> for ErrorKind {
-    fn from(e: tokio::sync::mpsc::error::SendError<ToOverlordMessage>) -> ErrorKind {
-        ErrorKind::MpscSend(e)
+impl From<nostr_types::Error> for Error {
+    #[track_caller]
+    fn from(e: nostr_types::Error) -> Error {
+        Error {
+            kind: ErrorKind::Nostr(e),
+            location: Location::caller(),
+        }
     }
 }
 
-impl From<nostr_types::Error> for ErrorKind {
-    fn from(e: nostr_types::Error) -> ErrorKind {
-        ErrorKind::Nostr(e)
+impl From<image::error::ImageError> for Error {
+    #[track_caller]
+    fn from(e: image::error::ImageError) -> Error {
+        Error {
+            kind: ErrorKind::Image(e),
+            location: Location::caller(),
+        }
     }
 }
 
-impl From<image::error::ImageError> for ErrorKind {
-    fn from(e: image::error::ImageError) -> ErrorKind {
-        ErrorKind::Image(e)
+impl From<std::io::Error> for Error {
+    #[track_caller]
+    fn from(e: std::io::Error) -> Error {
+        Error {
+            kind: ErrorKind::Io(e),
+            location: Location::caller(),
+        }
     }
 }
 
-impl From<std::io::Error> for ErrorKind {
-    fn from(e: std::io::Error) -> ErrorKind {
-        ErrorKind::Io(e)
+impl From<http::uri::InvalidUriParts> for Error {
+    #[track_caller]
+    fn from(e: http::uri::InvalidUriParts) -> Error {
+        Error {
+            kind: ErrorKind::InvalidUriParts(e),
+            location: Location::caller(),
+        }
     }
 }
 
-impl From<http::uri::InvalidUriParts> for ErrorKind {
-    fn from(e: http::uri::InvalidUriParts) -> ErrorKind {
-        ErrorKind::InvalidUriParts(e)
+impl From<http::uri::InvalidUri> for Error {
+    #[track_caller]
+    fn from(e: http::uri::InvalidUri) -> Error {
+        Error {
+            kind: ErrorKind::InvalidUri(e),
+            location: Location::caller(),
+        }
     }
 }
 
-impl From<http::uri::InvalidUri> for ErrorKind {
-    fn from(e: http::uri::InvalidUri) -> ErrorKind {
-        ErrorKind::InvalidUri(e)
+impl From<heed::Error> for Error {
+    #[track_caller]
+    fn from(e: heed::Error) -> Error {
+        Error {
+            kind: ErrorKind::Lmdb(e),
+            location: Location::caller(),
+        }
     }
 }
 
-impl From<heed::Error> for ErrorKind {
-    fn from(e: heed::Error) -> ErrorKind {
-        ErrorKind::Lmdb(e)
+impl From<std::num::ParseIntError> for Error {
+    #[track_caller]
+    fn from(e: std::num::ParseIntError) -> Error {
+        Error {
+            kind: ErrorKind::ParseInt(e),
+            location: Location::caller(),
+        }
     }
 }
 
-impl From<std::num::ParseIntError> for ErrorKind {
-    fn from(e: std::num::ParseIntError) -> ErrorKind {
-        ErrorKind::ParseInt(e)
-    }
-}
-
-impl From<std::str::ParseBoolError> for ErrorKind {
+impl From<std::str::ParseBoolError> for Error {
+    #[track_caller]
     fn from(e: std::str::ParseBoolError) -> Self {
-        ErrorKind::ParseBool(e)
+        Error {
+            kind: ErrorKind::ParseBool(e),
+            location: Location::caller(),
+        }
     }
 }
 
-impl From<regex::Error> for ErrorKind {
-    fn from(e: regex::Error) -> ErrorKind {
-        ErrorKind::Regex(e)
+impl From<regex::Error> for Error {
+    #[track_caller]
+    fn from(e: regex::Error) -> Error {
+        Error {
+            kind: ErrorKind::Regex(e),
+            location: Location::caller(),
+        }
     }
 }
 
-impl From<reqwest::Error> for ErrorKind {
-    fn from(e: reqwest::Error) -> ErrorKind {
-        ErrorKind::ReqwestHttpError(e)
+impl From<reqwest::Error> for Error {
+    #[track_caller]
+    fn from(e: reqwest::Error) -> Error {
+        Error {
+            kind: ErrorKind::ReqwestHttpError(e),
+            location: Location::caller(),
+        }
     }
 }
 
-impl From<serde_json::Error> for ErrorKind {
-    fn from(e: serde_json::Error) -> ErrorKind {
-        ErrorKind::SerdeJson(e)
+impl From<serde_json::Error> for Error {
+    #[track_caller]
+    fn from(e: serde_json::Error) -> Error {
+        Error {
+            kind: ErrorKind::SerdeJson(e),
+            location: Location::caller(),
+        }
     }
 }
 
-impl From<std::array::TryFromSliceError> for ErrorKind {
-    fn from(e: std::array::TryFromSliceError) -> ErrorKind {
-        ErrorKind::SliceError(e)
+impl From<std::array::TryFromSliceError> for Error {
+    #[track_caller]
+    fn from(e: std::array::TryFromSliceError) -> Error {
+        Error {
+            kind: ErrorKind::SliceError(e),
+            location: Location::caller(),
+        }
     }
 }
 
-impl From<speedy::Error> for ErrorKind {
-    fn from(e: speedy::Error) -> ErrorKind {
-        ErrorKind::Speedy(e)
+impl From<speedy::Error> for Error {
+    #[track_caller]
+    fn from(e: speedy::Error) -> Error {
+        Error {
+            kind: ErrorKind::Speedy(e),
+            location: Location::caller(),
+        }
     }
 }
 
-impl From<usvg::Error> for ErrorKind {
-    fn from(e: usvg::Error) -> ErrorKind {
-        ErrorKind::Svg(e)
+impl From<usvg::Error> for Error {
+    #[track_caller]
+    fn from(e: usvg::Error) -> Error {
+        Error {
+            kind: ErrorKind::Svg(e),
+            location: Location::caller(),
+        }
     }
 }
 
-impl From<tokio::time::error::Elapsed> for ErrorKind {
-    fn from(e: tokio::time::error::Elapsed) -> ErrorKind {
-        ErrorKind::Timeout(e)
+impl From<tokio::time::error::Elapsed> for Error {
+    #[track_caller]
+    fn from(e: tokio::time::error::Elapsed) -> Error {
+        Error {
+            kind: ErrorKind::Timeout(e),
+            location: Location::caller(),
+        }
     }
 }
 
-impl From<std::str::Utf8Error> for ErrorKind {
-    fn from(e: std::str::Utf8Error) -> ErrorKind {
-        ErrorKind::Utf8Error(e)
+impl From<std::str::Utf8Error> for Error {
+    #[track_caller]
+    fn from(e: std::str::Utf8Error) -> Error {
+        Error {
+            kind: ErrorKind::Utf8Error(e),
+            location: Location::caller(),
+        }
     }
 }
 
-impl From<tungstenite::Error> for ErrorKind {
-    fn from(e: tungstenite::Error) -> ErrorKind {
-        ErrorKind::Websocket(e)
+impl From<tungstenite::Error> for Error {
+    #[track_caller]
+    fn from(e: tungstenite::Error) -> Error {
+        Error {
+            kind: ErrorKind::Websocket(e),
+            location: Location::caller(),
+        }
     }
 }
 
-impl From<url::ParseError> for ErrorKind {
-    fn from(e: url::ParseError) -> ErrorKind {
-        ErrorKind::UrlParse(e)
+impl From<url::ParseError> for Error {
+    #[track_caller]
+    fn from(e: url::ParseError) -> Error {
+        Error {
+            kind: ErrorKind::UrlParse(e),
+            location: Location::caller(),
+        }
     }
 }
 
-impl From<std::string::FromUtf8Error> for ErrorKind {
-    fn from(e: std::string::FromUtf8Error) -> ErrorKind {
-        ErrorKind::FromUtf8(e)
+impl From<std::string::FromUtf8Error> for Error {
+    #[track_caller]
+    fn from(e: std::string::FromUtf8Error) -> Error {
+        Error {
+            kind: ErrorKind::FromUtf8(e),
+            location: Location::caller(),
+        }
     }
 }

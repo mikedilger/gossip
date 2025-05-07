@@ -223,6 +223,6 @@ fn normalize<P: AsRef<Path>>(path: P) -> PathBuf {
 fn normalize<P: AsRef<Path>>(path: P) -> PathBuf {
     match path.as_ref().normalize() {
         Ok(p) => p.into_path_buf(),
-        Err(_) => path.as_ref().to_path_buf()
+        Err(_) => path.as_ref().to_path_buf(),
     }
 }
