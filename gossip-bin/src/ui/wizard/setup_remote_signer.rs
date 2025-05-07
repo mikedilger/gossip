@@ -9,6 +9,12 @@ use zeroize::Zeroize;
 use super::wizard_controls;
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
+    // If identity is already configured, advance
+    if GLOBALS.identity.public_key().is_some() {
+        app.set_page(ctx, Page::Wizard(WizardPage::ReadNostrConfig));
+        return;
+    }
+
     ui.add_space(20.0);
 
     egui::Grid::new("signerurl")
