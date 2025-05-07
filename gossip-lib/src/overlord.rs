@@ -3389,8 +3389,9 @@ impl Overlord {
             filter.add_event_kind(outbox_event.kind);
             filter.add_author(outbox_event.pubkey);
             filter.since = Some(outbox_event.created_at);
+            let subid = conn.subscribe(filter.clone()).await?;
 
-            let fetch_result = conn.fetch_events(filter).await?;
+            let fetch_result = conn.fetch_events(subid, filter).await?;
             let close_msg = fetch_result.close_msg.clone();
             if fetch_result.into_events().contains(&outbox_event) {
                 anon_fetched_outbox = RelayTestResult::Pass;
@@ -3410,10 +3411,13 @@ impl Overlord {
         inbox_filter.add_event_kind(inbox_event.kind);
         inbox_filter.add_author(inbox_event.pubkey);
         inbox_filter.since = Some(inbox_event.created_at);
+        let inbox_sub_id = conn.subscribe(inbox_filter.clone()).await?;
 
         // 4. anon_fetched_inbox
         if anon_posted_inbox == RelayTestResult::Pass {
-            let fetch_result = conn.fetch_events(inbox_filter.clone()).await?;
+            let fetch_result = conn
+                .fetch_events(inbox_sub_id, inbox_filter.clone())
+                .await?;
             let close_msg = fetch_result.close_msg.clone();
             if fetch_result.into_events().contains(&inbox_event) {
                 anon_fetched_inbox = RelayTestResult::Pass;
@@ -3425,7 +3429,10 @@ impl Overlord {
 
         // 5. fetched_inbox
         conn.authenticate_if_challenged().await?;
-        let fetch_result = conn.fetch_events(inbox_filter.clone()).await?;
+        let inbox_sub_id = conn.subscribe(inbox_filter.clone()).await?;
+        let fetch_result = conn
+            .fetch_events(inbox_sub_id, inbox_filter.clone())
+            .await?;
         let close_msg = fetch_result.close_msg.clone();
         let fetched_inbox: RelayTestResult = if fetch_result.into_events().contains(&inbox_event) {
             RelayTestResult::Pass
