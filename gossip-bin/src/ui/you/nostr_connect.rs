@@ -13,7 +13,6 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     });
 
     ui.add_space(10.0);
-    ui.label("NOTE: Gossip currently only acts as a signing service, using the key you have configured in gossip.");
 
     // Show status of unconnected server
     if let Ok(Some(unconnected_server)) = GLOBALS.db().read_nip46_unconnected_server() {
