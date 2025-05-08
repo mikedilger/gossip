@@ -2932,7 +2932,7 @@ impl Overlord {
         new_password: String,
     ) -> Result<(), Error> {
         // Safety: If we already have a working private key identity, do not clobber it
-        if GLOBALS.identity.has_private_key() {
+        if GLOBALS.identity.can_sign_if_unlocked() {
             return Err(ErrorKind::General(
                 "This action would clobber your private key. Refusing for safety reasons."
                     .to_string(),
@@ -3492,7 +3492,7 @@ impl Overlord {
         };
 
         // Create client identity if it doesn't yet exist
-        if !GLOBALS.client_identity.has_private_key() {
+        if !GLOBALS.client_identity.can_sign_if_unlocked() {
             GLOBALS.client_identity.generate_private_key(&password)?;
         }
         GLOBALS.client_identity.unlock(&password)?;

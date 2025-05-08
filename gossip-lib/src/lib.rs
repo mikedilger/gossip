@@ -241,7 +241,7 @@ pub async fn init(rapid: bool, command_mode: bool) -> Result<(), Error> {
     GLOBALS.delegation.load()?;
 
     // If we have a key but have not unlocked it
-    if GLOBALS.identity.has_private_key() && !GLOBALS.identity.is_unlocked() {
+    if GLOBALS.identity.can_sign_if_unlocked() && !GLOBALS.identity.is_unlocked() {
         // If we need to rebuild relationships
         if GLOBALS.db().get_flag_rebuild_relationships_needed()
             || GLOBALS.db().get_flag_rebuild_indexes_needed()
