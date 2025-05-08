@@ -22,11 +22,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         .spacing([10.0, 10.0])
         .show(ui, |ui| {
             ui.label("Enter the remote signer URL");
-            // NOTE: there is a bug in our TextEdit widget that causes right-aligned
-            //       elements on the page to slide off the right side of the window
-            //       when the input content gets long.  So instead of using
-            //       our text_edit_line!, I am working around it with the upstream's.
-            let response = egui::TextEdit::singleline(&mut app.wizard_state.remote_signer_url)
+            let response = text_edit_line!(app, app.wizard_state.remote_signer_url)
+                .password(false)
+                .with_paste()
                 .show(ui)
                 .response;
             if response.changed() {
