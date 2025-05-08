@@ -110,6 +110,10 @@ impl ClientIdentity {
         self.inner.read_arc().is_unlocked()
     }
 
+    pub fn can_sign_if_unlocked(&self) -> bool {
+        self.inner.read_arc().can_sign_if_unlocked()
+    }
+
     pub fn public_key(&self) -> Option<PublicKey> {
         self.inner.read_arc().public_key()
     }

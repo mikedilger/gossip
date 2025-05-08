@@ -3069,7 +3069,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc2f4eb4bc735547cfed7c0a4922cbd04a4655978c09b54f1f7b228750664c34"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.6",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -3517,7 +3517,7 @@ dependencies = [
 [[package]]
 name = "nostr-types"
 version = "0.8.0-unstable"
-source = "git+https://github.com/mikedilger/nostr-types?rev=950efc132d544df4b2c8967ec56f3d766156c5ce#950efc132d544df4b2c8967ec56f3d766156c5ce"
+source = "git+https://github.com/mikedilger/nostr-types?rev=701b3f2ff2da896262d026444b2f717f961e325b#701b3f2ff2da896262d026444b2f717f961e325b"
 dependencies = [
  "aes",
  "aho-corasick",
@@ -6978,7 +6978,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
