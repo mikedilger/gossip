@@ -2947,8 +2947,6 @@ impl Overlord {
 
         GLOBALS.identity.set_remote_signer(bunker_client)?;
 
-        eprintln!("IDENTITY IS CONFIGURED AS A REMOTE SIGNER");
-
         Ok(())
     }
 
