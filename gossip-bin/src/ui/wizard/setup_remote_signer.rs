@@ -4,7 +4,6 @@ use eframe::egui;
 use egui::{Context, RichText, Ui};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::GLOBALS;
-use zeroize::Zeroize;
 
 use super::wizard_controls;
 
