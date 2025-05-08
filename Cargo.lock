@@ -3517,7 +3517,7 @@ dependencies = [
 [[package]]
 name = "nostr-types"
 version = "0.8.0-unstable"
-source = "git+https://github.com/mikedilger/nostr-types?rev=d301e95db15e8991f985d1f12eb05d2f2489f0a7#d301e95db15e8991f985d1f12eb05d2f2489f0a7"
+source = "git+https://github.com/mikedilger/nostr-types?rev=950efc132d544df4b2c8967ec56f3d766156c5ce#950efc132d544df4b2c8967ec56f3d766156c5ce"
 dependencies = [
  "aes",
  "aho-corasick",
