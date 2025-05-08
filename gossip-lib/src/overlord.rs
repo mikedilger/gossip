@@ -2090,7 +2090,7 @@ impl Overlord {
     pub async fn push_blossom_servers(&mut self) -> Result<(), Error> {
         let public_key = match GLOBALS.identity.public_key() {
             Some(pk) => pk,
-            None => return Err(ErrorKind::NoPrivateKey.into()), // not even a public key
+            None => return Err(ErrorKind::NoPublicKey.into()),
         };
 
         let mut tags: Vec<Tag> = Vec::new();
@@ -2161,7 +2161,7 @@ impl Overlord {
     pub async fn push_metadata(&mut self, metadata: Metadata) -> Result<(), Error> {
         let public_key = match GLOBALS.identity.public_key() {
             Some(pk) => pk,
-            None => return Err(ErrorKind::NoPrivateKey.into()), // not even a public key
+            None => return Err(ErrorKind::NoPublicKey.into()),
         };
 
         let pre_event = PreEvent {

@@ -18,23 +18,23 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
     egui::Grid::new("signerurl")
         .num_columns(2)
-         .striped(false)
-         .spacing([10.0, 10.0])
-         .show(ui, |ui| {
-             ui.label("Enter the remote signer URL");
-             // NOTE: there is a bug in our TextEdit widget that causes right-aligned
-             //       elements on the page to slide off the right side of the window
-             //       when the input content gets long.  So instead of using
-             //       our text_edit_line!, I am working around it with the upstream's.
-             let response = egui::TextEdit::singleline(&mut app.wizard_state.remote_signer_url)
-                 .show(ui)
-                 .response;
+        .striped(false)
+        .spacing([10.0, 10.0])
+        .show(ui, |ui| {
+            ui.label("Enter the remote signer URL");
+            // NOTE: there is a bug in our TextEdit widget that causes right-aligned
+            //       elements on the page to slide off the right side of the window
+            //       when the input content gets long.  So instead of using
+            //       our text_edit_line!, I am working around it with the upstream's.
+            let response = egui::TextEdit::singleline(&mut app.wizard_state.remote_signer_url)
+                .show(ui)
+                .response;
             if response.changed() {
                 app.wizard_state.error = None;
             }
             ui.end_row();
             ui.label(""); // empty cell
-         });
+        });
 
     let ready = !app.wizard_state.remote_signer_url.is_empty() && (app.password == app.password2);
 
