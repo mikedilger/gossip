@@ -15,6 +15,7 @@ use gossip_lib::{Error, RunState, GLOBALS};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::{env, thread};
+use tracing_subscriber::prelude::*;
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 
 pub const AVATAR_SIZE: u32 = 48; // points, not pixels
@@ -32,12 +33,19 @@ fn main() -> Result<(), Error> {
         None => LevelFilter::ERROR,
     };
     let show_debug = cfg!(debug_assertions) || max_level <= LevelFilter::DEBUG;
-    tracing_subscriber::fmt::fmt()
+
+    let console_layer = console_subscriber::spawn();
+
+    let main_layer = tracing_subscriber::fmt::layer()
         .with_writer(std::io::stderr)
         .with_target(false)
         .with_file(show_debug)
         .with_line_number(show_debug)
-        .with_env_filter(env_filter)
+        .with_filter(env_filter);
+
+    tracing_subscriber::registry()
+        .with(console_layer)
+        .with(main_layer)
         .init();
 
     let about = about::About::new();
