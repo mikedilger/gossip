@@ -383,9 +383,10 @@ pub fn help(_cmd: Command, mut args: env::Args) -> Result<(), Error> {
         }
         println!("No such command {}", sub);
     } else {
-        println!("Usage:   gossip [--rapid] <cmd>");
+        println!("Usage:   gossip [--rapid] [--debug-async] <cmd>");
         println!();
         println!("  --rapid         Use faster storage access at the risk of data corruption");
+        println!("  --debug-async   Enable output of detailed async data to tokio-console");
         println!();
         println!("  <cmd> can be any of these:");
         for c in COMMANDS.iter() {
