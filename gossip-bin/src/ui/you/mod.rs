@@ -55,7 +55,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 ui.add_space(10.0);
 
                 offer_delete(app, ui);
-            } else if GLOBALS.identity.has_private_key() {
+            } else if GLOBALS.identity.can_sign_if_unlocked() {
                 Frame::none()
                     .stroke(Stroke {
                         width: 2.0,

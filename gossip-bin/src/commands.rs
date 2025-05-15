@@ -1450,14 +1450,10 @@ pub fn rename_person_list(cmd: Command, mut args: env::Args) -> Result<(), Error
 pub async fn login() -> Result<(), Error> {
     if !GLOBALS.identity.is_unlocked() {
         let mut password = rpassword::prompt_password("Password: ").unwrap();
-        if !GLOBALS.identity.has_private_key() {
-            let epk = match GLOBALS.identity.encrypted_private_key() {
-                Some(epk) => epk,
-                None => return Err(ErrorKind::NoPrivateKey.into()),
-            };
-            GLOBALS.identity.set_encrypted_private_key(epk, &password)?;
-        } else {
+        if GLOBALS.identity.can_sign_if_unlocked() {
             GLOBALS.identity.unlock(&password).await?;
+        } else {
+            return Err(ErrorKind::IdentityCannotSign.into());
         }
         password.zeroize();
     } else {

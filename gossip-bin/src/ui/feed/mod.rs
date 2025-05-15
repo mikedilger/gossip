@@ -170,7 +170,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
             render_a_feed(app, ctx, ui, None, &scroll_widget_id, load_more);
         }
         FeedKind::Inbox(mut indirect) => {
-            if read_setting!(public_key).is_none() {
+            if GLOBALS.identity.public_key().is_none() {
                 ui.horizontal_wrapped(|ui| {
                     ui.label("You need to ");
                     if ui.link("setup an identity").clicked() {

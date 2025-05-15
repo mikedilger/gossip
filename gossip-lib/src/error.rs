@@ -37,12 +37,13 @@ pub enum ErrorKind {
     Nip46ParsingError(String, String),
     Nip46RelayNeeded,
     Nostr(nostr_types::Error),
-    NoPublicKey,
     NoPrivateKey,
-    NoPrivateKeyForAuth(RelayUrl),
+    NoPublicKey,
     NoRelay,
     NotAPersonListEvent,
     NoSlotsRemaining,
+    IdentityCannotSign,
+    IdentityCannotSignForAuth(RelayUrl),
     Image(image::error::ImageError),
     ImageFailure,
     Io(std::io::Error),
@@ -144,14 +145,16 @@ impl std::fmt::Display for ErrorKind {
             Nip46ParsingError(_id, e) => write!(f, "NIP-46 parse error: {e}"),
             Nip46RelayNeeded => write!(f, "NIP-46 relay needed to respond."),
             Nostr(e) => write!(f, "Nostr: {e}"),
+            NoPrivateKey => write!(f, "No private key is available."),
             NoPublicKey => write!(f, "No public key identity available."),
-            NoPrivateKey => write!(f, "No private key available."),
-            NoPrivateKeyForAuth(u) => {
-                write!(f, "No private key available, cannot AUTH to relay: {}", u)
-            }
             NoRelay => write!(f, "Could not determine a relay to use."),
             NotAPersonListEvent => write!(f, "Not a person list event"),
             NoSlotsRemaining => write!(f, "No custom list slots remaining."),
+            IdentityCannotSign => write!(f, "Identity cannot sign."),
+            IdentityCannotSignForAuth(u) => {
+                write!(f, "Identity cannot sign, cannot AUTH to relay: {}", u)
+            }
+
             Image(e) => write!(f, "Image: {e}"),
             ImageFailure => write!(f, "Image Failure"),
             Io(e) => write!(f, "I/O Error: {e}"),

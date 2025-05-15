@@ -331,7 +331,9 @@ impl Minion {
                         // don't log
                     } else if matches!(e.kind, ErrorKind::NoPrivateKey) {
                         // don't log
-                    } else if matches!(e.kind, ErrorKind::NoPrivateKeyForAuth(_)) {
+                    } else if matches!(e.kind, ErrorKind::IdentityCannotSign) {
+                        // don't log
+                    } else if matches!(e.kind, ErrorKind::IdentityCannotSignForAuth(_)) {
                         tracing::warn!("{}: {}", &self.url, e);
                     } else {
                         tracing::warn!("{}: {}", &self.url, e);
@@ -943,12 +945,12 @@ impl Minion {
         }
 
         if !GLOBALS.identity.is_unlocked() {
-            return Err(ErrorKind::NoPrivateKeyForAuth(self.url.clone()).into());
+            return Err(ErrorKind::IdentityCannotSignForAuth(self.url.clone()).into());
         }
         let pubkey = match GLOBALS.identity.public_key() {
             Some(pk) => pk,
             None => {
-                return Err(ErrorKind::NoPrivateKeyForAuth(self.url.clone()).into());
+                return Err(ErrorKind::IdentityCannotSignForAuth(self.url.clone()).into());
             }
         };
         let pre_event = PreEvent {

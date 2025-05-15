@@ -8,7 +8,6 @@ use egui::{Context, Label, RichText, Ui};
 use gossip_lib::FeedKind;
 use gossip_lib::Person;
 use gossip_lib::GLOBALS;
-use gossip_lib::{Error, ErrorKind};
 use gossip_lib::{PersonTable, Table};
 use std::time::{Duration, Instant};
 
@@ -22,13 +21,6 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
             Ok(channels) => {
                 app.dm_channel_error = None;
                 channels
-            }
-            Err(Error {
-                kind: ErrorKind::NoPrivateKey,
-                ..
-            }) => {
-                app.dm_channel_error = Some("Private Key Not Available".to_owned());
-                vec![]
             }
             Err(e) => {
                 app.dm_channel_error = Some(format!("{}", e));

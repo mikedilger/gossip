@@ -191,13 +191,15 @@ pub(super) fn update(
                         .send(ToOverlordMessage::PushPersonList(list));
                 }
             } else {
-                ui.horizontal(|ui| {
+                if GLOBALS.identity.can_sign_if_unlocked() {
+                    crate::ui::you::offer_unlock_priv_key(app, ui);
+                } else {
                     ui.label("You need to ");
-                    if ui.link("setup your private-key").clicked() {
+                    if ui.link("setup your identity").clicked() {
                         app.set_page(ctx, Page::YourKeys);
                     }
                     ui.label(" to push lists.");
-                });
+                }
             }
         });
 
