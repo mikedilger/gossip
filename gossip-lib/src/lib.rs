@@ -276,7 +276,7 @@ pub async fn init(rapid: bool, command_mode: bool) -> Result<(), Error> {
 /// Run gossip-lib as an async
 pub async fn run() {
     // Runstate watcher
-    tokio::task::spawn(async {
+    tokio::task::spawn(Box::pin(async {
         let mut read_runstate = GLOBALS.read_runstate.clone();
         read_runstate.mark_unchanged();
 
@@ -304,7 +304,7 @@ pub async fn run() {
                 }
             }
         }
-    });
+    }));
 
     // Steal `tmp_overlord_receiver` from the GLOBALS to give to a new Overlord
     let overlord_receiver = {

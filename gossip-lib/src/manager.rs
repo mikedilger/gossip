@@ -18,7 +18,7 @@ use nostr_types::RelayUrl;
 pub(crate) fn run_jobs_on_some_relays(urls: Vec<RelayUrl>, count: usize, jobs: Vec<RelayJob>) {
     // Keep engaging relays until `count` engagements were successful
     // Do from a spawned task so that we don't hold up the overlord
-    let _join_handle = tokio::spawn(async move {
+    let _join_handle = tokio::spawn(Box::pin(async move {
         let mut successes: usize = 0;
         for url in urls.iter() {
             if engage_minion_inner(url.to_owned(), jobs.clone())
@@ -31,7 +31,7 @@ pub(crate) fn run_jobs_on_some_relays(urls: Vec<RelayUrl>, count: usize, jobs: V
                 }
             }
         }
-    });
+    }));
 }
 
 /// This runs the job on all relays.
@@ -41,20 +41,20 @@ pub(crate) fn run_jobs_on_some_relays(urls: Vec<RelayUrl>, count: usize, jobs: V
 pub(crate) fn run_jobs_on_all_relays(urls: Vec<RelayUrl>, jobs: Vec<RelayJob>) {
     // Keep engaging relays until `count` engagements were successful
     // Do from a spawned task so that we don't hold up the overlord
-    std::mem::drop(tokio::spawn(async move {
+    std::mem::drop(tokio::spawn(Box::pin(async move {
         let mut futures = Vec::new();
         for url in urls.iter() {
             futures.push(engage_minion_inner(url.to_owned(), jobs.clone()));
         }
         futures::future::join_all(futures).await;
-    }));
+    })));
 }
 
 /// This will try to engage the minion and give no feedback, returning immediately.
 pub(crate) fn engage_minion(url: RelayUrl, jobs: Vec<RelayJob>) {
-    std::mem::drop(tokio::spawn(async move {
+    std::mem::drop(tokio::spawn(Box::pin(async move {
         let _ = engage_minion_inner(url, jobs).await;
-    }));
+    })));
 }
 
 async fn engage_minion_inner(url: RelayUrl, mut jobs: Vec<RelayJob>) -> Result<(), Error> {

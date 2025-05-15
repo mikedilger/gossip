@@ -121,7 +121,7 @@ fn main() -> Result<(), Error> {
     // separate task. This leave the main thread for UI work only.
     // egui is most portable when it is on the main thread.
     let async_thread = thread::spawn(move || {
-        GLOBALS.runtime.block_on(gossip_lib::run());
+        GLOBALS.runtime.block_on(Box::pin(gossip_lib::run()));
     });
 
     // Run the UI

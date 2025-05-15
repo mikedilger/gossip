@@ -119,7 +119,7 @@ impl Media {
 
                 // Finish this later (spawn)
                 let aurl = url.to_owned();
-                tokio::spawn(async move {
+                tokio::spawn(Box::pin(async move {
                     let start = std::time::Instant::now();
                     let size = 800 * 3 // 3x feed size, 1x Media page size
                         * GLOBALS
@@ -148,7 +148,7 @@ impl Media {
 
                     // Notify the UI to redraw now that the image is available
                     GLOBALS.notify_ui_redraw.notify_waiters();
-                });
+                }));
                 MediaLoadingResult::Loading
             }
             MediaLoadingResult::Failed(s) => MediaLoadingResult::Failed(s),

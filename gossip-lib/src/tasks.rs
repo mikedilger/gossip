@@ -10,7 +10,7 @@ const TICK: u64 = 500;
 pub(crate) fn start_background_tasks() {
     tracing::info!("Starting general background tasks");
 
-    tokio::task::spawn(async move {
+    tokio::task::spawn(Box::pin(async move {
         let mut read_runstate = GLOBALS.read_runstate.clone();
         read_runstate.mark_unchanged();
         if *read_runstate.borrow() == RunState::ShuttingDown {
@@ -53,7 +53,7 @@ pub(crate) fn start_background_tasks() {
         }
 
         tracing::info!("Stopping general background tasks");
-    });
+    }));
 }
 
 async fn do_online_tasks(tick: usize) {

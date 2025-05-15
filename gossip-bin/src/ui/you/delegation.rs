@@ -77,7 +77,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                         // reset entry field
                         app.delegatee_tag_str = "".to_owned();
                         // save and statusmsg
-                        task::spawn(async move {
+                        task::spawn(Box::pin(async move {
                             if let Err(e) = GLOBALS.delegation.save().await {
                                 tracing::error!("{}", e);
                             }
@@ -88,7 +88,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                                     .get_delegator_pubkey_as_bech32_str()
                                     .unwrap_or("?".to_string())
                             ));
-                        });
+                        }));
                     }
                 };
             }

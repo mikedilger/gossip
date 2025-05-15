@@ -372,14 +372,14 @@ impl Feed {
     /// This may happen periodically based on settings. But when a user changes feed, it
     /// is useful to recompute it right away.
     pub fn sync_recompute(&self) {
-        task::spawn(async move {
+        task::spawn(Box::pin(async move {
             // Wait 0.05 seconds first to avoid race conditions
             tokio::time::sleep(Duration::new(0, 50_000_000)).await;
 
             if let Err(e) = GLOBALS.feed.recompute().await {
                 tracing::error!("{}", e);
             }
-        });
+        }));
     }
 
     pub(crate) async fn recompute(&self) -> Result<(), Error> {

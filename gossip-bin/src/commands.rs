@@ -751,7 +751,7 @@ pub async fn delete_spam_by_content(cmd: Command, mut args: env::Args) -> Result
     };
     println!("{}", serde_json::to_string(&event).unwrap());
 
-    let job = tokio::task::spawn(async move {
+    let job = tokio::task::spawn(Box::pin(async move {
         // Process this event locally
         if let Err(e) =
             gossip_lib::process::process_new_event(&event, None, None, false, false).await
@@ -779,7 +779,7 @@ pub async fn delete_spam_by_content(cmd: Command, mut args: env::Args) -> Result
                 let _ = conn.disconnect().await;
             }
         }
-    });
+    }));
 
     GLOBALS.runtime.block_on(job)?;
 
@@ -898,13 +898,13 @@ pub async fn import_event(cmd: Command, mut args: env::Args) -> Result<(), Error
 
     login().await?;
 
-    let job = tokio::task::spawn(async move {
+    let job = tokio::task::spawn(Box::pin(async move {
         if let Err(e) =
             gossip_lib::process::process_new_event(&event, None, None, false, true).await
         {
             println!("ERROR: {}", e);
         }
-    });
+    }));
 
     GLOBALS.runtime.block_on(job)?;
 
@@ -1011,12 +1011,12 @@ pub fn prune_cache() -> Result<(), Error> {
         0,
     );
 
-    let job = tokio::task::spawn(async move {
+    let job = tokio::task::spawn(Box::pin(async move {
         match GLOBALS.fetcher.prune(age).await {
             Ok(count) => println!("Cache has been pruned. {} files removed.", count),
             Err(e) => eprintln!("{e}"),
         }
-    });
+    }));
 
     GLOBALS.runtime.block_on(job)?;
 
@@ -1301,7 +1301,7 @@ pub fn rebuild_fof() -> Result<(), Error> {
 pub async fn reprocess_recent(_cmd: Command) -> Result<(), Error> {
     login().await?;
 
-    let job = tokio::task::spawn(async move {
+    let job = tokio::task::spawn(Box::pin(async move {
         let mut ago = Unixtime::now();
         ago.0 -= 86400;
 
@@ -1330,7 +1330,7 @@ pub async fn reprocess_recent(_cmd: Command) -> Result<(), Error> {
         }
 
         println!("Done.");
-    });
+    }));
 
     Ok(GLOBALS.runtime.block_on(job)?)
 }

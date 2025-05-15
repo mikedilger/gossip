@@ -52,11 +52,11 @@ impl UserIdentity {
         if !matches!(*self.inner.read_arc(), Identity::None) {
             // Rebuild the event tag index if the identity changes
             // since the 'p' tags it needs to index just changed.
-            task::spawn(async move {
+            task::spawn(Box::pin(async move {
                 if let Err(e) = GLOBALS.db().rebuild_event_tags_index(None).await {
                     tracing::error!("{}", e);
                 }
-            });
+            }));
         }
 
         Ok(())

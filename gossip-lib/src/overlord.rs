@@ -571,12 +571,12 @@ impl Overlord {
             exclusion
         );
 
-        std::mem::drop(tokio::spawn(async move {
+        std::mem::drop(tokio::spawn(Box::pin(async move {
             tokio::time::sleep(Duration::new(exclusion, 0)).await;
             let _ = GLOBALS
                 .to_overlord
                 .send(ToOverlordMessage::ReengageMinion(url, jobs));
-        }));
+        })));
     }
 
     fn bump_failure_count(url: &RelayUrl) {
@@ -924,7 +924,7 @@ impl Overlord {
             .advertise_jobs_remaining
             .fetch_add(relays.len(), Ordering::SeqCst);
 
-        std::mem::drop(tokio::spawn(async move {
+        std::mem::drop(tokio::spawn(Box::pin(async move {
             for relay in relays.drain(..) {
                 let _ = GLOBALS
                     .to_overlord
@@ -936,7 +936,7 @@ impl Overlord {
 
                 tokio::time::sleep(Duration::from_millis(250)).await;
             }
-        }));
+        })));
 
         Ok(())
     }
@@ -1041,11 +1041,11 @@ impl Overlord {
     }
 
     pub async fn blossom_upload(&mut self, pathbuf: PathBuf) -> Result<(), Error> {
-        std::mem::drop(tokio::spawn(async move {
+        std::mem::drop(tokio::spawn(Box::pin(async move {
             if let Err(e) = Overlord::inner_blossom_upload(pathbuf.clone()).await {
                 GLOBALS.blossom_uploads.insert(pathbuf, Err(e));
             }
-        }));
+        })));
 
         Ok(())
     }
@@ -1569,11 +1569,11 @@ impl Overlord {
 
     /// Follow a person by a nip-05 address
     pub fn follow_nip05(nip05: String, list: PersonList, private: Private) -> Result<(), Error> {
-        std::mem::drop(tokio::spawn(async move {
+        std::mem::drop(tokio::spawn(Box::pin(async move {
             if let Err(e) = crate::nip05::get_and_follow_nip05(nip05, list, private).await {
                 tracing::error!("{}", e);
             }
-        }));
+        })));
         Ok(())
     }
 
@@ -2001,7 +2001,7 @@ impl Overlord {
         GLOBALS.feed.sync_recompute();
 
         // Wait in a separate thread
-        std::mem::drop(tokio::task::spawn(async move {
+        std::mem::drop(tokio::task::spawn(Box::pin(async move {
             // Wait for a delay
             let secs = GLOBALS.db().read_setting_undo_send_seconds();
             tokio::time::sleep(Duration::new(secs, 0)).await;
@@ -2032,7 +2032,7 @@ impl Overlord {
                     );
                 }
             }
-        }));
+        })));
 
         Ok(())
     }
@@ -3231,7 +3231,7 @@ impl Overlord {
         // Indicate that the test has started
         GLOBALS.relay_tests.insert(relay_url.clone(), None);
 
-        std::mem::drop(tokio::task::spawn(async move {
+        std::mem::drop(tokio::task::spawn(Box::pin(async move {
             match Self::test_relay_inner(relay_url.clone()).await {
                 Ok(test_results) => {
                     // TODO: store and remember the test results
@@ -3244,7 +3244,7 @@ impl Overlord {
                         .insert(relay_url, Some(RelayTestResults::fail()));
                 }
             }
-        }));
+        })));
     }
 
     // Start tracking the followers of this pubkey if we are not already

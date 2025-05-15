@@ -119,12 +119,12 @@ impl Fetcher {
             FetchState::Starting => {
                 // Note: This state only occurs if we just created this entry newly, it
                 //       should not persist after this function call completes
-                std::mem::drop(tokio::spawn(async move {
+                std::mem::drop(tokio::spawn(Box::pin(async move {
                     GLOBALS.fetcher.process(url).await;
 
                     // Notify the UI to redraw now that the image loading is complete
                     GLOBALS.notify_ui_redraw.notify_waiters();
-                }));
+                })));
 
                 Ok(FetchResult::Processing(FetchState::Starting))
             }
@@ -137,12 +137,12 @@ impl Fetcher {
                 // It has already been taken by some code, but some other code also wants it.
                 // So start the fetch over (this time probably cached)
                 refmut.value_mut().state = FetchState::Starting;
-                std::mem::drop(tokio::spawn(async move {
+                std::mem::drop(tokio::spawn(Box::pin(async move {
                     GLOBALS.fetcher.process(url).await;
 
                     // Notify the UI to redraw now that the image loading is complete
                     GLOBALS.notify_ui_redraw.notify_waiters();
-                }));
+                })));
 
                 Ok(FetchResult::Processing(FetchState::Starting))
             }

@@ -734,12 +734,12 @@ impl GossipUi {
         // the Context to redraw.  This can't be done in update() because update()
         // is only run periodically.
         let copy_context = cctx.egui_ctx.clone();
-        GLOBALS.runtime.spawn(async move {
+        GLOBALS.runtime.spawn(Box::pin(async move {
             loop {
                 GLOBALS.notify_ui_redraw.notified().await;
                 copy_context.request_repaint();
             }
-        });
+        }));
 
         GossipUi {
             #[cfg(feature = "video-ffmpeg")]

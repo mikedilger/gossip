@@ -346,11 +346,11 @@ impl People {
 
             if recheck {
                 self.update_nip05_last_checked(person.pubkey)?;
-                task::spawn(async move {
+                task::spawn(Box::pin(async move {
                     if let Err(e) = crate::nip05::validate_nip05(person).await {
                         tracing::warn!("{}", e);
                     }
-                });
+                }));
             }
         }
 
@@ -423,7 +423,7 @@ impl People {
             Ok(FetchResult::Ready(bytes)) => {
                 // Finish this later (spawn)
                 let apubkey = *pubkey;
-                tokio::spawn(async move {
+                tokio::spawn(Box::pin(async move {
                     let size = avatar_size * 3 // 3x feed size, 1x people page size
                         * GLOBALS
                             .pixels_per_point_times_100
@@ -444,7 +444,7 @@ impl People {
                             GLOBALS.failed_avatars.write().insert(apubkey);
                         }
                     }
-                });
+                }));
                 self.avatars_pending_processing.insert(pubkey.to_owned());
                 None
             }
