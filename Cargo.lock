@@ -3710,7 +3710,7 @@ dependencies = [
 [[package]]
 name = "nostr-types"
 version = "0.8.0-unstable"
-source = "git+https://github.com/mikedilger/nostr-types?rev=b1df24be9865397124ddb8f378f13abda30fb51b#b1df24be9865397124ddb8f378f13abda30fb51b"
+source = "git+https://github.com/mikedilger/nostr-types?rev=3b2d1ab1a4b488963875d0a66b5cdda0414bd5e7#3b2d1ab1a4b488963875d0a66b5cdda0414bd5e7"
 dependencies = [
  "aes",
  "aho-corasick",
@@ -3747,6 +3747,7 @@ dependencies = [
  "thread-priority",
  "tokio",
  "tokio-tungstenite 0.26.2",
+ "tracing",
  "tungstenite 0.26.2",
  "unicode-normalization",
  "url",
