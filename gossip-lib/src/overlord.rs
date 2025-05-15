@@ -2940,8 +2940,11 @@ impl Overlord {
             .into());
         }
 
-        let mut pre_bunker_client =
-            nostr_types::nip46::PreBunkerClient::new_from_url(&url, &new_password)?;
+        let mut pre_bunker_client = nostr_types::nip46::PreBunkerClient::new_from_url(
+            &url,
+            &new_password,
+            Duration::from_secs(7),
+        )?;
 
         let bunker_client = pre_bunker_client.initialize().await?;
 
@@ -3327,15 +3330,16 @@ impl Overlord {
     async fn test_relay_inner(relay_url: RelayUrl) -> Result<RelayTestResults, Error> {
         use nostr_types::{KeySigner, Signer};
 
+        let timeout: Duration = Duration::from_secs(5);
+
+        // Prepare some identities
         let pubkey = match GLOBALS.identity.public_key() {
             Some(pk) => pk,
             None => return Err(ErrorKind::NoPublicKey.into()),
         };
+        let stranger = KeySigner::generate("stranger", 2)?;
 
-        let posted_outbox: RelayTestResult;
-        let mut anon_fetched_outbox: RelayTestResult = Default::default();
-        let mut anon_fetched_inbox: RelayTestResult = Default::default();
-
+        // Prepare some events and filters for them
         let outbox_event = {
             let pre_event = PreEvent {
                 pubkey,
@@ -3346,38 +3350,13 @@ impl Overlord {
             };
             GLOBALS.identity.sign_event(pre_event).await?
         };
-
-        let mut conn1 = nostr_types::client::Client::connect(
-            relay_url.as_str(),
-            Duration::new(5, 0),
-            Some(GLOBALS.identity.inner_lockable().unwrap()),
-        )
-        .await?;
-
-        // 1. posted_outbox
-        conn1.authenticate_if_challenged().await?;
-        match conn1.post_event(outbox_event.clone()).await? {
-            (true, _) => posted_outbox = RelayTestResult::Pass,
-            (false, msg) => {
-                if msg.starts_with("auth-required:") {
-                    conn1.authenticate_if_challenged().await?;
-                    match conn1.post_event(outbox_event.clone()).await? {
-                        (true, _) => posted_outbox = RelayTestResult::Pass,
-                        (false, msg) => posted_outbox = RelayTestResult::Fail(msg),
-                    }
-                } else {
-                    posted_outbox = RelayTestResult::Fail(msg);
-                }
-            }
-        }
-
-        conn1.disconnect().await?;
-        drop(conn1);
-
-        // Wait before immediately reconnecting
-        tokio::time::sleep(Duration::from_secs(1)).await;
-
-        let stranger = KeySigner::generate("stranger", 2)?;
+        let outbox_filter = {
+            let mut filter = Filter::new();
+            filter.add_event_kind(outbox_event.kind);
+            filter.add_author(outbox_event.pubkey);
+            filter.since = Some(outbox_event.created_at);
+            filter
+        };
         let inbox_event = {
             let pre_event = PreEvent {
                 pubkey: stranger.public_key(),
@@ -3402,69 +3381,98 @@ impl Overlord {
             };
             stranger.sign_event(pre_event).await?
         };
-
-        let mut conn = nostr_types::client::Client::connect(
-            relay_url.as_str(),
-            Duration::new(5, 0),
-            Some(GLOBALS.identity.inner_lockable().unwrap()),
-        )
-        .await?;
-
-        // 2. anon_fetched_outbox
-        if posted_outbox == RelayTestResult::Pass {
+        let inbox_filter: Filter = {
             let mut filter = Filter::new();
-            filter.add_event_kind(outbox_event.kind);
-            filter.add_author(outbox_event.pubkey);
-            filter.since = Some(outbox_event.created_at);
-            let subid = conn.subscribe(filter.clone()).await?;
-
-            let fetch_result = conn.fetch_events(subid, filter).await?;
-            let close_msg = fetch_result.close_msg.clone();
-            if fetch_result.into_events().contains(&outbox_event) {
-                anon_fetched_outbox = RelayTestResult::Pass;
-            } else {
-                anon_fetched_outbox =
-                    RelayTestResult::Fail(close_msg.unwrap_or("timed out".to_string()));
-            }
-        }
-
-        // 3. anon_posted_inbox
-        let anon_posted_inbox: RelayTestResult = match conn.post_event(inbox_event.clone()).await? {
-            (true, _) => RelayTestResult::Pass,
-            (false, msg) => RelayTestResult::Fail(msg),
+            filter.add_event_kind(inbox_event.kind);
+            filter.add_author(inbox_event.pubkey);
+            filter.since = Some(inbox_event.created_at);
+            filter
         };
 
-        let mut inbox_filter = Filter::new();
-        inbox_filter.add_event_kind(inbox_event.kind);
-        inbox_filter.add_author(inbox_event.pubkey);
-        inbox_filter.since = Some(inbox_event.created_at);
-        let inbox_sub_id = conn.subscribe(inbox_filter.clone()).await?;
+        // TEST posting to the OUTBOX as ourselves
+        let posted_outbox: RelayTestResult = {
+            let conn = nostr_types::client::Client::new(relay_url.as_str());
 
-        // 4. anon_fetched_inbox
-        if anon_posted_inbox == RelayTestResult::Pass {
-            let fetch_result = conn
-                .fetch_events(inbox_sub_id, inbox_filter.clone())
+            let (ok, msg) = conn
+                .post_event_and_wait_for_result(
+                    outbox_event.clone(),
+                    timeout,
+                    Some(GLOBALS.identity.inner_lockable().unwrap()),
+                )
                 .await?;
-            let close_msg = fetch_result.close_msg.clone();
-            if fetch_result.into_events().contains(&inbox_event) {
-                anon_fetched_inbox = RelayTestResult::Pass;
-            } else {
-                anon_fetched_inbox =
-                    RelayTestResult::Fail(close_msg.unwrap_or("timed out".to_string()));
-            }
-        }
 
-        // 5. fetched_inbox
-        conn.authenticate_if_challenged().await?;
-        let inbox_sub_id = conn.subscribe(inbox_filter.clone()).await?;
-        let fetch_result = conn
-            .fetch_events(inbox_sub_id, inbox_filter.clone())
-            .await?;
-        let close_msg = fetch_result.close_msg.clone();
-        let fetched_inbox: RelayTestResult = if fetch_result.into_events().contains(&inbox_event) {
-            RelayTestResult::Pass
+            let posted_outbox = match (ok, msg) {
+                (true, _) => RelayTestResult::Pass,
+                (false, msg) => RelayTestResult::Fail(msg),
+            };
+
+            conn.disconnect().await?;
+            drop(conn);
+
+            posted_outbox
+        };
+
+        // Wait before immediately reconnecting
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        let conn = nostr_types::client::Client::new(relay_url.as_str());
+
+        // TEST anonymous person reading our OUTBOX
+        let anon_fetched_outbox = if posted_outbox != RelayTestResult::Pass {
+            RelayTestResult::default()
         } else {
-            RelayTestResult::Fail(close_msg.unwrap_or("timed out".to_string()))
+            let events = conn
+                .subscribe_and_wait_for_events(outbox_filter.clone(), timeout, None)
+                .await?;
+
+            if events.contains(&outbox_event) {
+                RelayTestResult::Pass
+            } else {
+                RelayTestResult::Fail("not found".to_owned())
+            }
+        };
+
+        // TEST anonymous person posting to our INBOX
+        let anon_posted_inbox: RelayTestResult = {
+            let (ok, msg) = conn
+                .post_event_and_wait_for_result(inbox_event.clone(), timeout, None)
+                .await?;
+
+            match (ok, msg) {
+                (true, _) => RelayTestResult::Pass,
+                (false, msg) => RelayTestResult::Fail(msg),
+            }
+        };
+
+        // TEST anonymous person peeking into our INBOX
+        let anon_fetched_inbox: RelayTestResult = if anon_posted_inbox != RelayTestResult::Pass {
+            RelayTestResult::default()
+        } else {
+            let events = conn
+                .subscribe_and_wait_for_events(inbox_filter.clone(), timeout, None)
+                .await?;
+
+            if events.contains(&inbox_event) {
+                RelayTestResult::Pass
+            } else {
+                RelayTestResult::Fail("not found".to_owned())
+            }
+        };
+
+        // TEST fetching from our INBOX as ourselves
+        let fetched_inbox = {
+            let events = conn
+                .subscribe_and_wait_for_events(
+                    inbox_filter.clone(),
+                    timeout,
+                    Some(GLOBALS.identity.inner_lockable().unwrap()),
+                )
+                .await?;
+
+            if events.contains(&inbox_event) {
+                RelayTestResult::Pass
+            } else {
+                RelayTestResult::Fail("not found".to_owned())
+            }
         };
 
         conn.disconnect().await?;

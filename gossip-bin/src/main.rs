@@ -15,8 +15,8 @@ use gossip_lib::{Error, RunState, GLOBALS};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::{env, thread};
-use tracing_subscriber::prelude::*;
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
+use tracing_subscriber::prelude::*;
 
 pub const AVATAR_SIZE: u32 = 48; // points, not pixels
 pub const AVATAR_SIZE_F32: f32 = 48.0; // points, not pixels
