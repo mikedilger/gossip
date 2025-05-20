@@ -3712,7 +3712,13 @@ impl Overlord {
                 let decrypted_content =
                     GLOBALS.identity.decrypt(&my_pubkey, &event.content).await?;
 
-                let tags: Vec<Tag> = serde_json::from_str(&decrypted_content)?;
+                let tags: Vec<Tag> = match serde_json::from_str(&decrypted_content) {
+                    Ok(tags) => tags,
+                    Err(e) => {
+                        tracing::error!("{e}, event.id={}", event.id.as_hex_string());
+                        return Err(e.into());
+                    }
+                };
 
                 for tag in &tags {
                     if let Ok(ParsedTag::Pubkey { pubkey, .. }) = tag.parse() {
