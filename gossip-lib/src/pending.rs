@@ -51,6 +51,7 @@ pub enum PendingItem {
     NeedWriteRelays,
     NeedDiscoverRelays,
     NeedDMRelays,
+    NotifyMessage(String),
 }
 
 pub struct Pending {

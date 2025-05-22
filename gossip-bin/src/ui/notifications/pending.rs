@@ -75,6 +75,7 @@ impl<'a> Notification<'a> for Pending {
             PendingItem::NeedWriteRelays => self.need_relays(theme, ui, "WRITE"),
             PendingItem::NeedDiscoverRelays => self.need_relays(theme, ui, "DISCOVER"),
             PendingItem::NeedDMRelays => self.need_relays(theme, ui, "DM"),
+            PendingItem::NotifyMessage(ref m) => self.message(theme, ui, m.to_owned()),
             _ => None,
         }
     }
@@ -324,6 +325,25 @@ impl Pending {
                 }
             });
             new_page
+        };
+        self.layout(theme, ui, description, action)
+    }
+
+    fn message(&mut self, theme: &Theme, ui: &mut Ui, message: String) -> Option<Page> {
+        let description = |_theme: &Theme, ui: &mut Ui| -> Option<Page> {
+            ui.label(&message);
+            None
+        };
+        let action = |theme: &Theme, ui: &mut Ui| -> Option<Page> {
+            ui.scope(|ui| {
+                super::manage_style(theme, ui.style_mut());
+                if ui.button("Ok").clicked() {
+                    GLOBALS
+                        .pending
+                        .remove(&PendingItem::NotifyMessage(message.clone()));
+                }
+            });
+            None
         };
         self.layout(theme, ui, description, action)
     }

@@ -98,7 +98,10 @@ impl Minion {
             RelayMessage::Notify(msg) => {
                 let message = format!("{}: NOTIFY: {}", &self.url, msg);
                 tracing::warn!(message);
-                GLOBALS.status_queue.write().write(message);
+
+                GLOBALS
+                    .pending
+                    .insert(crate::pending::PendingItem::NotifyMessage(message));
             }
             RelayMessage::Eose(subid) => {
                 let handle = self
