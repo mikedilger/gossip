@@ -62,3 +62,15 @@ overflow-checks = false
 opt-level = 3
 debug-assertions = false
 overflow-checks = false
+
+[patch.crates-io]
+egui = { git = "https://github.com/mikedilger/egui", rev = "20d9aaf91f3f792c53ce252fd8bc8cc4bdc51f78" }
+eframe = { git = "https://github.com/mikedilger/egui", rev = "20d9aaf91f3f792c53ce252fd8bc8cc4bdc51f78" }
+egui-winit = { git = "https://github.com/mikedilger/egui", rev = "20d9aaf91f3f792c53ce252fd8bc8cc4bdc51f78" }
+egui_extras = { git = "https://github.com/mikedilger/egui", rev = "20d9aaf91f3f792c53ce252fd8bc8cc4bdc51f78" }
+ecolor = { git = "https://github.com/mikedilger/egui", rev = "20d9aaf91f3f792c53ce252fd8bc8cc4bdc51f78" }
+epaint = { git = "https://github.com/mikedilger/egui", rev = "20d9aaf91f3f792c53ce252fd8bc8cc4bdc51f78" }
+
+[patch."https://github.com/mikedilger/egui-video"]
+egui = { git = "https://github.com/mikedilger/egui", rev = "20d9aaf91f3f792c53ce252fd8bc8cc4bdc51f78" }
+eframe = { git = "https://github.com/mikedilger/egui", rev = "20d9aaf91f3f792c53ce252fd8bc8cc4bdc51f78" }
