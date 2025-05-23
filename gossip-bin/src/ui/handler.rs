@@ -295,10 +295,10 @@ fn handler_header(
                     .clicked()
                 {
                     ui.output_mut(|o| {
-                        o.open_url = Some(egui::OpenUrl {
+                        o.commands.push(egui::OutputCommand::OpenUrl(egui::OpenUrl {
                             url: url.to_string(),
                             new_tab: true,
-                        });
+                        }));
                     });
                 }
             }

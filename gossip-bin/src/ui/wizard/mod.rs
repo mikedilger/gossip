@@ -190,17 +190,17 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
             frame.inner_margin({
                 #[cfg(not(target_os = "macos"))]
                 let margin = egui::Margin {
-                    left: 20.0,
-                    right: 20.0,
-                    top: 20.0,
-                    bottom: 0.0,
+                    left: 20,
+                    right: 20,
+                    top: 20,
+                    bottom: 0,
                 };
                 #[cfg(target_os = "macos")]
                 let margin = egui::Margin {
-                    left: 20.0,
-                    right: 20.0,
-                    top: 35.0,
-                    bottom: 0.0,
+                    left: 20,
+                    right: 20,
+                    top: 35,
+                    bottom: 0,
                 };
                 margin
             })

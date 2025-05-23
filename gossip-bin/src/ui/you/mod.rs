@@ -56,16 +56,16 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
                 offer_delete(app, ui);
             } else if GLOBALS.identity.can_sign_if_unlocked() {
-                Frame::none()
+                Frame::NONE
                     .stroke(Stroke {
                         width: 2.0,
                         color: Color32::RED,
                     })
                     .inner_margin(Margin {
-                        left: 10.0,
-                        right: 10.0,
-                        top: 10.0,
-                        bottom: 10.0,
+                        left: 10,
+                        right: 10,
+                        top: 10,
+                        bottom: 10,
                     })
                     .show(ui, |ui| {
                         ui.heading("Passphrase Needed");
@@ -132,7 +132,10 @@ fn show_pub_key_detail(app: &mut GossipUi, ui: &mut Ui) {
         ui.horizontal_wrapped(|ui| {
             ui.label(format!("Public Key (Hex): {}", pkhex.as_str()));
             if ui.add(CopyButton::new()).clicked() {
-                ui.output_mut(|o| o.copied_text = pkhex.into_string());
+                ui.output_mut(|o| {
+                    o.commands
+                        .push(egui::OutputCommand::CopyText(pkhex.into_string()))
+                });
             }
         });
 
@@ -140,7 +143,10 @@ fn show_pub_key_detail(app: &mut GossipUi, ui: &mut Ui) {
         ui.horizontal_wrapped(|ui| {
             ui.label(format!("Public Key (bech32): {}", bech32));
             if ui.add(CopyButton::new()).clicked() {
-                ui.output_mut(|o| o.copied_text = bech32.clone());
+                ui.output_mut(|o| {
+                    o.commands
+                        .push(egui::OutputCommand::CopyText(bech32.clone()))
+                });
             }
         });
         ui.add_space(10.0);
@@ -158,7 +164,10 @@ fn show_pub_key_detail(app: &mut GossipUi, ui: &mut Ui) {
             ui.horizontal_wrapped(|ui| {
                 ui.label(format!("Your Profile: {}", &nprofile));
                 if ui.add(CopyButton::new()).clicked() {
-                    ui.output_mut(|o| o.copied_text = nprofile.clone());
+                    ui.output_mut(|o| {
+                        o.commands
+                            .push(egui::OutputCommand::CopyText(nprofile.clone()))
+                    });
                 }
             });
             ui.add_space(10.0);
@@ -202,7 +211,10 @@ fn show_priv_key_detail(_app: &mut GossipUi, ui: &mut Ui) {
         ui.horizontal_wrapped(|ui| {
             ui.label(&epk.0);
             if ui.add(CopyButton::new()).clicked() {
-                ui.output_mut(|o| o.copied_text = epk.to_string());
+                ui.output_mut(|o| {
+                    o.commands
+                        .push(egui::OutputCommand::CopyText(epk.to_string()))
+                });
             }
         });
 
@@ -401,7 +413,10 @@ fn offer_delete_or_import_pub_key(app: &mut GossipUi, ui: &mut Ui) {
         ui.horizontal(|ui| {
             ui.label(format!("Public Key (Hex): {}", pkhex.as_str()));
             if ui.add(CopyButton::new()).clicked() {
-                ui.output_mut(|o| o.copied_text = pkhex.into_string());
+                ui.output_mut(|o| {
+                    o.commands
+                        .push(egui::OutputCommand::CopyText(pkhex.into_string()))
+                });
             }
         });
 
@@ -409,7 +424,7 @@ fn offer_delete_or_import_pub_key(app: &mut GossipUi, ui: &mut Ui) {
         ui.horizontal(|ui| {
             ui.label(format!("Public Key (bech32): {}", bech32));
             if ui.add(CopyButton::new()).clicked() {
-                ui.output_mut(|o| o.copied_text = bech32);
+                ui.output_mut(|o| o.commands.push(egui::OutputCommand::CopyText(bech32)));
             }
         });
 

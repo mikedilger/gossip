@@ -33,7 +33,10 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                     .on_hover_text("Copy Public Key")
                     .clicked()
                 {
-                    ui.output_mut(|o| o.copied_text = delegator_npub);
+                    ui.output_mut(|o| {
+                        o.commands
+                            .push(egui::OutputCommand::CopyText(delegator_npub))
+                    });
                 }
             });
             ui.label("Delegation tag:");

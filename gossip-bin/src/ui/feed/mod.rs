@@ -378,14 +378,14 @@ fn render_a_feed(
         .stick_to_bottom(feed_newest_at_bottom)
         .id_salt(scroll_area_id)
         .show(ui, |ui| {
-            egui::Frame::none()
+            egui::Frame::NONE
                 .outer_margin(egui::Margin {
-                    left: 0.0,
-                    right: 14.0,
-                    top: 0.0,
-                    bottom: 0.0,
+                    left: 0,
+                    right: 14,
+                    top: 0,
+                    bottom: 0,
                 })
-                .rounding(app.theme.feed_scroll_rounding())
+                .corner_radius(app.theme.feed_scroll_rounding())
                 .fill(app.theme.feed_scroll_fill())
                 .stroke(app.theme.feed_scroll_stroke())
                 .show(ui, |ui| {

@@ -63,7 +63,7 @@ pub fn modal_popup(
         .show(ctx, |ui| {
             ui.painter().rect_filled(
                 ctx.screen_rect(),
-                egui::Rounding::same(0.0),
+                egui::CornerRadius::same(0),
                 egui::Color32::from_rgba_unmultiplied(0, 0, 0, 80),
             );
         });
@@ -82,8 +82,8 @@ pub fn modal_popup(
         } else {
             frame.fill = Color32::WHITE;
         }
-        frame.rounding = egui::Rounding::same(10.0);
-        frame.inner_margin = egui::Margin::symmetric(MARGIN_X, MARGIN_Y);
+        frame.corner_radius = egui::CornerRadius::same(10);
+        frame.inner_margin = egui::Margin::symmetric(MARGIN_X as i8, MARGIN_Y as i8);
         frame.show(ui, content).inner
     })
 }
@@ -136,7 +136,7 @@ pub fn modal_popup_dyn(
         .show(ctx, |ui| {
             ui.painter().rect_filled(
                 ctx.screen_rect(),
-                egui::Rounding::same(0.0),
+                egui::CornerRadius::same(0),
                 egui::Color32::from_rgba_unmultiplied(0, 0, 0, 80),
             );
         });
@@ -156,8 +156,8 @@ pub fn modal_popup_dyn(
             } else {
                 frame.fill = Color32::WHITE;
             }
-            frame.rounding = egui::Rounding::same(10.0);
-            frame.inner_margin = egui::Margin::symmetric(MARGIN_X, MARGIN_Y);
+            frame.corner_radius = egui::CornerRadius::same(10);
+            frame.inner_margin = egui::Margin::symmetric(MARGIN_X as i8, MARGIN_Y as i8);
             frame.show(ui, content)
         })
         .inner;

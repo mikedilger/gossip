@@ -5,7 +5,7 @@ use eframe::egui::{
     vec2, FontDefinitions, Margin, Pos2, RichText, Shape, Stroke, Style, TextFormat, TextStyle,
     Vec2, Visuals,
 };
-use eframe::epaint::{ecolor, Color32, FontFamily, FontId, Rounding, Shadow};
+use eframe::epaint::{ecolor, Color32, CornerRadius, FontFamily, FontId, Shadow};
 use egui_winit::egui::style::{HandleShape, NumericColorSpace};
 use std::collections::BTreeMap;
 
@@ -244,7 +244,7 @@ impl ThemeDef for DefaultTheme {
                         bg_fill: Color32::from_white_alpha(8),
                         bg_stroke: Stroke::new(2.0, Color32::from_gray(48)), // separators, borders
                         fg_stroke: Stroke::new(1.0, Color32::from_gray(200)), // normal text color
-                        rounding: Rounding::same(2.0),
+                        corner_radius: CornerRadius::same(2),
                         expansion: 0.0,
                     },
                     inactive: WidgetVisuals {
@@ -255,7 +255,7 @@ impl ThemeDef for DefaultTheme {
                         //    AND text inputs, whether they are inactive OR active. It's really
                         //    overloaded.
                         fg_stroke: Stroke::new(1.0, Color32::from_gray(180)), // button text
-                        rounding: Rounding::same(2.0),
+                        corner_radius: CornerRadius::same(2),
                         expansion: 2.0,
                     },
                     hovered: WidgetVisuals {
@@ -263,7 +263,7 @@ impl ThemeDef for DefaultTheme {
                         bg_fill: Color32::from_white_alpha(20),
                         bg_stroke: Stroke::new(0.0, Self::accent_color(dark_mode)), // e.g. hover over window edge or button
                         fg_stroke: Stroke::new(1.5, Color32::from_white_alpha(240)),
-                        rounding: Rounding::same(3.0),
+                        corner_radius: CornerRadius::same(3),
                         expansion: 2.0,
                     },
                     active: WidgetVisuals {
@@ -271,7 +271,7 @@ impl ThemeDef for DefaultTheme {
                         bg_fill: Color32::from_gray(55),
                         bg_stroke: Stroke::new(0.0, Self::accent_color(dark_mode)),
                         fg_stroke: Stroke::new(2.0, Color32::from_gray(200)),
-                        rounding: Rounding::same(2.0),
+                        corner_radius: CornerRadius::same(2),
                         expansion: 2.0,
                     },
                     open: WidgetVisuals {
@@ -279,7 +279,7 @@ impl ThemeDef for DefaultTheme {
                         bg_fill: Color32::from_gray(27),
                         bg_stroke: Stroke::new(1.0, Color32::from_gray(72)),
                         fg_stroke: Stroke::new(1.0, Self::accent_color(dark_mode)),
-                        rounding: Rounding::same(2.0),
+                        corner_radius: CornerRadius::same(2),
                         expansion: 0.0,
                     },
                 },
@@ -307,11 +307,11 @@ impl ThemeDef for DefaultTheme {
                 popup_shadow: Visuals::dark().popup_shadow,
 
                 indent_has_left_vline: false,
-                menu_rounding: Rounding::same(2.0),
+                menu_corner_radius: CornerRadius::same(2),
                 slider_trailing_fill: true,
                 handle_shape: HandleShape::Circle,
                 striped: true,
-                window_rounding: Rounding::same(6.0),
+                window_corner_radius: CornerRadius::same(6),
                 window_highlight_topmost: false,
                 resize_corner_size: 12.0,
 
@@ -336,7 +336,7 @@ impl ThemeDef for DefaultTheme {
                         bg_fill: Color32::from_black_alpha(20),
                         bg_stroke: Stroke::new(2.0, Color32::from_gray(224)), // separators, borders
                         fg_stroke: Stroke::new(1.0, Color32::from_gray(80)),  // normal text color
-                        rounding: Rounding::same(2.0),
+                        corner_radius: CornerRadius::same(2),
                         expansion: 0.0,
                     },
                     inactive: WidgetVisuals {
@@ -347,7 +347,7 @@ impl ThemeDef for DefaultTheme {
                         //    AND text inputs, whether they are inactive OR active. It's really
                         //    overloaded.
                         fg_stroke: Stroke::new(1.0, Color32::from_gray(60)), // button text
-                        rounding: Rounding::same(2.0),
+                        corner_radius: CornerRadius::same(2),
                         expansion: 2.0,
                     },
                     hovered: WidgetVisuals {
@@ -355,7 +355,7 @@ impl ThemeDef for DefaultTheme {
                         bg_fill: Color32::from_black_alpha(10),
                         bg_stroke: Stroke::new(0.0, Self::accent_color(dark_mode)), // e.g. hover over window edge or button
                         fg_stroke: Stroke::new(1.5, Color32::from_black_alpha(240)),
-                        rounding: Rounding::same(3.0),
+                        corner_radius: CornerRadius::same(3),
                         expansion: 2.0,
                     },
                     active: WidgetVisuals {
@@ -363,7 +363,7 @@ impl ThemeDef for DefaultTheme {
                         bg_fill: Color32::from_black_alpha(50),
                         bg_stroke: Stroke::new(0.0, Self::accent_color(dark_mode)),
                         fg_stroke: Stroke::new(2.0, Color32::from_gray(80)),
-                        rounding: Rounding::same(2.0),
+                        corner_radius: CornerRadius::same(2),
                         expansion: 2.0,
                     },
                     open: WidgetVisuals {
@@ -371,7 +371,7 @@ impl ThemeDef for DefaultTheme {
                         bg_fill: Color32::from_gray(220),
                         bg_stroke: Stroke::new(1.0, Color32::from_gray(160)),
                         fg_stroke: Stroke::new(1.0, Self::accent_color(dark_mode)),
-                        rounding: Rounding::same(2.0),
+                        corner_radius: CornerRadius::same(2),
                         expansion: 0.0,
                     },
                 },
@@ -399,11 +399,11 @@ impl ThemeDef for DefaultTheme {
                 popup_shadow: Visuals::light().popup_shadow,
 
                 indent_has_left_vline: false,
-                menu_rounding: Rounding::same(2.0),
+                menu_corner_radius: CornerRadius::same(2),
                 slider_trailing_fill: true,
                 handle_shape: egui_winit::egui::style::HandleShape::Circle,
                 striped: true,
-                window_rounding: Rounding::same(6.0),
+                window_corner_radius: CornerRadius::same(6),
                 window_highlight_topmost: false,
                 resize_corner_size: 12.0,
                 text_cursor: TextCursorStyle {
@@ -767,8 +767,8 @@ impl ThemeDef for DefaultTheme {
     }
 
     // feed styling
-    fn feed_scroll_rounding() -> Rounding {
-        Rounding::ZERO
+    fn feed_scroll_rounding() -> CornerRadius {
+        CornerRadius::ZERO
     }
     fn feed_scroll_fill(_dark_mode: bool) -> Color32 {
         Color32::from_rgba_premultiplied(0, 0, 0, 0) // Transparent separator
@@ -818,17 +818,17 @@ impl ThemeDef for DefaultTheme {
     }
     fn feed_frame_inner_margin(_post: &NoteRenderData) -> Margin {
         Margin {
-            left: 10.0,
-            top: 14.0,
-            right: 10.0,
-            bottom: 6.0,
+            left: 10,
+            top: 14,
+            right: 10,
+            bottom: 6,
         }
     }
     fn feed_frame_outer_margin(_post: &NoteRenderData) -> Margin {
-        Margin::symmetric(0.0, 2.0)
+        Margin::symmetric(0, 2)
     }
-    fn feed_frame_rounding(_post: &NoteRenderData) -> Rounding {
-        Rounding::same(4.0)
+    fn feed_frame_rounding(_post: &NoteRenderData) -> CornerRadius {
+        CornerRadius::same(4)
     }
     fn feed_frame_shadow(_dark_mode: bool, _post: &NoteRenderData) -> Shadow {
         Shadow::default()
@@ -901,21 +901,21 @@ impl ThemeDef for DefaultTheme {
 
     fn repost_inner_margin(post: &NoteRenderData) -> Margin {
         Margin {
-            left: 0.0,
-            top: if post.is_comment_mention { 14.0 } else { 0.0 },
-            right: 10.0,
-            bottom: if post.is_comment_mention { 7.0 } else { 0.0 },
+            left: 0,
+            top: if post.is_comment_mention { 14 } else { 0 },
+            right: 10,
+            bottom: if post.is_comment_mention { 7 } else { 0 },
         }
     }
     fn repost_outer_margin(post: &NoteRenderData) -> Margin {
         Margin {
-            left: 0.0,
-            top: if post.is_comment_mention { 10.0 } else { 4.0 },
-            right: -10.0,
-            bottom: if post.is_comment_mention { 10.0 } else { 0.0 },
+            left: 0,
+            top: if post.is_comment_mention { 10 } else { 4 },
+            right: -10,
+            bottom: if post.is_comment_mention { 10 } else { 0 },
         }
     }
-    fn repost_rounding(post: &NoteRenderData) -> Rounding {
+    fn repost_rounding(post: &NoteRenderData) -> CornerRadius {
         Self::feed_frame_rounding(post)
     }
     fn repost_shadow(_dark_mode: bool, _post: &NoteRenderData) -> Shadow {

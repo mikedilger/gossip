@@ -77,7 +77,8 @@ impl<'a> CoverageEntry<'a> {
                 .clicked()
             {
                 ui.output_mut(|o| {
-                    o.copied_text = self.pk.as_bech32_string();
+                    o.commands
+                        .push(egui::OutputCommand::CopyText(self.pk.as_bech32_string()));
                     GLOBALS
                         .status_queue
                         .write()

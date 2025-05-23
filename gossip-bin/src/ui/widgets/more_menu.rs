@@ -1,6 +1,6 @@
 use eframe::{
     egui::{
-        Margin, Rect, Response, Rounding, Sense, Stroke, TextStyle, WidgetInfo, WidgetText,
+        CornerRadius, Margin, Rect, Response, Sense, Stroke, TextStyle, WidgetInfo, WidgetText,
         WidgetType,
     },
     epaint::PathShape,
@@ -11,13 +11,14 @@ use crate::ui::{GossipUi, Theme};
 
 type Action<'a> = Box<dyn FnOnce(&mut Ui, &mut GossipUi) + 'a>;
 
-const POPUP_MARGIN: Vec2 = Vec2 { x: 20.0, y: 16.0 };
+const POPUP_MARGIN_X: i8 = 20;
+const POPUP_MARGIN_Y: i8 = 16;
 const CORNER_RADIUS: f32 = 8.0;
 const INNER_MARGIN: Margin = Margin {
-    left: 0.0,
-    right: 0.0,
-    top: 15.0,
-    bottom: 15.0,
+    left: 0,
+    right: 0,
+    top: 15,
+    bottom: 15,
 };
 
 #[derive(PartialEq)]
@@ -193,15 +194,15 @@ impl<'a> MoreMenuSubMenu<'a> {
             // try to the right first
             if (response.rect.right() + min_space) < ui.ctx().screen_rect().right() {
                 if response.rect.top() < ui.ctx().screen_rect().center().y {
-                    (Align2::LEFT_TOP, response.rect.right_top() + vec2(-SPACE, -INNER_MARGIN.top))
+                    (Align2::LEFT_TOP, response.rect.right_top() + vec2(-SPACE, -INNER_MARGIN.top as f32))
                 } else {
-                    (Align2::LEFT_BOTTOM, response.rect.right_bottom() + vec2(-SPACE, INNER_MARGIN.bottom))
+                    (Align2::LEFT_BOTTOM, response.rect.right_bottom() + vec2(-SPACE, INNER_MARGIN.bottom as f32))
                 }
             } else {
                 if response.rect.top() < ui.ctx().screen_rect().center().y {
-                    (Align2::RIGHT_TOP, response.rect.left_top() + vec2(SPACE, -INNER_MARGIN.top))
+                    (Align2::RIGHT_TOP, response.rect.left_top() + vec2(SPACE, -INNER_MARGIN.top as f32))
                 } else {
-                    (Align2::RIGHT_BOTTOM, response.rect.left_bottom() + vec2(SPACE, INNER_MARGIN.bottom))
+                    (Align2::RIGHT_BOTTOM, response.rect.left_bottom() + vec2(SPACE, INNER_MARGIN.bottom as f32))
                 }
             };
 
@@ -224,11 +225,11 @@ impl<'a> MoreMenuSubMenu<'a> {
                 let style = ui.style_mut();
                 style.spacing.item_spacing.y = 0.0;
                 frame.inner_margin = INNER_MARGIN;
-                frame.outer_margin = Margin::same(0.0);
+                frame.outer_margin = Margin::same(0);
                 frame.fill = bg_color;
                 frame.stroke = egui::Stroke::NONE;
                 frame.shadow = ui.style().visuals.popup_shadow;
-                frame.rounding = egui::Rounding::same(CORNER_RADIUS);
+                frame.corner_radius = egui::CornerRadius::same(CORNER_RADIUS as u8);
 
                 frame.show(ui, |ui| {
                     ui.set_max_width(min_width);
@@ -532,20 +533,20 @@ impl MoreMenu {
                     let style = ui.style_mut();
                     style.spacing.item_spacing.y = 0.0;
                     frame.inner_margin = INNER_MARGIN;
-                    frame.outer_margin = Margin::same(0.0);
+                    frame.outer_margin = Margin::same(0);
                     frame.fill = bg_color;
                     frame.stroke = egui::Stroke::NONE;
                     frame.shadow = ui.style().visuals.popup_shadow;
-                    frame.rounding = egui::Rounding::same(CORNER_RADIUS);
+                    frame.corner_radius = egui::CornerRadius::same(CORNER_RADIUS as u8);
                 } else {
                     let style = ui.style_mut();
                     style.spacing.item_spacing.y = 0.0;
                     frame.inner_margin = INNER_MARGIN;
-                    frame.outer_margin = Margin::same(0.0);
+                    frame.outer_margin = Margin::same(0);
                     frame.fill = bg_color;
                     frame.stroke = egui::Stroke::NONE;
                     frame.shadow = ui.style().visuals.popup_shadow;
-                    frame.rounding = egui::Rounding::same(CORNER_RADIUS);
+                    frame.corner_radius = egui::CornerRadius::same(CORNER_RADIUS as u8);
                 }
                 frame.show(ui, |ui| {
                     ui.set_min_size(self.min_size);
@@ -734,8 +735,8 @@ impl MoreMenu {
                     frame.fill = bg_color;
                     frame.stroke = egui::Stroke::NONE;
                     frame.shadow = ui.style().visuals.popup_shadow;
-                    frame.rounding = egui::Rounding::same(CORNER_RADIUS);
-                    frame.inner_margin = egui::Margin::symmetric(POPUP_MARGIN.x, POPUP_MARGIN.y);
+                    frame.corner_radius = egui::CornerRadius::same(CORNER_RADIUS as u8);
+                    frame.inner_margin = egui::Margin::symmetric(POPUP_MARGIN_X, POPUP_MARGIN_Y);
                 }
                 frame.show(ui, |ui| {
                     ui.set_min_size(self.min_size);
@@ -898,7 +899,8 @@ fn draw_menu_button(
     };
 
     // background & separator lines
-    ui.painter().rect_filled(rect, Rounding::same(0.0), bg_fill);
+    ui.painter()
+        .rect_filled(rect, CornerRadius::same(0), bg_fill);
     ui.painter()
         .hline(rect.x_range(), rect.top(), separator_stroke);
     ui.painter()

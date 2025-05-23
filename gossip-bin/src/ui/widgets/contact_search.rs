@@ -37,8 +37,8 @@ pub(in crate::ui) fn show_contact_search(
     // always compute the tooltip, but it is only shown when
     // is_open is true. This is so we get the animation.
     let frame = egui::Frame::popup(ui.style())
-        .rounding(egui::Rounding::ZERO)
-        .inner_margin(egui::Margin::same(0.0));
+        .corner_radius(egui::CornerRadius::ZERO)
+        .inner_margin(egui::Margin::same(0));
     let area = egui::Area::new(ui.next_auto_id().with("tt"))
         .pivot(pivot)
         .fixed_pos(fixed_pos)
@@ -66,9 +66,9 @@ pub(in crate::ui) fn show_contact_search(
                                 app.placeholder_avatar.clone()
                             };
 
-                            let frame = egui::Frame::none()
-                                .rounding(egui::Rounding::ZERO)
-                                .inner_margin(egui::Margin::symmetric(10.0, 5.0));
+                            let frame = egui::Frame::NONE
+                                .corner_radius(egui::CornerRadius::ZERO)
+                                .inner_margin(egui::Margin::symmetric(10, 5));
                             let mut prepared = frame.begin(ui);
 
                             prepared.content_ui.set_min_width(super::TAGG_WIDTH);

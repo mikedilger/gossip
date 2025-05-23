@@ -59,8 +59,8 @@ use eframe::egui::vec2;
 use eframe::egui::FontId;
 use egui::widgets::Slider;
 use egui::{
-    Align, Color32, ColorImage, Context, IconData, Image, ImageData, Label, Layout, RichText,
-    ScrollArea, Sense, TextureHandle, TextureOptions, Ui, Vec2,
+    Align, Color32, ColorImage, Context, IconData, Image, ImageData, Label, Layout, OutputCommand,
+    RichText, ScrollArea, Sense, TextureHandle, TextureOptions, Ui, Vec2,
 };
 use egui_file_dialog::FileDialog;
 #[cfg(feature = "video-ffmpeg")]
@@ -1025,8 +1025,8 @@ impl GossipUi {
         egui::TopBottomPanel::bottom("notification-panel")
             .show_separator_line(true)
             .frame(
-                egui::Frame::none()
-                    .inner_margin(egui::Margin::symmetric(0.0, 0.0))
+                egui::Frame::NONE
+                    .inner_margin(egui::Margin::symmetric(0, 0))
                     .fill(self.theme.navigation_bg_fill()),
             )
             .show(ctx, |ui| {
@@ -1050,16 +1050,16 @@ impl GossipUi {
         egui::SidePanel::left("main-navigation-panel")
             .show_separator_line(false)
             .frame(
-                egui::Frame::none()
+                egui::Frame::NONE
                     .inner_margin({
                         #[cfg(not(target_os = "macos"))]
-                        let margin = egui::Margin::symmetric(20.0, 20.0);
+                        let margin = egui::Margin::symmetric(20, 20);
                         #[cfg(target_os = "macos")]
                         let margin = egui::Margin {
-                            left: 20.0,
-                            right: 20.0,
-                            top: 35.0,
-                            bottom: 20.0,
+                            left: 20,
+                            right: 20,
+                            top: 30,
+                            bottom: 20,
                         };
                         margin
                     })
@@ -1236,7 +1236,7 @@ impl GossipUi {
                     .translate(vec2(0.0, -1.0)); // FIXME: Hack to fix the line height
                 let bg_shape = egui::Shape::rect_filled(
                     bg_rect,
-                    egui::Rounding::same(bg_rect.height()),
+                    egui::CornerRadius::same(bg_rect.height() as u8),
                     self.theme.accent_color(),
                 );
                 ui.painter().set(where_to_put_background, bg_shape);
@@ -1286,7 +1286,7 @@ impl GossipUi {
                     .translate(vec2(0.0, -1.0)); // FIXME: Hack to fix the line height
                 let bg_shape = egui::Shape::rect_filled(
                     bg_rect,
-                    egui::Rounding::same(bg_rect.height()),
+                    egui::CornerRadius::same(bg_rect.height() as u8),
                     self.theme.accent_color(),
                 );
                 ui.painter().set(where_to_put_background, bg_shape);
@@ -1403,18 +1403,18 @@ impl GossipUi {
                 )
             };
             const PADDING: egui::Margin = egui::Margin {
-                left: 16.0,
-                right: 16.0,
-                top: 5.0,
-                bottom: 5.0,
+                left: 16,
+                right: 16,
+                top: 5,
+                bottom: 5,
             };
-            egui::Frame::none()
-                .rounding(egui::Rounding::ZERO)
+            egui::Frame::NONE
+                .corner_radius(egui::CornerRadius::ZERO)
                 .outer_margin(egui::Margin {
-                    left: 0.0,
-                    right: 0.0,
-                    top: 0.0,
-                    bottom: 0.0,
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
                 })
                 .inner_margin(PADDING)
                 .fill(color)
@@ -1625,7 +1625,10 @@ impl GossipUi {
                         for relay_url in relays {
                             profile.relays.push(UncheckedUrl(format!("{}", relay_url)));
                         }
-                        o.copied_text = format!("https://njump.me/{}", profile.as_bech32_string())
+                        o.commands.push(OutputCommand::CopyText(format!(
+                            "https://njump.me/{}",
+                            profile.as_bech32_string()
+                        )))
                     });
                 }
             });
@@ -2407,10 +2410,10 @@ impl eframe::App for GossipUi {
         egui::TopBottomPanel::top("top-panel")
             .frame(
                 egui::Frame::side_top_panel(&self.theme.get_style()).inner_margin(egui::Margin {
-                    left: 20.0,
-                    right: 15.0,
-                    top: 10.0,
-                    bottom: 10.0,
+                    left: 20,
+                    right: 15,
+                    top: 10,
+                    bottom: 10,
                 }),
             )
             .resizable(true)
@@ -2447,10 +2450,10 @@ impl eframe::App for GossipUi {
             .frame({
                 let frame = egui::Frame::side_top_panel(&self.theme.get_style());
                 frame.inner_margin(egui::Margin {
-                    left: 20.0,
-                    right: 18.0,
-                    top: 10.0,
-                    bottom: 10.0,
+                    left: 20,
+                    right: 18,
+                    top: 10,
+                    bottom: 10,
                 })
             })
             .resizable(resizable)
@@ -2477,10 +2480,10 @@ impl eframe::App for GossipUi {
             .frame({
                 let frame = egui::Frame::central_panel(&self.theme.get_style());
                 frame.inner_margin(egui::Margin {
-                    left: 20.0,
-                    right: 10.0,
-                    top: 10.0,
-                    bottom: 0.0,
+                    left: 20,
+                    right: 10,
+                    top: 10,
+                    bottom: 0,
                 })
             })
             .show(ctx, |ui| {
@@ -2522,10 +2525,10 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
         .frame({
             let frame = egui::Frame::central_panel(&app.theme.get_style());
             frame.inner_margin(egui::Margin {
-                left: 20.0,
-                right: 10.0,
-                top: 10.0,
-                bottom: 0.0,
+                left: 20,
+                right: 10,
+                top: 10,
+                bottom: 0,
             })
             .fill({
                 if ctx.style().visuals.dark_mode {
@@ -2536,7 +2539,7 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
             })
         })
         .show(ctx, |ui| {
-            let frame = egui::Frame::none();
+            let frame = egui::Frame::NONE;
             let area = egui::Area::new(ui.auto_id_with("login_screen"))
                 .movable(false)
                 .interactable(true)
@@ -2544,7 +2547,7 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
                 .order(egui::Order::Middle)
                 .anchor(egui::Align2::CENTER_CENTER, [0.0, -100.0]);
             area.show(ui.ctx(), |ui| {
-                // frame.rounding = egui::Rounding::same(10.0);
+                // frame.corner_radius = egui::CornerRadius::same(10.0);
                 // frame.inner_margin = egui::Margin::symmetric(MARGIN_X, MARGIN_Y);
                 frame.show(ui, |ui| {
                     ui.vertical_centered(|ui| {
@@ -2646,7 +2649,7 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
                 });
             });
 
-            let mut frame = egui::Frame::none();
+            let mut frame = egui::Frame::NONE;
             let area = egui::Area::new(ui.auto_id_with("login_footer"))
                 .movable(false)
                 .interactable(true)
@@ -2654,7 +2657,7 @@ fn force_login(app: &mut GossipUi, ctx: &Context) {
                 .order(egui::Order::Middle)
                 .anchor(egui::Align2::CENTER_BOTTOM, [0.0, 0.0]);
             area.show(ctx, |ui| {
-                frame.inner_margin = egui::Margin::symmetric(10.0,40.0);
+                frame.inner_margin = egui::Margin::symmetric(10, 40);
                 frame.show(ui, |ui| {
                     ui.with_layout(egui::Layout::left_to_right(egui::Align::BOTTOM).with_main_justify(true), |ui| {
                         ui.horizontal( |ui| {
@@ -2695,10 +2698,10 @@ fn wait_for_data_migration(app: &mut GossipUi, ctx: &Context) {
         .frame({
             let frame = egui::Frame::central_panel(&app.theme.get_style());
             frame.inner_margin(egui::Margin {
-                left: 20.0,
-                right: 10.0,
-                top: 10.0,
-                bottom: 0.0,
+                left: 20,
+                right: 10,
+                top: 10,
+                bottom: 0,
             })
         })
         .show(ctx, |ui| {
@@ -2713,10 +2716,10 @@ fn wait_for_prune(app: &mut GossipUi, ctx: &Context, status: &str) {
         .frame({
             let frame = egui::Frame::central_panel(&app.theme.get_style());
             frame.inner_margin(egui::Margin {
-                left: 20.0,
-                right: 10.0,
-                top: 10.0,
-                bottom: 0.0,
+                left: 20,
+                right: 10,
+                top: 10,
+                bottom: 0,
             })
         })
         .show(ctx, |ui| {

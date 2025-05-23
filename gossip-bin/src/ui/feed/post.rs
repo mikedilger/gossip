@@ -237,10 +237,10 @@ fn dm_posting_area(
             .lock_focus(true)
             .interactive(true)
             .margin(egui::Margin {
-                left: 0.0,
-                right: 0.0,
-                top: 10.0,
-                bottom: 0.0,
+                left: 0,
+                right: 0,
+                top: 10,
+                bottom: 0,
             })
             .layouter(&mut layouter),
     );
@@ -289,8 +289,11 @@ fn dm_posting_area(
             .expand2(vec2(10.0, 3.0))
             .translate(vec2(0.0, 0.0)); // FIXME: Hack to fix the line height
 
-        let bg_shape =
-            egui::Shape::rect_filled(bg_rect, egui::Rounding::same(bg_rect.height()), bg_color);
+        let bg_shape = egui::Shape::rect_filled(
+            bg_rect,
+            egui::CornerRadius::same(bg_rect.height() as u8),
+            bg_color,
+        );
         ui.painter().set(where_to_put_bg, bg_shape);
         ui.interact(bg_rect, ui.next_auto_id().with("enc"), egui::Sense::hover())
             .on_hover_text(tooltip_text);

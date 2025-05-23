@@ -1,8 +1,8 @@
 use std::{ops::Sub, sync::Arc};
 
 use egui_winit::egui::{
-    self, vec2, Color32, Galley, Id, Rect, Response, Stroke, TextStyle, Ui, Vec2, Widget,
-    WidgetText,
+    self, vec2, Color32, Galley, Id, Rect, Response, Stroke, StrokeKind, TextStyle, Ui, Vec2,
+    Widget, WidgetText,
 };
 
 use crate::ui::Theme;
@@ -191,8 +191,13 @@ pub fn switch_custom_at(
         } else {
             visuals.bg_stroke
         };
-        ui.painter()
-            .rect(rect.shrink(1.0), radius, bg_fill, visuals.bg_stroke);
+        ui.painter().rect(
+            rect.shrink(1.0),
+            radius,
+            bg_fill,
+            visuals.bg_stroke,
+            StrokeKind::Inside,
+        );
         let circle_x = egui::lerp((rect.left() + radius)..=(rect.right() - radius), how_on);
         let center = egui::pos2(circle_x, rect.center().y);
         ui.painter().circle(
@@ -327,8 +332,13 @@ fn draw_at(
 
         // switch
         let switch_rect = Rect::from_min_size(rect.min + padding, size);
-        ui.painter()
-            .rect(switch_rect, radius, bg_fill, frame_stroke);
+        ui.painter().rect(
+            switch_rect,
+            radius,
+            bg_fill,
+            frame_stroke,
+            StrokeKind::Inside,
+        );
         let circle_x = egui::lerp(
             (switch_rect.left() + radius)..=(switch_rect.right() - radius),
             how_on,

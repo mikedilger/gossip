@@ -11,7 +11,7 @@ use crate::ui::widgets::{
     self, AvatarSize, CopyButton, ModalEntry, MoreMenuButton, MoreMenuItem, MoreMenuSubMenu,
 };
 use crate::ui::{GossipUi, Page};
-use crate::{AVATAR_SIZE_F32, AVATAR_SIZE_REPOST_F32};
+use crate::{AVATAR_SIZE, AVATAR_SIZE_REPOST};
 
 use eframe::egui::{self, vec2, Align2, Margin, Response};
 use egui::{
@@ -25,7 +25,7 @@ use nostr_types::{
 };
 use serde::Serialize;
 
-const CONTENT_MARGIN_RIGHT: f32 = 35.0;
+const CONTENT_MARGIN_RIGHT: i8 = 35;
 
 #[derive(Default)]
 pub struct NoteRenderData {
@@ -127,10 +127,10 @@ pub(super) fn render_note(
                 // Outer indents first
                 app.theme.feed_post_outer_indent(ui, &render_data);
 
-                Frame::none()
+                Frame::NONE
                     .inner_margin(app.theme.feed_frame_inner_margin(&render_data))
                     .outer_margin(app.theme.feed_frame_outer_margin(&render_data))
-                    .rounding(app.theme.feed_frame_rounding(&render_data))
+                    .corner_radius(app.theme.feed_frame_rounding(&render_data))
                     .shadow(app.theme.feed_frame_shadow(&render_data))
                     .fill(app.theme.feed_frame_fill(&render_data))
                     .stroke(app.theme.feed_frame_stroke(&render_data))
@@ -256,7 +256,7 @@ pub fn render_dm_note(app: &mut GossipUi, ui: &mut Ui, feed_note_params: FeedNot
 
             let inner_response =
                 widgets::list_entry::make_frame(ui, Some(app.theme.feed_frame_fill(&render_data)))
-                    .rounding(app.theme.feed_frame_rounding(&render_data))
+                    .corner_radius(app.theme.feed_frame_rounding(&render_data))
                     .shadow(app.theme.feed_frame_shadow(&render_data))
                     .stroke(app.theme.feed_frame_stroke(&render_data))
                     .show(ui, |ui| {
@@ -302,33 +302,34 @@ pub fn render_note_inside_framing(
         let inner_margin = app.theme.feed_frame_inner_margin(render_data);
 
         // Determine avatar size
-        let (avatar_size, avatar_margin_left, content_margin_left) = if is_dm_feed {
-            (
-                AvatarSize::Mini,
-                0.0,
-                AVATAR_SIZE_REPOST_F32 + inner_margin.left + 5.0,
-            )
-        } else if parent_repost.is_none() {
-            match note.repost {
-                None | Some(RepostType::CommentMention) => {
-                    (AvatarSize::Feed, 0.0, AVATAR_SIZE_F32 + inner_margin.left)
+        let (avatar_size, avatar_margin_left, content_margin_left): (AvatarSize, i8, i8) =
+            if is_dm_feed {
+                (
+                    AvatarSize::Mini,
+                    0,
+                    AVATAR_SIZE_REPOST as i8 + inner_margin.left + 5,
+                )
+            } else if parent_repost.is_none() {
+                match note.repost {
+                    None | Some(RepostType::CommentMention) => {
+                        (AvatarSize::Feed, 0, AVATAR_SIZE as i8 + inner_margin.left)
+                    }
+                    Some(_) => (
+                        AvatarSize::Mini,
+                        ((AVATAR_SIZE - AVATAR_SIZE_REPOST) / 2) as i8,
+                        AVATAR_SIZE as i8 + inner_margin.left,
+                    ),
                 }
-                Some(_) => (
-                    AvatarSize::Mini,
-                    (AVATAR_SIZE_F32 - AVATAR_SIZE_REPOST_F32) / 2.0,
-                    AVATAR_SIZE_F32 + inner_margin.left,
-                ),
-            }
-        } else {
-            match parent_repost {
-                None | Some(RepostType::CommentMention) => (
-                    AvatarSize::Mini,
-                    (AVATAR_SIZE_F32 - AVATAR_SIZE_REPOST_F32) / 2.0,
-                    AVATAR_SIZE_F32 + inner_margin.left,
-                ),
-                Some(_) => (AvatarSize::Feed, 0.0, AVATAR_SIZE_F32 + inner_margin.left),
-            }
-        };
+            } else {
+                match parent_repost {
+                    None | Some(RepostType::CommentMention) => (
+                        AvatarSize::Mini,
+                        ((AVATAR_SIZE - AVATAR_SIZE_REPOST) / 2) as i8,
+                        AVATAR_SIZE as i8 + inner_margin.left,
+                    ),
+                    Some(_) => (AvatarSize::Feed, 0, AVATAR_SIZE as i8 + inner_margin.left),
+                }
+            };
 
         let hide_footer = if render_data.hide_footer {
             true
@@ -345,29 +346,29 @@ pub fn render_note_inside_framing(
         };
 
         let content_pull_top = if !render_data.hide_nameline {
-            inner_margin.top + ui.style().spacing.item_spacing.y * 4.0 - avatar_size.y()
+            inner_margin.top + ui.style().spacing.item_spacing.y as i8 * 4 - avatar_size.y() as i8
         } else {
-            -avatar_size.y() - ui.style().spacing.item_spacing.y * 2.0
+            -avatar_size.y() as i8 - ui.style().spacing.item_spacing.y as i8 * 2
         };
 
         let content_margin_right = if render_data.hide_nameline {
             CONTENT_MARGIN_RIGHT
         } else {
-            0.0
+            0
         };
         let footer_margin_left = content_margin_left;
 
         let content_inner_margin = Margin {
             left: content_margin_left,
             right: content_margin_right,
-            top: 0.0,
-            bottom: 0.0,
+            top: 0,
+            bottom: 0,
         };
 
         let content_outer_margin = Margin {
-            left: 0.0,
-            bottom: 0.0,
-            right: 0.0,
+            left: 0,
+            bottom: 0,
+            right: 0,
             top: content_pull_top,
         };
 
@@ -403,7 +404,7 @@ pub fn render_note_inside_framing(
             // First row
 
             let header_response = ui.with_layout(Layout::left_to_right(Align::TOP), |ui| {
-                ui.add_space(avatar_margin_left);
+                ui.add_space(avatar_margin_left as f32);
 
                 // render avatar
                 if is_dm_feed {
@@ -416,7 +417,7 @@ pub fn render_note_inside_framing(
                     };
                 }
 
-                ui.add_space(avatar_margin_left);
+                ui.add_space(avatar_margin_left as f32);
 
                 ui.add_space(3.0);
 
@@ -705,12 +706,12 @@ pub fn render_note_inside_framing(
 
                 // deleted?
                 for delete_reason in &note.deletions {
-                    Frame::none()
+                    Frame::NONE
                         .inner_margin(Margin {
                             left: footer_margin_left,
-                            bottom: 0.0,
-                            right: 0.0,
-                            top: 8.0,
+                            bottom: 0,
+                            right: 0,
+                            top: 8,
                         })
                         .show(ui, |ui| {
                             ui.label(
@@ -722,12 +723,12 @@ pub fn render_note_inside_framing(
 
                 // proxied?
                 if let Some((proxy, id)) = note.event.proxy() {
-                    Frame::none()
+                    Frame::NONE
                         .inner_margin(Margin {
                             left: footer_margin_left,
-                            bottom: 0.0,
-                            right: 0.0,
-                            top: 8.0,
+                            bottom: 0,
+                            right: 0,
+                            top: 8,
                         })
                         .show(ui, |ui| {
                             let color = app.theme.accent_complementary_color();
@@ -744,17 +745,17 @@ pub fn render_note_inside_framing(
                 if !hide_footer {
                     let ft_inner_margin = Margin {
                         left: footer_margin_left,
-                        bottom: 0.0,
-                        right: 0.0,
-                        top: 8.0,
+                        bottom: 0,
+                        right: 0,
+                        top: 8,
                     };
-                    let footer_response = Frame::none()
+                    let footer_response = Frame::NONE
                         .inner_margin(ft_inner_margin)
                         .outer_margin(Margin {
-                            left: 0.0,
-                            bottom: 0.0,
-                            right: 0.0,
-                            top: 0.0,
+                            left: 0,
+                            bottom: 0,
+                            right: 0,
+                            top: 0,
                         })
                         .show(ui, |ui| {
                             ui.set_max_width(header_response.response.rect.width());
@@ -989,7 +990,7 @@ pub fn render_note_inside_framing(
                                             let mut col = 0;
                                             for (ch, count) in note.reactions.iter() {
                                                 if *ch != '+' {
-                                                    egui::Frame::none()
+                                                    egui::Frame::NONE
                                                         .inner_margin(egui::Margin::from(
                                                             ui.spacing().item_spacing,
                                                         ))
@@ -1174,7 +1175,9 @@ pub fn render_note_inside_framing(
                                         if let ZapState::ReadyToPay(_id, ref invoice) =
                                             app.zap_state
                                         {
-                                            o.copied_text = invoice.to_owned();
+                                            o.commands.push(egui::OutputCommand::CopyText(
+                                                invoice.to_owned(),
+                                            ));
                                         }
                                     });
                                 }
@@ -1184,14 +1187,14 @@ pub fn render_note_inside_framing(
                     // alternate seen_on location and encryption indicator
                     if seen_location == Align2::RIGHT_BOTTOM {
                         let bottom_right = egui::pos2(
-                            header_response.response.rect.right() - content_margin_right,
+                            header_response.response.rect.right() - content_margin_right as f32,
                             footer_response.response.rect.bottom(),
                         );
                         let top_left = bottom_right
                             + vec2(
                                 -150.0,
                                 -footer_response.response.rect.height()
-                                    + ft_inner_margin.top
+                                    + ft_inner_margin.top as f32
                                     + ui.spacing().item_spacing.y,
                             );
                         let ui_rect = egui::Rect::from_points(&[top_left, bottom_right]);
@@ -1264,7 +1267,7 @@ fn render_note_between_header_and_footer(
 
         let bottom_of_avatar = ui.cursor().top();
 
-        Frame::none()
+        Frame::NONE
             .inner_margin(content_inner_margin)
             .outer_margin(content_outer_margin)
             .show(ui, |ui| {
@@ -1415,15 +1418,15 @@ fn render_repost(
         }
 
         ui.vertical(|ui| {
-            Frame::none()
+            Frame::NONE
                 .inner_margin(app.theme.repost_inner_margin(&render_data))
                 .outer_margin({
                     let mut margin = app.theme.repost_outer_margin(&render_data);
                     margin.left -= content_inner_margin.left;
-                    margin.top += push_top;
+                    margin.top += push_top as i8;
                     margin
                 })
-                .rounding(app.theme.repost_rounding(&render_data))
+                .corner_radius(app.theme.repost_rounding(&render_data))
                 .shadow(app.theme.repost_shadow(&render_data))
                 .fill(app.theme.repost_fill(&render_data))
                 .stroke(app.theme.repost_stroke(&render_data))
@@ -1495,7 +1498,11 @@ fn note_actions(
         copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
             "to Clipboard",
             Box::new(|ui, _| {
-                ui.output_mut(|o| o.copied_text = note.shattered_content.allocated.clone());
+                ui.output_mut(|o| {
+                    o.commands.push(egui::OutputCommand::CopyText(
+                        note.shattered_content.allocated.clone(),
+                    ))
+                });
                 // this one doesn't work for DMs:
                 // ui.output_mut(|o| o.copied_text = note.event.content.clone());
             }),
@@ -1711,7 +1718,10 @@ fn note_actions(
                         author: note.event.pubkey,
                     };
                     let nostr_url: NostrUrl = naddr.into();
-                    ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
+                    ui.output_mut(|o| {
+                        o.commands
+                            .push(egui::OutputCommand::CopyText(format!("{}", nostr_url)))
+                    });
                 }),
             )));
         } else {
@@ -1725,14 +1735,20 @@ fn note_actions(
                         kind: None,
                     };
                     let nostr_url: NostrUrl = nevent.into();
-                    ui.output_mut(|o| o.copied_text = format!("{}", nostr_url));
+                    ui.output_mut(|o| {
+                        o.commands
+                            .push(egui::OutputCommand::CopyText(format!("{}", nostr_url)))
+                    });
                 }),
             )));
         }
         copy_items.push(MoreMenuItem::Button(MoreMenuButton::new(
             "as hex",
             Box::new(|ui, _| {
-                ui.output_mut(|o| o.copied_text = note.event.id.as_hex_string());
+                ui.output_mut(|o| {
+                    o.commands
+                        .push(egui::OutputCommand::CopyText(note.event.id.as_hex_string()))
+                });
             }),
         )));
 
@@ -1801,7 +1817,9 @@ fn note_actions(
             "Copy JSON",
             Box::new(|ui, _| {
                 ui.output_mut(|o| {
-                    o.copied_text = serde_json::to_string_pretty(&note.event).unwrap()
+                    o.commands.push(egui::OutputCommand::CopyText(
+                        serde_json::to_string_pretty(&note.event).unwrap(),
+                    ));
                 });
             }),
         )));

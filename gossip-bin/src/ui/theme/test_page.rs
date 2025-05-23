@@ -81,8 +81,8 @@ pub(in crate::ui) fn update(
             ui.add_space(20.0);
 
             // On No Background
-            Frame::none()
-                .inner_margin(Margin::symmetric(20.0, 20.0))
+            Frame::NONE
+                .inner_margin(Margin::symmetric(20, 20))
                 .show(ui, |ui| {
                     ui.heading("No Background");
                     inner(app, ui, Background::None);
@@ -100,10 +100,10 @@ pub(in crate::ui) fn update(
                 hide_footer: false,
                 hide_nameline: false,
             };
-            Frame::none()
+            Frame::NONE
                 .inner_margin(app.theme.feed_frame_inner_margin(&render_data))
                 .outer_margin(app.theme.feed_frame_outer_margin(&render_data))
-                .rounding(app.theme.feed_frame_rounding(&render_data))
+                .corner_radius(app.theme.feed_frame_rounding(&render_data))
                 .shadow(app.theme.feed_frame_shadow(&render_data))
                 .fill(app.theme.feed_frame_fill(&render_data))
                 .stroke(app.theme.feed_frame_stroke(&render_data))
@@ -125,10 +125,10 @@ pub(in crate::ui) fn update(
                 hide_footer: false,
                 hide_nameline: false,
             };
-            Frame::none()
+            Frame::NONE
                 .inner_margin(app.theme.feed_frame_inner_margin(&render_data))
                 .outer_margin(app.theme.feed_frame_outer_margin(&render_data))
-                .rounding(app.theme.feed_frame_rounding(&render_data))
+                .corner_radius(app.theme.feed_frame_rounding(&render_data))
                 .shadow(app.theme.feed_frame_shadow(&render_data))
                 .fill(app.theme.feed_frame_fill(&render_data))
                 .stroke(app.theme.feed_frame_stroke(&render_data))
@@ -139,9 +139,9 @@ pub(in crate::ui) fn update(
                 });
 
             // On Input Background
-            Frame::none()
+            Frame::NONE
                 .fill(app.theme.get_style().visuals.extreme_bg_color)
-                .inner_margin(Margin::symmetric(20.0, 20.0))
+                .inner_margin(Margin::symmetric(20, 20))
                 .show(ui, |ui| {
                     ui.heading("Input Background");
                     inner(app, ui, Background::Input);

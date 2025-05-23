@@ -35,7 +35,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
                 ui.label("   ");
                 ui.label(&token);
                 if ui.add(CopyButton::new()).clicked() {
-                    ui.output_mut(|o| o.copied_text = token);
+                    ui.output_mut(|o| o.commands.push(egui::OutputCommand::CopyText(token)));
                 }
             });
         }

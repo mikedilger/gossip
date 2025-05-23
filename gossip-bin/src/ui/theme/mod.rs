@@ -1,7 +1,7 @@
 use super::feed::NoteRenderData;
 use super::HighlightType;
 use eframe::egui::{
-    Color32, Context, FontData, FontDefinitions, FontTweak, Margin, Rounding, Stroke, Style,
+    Color32, Context, CornerRadius, FontData, FontDefinitions, FontTweak, Margin, Stroke, Style,
     TextFormat, TextStyle, Ui,
 };
 use eframe::epaint::{ecolor, FontFamily, FontId, Shadow};
@@ -382,7 +382,7 @@ macro_rules! theme_dispatch {
                 }
             }
 
-            pub fn feed_scroll_rounding(&self) -> Rounding {
+            pub fn feed_scroll_rounding(&self) -> CornerRadius {
                 match self.variant {
                     $( $variant => $class::feed_scroll_rounding(), )+
                 }
@@ -418,7 +418,7 @@ macro_rules! theme_dispatch {
                 }
             }
 
-            pub fn feed_frame_rounding(&self, post: &NoteRenderData) -> Rounding {
+            pub fn feed_frame_rounding(&self, post: &NoteRenderData) -> CornerRadius {
                 match self.variant {
                     $( $variant => $class::feed_frame_rounding(post), )+
                 }
@@ -490,7 +490,7 @@ macro_rules! theme_dispatch {
                 }
             }
 
-            pub fn repost_rounding(&self, post: &NoteRenderData) -> Rounding {
+            pub fn repost_rounding(&self, post: &NoteRenderData) -> CornerRadius {
                 match self.variant {
                     $( $variant => $class::repost_rounding(post), )+
                 }
@@ -605,7 +605,7 @@ pub trait ThemeDef: Send + Sync {
     fn input_bg_color(dark_mode: bool) -> eframe::egui::Color32;
 
     // feed styling
-    fn feed_scroll_rounding() -> Rounding;
+    fn feed_scroll_rounding() -> CornerRadius;
     fn feed_scroll_fill(dark_mode: bool) -> Color32;
     fn feed_scroll_stroke(dark_mode: bool) -> Stroke;
     fn feed_post_separator_stroke(dark_mode: bool, post: &NoteRenderData) -> Stroke;
@@ -613,7 +613,7 @@ pub trait ThemeDef: Send + Sync {
     fn feed_post_inner_indent(ui: &mut Ui, post: &NoteRenderData);
     fn feed_frame_inner_margin(post: &NoteRenderData) -> Margin;
     fn feed_frame_outer_margin(post: &NoteRenderData) -> Margin;
-    fn feed_frame_rounding(post: &NoteRenderData) -> Rounding;
+    fn feed_frame_rounding(post: &NoteRenderData) -> CornerRadius;
     fn feed_frame_shadow(dark_mode: bool, post: &NoteRenderData) -> Shadow;
     fn feed_frame_fill(dark_mode: bool, post: &NoteRenderData) -> Color32;
     fn feed_frame_stroke(dark_mode: bool, post: &NoteRenderData) -> Stroke;
@@ -625,7 +625,7 @@ pub trait ThemeDef: Send + Sync {
     fn repost_space_below_separator_after(post: &NoteRenderData) -> f32;
     fn repost_inner_margin(post: &NoteRenderData) -> Margin;
     fn repost_outer_margin(post: &NoteRenderData) -> Margin;
-    fn repost_rounding(post: &NoteRenderData) -> Rounding;
+    fn repost_rounding(post: &NoteRenderData) -> CornerRadius;
     fn repost_shadow(dark_mode: bool, post: &NoteRenderData) -> Shadow;
     fn repost_fill(dark_mode: bool, post: &NoteRenderData) -> Color32;
     fn repost_stroke(dark_mode: bool, post: &NoteRenderData) -> Stroke;

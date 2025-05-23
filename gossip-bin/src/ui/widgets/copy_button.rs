@@ -1,3 +1,4 @@
+use eframe::emath::GuiRounding;
 use eframe::{
     egui,
     epaint::{self, PathStroke},
@@ -102,8 +103,7 @@ impl Widget for CopyButton {
             x: rect.min.x + shift,
             y: rect.min.y + shift,
         };
-        self.paint(ui, ui.painter().round_pos_to_pixels(pos));
-
+        self.paint(ui, pos.round_to_pixels(ui.painter().pixels_per_point()));
         response
     }
 }

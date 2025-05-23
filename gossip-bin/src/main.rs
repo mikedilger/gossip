@@ -20,6 +20,7 @@ use tracing_subscriber::prelude::*;
 
 pub const AVATAR_SIZE: u32 = 48; // points, not pixels
 pub const AVATAR_SIZE_F32: f32 = 48.0; // points, not pixels
+pub const AVATAR_SIZE_REPOST: u32 = 27; // points, not pixels
 pub const AVATAR_SIZE_REPOST_F32: f32 = 27.0; // points, not pixels
 
 fn main() -> Result<(), Error> {

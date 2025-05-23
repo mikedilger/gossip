@@ -622,7 +622,10 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                     ui.label(&npub);
                     ui.add_space(10.0);
                     if ui.link("Copy npub").clicked() {
-                        ui.output_mut(|o| o.copied_text = npub.to_owned());
+                        ui.output_mut(|o| {
+                            o.commands
+                                .push(egui::OutputCommand::CopyText(npub.to_owned()))
+                        });
                     }
                 });
             });
@@ -641,7 +644,10 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                     ui.label(&lud06);
                     ui.add_space(10.0);
                     if ui.link("Copy lud06").clicked() {
-                        ui.output_mut(|o| o.copied_text = lud06.to_owned());
+                        ui.output_mut(|o| {
+                            o.commands
+                                .push(egui::OutputCommand::CopyText(lud06.to_owned()))
+                        });
                     }
                 });
             });
@@ -660,7 +666,10 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                     ui.label(&lud16);
                     ui.add_space(10.0);
                     if ui.link("Copy lud16").clicked() {
-                        ui.output_mut(|o| o.copied_text = lud16.to_owned());
+                        ui.output_mut(|o| {
+                            o.commands
+                                .push(egui::OutputCommand::CopyText(lud16.to_owned()))
+                        });
                     }
                 });
             });
@@ -685,7 +694,10 @@ fn profile_item(
     let response = profile_item_frame(ui, width, label, &content, symbol).response;
 
     if response.clicked() {
-        ui.output_mut(|o| o.copied_text = content.to_owned());
+        ui.output_mut(|o| {
+            o.commands
+                .push(egui::OutputCommand::CopyText(content.to_owned()))
+        });
     }
 }
 
@@ -712,21 +724,21 @@ fn profile_item_qr(
 }
 
 fn make_frame() -> egui::Frame {
-    egui::Frame::none()
+    egui::Frame::NONE
         .inner_margin(egui::Margin {
-            left: 10.0,
-            right: 10.0,
-            top: 8.0,
-            bottom: 8.0,
+            left: 10,
+            right: 10,
+            top: 8,
+            bottom: 8,
         })
         .outer_margin(egui::Margin {
-            left: 0.0,
-            right: 0.0,
-            top: 0.0,
-            bottom: 0.0,
+            left: 0,
+            right: 0,
+            top: 0,
+            bottom: 0,
         })
         .fill(egui::Color32::TRANSPARENT)
-        .rounding(egui::Rounding::same(5.0))
+        .corner_radius(egui::CornerRadius::same(5))
 }
 
 fn item_label(ui: &mut Ui, label: impl Into<String>) {

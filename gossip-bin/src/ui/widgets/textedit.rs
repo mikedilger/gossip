@@ -1,7 +1,7 @@
 use eframe::egui::style::TextCursorStyle;
 use egui_winit::egui::{
-    self, load::SizedTexture, vec2, Color32, Rect, Rounding, Sense, Stroke, TextBuffer,
-    TextureHandle, Widget, WidgetText,
+    self, load::SizedTexture, vec2, Color32, CornerRadius, Rect, Sense, Stroke, StrokeKind,
+    TextBuffer, TextureHandle, Widget, WidgetText,
 };
 
 use crate::ui::{
@@ -27,10 +27,10 @@ pub struct TextEdit<'t> {
 }
 
 const MARGIN: egui::Margin = egui::Margin {
-    left: 8.0,
-    right: 8.0,
-    top: 4.5,
-    bottom: 4.5,
+    left: 8,
+    right: 8,
+    top: 4,
+    bottom: 4,
 };
 
 impl<'t> TextEdit<'t> {
@@ -128,7 +128,7 @@ impl<'t> TextEdit<'t> {
         ui.scope(|ui| {
             self.set_visuals(ui);
 
-            let pre_space = if self.with_search { 20.0 } else { 0.0 };
+            let pre_space = if self.with_search { 20 } else { 0 };
             let margin = egui::Margin {
                 left: MARGIN.left + pre_space,
                 right: MARGIN.right,
@@ -188,10 +188,15 @@ impl<'t> TextEdit<'t> {
                     }
                 };
 
-                let rounding = Rounding::same(4.0);
+                let corner_radius = CornerRadius::same(4);
 
-                let shape =
-                    egui::epaint::RectShape::new(frame_rect, rounding, bg_color, frame_stroke);
+                let shape = egui::epaint::RectShape::new(
+                    frame_rect,
+                    corner_radius,
+                    bg_color,
+                    frame_stroke,
+                    StrokeKind::Inside,
+                );
 
                 ui.painter().set(where_to_put_background, shape);
             }
@@ -200,7 +205,8 @@ impl<'t> TextEdit<'t> {
             if self.with_search {
                 if let Some(symbol) = self.magnifyingglass_symbol {
                     let rect = Rect::from_center_size(
-                        frame_rect.left_center() + vec2((MARGIN.left + pre_space) / 2.0, 0.0),
+                        frame_rect.left_center()
+                            + vec2(((MARGIN.left + pre_space) / 2).into(), 0.0),
                         symbol.size_vec2() / (assets::SVG_OVERSAMPLE + ui.ctx().zoom_factor()),
                     );
                     egui::Image::from_texture(SizedTexture::new(symbol.id(), symbol.size_vec2()))

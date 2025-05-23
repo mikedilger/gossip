@@ -20,7 +20,7 @@ mod nav_item;
 use eframe::egui::{vec2, FontId, Galley, Pos2, Rect};
 use egui_winit::egui::text::LayoutJob;
 use egui_winit::egui::{
-    self, Align, FontSelection, Response, RichText, Rounding, Sense, Ui, WidgetText,
+    self, Align, CornerRadius, FontSelection, Response, RichText, Sense, Ui, WidgetText,
 };
 pub use nav_item::NavItem;
 
@@ -334,16 +334,16 @@ pub(crate) fn warning_frame<R>(
     app: &mut GossipUi,
     inner: impl FnOnce(&mut Ui, &mut GossipUi) -> R,
 ) -> R {
-    egui::Frame::none()
+    egui::Frame::NONE
         .outer_margin(egui::Margin {
-            left: 0.0,
-            right: 0.0,
-            top: 10.0,
-            bottom: 20.0,
+            left: 0,
+            right: 0,
+            top: 10,
+            bottom: 20,
         })
-        .inner_margin(egui::Margin::same(20.0))
+        .inner_margin(egui::Margin::same(20))
         .fill(egui::Color32::from_rgb(0xFB, 0xBF, 0x24))
-        .rounding(Rounding::same(4.0))
+        .corner_radius(CornerRadius::same(4))
         .show(ui, |ui| {
             ui.set_width(ui.available_width());
             ui.horizontal_wrapped(|ui| {

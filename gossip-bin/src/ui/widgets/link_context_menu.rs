@@ -7,10 +7,11 @@ fn draw_open_and_copy(ui: &mut Ui, url_string: String) {
     if ui.button("Open in browser").clicked() {
         let modifiers = ui.ctx().input(|i| i.modifiers);
         ui.ctx().output_mut(|o| {
-            o.open_url = Some(egui::output::OpenUrl {
-                url: url_string.clone(),
-                new_tab: modifiers.any(),
-            });
+            o.commands
+                .push(egui::OutputCommand::OpenUrl(egui::output::OpenUrl {
+                    url: url_string.clone(),
+                    new_tab: modifiers.any(),
+                }));
         });
         ui.close_menu();
         GLOBALS
@@ -20,7 +21,10 @@ fn draw_open_and_copy(ui: &mut Ui, url_string: String) {
     }
 
     if ui.button("Copy URL").clicked() {
-        ui.output_mut(|o| o.copied_text = url_string.clone());
+        ui.output_mut(|o| {
+            o.commands
+                .push(egui::OutputCommand::CopyText(url_string.clone()))
+        });
         ui.close_menu();
         GLOBALS
             .status_queue

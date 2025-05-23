@@ -130,16 +130,16 @@ fn try_render_image(
             false
         }
         MediaLoadingResult::Loading => {
-            egui::Frame::none()
-                .inner_margin(egui::Margin::same(0.0))
+            egui::Frame::NONE
+                .inner_margin(egui::Margin::same(0))
                 .outer_margin(egui::Margin {
-                    top: 10.0,
-                    left: 0.0,
-                    right: 0.0,
-                    bottom: 10.0,
+                    top: 10,
+                    left: 0,
+                    right: 0,
+                    bottom: 10,
                 })
                 .fill(egui::Color32::TRANSPARENT)
-                .rounding(ui.style().noninteractive().rounding)
+                .corner_radius(ui.style().noninteractive().corner_radius)
                 .show(ui, |ui| {
                     let text = if let Some(fm) = &file_metadata {
                         if let Some(alt) = &fm.alt {
@@ -165,16 +165,16 @@ fn try_render_image(
             );
 
             // render the image with a nice frame around it
-            egui::Frame::none()
-                .inner_margin(egui::Margin::same(0.0))
+            egui::Frame::NONE
+                .inner_margin(egui::Margin::same(0))
                 .outer_margin(egui::Margin {
-                    top: 10.0,
-                    left: 0.0,
-                    right: 0.0,
-                    bottom: 10.0,
+                    top: 10,
+                    left: 0,
+                    right: 0,
+                    bottom: 10,
                 })
                 .fill(egui::Color32::TRANSPARENT)
-                .rounding(ui.style().noninteractive().rounding)
+                .corner_radius(ui.style().noninteractive().corner_radius)
                 .show(ui, |ui| {
                     let response = ui.add(
                         Image::new(&media)
@@ -223,16 +223,16 @@ fn try_render_video(
             false
         }
         MediaLoadingResult::Loading => {
-            egui::Frame::none()
-                .inner_margin(egui::Margin::same(0.0))
+            egui::Frame::NONE
+                .inner_margin(egui::Margin::same(0))
                 .outer_margin(egui::Margin {
-                    top: 10.0,
-                    left: 0.0,
-                    right: 0.0,
-                    bottom: 10.0,
+                    top: 10,
+                    left: 0,
+                    right: 0,
+                    bottom: 10,
                 })
                 .fill(egui::Color32::TRANSPARENT)
-                .rounding(ui.style().noninteractive().rounding)
+                .corner_radius(ui.style().noninteractive().corner_radius)
                 .show(ui, |ui| {
                     let text = if let Some(fm) = &file_metadata {
                         // FIXME do blurhash
@@ -398,10 +398,11 @@ fn add_media_menu(app: &mut GossipUi, ui: &mut Ui, url: Url, response: &Response
                 {
                     let modifiers = ui.ctx().input(|i| i.modifiers);
                     ui.ctx().output_mut(|o| {
-                        o.open_url = Some(egui::output::OpenUrl {
-                            url: url.to_string(),
-                            new_tab: modifiers.any(),
-                        });
+                        o.commands
+                            .push(egui::OutputCommand::OpenUrl(egui::output::OpenUrl {
+                                url: url.to_string(),
+                                new_tab: modifiers.any(),
+                            }));
                     });
                 }
                 ui.add_space(SPACE);
@@ -413,7 +414,10 @@ fn add_media_menu(app: &mut GossipUi, ui: &mut Ui, url: Url, response: &Response
                     .on_hover_text("Copy URL")
                     .clicked()
                 {
-                    ui.output_mut(|o| o.copied_text = url.to_string());
+                    ui.output_mut(|o| {
+                        o.commands
+                            .push(egui::OutputCommand::CopyText(url.to_string()))
+                    });
                 }
             });
         }

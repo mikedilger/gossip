@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use egui_winit::egui::{
-    self, vec2, Galley, NumExt, Rect, Response, Rounding, Sense, Stroke, TextStyle, Ui, Vec2,
-    Widget, WidgetInfo, WidgetText, WidgetType,
+    self, vec2, CornerRadius, Galley, NumExt, Rect, Response, Sense, Stroke, StrokeKind, TextStyle,
+    Ui, Vec2, Widget, WidgetInfo, WidgetText, WidgetType,
 };
 
 use crate::ui::theme::{DefaultTheme, ThemeDef};
@@ -252,7 +252,7 @@ impl Button<'_> {
         });
 
         if let Some(cursor) = ui.visuals().interact_cursor {
-            if response.hovered {
+            if response.hovered() {
                 ui.ctx().set_cursor_icon(cursor);
             }
         }
@@ -513,9 +513,10 @@ impl Button<'_> {
             let shrink = Vec2::splat(frame_stroke.width / 2.0);
             ui.painter().rect(
                 rect.expand2(expand).shrink2(shrink),
-                Rounding::same(4.0),
+                CornerRadius::same(4),
                 frame_fill,
                 frame_stroke,
+                StrokeKind::Inside,
             );
 
             if let Some(galley) = text {

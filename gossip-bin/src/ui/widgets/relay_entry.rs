@@ -361,9 +361,14 @@ impl RelayEntry {
                 self.accent
             };
             let stroke = Stroke::new(visuals.bg_stroke.width, self.accent);
-            let rounding = visuals.rounding;
-            ui.painter()
-                .rect(btn_rect.expand(visuals.expansion), rounding, fill, stroke);
+            let corner_radius = visuals.corner_radius;
+            ui.painter().rect(
+                btn_rect.expand(visuals.expansion),
+                corner_radius,
+                fill,
+                stroke,
+                StrokeKind::Inside,
+            );
         }
 
         let text_pos = ui
@@ -593,7 +598,7 @@ impl RelayEntry {
         let bg_radius = bg_rect.height() / 2.0;
         ui.painter().rect_filled(
             bg_rect,
-            egui::Rounding::same(bg_radius),
+            egui::CornerRadius::same(bg_radius as u8),
             ui.visuals().code_bg_color,
         );
 
@@ -697,7 +702,8 @@ impl RelayEntry {
                 );
                 if response.clicked() {
                     ui.output_mut(|o| {
-                        o.copied_text = contact.to_string();
+                        o.commands
+                            .push(egui::OutputCommand::CopyText(contact.to_string()));
                         GLOBALS
                             .status_queue
                             .write()
@@ -740,7 +746,7 @@ impl RelayEntry {
                     );
                     if response.clicked() {
                         ui.output_mut(|o| {
-                            o.copied_text = npub;
+                            o.commands.push(egui::OutputCommand::CopyText(npub));
                             GLOBALS
                                 .status_queue
                                 .write()
@@ -1201,7 +1207,7 @@ impl RelayEntry {
         let on_text = ui.visuals().extreme_bg_color;
         let off_fill_color = ui.visuals().widgets.inactive.bg_fill;
         let btn_height: f32 = ui.spacing().interact_size.y;
-        let btn_round: Rounding = Rounding::same(btn_height / 2.0);
+        let btn_round: CornerRadius = CornerRadius::same((btn_height / 2.0) as u8);
         let font: FontId = Default::default();
 
         let pos = rect.left_top() + vec2(TEXT_LEFT, DETAIL_SECTION_TOP);
@@ -1225,6 +1231,7 @@ impl RelayEntry {
                 btn_round,
                 ui.visuals().extreme_bg_color,
                 Stroke::new(1.0, off_fill_color),
+                StrokeKind::Inside,
             );
             ui.painter().text(
                 pos + vec2(34.0, 0.0),
@@ -1247,7 +1254,8 @@ impl RelayEntry {
                 } else {
                     (self.accent, on_text)
                 };
-                ui.painter().rect(rect, btn_round, fill, Stroke::NONE);
+                ui.painter()
+                    .rect(rect, btn_round, fill, Stroke::NONE, StrokeKind::Inside);
                 ui.painter().text(
                     rect.center(),
                     Align2::CENTER_CENTER,
@@ -1273,7 +1281,8 @@ impl RelayEntry {
                 } else {
                     (self.accent, on_text)
                 };
-                ui.painter().rect(rect, btn_round, fill, Stroke::NONE);
+                ui.painter()
+                    .rect(rect, btn_round, fill, Stroke::NONE, StrokeKind::Inside);
                 ui.painter().text(
                     rect.center(),
                     Align2::CENTER_CENTER,

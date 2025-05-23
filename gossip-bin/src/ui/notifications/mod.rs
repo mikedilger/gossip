@@ -184,19 +184,19 @@ pub(super) fn draw_icons(app: &mut GossipUi, ui: &mut Ui) {
     };
 
     const SIZE: Vec2 = Vec2 { x: 50.0, y: 25.0 };
-    let frame_response = egui::Frame::none()
-        .rounding(egui::Rounding::ZERO)
+    let frame_response = egui::Frame::NONE
+        .corner_radius(egui::CornerRadius::ZERO)
         .outer_margin(egui::Margin {
-            left: 0.0,
-            right: 0.0,
-            top: 0.0,
-            bottom: 0.0,
+            left: 0,
+            right: 0,
+            top: 0,
+            bottom: 0,
         })
         .inner_margin(egui::Margin {
-            left: 16.0,
-            right: 16.0,
-            top: 5.0,
-            bottom: 5.0,
+            left: 16,
+            right: 16,
+            top: 5,
+            bottom: 5,
         })
         .fill(if app.theme.dark_mode {
             app.theme.neutral_700()

@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
 use eframe::egui::{FontSelection, InnerResponse, Ui, WidgetText};
+use eframe::emath::GuiRounding;
 use eframe::epaint;
 use egui_winit::egui::{
-    self, pos2, vec2, Align, Color32, CursorIcon, FontId, Frame, Galley, Id, Pos2, Rect, Response,
-    Rounding, Sense, Stroke,
+    self, pos2, vec2, Align, Color32, CornerRadius, CursorIcon, FontId, Frame, Galley, Id, Pos2,
+    Rect, Response, Sense, Stroke, StrokeKind,
 };
 
 use crate::ui::GossipUi;
@@ -45,28 +46,29 @@ pub(crate) fn paint_frame(ui: &mut Ui, rect: &Rect, fill: Option<Color32>) {
     let fill = fill.unwrap_or(ui.visuals().extreme_bg_color);
     ui.painter().add(epaint::RectShape::new(
         frame_rect,
-        Rounding::same(5.0),
+        CornerRadius::same(5),
         fill,
         Stroke::NONE,
+        StrokeKind::Inside,
     ));
 }
 
 pub(crate) fn make_frame(ui: &Ui, fill: Option<Color32>) -> Frame {
-    Frame::none()
+    Frame::NONE
         .inner_margin(egui::Margin {
-            left: TEXT_LEFT - OUTER_MARGIN_LEFT,
-            right: TEXT_RIGHT - OUTER_MARGIN_RIGHT,
-            top: TEXT_TOP - OUTER_MARGIN_TOP,
-            bottom: TEXT_TOP - OUTER_MARGIN_BOTTOM,
+            left: (TEXT_LEFT - OUTER_MARGIN_LEFT) as i8,
+            right: (TEXT_RIGHT - OUTER_MARGIN_RIGHT) as i8,
+            top: (TEXT_TOP - OUTER_MARGIN_TOP) as i8,
+            bottom: (TEXT_TOP - OUTER_MARGIN_BOTTOM) as i8,
         })
         .outer_margin(egui::Margin {
-            left: OUTER_MARGIN_LEFT,
-            right: OUTER_MARGIN_RIGHT,
-            top: OUTER_MARGIN_TOP,
-            bottom: OUTER_MARGIN_BOTTOM,
+            left: OUTER_MARGIN_LEFT as i8,
+            right: OUTER_MARGIN_RIGHT as i8,
+            top: OUTER_MARGIN_TOP as i8,
+            bottom: OUTER_MARGIN_BOTTOM as i8,
         })
         .fill(fill.unwrap_or(ui.visuals().extreme_bg_color))
-        .rounding(egui::Rounding::same(5.0))
+        .corner_radius(egui::CornerRadius::same(5))
 }
 
 pub(crate) fn clickable_frame<R>(
@@ -99,7 +101,7 @@ pub(crate) fn paint_hline(ui: &mut Ui, rect: &Rect, y_pos: f32) {
     let painter = ui.painter();
     painter.hline(
         (rect.left() + TEXT_LEFT + 1.0)..=(rect.right() - TEXT_RIGHT - 1.0),
-        painter.round_to_pixel(rect.top() + TEXT_TOP + y_pos),
+        (rect.top() + TEXT_TOP + y_pos).round_to_pixels(painter.pixels_per_point()),
         Stroke::new(HLINE_THICKNESS, ui.visuals().panel_fill),
     );
 }

@@ -107,8 +107,8 @@ impl InformationPopup for ProfilePopup {
 
 fn prepare_mini_person(ui: &mut Ui) -> egui::Frame {
     egui::Frame::popup(ui.style())
-        .rounding(egui::Rounding::ZERO)
-        .inner_margin(egui::Margin::symmetric(10.0, 5.0))
+        .corner_radius(egui::CornerRadius::ZERO)
+        .inner_margin(egui::Margin::symmetric(10, 5))
 }
 
 fn show_mini_person(
