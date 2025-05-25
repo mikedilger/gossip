@@ -28,7 +28,7 @@ pub enum ErrorKind {
     KeyInvalid,
     Lmdb(heed::Error),
     MaxRelaysReached,
-    MpscSend(tokio::sync::mpsc::error::SendError<ToOverlordMessage>),
+    MpscSend(Box<tokio::sync::mpsc::error::SendError<ToOverlordMessage>>),
     Nip05KeyNotFound,
     Nip46CommandMissingId,
     Nip46CommandNotJsonObject,
@@ -285,7 +285,7 @@ impl From<tokio::sync::mpsc::error::SendError<ToOverlordMessage>> for Error {
     #[track_caller]
     fn from(e: tokio::sync::mpsc::error::SendError<ToOverlordMessage>) -> Error {
         Error {
-            kind: ErrorKind::MpscSend(e),
+            kind: ErrorKind::MpscSend(Box::new(e)),
             location: Location::caller(),
         }
     }
