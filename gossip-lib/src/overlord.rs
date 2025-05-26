@@ -26,7 +26,7 @@ use http::StatusCode;
 use nostr_types::{
     EncryptedPrivateKey, Event, EventKind, EventReference, Filter, Id, Metadata, MilliSatoshi,
     NAddr, NostrBech32, ParsedTag, PayRequestData, PreEvent, PrivateKey, Profile, PublicKey,
-    RelayUrl, Tag, UncheckedUrl, Unixtime,
+    RelayUrl, Tag, UncheckedUrl, Unixtime, Url,
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -677,6 +677,9 @@ impl Overlord {
             }
             ToOverlordMessage::ImportPub(pubstr) => {
                 Self::import_pub(pubstr)?;
+            }
+            ToOverlordMessage::LoadImageToCopy(url) => {
+                self.load_image_to_copy(url).await?;
             }
             ToOverlordMessage::LoadMoreCurrentFeed => {
                 self.load_more()?;
@@ -1687,6 +1690,34 @@ impl Overlord {
             GLOBALS.identity.set_public_key(pubkey)?;
         }
 
+        Ok(())
+    }
+
+    /// Load an image to copy into the cut-n-paste buffer
+    pub async fn load_image_to_copy(&mut self, url: Url) -> Result<(), Error> {
+        let Ok(fetchresult) = GLOBALS.fetcher.get(url, true).await else {
+            GLOBALS
+                .status_queue
+                .write()
+                .write("Failed to copy image.".to_owned());
+            return Ok(());
+        };
+        let crate::FetchResult::Ready(bytes) = fetchresult else {
+            GLOBALS
+                .status_queue
+                .write()
+                .write("Failed to copy image.".to_owned());
+            return Ok(());
+        };
+        let Ok(dynamic_image) = image::load_from_memory(&bytes) else {
+            GLOBALS
+                .status_queue
+                .write()
+                .write("Failed to copy image.".to_owned());
+            return Ok(());
+        };
+        let rgba_image = dynamic_image.to_rgba8();
+        *GLOBALS.cut_paste_image.write() = Some(rgba_image);
         Ok(())
     }
 

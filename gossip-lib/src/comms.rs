@@ -6,7 +6,7 @@ use crate::people::PersonList;
 use crate::relay::Relay;
 use nostr_types::{
     Event, EventKind, EventReference, Id, Metadata, MilliSatoshi, NAddr, Profile, PublicKey,
-    RelayUrl, Tag, UncheckedUrl, Unixtime,
+    RelayUrl, Tag, UncheckedUrl, Unixtime, Url,
 };
 use std::fmt;
 use std::hash::{Hash, Hasher};
@@ -110,6 +110,9 @@ pub enum ToOverlordMessage {
 
     /// Calls [import_pub](crate::Overlord::import_pub)
     ImportPub(String),
+
+    /// Calls [load_image_to_copy](crate::Overlord::load_image_to_copy)
+    LoadImageToCopy(Url),
 
     /// Calls [load_more_current_feed](crate::Overlord::load_more_current_feed)
     LoadMoreCurrentFeed,

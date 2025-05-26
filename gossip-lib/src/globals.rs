@@ -126,6 +126,9 @@ pub struct Globals {
     /// Media loading
     pub media: Media,
 
+    /// Cut paste image
+    pub cut_paste_image: PRwLock<Option<image::RgbaImage>>,
+
     /// Search results
     pub searching: AtomicBool,
     pub search_job: AtomicU64,
@@ -262,6 +265,7 @@ lazy_static! {
             unread_inbox: AtomicUsize::new(0),
             delegation: Delegation::default(),
             media: Media::new(),
+            cut_paste_image: PRwLock::new(None),
             searching: AtomicBool::new(false),
             search_job: AtomicU64::new(0),
             events_being_searched_for: PRwLock::new(Vec::new()),

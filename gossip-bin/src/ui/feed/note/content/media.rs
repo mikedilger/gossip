@@ -3,6 +3,7 @@ use crate::ui::GossipUi;
 use eframe::{egui, epaint};
 use egui::{Image, Response, RichText, Ui};
 use epaint::Vec2;
+use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{MediaLoadingResult, GLOBALS};
 use nostr_types::{FileMetadata, Url};
 
@@ -195,7 +196,7 @@ fn try_render_image(
                         }
                     }
 
-                    add_media_menu(app, ui, url, &response);
+                    add_media_menu(app, ui, url, &response, true);
                 });
             true
         }
@@ -273,7 +274,7 @@ fn try_render_video(
                     player.stop();
                 }
 
-                add_media_menu(app, ui, url.clone(), &response);
+                add_media_menu(app, ui, url.clone(), &response, false);
 
                 // TODO fix click action
                 let new_rect = response.rect.shrink(size.x / 2.0);
@@ -361,7 +362,7 @@ fn media_scale(show_full_width: bool, ui: &Ui, media_size: Vec2) -> Vec2 {
     size
 }
 
-fn add_media_menu(app: &mut GossipUi, ui: &mut Ui, url: Url, response: &Response) {
+fn add_media_menu(app: &mut GossipUi, ui: &mut Ui, url: Url, response: &Response, is_image: bool) {
     // image button menu to the right of the image
     static BTN_SIZE: Vec2 = Vec2 { x: 20.0, y: 20.0 };
     static TXT_SIZE: f32 = 9.0;
@@ -418,6 +419,22 @@ fn add_media_menu(app: &mut GossipUi, ui: &mut Ui, url: Url, response: &Response
                         o.commands
                             .push(egui::OutputCommand::CopyText(url.to_string()))
                     });
+                }
+
+                if is_image {
+                    ui.add_space(SPACE);
+                    if ui
+                        .add_sized(
+                            BTN_SIZE,
+                            egui::Button::new(RichText::new("\u{1F4CB}").size(TXT_SIZE)),
+                        )
+                        .on_hover_text("Copy Image")
+                        .clicked()
+                    {
+                        let _ = GLOBALS
+                            .to_overlord
+                            .send(ToOverlordMessage::LoadImageToCopy(url));
+                    }
                 }
             });
         }

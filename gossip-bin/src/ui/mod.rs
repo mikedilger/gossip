@@ -83,6 +83,7 @@ use widgets::ModalEntry;
 
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
+use std::ops::DerefMut;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::atomic::Ordering;
@@ -2314,6 +2315,20 @@ impl eframe::App for GossipUi {
         if ctx.input(|i| i.key_pressed(egui::Key::F11)) {
             let maximized = matches!(ctx.input(|i| i.viewport().maximized), Some(true));
             ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(!maximized));
+        }
+
+        // Copy image if an image is ready for us
+        let image_is_ready = GLOBALS.cut_paste_image.read().is_some();
+        if image_is_ready {
+            let image = std::mem::take(GLOBALS.cut_paste_image.write().deref_mut()).unwrap();
+            let size = [image.width() as _, image.height() as _];
+            let pixels = image.as_flat_samples();
+            let color_image = ColorImage::from_rgba_unmultiplied(size, pixels.as_slice()).into();
+            ctx.output_mut(|o| o.commands.push(OutputCommand::CopyImage(color_image)));
+            GLOBALS
+                .status_queue
+                .write()
+                .write("Image copied.".to_owned());
         }
 
         let mut reapply = false;
