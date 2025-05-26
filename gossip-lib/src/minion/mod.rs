@@ -92,6 +92,7 @@ pub struct Minion {
     next_events_subscription_id: u32,
     posting_jobs: HashMap<u64, Vec<Id>>,
     posting_ids: HashMap<Id, u64>,
+    repost_ids_after_auth: HashSet<Id>,
     sought_events: HashMap<Id, EventSeekState>,
     sought_naddrs: HashMap<NAddr, EventSeekState>,
     last_message_sent: String,
@@ -139,6 +140,7 @@ impl Minion {
             next_events_subscription_id: 0,
             posting_jobs: HashMap::new(),
             posting_ids: HashMap::new(),
+            repost_ids_after_auth: HashSet::new(),
             sought_events: HashMap::new(),
             sought_naddrs: HashMap::new(),
             last_message_sent: String::new(),
@@ -729,6 +731,25 @@ impl Minion {
             self.next_events_subscription_id += 1;
 
             self.subscribe(filter, &handle, job_id).await?;
+        }
+
+        Ok(())
+    }
+
+    // After AUTH, resend events that failed due to "auth-required"
+    async fn resend_post_auth(&mut self) -> Result<(), Error> {
+        if !self.repost_ids_after_auth.is_empty() {
+            for id in self.repost_ids_after_auth.drain() {
+                if let Some(event) = GLOBALS.db().read_event(id)? {
+                    let kind = event.kind;
+                    let msg = ClientMessage::Event(Box::new(event));
+                    let wire = serde_json::to_string(&msg)?;
+                    let ws_stream = self.stream.as_mut().unwrap();
+                    self.last_message_sent = wire.clone();
+                    ws_stream.send(WsMessage::Text(wire)).await?;
+                    tracing::info!("Posted event kind={} to {}", kind, &self.url);
+                }
+            }
         }
 
         Ok(())

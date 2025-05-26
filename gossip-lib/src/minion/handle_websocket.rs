@@ -162,7 +162,7 @@ impl Minion {
                     false => tracing::info!("{relay_response}"),
                 }
 
-                // If we are waiting for a response for this id, process
+                // If this is in response to our AUTH event...
                 if let AuthState::Waiting(waiting_id) = self.auth_state {
                     if waiting_id == id {
                         if !ok {
@@ -173,13 +173,13 @@ impl Minion {
                             tracing::info!("Authenticated to {}", &self.url);
                             self.auth_state = AuthState::Authenticated;
                             self.try_subscribe_waiting().await?;
+                            self.resend_post_auth().await?;
                         }
                         return Ok(());
                     }
                 }
-
-                // If we are waiting for a response for this id, process
-                if let AuthState::FakeWaiting(waiting_id) = self.auth_state {
+                // If this is in response to our fake AUTH event...
+                else if let AuthState::FakeWaiting(waiting_id) = self.auth_state {
                     if waiting_id == id {
                         if !ok {
                             self.auth_state = AuthState::Failed;
@@ -189,12 +189,13 @@ impl Minion {
                             tracing::info!("Fake-authenticated to {}", &self.url);
                             self.auth_state = AuthState::FakeAuthenticated;
                             self.try_subscribe_waiting().await?;
+                            self.resend_post_auth().await?;
                         }
                         return Ok(());
                     }
                 }
-
-                if let Some(job_id) = self.posting_ids.get(&id).copied() {
+                // Else if this is in response to an EVENT we did earlier
+                else if let Some(job_id) = self.posting_ids.get(&id).copied() {
                     if ok {
                         // Save seen_on data
                         // (it was already processed by the overlord before the minion got it,
@@ -206,8 +207,16 @@ impl Minion {
                             None,
                         )?;
                     } else {
-                        // demerit the relay
-                        self.bump_failure_count().await;
+                        // If 'auth-required', then trigger auth and remember to repost this event
+                        // afterwards:
+                        if ok_message.starts_with("auth-required:") {
+                            self.repost_ids_after_auth.insert(id); // retry EVENT after auth
+                            self.maybe_authenticate().await?;
+                            return Ok(());
+                        } else {
+                            // else demerit the relay
+                            self.bump_failure_count().await;
+                        }
                     }
 
                     let mut job_is_done: bool = false;
