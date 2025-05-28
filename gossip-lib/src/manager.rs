@@ -94,6 +94,12 @@ async fn engage_minion_inner(url: RelayUrl, mut jobs: Vec<RelayJob>) -> Result<(
 
     let entry = GLOBALS.connected_relays.entry(url.clone());
 
+    if !jobs.is_empty() {
+        if jobs[0].reason == crate::comms::RelayConnectionReason::Config {
+            eprintln!("MANAGER PASSING ON CONFIG JOB");
+        }
+    }
+
     if let Entry::Occupied(mut oe) = entry {
         // We are already connected. Send it the jobs
         for job in jobs.drain(..) {

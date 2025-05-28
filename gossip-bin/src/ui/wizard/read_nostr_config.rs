@@ -97,6 +97,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                             ui.label(url.as_str());
                             app.theme.primary_button_style(ui.style_mut());
                             if ui.button("Load").clicked() {
+                                eprintln!("SUBSCRIBING CONFIG FROM {}", &url);
                                 let _ =
                                     GLOBALS
                                         .to_overlord
@@ -141,6 +142,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                 app.theme.secondary_button_style(ui.style_mut());
                 if ui.button("Fetch From This Relay").clicked() {
                     if let Ok(rurl) = RelayUrl::try_from_str(&app.wizard_state.relay_url) {
+                        eprintln!("LOADING CONFIG FROM {}", &rurl);
                         let _ = GLOBALS
                             .to_overlord
                             .send(ToOverlordMessage::SubscribeConfig(Some(vec![
