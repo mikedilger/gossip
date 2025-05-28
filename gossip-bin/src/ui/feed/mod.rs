@@ -656,13 +656,6 @@ fn recompute_btn(app: &mut GossipUi, ui: &mut Ui) {
         return;
     }
 
-    ui.separator();
-    if GLOBALS.feed.is_recomputing() {
-        ui.label("RECOMPUTING...");
-    } else {
-        ui.label(" "); // consume the same vertical space
-    }
-
     let update_immediately = {
         let mut update_immediately: bool =
             matches!(GLOBALS.feed.get_feed_kind(), FeedKind::DmChat(_));
@@ -685,5 +678,12 @@ fn recompute_btn(app: &mut GossipUi, ui: &mut Ui) {
             app.displayed_feed_hash = feed_hash;
             app.update_once_immediately = false;
         }
+    }
+
+    ui.separator();
+    if GLOBALS.feed.is_recomputing() {
+        ui.label("RECOMPUTING...");
+    } else {
+        ui.label(" "); // consume the same vertical space
     }
 }
