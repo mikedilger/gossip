@@ -25,7 +25,7 @@ impl Command {
     }
 }
 
-const COMMANDS: [Command; 52] = [
+const COMMANDS: [Command; 53] = [
     Command {
         cmd: "oneshot",
         usage_params: "{depends}",
@@ -60,6 +60,11 @@ const COMMANDS: [Command; 52] = [
         cmd: "decrypt",
         usage_params: "<pubkey> <ciphertext>",
         desc: "decrypt the ciphertext from the pubkeyhex.",
+    },
+    Command {
+        cmd: "decrypt_event",
+        usage_params: "<id>",
+        desc: "decrypt the event",
     },
     Command {
         cmd: "delete_by_kind",
@@ -311,6 +316,7 @@ pub async fn handle_command(mut args: env::Args) -> Result<bool, Error> {
         "bech32_encode_naddr" => bech32_encode_naddr(command, args)?,
         "clear_timeouts" => clear_timeouts()?,
         "decrypt" => decrypt(command, args).await?,
+        "decrypt_event" => decrypt_event(command, args).await?,
         "delete_by_kind" => delete_by_kind(command, args)?,
         "delete_by_id" => delete_by_id(command, args)?,
         "delete_spam_by_content" => delete_spam_by_content(command, args).await?,
@@ -582,6 +588,30 @@ pub async fn decrypt(cmd: Command, mut args: env::Args) -> Result<(), Error> {
     login().await?;
 
     let plaintext = GLOBALS.identity.decrypt(&pubkey, &ciphertext).await?;
+    println!("{}", plaintext);
+
+    Ok(())
+}
+
+pub async fn decrypt_event(cmd: Command, mut args: env::Args) -> Result<(), Error> {
+    let idstr = match args.next() {
+        Some(id) => id,
+        None => return cmd.usage("Missing idhex parameter".to_string()),
+    };
+
+    let id = Id::try_from_hex_string(&idstr)?;
+
+    let event = match GLOBALS.db().read_event(id)? {
+        Some(event) => event,
+        None => return Err(ErrorKind::EventNotFound.into()),
+    };
+
+    login().await?;
+
+    let plaintext = GLOBALS
+        .identity
+        .decrypt(&event.pubkey, &event.content)
+        .await?;
     println!("{}", plaintext);
 
     Ok(())
