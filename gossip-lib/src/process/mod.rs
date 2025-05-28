@@ -59,6 +59,8 @@ pub async fn process_new_event(
         }
     }
 
+    tracing::debug!(target: "incoming", "{}", serde_json::to_string(&event)?);
+
     // Create the person if missing in the database
     PersonTable::create_record_if_missing(event.pubkey, None)?;
 
