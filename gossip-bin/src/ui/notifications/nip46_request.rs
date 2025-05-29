@@ -143,31 +143,39 @@ impl<'a> Notification<'a> for Nip46Request {
                     egui::CollapsingHeader::new("Details")
                         .id_salt(&self.command.id)
                         .show_unindented(ui, |ui| {
-                            for param in &self.command.params {
-                                if let Ok(obj) = serde_json::from_str::<serde_json::Value>(param) {
-                                    let mut writer = Vec::new();
-                                    let formatter =
-                                        serde_json::ser::PrettyFormatter::with_indent(b"  ");
-                                    let mut ser = serde_json::Serializer::with_formatter(
-                                        &mut writer,
-                                        formatter,
-                                    );
-
-                                    if obj.serialize(&mut ser).is_ok() {
-                                        if let Ok(str) = String::from_utf8(writer) {
-                                            egui_extras::syntax_highlighting::code_view_ui(
-                                                ui,
-                                                &egui_extras::syntax_highlighting::CodeTheme::from_style(
-                                                    ui.style(),
-                                                ),
-                                                &str,
-                                                "json",
+                            match &*self.command.method {
+                                "sign_event" => {
+                                    if !self.command.params.is_empty() {
+                                        if let Ok(obj) = serde_json::from_str::<serde_json::Value>(&self.command.params[0]) {
+                                            let mut writer = Vec::new();
+                                            let formatter =
+                                                serde_json::ser::PrettyFormatter::with_indent(b"  ");
+                                            let mut ser = serde_json::Serializer::with_formatter(
+                                                &mut writer,
+                                                formatter,
                                             );
+                                            if obj.serialize(&mut ser).is_ok() {
+                                                if let Ok(str) = String::from_utf8(writer) {
+                                                    egui_extras::syntax_highlighting::code_view_ui(
+                                                        ui,
+                                                        &egui_extras::syntax_highlighting::CodeTheme::from_style(
+                                                            ui.style(),
+                                                        ),
+                                                        &str,
+                                                        "json",
+                                                    );
+                                                }
+                                            }
+                                        } else {
+                                            ui.label(&self.command.params[0]);
                                         }
                                     }
-                                } else {
-                                    ui.label(format!("Not valid JSON: {}", param));
-                                }
+                                },
+                                _ => {
+                                    for param in &self.command.params {
+                                        ui.label(param);
+                                    }
+                                },
                             }
                         });
                 });
