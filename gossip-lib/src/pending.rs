@@ -11,77 +11,19 @@ use parking_lot::RwLockReadGuard as PRwLockReadGuard;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
-#[derive(Debug, Clone, Hash, PartialEq)]
-pub enum PendingItem {
-    /// Relay picker wants to connect to this relay
-    RelayConnectionRequest {
-        relay: RelayUrl,
-        jobs: Vec<RelayJob>,
-    },
-
-    /// Relay picker wants to authenticate to this relay with a private key signature
-    RelayAuthenticationRequest {
-        account: PublicKey,
-        relay: RelayUrl,
-    },
-
-    /// A NIP46 remote signing request was received and requires permission
-    Nip46Request {
-        client_name: String,
-        account: PublicKey,
-        command: crate::nostr_connect_server::ParsedCommand,
-    },
-
-    // Your relay list has changed since last advertisement, or your last advertisement
-    // was over 30 days ago.
-    RelayListNeverAdvertised,
-    RelayListChangedSinceAdvertised,
-    RelayListNotAdvertisedRecently,
-
-    // Sync list - Your local list is out of sync with the remote list, or you haven't
-    // pushed an update in 30 days.
-    PersonListNeverPublished(PersonList),
-    PersonListOutOfSync(PersonList),
-    PersonListNotPublishedRecently(PersonList),
-    // A posted event didn't make it to all the relays it should go to.
-    // PROBLEM: Often there is a dead relay on somebody's list and so these events pile
-    //          up far too much.
-    // RetryPost(Id),
-    NeedReadRelays,
-    NeedWriteRelays,
-    NeedDiscoverRelays,
-    NeedDMRelays,
-    NotifyMessage(String),
-}
-
 pub struct Pending {
     /// Pending actions
     pending: PRwLock<Vec<(PendingItem, u64)>>,
 
     /// Current hash of the pending map
     pending_hash: PRwLock<u64>,
+
+
 }
 
 impl Default for Pending {
     fn default() -> Pending {
         Self::new()
-    }
-}
-
-fn calculate_pending_hash(vec: &Vec<(PendingItem, u64)>) -> u64 {
-    let mut s = DefaultHasher::new();
-    vec.hash(&mut s);
-    s.finish()
-}
-impl PendingItem {
-    fn matches(&self, other: &PendingItem) -> bool {
-        match self {
-            PendingItem::RelayConnectionRequest { relay: a_url, .. } => match other {
-                PendingItem::RelayConnectionRequest { relay: b_url, .. } => a_url == b_url,
-                _ => false,
-            },
-            item => item == other,
-        }
     }
 }
 
@@ -346,5 +288,72 @@ impl Pending {
         }
 
         Ok(())
+    }
+}
+
+fn calculate_pending_hash(vec: &Vec<(PendingItem, u64)>) -> u64 {
+    let mut s = DefaultHasher::new();
+    vec.hash(&mut s);
+    s.finish()
+}
+
+#[derive(Debug, Clone, Hash, PartialEq)]
+pub enum PendingItem {
+    /// Relay picker wants to connect to this relay
+    RelayConnectionRequest {
+        relay: RelayUrl,
+        jobs: Vec<RelayJob>,
+    },
+
+    /// Relay picker wants to authenticate to this relay with a private key signature
+    RelayAuthenticationRequest {
+        account: PublicKey,
+        relay: RelayUrl,
+    },
+
+    /// A NIP46 remote signing request was received and requires permission
+    Nip46Request {
+        client_name: String,
+        account: PublicKey,
+        command: crate::nostr_connect_server::ParsedCommand,
+    },
+
+    // Your relay list has changed since last advertisement, or your last advertisement
+    // was over 30 days ago.
+    RelayListNeverAdvertised,
+    RelayListChangedSinceAdvertised,
+    RelayListNotAdvertisedRecently,
+
+    // Sync list - Your local list is out of sync with the remote list, or you haven't
+    // pushed an update in 30 days.
+    PersonListNeverPublished(PersonList),
+    PersonListOutOfSync(PersonList),
+    PersonListNotPublishedRecently(PersonList),
+    // A posted event didn't make it to all the relays it should go to.
+    // PROBLEM: Often there is a dead relay on somebody's list and so these events pile
+    //          up far too much.
+    // RetryPost(Id),
+    NeedReadRelays,
+    NeedWriteRelays,
+    NeedDiscoverRelays,
+    NeedDMRelays,
+    NotifyMessage(String),
+}
+
+impl PendingItem {
+    fn matches(&self, other: &PendingItem) -> bool {
+        match self {
+            PendingItem::RelayConnectionRequest { relay: a_url, .. } => match other {
+                PendingItem::RelayConnectionRequest { relay: b_url, .. } => a_url == b_url,
+                _ => false,
+            },
+            PendingItem::Nip46Request { client_name: cna, account: aa, command: ca } => match other {
+                PendingItem::Nip46Request { client_name: cnb, account: ab, command: cb } => {
+                    cna==cnb && aa==ab && ca.method == cb.method
+                },
+                _ => false,
+            }
+            item => item == other,
+        }
     }
 }
