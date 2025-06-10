@@ -40,6 +40,8 @@
 //   fof           - Friends of friends: Among you, the people you
 //                   follow, and the people they follow, how many
 //                   follow the pubkey of the event?
+//   nip05         - the author's nip05 valid if we have it, else
+//                   an empty string
 //   nip05valid    - whether nip05 is valid for the author, as a
 //                   boolean
 //   pow           - the Proof of Work on the event
