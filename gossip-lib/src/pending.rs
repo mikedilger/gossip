@@ -43,7 +43,7 @@ impl Pending {
         *self.pending_hash.read()
     }
 
-    pub fn read(&self) -> PRwLockReadGuard<Vec<(PendingItem, u64)>> {
+    pub fn read(&self) -> PRwLockReadGuard<'_, Vec<(PendingItem, u64)>> {
         self.pending.read()
     }
 
