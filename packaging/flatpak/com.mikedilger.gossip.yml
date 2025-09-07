@@ -14,6 +14,8 @@ finish-args:
   - --socket=wayland
   - --socket=fallback-x11
   - --share=network
+  - --filesystem=home
+  - --device=dri
 
 modules:
   - name: gossip
