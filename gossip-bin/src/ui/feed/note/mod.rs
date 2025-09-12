@@ -1342,14 +1342,27 @@ fn render_note_between_header_and_footer(
                                         );
                                     }
                                 }
-                                Some(EventReference::Addr(_ea)) => {
-                                    //FIXME:  GET THE ID here?
-                                    let color = app.theme.notice_marker_text_color();
-                                    ui.label(
-                                        RichText::new("GENERIC REPOST EVENT NOT YET SUPPORTED")
-                                            .color(color)
-                                            .text_style(TextStyle::Small),
-                                    );
+                                Some(EventReference::Addr(ea)) => {
+                                    if let Some(note_data) =
+                                        app.notecache.try_update_and_get_addr(ea)
+                                    {
+                                        // TODO block additional repost recursion
+                                        render_repost(
+                                            app,
+                                            ui,
+                                            &note.repost,
+                                            note_data,
+                                            content_inner_margin,
+                                            bottom_of_avatar,
+                                        );
+                                    } else {
+                                        let color = app.theme.notice_marker_text_color();
+                                        ui.label(
+                                            RichText::new("GENERIC REPOST EVENT NOT FOUND")
+                                                .color(color)
+                                                .text_style(TextStyle::Small),
+                                        );
+                                    }
                                 }
                                 _ => {
                                     let color = app.theme.notice_marker_text_color();
