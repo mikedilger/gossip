@@ -325,16 +325,19 @@ impl Minion {
                         break 'relayloop;
                     }
                 }
-                Err(e) => {
+                Err(e) =>
+                {
                     #[allow(clippy::if_same_then_else)]
                     if let ErrorKind::Websocket(_) = e.kind {
                         return Err(e);
-                    } else if matches!(e.kind, ErrorKind::Nostr(nostr_types::Error::NoPrivateKey)) {
-                        // don't log
+                    } else if let ErrorKind::Nostr(n) = e.kind {
+                        if matches!(*n, nostr_types::Error::NoPrivateKey) {
+                            continue;
+                        }
                     } else if matches!(e.kind, ErrorKind::NoPrivateKey) {
-                        // don't log
+                        continue;
                     } else if matches!(e.kind, ErrorKind::IdentityCannotSign) {
-                        // don't log
+                        continue;
                     } else if matches!(e.kind, ErrorKind::IdentityCannotSignForAuth(_)) {
                         tracing::warn!("{}: {}", &self.url, e);
                     } else {

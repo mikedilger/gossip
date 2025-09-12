@@ -146,7 +146,7 @@ fn inner_filter(event_params: EventParams) -> EventFilterAction {
             match &author {
                 Some(a) => match a.metadata() {
                     None => "".to_owned(),
-                    Some(md) => md.nip05.clone().unwrap_or("".to_owned())
+                    Some(md) => md.nip05.clone().unwrap_or("".to_owned()),
                 },
                 None => "".to_owned(),
             },

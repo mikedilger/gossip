@@ -312,14 +312,13 @@ impl<I: Record> Iterator for TableIterator<'_, I> {
         match self.inner.next() {
             None => None,
             Some(result) => {
-                if result.is_err() {
-                    None
-                } else {
-                    let (keybytes, valbytes) = result.unwrap();
+                if let Ok((keybytes, valbytes)) = result {
                     match (I::Key::from_bytes(keybytes), I::from_bytes(valbytes)) {
                         (Ok(key), Ok(record)) => Some((key, record)),
                         _ => None,
                     }
+                } else {
+                    None
                 }
             }
         }

@@ -467,7 +467,7 @@ impl Overlord {
                     } else if let ErrorKind::Timeout(_) = e.kind {
                         exclusion = 60; // could be local issue affecting all relays so cannot go too big.
                     } else if let ErrorKind::Websocket(wserror) = e.kind {
-                        if let tungstenite::error::Error::Http(response) = wserror {
+                        if let tungstenite::error::Error::Http(response) = *wserror {
                             exclusion = match response.status() {
                                 StatusCode::MOVED_PERMANENTLY => 60 * 10,
                                 StatusCode::PERMANENT_REDIRECT => 60 * 10,
@@ -484,10 +484,10 @@ impl Overlord {
                                 s if s.as_u16() >= 400 => 60 * 2,
                                 _ => 60 * 2,
                             };
-                        } else if let tungstenite::error::Error::ConnectionClosed = wserror {
+                        } else if let tungstenite::error::Error::ConnectionClosed = *wserror {
                             tracing::debug!("Minion {} completed", &url);
                             exclusion = 15; // was not actually an error, but needs a pause
-                        } else if let tungstenite::error::Error::Protocol(protocol_error) = wserror
+                        } else if let tungstenite::error::Error::Protocol(protocol_error) = *wserror
                         {
                             exclusion = match protocol_error {
                                 tungstenite::error::ProtocolError::ResetWithoutClosingHandshake => {
@@ -3821,7 +3821,7 @@ impl Overlord {
 
     /// Update the relay. This saves the new relay and also adjusts active
     /// subscriptions based on the changes.
-    pub fn update_relay(&mut self, old: Relay, new: Relay) -> Result<(), Error> {
+    pub fn update_relay(&mut self, old: Box<Relay>, new: Box<Relay>) -> Result<(), Error> {
         if old.url != new.url {
             return Err(ErrorKind::CannotUpdateRelayUrl.into());
         }

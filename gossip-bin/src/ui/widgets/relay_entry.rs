@@ -1454,9 +1454,10 @@ where
     modify(&mut relay);
 
     // Save relay via the Overlord, so minions can be updated
-    let _ = GLOBALS
-        .to_overlord
-        .send(ToOverlordMessage::UpdateRelay(old, relay));
+    let _ = GLOBALS.to_overlord.send(ToOverlordMessage::UpdateRelay(
+        Box::new(old),
+        Box::new(relay),
+    ));
 }
 
 fn permission_combo(

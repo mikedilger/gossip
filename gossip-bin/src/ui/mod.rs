@@ -2323,7 +2323,7 @@ impl eframe::App for GossipUi {
             let image = std::mem::take(GLOBALS.cut_paste_image.write().deref_mut()).unwrap();
             let size = [image.width() as _, image.height() as _];
             let pixels = image.as_flat_samples();
-            let color_image = ColorImage::from_rgba_unmultiplied(size, pixels.as_slice()).into();
+            let color_image = ColorImage::from_rgba_unmultiplied(size, pixels.as_slice());
             ctx.output_mut(|o| o.commands.push(OutputCommand::CopyImage(color_image)));
             GLOBALS
                 .status_queue

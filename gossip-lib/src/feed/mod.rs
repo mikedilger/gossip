@@ -553,9 +553,7 @@ impl Feed {
                                 Some(EventReference::Addr(NAddr { author, .. })) => author == my_pubkey,
                             }
                             || // or we are referenced in the content
-                                e.people_referenced_in_content()
-                                .iter()
-                                .any(|p| *p == my_pubkey)
+                                e.people_referenced_in_content().contains(&my_pubkey)
                         ))
             };
 

@@ -17,8 +17,6 @@ pub struct Pending {
 
     /// Current hash of the pending map
     pending_hash: PRwLock<u64>,
-
-
 }
 
 impl Default for Pending {
@@ -347,12 +345,18 @@ impl PendingItem {
                 PendingItem::RelayConnectionRequest { relay: b_url, .. } => a_url == b_url,
                 _ => false,
             },
-            PendingItem::Nip46Request { client_name: cna, account: aa, command: ca } => match other {
-                PendingItem::Nip46Request { client_name: cnb, account: ab, command: cb } => {
-                    cna==cnb && aa==ab && ca.method == cb.method
-                },
+            PendingItem::Nip46Request {
+                client_name: cna,
+                account: aa,
+                command: ca,
+            } => match other {
+                PendingItem::Nip46Request {
+                    client_name: cnb,
+                    account: ab,
+                    command: cb,
+                } => cna == cnb && aa == ab && ca.method == cb.method,
                 _ => false,
-            }
+            },
             item => item == other,
         }
     }

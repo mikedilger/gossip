@@ -36,7 +36,7 @@ pub enum ErrorKind {
     Nip46NeedApproval,
     Nip46ParsingError(String, String),
     Nip46RelayNeeded,
-    Nostr(nostr_types::Error),
+    Nostr(Box<nostr_types::Error>),
     NoPrivateKey,
     NoPublicKey,
     NoRelay,
@@ -44,7 +44,7 @@ pub enum ErrorKind {
     NoSlotsRemaining,
     IdentityCannotSign,
     IdentityCannotSignForAuth(RelayUrl),
-    Image(image::error::ImageError),
+    Image(Box<image::error::ImageError>),
     ImageFailure,
     Io(std::io::Error),
     Internal(String),
@@ -75,7 +75,7 @@ pub enum ErrorKind {
     ShuttingDown,
     SliceError(std::array::TryFromSliceError),
     Speedy(speedy::Error),
-    Svg(usvg::Error),
+    Svg(Box<usvg::Error>),
     TagNotIndexed(String),
     Timeout(tokio::time::error::Elapsed),
     TimedOut,
@@ -87,7 +87,7 @@ pub enum ErrorKind {
     Usage(String, String), // error, usage line
     UsersCantUseNip17,
     Utf8Error(std::str::Utf8Error),
-    Websocket(tungstenite::Error),
+    Websocket(Box<tungstenite::Error>),
     WrongEventKind,
 }
 
@@ -295,7 +295,7 @@ impl From<nostr_types::Error> for Error {
     #[track_caller]
     fn from(e: nostr_types::Error) -> Error {
         Error {
-            kind: ErrorKind::Nostr(e),
+            kind: ErrorKind::Nostr(Box::new(e)),
             location: Location::caller(),
         }
     }
@@ -305,7 +305,7 @@ impl From<image::error::ImageError> for Error {
     #[track_caller]
     fn from(e: image::error::ImageError) -> Error {
         Error {
-            kind: ErrorKind::Image(e),
+            kind: ErrorKind::Image(Box::new(e)),
             location: Location::caller(),
         }
     }
@@ -425,7 +425,7 @@ impl From<usvg::Error> for Error {
     #[track_caller]
     fn from(e: usvg::Error) -> Error {
         Error {
-            kind: ErrorKind::Svg(e),
+            kind: ErrorKind::Svg(Box::new(e)),
             location: Location::caller(),
         }
     }
@@ -455,7 +455,7 @@ impl From<tungstenite::Error> for Error {
     #[track_caller]
     fn from(e: tungstenite::Error) -> Error {
         Error {
-            kind: ErrorKind::Websocket(e),
+            kind: ErrorKind::Websocket(Box::new(e)),
             location: Location::caller(),
         }
     }

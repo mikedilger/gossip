@@ -245,7 +245,7 @@ pub enum ToOverlordMessage {
     },
 
     /// Calls [update_relay](crate::Overlord::update_relay)
-    UpdateRelay(Relay, Relay),
+    UpdateRelay(Box<Relay>, Box<Relay>),
 
     /// Calls [visible_notes_changed](crate::Overlord::visible_notes_changed)
     VisibleNotesChanged(Vec<Id>),
