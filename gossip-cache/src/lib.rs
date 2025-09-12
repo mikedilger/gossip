@@ -11,12 +11,14 @@ use std::rc::Rc;
 /// a 'note' is a processed event
 pub struct NoteCache {
     notes: HashMap<Id, Rc<RefCell<NoteData>>>,
+    notes_by_addr: HashMap<NAddr, Rc<RefCell<NoteData>>>,
 }
 
 impl NoteCache {
     pub fn new() -> NoteCache {
         NoteCache {
             notes: HashMap::new(),
+            notes_by_addr: HashMap::new(),
         }
     }
 
@@ -46,21 +48,59 @@ impl NoteCache {
     pub fn try_update_and_get(&mut self, id: &Id) -> Option<Rc<RefCell<NoteData>>> {
         if self.notes.contains_key(id) {
             // get a mutable reference to update reactions, then give it back
-            if let Some(pair) = self.notes.get(id) {
-                if let Ok(mut mut_ref) = pair.try_borrow_mut() {
-                    mut_ref.update();
-                }
+            if let Some(pair) = self.notes.get(id)
+                && let Ok(mut mut_ref) = pair.try_borrow_mut()
+            {
+                mut_ref.update();
             }
             // return from cache
             return self._try_get_and_borrow(id);
         } else {
             // otherwise try to create new and add to cache
             if let Ok(Some(event)) = GLOBALS.db().read_event(*id) {
+                let maybe_naddr = event.address();
                 let note = NoteData::new(event);
                 // add to cache
                 let ref_note = Rc::new(RefCell::new(note));
-                self.notes.insert(*id, ref_note);
+                self.notes.insert(*id, ref_note.clone());
+                if let Some(naddr) = maybe_naddr {
+                    self.notes_by_addr.insert(naddr, ref_note);
+                }
                 return self._try_get_and_borrow(id);
+            }
+        }
+
+        None
+    }
+
+    pub fn try_update_and_get_addr(&mut self, addr: &NAddr) -> Option<Rc<RefCell<NoteData>>> {
+        if self.notes_by_addr.contains_key(addr) {
+            // get a mutable reference to update reactions, then give it back
+            if let Some(pair) = self.notes_by_addr.get(addr)
+                && let Ok(mut mut_ref) = pair.try_borrow_mut()
+            {
+                mut_ref.update();
+            }
+
+            // return from cache
+            return self._try_get_and_borrow_by_addr(addr);
+        } else {
+            // otherwise try to create new and add to cache
+            if let Ok(Some(event)) =
+                GLOBALS
+                    .db()
+                    .get_replaceable_event(addr.kind, addr.author, &addr.d)
+            {
+                let id = event.id;
+                let maybe_naddr = event.address();
+                let note = NoteData::new(event);
+                // add to cache
+                let ref_note = Rc::new(RefCell::new(note));
+                self.notes.insert(id, ref_note.clone());
+                if let Some(naddr) = maybe_naddr {
+                    self.notes_by_addr.insert(naddr, ref_note);
+                }
+                return self._try_get_and_borrow(&id);
             }
         }
 
@@ -69,6 +109,13 @@ impl NoteCache {
 
     fn _try_get_and_borrow(&self, id: &Id) -> Option<Rc<RefCell<NoteData>>> {
         if let Some(value) = self.notes.get(id) {
+            return Some(value.clone());
+        }
+        None
+    }
+
+    fn _try_get_and_borrow_by_addr(&self, addr: &NAddr) -> Option<Rc<RefCell<NoteData>>> {
+        if let Some(value) = self.notes_by_addr.get(addr) {
             return Some(value.clone());
         }
         None
