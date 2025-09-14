@@ -3736,7 +3736,7 @@ checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
 [[package]]
 name = "nip44"
 version = "0.1.0"
-source = "git+https://github.com/mikedilger/nip44?rev=a55cd3850634d7e462c107a37a068f829670d6a2#a55cd3850634d7e462c107a37a068f829670d6a2"
+source = "git+https://github.com/mikedilger/nip44?rev=386c8bc879e0ddf392df81a60610d3123330846b#386c8bc879e0ddf392df81a60610d3123330846b"
 dependencies = [
  "base64 0.22.1",
  "chacha20",
@@ -3805,7 +3805,7 @@ dependencies = [
 [[package]]
 name = "nostr-types"
 version = "0.8.0-unstable"
-source = "git+https://github.com/mikedilger/nostr-types?rev=e46370217050d9cb8ca610c5baca615cf79ed76b#e46370217050d9cb8ca610c5baca615cf79ed76b"
+source = "git+https://github.com/mikedilger/nostr-types?rev=e431110f5ad0a0692280ccf036e99e255837f41c#e431110f5ad0a0692280ccf036e99e255837f41c"
 dependencies = [
  "aes",
  "aho-corasick",
