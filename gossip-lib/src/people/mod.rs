@@ -14,7 +14,6 @@ use nostr_types::{
     ContentEncryptionAlgorithm, Event, EventKind, Metadata, ParsedTag, PreEvent, PublicKey,
     RelayUrl, Tag, UncheckedUrl, Unixtime, Url,
 };
-use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::Ordering;
@@ -932,11 +931,6 @@ impl People {
     pub fn get_active_person_dm_relays(&self) -> Vec<RelayUrl> {
         self.active_persons_dm_relays.blocking_read().clone()
     }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct Nip05Patch {
-    nip05: Option<String>,
 }
 
 // Determine PersonList and fetches Metadata, allocating if needed.
