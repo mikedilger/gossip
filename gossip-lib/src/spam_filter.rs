@@ -3,7 +3,7 @@ use crate::people::PersonList;
 use crate::profile::Profile;
 use crate::storage::{PersonTable, Table};
 use nostr_types::{Event, EventKind, Id, PublicKey, Tag, Unixtime};
-use rhai::{CallFnOptions, Engine, Scope, AST};
+use rhai::{CallFnOptions, Dynamic, Engine, Scope, AST};
 use std::fs;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -121,7 +121,14 @@ fn inner_filter(event_params: EventParams) -> EventFilterAction {
         return EventFilterAction::Allow;
     }
 
-    let tags: Vec<Vec<String>> = tags.drain(..).map(|t| t.into_inner()).collect();
+    let tags: Vec<Dynamic> = tags.drain(..)
+        .map(|t| {
+            Dynamic::from_array(
+                t.into_inner().into_iter().map(Dynamic::from).collect()
+            )
+        })
+        .collect::<Vec<Dynamic>>()
+        .into();
 
     // NOTE numbers in rhai are i64 or f32
     let mut scope = Scope::new();
