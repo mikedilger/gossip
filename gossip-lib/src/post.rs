@@ -161,8 +161,9 @@ pub async fn prepare_post_nip17(
     mut tags: Vec<Tag>,
     dm_channel: DmChannel,
     annotation: bool,
+    force_nip17: bool,
 ) -> Result<Vec<(Event, Vec<RelayUrl>)>, Error> {
-    if !dm_channel.can_use_nip17() {
+    if !dm_channel.can_use_nip17() && !force_nip17 {
         return Err(ErrorKind::UsersCantUseNip17.into());
     }
 

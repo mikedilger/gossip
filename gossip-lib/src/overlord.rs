@@ -718,9 +718,18 @@ impl Overlord {
                 annotation,
                 dm_channel,
                 use_nip17,
+                force_nip17,
             } => {
-                self.post(content, tags, in_reply_to, annotation, dm_channel, use_nip17)
-                    .await?;
+                self.post(
+                    content,
+                    tags,
+                    in_reply_to,
+                    annotation,
+                    dm_channel,
+                    use_nip17,
+                    force_nip17,
+                )
+                .await?;
             }
             ToOverlordMessage::PostAgain(event) => {
                 self.post_again(event)?;
@@ -1965,6 +1974,7 @@ impl Overlord {
         annotation: bool,
         dm_channel: Option<DmChannel>,
         use_nip17: bool,
+        force_nip17: bool,
     ) -> Result<(), Error> {
         let author = match GLOBALS.identity.public_key() {
             Some(pk) => pk,
@@ -1978,8 +1988,15 @@ impl Overlord {
         let mut prepared_events = match dm_channel {
             Some(channel) => {
                 if use_nip17 {
-                    crate::post::prepare_post_nip17(author, content, tags, channel, annotation)
-                        .await?
+                    crate::post::prepare_post_nip17(
+                        author,
+                        content,
+                        tags,
+                        channel,
+                        annotation,
+                        force_nip17,
+                    )
+                    .await?
                 } else {
                     crate::post::prepare_post_nip04(author, content, channel, annotation).await?
                 }

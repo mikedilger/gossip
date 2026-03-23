@@ -57,6 +57,12 @@ pub struct NoteRenderData {
 
     /// Should hide nameline
     pub hide_nameline: bool,
+
+    /// Is this note being rendered in the DM feed?
+    pub is_dm_feed: bool,
+
+    /// Was this note authored by us?
+    pub is_our_event: bool,
 }
 
 pub(super) fn render_note(
@@ -119,6 +125,11 @@ pub(super) fn render_note(
                 thread_position: indent as i32,
                 hide_footer: as_reply_to,
                 hide_nameline: false,
+                is_dm_feed: matches!(app.page, Page::Feed(FeedKind::DmChat(_))),
+                is_our_event: GLOBALS
+                    .identity
+                    .public_key()
+                    .is_some_and(|our_pubkey| note_data.event.pubkey == our_pubkey),
             };
 
             let top = ui.next_widget_position();
@@ -231,6 +242,11 @@ pub fn render_dm_note(app: &mut GossipUi, ui: &mut Ui, feed_note_params: FeedNot
 
     if let Some(note_ref) = app.notecache.try_update_and_get(&id) {
         if let Ok(note_data) = note_ref.try_borrow() {
+            let is_our_event = GLOBALS
+                .identity
+                .public_key()
+                .is_some_and(|our_pubkey| note_data.event.pubkey == our_pubkey);
+
             let viewed = GLOBALS
                 .db()
                 .is_event_viewed(note_data.event.id)
@@ -252,6 +268,8 @@ pub fn render_dm_note(app: &mut GossipUi, ui: &mut Ui, feed_note_params: FeedNot
                 thread_position: indent as i32,
                 hide_footer: false,
                 hide_nameline: true,
+                is_dm_feed: true,
+                is_our_event,
             };
 
             let inner_response =
@@ -1412,6 +1430,8 @@ fn render_repost(
             thread_position: 0,
             hide_footer: false,
             hide_nameline: false,
+            is_dm_feed: false,
+            is_our_event: false,
         };
 
         let row_height = ui.cursor().height();

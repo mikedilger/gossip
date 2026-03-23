@@ -381,6 +381,13 @@ pub struct DraftData {
     pub use_nip17_force_confirm: bool,
 }
 
+#[derive(Clone, Debug, Default)]
+struct DmDraftState {
+    use_nip17: bool,
+    send_on_enter: bool,
+    use_nip17_force: bool,
+}
+
 impl Default for DraftData {
     fn default() -> DraftData {
         DraftData {
@@ -533,6 +540,7 @@ struct GossipUi {
     previous_draft_data: DraftData,
     dm_draft_data: DraftData,
     dm_draft_data_target: Option<DmChannel>,
+    dm_draft_states: HashMap<DmChannel, DmDraftState>,
     dm_new_message: bool,
     dm_new_message_search: String,
     dm_new_message_searched: Option<String>,
@@ -821,6 +829,7 @@ impl GossipUi {
             previous_draft_data: DraftData::default(),
             dm_draft_data: DraftData::default(),
             dm_draft_data_target: None,
+            dm_draft_states: HashMap::new(),
             dm_new_message: false,
             dm_new_message_search: String::new(),
             dm_new_message_searched: None,
@@ -2159,6 +2168,7 @@ impl GossipUi {
 
     fn reset_draft(&mut self) {
         if let Page::Feed(FeedKind::DmChat(_)) = &self.page {
+            self.save_dm_draft_state();
             self.dm_draft_data.clear();
             self.dm_draft_data_target = None;
         } else {
@@ -2167,6 +2177,36 @@ impl GossipUi {
             self.show_post_area = false;
             self.draft_needs_focus = false;
         }
+    }
+
+    fn save_dm_draft_state(&mut self) {
+        if let Some(channel) = self.dm_draft_data_target.clone() {
+            self.dm_draft_states.insert(
+                channel,
+                DmDraftState {
+                    use_nip17: self.dm_draft_data.use_nip17,
+                    send_on_enter: self.dm_draft_data.send_on_enter,
+                    use_nip17_force: self.dm_draft_data.use_nip17_force,
+                },
+            );
+        }
+    }
+
+    fn load_dm_draft_state(&mut self, channel: &DmChannel) {
+        let state = self
+            .dm_draft_states
+            .get(channel)
+            .cloned()
+            .unwrap_or_else(|| DmDraftState {
+                use_nip17: channel.can_use_nip17(),
+                send_on_enter: false,
+                use_nip17_force: false,
+            });
+
+        self.dm_draft_data.use_nip17 = state.use_nip17;
+        self.dm_draft_data.send_on_enter = state.send_on_enter;
+        self.dm_draft_data.use_nip17_force = state.use_nip17_force;
+        self.dm_draft_data.use_nip17_force_confirm = false;
     }
 
     fn clear_new_message_dialog(&mut self) {

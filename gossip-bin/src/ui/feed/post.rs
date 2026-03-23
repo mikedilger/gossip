@@ -432,6 +432,7 @@ fn dm_posting_area(
             annotation: app.dm_draft_data.is_annotate,
             dm_channel: Some(dm_channel.to_owned()),
             use_nip17,
+            force_nip17: app.dm_draft_data.use_nip17_force,
         });
 
         app.reset_draft();
@@ -850,6 +851,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                     annotation: app.draft_data.is_annotate,
                     dm_channel: None,
                     use_nip17: false,
+                    force_nip17: false,
                 });
             }
             None => {
@@ -865,6 +867,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                         annotation: app.draft_data.is_annotate,
                         dm_channel: None,
                         use_nip17: false,
+                        force_nip17: false,
                     });
                 }
             }
