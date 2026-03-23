@@ -341,7 +341,7 @@ fn dm_posting_area(
                 } else if !can_use_nip17 && !app.dm_draft_data.use_nip17_force {
                     app.dm_draft_data.use_nip17_force_confirm = true;
                 }
-                app.save_and_persist_dm_draft_state();
+                app.request_dm_draft_states_save();
             }),
         )));
         items.push(MoreMenuItem::Switch(MoreMenuSwitch::new(
@@ -349,7 +349,7 @@ fn dm_posting_area(
             app.dm_draft_data.send_on_enter,
             Box::new(|_, app| {
                 app.dm_draft_data.send_on_enter = !app.dm_draft_data.send_on_enter;
-                app.save_and_persist_dm_draft_state();
+                app.request_dm_draft_states_save();
             }),
         )));
 
@@ -484,7 +484,7 @@ fn render_nip17_override_confirm(app: &mut GossipUi, ctx: &Context) {
                     app.dm_draft_data.use_nip17 = false;
                     app.dm_draft_data.use_nip17_force = false;
                     app.dm_draft_data.use_nip17_force_confirm = false;
-                    app.save_and_persist_dm_draft_state();
+                    app.request_dm_draft_states_save();
                 }
                 if widgets::Button::primary(&app.theme, "Use NIP17 Anyway")
                     .show(ui)
@@ -492,7 +492,7 @@ fn render_nip17_override_confirm(app: &mut GossipUi, ctx: &Context) {
                 {
                     app.dm_draft_data.use_nip17_force = true;
                     app.dm_draft_data.use_nip17_force_confirm = false;
-                    app.save_and_persist_dm_draft_state();
+                    app.request_dm_draft_states_save();
                 }
             });
         });
@@ -502,7 +502,7 @@ fn render_nip17_override_confirm(app: &mut GossipUi, ctx: &Context) {
         app.dm_draft_data.use_nip17 = false;
         app.dm_draft_data.use_nip17_force = false;
         app.dm_draft_data.use_nip17_force_confirm = false;
-        app.save_and_persist_dm_draft_state();
+        app.request_dm_draft_states_save();
     }
 }
 
