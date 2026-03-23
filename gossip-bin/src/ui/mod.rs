@@ -79,6 +79,7 @@ use nostr_types::RelayUrl;
 use nostr_types::{
     EventKind, FileMetadata, Id, Metadata, MilliSatoshi, Profile, PublicKey, UncheckedUrl, Url,
 };
+use serde::{Deserialize, Serialize};
 use widgets::ModalEntry;
 
 use std::collections::{HashMap, HashSet};
@@ -381,7 +382,7 @@ pub struct DraftData {
     pub use_nip17_force_confirm: bool,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 struct DmDraftState {
     use_nip17: bool,
     send_on_enter: bool,
@@ -540,7 +541,7 @@ struct GossipUi {
     previous_draft_data: DraftData,
     dm_draft_data: DraftData,
     dm_draft_data_target: Option<DmChannel>,
-    dm_draft_states: HashMap<DmChannel, DmDraftState>,
+    dm_draft_states: HashMap<String, DmDraftState>,
     dm_new_message: bool,
     dm_new_message_search: String,
     dm_new_message_searched: Option<String>,
@@ -742,6 +743,7 @@ impl GossipUi {
         // Apply current theme
         let theme = Theme::from_settings();
         theme::apply_theme(&theme, &cctx.egui_ctx);
+        let dm_draft_states = Self::load_dm_draft_states();
 
         // Let gossip-lib know the max texture side so it can resize things that are
         // too large.
@@ -829,7 +831,7 @@ impl GossipUi {
             previous_draft_data: DraftData::default(),
             dm_draft_data: DraftData::default(),
             dm_draft_data_target: None,
-            dm_draft_states: HashMap::new(),
+            dm_draft_states,
             dm_new_message: false,
             dm_new_message_search: String::new(),
             dm_new_message_searched: None,
@@ -2170,6 +2172,7 @@ impl GossipUi {
         if let Page::Feed(FeedKind::DmChat(_)) = &self.page {
             let current_target = self.dm_draft_data_target.clone();
             self.save_dm_draft_state();
+            self.persist_dm_draft_states();
             self.dm_draft_data.clear();
             if let Some(channel) = current_target.as_ref() {
                 self.load_dm_draft_state(channel);
@@ -2186,7 +2189,7 @@ impl GossipUi {
     fn save_dm_draft_state(&mut self) {
         if let Some(channel) = self.dm_draft_data_target.clone() {
             self.dm_draft_states.insert(
-                channel,
+                channel.unique_id(),
                 DmDraftState {
                     use_nip17: self.dm_draft_data.use_nip17,
                     send_on_enter: self.dm_draft_data.send_on_enter,
@@ -2196,10 +2199,20 @@ impl GossipUi {
         }
     }
 
+    fn persist_dm_draft_states(&self) {
+        let json = serde_json::to_string(&self.dm_draft_states).unwrap_or_default();
+        let _ = GLOBALS.db().write_setting_dm_draft_states(&json, None);
+    }
+
+    fn save_and_persist_dm_draft_state(&mut self) {
+        self.save_dm_draft_state();
+        self.persist_dm_draft_states();
+    }
+
     fn load_dm_draft_state(&mut self, channel: &DmChannel) {
         let state = self
             .dm_draft_states
-            .get(channel)
+            .get(&channel.unique_id())
             .cloned()
             .unwrap_or_else(|| DmDraftState {
                 use_nip17: channel.can_use_nip17(),
@@ -2211,6 +2224,15 @@ impl GossipUi {
         self.dm_draft_data.send_on_enter = state.send_on_enter;
         self.dm_draft_data.use_nip17_force = state.use_nip17_force;
         self.dm_draft_data.use_nip17_force_confirm = false;
+    }
+
+    fn load_dm_draft_states() -> HashMap<String, DmDraftState> {
+        let json = GLOBALS.db().read_setting_dm_draft_states();
+        if json.is_empty() {
+            return HashMap::new();
+        }
+
+        serde_json::from_str(&json).unwrap_or_default()
     }
 
     fn clear_new_message_dialog(&mut self) {

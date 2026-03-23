@@ -202,7 +202,10 @@ pub async fn prepare_post_nip17(
     // To all recipients
     for pk in dm_channel.keys() {
         let event = GLOBALS.identity.giftwrap(pre_event.clone(), *pk).await?;
-        let relays = relay::get_dm_relays(*pk)?;
+        let mut relays = relay::get_dm_relays(*pk)?;
+        if relays.is_empty() {
+            relays = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
+        }
         output.push((event, relays));
     }
 

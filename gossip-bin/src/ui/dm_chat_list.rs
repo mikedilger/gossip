@@ -202,7 +202,7 @@ fn open_dm_channel(app: &mut GossipUi, ctx: &Context, channel: gossip_lib::DmCha
     // Maybe clear the draft, if we are going into a different channel than last time.
     if let Some(oldtarget) = &app.dm_draft_data_target {
         if *oldtarget != channel {
-            app.save_dm_draft_state();
+            app.save_and_persist_dm_draft_state();
             app.dm_draft_data.clear();
             app.load_dm_draft_state(&channel);
         }
