@@ -203,9 +203,13 @@ fn open_dm_channel(app: &mut GossipUi, ctx: &Context, channel: gossip_lib::DmCha
     if let Some(oldtarget) = &app.dm_draft_data_target {
         if *oldtarget != channel {
             app.dm_draft_data.clear();
+            app.dm_draft_data.use_nip17 = channel.can_use_nip17();
+            app.dm_draft_data.send_on_enter = false;
         }
     } else {
         app.dm_draft_data.clear();
+        app.dm_draft_data.use_nip17 = channel.can_use_nip17();
+        app.dm_draft_data.send_on_enter = false;
     }
     app.dm_draft_data_target = Some(channel);
 }

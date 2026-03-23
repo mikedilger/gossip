@@ -373,6 +373,10 @@ pub struct DraftData {
 
     // If this is an annotation
     pub is_annotate: bool,
+
+    // DM-only settings
+    pub use_nip17: bool,
+    pub send_on_enter: bool,
 }
 
 impl Default for DraftData {
@@ -401,6 +405,8 @@ impl Default for DraftData {
             tagging_search_results: Vec::new(),
 
             is_annotate: false,
+            use_nip17: false,
+            send_on_enter: false,
         }
     }
 }
@@ -425,6 +431,8 @@ impl DraftData {
         self.tagging_search_searched = None;
         self.tagging_search_results.clear();
         self.is_annotate = false;
+        self.use_nip17 = false;
+        self.send_on_enter = false;
     }
 }
 

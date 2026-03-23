@@ -168,7 +168,8 @@ fn dm_posting_area(
     let compose_area_id: egui::Id = egui::Id::new("compose_area");
     let mut send_now: bool = false;
 
-    let (bg_color, text_color, text, tooltip_text) = if dm_channel.can_use_nip17() {
+    let use_nip17 = app.dm_draft_data.use_nip17 && dm_channel.can_use_nip17();
+    let (bg_color, text_color, text, tooltip_text) = if use_nip17 {
         let text = "STRONG ENCRYPTION";
         let tt_text = "SECURED with Giftwrap DM technology (NIPs 17, 44, 59)";
         if app.theme.dark_mode {
@@ -250,19 +251,10 @@ fn dm_posting_area(
     }
 
     if !app.dm_draft_data.draft.is_empty() {
-        let modifiers = if cfg!(target_os = "macos") {
-            Modifiers {
-                command: true,
-                ..Default::default()
+        if app.dm_draft_data.send_on_enter && draft_response.has_focus() {
+            if ui.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Enter)) {
+                send_now = true;
             }
-        } else {
-            Modifiers {
-                ctrl: true,
-                ..Default::default()
-            }
-        };
-        if ui.input_mut(|i| i.consume_key(modifiers, Key::Enter)) {
-            send_now = true;
         }
     }
 
@@ -374,12 +366,21 @@ fn dm_posting_area(
                     }
                 });
             } else {
-                if widgets::Button::primary(&app.theme, "Send")
-                    .show(ui)
-                    .clicked()
-                    && !app.dm_draft_data.draft.is_empty()
-                {
-                    send_now = true;
+                ui.horizontal(|ui| {
+                    ui.add_enabled_ui(dm_channel.can_use_nip17(), |ui| {
+                        ui.checkbox(&mut app.dm_draft_data.use_nip17, "Use NIP17");
+                    });
+                    ui.checkbox(&mut app.dm_draft_data.send_on_enter, "Send on Enter");
+                    if widgets::Button::primary(&app.theme, "Send")
+                        .show(ui)
+                        .clicked()
+                        && !app.dm_draft_data.draft.is_empty()
+                    {
+                        send_now = true;
+                    }
+                });
+                if !dm_channel.can_use_nip17() {
+                    ui.label("NIP17 unavailable for this chat");
                 }
             }
 
@@ -415,6 +416,7 @@ fn dm_posting_area(
             in_reply_to: None,
             annotation: app.dm_draft_data.is_annotate,
             dm_channel: Some(dm_channel.to_owned()),
+            use_nip17: app.dm_draft_data.use_nip17,
         });
 
         app.reset_draft();
@@ -794,6 +796,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                     in_reply_to: Some(replying_to_id),
                     annotation: app.draft_data.is_annotate,
                     dm_channel: None,
+                    use_nip17: false,
                 });
             }
             None => {
@@ -808,6 +811,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                         in_reply_to: None,
                         annotation: app.draft_data.is_annotate,
                         dm_channel: None,
+                        use_nip17: false,
                     });
                 }
             }

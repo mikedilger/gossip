@@ -385,7 +385,7 @@ pub fn render_note_inside_framing(
                 EncryptionType::Nip04 => Some(EncryptionIndicator {
                     color: app.theme.amber_400(),
                     tooltip_ui: Box::new(|ui: &mut Ui| {
-                        ui.label("NIP-04 encryption. It is recomended to upgrade [link to help page] to Giftwrap (NIP-44) encryption.");
+                        ui.label("NIP-04 encryption. It is recommended to upgrade [link to help page] to Giftwrap (NIP-44) encryption.");
                     }),
                 }),
                 EncryptionType::Giftwrap => None, // Giftwrap is the new good default, we won't show an indicator
