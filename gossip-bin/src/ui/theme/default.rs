@@ -835,7 +835,7 @@ impl ThemeDef for DefaultTheme {
     }
     fn feed_frame_fill(dark_mode: bool, post: &NoteRenderData) -> Color32 {
         if post.is_dm_feed && post.is_our_event {
-            return Color32::from_rgb(0x00, 0x69, 0x00);
+            return Color32::from_rgb(0x0f, 0x33, 0x0f);
         }
 
         if post.is_main_event {

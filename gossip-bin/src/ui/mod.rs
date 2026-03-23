@@ -2168,9 +2168,13 @@ impl GossipUi {
 
     fn reset_draft(&mut self) {
         if let Page::Feed(FeedKind::DmChat(_)) = &self.page {
+            let current_target = self.dm_draft_data_target.clone();
             self.save_dm_draft_state();
             self.dm_draft_data.clear();
-            self.dm_draft_data_target = None;
+            if let Some(channel) = current_target.as_ref() {
+                self.load_dm_draft_state(channel);
+            }
+            self.dm_draft_data_target = current_target;
         } else {
             self.previous_draft_data = self.draft_data.clone();
             self.draft_data.clear();
