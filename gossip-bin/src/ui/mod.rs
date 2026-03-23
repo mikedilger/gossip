@@ -86,6 +86,7 @@ use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 use std::ops::DerefMut;
 use std::path::PathBuf;
+use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::rc::Rc;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
@@ -542,6 +543,9 @@ struct GossipUi {
     dm_draft_data: DraftData,
     dm_draft_data_target: Option<DmChannel>,
     dm_draft_states: HashMap<String, DmDraftState>,
+    dm_draft_states_dirty: bool,
+    dm_draft_states_save_after: Option<Instant>,
+    dm_draft_states_save_rx: Option<Receiver<Result<(), String>>>,
     dm_new_message: bool,
     dm_new_message_search: String,
     dm_new_message_searched: Option<String>,
@@ -624,6 +628,7 @@ struct GossipUi {
 
 impl Drop for GossipUi {
     fn drop(&mut self) {
+        self.flush_dm_draft_states_save();
         self.password.zeroize();
         self.password2.zeroize();
         self.password3.zeroize();
@@ -832,6 +837,9 @@ impl GossipUi {
             dm_draft_data: DraftData::default(),
             dm_draft_data_target: None,
             dm_draft_states,
+            dm_draft_states_dirty: false,
+            dm_draft_states_save_after: None,
+            dm_draft_states_save_rx: None,
             dm_new_message: false,
             dm_new_message_search: String::new(),
             dm_new_message_searched: None,
@@ -2171,8 +2179,7 @@ impl GossipUi {
     fn reset_draft(&mut self) {
         if let Page::Feed(FeedKind::DmChat(_)) = &self.page {
             let current_target = self.dm_draft_data_target.clone();
-            self.save_dm_draft_state();
-            self.persist_dm_draft_states();
+            self.request_dm_draft_states_save();
             self.dm_draft_data.clear();
             if let Some(channel) = current_target.as_ref() {
                 self.load_dm_draft_state(channel);
@@ -2199,14 +2206,34 @@ impl GossipUi {
         }
     }
 
-    fn persist_dm_draft_states(&self) {
-        let json = serde_json::to_string(&self.dm_draft_states).unwrap_or_default();
-        let _ = GLOBALS.db().write_setting_dm_draft_states(&json, None);
+    fn request_dm_draft_states_save(&mut self) {
+        self.save_dm_draft_state();
+        self.dm_draft_states_dirty = true;
+        self.dm_draft_states_save_after = Some(Instant::now() + Duration::from_millis(250));
     }
 
-    fn save_and_persist_dm_draft_state(&mut self) {
+    fn flush_dm_draft_states_save(&mut self) {
+        if let Some(rx) = self.dm_draft_states_save_rx.take() {
+            match rx.recv() {
+                Ok(result) => {
+                    if let Err(e) = result {
+                        tracing::error!("Error saving DM draft states: {}", e);
+                    }
+                }
+                Err(_) => {
+                    tracing::error!("DM draft state saver disconnected unexpectedly");
+                }
+            }
+        }
+
         self.save_dm_draft_state();
-        self.persist_dm_draft_states();
+        let json = serde_json::to_string(&self.dm_draft_states).unwrap_or_default();
+        if let Err(e) = GLOBALS.db().write_setting_dm_draft_states(&json, None) {
+            tracing::error!("Error saving DM draft states: {}", e);
+        }
+        self.dm_draft_states_dirty = false;
+        self.dm_draft_states_save_after = None;
+        self.dm_draft_states_save_rx = None;
     }
 
     fn load_dm_draft_state(&mut self, channel: &DmChannel) {
@@ -2233,6 +2260,55 @@ impl GossipUi {
         }
 
         serde_json::from_str(&json).unwrap_or_default()
+    }
+
+    fn poll_dm_draft_states_save(&mut self) {
+        if let Some(rx) = &self.dm_draft_states_save_rx {
+            match rx.try_recv() {
+                Ok(result) => {
+                    if let Err(e) = result {
+                        tracing::error!("Error saving DM draft states: {}", e);
+                    }
+                    self.dm_draft_states_save_rx = None;
+                    self.dm_draft_states_dirty = false;
+                    self.dm_draft_states_save_after = None;
+                }
+                Err(TryRecvError::Empty) => {}
+                Err(TryRecvError::Disconnected) => {
+                    tracing::error!("DM draft state saver disconnected unexpectedly");
+                    self.dm_draft_states_save_rx = None;
+                    self.dm_draft_states_dirty = true;
+                    self.dm_draft_states_save_after =
+                        Some(Instant::now() + Duration::from_millis(500));
+                }
+            }
+        }
+
+        if self.dm_draft_states_dirty
+            && self.dm_draft_states_save_rx.is_none()
+            && self
+                .dm_draft_states_save_after
+                .is_some_and(|when| Instant::now() >= when)
+        {
+            self.dm_draft_states_dirty = false;
+            self.dm_draft_states_save_after = None;
+
+            let states = self.dm_draft_states.clone();
+            let (tx, rx) = mpsc::channel();
+            self.dm_draft_states_save_rx = Some(rx);
+
+            GLOBALS.runtime.spawn_blocking(move || {
+                let result = (|| -> Result<(), String> {
+                    let json = serde_json::to_string(&states).map_err(|e| e.to_string())?;
+                    GLOBALS
+                        .db()
+                        .write_setting_dm_draft_states(&json, None)
+                        .map_err(|e| e.to_string())?;
+                    Ok(())
+                })();
+                let _ = tx.send(result);
+            });
+        }
     }
 
     fn clear_new_message_dialog(&mut self) {
@@ -2327,6 +2403,7 @@ impl eframe::App for GossipUi {
         }
 
         self.frame_count += 1;
+        self.poll_dm_draft_states_save();
 
         // Enforce FPS limiting.
         // No amount of notifies or request_repaint()s can bypass this.
