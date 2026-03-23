@@ -1,5 +1,5 @@
 use super::FeedNoteParams;
-use crate::ui::widgets::{InformationPopup, MoreMenuButton, MoreMenuItem};
+use crate::ui::widgets::{InformationPopup, MoreMenuButton, MoreMenuItem, MoreMenuSwitch};
 use crate::ui::{widgets, you, FeedKind, GossipUi, HighlightType, Label, Page, Sense, Theme};
 use eframe::egui;
 use eframe::epaint::text::LayoutJob;
@@ -168,7 +168,9 @@ fn dm_posting_area(
     let compose_area_id: egui::Id = egui::Id::new("compose_area");
     let mut send_now: bool = false;
 
-    let use_nip17 = app.dm_draft_data.use_nip17 && dm_channel.can_use_nip17();
+    let can_use_nip17 = dm_channel.can_use_nip17();
+    let use_nip17 = app.dm_draft_data.use_nip17
+        && (can_use_nip17 || app.dm_draft_data.use_nip17_force);
     let (bg_color, text_color, text, tooltip_text) = if use_nip17 {
         let text = "STRONG ENCRYPTION";
         let tt_text = "SECURED with Giftwrap DM technology (NIPs 17, 44, 59)";
@@ -191,11 +193,7 @@ fn dm_posting_area(
         let text = "BASIC ENCRYPTION";
         let tt_text = "WARNING: Using older less-secure DM technology (NIP-04; recipient(s) have not signalled the ability to accept the newer method)";
 
-        // if app.theme.dark_mode {
-        (app.theme.amber_400(), app.theme.neutral_50(), text, tt_text)
-        //} else {
-        //    (app.theme.amber_400(), app.theme.neutral_50(), text, tt_text)
-        //}
+        (app.theme.amber_400(), app.theme.neutral_950(), text, tt_text)
     };
 
     // Text area
@@ -332,6 +330,26 @@ fn dm_posting_area(
                 }),
             )));
         }
+        items.push(MoreMenuItem::Switch(MoreMenuSwitch::new(
+            "Use NIP17",
+            app.dm_draft_data.use_nip17,
+            Box::new(move |_, app| {
+                app.dm_draft_data.use_nip17 = !app.dm_draft_data.use_nip17;
+                if !app.dm_draft_data.use_nip17 {
+                    app.dm_draft_data.use_nip17_force = false;
+                    app.dm_draft_data.use_nip17_force_confirm = false;
+                } else if !can_use_nip17 && !app.dm_draft_data.use_nip17_force {
+                    app.dm_draft_data.use_nip17_force_confirm = true;
+                }
+            }),
+        )));
+        items.push(MoreMenuItem::Switch(MoreMenuSwitch::new(
+            "Send on Enter",
+            app.dm_draft_data.send_on_enter,
+            Box::new(|_, app| {
+                app.dm_draft_data.send_on_enter = !app.dm_draft_data.send_on_enter;
+            }),
+        )));
 
         menu.show_entries(ui, app, response, items);
 
@@ -367,10 +385,6 @@ fn dm_posting_area(
                 });
             } else {
                 ui.horizontal(|ui| {
-                    ui.add_enabled_ui(dm_channel.can_use_nip17(), |ui| {
-                        ui.checkbox(&mut app.dm_draft_data.use_nip17, "Use NIP17");
-                    });
-                    ui.checkbox(&mut app.dm_draft_data.send_on_enter, "Send on Enter");
                     if widgets::Button::primary(&app.theme, "Send")
                         .show(ui)
                         .clicked()
@@ -379,9 +393,6 @@ fn dm_posting_area(
                         send_now = true;
                     }
                 });
-                if !dm_channel.can_use_nip17() {
-                    ui.label("NIP17 unavailable for this chat");
-                }
             }
 
             // Emoji picker
@@ -394,6 +405,10 @@ fn dm_posting_area(
             offer_attachment(app, ctx, ui, true);
         });
     });
+
+    if app.dm_draft_data.use_nip17_force_confirm {
+        render_nip17_override_confirm(app, ctx);
+    }
 
     if send_now {
         let mut tags: Vec<Tag> = Vec::new();
@@ -416,7 +431,7 @@ fn dm_posting_area(
             in_reply_to: None,
             annotation: app.dm_draft_data.is_annotate,
             dm_channel: Some(dm_channel.to_owned()),
-            use_nip17: app.dm_draft_data.use_nip17,
+            use_nip17,
         });
 
         app.reset_draft();
@@ -444,6 +459,44 @@ fn dm_posting_area(
         };
 
         ui.label(format!("{}: {}", i, rendered));
+    }
+}
+
+fn render_nip17_override_confirm(app: &mut GossipUi, ctx: &Context) {
+    const DLG_SIZE: eframe::egui::Vec2 = vec2(460.0, 140.0);
+
+    let ret = widgets::modal_popup(ctx, DLG_SIZE, DLG_SIZE, true, |ui| {
+        ui.vertical(|ui| {
+            ui.heading("Use NIP17 anyway?");
+            ui.add_space(8.0);
+            ui.label(
+                "We do not know DM relays for one or more participants. Sending with NIP17 may not reach them.",
+            );
+            ui.add_space(10.0);
+            ui.horizontal(|ui| {
+                if widgets::Button::secondary(&app.theme, "Use Basic Encryption")
+                    .show(ui)
+                    .clicked()
+                {
+                    app.dm_draft_data.use_nip17 = false;
+                    app.dm_draft_data.use_nip17_force = false;
+                    app.dm_draft_data.use_nip17_force_confirm = false;
+                }
+                if widgets::Button::primary(&app.theme, "Use NIP17 Anyway")
+                    .show(ui)
+                    .clicked()
+                {
+                    app.dm_draft_data.use_nip17_force = true;
+                    app.dm_draft_data.use_nip17_force_confirm = false;
+                }
+            });
+        });
+    });
+
+    if ret.inner.clicked() {
+        app.dm_draft_data.use_nip17 = false;
+        app.dm_draft_data.use_nip17_force = false;
+        app.dm_draft_data.use_nip17_force_confirm = false;
     }
 }
 

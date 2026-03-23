@@ -377,6 +377,8 @@ pub struct DraftData {
     // DM-only settings
     pub use_nip17: bool,
     pub send_on_enter: bool,
+    pub use_nip17_force: bool,
+    pub use_nip17_force_confirm: bool,
 }
 
 impl Default for DraftData {
@@ -407,6 +409,8 @@ impl Default for DraftData {
             is_annotate: false,
             use_nip17: false,
             send_on_enter: false,
+            use_nip17_force: false,
+            use_nip17_force_confirm: false,
         }
     }
 }
@@ -433,6 +437,8 @@ impl DraftData {
         self.is_annotate = false;
         self.use_nip17 = false;
         self.send_on_enter = false;
+        self.use_nip17_force = false;
+        self.use_nip17_force_confirm = false;
     }
 }
 
