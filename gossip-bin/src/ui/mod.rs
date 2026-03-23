@@ -519,6 +519,13 @@ struct GossipUi {
     previous_draft_data: DraftData,
     dm_draft_data: DraftData,
     dm_draft_data_target: Option<DmChannel>,
+    dm_new_message: bool,
+    dm_new_message_search: String,
+    dm_new_message_searched: Option<String>,
+    dm_new_message_search_results: Vec<(String, PublicKey)>,
+    dm_new_message_search_selected: Option<usize>,
+    dm_new_message_address: String,
+    dm_new_message_error: Option<String>,
 
     // User entry: metadata
     editing_metadata: bool,
@@ -800,6 +807,13 @@ impl GossipUi {
             previous_draft_data: DraftData::default(),
             dm_draft_data: DraftData::default(),
             dm_draft_data_target: None,
+            dm_new_message: false,
+            dm_new_message_search: String::new(),
+            dm_new_message_searched: None,
+            dm_new_message_search_results: Vec::new(),
+            dm_new_message_search_selected: None,
+            dm_new_message_address: String::new(),
+            dm_new_message_error: None,
             editing_metadata: false,
             metadata: Metadata::new(),
             delegatee_tag_str: "".to_owned(),
@@ -2139,6 +2153,16 @@ impl GossipUi {
             self.show_post_area = false;
             self.draft_needs_focus = false;
         }
+    }
+
+    fn clear_new_message_dialog(&mut self) {
+        self.dm_new_message = false;
+        self.dm_new_message_search.clear();
+        self.dm_new_message_searched = None;
+        self.dm_new_message_search_results.clear();
+        self.dm_new_message_search_selected = None;
+        self.dm_new_message_address.clear();
+        self.dm_new_message_error = None;
     }
 
     fn show_post_area_fn(&self) -> bool {

@@ -9,6 +9,7 @@ use gossip_lib::FeedKind;
 use gossip_lib::Person;
 use gossip_lib::GLOBALS;
 use gossip_lib::{PersonTable, Table};
+use nostr_types::PublicKey;
 use std::time::{Duration, Instant};
 
 pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
@@ -38,8 +39,21 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
 
     let mut channels = app.dm_channel_cache.clone();
 
+    let is_signer_ready = GLOBALS.identity.is_unlocked();
+
     widgets::page_header(ui, "Direct Messages", |ui| {
         ui.add_space(16.0);
+        if is_signer_ready {
+            if widgets::Button::bordered(&app.theme, "New message")
+                .small(true)
+                .show(ui)
+                .clicked()
+            {
+                app.dm_new_message = true;
+                app.dm_new_message_error = None;
+            }
+        }
+        ui.add_space(8.0);
         if widgets::Button::bordered(&app.theme, "Mark all read")
             .small(true)
             .show(ui)
@@ -49,7 +63,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         }
     });
 
-    let is_signer_ready = GLOBALS.identity.is_unlocked();
+    if app.dm_new_message {
+        render_new_message_popup(app, ctx);
+    }
 
     app.vert_scroll_area()
         .id_salt("dm_chat_list")
@@ -173,23 +189,161 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     .on_hover_cursor(egui::CursorIcon::PointingHand)
                     .clicked()
                 {
-                    app.set_page(
-                        ctx,
-                        Page::Feed(FeedKind::DmChat(channeldata.dm_channel.clone())),
-                    );
-                    app.draft_needs_focus = true;
-
-                    // Maybe clear the draft, if we are going into a different channel than last
-                    // time
-                    if let Some(oldtarget) = &app.dm_draft_data_target {
-                        if *oldtarget != channeldata.dm_channel {
-                            app.dm_draft_data.clear();
-                        }
-                    } else {
-                        app.dm_draft_data.clear();
-                    }
-                    app.dm_draft_data_target = Some(channeldata.dm_channel.clone());
+                    open_dm_channel(app, ctx, channeldata.dm_channel.clone());
                 }
             }
         });
+}
+
+fn open_dm_channel(app: &mut GossipUi, ctx: &Context, channel: gossip_lib::DmChannel) {
+    app.set_page(ctx, Page::Feed(FeedKind::DmChat(channel.clone())));
+    app.draft_needs_focus = true;
+
+    // Maybe clear the draft, if we are going into a different channel than last time.
+    if let Some(oldtarget) = &app.dm_draft_data_target {
+        if *oldtarget != channel {
+            app.dm_draft_data.clear();
+        }
+    } else {
+        app.dm_draft_data.clear();
+    }
+    app.dm_draft_data_target = Some(channel);
+}
+
+fn render_new_message_popup(app: &mut GossipUi, ctx: &Context) {
+    const DLG_SIZE: eframe::egui::Vec2 = vec2(420.0, 320.0);
+
+    let ret = widgets::modal_popup(ctx, DLG_SIZE, DLG_SIZE, true, |ui| {
+        ui.vertical(|ui| {
+            ui.heading("New direct message");
+            ui.add_space(8.0);
+
+            if let Some(err) = &app.dm_new_message_error {
+                ui.label(RichText::new(err).color(app.theme.warning_marker_text_color()));
+                ui.add_space(8.0);
+            }
+
+            ui.label("Search for a known contact");
+            let mut output = widgets::TextEdit::search(
+                &app.theme,
+                &app.assets,
+                &mut app.dm_new_message_search,
+            )
+            .desired_width(f32::INFINITY)
+            .show(ui);
+
+            let mut selected = app.dm_new_message_search_selected;
+            let mut enter_key = false;
+            if app.dm_new_message_search_results.is_empty() {
+                selected = None;
+            } else {
+                (selected, enter_key) = widgets::capture_keyboard_for_search(
+                    ui,
+                    app.dm_new_message_search_results.len(),
+                    selected,
+                );
+            }
+
+            if app.dm_new_message_search.len() > 2 {
+                if Some(&app.dm_new_message_search) != app.dm_new_message_searched.as_ref()
+                    && output.cursor_range.is_some()
+                {
+                    let mut pairs = GLOBALS
+                        .people
+                        .search_people_to_tag(app.dm_new_message_search.as_str())
+                        .unwrap_or_default();
+                    pairs.sort_by(|(_, ak), (_, bk)| {
+                        let af = GLOBALS
+                            .db()
+                            .is_person_in_list(ak, gossip_lib::PersonList::Followed)
+                            .unwrap_or(false);
+                        let bf = GLOBALS
+                            .db()
+                            .is_person_in_list(bk, gossip_lib::PersonList::Followed)
+                            .unwrap_or(false);
+                        bf.cmp(&af).then(std::cmp::Ordering::Greater)
+                    });
+                    app.dm_new_message_searched = Some(app.dm_new_message_search.clone());
+                    app.dm_new_message_search_results = pairs.to_owned();
+                }
+            } else {
+                app.dm_new_message_searched = None;
+                app.dm_new_message_search_results.clear();
+            }
+
+            widgets::show_contact_search(
+                ui,
+                app,
+                egui::AboveOrBelow::Below,
+                &mut output,
+                &mut selected,
+                app.dm_new_message_search_results.clone(),
+                enter_key,
+                |_, app, _, pair| {
+                    app.dm_new_message_search = pair.0.clone();
+                    app.dm_new_message_search_results.clear();
+                    app.dm_new_message_search_selected = None;
+                    app.dm_new_message_address = pair.1.as_bech32_string();
+                },
+            );
+            app.dm_new_message_search_selected = selected;
+
+            ui.add_space(10.0);
+            ui.label("Or enter an npub, hex key, or nprofile address");
+            ui.add(
+                text_edit_line!(app, app.dm_new_message_address)
+                    .desired_width(f32::INFINITY)
+                    .hint_text("npub1, hex key, or nprofile1"),
+            );
+
+            ui.add_space(12.0);
+            ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
+                ui.horizontal(|ui| {
+                    if widgets::Button::secondary(&app.theme, "Cancel")
+                        .show(ui)
+                        .clicked()
+                    {
+                        app.clear_new_message_dialog();
+                    }
+
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+                        if widgets::Button::primary(&app.theme, "Start chat")
+                            .show(ui)
+                            .clicked()
+                        {
+                            if let Some(pubkey) = parse_new_message_target(
+                                app.dm_new_message_address.trim(),
+                            ) {
+                                open_dm_channel(
+                                    app,
+                                    ctx,
+                                    gossip_lib::DmChannel::new(&[pubkey]),
+                                );
+                                app.clear_new_message_dialog();
+                            } else {
+                                app.dm_new_message_error =
+                                    Some("Enter a valid recipient to start a chat.".to_owned());
+                            }
+                        }
+                    });
+                });
+            });
+        });
+    });
+
+    if ret.inner.clicked() {
+        app.clear_new_message_dialog();
+    }
+}
+
+fn parse_new_message_target(value: &str) -> Option<PublicKey> {
+    if let Ok(pubkey) = PublicKey::try_from_bech32_string(value, true) {
+        Some(pubkey)
+    } else if let Ok(pubkey) = PublicKey::try_from_hex_string(value, true) {
+        Some(pubkey)
+    } else if let Ok(profile) = nostr_types::Profile::try_from_bech32_string(value, true) {
+        Some(profile.pubkey)
+    } else {
+        None
+    }
 }
