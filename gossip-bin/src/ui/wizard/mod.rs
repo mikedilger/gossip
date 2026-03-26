@@ -23,8 +23,8 @@ use super::widgets::list_entry::OUTER_MARGIN_RIGHT;
 const CONTINUE_BTN_TEXT: &str = "Continue \u{25b6}";
 const BACK_BTN_TEXT: &str = "\u{25c0} Go Back";
 
-// Last updated: 2025-03-17
-static DEFAULT_RELAYS: [&str; 36] = [
+// Last updated: 2026-03-23
+static DEFAULT_RELAYS: [&str; 38] = [
     "wss://nostr.mom/",
     "wss://e.nos.lol/",
     "wss://relay.primal.net/",
@@ -59,6 +59,8 @@ static DEFAULT_RELAYS: [&str; 36] = [
     "wss://relay.artx.market/",
     "wss://orangepiller.org/",
     "wss://relay.nostr.net/",
+    "wss://nip17.com/",
+    "wss://nip17.tomdwyer.uk/",
     "wss://nostr.azzamo.net/",
     "wss://wheat.happytavern.co/",
 ];
@@ -303,6 +305,44 @@ fn complete_wizard(app: &mut GossipUi, ctx: &Context) {
         // Now go online (unless in offline mode, or we are shutting down)
         if *GLOBALS.read_runstate.borrow() != RunState::ShuttingDown {
             let _ = GLOBALS.write_runstate.send(RunState::Online);
+        }
+    }
+}
+
+pub(super) fn seed_default_relays() {
+    if !GLOBALS
+        .db()
+        .filter_relays(|relay| relay.has_any_usage_bit())
+        .unwrap_or_default()
+        .is_empty()
+    {
+        return;
+    }
+
+    const STARTER_OUTBOX_RELAYS: [&str; 3] = [
+        "wss://nostr.mom/",
+        "wss://e.nos.lol/",
+        "wss://relay.primal.net/",
+    ];
+    const STARTER_INBOX_RELAYS: [&str; 2] = ["wss://a.nos.lol/", "wss://relay.nos.social/"];
+    const STARTER_DISCOVER_RELAYS: [&str; 4] = [
+        "wss://purplepag.es/",
+        "wss://relay.nostr.band/",
+        "wss://offchain.pub/",
+        "wss://relay.damus.io/",
+    ];
+    const STARTER_DM_RELAYS: [&str; 2] = ["wss://nip17.com/", "wss://nip17.tomdwyer.uk/"];
+
+    seed_relay_bits(&STARTER_OUTBOX_RELAYS, Relay::OUTBOX | Relay::WRITE);
+    seed_relay_bits(&STARTER_INBOX_RELAYS, Relay::INBOX | Relay::READ);
+    seed_relay_bits(&STARTER_DISCOVER_RELAYS, Relay::DISCOVER);
+    seed_relay_bits(&STARTER_DM_RELAYS, Relay::DM);
+}
+
+fn seed_relay_bits(relays: &[&str], bits: u64) {
+    for relay_str in relays {
+        if let Ok(relay_url) = RelayUrl::try_from_str(relay_str) {
+            modify_relay(&relay_url, |relay| relay.set_usage_bits(bits));
         }
     }
 }
