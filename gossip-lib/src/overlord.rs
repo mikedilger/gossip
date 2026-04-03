@@ -2444,7 +2444,7 @@ impl Overlord {
         let mut note_search_results: Vec<Event> = Vec::new();
 
         // If a nostr: url, strip the 'nostr:' part
-        if text.len() >= 6 && &text[0..6] == "nostr:" {
+        if text.len() >= 6 && &text.as_bytes()[0..6] == b"nostr:" {
             text = text.split_off(6);
         }
 
