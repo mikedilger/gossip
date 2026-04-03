@@ -79,12 +79,14 @@ use nostr_types::RelayUrl;
 use nostr_types::{
     EventKind, FileMetadata, Id, Metadata, MilliSatoshi, Profile, PublicKey, UncheckedUrl, Url,
 };
+use serde::{Deserialize, Serialize};
 use widgets::ModalEntry;
 
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 use std::ops::DerefMut;
 use std::path::PathBuf;
+use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::rc::Rc;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
@@ -373,6 +375,19 @@ pub struct DraftData {
 
     // If this is an annotation
     pub is_annotate: bool,
+
+    // DM-only settings
+    pub use_nip17: bool,
+    pub send_on_enter: bool,
+    pub use_nip17_force: bool,
+    pub use_nip17_force_confirm: bool,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+struct DmDraftState {
+    use_nip17: bool,
+    send_on_enter: bool,
+    use_nip17_force: bool,
 }
 
 impl Default for DraftData {
@@ -401,6 +416,10 @@ impl Default for DraftData {
             tagging_search_results: Vec::new(),
 
             is_annotate: false,
+            use_nip17: false,
+            send_on_enter: false,
+            use_nip17_force: false,
+            use_nip17_force_confirm: false,
         }
     }
 }
@@ -425,6 +444,10 @@ impl DraftData {
         self.tagging_search_searched = None;
         self.tagging_search_results.clear();
         self.is_annotate = false;
+        self.use_nip17 = false;
+        self.send_on_enter = false;
+        self.use_nip17_force = false;
+        self.use_nip17_force_confirm = false;
     }
 }
 
@@ -519,6 +542,17 @@ struct GossipUi {
     previous_draft_data: DraftData,
     dm_draft_data: DraftData,
     dm_draft_data_target: Option<DmChannel>,
+    dm_draft_states: HashMap<String, DmDraftState>,
+    dm_draft_states_dirty: bool,
+    dm_draft_states_save_after: Option<Instant>,
+    dm_draft_states_save_rx: Option<Receiver<Result<(), String>>>,
+    dm_new_message: bool,
+    dm_new_message_search: String,
+    dm_new_message_searched: Option<String>,
+    dm_new_message_search_results: Vec<(String, PublicKey)>,
+    dm_new_message_search_selected: Option<usize>,
+    dm_new_message_address: String,
+    dm_new_message_error: Option<String>,
 
     // User entry: metadata
     editing_metadata: bool,
@@ -594,6 +628,7 @@ struct GossipUi {
 
 impl Drop for GossipUi {
     fn drop(&mut self) {
+        self.flush_dm_draft_states_save();
         self.password.zeroize();
         self.password2.zeroize();
         self.password3.zeroize();
@@ -713,6 +748,7 @@ impl GossipUi {
         // Apply current theme
         let theme = Theme::from_settings();
         theme::apply_theme(&theme, &cctx.egui_ctx);
+        let dm_draft_states = Self::load_dm_draft_states();
 
         // Let gossip-lib know the max texture side so it can resize things that are
         // too large.
@@ -800,6 +836,17 @@ impl GossipUi {
             previous_draft_data: DraftData::default(),
             dm_draft_data: DraftData::default(),
             dm_draft_data_target: None,
+            dm_draft_states,
+            dm_draft_states_dirty: false,
+            dm_draft_states_save_after: None,
+            dm_draft_states_save_rx: None,
+            dm_new_message: false,
+            dm_new_message_search: String::new(),
+            dm_new_message_searched: None,
+            dm_new_message_search_results: Vec::new(),
+            dm_new_message_search_selected: None,
+            dm_new_message_address: String::new(),
+            dm_new_message_error: None,
             editing_metadata: false,
             metadata: Metadata::new(),
             delegatee_tag_str: "".to_owned(),
@@ -2131,14 +2178,147 @@ impl GossipUi {
 
     fn reset_draft(&mut self) {
         if let Page::Feed(FeedKind::DmChat(_)) = &self.page {
+            let current_target = self.dm_draft_data_target.clone();
+            self.request_dm_draft_states_save();
             self.dm_draft_data.clear();
-            self.dm_draft_data_target = None;
+            if let Some(channel) = current_target.as_ref() {
+                self.load_dm_draft_state(channel);
+            }
+            self.dm_draft_data_target = current_target;
         } else {
             self.previous_draft_data = self.draft_data.clone();
             self.draft_data.clear();
             self.show_post_area = false;
             self.draft_needs_focus = false;
         }
+    }
+
+    fn save_dm_draft_state(&mut self) {
+        if let Some(channel) = self.dm_draft_data_target.clone() {
+            self.dm_draft_states.insert(
+                channel.unique_id(),
+                DmDraftState {
+                    use_nip17: self.dm_draft_data.use_nip17,
+                    send_on_enter: self.dm_draft_data.send_on_enter,
+                    use_nip17_force: self.dm_draft_data.use_nip17_force,
+                },
+            );
+        }
+    }
+
+    fn request_dm_draft_states_save(&mut self) {
+        self.save_dm_draft_state();
+        self.dm_draft_states_dirty = true;
+        self.dm_draft_states_save_after = Some(Instant::now() + Duration::from_millis(250));
+    }
+
+    fn flush_dm_draft_states_save(&mut self) {
+        if let Some(rx) = self.dm_draft_states_save_rx.take() {
+            match rx.recv() {
+                Ok(result) => {
+                    if let Err(e) = result {
+                        tracing::error!("Error saving DM draft states: {}", e);
+                    }
+                }
+                Err(_) => {
+                    tracing::error!("DM draft state saver disconnected unexpectedly");
+                }
+            }
+        }
+
+        self.save_dm_draft_state();
+        let json = serde_json::to_string(&self.dm_draft_states).unwrap_or_default();
+        if let Err(e) = GLOBALS.db().write_setting_dm_draft_states(&json, None) {
+            tracing::error!("Error saving DM draft states: {}", e);
+        }
+        self.dm_draft_states_dirty = false;
+        self.dm_draft_states_save_after = None;
+        self.dm_draft_states_save_rx = None;
+    }
+
+    fn load_dm_draft_state(&mut self, channel: &DmChannel) {
+        let state = self
+            .dm_draft_states
+            .get(&channel.unique_id())
+            .cloned()
+            .unwrap_or_else(|| DmDraftState {
+                use_nip17: channel.can_use_nip17(),
+                send_on_enter: false,
+                use_nip17_force: false,
+            });
+
+        self.dm_draft_data.use_nip17 = state.use_nip17;
+        self.dm_draft_data.send_on_enter = state.send_on_enter;
+        self.dm_draft_data.use_nip17_force = state.use_nip17_force;
+        self.dm_draft_data.use_nip17_force_confirm = false;
+    }
+
+    fn load_dm_draft_states() -> HashMap<String, DmDraftState> {
+        let json = GLOBALS.db().read_setting_dm_draft_states();
+        if json.is_empty() {
+            return HashMap::new();
+        }
+
+        serde_json::from_str(&json).unwrap_or_default()
+    }
+
+    fn poll_dm_draft_states_save(&mut self) {
+        if let Some(rx) = &self.dm_draft_states_save_rx {
+            match rx.try_recv() {
+                Ok(result) => {
+                    if let Err(e) = result {
+                        tracing::error!("Error saving DM draft states: {}", e);
+                    }
+                    self.dm_draft_states_save_rx = None;
+                    self.dm_draft_states_dirty = false;
+                    self.dm_draft_states_save_after = None;
+                }
+                Err(TryRecvError::Empty) => {}
+                Err(TryRecvError::Disconnected) => {
+                    tracing::error!("DM draft state saver disconnected unexpectedly");
+                    self.dm_draft_states_save_rx = None;
+                    self.dm_draft_states_dirty = true;
+                    self.dm_draft_states_save_after =
+                        Some(Instant::now() + Duration::from_millis(500));
+                }
+            }
+        }
+
+        if self.dm_draft_states_dirty
+            && self.dm_draft_states_save_rx.is_none()
+            && self
+                .dm_draft_states_save_after
+                .is_some_and(|when| Instant::now() >= when)
+        {
+            self.dm_draft_states_dirty = false;
+            self.dm_draft_states_save_after = None;
+
+            let states = self.dm_draft_states.clone();
+            let (tx, rx) = mpsc::channel();
+            self.dm_draft_states_save_rx = Some(rx);
+
+            GLOBALS.runtime.spawn_blocking(move || {
+                let result = (|| -> Result<(), String> {
+                    let json = serde_json::to_string(&states).map_err(|e| e.to_string())?;
+                    GLOBALS
+                        .db()
+                        .write_setting_dm_draft_states(&json, None)
+                        .map_err(|e| e.to_string())?;
+                    Ok(())
+                })();
+                let _ = tx.send(result);
+            });
+        }
+    }
+
+    fn clear_new_message_dialog(&mut self) {
+        self.dm_new_message = false;
+        self.dm_new_message_search.clear();
+        self.dm_new_message_searched = None;
+        self.dm_new_message_search_results.clear();
+        self.dm_new_message_search_selected = None;
+        self.dm_new_message_address.clear();
+        self.dm_new_message_error = None;
     }
 
     fn show_post_area_fn(&self) -> bool {
@@ -2223,6 +2403,7 @@ impl eframe::App for GossipUi {
         }
 
         self.frame_count += 1;
+        self.poll_dm_draft_states_save();
 
         // Enforce FPS limiting.
         // No amount of notifies or request_repaint()s can bypass this.
