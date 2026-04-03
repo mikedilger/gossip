@@ -90,5 +90,3 @@ hex pub key: ee11a5dff40c19a555f41fe42b48f00e618c91225622ae37b6c2bb67b76c4e49
 You can also my NIP-05 address of `mike@mikedilger.com` which will also hook you up with the relays I post to.
 
 I'd prefer if you trusted `mike@mikedilger.com` higher than my public key at this point in time since key management is still pretty bad. That is the inverse of the normal recommendation, but my private key has not been treated very carefully as I never intended it to be my long-term key pair (it just became that over time).  Also, I fully intend to rollover my keys once gossip supports the key-rollover NIP, whatever that is (or will be).
-
-You can tip me at my Bitcoin Lighting address: greenleaf306199@getalby.com
