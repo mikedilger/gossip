@@ -335,16 +335,24 @@ fn media_scale(show_full_width: bool, ui: &Ui, media_size: Vec2) -> Vec2 {
     };
 
     // determine maximum x and y sizes
-    let max_x = if ui_max.x > media_size.x {
+    let mut max_x = if ui_max.x > media_size.x {
         media_size.x
     } else {
         ui_max.x
     };
-    let max_y = if ui_max.y > media_size.y {
+    let mut max_y = if ui_max.y > media_size.y {
         media_size.y
     } else {
         ui_max.y
     };
+
+    // egui_glow maximum texture side is 8192
+    if max_x > 8192.0 {
+        max_x = 8192.0;
+    }
+    if max_y > 8192.0 {
+        max_y = 8192.0;
+    }
 
     // now determine if we are constrained by x or by y and
     // calculate the resulting size
@@ -359,6 +367,7 @@ fn media_scale(show_full_width: bool, ui: &Ui, media_size: Vec2) -> Vec2 {
     } else {
         max_y
     };
+
     size
 }
 
