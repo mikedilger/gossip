@@ -107,6 +107,9 @@ pub use media::{media_url_mimetype, Media, MediaLoadingResult};
 mod minion;
 
 mod misc;
+
+/// Namecoin NIP-05 resolution via ElectrumX
+pub mod namecoin;
 pub use misc::{Freshness, Private, ZapState};
 
 /// Rendering various names of users

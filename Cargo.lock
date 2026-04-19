@@ -2495,6 +2495,7 @@ dependencies = [
  "mime_guess",
  "normpath",
  "nostr-types",
+ "once_cell",
  "parking_lot",
  "paste",
  "rand 0.8.5",
@@ -2502,6 +2503,7 @@ dependencies = [
  "reqwest",
  "resvg 0.43.0",
  "rhai",
+ "rustls",
  "sdl2",
  "serde",
  "serde_json",
@@ -5371,6 +5373,7 @@ version = "0.23.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c0ebcbd2f03de0fc1122ad9bb24b127a5a6cd51d72604a3f3c50ac459762b6cc"
 dependencies = [
+ "log",
  "once_cell",
  "ring",
  "rustls-pki-types",
