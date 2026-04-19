@@ -40,6 +40,32 @@ pub async fn validate_nip05(person: Person) -> Result<(), Error> {
         }
     };
 
+    // Namecoin path: .bit domains are resolved on-chain instead of HTTPS.
+    if domain.ends_with(".bit") {
+        let valid = match crate::namecoin::NAMECOIN_RESOLVER
+            .verify_nip05(&nip05, person.pubkey)
+            .await
+        {
+            Ok(v) => v,
+            Err(e) => {
+                tracing::warn!(
+                    "Namecoin NIP-05 verification error for {}: {}",
+                    nip05,
+                    e
+                );
+                false
+            }
+        };
+        GLOBALS.people.upsert_nip05_validity(
+            &person.pubkey,
+            Some(nip05.clone()),
+            valid,
+            now.0 as u64,
+        )?;
+        GLOBALS.ui_invalidate_person(person.pubkey);
+        return Ok(());
+    }
+
     // Fetch NIP-05
     let nip05file = match fetch_nip05(&user, &domain).await {
         Ok(content) => content,
@@ -101,6 +127,29 @@ pub async fn get_and_follow_nip05(
 ) -> Result<(), Error> {
     // Split their DNS ID
     let (user, domain) = parse_nip05(&nip05)?;
+
+    // Namecoin path: .bit domains resolve on-chain.
+    if domain.ends_with(".bit") {
+        let resolved = crate::namecoin::NAMECOIN_RESOLVER
+            .resolve(&nip05)
+            .await
+            .map_err(|e| -> Error {
+                ErrorKind::General(format!("Namecoin resolve: {e}")).into()
+            })?;
+        let pubkey = resolved.pubkey;
+
+        GLOBALS.people.upsert_nip05_validity(
+            &pubkey,
+            Some(nip05.clone()),
+            true,
+            Unixtime::now().0 as u64,
+        )?;
+
+        GLOBALS.people.follow(&pubkey, true, list, private)?;
+
+        tracing::info!("Followed {} (Namecoin)", &nip05);
+        return Ok(());
+    }
 
     // Fetch NIP-05
     let nip05file = fetch_nip05(&user, &domain).await?;
