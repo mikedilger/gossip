@@ -556,6 +556,11 @@ struct GossipUi {
     search_note_height: HashMap<Id, f32>,
     search_person_height: HashMap<PublicKey, f32>,
 
+    // Namecoin (.bit / d/ / id/) search resolution state
+    pub(super) namecoin_search_state:
+        std::sync::Arc<std::sync::RwLock<search::NamecoinSearchState>>,
+    pub(super) namecoin_last_query: Option<String>,
+
     // Collapsed threads
     collapsed: Vec<Id>,
 
@@ -828,6 +833,10 @@ impl GossipUi {
             nostr_connect_relay2: "".to_owned(),
             search_note_height: HashMap::new(),
             search_person_height: HashMap::new(),
+            namecoin_search_state: std::sync::Arc::new(std::sync::RwLock::new(
+                search::NamecoinSearchState::Idle,
+            )),
+            namecoin_last_query: None,
             collapsed: vec![],
             opened: HashSet::new(),
             visible_note_ids: vec![],
