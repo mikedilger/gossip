@@ -238,23 +238,69 @@ fn rpc_call(
         .ok_or_else(|| ElectrumxError::RpcError("Missing result field".to_string()))
 }
 
-/// Connect to an ElectrumX server via TLS.
+/// Read the SOCKS5 proxy setting. Empty string = no proxy (direct TCP).
+///
+/// Uses `catch_unwind` because `GLOBALS.db()` panics if storage isn't initialized
+/// (e.g. in unit tests or very early boot). Empty string falls back to direct TCP,
+/// matching the pre-SOCKS5 behaviour.
+fn read_socks5_proxy_setting() -> String {
+    match std::panic::catch_unwind(|| {
+        crate::globals::GLOBALS
+            .db()
+            .read_setting_namecoin_socks5_proxy()
+    }) {
+        Ok(s) => s,
+        Err(_) => String::new(),
+    }
+}
+
+/// Connect to an ElectrumX server via TLS, optionally through a SOCKS5 proxy.
 fn connect_tls(
     server: &ElectrumxServer,
 ) -> Result<rustls::StreamOwned<rustls::ClientConnection, TcpStream>, ElectrumxError> {
     use std::net::ToSocketAddrs;
 
-    let addr_str = format!("{}:{}", server.host, server.port);
-    let addrs: Vec<_> = addr_str
-        .to_socket_addrs()
-        .map_err(ElectrumxError::Io)?
-        .collect();
+    let proxy = read_socks5_proxy_setting();
 
-    let first = addrs
-        .first()
-        .ok_or_else(|| ElectrumxError::Io(std::io::Error::other("DNS resolution failed")))?;
+    if !proxy.is_empty() {
+        tracing::info!(
+            "electrumx: dialing {}:{} via SOCKS5 proxy {}",
+            server.host,
+            server.port,
+            proxy
+        );
+    } else {
+        tracing::info!("electrumx: dialing {}:{} direct", server.host, server.port);
+    }
 
-    let tcp = TcpStream::connect_timeout(first, Duration::from_secs(10))?;
+    let tcp = if proxy.is_empty() {
+        let addr_str = format!("{}:{}", server.host, server.port);
+        let addrs: Vec<_> = addr_str
+            .to_socket_addrs()
+            .map_err(ElectrumxError::Io)?
+            .collect();
+
+        let first = addrs.first().ok_or_else(|| {
+            ElectrumxError::Io(std::io::Error::other("DNS resolution failed"))
+        })?;
+
+        TcpStream::connect_timeout(first, Duration::from_secs(10))?
+    } else {
+        // Route through SOCKS5. DNS resolution happens at the proxy, which is
+        // important for Tor (prevents local DNS leaks).
+        let target = (server.host.as_str(), server.port);
+        let socks_stream = socks::Socks5Stream::connect(proxy.as_str(), target).map_err(|e| {
+            tracing::warn!(
+                "electrumx: SOCKS5 dial to {} via {} failed: {}",
+                server.host,
+                proxy,
+                e
+            );
+            ElectrumxError::Io(e)
+        })?;
+        socks_stream.into_inner()
+    };
+
     tcp.set_read_timeout(Some(Duration::from_secs(15)))?;
     tcp.set_write_timeout(Some(Duration::from_secs(10)))?;
 

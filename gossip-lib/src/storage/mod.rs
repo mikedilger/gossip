@@ -916,6 +916,12 @@ impl Storage {
     );
     def_setting!(blossom_servers, b"blossom_servers", String, "".to_string());
     def_setting!(undo_send_seconds, b"undo_send_seconds", u64, 10);
+    def_setting!(
+        namecoin_socks5_proxy,
+        b"namecoin_socks5_proxy",
+        String,
+        "".to_owned()
+    );
 
     // -------------------------------------------------------------------
 
