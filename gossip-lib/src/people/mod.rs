@@ -369,6 +369,25 @@ impl People {
         rounded: bool,
         avatar_size: u32,
     ) -> Option<RgbaImage> {
+        /// Shared avatar bytes processor
+        fn load_image_bytes(
+            image_bytes: &[u8],
+            avatar_size: u32,
+            rounded: bool,
+        ) -> Result<image::ImageBuffer<image::Rgba<u8>, Vec<u8>>, Error> {
+            crate::media::load_image_bytes(
+                image_bytes,
+                true, // crop square
+                avatar_size * 3 // 3x feed size, 1x people page size
+            * GLOBALS
+                .pixels_per_point_times_100
+                .load(Ordering::Relaxed)
+                    / 100, // default size,
+                true, // force to that size
+                rounded,
+            )
+        }
+
         // If we have it, hand it over (we won't need a copy anymore)
         if let Some(th) = self.avatars_temp.remove(pubkey) {
             return Some(th.1);
@@ -384,9 +403,18 @@ impl People {
             return None; // will recover after processing completes
         }
 
-        // Do not fetch if disabled
+        // Do not fetch if disabled, use locally generated identicon instead
         if !GLOBALS.db().read_setting_load_avatars() {
-            return None; // can recover if the setting is switched
+            return Some(
+                load_image_bytes(
+                    &identicon_rs::Identicon::new(&pubkey.as_hex_string())
+                        .export_png_data()
+                        .unwrap(),
+                    avatar_size,
+                    rounded,
+                )
+                .unwrap(),
+            );
         }
 
         // Get the person this is about
@@ -423,18 +451,7 @@ impl People {
                 // Finish this later (spawn)
                 let apubkey = *pubkey;
                 tokio::spawn(Box::pin(async move {
-                    let size = avatar_size * 3 // 3x feed size, 1x people page size
-                        * GLOBALS
-                            .pixels_per_point_times_100
-                            .load(Ordering::Relaxed)
-                        / 100;
-
-                    match crate::media::load_image_bytes(
-                        &bytes, true, // crop square
-                        size, // default size,
-                        true, // force to that size
-                        rounded,
-                    ) {
+                    match load_image_bytes(&bytes, avatar_size, rounded) {
                         Ok(color_image) => {
                             GLOBALS.people.avatars_temp.insert(apubkey, color_image);
                         }
