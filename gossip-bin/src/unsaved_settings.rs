@@ -39,6 +39,7 @@ pub struct UnsavedSettings {
     // Network settings
     pub offline: bool,
     pub load_avatars: bool,
+    pub enable_identicon: bool,
     pub load_media: bool,
     pub check_nip05: bool,
     pub automatically_fetch_metadata: bool,
@@ -142,6 +143,7 @@ impl Default for UnsavedSettings {
             login_at_startup: default_setting!(login_at_startup),
             offline: default_setting!(offline),
             load_avatars: default_setting!(load_avatars),
+            enable_identicon: default_setting!(enable_identicon),
             load_media: default_setting!(load_media),
             check_nip05: default_setting!(check_nip05),
             automatically_fetch_metadata: default_setting!(automatically_fetch_metadata),
@@ -241,6 +243,7 @@ impl UnsavedSettings {
             login_at_startup: load_setting!(login_at_startup),
             offline: load_setting!(offline),
             load_avatars: load_setting!(load_avatars),
+            enable_identicon: load_setting!(enable_identicon),
             load_media: load_setting!(load_media),
             check_nip05: load_setting!(check_nip05),
             automatically_fetch_metadata: load_setting!(automatically_fetch_metadata),
@@ -332,6 +335,7 @@ impl UnsavedSettings {
         save_setting!(login_at_startup, self, txn);
         save_setting!(offline, self, txn);
         save_setting!(load_avatars, self, txn);
+        save_setting!(enable_identicon, self, txn);
         save_setting!(load_media, self, txn);
         save_setting!(check_nip05, self, txn);
         save_setting!(automatically_fetch_metadata, self, txn);

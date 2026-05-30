@@ -403,18 +403,22 @@ impl People {
             return None; // will recover after processing completes
         }
 
-        // Do not fetch if disabled, use locally generated identicon instead
+        // Do not fetch if disabled, use locally generated identicon if enabled
         if !GLOBALS.db().read_setting_load_avatars() {
-            return Some(
-                load_image_bytes(
-                    &identicon_rs::Identicon::new(&pubkey.as_hex_string())
-                        .export_png_data()
-                        .unwrap(),
-                    avatar_size,
-                    rounded,
+            return if GLOBALS.db().read_setting_enable_identicon() {
+                Some(
+                    load_image_bytes(
+                        &identicon_rs::Identicon::new(&pubkey.as_hex_string())
+                            .export_png_data()
+                            .unwrap(),
+                        avatar_size,
+                        rounded,
+                    )
+                    .unwrap(),
                 )
-                .unwrap(),
-            );
+            } else {
+                None
+            };
         }
 
         // Get the person this is about

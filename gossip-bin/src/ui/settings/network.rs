@@ -17,13 +17,24 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     });
 
     ui.horizontal(|ui| {
+        ui.checkbox(&mut app.unsaved_settings.load_media, "Fetch Media").on_hover_text("If disabled, no new media will be fetched, but cached media will still display. Takes effect on save.");
+        reset_button!(app, ui, load_media);
+    });
+
+    ui.horizontal(|ui| {
         ui.checkbox(&mut app.unsaved_settings.load_avatars, "Fetch Avatars").on_hover_text("If disabled, avatars will not be fetched, but cached avatars will still display. Takes effect on save.");
         reset_button!(app, ui, load_avatars);
     });
 
     ui.horizontal(|ui| {
-        ui.checkbox(&mut app.unsaved_settings.load_media, "Fetch Media").on_hover_text("If disabled, no new media will be fetched, but cached media will still display. Takes effect on save.");
-        reset_button!(app, ui, load_media);
+        ui.checkbox(
+            &mut app.unsaved_settings.enable_identicon,
+            "Enable Identicon",
+        )
+        .on_hover_text(
+            "If enabled (and Fetch Avatars disabled) generate local identicon. Takes effect on save.",
+        );
+        reset_button!(app, ui, enable_identicon);
     });
 
     ui.horizontal(|ui| {

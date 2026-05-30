@@ -667,6 +667,7 @@ impl Storage {
     def_setting!(login_at_startup, b"login_at_startup", bool, true);
     def_setting!(offline, b"offline", bool, false);
     def_setting!(load_avatars, b"load_avatars", bool, true);
+    def_setting!(enable_identicon, b"enable_identicon", bool, true);
     def_setting!(load_media, b"load_media", bool, true);
     def_setting!(check_nip05, b"check_nip05", bool, true);
     def_setting!(wgpu_renderer, b"wgpu_renderer", bool, false);
