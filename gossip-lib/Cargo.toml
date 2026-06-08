@@ -81,13 +81,16 @@ textnonce = "1"
 tiny-skia = "0.11"
 tokio = { workspace = true }
 tracing = { workspace = true }
-tokio-tungstenite = { version = "0.23", default-features = false, features = [ "connect", "handshake" ] }
+tokio-tungstenite = { version = "0.23", default-features = false, features = [ "connect", "handshake", "native-tls" ] }
 tungstenite = { version = "0.23", default-features = false }
 url = { workspace = true }
 usvg = "0.43"
 watcher = { git = "https://github.com/mikedilger/watcher", rev = "a4e7e70c396bca4630aa0ba0a15d54ea103cb0e9" }
 zeroize = { workspace = true }
 identicon-rs = { version = "7.2", features = ["png"] }
+tokio-socks = "0.5.3"
+native-tls = "0.2.18"
+tokio-native-tls = "0.3.1"
 
 [target.'cfg(windows)'.dependencies]
 normpath = "1.1"

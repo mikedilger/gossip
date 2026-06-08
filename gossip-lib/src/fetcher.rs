@@ -412,13 +412,13 @@ impl Fetcher {
             std::time::Duration::new(GLOBALS.db().read_setting_fetcher_connect_timeout_sec(), 0);
         let timeout = std::time::Duration::new(GLOBALS.db().read_setting_fetcher_timeout_sec(), 0);
 
-        let proxy_url = GLOBALS.db().read_setting_proxy_url();
+        let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
 
         *self.client.write().unwrap() = Some(
-            if proxy_url.is_empty() {
+            if socks5_proxy_address.is_empty() {
                 Client::builder()
             } else {
-                Client::builder().proxy(Proxy::all(proxy_url)?)
+                Client::builder().proxy(Proxy::all(format!("socks5h://{socks5_proxy_address}"))?)
             }
             .gzip(true)
             .brotli(true)

@@ -87,7 +87,7 @@ pub struct Minion {
     from_overlord: Receiver<ToMinionMessage>,
     dbrelay: Relay,
     nip11: Option<RelayInformationDocument>,
-    stream: Option<WebSocketStream<MaybeTlsStream<TcpStream>>>,
+    stream: Option<WebSocketStream<MaybeTlsStream<tokio_socks::tcp::Socks5Stream<TcpStream>>>>,
     subscription_map: SubscriptionMap,
     next_events_subscription_id: u32,
     posting_jobs: HashMap<u64, Vec<Id>>,
@@ -241,7 +241,7 @@ impl Minion {
                     "Sec-WebSocket-Key",
                     base64::engine::general_purpose::STANDARD.encode(key),
                 )
-                .uri(uri)
+                .uri(&uri)
                 .body(())?;
 
             let config: WebSocketConfig = WebSocketConfig {
@@ -267,10 +267,58 @@ impl Minion {
                 GLOBALS.db().read_setting_websocket_connect_timeout_sec()
             };
 
-            let connect_future = tokio::time::timeout(
-                std::time::Duration::new(connect_timeout_secs, 0),
-                tokio_tungstenite::connect_async_with_config(req, Some(config), false),
-            );
+            let connect_future =
+                tokio::time::timeout(std::time::Duration::new(connect_timeout_secs, 0), async {
+                    let is_tls = uri.scheme().is_some_and(|s| s == "wss");
+
+                    let proxy_addr = GLOBALS
+                        .db()
+                        .read_setting_socks5_proxy_address()
+                        .parse::<std::net::SocketAddr>()
+                        .unwrap();
+                    let port =
+                        uri.port()
+                            .map(|p| p.as_u16())
+                            .unwrap_or(if is_tls { 443 } else { 80 });
+
+                    let socks_stream =
+                        tokio_socks::tcp::Socks5Stream::connect(proxy_addr, (host, port))
+                            .await
+                            .map_err(|e| {
+                                tokio_tungstenite::tungstenite::Error::Io(std::io::Error::new(
+                                    std::io::ErrorKind::Other,
+                                    e,
+                                ))
+                            })?;
+
+                    let maybe_tls_stream = if is_tls {
+                        use tokio_tungstenite::tungstenite::Error;
+
+                        let tls_stream = tokio_native_tls::TlsConnector::from(
+                            native_tls::TlsConnector::new().map_err(|e| {
+                                Error::Io(std::io::Error::new(std::io::ErrorKind::Other, e))
+                            })?,
+                        )
+                        .connect(&host, socks_stream)
+                        .await
+                        .map_err(|e| {
+                            Error::Io(std::io::Error::new(std::io::ErrorKind::Other, e))
+                        })?;
+
+                        tokio_tungstenite::MaybeTlsStream::NativeTls(tls_stream)
+                    } else {
+                        tokio_tungstenite::MaybeTlsStream::Plain(socks_stream)
+                    };
+
+                    let (ws_stream, response) = tokio_tungstenite::client_async_with_config(
+                        req,
+                        maybe_tls_stream,
+                        Some(config),
+                    )
+                    .await?;
+
+                    Ok::<_, tokio_tungstenite::tungstenite::Error>((ws_stream, response))
+                });
 
             let websocket_stream;
             let response;
@@ -383,12 +431,12 @@ impl Minion {
             None => Some(Scheme::HTTPS),
         };
         let uri = http::Uri::from_parts(parts)?;
-        let proxy_url = GLOBALS.db().read_setting_proxy_url();
+        let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
 
-        let request_nip11_future = if proxy_url.is_empty() {
+        let request_nip11_future = if socks5_proxy_address.is_empty() {
             Client::builder()
         } else {
-            Client::builder().proxy(Proxy::all(proxy_url)?)
+            Client::builder().proxy(Proxy::all(format!("socks5h://{socks5_proxy_address}"))?)
         }
         .timeout(fetcher_timeout)
         .redirect(Policy::none())

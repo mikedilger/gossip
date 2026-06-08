@@ -689,7 +689,12 @@ impl Storage {
         bool,
         false
     );
-    def_setting!(proxy_url, b"proxy_url", String, "".to_string());
+    def_setting!(
+        socks5_proxy_address,
+        b"socks5_proxy_address",
+        String,
+        "".to_string()
+    );
     def_setting!(num_relays_per_person, b"num_relays_per_person", u8, 2);
     def_setting!(max_relays, b"max_relays", u8, 50);
     def_setting!(num_relays_for_counting, b"num_relays_for_counting", u8, 15);

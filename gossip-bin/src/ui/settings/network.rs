@@ -64,9 +64,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     });
 
     ui.horizontal(|ui| {
-        ui.label("Proxy URL for outgoing connections:");
-        ui.text_edit_singleline(&mut app.unsaved_settings.proxy_url);
-        reset_button!(app, ui, proxy_url);
+        ui.label("SOCKS5 proxy (host:port) for outgoing connections:");
+        ui.text_edit_singleline(&mut app.unsaved_settings.socks5_proxy_address);
+        reset_button!(app, ui, socks5_proxy_address);
     });
 
     ui.add_space(10.0);

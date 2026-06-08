@@ -3998,11 +3998,11 @@ impl Overlord {
 
         *GLOBALS.current_zap.write() = ZapState::CheckingLnurl(id, target_pubkey, lnurl.clone());
 
-        let proxy_url = GLOBALS.db().read_setting_proxy_url();
-        let client = if proxy_url.is_empty() {
+        let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
+        let client = if socks5_proxy_address.is_empty() {
             Client::builder()
         } else {
-            Client::builder().proxy(Proxy::all(proxy_url)?)
+            Client::builder().proxy(Proxy::all(format!("socks5h://{socks5_proxy_address}"))?)
         }
         .timeout(std::time::Duration::new(15, 0))
         .gzip(true)
@@ -4186,12 +4186,12 @@ impl Overlord {
 
         let serialized_event = serde_json::to_string(&event)?;
 
-        let proxy_url = GLOBALS.db().read_setting_proxy_url();
+        let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
 
-        let client = if proxy_url.is_empty() {
+        let client = if socks5_proxy_address.is_empty() {
             Client::builder()
         } else {
-            Client::builder().proxy(Proxy::all(proxy_url)?)
+            Client::builder().proxy(Proxy::all(format!("socks5h://{socks5_proxy_address}"))?)
         }
         .timeout(std::time::Duration::new(15, 0))
         .gzip(true)

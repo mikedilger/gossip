@@ -97,13 +97,13 @@ impl Blossom {
         let connect_timeout =
             Duration::new(GLOBALS.db().read_setting_fetcher_connect_timeout_sec(), 0);
         let timeout = Duration::new(GLOBALS.db().read_setting_fetcher_timeout_sec(), 0);
-        let proxy_url = GLOBALS.db().read_setting_proxy_url();
+        let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
 
         Ok(Blossom {
-            client: if proxy_url.is_empty() {
+            client: if socks5_proxy_address.is_empty() {
                 Client::builder()
             } else {
-                Client::builder().proxy(Proxy::all(proxy_url)?)
+                Client::builder().proxy(Proxy::all(format!("socks5h://{socks5_proxy_address}"))?)
             }
             .gzip(false)
             .brotli(false)
