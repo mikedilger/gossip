@@ -333,9 +333,15 @@ impl Minion {
 
                             MaybeTlsStream::Rustls(
                                 tokio_rustls::TlsConnector::from(std::sync::Arc::new(
-                                    tokio_rustls::rustls::ClientConfig::builder()
-                                        .with_root_certificates(root_cert_store)
-                                        .with_no_client_auth(),
+                                    tokio_rustls::rustls::ClientConfig::builder_with_provider(
+                                        std::sync::Arc::new(
+                                            tokio_rustls::rustls::crypto::ring::default_provider(),
+                                        ),
+                                    )
+                                    .with_safe_default_protocol_versions()
+                                    .map_err(|e| Error::Io(E::new(Other, e)))?
+                                    .with_root_certificates(root_cert_store)
+                                    .with_no_client_auth(),
                                 ))
                                 .connect(
                                     rustls_pki_types::ServerName::try_from(host)
