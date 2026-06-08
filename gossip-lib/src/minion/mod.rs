@@ -269,6 +269,8 @@ impl Minion {
 
             let connect_future =
                 tokio::time::timeout(std::time::Duration::new(connect_timeout_secs, 0), async {
+                    use tokio_tungstenite::tungstenite::Error;
+
                     let is_tls = uri.scheme().is_some_and(|s| s == "wss");
 
                     let proxy_addr = GLOBALS
@@ -276,6 +278,7 @@ impl Minion {
                         .read_setting_socks5_proxy_address()
                         .parse::<std::net::SocketAddr>()
                         .unwrap();
+
                     let port =
                         uri.port()
                             .map(|p| p.as_u16())
@@ -292,12 +295,14 @@ impl Minion {
                             })?;
 
                     let maybe_tls_stream = if is_tls {
-                        use std::io::{Error as E, ErrorKind::Other};
-                        use tokio_tungstenite::tungstenite::Error;
+                        use std::io::{
+                            Error as E,
+                            ErrorKind::{InvalidInput, Other},
+                        };
 
                         #[cfg(feature = "native-tls")]
                         {
-                            tokio_tungstenite::MaybeTlsStream::NativeTls(
+                            MaybeTlsStream::NativeTls(
                                 tokio_native_tls::TlsConnector::from(
                                     tokio_native_tls::native_tls::TlsConnector::new()
                                         .map_err(|e| Error::Io(E::new(Other, e)))?,
@@ -307,24 +312,43 @@ impl Minion {
                                 .map_err(|e| Error::Io(E::new(Other, e)))?,
                             )
                         }
-                        #[cfg(all(
-                            feature = "rustls-tls",
-                            not(feature = "native-tls"),
-                            not(feature = "rustls-tls-native")
-                        ))]
+                        #[cfg(not(feature = "native-tls"))]
                         {
-                            todo!() // tokio_tungstenite::MaybeTlsStream::Rustls(tls_stream)
-                        }
-                        #[cfg(all(
-                            feature = "rustls-tls-native",
-                            not(feature = "native-tls"),
-                            not(feature = "rustls-tls")
-                        ))]
-                        {
-                            todo!()
+                            let mut root_cert_store = tokio_rustls::rustls::RootCertStore::empty();
+
+                            #[cfg(feature = "rustls-tls")]
+                            {
+                                root_cert_store
+                                    .extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+                            }
+
+                            #[cfg(feature = "rustls-tls-native")]
+                            {
+                                for cert in rustls_native_certs::load_native_certs().certs {
+                                    root_cert_store
+                                        .add(cert)
+                                        .map_err(|e| Error::Io(E::new(Other, e)))?;
+                                }
+                            }
+
+                            MaybeTlsStream::Rustls(
+                                tokio_rustls::TlsConnector::from(std::sync::Arc::new(
+                                    tokio_rustls::rustls::ClientConfig::builder()
+                                        .with_root_certificates(root_cert_store)
+                                        .with_no_client_auth(),
+                                ))
+                                .connect(
+                                    rustls_pki_types::ServerName::try_from(host)
+                                        .map_err(|e| Error::Io(E::new(InvalidInput, e)))?
+                                        .to_owned(),
+                                    socks_stream,
+                                )
+                                .await
+                                .map_err(|e| Error::Io(E::new(Other, e)))?,
+                            )
                         }
                     } else {
-                        tokio_tungstenite::MaybeTlsStream::Plain(socks_stream)
+                        MaybeTlsStream::Plain(socks_stream)
                     };
 
                     let (ws_stream, response) = tokio_tungstenite::client_async_with_config(
@@ -334,7 +358,7 @@ impl Minion {
                     )
                     .await?;
 
-                    Ok::<_, tokio_tungstenite::tungstenite::Error>((ws_stream, response))
+                    Ok::<_, Error>((ws_stream, response))
                 });
 
             let websocket_stream;

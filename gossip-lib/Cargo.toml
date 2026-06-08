@@ -9,9 +9,7 @@ homepage = "https://github.com/mikedilger/gossip"
 edition = "2021"
 
 [features]
-# https://github.com/mikedilger/gossip/pull/1029
-# default = ["rustls-tls-native"]
-default = ["native-tls"]
+default = ["rustls-tls-native"]
 
 # Include font for Chinese, Japanese and Korean characters
 lang-cjk = []
@@ -27,6 +25,9 @@ native-tls = [
 
 # Use Rust TLS code with WebPKI compiled-in root certs
 rustls-tls = [
+  "dep:rustls-pki-types",
+  "dep:tokio-rustls",
+  "dep:webpki-roots",
   "nostr-types/rustls-tls",
   "reqwest/rustls-tls-webpki-roots",
   "tungstenite/rustls-tls-webpki-roots",
@@ -35,6 +36,9 @@ rustls-tls = [
 
 # Use Rust TLS  code with native root certs
 rustls-tls-native = [
+  "dep:rustls-native-certs",
+  "dep:rustls-pki-types",
+  "dep:tokio-rustls",
   "nostr-types/rustls-tls-native",
   "reqwest/rustls-tls-native-roots",
   "tungstenite/rustls-tls-native-roots",
@@ -93,6 +97,11 @@ zeroize = { workspace = true }
 identicon-rs = { version = "7.2", features = ["png"] }
 tokio-socks = "0.5.3"
 tokio-native-tls = { version = "0.3.1", optional = true }
+
+tokio-rustls = { version = "0.26.4", optional = true }
+rustls-pki-types = { version = "1.14.1", optional = true }
+rustls-native-certs = { version = "0.8.4", optional = true }
+webpki-roots = { version = "1.0.7", optional = true }
 
 [target.'cfg(windows)'.dependencies]
 normpath = "1.1"
