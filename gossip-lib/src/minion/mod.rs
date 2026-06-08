@@ -292,20 +292,37 @@ impl Minion {
                             })?;
 
                     let maybe_tls_stream = if is_tls {
+                        use std::io::{Error as E, ErrorKind::Other};
                         use tokio_tungstenite::tungstenite::Error;
 
-                        let tls_stream = tokio_native_tls::TlsConnector::from(
-                            native_tls::TlsConnector::new().map_err(|e| {
-                                Error::Io(std::io::Error::new(std::io::ErrorKind::Other, e))
-                            })?,
-                        )
-                        .connect(&host, socks_stream)
-                        .await
-                        .map_err(|e| {
-                            Error::Io(std::io::Error::new(std::io::ErrorKind::Other, e))
-                        })?;
-
-                        tokio_tungstenite::MaybeTlsStream::NativeTls(tls_stream)
+                        #[cfg(feature = "native-tls")]
+                        {
+                            tokio_tungstenite::MaybeTlsStream::NativeTls(
+                                tokio_native_tls::TlsConnector::from(
+                                    native_tls::TlsConnector::new()
+                                        .map_err(|e| Error::Io(E::new(Other, e)))?,
+                                )
+                                .connect(&host, socks_stream)
+                                .await
+                                .map_err(|e| Error::Io(E::new(Other, e)))?,
+                            )
+                        }
+                        #[cfg(all(
+                            feature = "rustls-tls",
+                            not(feature = "native-tls"),
+                            not(feature = "rustls-tls-native")
+                        ))]
+                        {
+                            todo!() // tokio_tungstenite::MaybeTlsStream::Rustls(tls_stream)
+                        }
+                        #[cfg(all(
+                            feature = "rustls-tls-native",
+                            not(feature = "native-tls"),
+                            not(feature = "rustls-tls")
+                        ))]
+                        {
+                            todo!()
+                        }
                     } else {
                         tokio_tungstenite::MaybeTlsStream::Plain(socks_stream)
                     };
