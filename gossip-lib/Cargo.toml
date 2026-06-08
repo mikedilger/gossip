@@ -18,7 +18,6 @@ lang-cjk = []
 
 # Use Native TLS code and native root certs
 native-tls = [
-  "dep:native-tls",
   "nostr-types/native-tls",
   "reqwest/native-tls",
   "tokio-native-tls",
@@ -94,7 +93,6 @@ zeroize = { workspace = true }
 identicon-rs = { version = "7.2", features = ["png"] }
 tokio-socks = "0.5.3"
 tokio-native-tls = { version = "0.3.1", optional = true }
-native-tls = { version = "0.2.18", optional = true }
 
 [target.'cfg(windows)'.dependencies]
 normpath = "1.1"

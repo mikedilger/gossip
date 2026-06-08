@@ -299,7 +299,7 @@ impl Minion {
                         {
                             tokio_tungstenite::MaybeTlsStream::NativeTls(
                                 tokio_native_tls::TlsConnector::from(
-                                    native_tls::TlsConnector::new()
+                                    tokio_native_tls::native_tls::TlsConnector::new()
                                         .map_err(|e| Error::Io(E::new(Other, e)))?,
                                 )
                                 .connect(&host, socks_stream)

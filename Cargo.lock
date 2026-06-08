@@ -2527,7 +2527,6 @@ dependencies = [
  "memmap2 0.9.10",
  "mime",
  "mime_guess",
- "native-tls",
  "normpath",
  "nostr-types",
  "parking_lot",
