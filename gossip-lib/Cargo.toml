@@ -96,6 +96,7 @@ watcher = { git = "https://github.com/mikedilger/watcher", rev = "a4e7e70c396bca
 zeroize = { workspace = true }
 identicon-rs = { version = "7.2", features = ["png"] }
 
+# SOCKS5 only features #218 (https://github.com/mikedilger/gossip/pull/1029)
 tokio-socks = "0.5"
 tokio-native-tls = { version = "0.3", optional = true }
 
