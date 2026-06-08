@@ -19,7 +19,7 @@ use nostr_types::{
     ClientMessage, EventKind, Filter, Id, KeySigner, NAddr, PreEvent, PublicKey,
     RelayInformationDocument, RelayUrl, Signer, Tag, Unixtime,
 };
-use reqwest::Response;
+use reqwest::{redirect::Policy, Client, Proxy, Response};
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::Ordering;
@@ -383,17 +383,22 @@ impl Minion {
             None => Some(Scheme::HTTPS),
         };
         let uri = http::Uri::from_parts(parts)?;
+        let proxy_url = GLOBALS.db().read_setting_proxy_url();
 
-        let request_nip11_future = reqwest::Client::builder()
-            .timeout(fetcher_timeout)
-            .redirect(reqwest::redirect::Policy::none())
-            .gzip(true)
-            .brotli(true)
-            .deflate(true)
-            .build()?
-            .get(format!("{}", uri))
-            .header("Accept", "application/nostr+json")
-            .send();
+        let request_nip11_future = if proxy_url.is_empty() {
+            Client::builder()
+        } else {
+            Client::builder().proxy(Proxy::all(proxy_url)?)
+        }
+        .timeout(fetcher_timeout)
+        .redirect(Policy::none())
+        .gzip(true)
+        .brotli(true)
+        .deflate(true)
+        .build()?
+        .get(format!("{}", uri))
+        .header("Accept", "application/nostr+json")
+        .send();
 
         let response;
         tokio::select! {

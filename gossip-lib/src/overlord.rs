@@ -28,6 +28,7 @@ use nostr_types::{
     NAddr, NostrBech32, ParsedTag, PayRequestData, PreEvent, PrivateKey, Profile, PublicKey,
     RelayUrl, Tag, UncheckedUrl, Unixtime, Url,
 };
+use reqwest::{Client, Proxy};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
@@ -3427,15 +3428,13 @@ impl Overlord {
 
             tracing::debug!(target: "client", "post_event_and_wait_for_result...");
 
-            let lockable = GLOBALS.identity.inner_lockable()
+            let lockable = GLOBALS
+                .identity
+                .inner_lockable()
                 .ok_or(Error::from("identity not available for relay test"))?;
 
             let posted_outbox = match conn
-                .post_event_and_wait_for_result(
-                    outbox_event.clone(),
-                    timeout,
-                    Some(lockable),
-                )
+                .post_event_and_wait_for_result(outbox_event.clone(), timeout, Some(lockable))
                 .await
             {
                 Ok((true, _)) => RelayTestResult::Pass,
@@ -3524,15 +3523,13 @@ impl Overlord {
         let fetched_inbox = {
             tracing::debug!(target: "client", "Testing posting to the outbox as ourselves");
 
-            let lockable = GLOBALS.identity.inner_lockable()
+            let lockable = GLOBALS
+                .identity
+                .inner_lockable()
                 .ok_or(Error::from("identity not available for relay test"))?;
 
             match conn
-                .subscribe_and_wait_for_events(
-                    inbox_filter.clone(),
-                    timeout,
-                    Some(lockable),
-                )
+                .subscribe_and_wait_for_events(inbox_filter.clone(), timeout, Some(lockable))
                 .await
             {
                 Ok(events) => {
@@ -4001,12 +3998,17 @@ impl Overlord {
 
         *GLOBALS.current_zap.write() = ZapState::CheckingLnurl(id, target_pubkey, lnurl.clone());
 
-        let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::new(15, 0))
-            .gzip(true)
-            .brotli(true)
-            .deflate(true)
-            .build()?;
+        let proxy_url = GLOBALS.db().read_setting_proxy_url();
+        let client = if proxy_url.is_empty() {
+            Client::builder()
+        } else {
+            Client::builder().proxy(Proxy::all(proxy_url)?)
+        }
+        .timeout(std::time::Duration::new(15, 0))
+        .gzip(true)
+        .brotli(true)
+        .deflate(true)
+        .build()?;
 
         // Convert the lnurl UncheckedUrl to a Url
         let url = nostr_types::Url::try_from_unchecked_url(&lnurl)?;
@@ -4184,12 +4186,18 @@ impl Overlord {
 
         let serialized_event = serde_json::to_string(&event)?;
 
-        let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::new(15, 0))
-            .gzip(true)
-            .brotli(true)
-            .deflate(true)
-            .build()?;
+        let proxy_url = GLOBALS.db().read_setting_proxy_url();
+
+        let client = if proxy_url.is_empty() {
+            Client::builder()
+        } else {
+            Client::builder().proxy(Proxy::all(proxy_url)?)
+        }
+        .timeout(std::time::Duration::new(15, 0))
+        .gzip(true)
+        .brotli(true)
+        .deflate(true)
+        .build()?;
 
         let mut url = match url::Url::parse(callback.as_str()) {
             Ok(url) => url,

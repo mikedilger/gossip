@@ -178,7 +178,7 @@ pub fn parse_nip05(nip05: &str) -> Result<(String, String), Error> {
             return Err(ErrorKind::InvalidDnsId.into());
         }
         if let Ok(ipaddr) = domain.parse::<core_net::IpAddr>() {
-            if ! ipaddr.is_global() {
+            if !ipaddr.is_global() {
                 return Err(ErrorKind::InvalidDnsId.into());
             }
         }
@@ -187,20 +187,27 @@ pub fn parse_nip05(nip05: &str) -> Result<(String, String), Error> {
 }
 
 async fn fetch_nip05(user: &str, domain: &str) -> Result<Nip05, Error> {
+    use reqwest::{redirect::Policy, Client, Proxy};
+
     // FIXME add user-agent if configured
 
-    let nip05_future = reqwest::Client::builder()
-        .timeout(std::time::Duration::new(60, 0))
-        .redirect(reqwest::redirect::Policy::none()) // see NIP-05
-        .gzip(true)
-        .brotli(true)
-        .deflate(true)
-        .build()?
-        .get(format!(
-            "https://{}/.well-known/nostr.json?name={}",
-            domain, user
-        ))
-        .send();
+    let proxy_url = GLOBALS.db().read_setting_proxy_url();
+    let nip05_future = if proxy_url.is_empty() {
+        Client::builder()
+    } else {
+        Client::builder().proxy(Proxy::all(proxy_url)?)
+    }
+    .timeout(std::time::Duration::new(60, 0))
+    .redirect(Policy::none()) // see NIP-05
+    .gzip(true)
+    .brotli(true)
+    .deflate(true)
+    .build()?
+    .get(format!(
+        "https://{}/.well-known/nostr.json?name={}",
+        domain, user
+    ))
+    .send();
     let response = nip05_future.await?;
     let bytes = response.bytes().await?;
     GLOBALS.bytes_read.fetch_add(bytes.len(), Ordering::Relaxed);

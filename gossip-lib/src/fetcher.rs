@@ -5,7 +5,7 @@ use crate::USER_AGENT;
 use dashmap::DashMap;
 use nostr_types::{Unixtime, Url};
 use reqwest::header::ETAG;
-use reqwest::{Client, StatusCode};
+use reqwest::{Client, Proxy, StatusCode};
 use sha2::Digest;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -412,14 +412,20 @@ impl Fetcher {
             std::time::Duration::new(GLOBALS.db().read_setting_fetcher_connect_timeout_sec(), 0);
         let timeout = std::time::Duration::new(GLOBALS.db().read_setting_fetcher_timeout_sec(), 0);
 
+        let proxy_url = GLOBALS.db().read_setting_proxy_url();
+
         *self.client.write().unwrap() = Some(
-            Client::builder()
-                .gzip(true)
-                .brotli(true)
-                .deflate(true)
-                .connect_timeout(connect_timeout)
-                .timeout(timeout)
-                .build()?,
+            if proxy_url.is_empty() {
+                Client::builder()
+            } else {
+                Client::builder().proxy(Proxy::all(proxy_url)?)
+            }
+            .gzip(true)
+            .brotli(true)
+            .deflate(true)
+            .connect_timeout(connect_timeout)
+            .timeout(timeout)
+            .build()?,
         );
 
         Ok(())

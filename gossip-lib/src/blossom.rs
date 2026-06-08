@@ -5,7 +5,7 @@ use memmap2::Mmap;
 use mime::Mime;
 use nostr_types::{EventKind, ParsedTag, PreEvent, Tag, Unixtime};
 use reqwest::header::{AUTHORIZATION, CONTENT_LENGTH, CONTENT_TYPE};
-use reqwest::{Body, Client, Response};
+use reqwest::{Body, Client, Proxy, Response};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fmt;
@@ -97,16 +97,21 @@ impl Blossom {
         let connect_timeout =
             Duration::new(GLOBALS.db().read_setting_fetcher_connect_timeout_sec(), 0);
         let timeout = Duration::new(GLOBALS.db().read_setting_fetcher_timeout_sec(), 0);
+        let proxy_url = GLOBALS.db().read_setting_proxy_url();
 
-        let client = Client::builder()
+        Ok(Blossom {
+            client: if proxy_url.is_empty() {
+                Client::builder()
+            } else {
+                Client::builder().proxy(Proxy::all(proxy_url)?)
+            }
             .gzip(false)
             .brotli(false)
             .deflate(false)
             .connect_timeout(connect_timeout)
             .timeout(timeout)
-            .build()?;
-
-        Ok(Blossom { client })
+            .build()?,
+        })
     }
 
     /// BUD-01 HEAD /<sha256>

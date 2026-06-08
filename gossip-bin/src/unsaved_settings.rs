@@ -45,6 +45,7 @@ pub struct UnsavedSettings {
     pub automatically_fetch_metadata: bool,
     pub relay_connection_requires_approval: bool,
     pub relay_auth_requires_approval: bool,
+    pub proxy_url: String,
 
     // Relay settings
     pub num_relays_per_person: u8,
@@ -151,6 +152,7 @@ impl Default for UnsavedSettings {
                 relay_connection_requires_approval
             ),
             relay_auth_requires_approval: default_setting!(relay_auth_requires_approval),
+            proxy_url: default_setting!(proxy_url),
             num_relays_per_person: default_setting!(num_relays_per_person),
             max_relays: default_setting!(max_relays),
             num_relays_for_counting: default_setting!(num_relays_for_counting),
@@ -249,6 +251,7 @@ impl UnsavedSettings {
             automatically_fetch_metadata: load_setting!(automatically_fetch_metadata),
             relay_connection_requires_approval: load_setting!(relay_connection_requires_approval),
             relay_auth_requires_approval: load_setting!(relay_auth_requires_approval),
+            proxy_url: load_setting!(proxy_url),
             num_relays_per_person: load_setting!(num_relays_per_person),
             max_relays: load_setting!(max_relays),
             num_relays_for_counting: load_setting!(num_relays_for_counting),
@@ -341,6 +344,7 @@ impl UnsavedSettings {
         save_setting!(automatically_fetch_metadata, self, txn);
         save_setting!(relay_connection_requires_approval, self, txn);
         save_setting!(relay_auth_requires_approval, self, txn);
+        save_setting!(proxy_url, self, txn);
         save_setting!(num_relays_per_person, self, txn);
         save_setting!(max_relays, self, txn);
         save_setting!(num_relays_for_counting, self, txn);

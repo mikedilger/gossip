@@ -63,6 +63,12 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         reset_button!(app, ui, relay_auth_requires_approval);
     });
 
+    ui.horizontal(|ui| {
+        ui.label("Proxy URL for outgoing connections:");
+        ui.text_edit_singleline(&mut app.unsaved_settings.proxy_url);
+        reset_button!(app, ui, proxy_url);
+    });
+
     ui.add_space(10.0);
     ui.heading("Relay Settings");
     ui.add_space(10.0);
