@@ -46,6 +46,7 @@ pub struct UnsavedSettings {
     pub relay_connection_requires_approval: bool,
     pub relay_auth_requires_approval: bool,
     pub socks5_proxy_address: String,
+    pub socks5_proxy_ignore: String,
 
     // Relay settings
     pub num_relays_per_person: u8,
@@ -153,6 +154,7 @@ impl Default for UnsavedSettings {
             ),
             relay_auth_requires_approval: default_setting!(relay_auth_requires_approval),
             socks5_proxy_address: default_setting!(socks5_proxy_address),
+            socks5_proxy_ignore: default_setting!(socks5_proxy_ignore),
             num_relays_per_person: default_setting!(num_relays_per_person),
             max_relays: default_setting!(max_relays),
             num_relays_for_counting: default_setting!(num_relays_for_counting),
@@ -252,6 +254,7 @@ impl UnsavedSettings {
             relay_connection_requires_approval: load_setting!(relay_connection_requires_approval),
             relay_auth_requires_approval: load_setting!(relay_auth_requires_approval),
             socks5_proxy_address: load_setting!(socks5_proxy_address),
+            socks5_proxy_ignore: load_setting!(socks5_proxy_ignore),
             num_relays_per_person: load_setting!(num_relays_per_person),
             max_relays: load_setting!(max_relays),
             num_relays_for_counting: load_setting!(num_relays_for_counting),
@@ -345,6 +348,7 @@ impl UnsavedSettings {
         save_setting!(relay_connection_requires_approval, self, txn);
         save_setting!(relay_auth_requires_approval, self, txn);
         save_setting!(socks5_proxy_address, self, txn);
+        save_setting!(socks5_proxy_ignore, self, txn);
         save_setting!(num_relays_per_person, self, txn);
         save_setting!(max_relays, self, txn);
         save_setting!(num_relays_for_counting, self, txn);

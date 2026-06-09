@@ -3998,10 +3998,27 @@ impl Overlord {
 
         *GLOBALS.current_zap.write() = ZapState::CheckingLnurl(id, target_pubkey, lnurl.clone());
 
+        // Convert the lnurl UncheckedUrl to a Url
+        let url = nostr_types::Url::try_from_unchecked_url(&lnurl)?;
+
         let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
-        let client = if socks5_proxy_address.is_empty() {
+        let client = if socks5_proxy_address.is_empty()
+            || GLOBALS
+                .db()
+                .read_setting_socks5_proxy_ignore()
+                .lines()
+                .any(|l| !l.is_empty() && l.starts_with(url.as_str()))
+        {
+            tracing::debug!(
+                "Begin direct overlord::zap_start connection to `{}`...",
+                url.as_str()
+            );
             Client::builder()
         } else {
+            tracing::debug!(
+                "Begin proxy `{socks5_proxy_address}` overlord::zap_start connection to `{}`...",
+                url.as_str()
+            );
             Client::builder().proxy(Proxy::all(format!("socks5h://{socks5_proxy_address}"))?)
         }
         .timeout(std::time::Duration::new(15, 0))
@@ -4009,9 +4026,6 @@ impl Overlord {
         .brotli(true)
         .deflate(true)
         .build()?;
-
-        // Convert the lnurl UncheckedUrl to a Url
-        let url = nostr_types::Url::try_from_unchecked_url(&lnurl)?;
 
         // Read the PayRequestData from the lnurl
         let response = client.get(url.as_str()).send().await?;
@@ -4186,19 +4200,6 @@ impl Overlord {
 
         let serialized_event = serde_json::to_string(&event)?;
 
-        let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
-
-        let client = if socks5_proxy_address.is_empty() {
-            Client::builder()
-        } else {
-            Client::builder().proxy(Proxy::all(format!("socks5h://{socks5_proxy_address}"))?)
-        }
-        .timeout(std::time::Duration::new(15, 0))
-        .gzip(true)
-        .brotli(true)
-        .deflate(true)
-        .build()?;
-
         let mut url = match url::Url::parse(callback.as_str()) {
             Ok(url) => url,
             Err(e) => {
@@ -4212,6 +4213,31 @@ impl Overlord {
             .clear()
             .append_pair("nostr", &serialized_event)
             .append_pair("amount", &msats_string);
+
+        let url_str = url.to_string();
+
+        let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
+
+        let client = if socks5_proxy_address.is_empty()
+            || GLOBALS
+                .db()
+                .read_setting_socks5_proxy_ignore()
+                .lines()
+                .any(|l| !l.is_empty() && l.starts_with(&url_str))
+        {
+            tracing::debug!("Begin direct overlord::zap connection to `{url_str}`...");
+            Client::builder()
+        } else {
+            tracing::debug!(
+                "Begin proxy `{socks5_proxy_address}` overlord::zap connection to `{url_str}`..."
+            );
+            Client::builder().proxy(Proxy::all(format!("socks5h://{socks5_proxy_address}"))?)
+        }
+        .timeout(std::time::Duration::new(15, 0))
+        .gzip(true)
+        .brotli(true)
+        .deflate(true)
+        .build()?;
 
         let response = client.get(url).send().await?;
         let text = response.text().await?;

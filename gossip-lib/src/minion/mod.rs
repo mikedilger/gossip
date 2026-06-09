@@ -317,6 +317,8 @@ impl Minion {
                 GLOBALS.db().read_setting_websocket_connect_timeout_sec()
             };
 
+            let url = uri.to_string();
+
             let is_tls = uri.scheme().is_some_and(|s| s == "wss");
 
             let port = uri
@@ -324,27 +326,36 @@ impl Minion {
                 .map(|p| p.as_u16())
                 .unwrap_or(if is_tls { 443 } else { 80 });
 
-            let stream = if let Ok(proxy_addr) = GLOBALS
-                .db()
-                .read_setting_socks5_proxy_address()
-                .parse::<std::net::SocketAddr>()
+            let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
+
+            let stream = if socks5_proxy_address.is_empty()
+                || GLOBALS
+                    .db()
+                    .read_setting_socks5_proxy_ignore()
+                    .lines()
+                    .any(|l| !l.is_empty() && l.starts_with(&url))
             {
-                Stream::Socks5(
-                    Socks5Stream::connect(proxy_addr, (host, port))
-                        .await
-                        .map_err(|e| {
-                            tokio_tungstenite::tungstenite::Error::Io(std::io::Error::new(
-                                std::io::ErrorKind::Other,
-                                e,
-                            ))
-                        })?,
-                )
-            } else {
+                tracing::debug!("Begin direct connection to `{url}`...");
                 Stream::Direct(
                     tokio::net::TcpStream::connect((host, port))
                         .await
                         .map_err(|e| tokio_tungstenite::tungstenite::Error::Io(e))?,
                 )
+            } else {
+                tracing::debug!("Begin proxy `{socks5_proxy_address}` connection to `{url}`...");
+                match socks5_proxy_address.parse::<std::net::SocketAddr>() {
+                    Ok(proxy_addr) => Stream::Socks5(
+                        Socks5Stream::connect(proxy_addr, (host, port))
+                            .await
+                            .map_err(|e| {
+                                tokio_tungstenite::tungstenite::Error::Io(std::io::Error::new(
+                                    std::io::ErrorKind::Other,
+                                    e,
+                                ))
+                            })?,
+                    ),
+                    Err(e) => panic!("Unexpected SOCKS5 proxy address: {e}"), // validate form on save this value
+                }
             };
 
             let connect_future =
@@ -539,9 +550,17 @@ impl Minion {
 
         let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
 
-        let request_nip11_future = if socks5_proxy_address.is_empty() {
+        let request_nip11_future = if socks5_proxy_address.is_empty()
+            || GLOBALS
+                .db()
+                .read_setting_socks5_proxy_ignore()
+                .lines()
+                .any(|l| !l.is_empty() && l.starts_with(&url))
+        {
+            tracing::debug!("Begin direct connection to `{url}`...");
             Client::builder()
         } else {
+            tracing::debug!("Begin proxy `{socks5_proxy_address}` connection to `{url}`...");
             Client::builder().proxy(Proxy::all(format!("socks5h://{socks5_proxy_address}"))?)
         }
         .timeout(fetcher_timeout)

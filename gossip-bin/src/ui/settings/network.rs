@@ -63,10 +63,30 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         reset_button!(app, ui, relay_auth_requires_approval);
     });
 
+    ui.add_space(10.0);
+    ui.heading("Proxy Settings");
+    ui.add_space(10.0);
+
     ui.horizontal(|ui| {
-        ui.label("SOCKS5 proxy (host:port) for outgoing connections:");
-        ui.text_edit_singleline(&mut app.unsaved_settings.socks5_proxy_address);
+        let hint = "Use [host]:port annotation for IPv6";
+        ui.label("SOCKS5 host:port for outgoing connections:")
+            .on_hover_text(hint);
+        ui.text_edit_singleline(&mut app.unsaved_settings.socks5_proxy_address)
+            .on_hover_text(hint);
         reset_button!(app, ui, socks5_proxy_address);
+    });
+
+    ui.horizontal(|ui| {
+        ui.separator();
+    });
+
+    ui.horizontal(|ui| {
+        let hint = "One URL per line";
+        ui.label("No proxy for URL starts with:")
+            .on_hover_text(hint);
+        ui.text_edit_multiline(&mut app.unsaved_settings.socks5_proxy_ignore)
+            .on_hover_text(hint);
+        reset_button!(app, ui, socks5_proxy_ignore);
     });
 
     ui.add_space(10.0);

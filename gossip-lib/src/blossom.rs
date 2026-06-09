@@ -90,27 +90,40 @@ pub struct BlobDescriptor {
 
 pub struct Blossom {
     client: Client,
+    socks5h_client: Option<Client>,
 }
 
 impl Blossom {
     pub fn new() -> Result<Blossom, Error> {
+        /// Shared client build logic
+        fn client_builder(connect_timeout: Duration, timeout: Duration) -> reqwest::ClientBuilder {
+            Client::builder()
+                .gzip(false)
+                .brotli(false)
+                .deflate(false)
+                .connect_timeout(connect_timeout)
+                .timeout(timeout)
+        }
+
         let connect_timeout =
             Duration::new(GLOBALS.db().read_setting_fetcher_connect_timeout_sec(), 0);
         let timeout = Duration::new(GLOBALS.db().read_setting_fetcher_timeout_sec(), 0);
         let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
 
         Ok(Blossom {
-            client: if socks5_proxy_address.is_empty() {
-                Client::builder()
+            client: client_builder(connect_timeout, timeout).build()?,
+            socks5h_client: if socks5_proxy_address.is_empty() {
+                None
             } else {
-                Client::builder().proxy(Proxy::all(format!("socks5h://{socks5_proxy_address}"))?)
-            }
-            .gzip(false)
-            .brotli(false)
-            .deflate(false)
-            .connect_timeout(connect_timeout)
-            .timeout(timeout)
-            .build()?,
+                tracing::debug!(
+                    "Init optional proxy `{socks5_proxy_address}` client type for blossom requests..."
+                );
+                Some(
+                    client_builder(connect_timeout, timeout)
+                        .proxy(Proxy::all(format!("socks5h://{socks5_proxy_address}"))?)
+                        .build()?,
+                )
+            },
         })
     }
 
@@ -156,7 +169,22 @@ impl Blossom {
         authorize: bool,
     ) -> Result<Response, Error> {
         let url = format!("{}{}", base_url, hash);
-        let mut req_builder = self.client.get(url);
+
+        let client = if GLOBALS.db().read_setting_socks5_proxy_address().is_empty()
+            || GLOBALS
+                .db()
+                .read_setting_socks5_proxy_ignore()
+                .lines()
+                .any(|l| !l.is_empty() && l.starts_with(&url))
+        {
+            tracing::debug!("Begin direct blossom request to `{url}`...");
+            &self.client
+        } else {
+            tracing::debug!("Begin proxied blossom request to `{url}`...");
+            self.socks5h_client.as_ref().unwrap()
+        };
+
+        let mut req_builder = client.get(url);
 
         if authorize {
             let authorization = authorization(

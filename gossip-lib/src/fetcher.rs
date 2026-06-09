@@ -381,6 +381,9 @@ pub struct Fetcher {
     /// HTTP client
     client: RwLock<Option<Client>>,
 
+    /// HTTP/SOCKS5 client
+    socks5h_client: RwLock<Option<Option<Client>>>,
+
     /// Persistent filesystem cache of network objects. This is faster than fetching
     /// over the network, but the data still needs to be loaded into memory
     cache_dir: RwLock<PathBuf>,
@@ -398,6 +401,16 @@ pub struct Fetcher {
 impl Fetcher {
     /// This initializes the fetcher, which is called internally when it is first used
     fn init(&self) -> Result<(), Error> {
+        /// Shared client build logic
+        fn client_builder(connect_timeout: Duration, timeout: Duration) -> reqwest::ClientBuilder {
+            Client::builder()
+                .gzip(true)
+                .brotli(true)
+                .deflate(true)
+                .connect_timeout(connect_timeout)
+                .timeout(timeout)
+        }
+
         // Do not init() if already initialized
         if self.client.read().unwrap().is_some() {
             return Ok(());
@@ -412,21 +425,25 @@ impl Fetcher {
             std::time::Duration::new(GLOBALS.db().read_setting_fetcher_connect_timeout_sec(), 0);
         let timeout = std::time::Duration::new(GLOBALS.db().read_setting_fetcher_timeout_sec(), 0);
 
+        *self.client.write().unwrap() = Some(client_builder(connect_timeout, timeout).build()?);
+
+        // Create SOCKS5 client if configured
         let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
 
-        *self.client.write().unwrap() = Some(
-            if socks5_proxy_address.is_empty() {
-                Client::builder()
-            } else {
-                Client::builder().proxy(Proxy::all(format!("socks5h://{socks5_proxy_address}"))?)
-            }
-            .gzip(true)
-            .brotli(true)
-            .deflate(true)
-            .connect_timeout(connect_timeout)
-            .timeout(timeout)
-            .build()?,
-        );
+        let mut socks5h_client = self.socks5h_client.write().unwrap();
+
+        if socks5_proxy_address.is_empty() {
+            *socks5h_client = Some(None)
+        } else {
+            tracing::debug!(
+                "Init optional proxy `{socks5_proxy_address}` client type for proxied fetcher requests..."
+            );
+            *socks5h_client = Some(Some(
+                client_builder(connect_timeout, timeout)
+                    .proxy(Proxy::all(format!("socks5h://{socks5_proxy_address}"))?)
+                    .build()?,
+            ));
+        }
 
         Ok(())
     }
@@ -545,7 +562,24 @@ impl Fetcher {
 
             // Get the client
             // (Client is internally an Arc so we can just clone it)
-            let client = self.client.read().unwrap().clone().unwrap();
+            let client = if GLOBALS.db().read_setting_socks5_proxy_address().is_empty()
+                || GLOBALS
+                    .db()
+                    .read_setting_socks5_proxy_ignore()
+                    .lines()
+                    .any(|l| !l.is_empty() && l.starts_with(&url.as_str()))
+            {
+                tracing::debug!("Begin direct fetcher request to `{}`...", url.as_str());
+                self.client.read().unwrap().clone().unwrap()
+            } else {
+                tracing::debug!("Begin proxied fetcher request to `{}`...", url.as_str());
+                self.socks5h_client
+                    .read()
+                    .unwrap()
+                    .clone()
+                    .unwrap()
+                    .unwrap()
+            };
 
             // Build the request
             let mut req = client.get(url.as_str());
