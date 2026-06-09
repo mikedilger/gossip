@@ -291,7 +291,7 @@ impl Minion {
                 Stream::Direct(
                     tokio::net::TcpStream::connect((host, port))
                         .await
-                        .map_err(|e| tokio_tungstenite::tungstenite::Error::Io(e))?,
+                        .map_err(tokio_tungstenite::tungstenite::Error::Io)?,
                 )
             } else {
                 tracing::debug!("Begin proxy `{socks5_proxy_address}` connection to `{url}`...");
@@ -300,10 +300,7 @@ impl Minion {
                         Socks5Stream::connect(proxy_addr, (host, port))
                             .await
                             .map_err(|e| {
-                                tokio_tungstenite::tungstenite::Error::Io(std::io::Error::new(
-                                    std::io::ErrorKind::Other,
-                                    e,
-                                ))
+                                tokio_tungstenite::tungstenite::Error::Io(std::io::Error::other(e))
                             })?,
                     ),
                     Err(e) => panic!("Unexpected SOCKS5 proxy address: {e}"), // validate form on save this value

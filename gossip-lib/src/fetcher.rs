@@ -588,7 +588,7 @@ impl Fetcher {
                     .db()
                     .read_setting_socks5_proxy_ignore()
                     .lines()
-                    .any(|l| !l.is_empty() && l.starts_with(&url.as_str()))
+                    .any(|l| !l.is_empty() && l.starts_with(url.as_str()))
             {
                 tracing::debug!("Begin direct fetcher request to `{}`...", url.as_str());
                 self.client.read().unwrap().clone().unwrap()
@@ -796,10 +796,7 @@ impl Fetcher {
 
     async fn acquire_host(&self, host: &str) -> Arc<Semaphore> {
         // Wait for the host to be available if it is in the penalty box
-        loop {
-            let Some(time) = self.penalty_box.get(host).map(|r| *r.value()) else {
-                break;
-            };
+        while let Some(time) = self.penalty_box.get(host).map(|r| *r.value()) {
             let now = Unixtime::now();
             if time < now {
                 // Remove from penalty box

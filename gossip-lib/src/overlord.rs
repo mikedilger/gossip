@@ -3027,7 +3027,7 @@ impl Overlord {
                 }
 
                 // Get the most recent seen_on
-                seen_on.sort_by(|a, b| a.1.cmp(&b.1));
+                seen_on.sort_by_key(|a| a.1);
                 seen_on.pop().unwrap().0
             };
 

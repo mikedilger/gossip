@@ -81,7 +81,7 @@ impl Pending {
             self.pending.write().push((item, now));
             {
                 let mut list = self.pending.write();
-                list.sort_by(|a, b| b.1.cmp(&a.1));
+                list.sort_by_key(|b| std::cmp::Reverse(b.1));
                 *self.pending_hash.write() = calculate_pending_hash(&list);
             }
             true

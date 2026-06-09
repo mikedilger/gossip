@@ -58,12 +58,12 @@ pub(crate) fn start_background_tasks() {
 
 async fn do_online_tasks(tick: usize) {
     // Do seeker tasks 2 ticks
-    if tick % 2 == 0 {
+    if tick.is_multiple_of(2) {
         GLOBALS.seeker.run_once().await;
     }
 
     // Update pending every 5 ticks
-    if tick % 5 == 0 {
+    if tick.is_multiple_of(5) {
         if let Err(e) = GLOBALS.pending.compute_pending().await {
             if !matches!(e.kind, ErrorKind::NoPrivateKey) {
                 tracing::error!("{:?}", e);
@@ -72,14 +72,14 @@ async fn do_online_tasks(tick: usize) {
     }
 
     // Update people metadata every 3 ticks
-    if tick % 3 == 0 {
+    if tick.is_multiple_of(3) {
         GLOBALS.people.maybe_fetch_metadata().await;
     }
 }
 
 async fn do_general_tasks(tick: usize) {
     // Update GLOBALS.unread_dms count every 2 ticks
-    if tick % 2 == 0 {
+    if tick.is_multiple_of(2) {
         // Update unread dm channels, whether or not we are in that feed
         if let Ok(channels) = GLOBALS.db().dm_channels().await {
             let unread = channels.iter().map(|c| c.unread_message_count).sum();
@@ -105,7 +105,7 @@ async fn update_inbox_indicator() {
 }
 
 async fn do_debug_tasks(tick: usize) {
-    if tick % 20 == 0 {
+    if tick.is_multiple_of(20) {
         tracing::debug!(target: "fetcher", "DEBUG FETCHER STATS: {}", GLOBALS.fetcher.stats());
     }
 }
