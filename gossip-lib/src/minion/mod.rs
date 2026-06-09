@@ -28,9 +28,14 @@ use subscription_map::SubscriptionMap;
 use tokio::net::TcpStream;
 use tokio::sync::broadcast::Receiver;
 use tokio::sync::mpsc::UnboundedSender;
+use tokio_socks::tcp::Socks5Stream;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tungstenite::protocol::{Message as WsMessage, WebSocketConfig};
 use watcher::Receiver as WatchReceiver;
+
+use std::pin::Pin;
+use std::task::{Context, Poll};
+use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AuthState {
@@ -81,13 +86,58 @@ impl MinionExitReason {
     }
 }
 
+enum Stream {
+    Direct(TcpStream),
+    Socks5(Socks5Stream<TcpStream>),
+}
+
+impl AsyncRead for Stream {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<std::io::Result<()>> {
+        match self.get_mut() {
+            Stream::Direct(s) => Pin::new(s).poll_read(cx, buf),
+            Stream::Socks5(s) => Pin::new(s).poll_read(cx, buf),
+        }
+    }
+}
+
+impl AsyncWrite for Stream {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<std::io::Result<usize>> {
+        match self.get_mut() {
+            Stream::Direct(s) => Pin::new(s).poll_write(cx, buf),
+            Stream::Socks5(s) => Pin::new(s).poll_write(cx, buf),
+        }
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        match self.get_mut() {
+            Stream::Direct(s) => Pin::new(s).poll_flush(cx),
+            Stream::Socks5(s) => Pin::new(s).poll_flush(cx),
+        }
+    }
+
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        match self.get_mut() {
+            Stream::Direct(s) => Pin::new(s).poll_shutdown(cx),
+            Stream::Socks5(s) => Pin::new(s).poll_shutdown(cx),
+        }
+    }
+}
+
 pub struct Minion {
     url: RelayUrl,
     to_overlord: UnboundedSender<ToOverlordMessage>,
     from_overlord: Receiver<ToMinionMessage>,
     dbrelay: Relay,
     nip11: Option<RelayInformationDocument>,
-    stream: Option<WebSocketStream<MaybeTlsStream<tokio_socks::tcp::Socks5Stream<TcpStream>>>>,
+    stream: Option<WebSocketStream<MaybeTlsStream<Stream>>>,
     subscription_map: SubscriptionMap,
     next_events_subscription_id: u32,
     posting_jobs: HashMap<u64, Vec<Id>>,
@@ -267,32 +317,39 @@ impl Minion {
                 GLOBALS.db().read_setting_websocket_connect_timeout_sec()
             };
 
+            let is_tls = uri.scheme().is_some_and(|s| s == "wss");
+
+            let port = uri
+                .port()
+                .map(|p| p.as_u16())
+                .unwrap_or(if is_tls { 443 } else { 80 });
+
+            let stream = if let Ok(proxy_addr) = GLOBALS
+                .db()
+                .read_setting_socks5_proxy_address()
+                .parse::<std::net::SocketAddr>()
+            {
+                Stream::Socks5(
+                    Socks5Stream::connect(proxy_addr, (host, port))
+                        .await
+                        .map_err(|e| {
+                            tokio_tungstenite::tungstenite::Error::Io(std::io::Error::new(
+                                std::io::ErrorKind::Other,
+                                e,
+                            ))
+                        })?,
+                )
+            } else {
+                Stream::Direct(
+                    tokio::net::TcpStream::connect((host, port))
+                        .await
+                        .map_err(|e| tokio_tungstenite::tungstenite::Error::Io(e))?,
+                )
+            };
+
             let connect_future =
                 tokio::time::timeout(std::time::Duration::new(connect_timeout_secs, 0), async {
                     use tokio_tungstenite::tungstenite::Error;
-
-                    let is_tls = uri.scheme().is_some_and(|s| s == "wss");
-
-                    let proxy_addr = GLOBALS
-                        .db()
-                        .read_setting_socks5_proxy_address()
-                        .parse::<std::net::SocketAddr>()
-                        .unwrap();
-
-                    let port =
-                        uri.port()
-                            .map(|p| p.as_u16())
-                            .unwrap_or(if is_tls { 443 } else { 80 });
-
-                    let socks_stream =
-                        tokio_socks::tcp::Socks5Stream::connect(proxy_addr, (host, port))
-                            .await
-                            .map_err(|e| {
-                                tokio_tungstenite::tungstenite::Error::Io(std::io::Error::new(
-                                    std::io::ErrorKind::Other,
-                                    e,
-                                ))
-                            })?;
 
                     let maybe_tls_stream = if is_tls {
                         use std::io::{
@@ -307,7 +364,7 @@ impl Minion {
                                     tokio_native_tls::native_tls::TlsConnector::new()
                                         .map_err(|e| Error::Io(E::new(Other, e)))?,
                                 )
-                                .connect(&host, socks_stream)
+                                .connect(&host, stream)
                                 .await
                                 .map_err(|e| Error::Io(E::new(Other, e)))?,
                             )
@@ -347,14 +404,14 @@ impl Minion {
                                     rustls_pki_types::ServerName::try_from(host)
                                         .map_err(|e| Error::Io(E::new(InvalidInput, e)))?
                                         .to_owned(),
-                                    socks_stream,
+                                    stream,
                                 )
                                 .await
                                 .map_err(|e| Error::Io(E::new(Other, e)))?,
                             )
                         }
                     } else {
-                        MaybeTlsStream::Plain(socks_stream)
+                        MaybeTlsStream::Plain(stream)
                     };
 
                     let (ws_stream, response) = tokio_tungstenite::client_async_with_config(
@@ -477,7 +534,9 @@ impl Minion {
             },
             None => Some(Scheme::HTTPS),
         };
-        let uri = http::Uri::from_parts(parts)?;
+
+        let url = http::Uri::from_parts(parts)?.to_string();
+
         let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
 
         let request_nip11_future = if socks5_proxy_address.is_empty() {
@@ -491,7 +550,7 @@ impl Minion {
         .brotli(true)
         .deflate(true)
         .build()?
-        .get(format!("{}", uri))
+        .get(url)
         .header("Accept", "application/nostr+json")
         .send();
 
