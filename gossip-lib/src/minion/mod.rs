@@ -1,4 +1,5 @@
 mod handle_websocket;
+mod stream;
 mod subscription;
 mod subscription_map;
 
@@ -24,18 +25,14 @@ use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::Ordering;
 use std::time::Duration;
+use stream::Stream;
 use subscription_map::SubscriptionMap;
-use tokio::net::TcpStream;
 use tokio::sync::broadcast::Receiver;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio_socks::tcp::Socks5Stream;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tungstenite::protocol::{Message as WsMessage, WebSocketConfig};
 use watcher::Receiver as WatchReceiver;
-
-use std::pin::Pin;
-use std::task::{Context, Poll};
-use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AuthState {
@@ -83,51 +80,6 @@ impl MinionExitReason {
             MinionExitReason::GotShutdownMessage
                 | MinionExitReason::SubscriptionsCompletedSuccessfully
         )
-    }
-}
-
-enum Stream {
-    Direct(TcpStream),
-    Socks5(Socks5Stream<TcpStream>),
-}
-
-impl AsyncRead for Stream {
-    fn poll_read(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &mut ReadBuf<'_>,
-    ) -> Poll<std::io::Result<()>> {
-        match self.get_mut() {
-            Stream::Direct(s) => Pin::new(s).poll_read(cx, buf),
-            Stream::Socks5(s) => Pin::new(s).poll_read(cx, buf),
-        }
-    }
-}
-
-impl AsyncWrite for Stream {
-    fn poll_write(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &[u8],
-    ) -> Poll<std::io::Result<usize>> {
-        match self.get_mut() {
-            Stream::Direct(s) => Pin::new(s).poll_write(cx, buf),
-            Stream::Socks5(s) => Pin::new(s).poll_write(cx, buf),
-        }
-    }
-
-    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
-        match self.get_mut() {
-            Stream::Direct(s) => Pin::new(s).poll_flush(cx),
-            Stream::Socks5(s) => Pin::new(s).poll_flush(cx),
-        }
-    }
-
-    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
-        match self.get_mut() {
-            Stream::Direct(s) => Pin::new(s).poll_shutdown(cx),
-            Stream::Socks5(s) => Pin::new(s).poll_shutdown(cx),
-        }
     }
 }
 
