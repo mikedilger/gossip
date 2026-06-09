@@ -68,7 +68,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     ui.add_space(10.0);
 
     ui.horizontal(|ui| {
-        let hint = "Use [host]:port annotation for IPv6";
+        let hint = "Use [host]:port notation for IPv6";
         ui.label("SOCKS5 host:port for outgoing connections:")
             .on_hover_text(hint);
         ui.text_edit_singleline(&mut app.unsaved_settings.socks5_proxy_address)
