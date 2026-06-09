@@ -103,7 +103,14 @@ impl Fetcher {
     /// This is where a client attempts to get data synchronously
     pub fn try_get(&self, url: Url, use_cache: bool) -> Result<FetchResult, Error> {
         // Maybe initialize
-        if self.client.read().unwrap().is_none() {
+        if self.client.read().unwrap().is_none()
+            || self
+                .socks5h_client
+                .read()
+                .unwrap()
+                .as_ref()
+                .is_some_and(|this| this.is_none())
+        {
             self.init()?;
         }
 
@@ -162,7 +169,14 @@ impl Fetcher {
     /// This should never return FetchResult::Processing
     pub async fn get(&self, url: Url, use_cache: bool) -> Result<FetchResult, Error> {
         // Maybe initialize
-        if self.client.read().unwrap().is_none() {
+        if self.client.read().unwrap().is_none()
+            || self
+                .socks5h_client
+                .read()
+                .unwrap()
+                .as_ref()
+                .is_some_and(|this| this.is_none())
+        {
             self.init()?;
         }
 
@@ -412,7 +426,14 @@ impl Fetcher {
         }
 
         // Do not init() if already initialized
-        if self.client.read().unwrap().is_some() {
+        if self.client.read().unwrap().is_some()
+            && self
+                .socks5h_client
+                .read()
+                .unwrap()
+                .as_ref()
+                .is_none_or(|this| this.is_some())
+        {
             return Ok(());
         }
 
