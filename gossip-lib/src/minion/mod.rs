@@ -198,6 +198,16 @@ impl Minion {
 
         // Connect to the relay
         let websocket_stream = {
+            /// Format the IPv6 socket host notation,
+            /// returned with brackets from `http::Uri::host()`
+            fn socket_host(host: &str) -> &str {
+                if host.contains(':') {
+                    host.trim_start_matches('[').trim_end_matches(']')
+                } else {
+                    host
+                }
+            }
+
             // Fetch NIP-11 data (if not fetched recently)
             let last_nip11 = self.dbrelay.last_attempt_nip11.unwrap_or_default();
             if (last_nip11 as i64) + 3600 < Unixtime::now().0 {
@@ -289,7 +299,7 @@ impl Minion {
             {
                 tracing::debug!("Begin direct connection to `{url}`...");
                 Stream::Direct(
-                    tokio::net::TcpStream::connect((host, port))
+                    tokio::net::TcpStream::connect((socket_host(host), port))
                         .await
                         .map_err(tokio_tungstenite::tungstenite::Error::Io)?,
                 )
@@ -297,7 +307,7 @@ impl Minion {
                 tracing::debug!("Begin proxy `{socks5_proxy_address}` connection to `{url}`...");
                 match socks5_proxy_address.parse::<std::net::SocketAddr>() {
                     Ok(proxy_addr) => Stream::Socks5(
-                        Socks5Stream::connect(proxy_addr, (host, port))
+                        Socks5Stream::connect(proxy_addr, (socket_host(host), port))
                             .await
                             .map_err(|e| {
                                 tokio_tungstenite::tungstenite::Error::Io(std::io::Error::other(e))
