@@ -1900,7 +1900,10 @@ fn draw_seen_on(app: &mut GossipUi, ui: &mut Ui, note: &std::cell::Ref<NoteData>
     let mut seen_on_popup_position = ui.next_widget_position();
     seen_on_popup_position.y += 18.0; // drop below the icon itself
 
-    let response = ui.add(Label::new(RichText::new("👁").size(12.0)).sense(Sense::hover()));
+    let response = ui.add(
+        Label::new(RichText::new(format!("👁 {}", note.seen_on.len())).size(12.0))
+            .sense(Sense::hover()),
+    );
 
     if response.hovered() {
         egui::Area::new(ui.next_auto_id().with("seen_on"))
