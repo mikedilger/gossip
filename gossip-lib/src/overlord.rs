@@ -1047,7 +1047,7 @@ impl Overlord {
     pub async fn blossom_upload(&mut self, pathbuf: PathBuf) -> Result<(), Error> {
         std::mem::drop(tokio::spawn(Box::pin(async move {
             if let Err(e) = Overlord::inner_blossom_upload(pathbuf.clone()).await {
-                GLOBALS.blossom_uploads.insert(pathbuf, Err(e));
+                tracing::error!("Could not upload `{}`: {e}", pathbuf.display())
             }
         })));
 
@@ -1064,48 +1064,56 @@ impl Overlord {
             }
         };
 
-        let base_url = {
-            let blossom_servers = GLOBALS.db().read_setting_blossom_servers();
-            let first = blossom_servers.split_whitespace().next();
-            match first {
-                Some(bs) => {
-                    use http::uri::{Parts, PathAndQuery, Scheme};
-                    use http::Uri;
+        let mut mirrors = Vec::new();
 
-                    let uri = bs.parse::<Uri>()?;
-                    let mut parts: Parts = uri.into_parts();
-                    parts.path_and_query = Some(PathAndQuery::from_static("/")); // Force no path
-                    if parts.scheme.is_none() {
-                        // Default to https
-                        parts.scheme = Some(Scheme::HTTPS);
-                    }
-                    let uri = Uri::from_parts(parts)?;
-                    format!("{}", uri)
+        for blossom_server in GLOBALS
+            .db()
+            .read_setting_blossom_servers()
+            .split_whitespace()
+        {
+            let base_url = {
+                use http::{
+                    uri::{Parts, PathAndQuery, Scheme},
+                    Uri,
+                };
+                let uri = blossom_server.parse::<Uri>()?;
+                let mut parts: Parts = uri.into_parts();
+                parts.path_and_query = Some(PathAndQuery::from_static("/")); // Force no path
+                if parts.scheme.is_none() {
+                    parts.scheme = Some(Scheme::HTTPS); // Default to https
                 }
-                None => return Err(ErrorKind::General("Blossom not configured".to_owned()).into()),
+                Uri::from_parts(parts)?.to_string()
+            };
+
+            // metadata
+            let metadata = tokio::fs::metadata(&pathbuf).await?;
+
+            // hash
+            let hash = HashOutput::from_file(&pathbuf)?;
+
+            // mime type
+            let mime = crate::blossom::get_content_type(&pathbuf)?;
+
+            // open
+            let file = tokio::fs::File::open(&pathbuf).await?;
+
+            // upload
+            match blossom
+                .upload(file, base_url, hash, mime, metadata.len())
+                .await
+            {
+                Ok(bd) => {
+                    tracing::debug!("UPLOADED: `{}` -> `{}`", pathbuf.display(), &bd.url);
+                    mirrors.push(Ok(bd))
+                }
+                Err(e) => {
+                    tracing::error!("Could not upload `{}`: {e}", pathbuf.display());
+                    mirrors.push(Err(e))
+                }
             }
-        };
-
-        // metadata
-        let metadata = tokio::fs::metadata(&pathbuf).await?;
-
-        // hash
-        let hash = HashOutput::from_file(&pathbuf)?;
-
-        // mime type
-        let mime = crate::blossom::get_content_type(&pathbuf)?;
-
-        // open
-        let file = tokio::fs::File::open(&pathbuf).await?;
-
-        // upload
-        let result = blossom
-            .upload(file, base_url, hash, mime, metadata.len())
-            .await;
-        if let Ok(ref bd) = result {
-            println!("UPLOADED:  {} -> {}", pathbuf.display(), &bd.url);
         }
-        GLOBALS.blossom_uploads.insert(pathbuf, result);
+
+        GLOBALS.blossom_uploads.insert(pathbuf, mirrors);
 
         Ok(())
     }

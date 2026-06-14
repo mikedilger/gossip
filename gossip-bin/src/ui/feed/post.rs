@@ -1060,8 +1060,7 @@ fn do_replacements(draft: &str, replacements: &HashMap<String, ContentSegment>) 
 
 fn offer_attachment(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, dm: bool) {
     // Skip if no blossom servers configured:
-    let blossom_servers = GLOBALS.db().read_setting_blossom_servers();
-    if blossom_servers.split_whitespace().next().is_none() {
+    if GLOBALS.db().read_setting_blossom_servers().is_empty() {
         return;
     }
 
@@ -1070,37 +1069,40 @@ fn offer_attachment(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, dm: bool) {
 
     // Attachment button
     if let Some(pathbuf) = &app.uploading {
-        if let Some(result) = GLOBALS.blossom_uploads.get(pathbuf) {
-            match result.value() {
-                Ok(bd) => {
-                    if dm {
-                        app.dm_draft_data.draft.push(' ');
-                        app.dm_draft_data.draft.push_str(&bd.url);
-                        if bd.url.len() > 5 && !bd.url[bd.url.len() - 5..].contains('.') {
-                            if let Some(ext) = pathbuf.extension() {
-                                app.dm_draft_data.draft.push('.');
-                                app.dm_draft_data.draft.push_str(&ext.to_string_lossy());
+        if let Some(blossom_servers) = GLOBALS.blossom_uploads.get(pathbuf) {
+            for blossom_server in blossom_servers.value() {
+                match blossom_server {
+                    Ok(bd) => {
+                        if dm {
+                            app.dm_draft_data.draft.push('\n');
+                            app.dm_draft_data.draft.push_str(&bd.url);
+                            if bd.url.len() > 5 && !bd.url[bd.url.len() - 5..].contains('.') {
+                                if let Some(ext) = pathbuf.extension() {
+                                    app.dm_draft_data.draft.push('.');
+                                    app.dm_draft_data.draft.push_str(&ext.to_string_lossy());
+                                }
+                            }
+                        } else {
+                            app.draft_data.draft.push('\n');
+                            app.draft_data.draft.push_str(&bd.url);
+                            if bd.url.len() > 5 && !bd.url[bd.url.len() - 5..].contains('.') {
+                                if let Some(ext) = pathbuf.extension() {
+                                    app.draft_data.draft.push('.');
+                                    app.draft_data.draft.push_str(&ext.to_string_lossy());
+                                }
                             }
                         }
-                    } else {
-                        app.draft_data.draft.push(' ');
-                        app.draft_data.draft.push_str(&bd.url);
-                        if bd.url.len() > 5 && !bd.url[bd.url.len() - 5..].contains('.') {
-                            if let Some(ext) = pathbuf.extension() {
-                                app.draft_data.draft.push('.');
-                                app.draft_data.draft.push_str(&ext.to_string_lossy());
-                            }
-                        }
-                    }
-                    clear_uploading = true;
-                }
-                Err(e) => {
-                    if ui
-                        .add(Label::new(format!("{e}")).sense(Sense::click()))
-                        .clicked()
-                    {
                         clear_uploading = true;
-                        clear_upload = true;
+                    }
+                    Err(e) => {
+                        if ui
+                            .add(Label::new(e.to_string()).sense(Sense::click()))
+                            .clicked()
+                        {
+                            clear_uploading = true;
+                            clear_upload = true;
+                            break;
+                        }
                     }
                 }
             }

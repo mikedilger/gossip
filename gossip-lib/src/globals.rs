@@ -202,8 +202,8 @@ pub struct Globals {
     /// Blossom (the uploader)
     pub blossom: OnceLock<Blossom>,
 
-    /// Blossom Uploads (Path to Url)
-    pub blossom_uploads: DashMap<PathBuf, Result<BlobDescriptor, Error>>,
+    /// Blossom Uploads (Paths to Url)
+    pub blossom_uploads: DashMap<PathBuf, Vec<Result<BlobDescriptor, Error>>>,
 
     /// Followers (we keep it in memory only, for just one person)
     pub followers: PRwLock<FollowList>,
