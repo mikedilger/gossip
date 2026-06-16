@@ -2564,7 +2564,7 @@ dependencies = [
  "infer",
  "kamadak-exif",
  "lazy_static",
- "linkify",
+ "linkify 0.11.0 (git+https://github.com/YGGverse/linkify.git?rev=9485ce3c5d6f7e39d0521b35dc53e76cd7c18cc3)",
  "memmap2 0.9.10",
  "mime",
  "mime_guess",
@@ -3522,6 +3522,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "linkify"
+version = "0.11.0"
+source = "git+https://github.com/YGGverse/linkify.git?rev=9485ce3c5d6f7e39d0521b35dc53e76cd7c18cc3#9485ce3c5d6f7e39d0521b35dc53e76cd7c18cc3"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
 name = "linux-raw-sys"
 version = "0.4.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3963,7 +3971,7 @@ dependencies = [
  "http",
  "lazy_static",
  "lightning-invoice",
- "linkify",
+ "linkify 0.11.0 (git+https://github.com/andrewsuperlegit/linkify.git?rev=00bd3ec503586a39b885d3e4de74d63e99d1ae46)",
  "nip44",
  "num_cpus",
  "pbkdf2",

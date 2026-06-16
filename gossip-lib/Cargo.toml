@@ -66,7 +66,7 @@ image = { workspace = true }
 infer = "0.16"
 kamadak-exif = "0.5"
 lazy_static = { workspace = true }
-linkify = { git = "https://github.com/andrewsuperlegit/linkify.git", rev = "00bd3ec503586a39b885d3e4de74d63e99d1ae46" } #78
+linkify = { git = "https://github.com/YGGverse/linkify.git", rev = "9485ce3c5d6f7e39d0521b35dc53e76cd7c18cc3" } # I2P + IPv6 patch
 memmap2 = "0.9"
 mime = "0.3"
 mime_guess = "2"
