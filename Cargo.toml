@@ -12,7 +12,7 @@ blurhash = { version = "0.2", features = [ "image" ] }
 image = { version = "0.25", features = [ "png", "jpeg" ] }
 lazy_static = "1.5"
 #nostr-types = { git = "https://github.com/mikedilger/nostr-types", rev = "e431110f5ad0a0692280ccf036e99e255837f41c", features = [ "speedy", "client", "nip46" ] }
-nostr-types = { git = "https://github.com/yggverse/nostr-types", rev = "66f125781f44177130f62d5f02062dcefe5bfced", features = [ "speedy", "client", "nip46" ] } # IPv6 patch for linkify issue #78
+nostr-types = { git = "https://github.com/yggverse/nostr-types", rev = "ade5727963902d4c6a553b597002823c52316542", features = [ "speedy", "client", "nip46" ] } # I2P + IPv6 patch for linkify issues #108, #78
 paste = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

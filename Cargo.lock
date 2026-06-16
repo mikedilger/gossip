@@ -2564,7 +2564,7 @@ dependencies = [
  "infer",
  "kamadak-exif",
  "lazy_static",
- "linkify 0.11.0 (git+https://github.com/YGGverse/linkify.git?rev=9485ce3c5d6f7e39d0521b35dc53e76cd7c18cc3)",
+ "linkify",
  "memmap2 0.9.10",
  "mime",
  "mime_guess",
@@ -3516,14 +3516,6 @@ checksum = "0717cef1bc8b636c6e1c1bbdefc09e6322da8a9321966e8928ef80d20f7f770f"
 [[package]]
 name = "linkify"
 version = "0.11.0"
-source = "git+https://github.com/andrewsuperlegit/linkify.git?rev=00bd3ec503586a39b885d3e4de74d63e99d1ae46#00bd3ec503586a39b885d3e4de74d63e99d1ae46"
-dependencies = [
- "memchr",
-]
-
-[[package]]
-name = "linkify"
-version = "0.11.0"
 source = "git+https://github.com/YGGverse/linkify.git?rev=9485ce3c5d6f7e39d0521b35dc53e76cd7c18cc3#9485ce3c5d6f7e39d0521b35dc53e76cd7c18cc3"
 dependencies = [
  "memchr",
@@ -3953,7 +3945,7 @@ dependencies = [
 [[package]]
 name = "nostr-types"
 version = "0.8.0-unstable"
-source = "git+https://github.com/yggverse/nostr-types?rev=66f125781f44177130f62d5f02062dcefe5bfced#66f125781f44177130f62d5f02062dcefe5bfced"
+source = "git+https://github.com/yggverse/nostr-types?rev=ade5727963902d4c6a553b597002823c52316542#ade5727963902d4c6a553b597002823c52316542"
 dependencies = [
  "aes",
  "aho-corasick",
@@ -3971,7 +3963,7 @@ dependencies = [
  "http",
  "lazy_static",
  "lightning-invoice",
- "linkify 0.11.0 (git+https://github.com/andrewsuperlegit/linkify.git?rev=00bd3ec503586a39b885d3e4de74d63e99d1ae46)",
+ "linkify",
  "nip44",
  "num_cpus",
  "pbkdf2",
