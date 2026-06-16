@@ -76,7 +76,7 @@ pub fn textarea_highlighter(theme: Theme, text: String, interests: Vec<String>) 
                 }
 
                 // sort by position (so our indice access below will not crash)
-                found_interests.sort_by(|a, b| a.0.cmp(&b.0));
+                found_interests.sort_by_key(|a| a.0);
 
                 let mut pos = 0;
                 // loop all found interests in order

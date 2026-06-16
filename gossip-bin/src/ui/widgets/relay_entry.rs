@@ -237,15 +237,11 @@ impl RelayEntry {
 
     pub fn set_detail(&mut self, detail: bool) {
         match self.view {
-            RelayEntryView::List => {
-                if detail {
-                    self.view = RelayEntryView::Detail;
-                }
+            RelayEntryView::List if detail => {
+                self.view = RelayEntryView::Detail;
             }
-            RelayEntryView::Detail => {
-                if !detail {
-                    self.view = RelayEntryView::List;
-                }
+            RelayEntryView::Detail if !detail => {
+                self.view = RelayEntryView::List;
             }
             _ => {}
         }

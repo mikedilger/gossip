@@ -1314,7 +1314,7 @@ pub fn reaction_stats(_cmd: Command, mut _args: env::Args) -> Result<(), Error> 
             .or_insert(1);
     }
     let mut reactions: Vec<(String, usize)> = reactions.drain().collect();
-    reactions.sort_by(|a, b| b.1.cmp(&a.1));
+    reactions.sort_by_key(|b| std::cmp::Reverse(b.1));
     for (reaction, count) in reactions {
         println!("{} {}", count, reaction);
     }
