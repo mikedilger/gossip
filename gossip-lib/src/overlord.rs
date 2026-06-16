@@ -1058,8 +1058,7 @@ impl Overlord {
         let blossom = match GLOBALS.blossom.get() {
             Some(b) => b,
             None => {
-                let blossom = Blossom::new()?;
-                let _ = GLOBALS.blossom.set(blossom);
+                let _ = GLOBALS.blossom.set(Blossom);
                 GLOBALS.blossom.get().unwrap()
             }
         };
@@ -4010,24 +4009,25 @@ impl Overlord {
         let url = nostr_types::Url::try_from_unchecked_url(&lnurl)?;
 
         let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
-        let client = if socks5_proxy_address.is_empty()
-            || GLOBALS
+
+        let client = if !socks5_proxy_address.is_empty()
+            && !GLOBALS
                 .db()
                 .read_setting_socks5_proxy_ignore()
-                .lines()
-                .any(|l| !l.is_empty() && l.starts_with(url.as_str()))
+                .split_whitespace()
+                .any(|l| url.as_str().starts_with(l))
         {
+            tracing::debug!(
+                "Begin proxied ({socks5_proxy_address}) overlord::zap_start connection to `{}`...",
+                url.as_str()
+            );
+            Client::builder().proxy(Proxy::all(format!("socks5h://{socks5_proxy_address}"))?)
+        } else {
             tracing::debug!(
                 "Begin direct overlord::zap_start connection to `{}`...",
                 url.as_str()
             );
             Client::builder()
-        } else {
-            tracing::debug!(
-                "Begin proxy `{socks5_proxy_address}` overlord::zap_start connection to `{}`...",
-                url.as_str()
-            );
-            Client::builder().proxy(Proxy::all(format!("socks5h://{socks5_proxy_address}"))?)
         }
         .timeout(std::time::Duration::new(15, 0))
         .gzip(true)
@@ -4222,24 +4222,26 @@ impl Overlord {
             .append_pair("nostr", &serialized_event)
             .append_pair("amount", &msats_string);
 
-        let url_str = url.to_string();
-
         let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
 
-        let client = if socks5_proxy_address.is_empty()
-            || GLOBALS
+        let client = if !socks5_proxy_address.is_empty()
+            && !GLOBALS
                 .db()
                 .read_setting_socks5_proxy_ignore()
-                .lines()
-                .any(|l| !l.is_empty() && l.starts_with(&url_str))
+                .split_whitespace()
+                .any(|l| url.as_str().starts_with(l))
         {
-            tracing::debug!("Begin direct overlord::zap connection to `{url_str}`...");
-            Client::builder()
-        } else {
             tracing::debug!(
-                "Begin proxy `{socks5_proxy_address}` overlord::zap connection to `{url_str}`..."
+                "Begin proxied ({socks5_proxy_address}) overlord::zap connection to `{}`...",
+                url.as_str()
             );
             Client::builder().proxy(Proxy::all(format!("socks5h://{socks5_proxy_address}"))?)
+        } else {
+            tracing::debug!(
+                "Begin direct overlord::zap connection to `{}`...",
+                url.as_str()
+            );
+            Client::builder()
         }
         .timeout(std::time::Duration::new(15, 0))
         .gzip(true)

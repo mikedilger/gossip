@@ -290,21 +290,14 @@ impl Minion {
 
             let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
 
-            let stream = if socks5_proxy_address.is_empty()
-                || GLOBALS
+            let stream = if !socks5_proxy_address.is_empty()
+                && !GLOBALS
                     .db()
                     .read_setting_socks5_proxy_ignore()
-                    .lines()
-                    .any(|l| !l.is_empty() && l.starts_with(&url))
+                    .split_whitespace()
+                    .any(|l| url.starts_with(l))
             {
-                tracing::debug!("Begin direct connection to `{url}`...");
-                Stream::Direct(
-                    tokio::net::TcpStream::connect((socket_host(host), port))
-                        .await
-                        .map_err(tokio_tungstenite::tungstenite::Error::Io)?,
-                )
-            } else {
-                tracing::debug!("Begin proxy `{socks5_proxy_address}` connection to `{url}`...");
+                tracing::debug!("Begin proxied ({socks5_proxy_address}) connection to `{url}`...");
                 match socks5_proxy_address.parse::<std::net::SocketAddr>() {
                     Ok(proxy_addr) => Stream::Socks5(
                         Socks5Stream::connect(proxy_addr, (socket_host(host), port))
@@ -315,6 +308,13 @@ impl Minion {
                     ),
                     Err(e) => panic!("Unexpected SOCKS5 proxy address: {e}"), // validate form on save this value
                 }
+            } else {
+                tracing::debug!("Begin direct connection to `{url}`...");
+                Stream::Direct(
+                    tokio::net::TcpStream::connect((socket_host(host), port))
+                        .await
+                        .map_err(tokio_tungstenite::tungstenite::Error::Io)?,
+                )
             };
 
             let connect_future =
@@ -509,18 +509,18 @@ impl Minion {
 
         let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
 
-        let request_nip11_future = if socks5_proxy_address.is_empty()
-            || GLOBALS
+        let request_nip11_future = if !socks5_proxy_address.is_empty()
+            && !GLOBALS
                 .db()
                 .read_setting_socks5_proxy_ignore()
-                .lines()
-                .any(|l| !l.is_empty() && l.starts_with(&url))
+                .split_whitespace()
+                .any(|l| url.as_str().starts_with(l))
         {
+            tracing::debug!("Begin proxied ({socks5_proxy_address}) connection to `{url}`...");
+            Client::builder().proxy(Proxy::all(format!("socks5h://{socks5_proxy_address}"))?)
+        } else {
             tracing::debug!("Begin direct connection to `{url}`...");
             Client::builder()
-        } else {
-            tracing::debug!("Begin proxy `{socks5_proxy_address}` connection to `{url}`...");
-            Client::builder().proxy(Proxy::all(format!("socks5h://{socks5_proxy_address}"))?)
         }
         .timeout(fetcher_timeout)
         .redirect(Policy::none())

@@ -88,45 +88,10 @@ pub struct BlobDescriptor {
     pub created: Option<u64>,
 }
 
-pub struct Blossom {
-    client: Client,
-    socks5h_client: Option<Client>,
-}
+#[derive(Default)]
+pub struct Blossom;
 
 impl Blossom {
-    pub fn new() -> Result<Blossom, Error> {
-        /// Shared client build logic
-        fn client_builder(connect_timeout: Duration, timeout: Duration) -> reqwest::ClientBuilder {
-            Client::builder()
-                .gzip(false)
-                .brotli(false)
-                .deflate(false)
-                .connect_timeout(connect_timeout)
-                .timeout(timeout)
-        }
-
-        let connect_timeout =
-            Duration::new(GLOBALS.db().read_setting_fetcher_connect_timeout_sec(), 0);
-        let timeout = Duration::new(GLOBALS.db().read_setting_fetcher_timeout_sec(), 0);
-        let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
-
-        Ok(Blossom {
-            client: client_builder(connect_timeout, timeout).build()?,
-            socks5h_client: if socks5_proxy_address.is_empty() {
-                None
-            } else {
-                tracing::debug!(
-                    "Init optional proxy `{socks5_proxy_address}` client type for blossom requests..."
-                );
-                Some(
-                    client_builder(connect_timeout, timeout)
-                        .proxy(Proxy::all(format!("socks5h://{socks5_proxy_address}"))?)
-                        .build()?,
-                )
-            },
-        })
-    }
-
     /// BUD-01 HEAD /<sha256>
     /// Check if the data exists on the blossom server
     pub async fn check_exists(
@@ -136,7 +101,7 @@ impl Blossom {
         authorize: bool,
     ) -> Result<bool, Error> {
         let url = format!("{}{}", base_url, hash);
-        let mut req_builder = self.client.head(url);
+        let mut req_builder = client_for(&url)?.head(url);
 
         if authorize {
             let authorization = authorization(
@@ -170,21 +135,7 @@ impl Blossom {
     ) -> Result<Response, Error> {
         let url = format!("{}{}", base_url, hash);
 
-        let client = if GLOBALS.db().read_setting_socks5_proxy_address().is_empty()
-            || GLOBALS
-                .db()
-                .read_setting_socks5_proxy_ignore()
-                .lines()
-                .any(|l| !l.is_empty() && l.starts_with(&url))
-        {
-            tracing::debug!("Begin direct blossom request to `{url}`...");
-            &self.client
-        } else {
-            tracing::debug!("Begin proxied blossom request to `{url}`...");
-            self.socks5h_client.as_ref().unwrap()
-        };
-
-        let mut req_builder = client.get(url);
+        let mut req_builder = client_for(&url)?.get(url);
 
         if authorize {
             let authorization = authorization(
@@ -230,8 +181,7 @@ impl Blossom {
         .await?;
 
         let url = format!("{}upload", base_url);
-        let response = self
-            .client
+        let response = client_for(&url)?
             .put(url)
             .header(AUTHORIZATION, format!("Nostr {}", authorization))
             .header(CONTENT_TYPE, format!("{}", content_type))
@@ -269,6 +219,42 @@ impl Blossom {
     //pub async fn delete() {
     //    unimplemented!()
     //}
+}
+
+/// Shared client builder logic
+fn client_for(url: &str) -> Result<Client, Error> {
+    fn client_builder(connect_timeout: Duration, timeout: Duration) -> reqwest::ClientBuilder {
+        Client::builder()
+            .gzip(false)
+            .brotli(false)
+            .deflate(false)
+            .connect_timeout(connect_timeout)
+            .timeout(timeout)
+    }
+
+    let connect_timeout = Duration::new(GLOBALS.db().read_setting_fetcher_connect_timeout_sec(), 0);
+    let timeout = Duration::new(GLOBALS.db().read_setting_fetcher_timeout_sec(), 0);
+    let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
+
+    Ok(
+        if !socks5_proxy_address.is_empty()
+            && !GLOBALS
+                .db()
+                .read_setting_socks5_proxy_ignore()
+                .split_whitespace()
+                .any(|l| url.starts_with(l))
+        {
+            tracing::debug!(
+                "Init proxied ({socks5_proxy_address}) Client type for blossom request `{url}`..."
+            );
+            client_builder(connect_timeout, timeout)
+                .proxy(Proxy::all(format!("socks5h://{socks5_proxy_address}"))?)
+                .build()?
+        } else {
+            tracing::debug!("Init direct Client type for blossom request `{url}`...");
+            client_builder(connect_timeout, timeout).build()?
+        },
+    )
 }
 
 // This returns the base64 encoded authorization event

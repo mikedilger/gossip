@@ -192,18 +192,18 @@ async fn fetch_nip05(user: &str, domain: &str) -> Result<Nip05, Error> {
     // FIXME add user-agent if configured
 
     let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
-    let nip05_future = if socks5_proxy_address.is_empty()
-        || GLOBALS
+    let nip05_future = if !socks5_proxy_address.is_empty()
+        && !GLOBALS
             .db()
             .read_setting_socks5_proxy_ignore()
-            .lines()
-            .any(|l| !l.is_empty() && l.starts_with(&format!("https://{domain}")))
+            .split_whitespace()
+            .any(|l| format!("https://{domain}").starts_with(l))
     {
+        tracing::debug!("Begin proxied ({socks5_proxy_address}) connection to NIP05 `{domain}`...");
+        Client::builder().proxy(Proxy::all(format!("socks5h://{socks5_proxy_address}"))?)
+    } else {
         tracing::debug!("Begin direct connection to NIP05 `{domain}`...");
         Client::builder()
-    } else {
-        tracing::debug!("Begin proxy `{socks5_proxy_address}` connection to NIP05 `{domain}`...");
-        Client::builder().proxy(Proxy::all(format!("socks5h://{socks5_proxy_address}"))?)
     }
     .timeout(std::time::Duration::new(60, 0))
     .redirect(Policy::none()) // see NIP-05

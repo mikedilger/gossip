@@ -583,23 +583,28 @@ impl Fetcher {
 
             // Get the client
             // (Client is internally an Arc so we can just clone it)
-            let client = if GLOBALS.db().read_setting_socks5_proxy_address().is_empty()
-                || GLOBALS
+            let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
+
+            let client = if !socks5_proxy_address.is_empty()
+                && !GLOBALS
                     .db()
                     .read_setting_socks5_proxy_ignore()
-                    .lines()
-                    .any(|l| !l.is_empty() && l.starts_with(url.as_str()))
+                    .split_whitespace()
+                    .any(|l| url.as_str().starts_with(l))
             {
-                tracing::debug!("Begin direct fetcher request to `{}`...", url.as_str());
-                self.client.read().unwrap().clone().unwrap()
-            } else {
-                tracing::debug!("Begin proxied fetcher request to `{}`...", url.as_str());
+                tracing::debug!(
+                    "Begin proxied ({socks5_proxy_address}) fetcher request to `{}`...",
+                    url.as_str()
+                );
                 self.socks5h_client
                     .read()
                     .unwrap()
                     .clone()
                     .unwrap()
                     .unwrap()
+            } else {
+                tracing::debug!("Begin direct fetcher request to `{}`...", url.as_str());
+                self.client.read().unwrap().clone().unwrap()
             };
 
             // Build the request
