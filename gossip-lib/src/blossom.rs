@@ -242,7 +242,7 @@ fn client_for(url: &str) -> Result<Client, Error> {
                 .db()
                 .read_setting_socks5_proxy_ignore()
                 .split_whitespace()
-                .any(|l| url.starts_with(l))
+                .any(|l| regex::Regex::new(l).is_ok_and(|r| r.is_match(url)))
         {
             tracing::debug!(
                 "Init proxied ({socks5_proxy_address}) Client type for blossom request `{url}`..."

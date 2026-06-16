@@ -81,8 +81,8 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     });
 
     ui.horizontal(|ui| {
-        let hint = "One URL per line";
-        ui.label("No proxy for URL starts with:")
+        let hint = "One expression per line";
+        ui.label("No proxy for URL match regex:")
             .on_hover_text(hint);
         ui.text_edit_multiline(&mut app.unsaved_settings.socks5_proxy_ignore)
             .on_hover_text(hint);

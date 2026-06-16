@@ -20,6 +20,7 @@ use nostr_types::{
     ClientMessage, EventKind, Filter, Id, KeySigner, NAddr, PreEvent, PublicKey,
     RelayInformationDocument, RelayUrl, Signer, Tag, Unixtime,
 };
+use regex::Regex;
 use reqwest::{redirect::Policy, Client, Proxy, Response};
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
@@ -295,7 +296,7 @@ impl Minion {
                     .db()
                     .read_setting_socks5_proxy_ignore()
                     .split_whitespace()
-                    .any(|l| url.starts_with(l))
+                    .any(|l| Regex::new(l).is_ok_and(|r| r.is_match(&url)))
             {
                 tracing::debug!("Begin proxied ({socks5_proxy_address}) connection to `{url}`...");
                 match socks5_proxy_address.parse::<std::net::SocketAddr>() {
@@ -514,7 +515,7 @@ impl Minion {
                 .db()
                 .read_setting_socks5_proxy_ignore()
                 .split_whitespace()
-                .any(|l| url.as_str().starts_with(l))
+                .any(|l| Regex::new(l).is_ok_and(|r| r.is_match(url.as_str())))
         {
             tracing::debug!("Begin proxied ({socks5_proxy_address}) connection to `{url}`...");
             Client::builder().proxy(Proxy::all(format!("socks5h://{socks5_proxy_address}"))?)

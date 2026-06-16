@@ -28,6 +28,7 @@ use nostr_types::{
     NAddr, NostrBech32, ParsedTag, PayRequestData, PreEvent, PrivateKey, Profile, PublicKey,
     RelayUrl, Tag, UncheckedUrl, Unixtime, Url,
 };
+use regex::Regex;
 use reqwest::{Client, Proxy};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -4015,7 +4016,7 @@ impl Overlord {
                 .db()
                 .read_setting_socks5_proxy_ignore()
                 .split_whitespace()
-                .any(|l| url.as_str().starts_with(l))
+                .any(|l| Regex::new(l).is_ok_and(|r| r.is_match(url.as_str())))
         {
             tracing::debug!(
                 "Begin proxied ({socks5_proxy_address}) overlord::zap_start connection to `{}`...",
@@ -4229,7 +4230,7 @@ impl Overlord {
                 .db()
                 .read_setting_socks5_proxy_ignore()
                 .split_whitespace()
-                .any(|l| url.as_str().starts_with(l))
+                .any(|l| Regex::new(l).is_ok_and(|r| r.is_match(url.as_str())))
         {
             tracing::debug!(
                 "Begin proxied ({socks5_proxy_address}) overlord::zap connection to `{}`...",

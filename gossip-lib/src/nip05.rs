@@ -197,7 +197,7 @@ async fn fetch_nip05(user: &str, domain: &str) -> Result<Nip05, Error> {
             .db()
             .read_setting_socks5_proxy_ignore()
             .split_whitespace()
-            .any(|l| format!("https://{domain}").starts_with(l))
+            .any(|l| regex::Regex::new(l).is_ok_and(|r| r.is_match(&format!("https://{domain}"))))
     {
         tracing::debug!("Begin proxied ({socks5_proxy_address}) connection to NIP05 `{domain}`...");
         Client::builder().proxy(Proxy::all(format!("socks5h://{socks5_proxy_address}"))?)

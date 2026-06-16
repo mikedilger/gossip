@@ -590,7 +590,7 @@ impl Fetcher {
                     .db()
                     .read_setting_socks5_proxy_ignore()
                     .split_whitespace()
-                    .any(|l| url.as_str().starts_with(l))
+                    .any(|l| regex::Regex::new(l).is_ok_and(|r| r.is_match(url.as_str())))
             {
                 tracing::debug!(
                     "Begin proxied ({socks5_proxy_address}) fetcher request to `{}`...",
