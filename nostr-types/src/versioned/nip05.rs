@@ -1,4 +1,5 @@
 use crate::types::{PublicKeyHex, UncheckedUrl};
+use indexmap::IndexSet;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "speedy")]
 use speedy::{Readable, Writable};
@@ -15,7 +16,7 @@ pub struct Nip05V1 {
     /// Public keys mapped to arrays of relays where they post
     #[serde(skip_serializing_if = "HashMap::is_empty")]
     #[serde(default)]
-    pub relays: HashMap<PublicKeyHex, Vec<UncheckedUrl>>,
+    pub relays: HashMap<PublicKeyHex, IndexSet<UncheckedUrl>>,
 }
 
 impl Nip05V1 {
@@ -30,13 +31,13 @@ impl Nip05V1 {
         let mut names: HashMap<String, PublicKeyHex> = HashMap::new();
         let _ = names.insert("bob".to_string(), pubkey.clone());
 
-        let mut relays: HashMap<PublicKeyHex, Vec<UncheckedUrl>> = HashMap::new();
+        let mut relays: HashMap<PublicKeyHex, IndexSet<UncheckedUrl>> = HashMap::new();
         let _ = relays.insert(
             pubkey,
-            vec![
+            IndexSet::from([
                 UncheckedUrl::from_str("wss://relay.example.com"),
                 UncheckedUrl::from_str("wss://relay2.example.com"),
-            ],
+            ]),
         );
 
         Nip05V1 { names, relays }
@@ -68,14 +69,14 @@ mod test {
             "b0635d6a9851d3aed0cd6c495b282167acf761729078d975fc341b22650b07b9"
         );
 
-        let bobs_relays: Vec<UncheckedUrl> = nip05.relays.get(&bobs_pk).unwrap().to_owned();
+        let bobs_relays: IndexSet<UncheckedUrl> = nip05.relays.get(&bobs_pk).unwrap().to_owned();
 
         assert_eq!(
             bobs_relays,
-            vec![
+            IndexSet::from([
                 UncheckedUrl::from_str("wss://relay.example.com"),
                 UncheckedUrl::from_str("wss://relay2.example.com")
-            ]
+            ])
         );
     }
 }

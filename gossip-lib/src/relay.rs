@@ -15,15 +15,18 @@
 
 /// Relay type, aliased to the latest version
 pub type Relay = crate::storage::types::Relay3;
+use std::collections::HashMap;
+
 pub use crate::storage::types::ScoreFactors;
 
 use crate::error::{Error, ErrorKind};
 use crate::person_relay::PersonRelay;
 use crate::GLOBALS;
+use indexmap::IndexSet;
 use nostr_types::{Event, EventKind, Id, PublicKey, RelayUrl, RelayUsage, Unixtime};
 
 // Get `num_relays_per_prson` outboxes to subscribe to their events
-pub fn get_some_pubkey_outboxes(pubkey: PublicKey) -> Result<Vec<RelayUrl>, Error> {
+pub fn get_some_pubkey_outboxes(pubkey: PublicKey) -> Result<IndexSet<RelayUrl>, Error> {
     let num = GLOBALS.db().read_setting_num_relays_per_person() as usize;
     let relays =
         get_best_relays_with_score(pubkey, RelayUsage::Outbox, ScoreFactors::FULLY_ADJUSTED)?
@@ -93,7 +96,7 @@ pub fn get_dm_relays(pubkey: PublicKey) -> Result<Vec<RelayUrl>, Error> {
 
 /// This tries to generate a single RelayUrl to use for an 'e' or 'a' tag hint
 pub fn recommended_relay_hint(reply_to: Id) -> Result<Option<RelayUrl>, Error> {
-    let seen_on_relays: Vec<(RelayUrl, Unixtime)> =
+    let seen_on_relays: HashMap<RelayUrl, Unixtime> =
         GLOBALS.db().get_event_seen_on_relay(reply_to)?;
 
     let maybepubkey = GLOBALS.identity.public_key();
@@ -102,8 +105,8 @@ pub fn recommended_relay_hint(reply_to: Id) -> Result<Option<RelayUrl>, Error> {
 
         // Find the first-best intersection
         for mir in &my_inbox_relays {
-            for sor in &seen_on_relays {
-                if *mir == sor.0 {
+            for sor in seen_on_relays.keys() {
+                if mir == sor {
                     return Ok(Some(mir.clone()));
                 }
             }
@@ -112,7 +115,7 @@ pub fn recommended_relay_hint(reply_to: Id) -> Result<Option<RelayUrl>, Error> {
         // Else fall through to seen on relays only
     }
 
-    if let Some(sor) = seen_on_relays.first() {
+    if let Some(sor) = seen_on_relays.iter().next() {
         return Ok(Some(sor.0.clone()));
     }
 
@@ -140,16 +143,11 @@ pub fn relays_for_seeking_replies(event: &Event) -> Result<Vec<RelayUrl>, Error>
         .read_setting_limit_inbox_seeking_to_inbox_relays()
     {
         // Seen on relays
-        let mut seen_on: Vec<RelayUrl> = GLOBALS
-            .db()
-            .get_event_seen_on_relay(event.id)?
-            .drain(..)
-            .map(|(url, _time)| url)
-            .collect();
+        let seen_on = GLOBALS.db().get_event_seen_on_relay(event.id)?;
 
         // Take all inbox relays, and up to 2 seen_on relays that aren't inbox relays
         let mut extra = 2;
-        for url in seen_on.drain(..) {
+        for url in seen_on.into_keys() {
             if extra == 0 {
                 break;
             }
@@ -196,14 +194,8 @@ pub fn relays_to_post_to(event: &Event) -> Result<Vec<RelayUrl>, Error> {
     }
 
     // Remove all the 'seen_on' relays for this event
-    let seen_on: Vec<RelayUrl> = GLOBALS
-        .db()
-        .get_event_seen_on_relay(event.id)?
-        .iter()
-        .map(|(url, _time)| url.to_owned())
-        .collect();
-    relays.retain(|r| !seen_on.contains(r));
-
+    let seen_on = GLOBALS.db().get_event_seen_on_relay(event.id)?;
+    relays.retain(|r| !seen_on.contains_key(r));
     relays.sort();
     relays.dedup();
 

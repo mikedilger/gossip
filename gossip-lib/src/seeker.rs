@@ -6,6 +6,7 @@ use crate::people::People;
 use crate::relay;
 use crate::relay::Relay;
 use dashmap::DashMap;
+use indexmap::IndexSet;
 use nostr_types::{Event, EventReference, Id, PublicKey, RelayUrl, Unixtime};
 use std::time::Duration;
 
@@ -66,10 +67,10 @@ impl Seeker {
     fn minion_seek_event_at_our_read_relays(id: Id) {
         let _ = GLOBALS
             .to_overlord
-            .send(ToOverlordMessage::FetchEvent(id, vec![]));
+            .send(ToOverlordMessage::FetchEvent(id, IndexSet::new()));
     }
 
-    fn minion_seek_event_at_relays(id: Id, relays: Vec<RelayUrl>) {
+    fn minion_seek_event_at_relays(id: Id, relays: IndexSet<RelayUrl>) {
         let _ = GLOBALS
             .to_overlord
             .send(ToOverlordMessage::FetchEvent(id, relays));
@@ -79,7 +80,7 @@ impl Seeker {
     pub(crate) fn seek_id(
         &self,
         id: Id,
-        speculative_relays: Vec<RelayUrl>,
+        speculative_relays: IndexSet<RelayUrl>,
         climb: bool,
     ) -> Result<(), Error> {
         if self.events.get(&id).is_some() {
@@ -88,7 +89,9 @@ impl Seeker {
 
         tracing::debug!("Seeking id={}", id.as_hex_string());
 
-        let mut relays: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::READ, |_| true)?;
+        let mut relays: IndexSet<RelayUrl> = Relay::choose_relay_urls(Relay::READ, |_| true)?
+            .into_iter()
+            .collect();
         relays.extend(speculative_relays);
         Self::minion_seek_event_at_relays(id, relays);
 
@@ -104,7 +107,7 @@ impl Seeker {
         &self,
         id: Id,
         author: PublicKey,
-        speculative_relays: Vec<RelayUrl>,
+        speculative_relays: IndexSet<RelayUrl>,
         climb: bool,
     ) -> Result<(), Error> {
         // Start speculative seek (this is untracked. We will track the by author
@@ -149,7 +152,7 @@ impl Seeker {
     }
 
     /// Seek an event when you have the `Id` and the relays to seek from
-    pub(crate) fn seek_id_and_relays(&self, id: Id, relays: Vec<RelayUrl>, climb: bool) {
+    pub(crate) fn seek_id_and_relays(&self, id: Id, relays: IndexSet<RelayUrl>, climb: bool) {
         if let Some(existing) = self.events.get(&id) {
             if matches!(existing.value().state, SeekState::WaitingEvent) {
                 return; // Already seeking it
@@ -192,7 +195,7 @@ impl Seeker {
                 let mut eref = EventReference::Id {
                     id: event.id,
                     author: Some(event.pubkey),
-                    relays: vec![],
+                    relays: IndexSet::new(),
                     marker: None,
                 };
                 while let Some(event) = GLOBALS.db().read_event_reference(&eref)? {
@@ -208,7 +211,7 @@ impl Seeker {
                 // FIXME make better use of hints, author hints, etc.
                 // we have lost relay information along the way.
                 if let EventReference::Id { id, .. } = eref {
-                    self.seek_id(id, vec![], true)?;
+                    self.seek_id(id, IndexSet::new(), true)?;
                 }
             }
         }

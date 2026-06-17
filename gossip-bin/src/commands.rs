@@ -547,10 +547,10 @@ pub fn bech32_encode_naddr(cmd: Command, mut args: env::Args) -> Result<(), Erro
         None => return cmd.usage("Missing d parameter".to_string()),
     };
 
-    let mut urls: Vec<UncheckedUrl> = vec![];
+    let mut urls = IndexSet::new();
 
     for s in args {
-        urls.push(UncheckedUrl::from_string(s));
+        urls.insert(UncheckedUrl::from_string(s));
     }
 
     let ea = NAddr {
@@ -698,18 +698,15 @@ pub async fn delete_spam_by_content(cmd: Command, mut args: env::Args) -> Result
     // Find events among those with matching spammy content
     let mut target_ids: Vec<Id> = Vec::new();
     for event in events {
-        let mut matches = false;
-        if kind == EventKind::GiftWrap {
-            if let Ok(rumor) = GLOBALS.identity.unwrap_giftwrap(&event).await {
-                if rumor.content.contains(&substring) {
-                    matches = true;
-                }
-            }
-        } else if event.content.contains(&substring) {
-            matches = true;
-        }
-
-        if matches {
+        if (kind == EventKind::GiftWrap
+            && GLOBALS
+                .identity
+                .unwrap_giftwrap(&event)
+                .await?
+                .content
+                .contains(&substring))
+            || event.content.contains(&substring)
+        {
             target_ids.push(event.id);
         }
     }
@@ -746,10 +743,8 @@ pub async fn delete_spam_by_content(cmd: Command, mut args: env::Args) -> Result
     let mut relays: HashSet<RelayUrl> = HashSet::new();
     for id in &target_ids {
         // Get seen on relays
-        if let Ok(seen_on) = GLOBALS.db().get_event_seen_on_relay(*id) {
-            for (relay, _when) in seen_on {
-                relays.insert(relay);
-            }
+        for relay in GLOBALS.db().get_event_seen_on_relay(*id)?.into_keys() {
+            relays.insert(relay);
         }
     }
 

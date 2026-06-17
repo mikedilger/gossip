@@ -1,3 +1,5 @@
+use indexmap::IndexSet;
+
 use crate::{Event, EventKind, PreEvent, PublicKey, Tag, UncheckedUrl, Unixtime};
 
 /// NIP-92/94 File Metadata
@@ -43,7 +45,7 @@ pub struct FileMetadata {
     pub alt: Option<String>,
 
     /// Fallback URLs
-    pub fallback: Vec<UncheckedUrl>,
+    pub fallback: IndexSet<UncheckedUrl>,
 
     /// Service
     pub service: Option<String>,
@@ -66,7 +68,7 @@ impl FileMetadata {
             image: None,
             summary: None,
             alt: None,
-            fallback: vec![],
+            fallback: IndexSet::new(),
             service: None,
         }
     }
@@ -176,7 +178,9 @@ impl FileMetadata {
                 "image" => fm.image = Some(UncheckedUrl(tag.value().to_owned())),
                 "summary" => fm.summary = Some(tag.value().to_owned()),
                 "alt" => fm.alt = Some(tag.value().to_owned()),
-                "fallback" => fm.fallback.push(UncheckedUrl(tag.value().to_owned())),
+                "fallback" => {
+                    fm.fallback.insert(UncheckedUrl(tag.value().to_owned()));
+                }
                 "service" => fm.service = Some(tag.value().to_owned()),
                 _ => continue,
             }
@@ -290,7 +294,9 @@ impl FileMetadata {
                 "image" => fm.image = Some(UncheckedUrl(parts[1].to_owned())),
                 "summary" => fm.summary = Some(parts[1].to_owned()),
                 "alt" => fm.alt = Some(parts[1].to_owned()),
-                "fallback" => fm.fallback.push(UncheckedUrl(parts[1].to_owned())),
+                "fallback" => {
+                    fm.fallback.insert(UncheckedUrl(parts[1].to_owned()));
+                }
                 "service" => fm.service = Some(parts[1].to_owned()),
                 _ => continue,
             }

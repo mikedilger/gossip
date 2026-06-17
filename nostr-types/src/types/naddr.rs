@@ -1,5 +1,6 @@
 use super::{EventKind, PublicKey, UncheckedUrl};
 use crate::Error;
+use indexmap::IndexSet;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "speedy")]
 use speedy::{Readable, Writable};
@@ -13,7 +14,7 @@ pub struct NAddr {
     pub d: String,
 
     /// Some of the relays where this could be found
-    pub relays: Vec<UncheckedUrl>,
+    pub relays: IndexSet<UncheckedUrl>,
 
     /// Kind
     pub kind: EventKind,
@@ -67,7 +68,7 @@ impl NAddr {
             ))
         } else {
             let mut maybe_d: Option<String> = None;
-            let mut relays: Vec<UncheckedUrl> = Vec::new();
+            let mut relays: IndexSet<UncheckedUrl> = IndexSet::new();
             let mut maybe_kind: Option<EventKind> = None;
             let mut maybe_author: Option<PublicKey> = None;
 
@@ -94,7 +95,7 @@ impl NAddr {
                         // relay
                         let relay_str = std::str::from_utf8(raw)?;
                         let relay = UncheckedUrl::from_str(relay_str);
-                        relays.push(relay);
+                        relays.insert(relay);
                     }
                     2 => {
                         // author
@@ -143,10 +144,10 @@ impl NAddr {
 
         NAddr {
             d,
-            relays: vec![
+            relays: IndexSet::from([
                 UncheckedUrl::from_str("wss://relay.example.com"),
                 UncheckedUrl::from_str("wss://relay2.example.com"),
-            ],
+            ]),
             kind: EventKind::LongFormContent,
             author: PublicKey::mock_deterministic(),
         }

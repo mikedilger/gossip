@@ -1,5 +1,6 @@
 use super::{EventKind, Id, PublicKey, UncheckedUrl};
 use crate::Error;
+use indexmap::IndexSet;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "speedy")]
 use speedy::{Readable, Writable};
@@ -12,7 +13,7 @@ pub struct NEvent {
     pub id: Id,
 
     /// Some of the relays where this could be in
-    pub relays: Vec<UncheckedUrl>,
+    pub relays: IndexSet<UncheckedUrl>,
 
     /// Kind (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -72,7 +73,7 @@ impl NEvent {
                 data.0.to_lowercase(),
             ))
         } else {
-            let mut relays: Vec<UncheckedUrl> = Vec::new();
+            let mut relays: IndexSet<UncheckedUrl> = IndexSet::new();
             let mut id: Option<Id> = None;
             let mut kind: Option<EventKind> = None;
             let mut author: Option<PublicKey> = None;
@@ -105,7 +106,7 @@ impl NEvent {
                         // relay
                         let relay_str = std::str::from_utf8(raw)?;
                         let relay = UncheckedUrl::from_str(relay_str);
-                        relays.push(relay);
+                        relays.insert(relay);
                     }
                     2 => {
                         // author
@@ -151,10 +152,10 @@ impl NEvent {
 
         NEvent {
             id,
-            relays: vec![
+            relays: IndexSet::from([
                 UncheckedUrl::from_str("wss://relay.example.com"),
                 UncheckedUrl::from_str("wss://relay2.example.com"),
-            ],
+            ]),
             kind: None,
             author: None,
         }
@@ -184,10 +185,10 @@ mod test {
                 "3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d",
             )
             .unwrap(),
-            relays: vec![
+            relays: IndexSet::from([
                 UncheckedUrl::from_str("wss://r.x.com"),
                 UncheckedUrl::from_str("wss://djbas.sadkb.com"),
-            ],
+            ]),
             kind: None,
             author: None,
         };
@@ -215,10 +216,10 @@ mod test {
                 "3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d",
             )
             .unwrap(),
-            relays: vec![
+            relays: IndexSet::from([
                 UncheckedUrl::from_str("wss://r.x.com"),
                 UncheckedUrl::from_str("wss://djbas.sadkb.com"),
-            ],
+            ]),
             kind: Some(EventKind::TextNote),
             author: Some(
                 PublicKey::try_from_hex_string(

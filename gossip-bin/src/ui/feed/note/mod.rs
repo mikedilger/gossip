@@ -841,10 +841,10 @@ pub fn render_note_inside_framing(
                                     .on_hover_text("Quote")
                                     .clicked()
                                     {
-                                        let relays: Vec<UncheckedUrl> = note
+                                        let relays: IndexSet<UncheckedUrl> = note
                                             .seen_on
-                                            .iter()
-                                            .map(|(url, _)| url.to_unchecked_url())
+                                            .keys()
+                                            .map(|url| url.to_unchecked_url())
                                             .take(3)
                                             .collect();
 
@@ -1488,10 +1488,10 @@ fn note_actions(
     note: &std::cell::Ref<NoteData>,
     _render_data: &NoteRenderData,
 ) {
-    let relays: Vec<UncheckedUrl> = note
+    let relays: IndexSet<UncheckedUrl> = note
         .seen_on
-        .iter()
-        .map(|(url, _)| url.to_unchecked_url())
+        .keys()
+        .map(|url| url.to_unchecked_url())
         .take(3)
         .collect();
 
@@ -1918,7 +1918,7 @@ fn draw_seen_on(app: &mut GossipUi, ui: &mut Ui, note: &std::cell::Ref<NoteData>
                 ui.set_min_width(200.0);
                 egui::Frame::popup(&app.theme.get_style()).show(ui, |ui| {
                     if !note.seen_on.is_empty() {
-                        for (url, _) in note.seen_on.iter() {
+                        for url in note.seen_on.keys() {
                             ui.label(url.as_str());
                         }
                     } else {

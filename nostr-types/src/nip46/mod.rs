@@ -314,6 +314,7 @@ mod test {
             RelayUrl::try_from_str("wss://relay.example/").unwrap(),
             None,
             "password",
+            Duration::from_secs(5),
         )
         .unwrap();
 

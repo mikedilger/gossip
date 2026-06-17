@@ -372,8 +372,9 @@ fn add_thread_based_tags(
     let parent_relay: Option<UncheckedUrl> = GLOBALS
         .db()
         .get_event_seen_on_relay(parent.id)?
-        .pop()
-        .map(|(rurl, _)| rurl.to_unchecked_url());
+        .into_keys()
+        .next()
+        .map(|rurl| rurl.to_unchecked_url());
 
     // Possibly add a tag to the 'root'
     let mut parent_is_root = true;

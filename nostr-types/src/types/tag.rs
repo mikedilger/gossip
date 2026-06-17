@@ -1,7 +1,9 @@
+use indexmap::IndexSet;
+
 use crate::versioned::tag3::TagV3;
 use crate::{
-    DelegationConditions, Error, EventKind, EventReference, Id, IntoVec, NAddr, PublicKey,
-    RelayUrl, Signature, UncheckedUrl,
+    DelegationConditions, Error, EventKind, EventReference, Id, NAddr, PublicKey, RelayUrl,
+    Signature, UncheckedUrl,
 };
 
 /// A tag on an Event
@@ -110,8 +112,8 @@ impl ParsedTag {
 
                 let url = tag.get_opt_index(2).map(|s| UncheckedUrl(s.to_owned()));
                 let relays = match url {
-                    None => Vec::new(),
-                    Some(r) => vec![r],
+                    None => IndexSet::new(),
+                    Some(r) => IndexSet::from([r]),
                 };
 
                 let na = NAddr {
@@ -246,8 +248,8 @@ impl ParsedTag {
 
                 let url = tag.get_opt_index(2).map(|s| UncheckedUrl(s.to_owned()));
                 let relays = match url {
-                    None => Vec::new(),
-                    Some(r) => vec![r],
+                    None => IndexSet::new(),
+                    Some(r) => IndexSet::from([r]),
                 };
 
                 let na = NAddr {
@@ -498,7 +500,8 @@ impl ParsedTag {
                 relays: recommended_relay_url
                     .as_ref()
                     .and_then(|rru| RelayUrl::try_from_unchecked_url(rru).ok())
-                    .into_vec(),
+                    .into_iter()
+                    .collect(),
                 marker,
             }),
             ParsedTag::Quote {
@@ -511,7 +514,8 @@ impl ParsedTag {
                 relays: recommended_relay_url
                     .as_ref()
                     .and_then(|rru| RelayUrl::try_from_unchecked_url(rru).ok())
-                    .into_vec(),
+                    .into_iter()
+                    .collect(),
                 marker: None,
             }),
             ParsedTag::RootAddress { address, marker: _ } => Some(EventReference::Addr(address)),
@@ -526,7 +530,8 @@ impl ParsedTag {
                 relays: recommended_relay_url
                     .as_ref()
                     .and_then(|rru| RelayUrl::try_from_unchecked_url(rru).ok())
-                    .into_vec(),
+                    .into_iter()
+                    .collect(),
                 marker,
             }),
             _ => None,

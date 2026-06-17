@@ -190,7 +190,7 @@ pub struct NoteData {
     pub zaptotal: MilliSatoshi,
 
     /// Relays this event was seen on and when, if any
-    pub seen_on: Vec<(RelayUrl, Unixtime)>,
+    pub seen_on: HashMap<RelayUrl, Unixtime>,
 
     /// The content shattered into renderable elements
     pub shattered_content: ShatteredContent,
@@ -478,13 +478,10 @@ impl NoteData {
         self.our_reaction = our_reaction;
 
         // Update seen_on
-        let mut seen_on = GLOBALS
+        self.seen_on = GLOBALS
             .db()
             .get_event_seen_on_relay(self.event.id)
             .unwrap_or_default();
-
-        self.seen_on.clear();
-        self.seen_on.append(&mut seen_on);
 
         // Update annotations
         self.annotations = GLOBALS

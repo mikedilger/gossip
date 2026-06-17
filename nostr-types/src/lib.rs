@@ -128,19 +128,6 @@ pub(crate) fn get_leading_zero_bits(bytes: &[u8]) -> u8 {
     res
 }
 
-trait IntoVec<T> {
-    fn into_vec(self) -> Vec<T>;
-}
-
-impl<T> IntoVec<T> for Option<T> {
-    fn into_vec(self) -> Vec<T> {
-        match self {
-            None => vec![],
-            Some(t) => vec![t],
-        }
-    }
-}
-
 use bech32::Hrp;
 lazy_static::lazy_static! {
     static ref HRP_LNURL: Hrp = Hrp::parse("lnurl").expect("HRP error on lnurl");

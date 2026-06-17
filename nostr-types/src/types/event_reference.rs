@@ -1,4 +1,5 @@
 use super::{Id, NAddr, PublicKey, RelayUrl};
+use indexmap::IndexSet;
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 
@@ -15,7 +16,7 @@ pub enum EventReference {
         author: Option<PublicKey>,
 
         /// Optionally include relays (to find the event)
-        relays: Vec<RelayUrl>,
+        relays: IndexSet<RelayUrl>,
 
         /// Optional marker, if this came from an event tag
         marker: Option<String>,
@@ -43,7 +44,7 @@ impl EventReference {
     }
 
     /// Copy the relays
-    pub fn copy_relays(&self) -> Vec<RelayUrl> {
+    pub fn copy_relays(&self) -> IndexSet<RelayUrl> {
         match self {
             EventReference::Id { relays, .. } => relays.clone(),
             EventReference::Addr(naddr) => naddr
@@ -55,7 +56,7 @@ impl EventReference {
     }
 
     /// Extend relays
-    pub fn extend_relays(&mut self, relays: Vec<RelayUrl>) {
+    pub fn extend_relays(&mut self, relays: IndexSet<RelayUrl>) {
         let mut new_relays = self.copy_relays();
         new_relays.extend(relays);
 

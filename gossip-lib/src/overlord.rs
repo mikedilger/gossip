@@ -23,6 +23,7 @@ use crate::storage::{PersonTable, Table};
 use crate::RunState;
 use heed::RwTxn;
 use http::StatusCode;
+use indexmap::IndexSet;
 use nostr_types::{
     EncryptedPrivateKey, Event, EventKind, EventReference, Filter, Id, Metadata, MilliSatoshi,
     NAddr, NostrBech32, ParsedTag, PayRequestData, PreEvent, PrivateKey, Profile, PublicKey,
@@ -1122,10 +1123,10 @@ impl Overlord {
         // Process this event locally (ignore any error)
         crate::process::process_new_event(&event, None, None, false, false).await?;
 
-        let config_relays: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
-
         manager::run_jobs_on_all_relays(
-            config_relays,
+            Relay::choose_relay_urls(Relay::WRITE, |_| true)?
+                .into_iter()
+                .collect(),
             vec![RelayJob {
                 reason: RelayConnectionReason::PostEvent,
                 payload: ToMinionPayload {
@@ -1329,7 +1330,7 @@ impl Overlord {
             // Include an "a" tag for the entire group
             let ea = NAddr {
                 d: metadata.dtag.clone(),
-                relays: vec![],
+                relays: IndexSet::new(),
                 kind: EventKind::FollowSets,
                 author: public_key,
             };
@@ -1368,31 +1369,25 @@ impl Overlord {
         crate::process::process_new_event(&event, None, None, false, false).await?;
 
         // Determine which relays to post this to
-        let mut relay_urls: Vec<RelayUrl> = Vec::new();
+        let mut relay_urls = IndexSet::new();
         {
             // Get all of the relays that we write to
-            let write_relays = relay::relays_to_post_to(&event)?;
-            relay_urls.extend(write_relays);
+            for r in relay::relays_to_post_to(&event)? {
+                relay_urls.insert(r);
+            }
 
             // Get all of the relays this events were seen on
             for bad_event in &bad_events {
-                let seen_on: Vec<RelayUrl> = GLOBALS
+                for url in GLOBALS
                     .db()
                     .get_event_seen_on_relay(bad_event.id)?
-                    .iter()
-                    .take(6) // Doesn't have to be everywhere
-                    .map(|(url, _time)| url.to_owned())
-                    .collect();
-
-                for url in &seen_on {
-                    tracing::error!("SEEN ON {}", &url);
+                    .into_keys()
+                    .take(6)
+                {
+                    tracing::error!("SEEN ON {url}");
+                    relay_urls.insert(url);
                 }
-
-                relay_urls.extend(seen_on);
             }
-
-            relay_urls.sort();
-            relay_urls.dedup();
         }
 
         // Send event to all these relays
@@ -1449,23 +1444,17 @@ impl Overlord {
         crate::process::process_new_event(&event, None, None, false, false).await?;
 
         // Determine which relays to post this to
-        let mut relay_urls: Vec<RelayUrl> = Vec::new();
+        let mut relay_urls = IndexSet::new();
         {
             // Get all of the relays that we write to
-            let write_relays = relay::relays_to_post_to(&event)?;
-            relay_urls.extend(write_relays);
+            for r in relay::relays_to_post_to(&event)? {
+                relay_urls.insert(r);
+            }
 
             // Get all of the relays this event was seen on
-            let seen_on: Vec<RelayUrl> = GLOBALS
-                .db()
-                .get_event_seen_on_relay(id)?
-                .iter()
-                .map(|(url, _time)| url.to_owned())
-                .collect();
-            relay_urls.extend(seen_on);
-
-            relay_urls.sort();
-            relay_urls.dedup();
+            for r in GLOBALS.db().get_event_seen_on_relay(id)?.into_keys() {
+                relay_urls.insert(r);
+            }
         }
 
         manager::run_jobs_on_all_relays(
@@ -1517,10 +1506,12 @@ impl Overlord {
     }
 
     /// Fetch an event from specific relays by event `Id`
-    pub fn fetch_event(&mut self, id: Id, mut relay_urls: Vec<RelayUrl>) -> Result<(), Error> {
+    pub fn fetch_event(&mut self, id: Id, mut relay_urls: IndexSet<RelayUrl>) -> Result<(), Error> {
         // Use READ relays if relays are unknown
         if relay_urls.is_empty() {
-            relay_urls = Relay::choose_relay_urls(Relay::READ, |_| true)?;
+            relay_urls = Relay::choose_relay_urls(Relay::READ, |_| true)?
+                .into_iter()
+                .collect();
         }
 
         // Don't do this if we already have the event
@@ -1547,14 +1538,11 @@ impl Overlord {
 
     /// Fetch an event based on an `NAddr`
     pub fn fetch_naddr(&mut self, ea: NAddr) -> Result<(), Error> {
-        let relays: Vec<RelayUrl> = ea
-            .relays
-            .iter()
-            .filter_map(|uu| RelayUrl::try_from_unchecked_url(uu).ok())
-            .collect();
-
         manager::run_jobs_on_all_relays(
-            relays,
+            ea.relays
+                .iter()
+                .filter_map(|uu| RelayUrl::try_from_unchecked_url(uu).ok())
+                .collect(),
             vec![RelayJob {
                 reason: RelayConnectionReason::FetchEvent,
                 payload: ToMinionPayload {
@@ -1753,10 +1741,10 @@ impl Overlord {
                 }
             }
             FeedKind::Inbox(_) => {
-                let relays: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::READ, |_| true)?;
-
                 manager::run_jobs_on_all_relays(
-                    relays,
+                    Relay::choose_relay_urls(Relay::READ, |_| true)?
+                        .into_iter()
+                        .collect(),
                     vec![RelayJob {
                         reason: RelayConnectionReason::FetchInbox,
                         payload: ToMinionPayload {
@@ -1788,9 +1776,10 @@ impl Overlord {
                 );
             }
             FeedKind::Global => {
-                let relay_urls = Relay::choose_relay_urls(Relay::GLOBAL, |_| true)?;
                 manager::run_jobs_on_all_relays(
-                    relay_urls,
+                    Relay::choose_relay_urls(Relay::GLOBAL, |_| true)?
+                        .into_iter()
+                        .collect(),
                     vec![RelayJob {
                         reason: RelayConnectionReason::SubscribeGlobal,
                         payload: ToMinionPayload {
@@ -1942,7 +1931,7 @@ impl Overlord {
             }
         };
 
-        let relay_urls: Vec<RelayUrl> = relay::relays_to_post_to(&event)?;
+        let relay_urls = relay::relays_to_post_to(&event)?.into_iter().collect();
         for url in &relay_urls {
             tracing::debug!("Asking {} to post", url);
         }
@@ -2051,8 +2040,10 @@ impl Overlord {
                 if GLOBALS.delayed_posts.contains(&event.id) {
                     GLOBALS.delayed_posts.remove(&event.id);
 
-                    for url in &relay_urls {
-                        tracing::debug!("Asking {} to post", url);
+                    let relay_urls_set = relay_urls.into_iter().collect();
+
+                    for url in &relay_urls_set {
+                        tracing::debug!("Asking {url} to post");
                     }
 
                     let events = match opt_relay_list_event {
@@ -2061,7 +2052,7 @@ impl Overlord {
                     };
 
                     manager::run_jobs_on_all_relays(
-                        relay_urls,
+                        relay_urls_set,
                         vec![RelayJob {
                             reason: RelayConnectionReason::PostEvent,
                             payload: ToMinionPayload {
@@ -2078,10 +2069,10 @@ impl Overlord {
     }
 
     pub fn post_again(&mut self, event: Event) -> Result<(), Error> {
-        let relay_urls = relay::relays_to_post_to(&event)?;
+        let relay_urls = relay::relays_to_post_to(&event)?.into_iter().collect();
 
         for url in &relay_urls {
-            tracing::debug!("Asking {} to post", url);
+            tracing::debug!("Asking {url} to post");
         }
 
         manager::run_jobs_on_all_relays(
@@ -2108,7 +2099,11 @@ impl Overlord {
         GLOBALS.feed.sync_recompute();
     }
 
-    pub fn post_nip46_event(&mut self, event: Event, relays: Vec<RelayUrl>) -> Result<(), Error> {
+    pub fn post_nip46_event(
+        &mut self,
+        event: Event,
+        relays: IndexSet<RelayUrl>,
+    ) -> Result<(), Error> {
         for url in &relays {
             tracing::debug!("Asking {} to post nostrconnect", url);
         }
@@ -2149,10 +2144,10 @@ impl Overlord {
 
         let event = GLOBALS.identity.sign_event(pre_event).await?;
 
-        let config_relays: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
-
         manager::run_jobs_on_all_relays(
-            config_relays,
+            Relay::choose_relay_urls(Relay::WRITE, |_| true)?
+                .into_iter()
+                .collect(),
             vec![RelayJob {
                 reason: RelayConnectionReason::PostBlossomServers,
                 payload: ToMinionPayload {
@@ -2179,7 +2174,9 @@ impl Overlord {
 
         // Push to all of the relays we post to
         // Send it the event to pull our followers
-        let relay_urls: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
+        let relay_urls = Relay::choose_relay_urls(Relay::WRITE, |_| true)?
+            .into_iter()
+            .collect();
         for url in &relay_urls {
             tracing::debug!("Pushing PersonList={} to {}", metadata.title, url);
         }
@@ -2216,7 +2213,9 @@ impl Overlord {
 
         // Push to all of the relays we post to
         // Send it the event to pull our followers
-        let relay_urls: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
+        let relay_urls = Relay::choose_relay_urls(Relay::WRITE, |_| true)?
+            .into_iter()
+            .collect();
         for url in &relay_urls {
             tracing::debug!("Pushing Metadata to {}", url);
         }
@@ -2308,7 +2307,10 @@ impl Overlord {
                 // FIXME: is this the right way to pick this relay?
                 relay::recommended_relay_hint(id)?.map(|rr| rr.to_unchecked_url())
             } else {
-                seen_on.first().map(|(rurl, _)| rurl.to_unchecked_url())
+                seen_on
+                    .into_keys()
+                    .next()
+                    .map(|rurl| rurl.to_unchecked_url())
             }
         };
 
@@ -2339,8 +2341,8 @@ impl Overlord {
                 let ea = NAddr {
                     d: reposted_event.parameter().unwrap_or("".to_string()),
                     relays: match relay_url {
-                        Some(url) => vec![url.clone()],
-                        None => vec![],
+                        Some(url) => IndexSet::from([url.clone()]),
+                        None => IndexSet::new(),
                     },
                     kind: reposted_event.kind,
                     author: reposted_event.pubkey,
@@ -2404,18 +2406,11 @@ impl Overlord {
         crate::process::process_new_event(&event, None, None, false, false).await?;
 
         // Determine which relays to post this to
-        let mut relay_urls: Vec<RelayUrl> = Vec::new();
-        {
-            // Get all of the relays that we write to
-            let write_relay_urls: Vec<RelayUrl> = relay::relays_to_post_to(&event)?;
-            relay_urls.extend(write_relay_urls);
-            relay_urls.sort();
-            relay_urls.dedup();
-        }
+        let relay_urls = relay::relays_to_post_to(&event)?.into_iter().collect();
 
         // Send it the event to post
         for url in &relay_urls {
-            tracing::debug!("Asking {} to (re)post", url);
+            tracing::debug!("Asking {url} to (re)post");
         }
         manager::run_jobs_on_all_relays(
             relay_urls,
@@ -2497,7 +2492,7 @@ impl Overlord {
                     if let Some(event) = GLOBALS.db().read_event(ne.id)? {
                         note_search_results.push(event);
                     } else {
-                        let relays: Vec<RelayUrl> = ne
+                        let relays = ne
                             .relays
                             .iter()
                             .filter_map(|r| RelayUrl::try_from_unchecked_url(r).ok())
@@ -2621,8 +2616,12 @@ impl Overlord {
             .search_job
             .store(job.payload.job_id, Ordering::Relaxed);
 
-        let search_relays: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::SEARCH, |_| true)?;
-        manager::run_jobs_on_all_relays(search_relays, vec![job]);
+        manager::run_jobs_on_all_relays(
+            Relay::choose_relay_urls(Relay::SEARCH, |_| true)?
+                .into_iter()
+                .collect(),
+            vec![job],
+        );
 
         Ok(())
     }
@@ -2641,9 +2640,8 @@ impl Overlord {
         let mut relays: Vec<Relay> = GLOBALS
             .db()
             .filter_relays(|r| r.has_usage_bits(Relay::OUTBOX) || r.has_usage_bits(Relay::INBOX))?;
-        let relay_urls: Vec<RelayUrl> = relays.drain(..).map(|r| r.url).collect();
         manager::run_jobs_on_all_relays(
-            relay_urls,
+            relays.drain(..).map(|r| r.url).collect(),
             vec![RelayJob {
                 reason: RelayConnectionReason::FetchDirectMessages,
                 payload: ToMinionPayload {
@@ -2659,9 +2657,10 @@ impl Overlord {
     }
 
     fn set_global_feed(&mut self, anchor: Unixtime) -> Result<(), Error> {
-        let relay_urls = Relay::choose_relay_urls(Relay::GLOBAL, |_| true)?;
         manager::run_jobs_on_all_relays(
-            relay_urls,
+            Relay::choose_relay_urls(Relay::GLOBAL, |_| true)?
+                .into_iter()
+                .collect(),
             vec![
                 RelayJob {
                     reason: RelayConnectionReason::SubscribeGlobal,
@@ -2688,9 +2687,10 @@ impl Overlord {
     }
 
     fn set_person_feed(&mut self, pubkey: PublicKey, anchor: Unixtime) -> Result<(), Error> {
-        let relays: Vec<RelayUrl> = relay::get_some_pubkey_outboxes(pubkey)?;
         manager::run_jobs_on_all_relays(
-            relays,
+            relay::get_some_pubkey_outboxes(pubkey)?
+                .into_iter()
+                .collect(),
             vec![
                 RelayJob {
                     reason: RelayConnectionReason::SubscribePerson,
@@ -2720,7 +2720,7 @@ impl Overlord {
 
     fn set_relay_feed(&mut self, relay_url: RelayUrl, anchor: Unixtime) -> Result<(), Error> {
         manager::run_jobs_on_all_relays(
-            vec![relay_url],
+            IndexSet::from([relay_url]),
             vec![
                 RelayJob {
                     reason: RelayConnectionReason::SubscribeGlobal,
@@ -2762,7 +2762,7 @@ impl Overlord {
         let mut eref = EventReference::Id {
             id,
             author,
-            relays: vec![],
+            relays: IndexSet::new(),
             marker: None,
         };
 
@@ -2792,7 +2792,7 @@ impl Overlord {
             // FIXME: keep climbing somehow once this comes in.
 
             // Let's first get additional relays the event might be on
-            let mut bonus_relays: Vec<RelayUrl> = Vec::new();
+            let mut bonus_relays = IndexSet::new();
 
             if let Some(highest_event) = ancestors.highest_connected_local {
                 // Include the relays where the event was seen
@@ -2800,19 +2800,16 @@ impl Overlord {
                     GLOBALS
                         .db()
                         .get_event_seen_on_relay(id)?
-                        .drain(..)
-                        .take(num_relays_per_person as usize + 1)
-                        .map(|(url, _time)| url),
+                        .into_keys()
+                        .take(num_relays_per_person as usize + 1),
                 );
 
                 // Include the OUTBOX relays of people tagged in the highest event
                 for (pk, opthint, _optmarker) in highest_event.people() {
                     if let Some(url) = opthint {
-                        bonus_relays.push(url);
+                        bonus_relays.insert(url);
                     } else {
-                        let tagged_person_relays: Vec<RelayUrl> =
-                            relay::get_some_pubkey_outboxes(pk)?;
-                        bonus_relays.extend(tagged_person_relays);
+                        bonus_relays.extend(relay::get_some_pubkey_outboxes(pk)?);
                     }
                 }
 
@@ -2836,21 +2833,15 @@ impl Overlord {
                     GLOBALS
                         .db()
                         .get_event_seen_on_relay(referenced_by)?
-                        .drain(..)
-                        .take(num_relays_per_person as usize + 1)
-                        .map(|(url, _time)| url),
+                        .into_keys()
+                        .take(num_relays_per_person as usize + 1),
                 );
 
                 // Include the relays of the author of the referencing event
                 if let Some(pk) = author {
-                    let author_relays: Vec<RelayUrl> = relay::get_some_pubkey_outboxes(pk)?;
-                    bonus_relays.extend(author_relays);
+                    bonus_relays.extend(relay::get_some_pubkey_outboxes(pk)?);
                 }
             }
-
-            // Clean up bonus_relays
-            bonus_relays.sort();
-            bonus_relays.dedup();
 
             match ancestors.highest_connected_remote {
                 Some(EventReference::Addr(ea)) => {
@@ -2870,8 +2861,6 @@ impl Overlord {
                 }) => {
                     if !relays.is_empty() {
                         relays.extend(bonus_relays);
-                        relays.sort();
-                        relays.dedup();
                         GLOBALS.seeker.seek_id_and_relays(id, relays, true);
                     } else if let Some(auth) = author {
                         GLOBALS
@@ -2895,7 +2884,7 @@ impl Overlord {
         });
 
         // Subscribe to replies to root
-        let mut root_eref_relays: Vec<RelayUrl> = Vec::new();
+        let mut root_eref_relays = IndexSet::new();
         if let Some(ref root_eref) = ancestors.root {
             let filter_set = match root_eref {
                 EventReference::Id { id, .. } => FilterSet::RepliesToId(*id),
@@ -2932,15 +2921,13 @@ impl Overlord {
                     GLOBALS
                         .db()
                         .get_event_seen_on_relay(referenced_by)?
-                        .drain(..)
-                        .take(num_relays_per_person as usize + 1)
-                        .map(|(url, _time)| url),
+                        .into_keys()
+                        .take(num_relays_per_person as usize + 1),
                 );
 
                 // Include the inbox relays of the author of the referencing event
                 if let Some(pk) = author {
-                    let author_relays: Vec<RelayUrl> = relay::get_some_pubkey_outboxes(pk)?;
-                    bonus_relays.extend(author_relays);
+                    bonus_relays.extend(relay::get_some_pubkey_outboxes(pk)?);
                 }
             }
 
@@ -3028,20 +3015,23 @@ impl Overlord {
                     handler_events[0].clone()
                 };
 
-                let mut seen_on = GLOBALS.db().get_event_seen_on_relay(handler_event.id)?;
+                let seen_on = GLOBALS.db().get_event_seen_on_relay(handler_event.id)?;
                 if seen_on.is_empty() {
                     tracing::warn!("Cannot determine a relay where the handler was seen.");
                     return Ok(());
                 }
 
                 // Get the most recent seen_on
-                seen_on.sort_by_key(|a| a.1);
-                seen_on.pop().unwrap().0
+                seen_on
+                    .iter()
+                    .max_by_key(|&(_, time)| time)
+                    .map(|(relay, _)| relay.clone())
+                    .unwrap()
             };
 
             let naddr = NAddr {
                 d: handler_key.d,
-                relays: vec![url.to_unchecked_url()],
+                relays: IndexSet::from([url.to_unchecked_url()]),
                 kind: EventKind::HandlerInformation,
                 author: handler_key.pubkey,
             };
@@ -3075,9 +3065,8 @@ impl Overlord {
         crate::process::process_new_event(&event, None, None, false, false).await?;
 
         // Post the event to our outboxes
-        let write_relays = relay::relays_to_post_to(&event)?;
         manager::run_jobs_on_all_relays(
-            write_relays,
+            relay::relays_to_post_to(&event)?.into_iter().collect(),
             vec![RelayJob {
                 reason: RelayConnectionReason::PostEvent,
                 payload: ToMinionPayload {
@@ -3118,17 +3107,16 @@ impl Overlord {
         self.subscribe_discover(followed, None)?;
 
         // Separately subscribe to nostr-connect channels
-        let mut relays: Vec<RelayUrl> = Vec::new();
-        let servers = GLOBALS.db().read_all_nip46servers()?;
-        for server in &servers {
-            relays.extend(server.relays.clone());
+        let mut relays = IndexSet::new();
+        for server in GLOBALS.db().read_all_nip46servers()? {
+            for r in server.relays {
+                relays.insert(r);
+            }
         }
         // Also subscribe to any unconnected nostr-connect channel
         if let Some(nip46unconnected) = GLOBALS.db().read_nip46_unconnected_server()? {
             relays.extend(nip46unconnected.relays);
         }
-        relays.sort();
-        relays.dedup();
         self.subscribe_nip46(relays)?;
 
         Ok(())
@@ -3136,12 +3124,13 @@ impl Overlord {
 
     /// Subscribe to the user's configuration events from the given relay
     pub fn subscribe_config(&mut self, relays: Option<Vec<RelayUrl>>) -> Result<(), Error> {
-        let config_relays: Vec<RelayUrl> = match relays {
-            Some(r) => r,
-            None => Relay::choose_relay_urls(Relay::WRITE, |_| true)?,
-        };
         manager::run_jobs_on_all_relays(
-            config_relays,
+            match relays {
+                Some(r) => r,
+                None => Relay::choose_relay_urls(Relay::WRITE, |_| true)?,
+            }
+            .into_iter()
+            .collect(),
             vec![RelayJob {
                 reason: RelayConnectionReason::Config,
                 payload: ToMinionPayload {
@@ -3179,13 +3168,14 @@ impl Overlord {
         }
         txn.commit()?;
 
-        // Discover their relays
-        let discover_relay_urls: Vec<RelayUrl> = match relays {
-            Some(r) => r,
-            None => Relay::choose_relay_urls(Relay::DISCOVER, |_| true)?,
-        };
         manager::run_jobs_on_all_relays(
-            discover_relay_urls,
+            // Discover their relays
+            match relays {
+                Some(r) => r,
+                None => Relay::choose_relay_urls(Relay::DISCOVER, |_| true)?,
+            }
+            .into_iter()
+            .collect(),
             vec![RelayJob {
                 reason: RelayConnectionReason::Discovery,
                 payload: ToMinionPayload {
@@ -3201,12 +3191,13 @@ impl Overlord {
     /// Subscribe to the user's configuration events from the given relay
     pub fn subscribe_inbox(&mut self, relays: Option<Vec<RelayUrl>>) -> Result<(), Error> {
         let now = Unixtime::now();
-        let mention_relays: Vec<RelayUrl> = match relays {
-            Some(r) => r,
-            None => Relay::choose_relay_urls(Relay::READ, |_| true)?,
-        };
         manager::run_jobs_on_all_relays(
-            mention_relays,
+            match relays {
+                Some(r) => r,
+                None => Relay::choose_relay_urls(Relay::READ, |_| true)?,
+            }
+            .into_iter()
+            .collect(),
             vec![
                 RelayJob {
                     reason: RelayConnectionReason::FetchInbox,
@@ -3233,13 +3224,12 @@ impl Overlord {
         let mut relays: Vec<Relay> = GLOBALS
             .db()
             .filter_relays(|r| r.has_usage_bits(Relay::DM) || r.has_usage_bits(Relay::INBOX))?;
-        let relay_urls: Vec<RelayUrl> = relays.drain(..).map(|r| r.url).collect();
 
         // 30 days worth (FIXME make this a setting?)
         let after = Unixtime::now() - Duration::new(3600 * 24 * 30, 0);
 
         manager::run_jobs_on_all_relays(
-            relay_urls,
+            relays.drain(..).map(|r| r.url).collect(),
             vec![RelayJob {
                 reason: RelayConnectionReason::Giftwraps,
                 payload: ToMinionPayload {
@@ -3255,7 +3245,7 @@ impl Overlord {
     }
 
     /// Subscribe to nip46 nostr connect relays
-    pub fn subscribe_nip46(&mut self, relays: Vec<RelayUrl>) -> Result<(), Error> {
+    pub fn subscribe_nip46(&mut self, relays: IndexSet<RelayUrl>) -> Result<(), Error> {
         manager::run_jobs_on_all_relays(
             relays,
             vec![RelayJob {
@@ -3321,9 +3311,8 @@ impl Overlord {
                 .unwrap()
         });
         relays.truncate(GLOBALS.db().read_setting_num_relays_for_counting() as usize);
-        let relays: Vec<RelayUrl> = relays.iter().map(|r| r.url.clone()).collect();
         manager::run_jobs_on_all_relays(
-            relays,
+            relays.iter().map(|r| r.url.clone()).collect(),
             vec![RelayJob {
                 reason: RelayConnectionReason::Counting,
                 payload: ToMinionPayload {
@@ -3595,13 +3584,13 @@ impl Overlord {
         // for it's retry logic
         GLOBALS.people.metadata_fetch_initiated(&[pubkey]);
 
-        let best_relays = relay::get_some_pubkey_outboxes(pubkey)?;
-
         // we do 1 more than num_relays_per_person, which is really for main posts,
         // since metadata is more important and I didn't want to bother with
         // another setting.
         manager::run_jobs_on_all_relays(
-            best_relays,
+            relay::get_some_pubkey_outboxes(pubkey)?
+                .into_iter()
+                .collect(),
             vec![RelayJob {
                 reason: RelayConnectionReason::FetchMetadata,
                 payload: ToMinionPayload {
@@ -4150,8 +4139,7 @@ impl Overlord {
             let mut relays: Vec<RelayUrl> = GLOBALS
                 .db()
                 .get_event_seen_on_relay(id)?
-                .drain(..)
-                .map(|(url, _)| url)
+                .into_keys()
                 .collect();
 
             // Add the read relays of the target person

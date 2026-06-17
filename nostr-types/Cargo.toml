@@ -90,6 +90,7 @@ tungstenite = { version = "0.28", default-features = false, optional = true }
 unicode-normalization = "0.1"
 url = "2.5"
 zeroize = "1.8"
+indexmap = { version = "2.14", features = ["serde"] }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }

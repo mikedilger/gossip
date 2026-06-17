@@ -95,7 +95,7 @@ type EmptyDatabase = Database<Bytes, Unit>;
 pub struct Storage {
     env: Env,
     volatile_events: DashMap<Id, Event>,
-    volatile_seen_on: DashMap<Id, Vec<(RelayUrl, Unixtime)>>,
+    volatile_seen_on: DashMap<Id, HashMap<RelayUrl, Unixtime>>,
 }
 
 impl Storage {
@@ -1030,13 +1030,19 @@ impl Storage {
 
         self.volatile_seen_on
             .entry(id)
-            .and_modify(|v| v.push((url.clone(), when)))
-            .or_insert(vec![(url, when)]);
+            .and_modify(|v| {
+                v.insert(url.clone(), when);
+            })
+            .or_insert({
+                let mut map = HashMap::new();
+                map.insert(url, when);
+                map
+            });
     }
 
     /// Get event seen on relay
     #[inline]
-    pub fn get_event_seen_on_relay(&self, id: Id) -> Result<Vec<(RelayUrl, Unixtime)>, Error> {
+    pub fn get_event_seen_on_relay(&self, id: Id) -> Result<HashMap<RelayUrl, Unixtime>, Error> {
         if let Some(r) = self.volatile_seen_on.get(&id) {
             Ok(r.value().to_owned())
         } else {

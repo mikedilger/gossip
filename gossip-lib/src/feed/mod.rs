@@ -528,9 +528,8 @@ impl Feed {
                 if limit_inbox_seeking {
                     match GLOBALS.db().get_event_seen_on_relay(event.id) {
                         Err(_) => false,
-                        Ok(mut seen_on_vec) => {
-                            let seen_on: HashSet<RelayUrl> =
-                                seen_on_vec.drain(..).map(|(r, _)| r).collect();
+                        Ok(seen_on_vec) => {
+                            let seen_on: HashSet<RelayUrl> = seen_on_vec.into_keys().collect();
                             !inbox_relays.is_disjoint(&seen_on)
                         }
                     }

@@ -19,7 +19,7 @@ pub struct HandlerKey {
 }
 
 impl HandlerKey {
-    pub fn as_naddr(&self, relays: Vec<UncheckedUrl>) -> NAddr {
+    pub fn as_naddr(&self, relays: IndexSet<UncheckedUrl>) -> NAddr {
         NAddr {
             d: self.d.clone(),
             relays,

@@ -4,7 +4,8 @@ use crate::types::{
     NostrBech32, NostrUrl, ParsedTag, PrivateKey, PublicKey, RelayUrl, Signature, Signer, Unixtime,
     ZapData,
 };
-use crate::{Error, IntoVec};
+use crate::Error;
+use indexmap::IndexSet;
 use lightning_invoice::Bolt11Invoice;
 #[cfg(feature = "speedy")]
 use regex::Regex;
@@ -285,7 +286,8 @@ impl EventV3 {
                     relays: rurl
                         .as_ref()
                         .and_then(|rru| RelayUrl::try_from_unchecked_url(rru).ok())
-                        .into_vec(),
+                        .into_iter()
+                        .collect(),
                     marker,
                 });
             } else if let Ok(ParsedTag::Address { address, .. }) = tag.parse() {
@@ -441,7 +443,8 @@ impl EventV3 {
                     relays: recommended_relay_url
                         .as_ref()
                         .and_then(|rru| RelayUrl::try_from_unchecked_url(rru).ok())
-                        .into_vec(),
+                        .into_iter()
+                        .collect(),
                     marker: None,
                 });
             }
@@ -475,7 +478,8 @@ impl EventV3 {
                         relays: recommended_relay_url
                             .as_ref()
                             .and_then(|rru| RelayUrl::try_from_unchecked_url(rru).ok())
-                            .into_vec(),
+                            .into_iter()
+                            .collect(),
                         marker,
                     });
                 } else if let Ok(ParsedTag::Address { address, .. }) = tag.parse() {
@@ -504,7 +508,8 @@ impl EventV3 {
                         relays: recommended_relay_url
                             .as_ref()
                             .and_then(|rru| RelayUrl::try_from_unchecked_url(rru).ok())
-                            .into_vec(),
+                            .into_iter()
+                            .collect(),
                         marker,
                     });
                 }
@@ -523,7 +528,8 @@ impl EventV3 {
                     relays: recommended_relay_url
                         .as_ref()
                         .and_then(|rru| RelayUrl::try_from_unchecked_url(rru).ok())
-                        .into_vec(),
+                        .into_iter()
+                        .collect(),
                     marker: None,
                 });
             }
@@ -551,7 +557,8 @@ impl EventV3 {
                         relays: recommended_relay_url
                             .as_ref()
                             .and_then(|rru| RelayUrl::try_from_unchecked_url(rru).ok())
-                            .into_vec(),
+                            .into_iter()
+                            .collect(),
                         marker,
                     });
                 } else if let Ok(ParsedTag::Address { address, .. }) = tag.parse() {
@@ -586,7 +593,8 @@ impl EventV3 {
                         relays: recommended_relay_url
                             .as_ref()
                             .and_then(|rru| RelayUrl::try_from_unchecked_url(rru).ok())
-                            .into_vec(),
+                            .into_iter()
+                            .collect(),
                         marker,
                     },
                     self.content.clone(),
@@ -621,7 +629,8 @@ impl EventV3 {
                     relays: recommended_relay_url
                         .as_ref()
                         .and_then(|rru| RelayUrl::try_from_unchecked_url(rru).ok())
-                        .into_vec(),
+                        .into_iter()
+                        .collect(),
                     marker,
                 });
             } else if let Ok(ParsedTag::Address { address, .. }) = tag.parse() {
@@ -911,7 +920,7 @@ impl EventV3 {
     pub fn address(&self) -> Option<NAddr> {
         self.parameter().map(|parameter| NAddr {
             d: parameter,
-            relays: vec![],
+            relays: IndexSet::new(),
             kind: self.kind,
             author: self.pubkey,
         })

@@ -3,6 +3,7 @@ use crate::error::Error;
 use crate::globals::GLOBALS;
 use crate::people::{PersonList, PersonListMetadata};
 use crate::storage::{PersonTable, Table};
+use indexmap::IndexSet;
 use nostr_types::{Event, Filter, ParsedTag, RelayUrl};
 use std::collections::HashMap;
 
@@ -216,9 +217,12 @@ pub async fn process_repost(event: &Event, verify: bool) -> Result<(), Error> {
         .await?;
 
         // Seek additional info for this event by id and author
-        GLOBALS
-            .seeker
-            .seek_id_and_author(inner_event.id, inner_event.pubkey, vec![], false)?;
+        GLOBALS.seeker.seek_id_and_author(
+            inner_event.id,
+            inner_event.pubkey,
+            IndexSet::new(),
+            false,
+        )?;
     } else {
         // If the content is a repost, seek the event it reposts
         for eref in event.mentions().iter() {
@@ -227,7 +231,7 @@ pub async fn process_repost(event: &Event, verify: bool) -> Result<(), Error> {
                     if relays.is_empty() {
                         // Even if the event tags the author, we have no way to coorelate
                         // the nevent with that tag.
-                        GLOBALS.seeker.seek_id(*id, vec![], false)?;
+                        GLOBALS.seeker.seek_id(*id, IndexSet::new(), false)?;
                     } else {
                         GLOBALS
                             .seeker
@@ -259,7 +263,7 @@ pub async fn process_nostr_connect(event: &Event, seen_on: Option<RelayUrl>) -> 
 pub fn process_user_server_list(event: &Event, ours: bool) -> Result<(), Error> {
     if ours {
         // Update blossom servers
-        let mut servers: String = "".to_owned();
+        let mut servers = String::new();
         let mut virgin: bool = true;
         for tag in &event.tags {
             if tag.tagname() == "server" {
