@@ -17,10 +17,9 @@ pub async fn validate_nip05(person: Person) -> Result<(), Error> {
     if person.metadata().is_none()
         || matches!(person.metadata(), Some(Metadata { nip05: None, .. }))
     {
-        GLOBALS
+        return GLOBALS
             .people
-            .upsert_nip05_validity(&person.pubkey, None, false, now.0 as u64)?;
-        return Ok(());
+            .upsert_nip05_validity(&person.pubkey, None, false, now.0 as u64);
     }
 
     let metadata = person.metadata().as_ref().unwrap().to_owned();
@@ -29,67 +28,58 @@ pub async fn validate_nip05(person: Person) -> Result<(), Error> {
     // Split their DNS ID
     let (user, domain) = match parse_nip05(&nip05) {
         Ok(pair) => pair,
-        Err(_) => {
-            GLOBALS.people.upsert_nip05_validity(
+        Err(e) => {
+            tracing::warn!("Could not parse NIP-05 `{nip05}`: {e}");
+            return GLOBALS.people.upsert_nip05_validity(
                 &person.pubkey,
                 Some(nip05),
                 false,
                 now.0 as u64,
-            )?;
-            return Ok(());
+            );
         }
     };
 
     // Fetch NIP-05
     let nip05file = match fetch_nip05(&user, &domain).await {
-        Ok(content) => content,
+        Ok(content) => {
+            tracing::debug!("Received {content:?}");
+            content
+        }
         Err(e) => {
-            tracing::warn!("NIP-05 fetch issue with {}@{}", user, domain);
+            tracing::warn!("NIP-05 fetch issue with {user}@{domain}: {e}");
             return Err(e);
         }
     };
 
     // Check if the response matches their public key
-    let mut valid = false;
     match nip05file.names.get(&user) {
-        Some(pk) => {
-            if let Ok(pubkey) = PublicKey::try_from_hex_string(pk, true) {
+        Some(pk) => match PublicKey::try_from_hex_string(pk, true) {
+            Ok(pubkey) => {
                 if pubkey == person.pubkey {
-                    // Validated
+                    tracing::debug!("Public key `{pk}` match the manifest value");
                     GLOBALS.people.upsert_nip05_validity(
                         &person.pubkey,
                         Some(nip05.clone()),
                         true,
                         now.0 as u64,
                     )?;
-                    valid = true;
+                    return update_relays(&nip05, nip05file, &person.pubkey);
+                } else {
+                    tracing::warn!(
+                        "Public key `{pk}` mismatch the manifest value `{}`",
+                        person.pubkey.as_hex_string()
+                    )
                 }
-            } else {
-                // Failed
-                GLOBALS.people.upsert_nip05_validity(
-                    &person.pubkey,
-                    Some(nip05.clone()),
-                    false,
-                    now.0 as u64,
-                )?;
             }
-        }
-        None => {
-            // Failed
-            GLOBALS.people.upsert_nip05_validity(
-                &person.pubkey,
-                Some(nip05.clone()),
-                false,
-                now.0 as u64,
-            )?;
-        }
+            Err(e) => tracing::warn!("Public key `{pk}` is not valid hex string: {e}"),
+        },
+        None => tracing::warn!("Public key not found for user `{user}`"),
     }
-
+    // fail
+    GLOBALS
+        .people
+        .upsert_nip05_validity(&person.pubkey, Some(nip05), false, now.0 as u64)?;
     GLOBALS.ui_invalidate_person(person.pubkey);
-
-    if valid {
-        update_relays(&nip05, nip05file, &person.pubkey)?;
-    }
 
     Ok(())
 }
@@ -199,10 +189,12 @@ async fn fetch_nip05(user: &str, domain: &str) -> Result<Nip05, Error> {
             .split_whitespace()
             .any(|l| regex::Regex::new(l).is_ok_and(|r| r.is_match(&format!("https://{domain}"))))
     {
-        tracing::debug!("Begin proxied ({socks5_proxy_address}) connection to NIP05 `{domain}`...");
+        tracing::debug!(
+            "Begin proxied ({socks5_proxy_address}) NIP-05 manifest request to `{domain}`..."
+        );
         Client::builder().proxy(Proxy::all(format!("socks5h://{socks5_proxy_address}"))?)
     } else {
-        tracing::debug!("Begin direct connection to NIP05 `{domain}`...");
+        tracing::debug!("Begin direct NIP-05 manifest request to `{domain}`...");
         Client::builder()
     }
     .timeout(std::time::Duration::new(60, 0))
