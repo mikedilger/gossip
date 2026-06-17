@@ -181,13 +181,18 @@ impl Pending {
             self.remove(&PendingItem::RelayListNeverAdvertised); // remove if present
 
             let stored_relay_list = GLOBALS.db().load_effective_public_relay_list()?;
-            let event_relay_list = RelayList::from_event(&relay_lists[0]);
+
+            let event_relay_list = relay_lists
+                .first()
+                .map(RelayList::from_event)
+                .unwrap_or_default();
 
             let stored_dm_relays = {
                 let mut relays = Relay::choose_relay_urls(Relay::DM, |_| true)?;
                 relays.sort();
                 relays
             };
+
             let event_dm_relays = {
                 let mut relays: Vec<RelayUrl> = Vec::new();
                 if !dm_relay_lists.is_empty() {
