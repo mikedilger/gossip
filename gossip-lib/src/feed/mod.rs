@@ -523,14 +523,17 @@ impl Feed {
                 .read_setting_limit_inbox_seeking_to_inbox_relays();
             let inbox_relays = Relay::choose_relay_urls(Relay::INBOX, |_| true)?;
             let screen_limit_inbox = |event: &Event| -> bool {
-                limit_inbox_seeking
-                    && GLOBALS
-                        .db()
-                        .get_event_seen_on_relay(event.id)
-                        .is_ok_and(|seen_on| {
-                            !inbox_relays
-                                .is_disjoint(&seen_on.into_keys().collect::<IndexSet<RelayUrl>>())
-                        })
+                if limit_inbox_seeking {
+                    match GLOBALS.db().get_event_seen_on_relay(event.id) {
+                        Err(_) => false,
+                        Ok(seen_on_map) => {
+                            let seen_on: IndexSet<RelayUrl> = seen_on_map.into_keys().collect();
+                            !inbox_relays.is_disjoint(&seen_on)
+                        }
+                    }
+                } else {
+                    true
+                }
             };
 
             let screen = |e: &Event| {
