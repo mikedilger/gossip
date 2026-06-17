@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "speedy")]
 use speedy::{Context, Readable, Reader, Writable, Writer};
 
+const L: usize = 64;
+
 /// A Schnorr signature that signs an Event, taken on the Event Id field
 #[derive(
     AsMut, AsRef, Clone, Copy, Debug, Deref, Eq, From, Into, PartialEq, Serialize, Deserialize,
@@ -26,7 +28,7 @@ impl Signature {
 
     /// A dummy signature of all zeroes
     pub fn zeroes() -> Signature {
-        Signature(secp256k1::schnorr::Signature::from_byte_array([0; 64]))
+        Signature(secp256k1::schnorr::Signature::from_byte_array([0; L]))
     }
 
     // Mock data for testing
@@ -41,15 +43,18 @@ impl Signature {
 impl<'a, C: Context> Readable<'a, C> for Signature {
     #[inline]
     fn read_from<R: Reader<'a, C>>(reader: &mut R) -> Result<Self, C::Error> {
-        let bytes: Vec<u8> = reader.read_vec(64)?;
-        let sig =
-            secp256k1::schnorr::Signature::from_slice(&bytes[..]).map_err(speedy::Error::custom)?;
-        Ok(Signature(sig))
+        let bytes: [u8; L] = reader
+            .read_vec(L)?
+            .try_into()
+            .map_err(|_| speedy::Error::custom(format!("Invalid {L} bytes signature")))?;
+        Ok(Signature(secp256k1::schnorr::Signature::from_byte_array(
+            bytes,
+        )))
     }
 
     #[inline]
     fn minimum_bytes_needed() -> usize {
-        64
+        L
     }
 }
 
@@ -58,13 +63,13 @@ impl<C: Context> Writable<C> for Signature {
     #[inline]
     fn write_to<T: ?Sized + Writer<C>>(&self, writer: &mut T) -> Result<(), C::Error> {
         let bytes = self.0.as_ref();
-        assert_eq!(bytes.as_slice().len(), 64);
+        assert_eq!(bytes.as_slice().len(), L);
         writer.write_bytes(bytes.as_slice())
     }
 
     #[inline]
     fn bytes_needed(&self) -> Result<usize, C::Error> {
-        Ok(64)
+        Ok(L)
     }
 }
 
