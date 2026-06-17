@@ -73,7 +73,7 @@ impl NEvent {
                 data.0.to_lowercase(),
             ))
         } else {
-            let mut relays: IndexSet<UncheckedUrl> = IndexSet::new();
+            let mut relays = IndexSet::new();
             let mut id: Option<Id> = None;
             let mut kind: Option<EventKind> = None;
             let mut author: Option<PublicKey> = None;
@@ -106,7 +106,7 @@ impl NEvent {
                         // relay
                         let relay_str = std::str::from_utf8(raw)?;
                         let relay = UncheckedUrl::from_str(relay_str);
-                        relays.insert(relay);
+                        let _ = relays.insert(relay); // @TODO assert?
                     }
                     2 => {
                         // author

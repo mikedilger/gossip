@@ -70,8 +70,9 @@ pub fn process_handler_recommendation(event: &Event) -> Result<(), Error> {
                 let configured_handlers: Vec<(HandlerKey, bool, bool)> =
                     GLOBALS.db().read_configured_handlers(kind)?;
                 for (key, enabled, recommended) in configured_handlers.iter() {
-                    let event_recommended =
-                        naddrs.iter().any(|naddr| *naddr == key.as_naddr(vec![]));
+                    let event_recommended = naddrs
+                        .iter()
+                        .any(|naddr| *naddr == key.as_naddr(IndexSet::new()));
                     if event_recommended != *recommended {
                         GLOBALS.db().write_configured_handler(
                             kind,

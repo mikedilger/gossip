@@ -4,6 +4,7 @@ use eframe::egui;
 use egui::{Context, Ui};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{Nip46UnconnectedServer, GLOBALS};
+use indexmap::IndexSet;
 use nostr_types::RelayUrl;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
@@ -122,19 +123,22 @@ fn setup_unconnected_service(app: &mut GossipUi, ui: &mut Ui) {
             if !app.nostr_connect_relay2.is_empty() {
                 if let Ok(relay2) = RelayUrl::try_from_str(&app.nostr_connect_relay2) {
                     if ui.button("Create Service").clicked() {
-                        create_service(app.nostr_connect_name.clone(), vec![relay1, relay2]);
+                        create_service(
+                            app.nostr_connect_name.clone(),
+                            IndexSet::from([relay1, relay2]),
+                        );
                         app.nostr_connect_name = "".to_string();
                     }
                 }
             } else if ui.button("Create Service").clicked() {
-                create_service(app.nostr_connect_name.clone(), vec![relay1]);
+                create_service(app.nostr_connect_name.clone(), IndexSet::from([relay1]));
                 app.nostr_connect_name = "".to_string();
             }
         }
     }
 }
 
-fn create_service(name: String, relays: Vec<RelayUrl>) {
+fn create_service(name: String, relays: IndexSet<RelayUrl>) {
     // Create the unconnected server (1 relay)
     let server = Nip46UnconnectedServer::new(name, relays.clone());
 

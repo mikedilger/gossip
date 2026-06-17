@@ -78,7 +78,7 @@ impl Profile {
                         let relay_bytes = &tlv[pos..pos + len];
                         let relay_str = std::str::from_utf8(relay_bytes)?;
                         let relay = UncheckedUrl::from_str(relay_str);
-                        relays.insert(relay);
+                        let _ = relays.insert(relay); // @TODO assert?
                     }
                     _ => {} // unhandled type for nprofile
                 }

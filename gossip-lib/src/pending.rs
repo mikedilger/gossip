@@ -5,6 +5,7 @@ use crate::nostr_connect_server::ParsedCommand;
 use crate::people::PersonList;
 use crate::relay::Relay;
 use crate::storage::Storage;
+use indexmap::IndexSet;
 use nostr_types::{EventKind, Filter, PublicKey, RelayList, RelayUrl, Unixtime};
 use parking_lot::RwLock as PRwLock;
 use parking_lot::RwLockReadGuard as PRwLockReadGuard;
@@ -194,14 +195,14 @@ impl Pending {
             };
 
             let event_dm_relays = {
-                let mut relays: Vec<RelayUrl> = Vec::new();
+                let mut relays = IndexSet::new();
                 if !dm_relay_lists.is_empty() {
                     for tag in dm_relay_lists[0].tags.iter() {
                         if tag.tagname() == "relay" {
                             if let Ok(relay_url) = RelayUrl::try_from_str(tag.value()) {
                                 // Don't use banned relay URLs
                                 if !Storage::url_is_banned(&relay_url) {
-                                    relays.push(relay_url);
+                                    relays.insert(relay_url); // @TODO assert duplicates?
                                 }
                             }
                         }

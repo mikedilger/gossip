@@ -6,6 +6,7 @@ use egui::{Button, Color32, Margin, Pos2, RichText, Stroke, Ui};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::FeedKind;
 use gossip_lib::GLOBALS;
+use indexmap::IndexSet;
 use nostr_types::{
     ContentSegment, FileMetadata, Id, NAddr, NEvent, NostrBech32, NostrUrl, ParsedTag, PublicKey,
     RelayUrl, Span,
@@ -182,7 +183,7 @@ pub(super) fn render_content(
                                         if let Some(rurl) = recommended_relay_url {
                                             let nevent = NEvent {
                                                 id,
-                                                relays: vec![rurl],
+                                                relays: IndexSet::from([rurl]),
                                                 kind: None,
                                                 author: None,
                                             };
@@ -345,7 +346,7 @@ pub fn render_relay_link(app: &mut GossipUi, ui: &mut Ui, relay_url: RelayUrl) {
 pub fn render_note_id_link(app: &mut GossipUi, ui: &mut Ui, referenced_by_id: Id, link_to_id: Id) {
     let nevent = NEvent {
         id: link_to_id,
-        relays: vec![],
+        relays: IndexSet::new(),
         kind: None,
         author: None,
     };

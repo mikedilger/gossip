@@ -210,13 +210,13 @@ pub enum ToOverlordMessage {
     StartLongLivedSubscriptions,
 
     /// Calls [subscribe_config](crate::Overlord::subscribe_config)
-    SubscribeConfig(Option<Vec<RelayUrl>>),
+    SubscribeConfig(Option<IndexSet<RelayUrl>>),
 
     /// Calls [subscribe_discover](crate::Overlord::subscribe_discover)
-    SubscribeDiscover(Vec<PublicKey>, Option<Vec<RelayUrl>>),
+    SubscribeDiscover(Vec<PublicKey>, Option<IndexSet<RelayUrl>>),
 
     /// Calls [subscribe_inbox](crate::Overlord::subscribe_inbox)
-    SubscribeInbox(Option<Vec<RelayUrl>>),
+    SubscribeInbox(Option<IndexSet<RelayUrl>>),
 
     /// Calls [subscribe_nip46](crate::Overlord::subscribe_nip46)
     SubscribeNip46(IndexSet<RelayUrl>),

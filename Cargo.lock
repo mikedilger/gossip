@@ -2508,6 +2508,7 @@ dependencies = [
  "gossip-lib",
  "humansize",
  "image",
+ "indexmap 2.14.0",
  "lazy_static",
  "memoize",
  "nostr-types",
@@ -2534,6 +2535,7 @@ name = "gossip-cache"
 version = "0.15.0-unstable"
 dependencies = [
  "gossip-lib",
+ "indexmap 2.14.0",
  "nostr-types",
  "serde",
  "serde_json",
@@ -6111,6 +6113,7 @@ version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "da1992073f0e55aab599f4483c460598219b4f9ff0affa124b33580ab511e25a"
 dependencies = [
+ "indexmap 2.14.0",
  "memoffset",
  "speedy-derive",
 ]

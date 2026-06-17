@@ -104,7 +104,7 @@ fn relationships_by_addr3_from_key(key: &[u8]) -> Result<NAddr, Error> {
     let d: String = String::from_utf8_lossy(&key[4+32..]).to_string();
     Ok(NAddr {
         d,
-        relays: vec![],
+        relays: IndexSet,
         kind,
         author: pubkey
     })

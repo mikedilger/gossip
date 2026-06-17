@@ -1,5 +1,6 @@
 use super::{ByteRep, Record};
 use crate::error::Error;
+use indexmap::IndexSet;
 use nostr_types::{Event, EventKind, Metadata, NAddr, PublicKey, UncheckedUrl};
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};

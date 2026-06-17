@@ -1,9 +1,9 @@
-use indexmap::IndexSet;
-
 use crate::{Event, EventKind, PreEvent, PublicKey, Tag, UncheckedUrl, Unixtime};
+use indexmap::IndexSet;
+use std::hash::{Hash, Hasher};
 
 /// NIP-92/94 File Metadata
-#[derive(Clone, Debug, Hash, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct FileMetadata {
     /// The URL this metadata applies to
     pub url: UncheckedUrl,
@@ -179,7 +179,8 @@ impl FileMetadata {
                 "summary" => fm.summary = Some(tag.value().to_owned()),
                 "alt" => fm.alt = Some(tag.value().to_owned()),
                 "fallback" => {
-                    fm.fallback.insert(UncheckedUrl(tag.value().to_owned()));
+                    // @TODO assert?
+                    let _ = fm.fallback.insert(UncheckedUrl(tag.value().to_owned()));
                 }
                 "service" => fm.service = Some(tag.value().to_owned()),
                 _ => continue,
@@ -295,7 +296,8 @@ impl FileMetadata {
                 "summary" => fm.summary = Some(parts[1].to_owned()),
                 "alt" => fm.alt = Some(parts[1].to_owned()),
                 "fallback" => {
-                    fm.fallback.insert(UncheckedUrl(parts[1].to_owned()));
+                    // @TODO assert?
+                    let _ = fm.fallback.insert(UncheckedUrl(parts[1].to_owned()));
                 }
                 "service" => fm.service = Some(parts[1].to_owned()),
                 _ => continue,
@@ -307,6 +309,30 @@ impl FileMetadata {
         } else {
             None
         }
+    }
+}
+
+impl Hash for FileMetadata {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.url.hash(state);
+        self.m.hash(state);
+        self.x.hash(state);
+        self.ox.hash(state);
+        self.size.hash(state);
+        self.dim.hash(state);
+        self.magnet.hash(state);
+        self.i.hash(state);
+        self.blurhash.hash(state);
+        self.thumb.hash(state);
+        self.image.hash(state);
+        self.summary.hash(state);
+        self.alt.hash(state);
+
+        for item in &self.fallback {
+            item.hash(state);
+        }
+
+        self.service.hash(state);
     }
 }
 

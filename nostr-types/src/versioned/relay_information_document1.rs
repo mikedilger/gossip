@@ -9,7 +9,7 @@ use speedy::{Readable, Writable};
 use std::fmt;
 
 /// Relay limitations
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Hash, Serialize)]
 #[cfg_attr(feature = "speedy", derive(Readable, Writable))]
 pub struct RelayLimitationV1 {
     /// max message length
@@ -101,7 +101,7 @@ impl fmt::Display for RelayLimitationV1 {
 }
 
 /// Relay retention
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Hash, Serialize)]
 #[cfg_attr(feature = "speedy", derive(Readable, Writable))]
 pub struct RelayRetentionV1 {
     /// kinds
@@ -135,7 +135,7 @@ impl fmt::Display for RelayRetentionV1 {
 }
 
 /// Fee
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[cfg_attr(feature = "speedy", derive(Readable, Writable))]
 pub struct FeeV1 {
     /// Amount of the fee
@@ -167,7 +167,7 @@ impl fmt::Display for FeeV1 {
 }
 
 /// Relay fees
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Hash, Serialize)]
 #[cfg_attr(feature = "speedy", derive(Readable, Writable))]
 pub struct RelayFeesV1 {
     /// Admission fee (read and write)
@@ -206,7 +206,7 @@ impl fmt::Display for RelayFeesV1 {
 }
 
 /// Relay information document as described in NIP-11, supplied by a relay
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct RelayInformationDocumentV1 {
     /// Name of the relay
     pub name: Option<String>,

@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use super::GossipUi;
 use crate::ui::widgets;
 use crate::ui::Page;
@@ -8,6 +6,7 @@ use egui::{Context, Ui};
 use egui_winit::egui::Id;
 use gossip_lib::Relay;
 use gossip_lib::GLOBALS;
+use indexmap::IndexSet;
 use nostr_types::RelayUrl;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
@@ -61,20 +60,20 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     super::relay_scroll_list(app, ui, relays, id_salt);
 }
 
-fn get_relays(app: &mut GossipUi) -> Vec<Relay> {
-    let connected_relays: HashSet<RelayUrl> = GLOBALS
+fn get_relays(app: &mut GossipUi) -> IndexSet<Relay> {
+    let connected_relays: IndexSet<RelayUrl> = GLOBALS
         .connected_relays
         .iter()
         .map(|r| r.key().clone())
         .collect();
 
-    let timeout_relays: HashSet<RelayUrl> = GLOBALS
+    let timeout_relays: IndexSet<RelayUrl> = GLOBALS
         .relay_picker
         .excluded_relays_iter()
         .map(|r| r.key().clone())
         .collect();
 
-    let mut relays: Vec<Relay> = GLOBALS
+    let mut relays: IndexSet<Relay> = GLOBALS
         .db()
         .filter_relays(|relay| {
             (connected_relays.contains(&relay.url) || timeout_relays.contains(&relay.url))

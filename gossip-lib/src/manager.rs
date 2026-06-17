@@ -16,7 +16,7 @@ use nostr_types::RelayUrl;
 ///
 /// This function returns quickly, as it spawns a separate task to do the engagement
 /// so you won't get any feedback.
-pub(crate) fn run_jobs_on_some_relays(urls: Vec<RelayUrl>, count: usize, jobs: Vec<RelayJob>) {
+pub(crate) fn run_jobs_on_some_relays(urls: IndexSet<RelayUrl>, count: usize, jobs: Vec<RelayJob>) {
     // Keep engaging relays until `count` engagements were successful
     // Do from a spawned task so that we don't hold up the overlord
     let _join_handle = tokio::spawn(Box::pin(async move {

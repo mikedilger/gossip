@@ -1,4 +1,5 @@
 use gossip_lib::{GLOBALS, Person, PersonList, PersonTable, Private, Table};
+use indexmap::IndexSet;
 use nostr_types::{
     ContentSegment, Event, EventDelegation, EventKind, EventReference, Id, MilliSatoshi, NAddr,
     NostrBech32, ParsedTag, PublicKey, RelayUrl, ShatteredContent, Unixtime,
@@ -509,7 +510,7 @@ impl NoteData {
         if self.event.kind.is_replaceable() {
             EventReference::Addr(NAddr {
                 d: self.event.parameter().unwrap_or("".to_owned()),
-                relays: vec![],
+                relays: IndexSet::new(),
                 kind: self.event.kind,
                 author: self.event.pubkey,
             })
@@ -517,7 +518,7 @@ impl NoteData {
             EventReference::Id {
                 id: self.event.id,
                 author: None,
-                relays: vec![],
+                relays: IndexSet::new(),
                 marker: None,
             }
         }

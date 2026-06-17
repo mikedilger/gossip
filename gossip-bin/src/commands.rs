@@ -1,4 +1,5 @@
 use gossip_lib::{Error, ErrorKind, PersonList, PersonListMetadata, PersonTable, Table, GLOBALS};
+use indexmap::IndexSet;
 use nostr_types::{
     EncryptedPrivateKey, Event, EventKind, Filter, Id, NAddr, NostrBech32, NostrUrl, ParsedTag,
     PreEvent, PrivateKey, PublicKey, RelayUrl, Tag, UncheckedUrl, Unixtime,

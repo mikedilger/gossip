@@ -5,6 +5,7 @@ use egui::{Color32, Context, RichText, Ui};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::Relay;
 use gossip_lib::GLOBALS;
+use indexmap::IndexSet;
 use nostr_types::RelayUrl;
 
 use super::continue_control;
@@ -57,7 +58,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     if app.wizard_state.need_relay_list() && app.wizard_state.relay_list_sought {
         app.wizard_state.relay_list_sought = false;
 
-        let discovery_relays: Vec<RelayUrl> = app
+        let discovery_relays = app
             .wizard_state
             .relays
             .iter()
@@ -100,9 +101,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                                 let _ =
                                     GLOBALS
                                         .to_overlord
-                                        .send(ToOverlordMessage::SubscribeConfig(Some(vec![
+                                        .send(ToOverlordMessage::SubscribeConfig(Some(IndexSet::from([
                                             url.to_owned()
-                                        ])));
+                                        ]))));
                             }
                         });
                     }
@@ -143,9 +144,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
                     if let Ok(rurl) = RelayUrl::try_from_str(&app.wizard_state.relay_url) {
                         let _ = GLOBALS
                             .to_overlord
-                            .send(ToOverlordMessage::SubscribeConfig(Some(vec![
-                                rurl.to_owned()
-                            ])));
+                            .send(ToOverlordMessage::SubscribeConfig(Some(IndexSet::from([
+                                rurl.to_owned(),
+                            ]))));
                         app.wizard_state.relay_url = String::new();
                     } else {
                         app.wizard_state.error = Some("ERROR: Invalid Relay URL".to_owned());

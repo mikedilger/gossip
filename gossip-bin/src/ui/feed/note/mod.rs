@@ -5,6 +5,7 @@ use std::ops::Add;
 use std::rc::Rc;
 
 use gossip_cache::{EncryptionType, NoteData, RepostType};
+use indexmap::IndexSet;
 
 use super::FeedNoteParams;
 use crate::ui::widgets::{

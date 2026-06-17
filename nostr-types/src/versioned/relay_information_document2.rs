@@ -10,7 +10,7 @@ use speedy::{Readable, Writable};
 use std::fmt;
 
 /// Relay limitations
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[cfg_attr(feature = "speedy", derive(Readable, Writable))]
 pub struct RelayLimitationV2 {
     /// max message length
@@ -126,7 +126,7 @@ impl fmt::Display for RelayLimitationV2 {
 }
 
 /// Relay information document as described in NIP-11, supplied by a relay
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct RelayInformationDocumentV2 {
     /// Name of the relay
     pub name: Option<String>,

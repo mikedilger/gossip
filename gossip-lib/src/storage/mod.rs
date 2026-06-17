@@ -10,6 +10,7 @@ pub mod types;
 
 // table definition
 pub mod table;
+use indexmap::IndexSet;
 pub use table::Table;
 
 // new tables
@@ -1195,7 +1196,7 @@ impl Storage {
 
     /// Read matching relay records
     #[inline]
-    pub fn filter_relays<F>(&self, f: F) -> Result<Vec<Relay>, Error>
+    pub fn filter_relays<F>(&self, f: F) -> Result<IndexSet<Relay>, Error>
     where
         F: Fn(&Relay) -> bool,
     {
@@ -2026,7 +2027,7 @@ impl Storage {
         let mut output = self.get_non_replaceable_replies(event.id)?;
         output.extend(self.get_replaceable_replies(&NAddr {
             d: event.parameter().unwrap_or("".to_string()),
-            relays: vec![],
+            relays: IndexSet::new(),
             kind: event.kind,
             author: event.pubkey,
         })?);
@@ -2212,7 +2213,7 @@ impl Storage {
         if let Some(parameter) = maybe_deleted_event.parameter() {
             let addr = NAddr {
                 d: parameter,
-                relays: vec![],
+                relays: IndexSet::new(),
                 kind: maybe_deleted_event.kind,
                 author: maybe_deleted_event.pubkey,
             };

@@ -867,7 +867,7 @@ impl Overlord {
         };
 
         let event = {
-            let inbox_or_outbox_relays: Vec<Relay> = GLOBALS.db().filter_relays(|r| {
+            let inbox_or_outbox_relays = GLOBALS.db().filter_relays(|r| {
                 r.has_usage_bits(Relay::INBOX) || r.has_usage_bits(Relay::OUTBOX)
             })?;
             let mut tags: Vec<Tag> = Vec::new();
@@ -904,7 +904,7 @@ impl Overlord {
         };
 
         let dmevent = {
-            let dm_relays: Vec<Relay> = GLOBALS
+            let dm_relays = GLOBALS
                 .db()
                 .filter_relays(|r| r.has_usage_bits(Relay::DM))?;
             let mut tags: Vec<Tag> = Vec::new();
@@ -1758,7 +1758,7 @@ impl Overlord {
             }
             FeedKind::Person(pubkey) => {
                 // Get write relays for the person
-                let relays: Vec<RelayUrl> = relay::get_all_pubkey_outboxes(pubkey)?;
+                let relays = relay::get_all_pubkey_outboxes(pubkey)?;
                 let num = GLOBALS.db().read_setting_num_relays_per_person() as usize;
                 manager::run_jobs_on_some_relays(
                     relays,
@@ -2637,7 +2637,7 @@ impl Overlord {
         // subscribe to channel on outbox and inbox relays
         //   outbox: you may have written them there. Other clients may have too.
         //   inbox: they may have put theirs here for you to pick up.
-        let mut relays: Vec<Relay> = GLOBALS
+        let mut relays = GLOBALS
             .db()
             .filter_relays(|r| r.has_usage_bits(Relay::OUTBOX) || r.has_usage_bits(Relay::INBOX))?;
         manager::run_jobs_on_all_relays(
@@ -2849,8 +2849,6 @@ impl Overlord {
                     eaddr
                         .relays
                         .extend(bonus_relays.iter().map(|r| r.to_unchecked_url()));
-                    eaddr.relays.sort();
-                    eaddr.relays.dedup();
                     self.fetch_naddr(eaddr)?;
                 }
                 Some(EventReference::Id {
@@ -3123,7 +3121,7 @@ impl Overlord {
     }
 
     /// Subscribe to the user's configuration events from the given relay
-    pub fn subscribe_config(&mut self, relays: Option<Vec<RelayUrl>>) -> Result<(), Error> {
+    pub fn subscribe_config(&mut self, relays: Option<IndexSet<RelayUrl>>) -> Result<(), Error> {
         manager::run_jobs_on_all_relays(
             match relays {
                 Some(r) => r,
@@ -3153,7 +3151,7 @@ impl Overlord {
     pub fn subscribe_discover(
         &mut self,
         pubkeys: Vec<PublicKey>,
-        relays: Option<Vec<RelayUrl>>,
+        relays: Option<IndexSet<RelayUrl>>,
     ) -> Result<(), Error> {
         if pubkeys.is_empty() {
             return Ok(());
@@ -3189,7 +3187,7 @@ impl Overlord {
     }
 
     /// Subscribe to the user's configuration events from the given relay
-    pub fn subscribe_inbox(&mut self, relays: Option<Vec<RelayUrl>>) -> Result<(), Error> {
+    pub fn subscribe_inbox(&mut self, relays: Option<IndexSet<RelayUrl>>) -> Result<(), Error> {
         let now = Unixtime::now();
         manager::run_jobs_on_all_relays(
             match relays {
@@ -3221,7 +3219,7 @@ impl Overlord {
 
     /// Subscribe to the user's giftwrap events on their DM and INBOX relays
     pub fn subscribe_giftwraps(&mut self) -> Result<(), Error> {
-        let mut relays: Vec<Relay> = GLOBALS
+        let mut relays = GLOBALS
             .db()
             .filter_relays(|r| r.has_usage_bits(Relay::DM) || r.has_usage_bits(Relay::INBOX))?;
 
@@ -3896,7 +3894,7 @@ impl Overlord {
                     )?;
 
                     // Subscribe to inbox on this inbox relay
-                    self.subscribe_inbox(Some(vec![new.url.clone()]))?;
+                    self.subscribe_inbox(Some(IndexSet::from([new.url.clone()])))?;
                 }
             }
             _ => (),
@@ -3915,7 +3913,7 @@ impl Overlord {
                     )?;
 
                     // Subscribe to config on this outbox relay
-                    self.subscribe_config(Some(vec![new.url.clone()]))?;
+                    self.subscribe_config(Some(IndexSet::from([new.url.clone()])))?;
                 }
             }
             _ => (),
@@ -3925,7 +3923,7 @@ impl Overlord {
             -1 => (), // Discover subscriptions are temp / short-lived, so no action needed.
             1 => {
                 let pubkeys = GLOBALS.people.get_subscribed_pubkeys_needing_relay_lists();
-                self.subscribe_discover(pubkeys, Some(vec![new.url.clone()]))?;
+                self.subscribe_discover(pubkeys, Some(IndexSet::from([new.url.clone()])))?;
             }
             _ => (),
         }
@@ -4136,18 +4134,18 @@ impl Overlord {
         // Get the relays to have the receipt posted to
         let relays = {
             // Start with the relays the event was seen on
-            let mut relays: Vec<RelayUrl> = GLOBALS
+            let mut relays: IndexSet<RelayUrl> = GLOBALS
                 .db()
                 .get_event_seen_on_relay(id)?
                 .into_keys()
                 .collect();
 
             // Add the read relays of the target person
-            let target_read_relays: Vec<RelayUrl> = relay::get_all_pubkey_inboxes(target_pubkey)?;
+            let target_read_relays = relay::get_all_pubkey_inboxes(target_pubkey)?;
             relays.extend(target_read_relays);
 
             // Add all my write relays
-            let write_relay_urls: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
+            let write_relay_urls = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
             relays.extend(write_relay_urls);
 
             if relays.is_empty() {
@@ -4155,13 +4153,11 @@ impl Overlord {
                 return Err(ErrorKind::NoRelay.into());
             }
 
-            // Deduplicate
-            relays.sort();
-            relays.dedup();
-
             // Turn relays into strings for the event tag
-            let relays: Vec<String> = relays.iter().map(|r| r.as_str().to_owned()).collect();
             relays
+                .into_iter()
+                .map(|r| r.to_string())
+                .collect::<Vec<String>>()
         };
 
         let mut relays_tag = Tag::new(&["relays"]);

@@ -5,6 +5,7 @@ use egui::{Context, Ui};
 use egui_winit::egui::Id;
 use gossip_lib::Relay;
 use gossip_lib::GLOBALS;
+use indexmap::IndexSet;
 
 pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Frame, ui: &mut Ui) {
     let is_editing = app.relays.edit.is_some();
@@ -59,8 +60,8 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     super::relay_scroll_list(app, ui, relays, id_salt);
 }
 
-fn get_relays(app: &mut GossipUi) -> Vec<Relay> {
-    let mut relays: Vec<Relay> = GLOBALS
+fn get_relays(app: &mut GossipUi) -> IndexSet<Relay> {
+    let mut relays = GLOBALS
         .db()
         .filter_relays(|relay| {
             app.relays.show_hidden || !relay.hidden && super::filter_relay(&app.relays, relay)

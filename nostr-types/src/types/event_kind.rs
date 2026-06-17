@@ -813,7 +813,7 @@ impl<C: Context> Writable<C> for EventKind {
 }
 
 /// Either an EventKind or a range (a vector of length 2 with start and end)
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Hash, Serialize)]
 #[cfg_attr(feature = "speedy", derive(Readable, Writable))]
 #[serde(untagged)]
 pub enum EventKindOrRange {

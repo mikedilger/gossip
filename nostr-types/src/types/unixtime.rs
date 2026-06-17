@@ -25,6 +25,7 @@ use std::time::Duration;
     PartialEq,
     PartialOrd,
     Serialize,
+    Hash,
 )]
 #[cfg_attr(feature = "speedy", derive(Readable, Writable))]
 pub struct Unixtime(pub i64);
