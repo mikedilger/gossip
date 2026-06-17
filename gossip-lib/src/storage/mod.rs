@@ -1024,21 +1024,17 @@ impl Storage {
     }
 
     pub fn add_event_seen_on_relay_volatile(&self, id: Id, url: RelayUrl, when: Unixtime) {
-        // Don't save banned relay URLs
-        if Self::url_is_banned(&url) {
-            return;
+        if !Self::url_is_banned(&url) {
+            match self.volatile_seen_on.get_mut(&id) {
+                Some(mut value) => {
+                    value.insert(url, when);
+                }
+                None => {
+                    self.volatile_seen_on
+                        .insert(id, IndexMap::from_iter([(url, when)]));
+                }
+            }
         }
-
-        self.volatile_seen_on
-            .entry(id)
-            .and_modify(|v| {
-                v.insert(url.clone(), when);
-            })
-            .or_insert({
-                let mut map = IndexMap::new();
-                map.insert(url, when);
-                map
-            });
     }
 
     /// Get event seen on relay
