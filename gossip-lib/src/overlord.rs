@@ -23,7 +23,7 @@ use crate::storage::{PersonTable, Table};
 use crate::RunState;
 use heed::RwTxn;
 use http::StatusCode;
-use indexmap::IndexSet;
+use indexmap::{IndexMap, IndexSet};
 use nostr_types::{
     EncryptedPrivateKey, Event, EventKind, EventReference, Filter, Id, Metadata, MilliSatoshi,
     NAddr, NostrBech32, ParsedTag, PayRequestData, PreEvent, PrivateKey, Profile, PublicKey,
@@ -31,7 +31,6 @@ use nostr_types::{
 };
 use regex::Regex;
 use reqwest::{Client, Proxy};
-use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc;
@@ -2254,7 +2253,7 @@ impl Overlord {
             pubkeys.push(pubkey)
         }
 
-        let mut map: HashMap<RelayUrl, Vec<PublicKey>> = HashMap::new();
+        let mut map: IndexMap<RelayUrl, Vec<PublicKey>> = IndexMap::new();
 
         // Sort the people into the relays we will find their metadata at
         for pubkey in &pubkeys {
@@ -2265,7 +2264,7 @@ impl Overlord {
             }
         }
 
-        for (url, pubkeys) in map.drain() {
+        for (url, pubkeys) in map {
             manager::engage_minion(
                 url.clone(),
                 vec![RelayJob {
@@ -3611,7 +3610,7 @@ impl Overlord {
         // for it's retry logic
         GLOBALS.people.metadata_fetch_initiated(&pubkeys);
 
-        let mut map: HashMap<RelayUrl, Vec<PublicKey>> = HashMap::new();
+        let mut map: IndexMap<RelayUrl, Vec<PublicKey>> = IndexMap::new();
         for pubkey in pubkeys.drain(..) {
             let best_relays = relay::get_some_pubkey_outboxes(pubkey)?;
             for relay_url in best_relays.iter() {
@@ -3620,7 +3619,7 @@ impl Overlord {
                     .or_insert_with(|| vec![pubkey]);
             }
         }
-        for (relay_url, pubkeys) in map.drain() {
+        for (relay_url, pubkeys) in map {
             manager::engage_minion(
                 relay_url.clone(),
                 vec![RelayJob {
@@ -3938,7 +3937,7 @@ impl Overlord {
     /// WARNING: DO NOT CALL TOO OFTEN or relays will hate you.
     pub fn visible_notes_changed(&mut self, mut visible: Vec<Id>) -> Result<(), Error> {
         // Work out which relays to use to find augments for which ids
-        let mut augment_subs: HashMap<RelayUrl, Vec<Id>> = HashMap::new();
+        let mut augment_subs: IndexMap<RelayUrl, Vec<Id>> = IndexMap::new();
         for id in visible.drain(..) {
             if let Some(event) = GLOBALS.db().read_event(id)? {
                 let relays = relay::relays_for_seeking_replies(&event)?;
@@ -3956,7 +3955,7 @@ impl Overlord {
         }
 
         // Create jobs for minions
-        for (relay_url, ids) in augment_subs.drain() {
+        for (relay_url, ids) in augment_subs {
             manager::engage_minion(
                 relay_url,
                 vec![RelayJob {
@@ -4006,14 +4005,12 @@ impl Overlord {
                 .any(|l| Regex::new(l).is_ok_and(|r| r.is_match(url.as_str())))
         {
             tracing::debug!(
-                "Begin proxied ({socks5_proxy_address}) overlord::zap_start connection to `{}`...",
-                url.as_str()
+                "Begin proxied ({socks5_proxy_address}) overlord::zap_start connection to `{url}`..."
             );
             Client::builder().proxy(Proxy::all(format!("socks5h://{socks5_proxy_address}"))?)
         } else {
             tracing::debug!(
-                "Begin direct overlord::zap_start connection to `{}`...",
-                url.as_str()
+                "Begin direct overlord::zap_start connection to `{url}`..."
             );
             Client::builder()
         }

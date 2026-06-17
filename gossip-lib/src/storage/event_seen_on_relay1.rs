@@ -2,8 +2,8 @@ use crate::error::Error;
 use crate::storage::{RawDatabase, Storage, MAX_LMDB_KEY};
 use heed::types::Bytes;
 use heed::RwTxn;
+use indexmap::IndexMap;
 use nostr_types::{Id, RelayUrl, Unixtime};
-use std::collections::HashMap;
 use std::sync::Mutex;
 
 // Id:Url -> Unixtime
@@ -76,10 +76,10 @@ impl Storage {
     pub(crate) fn get_event_seen_on_relay1(
         &self,
         id: Id,
-    ) -> Result<HashMap<RelayUrl, Unixtime>, Error> {
+    ) -> Result<IndexMap<RelayUrl, Unixtime>, Error> {
         let start_key: Vec<u8> = id.as_slice().to_owned();
         let txn = self.env.read_txn()?;
-        let mut output: HashMap<RelayUrl, Unixtime> = HashMap::new();
+        let mut output: IndexMap<RelayUrl, Unixtime> = IndexMap::new();
         for result in self
             .db_event_seen_on_relay1()?
             .prefix_iter(&txn, &start_key)?

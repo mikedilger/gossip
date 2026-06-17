@@ -1,5 +1,5 @@
 use crate::types::{Event, ParsedTag, RelayUrl, Tag};
-use std::collections::HashMap;
+use indexmap::IndexMap;
 
 /// Relay Usage
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -29,7 +29,7 @@ impl RelayListUsage {
 /// A relay list, indicating usage for each relay, which can be used to
 /// represent the data found in a kind 10002 RelayListMetadata event.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct RelayList(pub HashMap<RelayUrl, RelayListUsage>);
+pub struct RelayList(pub IndexMap<RelayUrl, RelayListUsage>);
 
 impl RelayList {
     /// Parse a kind-10002 RelayList event into a RelayList

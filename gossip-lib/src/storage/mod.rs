@@ -10,7 +10,7 @@ pub mod types;
 
 // table definition
 pub mod table;
-use indexmap::IndexSet;
+use indexmap::{IndexMap, IndexSet};
 pub use table::Table;
 
 // new tables
@@ -96,7 +96,7 @@ type EmptyDatabase = Database<Bytes, Unit>;
 pub struct Storage {
     env: Env,
     volatile_events: DashMap<Id, Event>,
-    volatile_seen_on: DashMap<Id, HashMap<RelayUrl, Unixtime>>,
+    volatile_seen_on: DashMap<Id, IndexMap<RelayUrl, Unixtime>>,
 }
 
 impl Storage {
@@ -1035,7 +1035,7 @@ impl Storage {
                 v.insert(url.clone(), when);
             })
             .or_insert({
-                let mut map = HashMap::new();
+                let mut map = IndexMap::new();
                 map.insert(url, when);
                 map
             });
@@ -1043,7 +1043,7 @@ impl Storage {
 
     /// Get event seen on relay
     #[inline]
-    pub fn get_event_seen_on_relay(&self, id: Id) -> Result<HashMap<RelayUrl, Unixtime>, Error> {
+    pub fn get_event_seen_on_relay(&self, id: Id) -> Result<IndexMap<RelayUrl, Unixtime>, Error> {
         if let Some(r) = self.volatile_seen_on.get(&id) {
             Ok(r.value().to_owned())
         } else {

@@ -15,14 +15,12 @@
 
 /// Relay type, aliased to the latest version
 pub type Relay = crate::storage::types::Relay3;
-use std::collections::HashMap;
-
 pub use crate::storage::types::ScoreFactors;
 
 use crate::error::{Error, ErrorKind};
 use crate::person_relay::PersonRelay;
 use crate::GLOBALS;
-use indexmap::IndexSet;
+use indexmap::{IndexMap, IndexSet};
 use nostr_types::{Event, EventKind, Id, PublicKey, RelayUrl, RelayUsage, Unixtime};
 
 // Get `num_relays_per_prson` outboxes to subscribe to their events
@@ -96,7 +94,7 @@ pub fn get_dm_relays(pubkey: PublicKey) -> Result<IndexSet<RelayUrl>, Error> {
 
 /// This tries to generate a single RelayUrl to use for an 'e' or 'a' tag hint
 pub fn recommended_relay_hint(reply_to: Id) -> Result<Option<RelayUrl>, Error> {
-    let seen_on_relays: HashMap<RelayUrl, Unixtime> =
+    let seen_on_relays: IndexMap<RelayUrl, Unixtime> =
         GLOBALS.db().get_event_seen_on_relay(reply_to)?;
 
     let maybepubkey = GLOBALS.identity.public_key();
@@ -273,7 +271,7 @@ pub fn sort_relays(
     }
 
     // For each URL, keep the relay record and a score
-    let mut map: HashMap<RelayUrl, RelayData> = HashMap::new();
+    let mut map: IndexMap<RelayUrl, RelayData> = HashMap::new();
 
     // Load each hinted relay, gets 1 bonus point
     for url in hinted.drain(..) {

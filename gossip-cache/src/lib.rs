@@ -1,5 +1,5 @@
 use gossip_lib::{GLOBALS, Person, PersonList, PersonTable, Private, Table};
-use indexmap::IndexSet;
+use indexmap::{IndexMap, IndexSet};
 use nostr_types::{
     ContentSegment, Event, EventDelegation, EventKind, EventReference, Id, MilliSatoshi, NAddr,
     NostrBech32, ParsedTag, PublicKey, RelayUrl, ShatteredContent, Unixtime,
@@ -191,7 +191,7 @@ pub struct NoteData {
     pub zaptotal: MilliSatoshi,
 
     /// Relays this event was seen on and when, if any
-    pub seen_on: HashMap<RelayUrl, Unixtime>,
+    pub seen_on: IndexMap<RelayUrl, Unixtime>,
 
     /// The content shattered into renderable elements
     pub shattered_content: ShatteredContent,
