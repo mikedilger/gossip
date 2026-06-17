@@ -94,9 +94,3 @@ indexmap = { version = "2.14", features = ["serde"] }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
-
-# Force scrypt to build with release-like speed even in dev mode
-[profile.dev.package.scrypt]
-opt-level = 3
-debug-assertions = false
-overflow-checks = false
