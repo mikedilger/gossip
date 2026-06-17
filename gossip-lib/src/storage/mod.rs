@@ -1,4 +1,4 @@
-include!("macros");
+include!("macros.rs");
 
 const MAX_LMDB_KEY: usize = 511;
 
