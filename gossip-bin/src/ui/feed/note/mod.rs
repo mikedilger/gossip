@@ -1901,33 +1901,34 @@ fn draw_seen_on(app: &mut GossipUi, ui: &mut Ui, note: &std::cell::Ref<NoteData>
     let mut seen_on_popup_position = ui.next_widget_position();
     seen_on_popup_position.y += 18.0; // drop below the icon itself
 
-    let response = ui.add(
-        Label::new(RichText::new(format!("👁 {}", note.seen_on.len())).size(12.0))
-            .sense(Sense::hover()),
-    );
+    let response = if !note.seen_on.is_empty() {
+        let response = ui.add(
+            Label::new(RichText::new(format!("👁 {}", note.seen_on.len())).size(12.0))
+                .sense(Sense::hover()),
+        );
 
-    if response.hovered() {
-        egui::Area::new(ui.next_auto_id().with("seen_on"))
-            .movable(false)
-            .interactable(false)
-            // .pivot(Align2::RIGHT_TOP) // Fails to work as advertised
-            .fixed_pos(seen_on_popup_position)
-            // FIXME IN EGUI: constrain is moving the box left for all of these boxes
-            // even if they have different IDs and don't need it.
-            .constrain(true)
-            .show(ui.ctx(), |ui| {
-                ui.set_min_width(200.0);
-                egui::Frame::popup(&app.theme.get_style()).show(ui, |ui| {
-                    if !note.seen_on.is_empty() {
+        if response.hovered() {
+            egui::Area::new(ui.next_auto_id().with("seen_on"))
+                .movable(false)
+                .interactable(false)
+                // .pivot(Align2::RIGHT_TOP) // Fails to work as advertised
+                .fixed_pos(seen_on_popup_position)
+                // FIXME IN EGUI: constrain is moving the box left for all of these boxes
+                // even if they have different IDs and don't need it.
+                .constrain(true)
+                .show(ui.ctx(), |ui| {
+                    egui::Frame::popup(&app.theme.get_style()).show(ui, |ui| {
                         for url in note.seen_on.keys() {
                             ui.label(url.as_str());
                         }
-                    } else {
-                        ui.label("unknown");
-                    }
+                    })
                 });
-            });
-    }
+        }
+
+        Some(response)
+    } else {
+        None
+    };
 
     let response2 = ui.label(
         RichText::new(crate::date_ago::date_ago(note.event.created_at))
@@ -1942,5 +1943,5 @@ fn draw_seen_on(app: &mut GossipUi, ui: &mut Ui, note: &std::cell::Ref<NoteData>
         }
     });
 
-    response | response2
+    response.unwrap_or(response2)
 }
