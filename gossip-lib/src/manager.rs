@@ -4,6 +4,7 @@ use crate::globals::GLOBALS;
 use crate::minion::Minion;
 use crate::pending::PendingItem;
 use dashmap::mapref::entry::Entry;
+use indexmap::IndexSet;
 use nostr_types::RelayUrl;
 
 /// This is the main entry point for running a set of jobs on a set of relays.
@@ -15,7 +16,7 @@ use nostr_types::RelayUrl;
 ///
 /// This function returns quickly, as it spawns a separate task to do the engagement
 /// so you won't get any feedback.
-pub(crate) fn run_jobs_on_some_relays(urls: Vec<RelayUrl>, count: usize, jobs: Vec<RelayJob>) {
+pub(crate) fn run_jobs_on_some_relays(urls: IndexSet<RelayUrl>, count: usize, jobs: Vec<RelayJob>) {
     // Keep engaging relays until `count` engagements were successful
     // Do from a spawned task so that we don't hold up the overlord
     let _join_handle = tokio::spawn(Box::pin(async move {
@@ -38,13 +39,13 @@ pub(crate) fn run_jobs_on_some_relays(urls: Vec<RelayUrl>, count: usize, jobs: V
 ///
 /// This function returns quickly, as it spawns a separate task to do the engagement
 /// so you won't get any feedback.
-pub(crate) fn run_jobs_on_all_relays(urls: Vec<RelayUrl>, jobs: Vec<RelayJob>) {
+pub(crate) fn run_jobs_on_all_relays(urls: IndexSet<RelayUrl>, jobs: Vec<RelayJob>) {
     // Keep engaging relays until `count` engagements were successful
     // Do from a spawned task so that we don't hold up the overlord
     std::mem::drop(tokio::spawn(Box::pin(async move {
         let mut futures = Vec::new();
-        for url in urls.iter() {
-            futures.push(engage_minion_inner(url.to_owned(), jobs.clone()));
+        for url in urls {
+            futures.push(engage_minion_inner(url, jobs.clone()));
         }
         futures::future::join_all(futures).await;
     })));

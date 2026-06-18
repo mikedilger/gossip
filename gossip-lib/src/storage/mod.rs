@@ -1,4 +1,4 @@
-include!("macros");
+include!("macros.rs");
 
 const MAX_LMDB_KEY: usize = 511;
 
@@ -10,6 +10,7 @@ pub mod types;
 
 // table definition
 pub mod table;
+use indexmap::{IndexMap, IndexSet};
 pub use table::Table;
 
 // new tables
@@ -95,7 +96,7 @@ type EmptyDatabase = Database<Bytes, Unit>;
 pub struct Storage {
     env: Env,
     volatile_events: DashMap<Id, Event>,
-    volatile_seen_on: DashMap<Id, Vec<(RelayUrl, Unixtime)>>,
+    volatile_seen_on: DashMap<Id, IndexMap<RelayUrl, Unixtime>>,
 }
 
 impl Storage {
@@ -1023,20 +1024,22 @@ impl Storage {
     }
 
     pub fn add_event_seen_on_relay_volatile(&self, id: Id, url: RelayUrl, when: Unixtime) {
-        // Don't save banned relay URLs
-        if Self::url_is_banned(&url) {
-            return;
+        if !Self::url_is_banned(&url) {
+            match self.volatile_seen_on.get_mut(&id) {
+                Some(mut value) => {
+                    value.insert(url, when);
+                }
+                None => {
+                    self.volatile_seen_on
+                        .insert(id, IndexMap::from_iter([(url, when)]));
+                }
+            }
         }
-
-        self.volatile_seen_on
-            .entry(id)
-            .and_modify(|v| v.push((url.clone(), when)))
-            .or_insert(vec![(url, when)]);
     }
 
     /// Get event seen on relay
     #[inline]
-    pub fn get_event_seen_on_relay(&self, id: Id) -> Result<Vec<(RelayUrl, Unixtime)>, Error> {
+    pub fn get_event_seen_on_relay(&self, id: Id) -> Result<IndexMap<RelayUrl, Unixtime>, Error> {
         if let Some(r) = self.volatile_seen_on.get(&id) {
             Ok(r.value().to_owned())
         } else {
@@ -1189,7 +1192,7 @@ impl Storage {
 
     /// Read matching relay records
     #[inline]
-    pub fn filter_relays<F>(&self, f: F) -> Result<Vec<Relay>, Error>
+    pub fn filter_relays<F>(&self, f: F) -> Result<IndexSet<Relay>, Error>
     where
         F: Fn(&Relay) -> bool,
     {
@@ -2020,7 +2023,7 @@ impl Storage {
         let mut output = self.get_non_replaceable_replies(event.id)?;
         output.extend(self.get_replaceable_replies(&NAddr {
             d: event.parameter().unwrap_or("".to_string()),
-            relays: vec![],
+            relays: IndexSet::new(),
             kind: event.kind,
             author: event.pubkey,
         })?);
@@ -2206,7 +2209,7 @@ impl Storage {
         if let Some(parameter) = maybe_deleted_event.parameter() {
             let addr = NAddr {
                 d: parameter,
-                relays: vec![],
+                relays: IndexSet::new(),
                 kind: maybe_deleted_event.kind,
                 author: maybe_deleted_event.pubkey,
             };

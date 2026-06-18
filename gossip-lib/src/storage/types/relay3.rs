@@ -1,12 +1,13 @@
 use crate::error::Error;
 use crate::globals::GLOBALS;
+use indexmap::IndexSet;
 use nostr_types::{RelayInformationDocument, RelayUrl, Unixtime};
 use serde::{Deserialize, Serialize};
 
 // THIS IS HISTORICAL FOR MIGRATIONS AND THE STRUCTURES SHOULD NOT BE EDITED
 
 /// A relay record
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Hash, Eq)]
 pub struct Relay3 {
     /// The url
     pub url: RelayUrl,
@@ -243,7 +244,7 @@ impl Relay3 {
         score
     }
 
-    pub fn choose_relays<F>(bits: u64, f: F) -> Result<Vec<Relay3>, Error>
+    pub fn choose_relays<F>(bits: u64, f: F) -> Result<IndexSet<Relay3>, Error>
     where
         F: Fn(&Relay3) -> bool,
     {
@@ -252,7 +253,7 @@ impl Relay3 {
             .filter_relays(|r| r.has_usage_bits(bits) && !r.should_avoid() && f(r))
     }
 
-    pub fn choose_relay_urls<F>(bits: u64, f: F) -> Result<Vec<RelayUrl>, Error>
+    pub fn choose_relay_urls<F>(bits: u64, f: F) -> Result<IndexSet<RelayUrl>, Error>
     where
         F: Fn(&Relay3) -> bool,
     {

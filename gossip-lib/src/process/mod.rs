@@ -7,6 +7,7 @@ use crate::relationship::{RelationshipByAddr, RelationshipById};
 use crate::storage::{PersonTable, Table};
 use crate::Relay;
 use heed::RwTxn;
+use indexmap::IndexSet;
 use nostr_types::{
     Event, EventKind, EventReference, Filter, Id, NAddr, NostrBech32, ParsedTag, RelayUrl, Unixtime,
 };
@@ -143,7 +144,7 @@ pub async fn process_new_event(
     if let Some(parameter) = event.parameter() {
         let ea = NAddr {
             d: parameter.to_owned(),
-            relays: vec![],
+            relays: IndexSet::new(),
             kind: event.kind,
             author: event.pubkey,
         };
@@ -311,14 +312,14 @@ fn process_feed_displayable_content(
                     if let Some(relay_url) = seen_on {
                         let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FetchEvent(
                             id,
-                            vec![relay_url.to_owned()],
+                            IndexSet::from([relay_url.to_owned()]),
                         ));
                     }
                 }
             }
             NostrBech32::NEvent(ne) => {
                 if GLOBALS.db().read_event(ne.id)?.is_none() {
-                    let relay_urls: Vec<RelayUrl> = ne
+                    let relay_urls = ne
                         .relays
                         .iter()
                         .filter_map(|unchecked| RelayUrl::try_from_unchecked_url(unchecked).ok())
@@ -335,10 +336,7 @@ fn process_feed_displayable_content(
                 {
                     // Add the seen_on relay
                     if let Some(seen_on_url) = seen_on {
-                        let seen_on_unchecked_url = seen_on_url.to_unchecked_url();
-                        if !ea.relays.contains(&seen_on_unchecked_url) {
-                            ea.relays.push(seen_on_unchecked_url);
-                        }
+                        ea.relays.insert(seen_on_url.to_unchecked_url());
                     }
 
                     let _ = GLOBALS.to_overlord.send(ToOverlordMessage::FetchNAddr(ea));

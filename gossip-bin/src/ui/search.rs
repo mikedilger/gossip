@@ -23,7 +23,7 @@ pub(super) fn update(
 
     // Warn if there are no search relays configured
     if !local {
-        let search_relays: Vec<Relay> = GLOBALS
+        let search_relays = GLOBALS
             .db()
             .filter_relays(|relay| relay.has_usage_bits(Relay::SEARCH))
             .unwrap_or_default();

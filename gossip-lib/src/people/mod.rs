@@ -1,5 +1,6 @@
 mod follow_list;
 pub use follow_list::FollowList;
+use indexmap::IndexSet;
 
 use crate::comms::ToOverlordMessage;
 use crate::error::{Error, ErrorKind};
@@ -35,9 +36,9 @@ pub type PersonListMetadata = crate::storage::types::PersonListMetadata3;
 pub struct People {
     // active person's relays (pull from db as needed)
     active_person: RwLock<Option<PublicKey>>,
-    active_persons_write_relays: RwLock<Vec<RelayUrl>>,
-    active_persons_read_relays: RwLock<Vec<RelayUrl>>,
-    active_persons_dm_relays: RwLock<Vec<RelayUrl>>,
+    active_persons_write_relays: RwLock<IndexSet<RelayUrl>>,
+    active_persons_read_relays: RwLock<IndexSet<RelayUrl>>,
+    active_persons_dm_relays: RwLock<IndexSet<RelayUrl>>,
 
     // We fetch (with Fetcher), process, and temporarily hold avatars
     // until the UI next asks for them, at which point we remove them
@@ -71,9 +72,9 @@ impl People {
     pub(crate) fn new() -> People {
         People {
             active_person: RwLock::new(None),
-            active_persons_write_relays: RwLock::new(vec![]),
-            active_persons_read_relays: RwLock::new(vec![]),
-            active_persons_dm_relays: RwLock::new(vec![]),
+            active_persons_write_relays: RwLock::new(IndexSet::new()),
+            active_persons_read_relays: RwLock::new(IndexSet::new()),
+            active_persons_dm_relays: RwLock::new(IndexSet::new()),
             avatars_temp: DashMap::new(),
             avatars_pending_processing: DashSet::new(),
             recheck_nip05: DashSet::new(),
@@ -939,17 +940,17 @@ impl People {
     }
 
     /// DO NOT CALL FROM LIB, ONLY FROM UI
-    pub fn get_active_person_write_relays(&self) -> Vec<RelayUrl> {
+    pub fn get_active_person_write_relays(&self) -> IndexSet<RelayUrl> {
         self.active_persons_write_relays.blocking_read().clone()
     }
 
     /// DO NOT CALL FROM LIB, ONLY FROM UI
-    pub fn get_active_person_read_relays(&self) -> Vec<RelayUrl> {
+    pub fn get_active_person_read_relays(&self) -> IndexSet<RelayUrl> {
         self.active_persons_read_relays.blocking_read().clone()
     }
 
     /// DO NOT CALL FROM LIB, ONLY FROM UI
-    pub fn get_active_person_dm_relays(&self) -> Vec<RelayUrl> {
+    pub fn get_active_person_dm_relays(&self) -> IndexSet<RelayUrl> {
         self.active_persons_dm_relays.blocking_read().clone()
     }
 }

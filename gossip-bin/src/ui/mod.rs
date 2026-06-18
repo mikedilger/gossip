@@ -74,6 +74,7 @@ use gossip_lib::{
     RunState, ZapState, GLOBALS,
 };
 use handler::Handlers;
+use indexmap::IndexSet;
 use nostr_types::ContentSegment;
 use nostr_types::RelayUrl;
 use nostr_types::{
@@ -1620,11 +1621,11 @@ impl GossipUi {
                     ui.output_mut(|o| {
                         let mut profile = Profile {
                             pubkey: person.pubkey,
-                            relays: Vec::new(),
+                            relays: IndexSet::new(),
                         };
-                        let relays = GLOBALS.people.get_active_person_write_relays();
-                        for relay_url in relays {
-                            profile.relays.push(UncheckedUrl(format!("{}", relay_url)));
+                        for relay_url in GLOBALS.people.get_active_person_write_relays() {
+                            profile.relays.insert(UncheckedUrl(relay_url.to_string()));
+                            // @TODO assert duplicates?
                         }
                         o.commands.push(OutputCommand::CopyText(format!(
                             "https://njump.me/{}",

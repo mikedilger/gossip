@@ -4,6 +4,7 @@ use crate::fetcher::FetchResult;
 use crate::globals::GLOBALS;
 use crate::relay;
 use crate::relay::Relay;
+use indexmap::IndexSet;
 use nostr_types::{
     ContentEncryptionAlgorithm, ContentSegment, Event, EventKind, EventReference, FileMetadata, Id,
     NAddr, NostrBech32, ParsedTag, PreEvent, PublicKey, RelayUrl, ShatteredContent, Tag,
@@ -17,7 +18,7 @@ pub async fn prepare_post_normal(
     mut tags: Vec<Tag>,
     in_reply_to: Option<Event>,
     annotation: bool,
-) -> Result<Vec<(Event, Vec<RelayUrl>)>, Error> {
+) -> Result<Vec<(Event, IndexSet<RelayUrl>)>, Error> {
     add_gossip_tag(&mut tags);
 
     if annotation {
@@ -65,7 +66,7 @@ pub async fn prepare_post_comment(
     mut tags: Vec<Tag>,
     parent: Event,
     annotation: bool,
-) -> Result<Vec<(Event, Vec<RelayUrl>)>, Error> {
+) -> Result<Vec<(Event, IndexSet<RelayUrl>)>, Error> {
     add_gossip_tag(&mut tags);
 
     if annotation {
@@ -114,7 +115,7 @@ pub async fn prepare_post_nip04(
     content: String,
     dm_channel: DmChannel,
     annotation: bool,
-) -> Result<Vec<(Event, Vec<RelayUrl>)>, Error> {
+) -> Result<Vec<(Event, IndexSet<RelayUrl>)>, Error> {
     if dm_channel.keys().len() > 1 {
         return Err(ErrorKind::GroupDmsNotSupported.into());
     }
@@ -161,7 +162,7 @@ pub async fn prepare_post_nip17(
     mut tags: Vec<Tag>,
     dm_channel: DmChannel,
     annotation: bool,
-) -> Result<Vec<(Event, Vec<RelayUrl>)>, Error> {
+) -> Result<Vec<(Event, IndexSet<RelayUrl>)>, Error> {
     if !dm_channel.can_use_nip17() {
         return Err(ErrorKind::UsersCantUseNip17.into());
     }
@@ -196,7 +197,7 @@ pub async fn prepare_post_nip17(
         content,
     };
 
-    let mut output: Vec<(Event, Vec<RelayUrl>)> = Vec::new();
+    let mut output: Vec<(Event, IndexSet<RelayUrl>)> = Vec::new();
 
     // To all recipients
     for pk in dm_channel.keys() {
@@ -372,8 +373,9 @@ fn add_thread_based_tags(
     let parent_relay: Option<UncheckedUrl> = GLOBALS
         .db()
         .get_event_seen_on_relay(parent.id)?
-        .pop()
-        .map(|(rurl, _)| rurl.to_unchecked_url());
+        .into_keys()
+        .next()
+        .map(|rurl| rurl.to_unchecked_url());
 
     // Possibly add a tag to the 'root'
     let mut parent_is_root = true;
@@ -434,7 +436,7 @@ fn add_thread_based_tags(
             tags,
             &NAddr {
                 d,
-                relays: vec![],
+                relays: IndexSet::new(),
                 kind: parent.kind,
                 author: parent.pubkey,
             },
@@ -531,8 +533,8 @@ fn add_parent_tags(tags: &mut Vec<Tag>, parent: &Event, author: PublicKey) {
                 address: NAddr {
                     d: parent.parameter().unwrap_or_default(),
                     relays: match relay_hint {
-                        Some(ref h) => vec![h.clone()],
-                        None => vec![],
+                        Some(ref h) => IndexSet::from([h.clone()]),
+                        None => IndexSet::new(),
                     },
                     kind: parent.kind,
                     author: parent.pubkey,
@@ -603,8 +605,8 @@ fn set_parent_as_root_tags(tags: &mut Vec<Tag>, parent: &Event) {
                 address: NAddr {
                     d: parent.parameter().unwrap_or_default(),
                     relays: match relay_hint {
-                        Some(ref h) => vec![h.clone()],
-                        None => vec![],
+                        Some(ref h) => IndexSet::from([h.clone()]),
+                        None => IndexSet::new(),
                     },
                     kind: parent.kind,
                     author: parent.pubkey,

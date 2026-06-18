@@ -1,5 +1,6 @@
 use crate::error::{Error, ErrorKind};
 use crate::globals::GLOBALS;
+use indexmap::IndexSet;
 use nostr_types::{
     ContentEncryptionAlgorithm, Event, EventKind, EventReference, Id, ParsedTag, PreEvent,
     RelayUrl, Tag, Unixtime,
@@ -28,10 +29,10 @@ impl BookmarkList {
                 } => {
                     let relays = match recommended_relay_url {
                         Some(url) => match RelayUrl::try_from_unchecked_url(&url) {
-                            Ok(rurl) => vec![rurl],
-                            Err(_) => vec![],
+                            Ok(rurl) => IndexSet::from([rurl]),
+                            Err(_) => IndexSet::new(),
                         },
-                        None => vec![],
+                        None => IndexSet::new(),
                     };
                     EventReference::Id {
                         id,

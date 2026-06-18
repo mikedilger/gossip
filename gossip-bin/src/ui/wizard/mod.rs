@@ -3,7 +3,8 @@ use eframe::egui;
 use egui::widgets::{Button, Slider};
 use egui::{Align, Context, Layout};
 use egui_winit::egui::{vec2, Ui};
-use gossip_lib::{FeedKind, PersonList, PersonTable, Relay, RunState, Table, GLOBALS};
+use gossip_lib::{FeedKind, PersonList, PersonTable, Relay, Relay3, RunState, Table, GLOBALS};
+use indexmap::IndexSet;
 use nostr_types::RelayUrl;
 
 mod follow_people;
@@ -126,7 +127,7 @@ pub(super) fn start_wizard_page(wizard_state: &mut WizardState) -> Option<Wizard
     }
 
     // if no outbox relays --> SetupRelays
-    let outbox_relays: Vec<Relay> = wizard_state
+    let outbox_relays: IndexSet<Relay3> = wizard_state
         .relays
         .iter()
         .filter(|relay| relay.has_usage_bits(Relay::OUTBOX))
@@ -137,7 +138,7 @@ pub(super) fn start_wizard_page(wizard_state: &mut WizardState) -> Option<Wizard
     }
 
     // if no inbox relays --> SetupRelays
-    let inbox_relays: Vec<Relay> = wizard_state
+    let inbox_relays: IndexSet<Relay3> = wizard_state
         .relays
         .iter()
         .filter(|relay| relay.has_usage_bits(Relay::INBOX))
@@ -148,7 +149,7 @@ pub(super) fn start_wizard_page(wizard_state: &mut WizardState) -> Option<Wizard
     }
 
     // if no disc relays --> SetupRelays
-    let disc_relays: Vec<Relay> = wizard_state
+    let disc_relays: IndexSet<Relay3> = wizard_state
         .relays
         .iter()
         .filter(|relay| relay.has_usage_bits(Relay::DISCOVER))

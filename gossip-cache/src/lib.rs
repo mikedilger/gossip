@@ -1,4 +1,5 @@
 use gossip_lib::{GLOBALS, Person, PersonList, PersonTable, Private, Table};
+use indexmap::{IndexMap, IndexSet};
 use nostr_types::{
     ContentSegment, Event, EventDelegation, EventKind, EventReference, Id, MilliSatoshi, NAddr,
     NostrBech32, ParsedTag, PublicKey, RelayUrl, ShatteredContent, Unixtime,
@@ -190,7 +191,7 @@ pub struct NoteData {
     pub zaptotal: MilliSatoshi,
 
     /// Relays this event was seen on and when, if any
-    pub seen_on: Vec<(RelayUrl, Unixtime)>,
+    pub seen_on: IndexMap<RelayUrl, Unixtime>,
 
     /// The content shattered into renderable elements
     pub shattered_content: ShatteredContent,
@@ -478,13 +479,10 @@ impl NoteData {
         self.our_reaction = our_reaction;
 
         // Update seen_on
-        let mut seen_on = GLOBALS
+        self.seen_on = GLOBALS
             .db()
             .get_event_seen_on_relay(self.event.id)
             .unwrap_or_default();
-
-        self.seen_on.clear();
-        self.seen_on.append(&mut seen_on);
 
         // Update annotations
         self.annotations = GLOBALS
@@ -512,7 +510,7 @@ impl NoteData {
         if self.event.kind.is_replaceable() {
             EventReference::Addr(NAddr {
                 d: self.event.parameter().unwrap_or("".to_owned()),
-                relays: vec![],
+                relays: IndexSet::new(),
                 kind: self.event.kind,
                 author: self.event.pubkey,
             })
@@ -520,7 +518,7 @@ impl NoteData {
             EventReference::Id {
                 id: self.event.id,
                 author: None,
-                relays: vec![],
+                relays: IndexSet::new(),
                 marker: None,
             }
         }
