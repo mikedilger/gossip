@@ -1030,8 +1030,11 @@ impl Storage {
                     value.insert(url, when);
                 }
                 None => {
-                    self.volatile_seen_on
-                        .insert(id, IndexMap::from_iter([(url, when)]));
+                    // do not overwrite existing values for this event,
+                    // see: `fn get_event_seen_on_relay(&self, id: Id)` impl @TODO
+                    //
+                    // self.volatile_seen_on
+                    //    .insert(id, IndexMap::from_iter([(url, when)]));
                 }
             }
         }
