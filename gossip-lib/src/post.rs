@@ -161,8 +161,9 @@ pub async fn prepare_post_nip17(
     mut tags: Vec<Tag>,
     dm_channel: DmChannel,
     annotation: bool,
+    force_nip17: bool,
 ) -> Result<Vec<(Event, Vec<RelayUrl>)>, Error> {
-    if !dm_channel.can_use_nip17() {
+    if !dm_channel.can_use_nip17() && !force_nip17 {
         return Err(ErrorKind::UsersCantUseNip17.into());
     }
 
@@ -201,7 +202,10 @@ pub async fn prepare_post_nip17(
     // To all recipients
     for pk in dm_channel.keys() {
         let event = GLOBALS.identity.giftwrap(pre_event.clone(), *pk).await?;
-        let relays = relay::get_dm_relays(*pk)?;
+        let mut relays = relay::get_dm_relays(*pk)?;
+        if relays.is_empty() {
+            relays = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
+        }
         output.push((event, relays));
     }
 

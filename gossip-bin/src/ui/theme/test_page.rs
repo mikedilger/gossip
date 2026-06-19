@@ -99,6 +99,8 @@ pub(in crate::ui) fn update(
                 thread_position: 0,
                 hide_footer: false,
                 hide_nameline: false,
+                is_dm_feed: false,
+                is_our_event: false,
             };
             Frame::NONE
                 .inner_margin(app.theme.feed_frame_inner_margin(&render_data))
@@ -124,6 +126,8 @@ pub(in crate::ui) fn update(
                 thread_position: 0,
                 hide_footer: false,
                 hide_nameline: false,
+                is_dm_feed: false,
+                is_our_event: false,
             };
             Frame::NONE
                 .inner_margin(app.theme.feed_frame_inner_margin(&render_data))

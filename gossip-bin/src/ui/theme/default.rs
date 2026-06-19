@@ -834,6 +834,10 @@ impl ThemeDef for DefaultTheme {
         Shadow::default()
     }
     fn feed_frame_fill(dark_mode: bool, post: &NoteRenderData) -> Color32 {
+        if post.is_dm_feed && post.is_our_event {
+            return Color32::from_rgb(0x20, 0x33, 0x2c);
+        }
+
         if post.is_main_event {
             if dark_mode {
                 let mut hsva: ecolor::HsvaGamma = Self::highlighted_note_bgcolor(dark_mode).into();

@@ -133,6 +133,8 @@ pub enum ToOverlordMessage {
         in_reply_to: Option<Id>,
         annotation: bool,
         dm_channel: Option<DmChannel>,
+        use_nip17: bool,
+        force_nip17: bool,
     },
 
     /// Calls [post_again](crate::Overlord::post_again)
