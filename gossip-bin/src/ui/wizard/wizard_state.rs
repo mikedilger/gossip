@@ -77,6 +77,8 @@ impl Default for WizardState {
 }
 impl WizardState {
     pub fn init(&mut self) {
+        super::seed_default_relays();
+
         if self.need_discovery_relays() {
             let purplepages = RelayUrl::try_from_str("wss://purplepag.es/").unwrap();
             super::modify_relay(&purplepages, |relay| relay.set_usage_bits(Relay::DISCOVER));
