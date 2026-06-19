@@ -10,6 +10,7 @@ use egui_winit::egui::text_edit::TextEditOutput;
 use egui_winit::egui::{vec2, AboveOrBelow, Id};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{DmChannel, PersonTable, Relay, Table, GLOBALS};
+use indexmap::{IndexMap, IndexSet};
 use memoize::memoize;
 use nostr_types::{ContentSegment, NostrBech32, NostrUrl, ParsedTag, ShatteredContent, Tag};
 use std::collections::HashMap;
@@ -396,6 +397,11 @@ fn dm_posting_area(
 
     if send_now {
         let mut tags: Vec<Tag> = Vec::new();
+        if let Some(ref attachments) = app.dm_draft_data.attachments {
+            for attachment in attachments {
+                tags.push(attachment.clone().into_tag())
+            }
+        }
         if app.dm_draft_data.include_content_warning {
             tags.push(
                 ParsedTag::ContentWarning(Some(app.dm_draft_data.content_warning.clone()))
@@ -775,6 +781,11 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
         let replaced = do_replacements(&app.draft_data.draft, &app.draft_data.replacements);
 
         let mut tags: Vec<Tag> = Vec::new();
+        if let Some(ref attachments) = app.draft_data.attachments {
+            for attachment in attachments {
+                tags.push(attachment.clone().into_tag())
+            }
+        }
         if app.draft_data.include_content_warning {
             tags.push(
                 ParsedTag::ContentWarning(Some(app.draft_data.content_warning.clone())).into_tag(),
@@ -1070,6 +1081,7 @@ fn offer_attachment(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, dm: bool) {
     // Attachment button
     if let Some(pathbuf) = &app.uploading {
         if let Some(blossom_servers) = GLOBALS.blossom_uploads.get(pathbuf) {
+            let mut attachments = IndexMap::new();
             for blossom_server in blossom_servers.value() {
                 match blossom_server {
                     Ok(bd) => {
@@ -1092,6 +1104,33 @@ fn offer_attachment(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, dm: bool) {
                                 }
                             }
                         }
+                        // https://nips.nostr.com/92
+                        match attachments.get_mut(&bd.sha256) {
+                            Some(attachment) => match attachment {
+                                ParsedTag::Attachment {
+                                    ref mut fallback, ..
+                                } => {
+                                    fallback.insert(bd.url.clone());
+                                }
+                                _ => unreachable!(),
+                            },
+                            None => assert!(attachments
+                                .insert(
+                                    bd.sha256.clone(),
+                                    ParsedTag::Attachment {
+                                        alt: match pathbuf.file_name() {
+                                            Some(n) => n.to_str().map(|s| s.to_string()),
+                                            None => None,
+                                        },
+                                        fallback: IndexSet::with_capacity(blossom_servers.len(),),
+                                        sha256: bd.sha256.clone(),
+                                        mime: bd.mime_type.clone(),
+                                        size: bd.size,
+                                        url: bd.url.clone(),
+                                    },
+                                )
+                                .is_none()),
+                        }
                         clear_uploading = true;
                     }
                     Err(e) => {
@@ -1104,6 +1143,13 @@ fn offer_attachment(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, dm: bool) {
                             break;
                         }
                     }
+                }
+            }
+            if !attachments.is_empty() {
+                if dm {
+                    app.dm_draft_data.attachments = Some(attachments.into_values().collect());
+                } else {
+                    app.draft_data.attachments = Some(attachments.into_values().collect());
                 }
             }
         } else {
