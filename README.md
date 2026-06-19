@@ -1,5 +1,17 @@
 # Gossip
 
+## THIS REPOSITORY IS IDLE
+
+I haven't had time to spend on NOSTR development for many months now. This
+repository has become idle.
+
+YGGverse has continued development on a
+[fork](https://github.com/YGGverse/gossipfork) which I approve of but cannot
+vouch for since I haven't had time to look at it. AFAIK it is the only
+active and continuing development on gossip. He can't promise to continue to
+develop it, maintain it or provide support, but it's got more features than
+this repo has. So go have a look.
+
 ## Gossip is a desktop client for NOSTR
 
 Nostr is an open social media protocol empowering lots of software such as this client. The experience is kind of like Twitter except that you control your own account, and you can post to many different independent places called "relays". People are finding many additional uses for NOSTR that go far beyond micro-blogging or chatting, but this client is focused on those.
