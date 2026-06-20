@@ -10,7 +10,7 @@ use egui_winit::egui::text_edit::TextEditOutput;
 use egui_winit::egui::{vec2, AboveOrBelow, Id};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{DmChannel, PersonTable, Relay, Table, GLOBALS};
-use indexmap::IndexSet;
+use indexmap::IndexMap;
 use memoize::memoize;
 use nostr_types::{ContentSegment, NostrBech32, NostrUrl, ParsedTag, ShatteredContent, Tag};
 use std::collections::HashMap;
@@ -1074,7 +1074,7 @@ fn offer_attachment(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, dm: bool) {
     // Attachment button
     if let Some(pathbuf) = &app.uploading {
         if let Some(blossom_servers) = GLOBALS.blossom_uploads.get(pathbuf) {
-            let mut blossom = IndexSet::new();
+            let mut blossom = IndexMap::new();
             for blossom_server in blossom_servers.value() {
                 match blossom_server {
                     Ok(bd) => {
@@ -1097,7 +1097,13 @@ fn offer_attachment(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, dm: bool) {
                                 }
                             }
                         }
-                        if blossom.insert(nostr_types::UncheckedUrl::from_str(bd.url.as_str())) {
+                        if blossom
+                            .insert(
+                                bd.sha256.clone(),
+                                nostr_types::UncheckedUrl::from_str(bd.url.as_str()),
+                            )
+                            .is_none()
+                        {
                             tracing::debug!(
                                 "Insert blossom entry `{}` ({} total)",
                                 bd.url,

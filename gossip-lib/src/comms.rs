@@ -4,7 +4,7 @@ use crate::misc::Private;
 use crate::nostr_connect_server::{Approval, ParsedCommand};
 use crate::people::PersonList;
 use crate::relay::Relay;
-use indexmap::IndexSet;
+use indexmap::{IndexMap, IndexSet};
 use nostr_types::{
     Event, EventKind, EventReference, Id, Metadata, MilliSatoshi, NAddr, Profile, PublicKey,
     RelayUrl, Tag, UncheckedUrl, Unixtime, Url,
@@ -130,7 +130,8 @@ pub enum ToOverlordMessage {
     /// Calls [post](crate::Overlord::post)
     Post {
         content: String,
-        blossom: Option<IndexSet<UncheckedUrl>>,
+        /// sha256 / URL
+        blossom: Option<IndexMap<String, UncheckedUrl>>,
         tags: Vec<Tag>,
         in_reply_to: Option<Id>,
         annotation: bool,

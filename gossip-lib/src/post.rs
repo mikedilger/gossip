@@ -4,7 +4,7 @@ use crate::fetcher::FetchResult;
 use crate::globals::GLOBALS;
 use crate::relay;
 use crate::relay::Relay;
-use indexmap::IndexSet;
+use indexmap::{IndexMap, IndexSet};
 use nostr_types::{
     ContentEncryptionAlgorithm, ContentSegment, Event, EventKind, EventReference, FileMetadata, Id,
     NAddr, NostrBech32, ParsedTag, PreEvent, PublicKey, RelayUrl, ShatteredContent, Tag,
@@ -15,7 +15,7 @@ use std::sync::mpsc;
 pub async fn prepare_post_normal(
     author: PublicKey,
     content: String,
-    fallback: Option<IndexSet<UncheckedUrl>>,
+    fallback: Option<IndexMap<String, UncheckedUrl>>,
     mut tags: Vec<Tag>,
     in_reply_to: Option<Event>,
     annotation: bool,
@@ -64,7 +64,7 @@ pub async fn prepare_post_normal(
 pub async fn prepare_post_comment(
     author: PublicKey,
     content: String,
-    fallback: Option<IndexSet<UncheckedUrl>>,
+    fallback: Option<IndexMap<String, UncheckedUrl>>,
     mut tags: Vec<Tag>,
     parent: Event,
     annotation: bool,
@@ -161,7 +161,7 @@ pub async fn prepare_post_nip04(
 pub async fn prepare_post_nip17(
     author: PublicKey,
     content: String,
-    fallback: Option<IndexSet<UncheckedUrl>>,
+    fallback: Option<IndexMap<String, UncheckedUrl>>,
     mut tags: Vec<Tag>,
     dm_channel: DmChannel,
     annotation: bool,
@@ -227,7 +227,7 @@ fn add_gossip_tag(tags: &mut Vec<Tag>) {
 
 async fn add_tags_mirroring_content(
     content: &str,
-    fallback: Option<&IndexSet<UncheckedUrl>>,
+    fallback: Option<&IndexMap<String, UncheckedUrl>>,
     tags: &mut Vec<Tag>,
     direct_message: bool,
 ) {
@@ -305,7 +305,7 @@ async fn add_tags_mirroring_content(
 async fn add_imeta_tag(
     urlstr: &str,
     mimetype: Option<String>,
-    fallback: Option<IndexSet<UncheckedUrl>>,
+    fallback: Option<IndexMap<String, UncheckedUrl>>,
     tags: &mut Vec<Tag>,
 ) {
     //turn into a nostr_types::Url
@@ -327,8 +327,7 @@ async fn add_imeta_tag(
     //         it will ever happen so I'm just writing this note instead.
 
     let imeta = {
-        let unchecked_url = url.to_unchecked_url();
-        let mut imeta = FileMetadata::new(unchecked_url);
+        let mut imeta = FileMetadata::new(url.to_unchecked_url());
 
         imeta.m = mimetype;
         imeta.size = Some(bytes.len() as u64);
@@ -365,11 +364,13 @@ async fn add_imeta_tag(
             let t = f.len();
             imeta.fallback = f
                 .into_iter()
-                .filter(|url| FileMetadata::new(url.clone()).x == imeta.x)
+                .filter(|(h, _)| imeta.x.as_ref().is_some_and(|x| x == h))
+                .map(|(_, u)| u)
                 .collect();
             tracing::debug!(
-                "Add {} fallback addresses of {t} total for `{url}`",
-                imeta.fallback.len()
+                "Add {} fallback addresses of {t} total for `{url}` (x `{:?}`)",
+                imeta.fallback.len(),
+                imeta.x
             )
         }
 
