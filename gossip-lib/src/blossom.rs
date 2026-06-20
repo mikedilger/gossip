@@ -167,7 +167,7 @@ impl Blossom {
     pub async fn upload<T: Into<Body>>(
         &self,
         data: T,
-        base_url: String,
+        base_url: &str,
         hash: HashOutput,
         content_type: Mime,
         content_length: u64,
@@ -180,7 +180,7 @@ impl Blossom {
         )
         .await?;
 
-        let url = format!("{}upload", base_url);
+        let url = format!("{base_url}upload");
         let response = client_for(&url)?
             .put(url)
             .header(AUTHORIZATION, format!("Nostr {}", authorization))

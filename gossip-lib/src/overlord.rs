@@ -1057,6 +1057,30 @@ impl Overlord {
     }
 
     async fn inner_blossom_upload(pathbuf: PathBuf) -> Result<(), Error> {
+        use http::{
+            uri::{Parts, PathAndQuery, Scheme},
+            Uri,
+        };
+
+        fn parse_base_url(blossom_server: &str) -> Result<Uri, Error> {
+            let uri = blossom_server.parse::<Uri>()?;
+            let mut parts: Parts = uri.into_parts();
+            parts.path_and_query = Some(PathAndQuery::from_static("/")); // Force no path
+            if parts.scheme.is_none() {
+                parts.scheme = Some(Scheme::HTTPS); // Default to https
+            }
+            Ok(Uri::from_parts(parts)?)
+        }
+
+        fn alias_prefix_replacement(uri: &Uri) -> String {
+            format!(
+                "{}://{}{}/",
+                uri.scheme_str().unwrap_or_default(),
+                uri.host().unwrap_or_default(),
+                uri.port().map(|p| format!(":{p}")).unwrap_or_default(),
+            )
+        }
+
         let blossom = match GLOBALS.blossom.get() {
             Some(b) => b,
             None => {
@@ -1065,56 +1089,67 @@ impl Overlord {
             }
         };
 
-        let mut mirrors = Vec::new();
+        let mut uploads = Vec::new();
 
-        for blossom_server in GLOBALS
+        for blossom_servers in GLOBALS
             .db()
             .read_setting_blossom_servers()
-            .split_whitespace()
+            .lines()
+            .filter(|s| !s.trim().is_empty())
         {
-            let base_url = {
-                use http::{
-                    uri::{Parts, PathAndQuery, Scheme},
-                    Uri,
-                };
-                let uri = blossom_server.parse::<Uri>()?;
-                let mut parts: Parts = uri.into_parts();
-                parts.path_and_query = Some(PathAndQuery::from_static("/")); // Force no path
-                if parts.scheme.is_none() {
-                    parts.scheme = Some(Scheme::HTTPS); // Default to https
-                }
-                Uri::from_parts(parts)?.to_string()
-            };
+            // upload only to the first host in line, handle other as its aliases
+            if let Some(blossom_server) = blossom_servers.split_whitespace().next() {
+                // build valid url entries
+                let base_url = parse_base_url(blossom_server)?;
+                let base_str = base_url.to_string();
 
-            // metadata
-            let metadata = tokio::fs::metadata(&pathbuf).await?;
+                // metadata
+                let metadata = tokio::fs::metadata(&pathbuf).await?;
 
-            // hash
-            let hash = HashOutput::from_file(&pathbuf)?;
+                // hash
+                let hash = HashOutput::from_file(&pathbuf)?;
 
-            // mime type
-            let mime = crate::blossom::get_content_type(&pathbuf)?;
+                // mime type
+                let mime = crate::blossom::get_content_type(&pathbuf)?;
 
-            // open
-            let file = tokio::fs::File::open(&pathbuf).await?;
+                // open
+                let file = tokio::fs::File::open(&pathbuf).await?;
 
-            // upload
-            match blossom
-                .upload(file, base_url, hash, mime, metadata.len())
-                .await
-            {
-                Ok(bd) => {
-                    tracing::debug!("UPLOADED: `{}` -> `{}`", pathbuf.display(), &bd.url);
-                    mirrors.push(Ok(bd))
-                }
-                Err(e) => {
-                    tracing::error!("Could not upload `{}`: {e}", pathbuf.display());
-                    mirrors.push(Err(e))
+                // upload
+                match blossom
+                    .upload(file, &base_str, hash, mime, metadata.len())
+                    .await
+                {
+                    Ok(bd) => {
+                        // firstable, insert the uploading server in list order
+                        uploads.push(Ok(bd.clone()));
+                        tracing::debug!("Blossom upload: `{}` -> `{}`", pathbuf.display(), &bd.url);
+
+                        // then, handle alliasses, in its line order without uploading
+                        for blossom_alias in blossom_server.split_whitespace().skip(1) {
+                            // replace parent scheme://host:port/ with the alias one
+                            let mut bd_as = bd.clone();
+                            bd_as.url = parse_base_url(&base_str.replace(
+                                &alias_prefix_replacement(&base_url),
+                                &alias_prefix_replacement(&parse_base_url(blossom_alias)?),
+                            ))?
+                            .to_string();
+                            tracing::debug!(
+                                    "Blossom alias `{}` for `{base_url}` created (imeta without uploading for `{}`)",
+                                    bd_as.url, pathbuf.display()
+                                );
+                            uploads.push(Ok(bd_as))
+                        }
+                    }
+                    Err(e) => {
+                        tracing::error!("Could not upload `{}`: {e}", pathbuf.display());
+                        uploads.push(Err(e))
+                    }
                 }
             }
         }
 
-        GLOBALS.blossom_uploads.insert(pathbuf, mirrors);
+        GLOBALS.blossom_uploads.insert(pathbuf, uploads);
 
         Ok(())
     }
