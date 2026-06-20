@@ -10,6 +10,7 @@ use egui_winit::egui::text_edit::TextEditOutput;
 use egui_winit::egui::{vec2, AboveOrBelow, Id};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{DmChannel, PersonTable, Relay, Table, GLOBALS};
+use indexmap::IndexMap;
 use memoize::memoize;
 use nostr_types::{ContentSegment, NostrBech32, NostrUrl, ParsedTag, ShatteredContent, Tag};
 use std::collections::HashMap;
@@ -410,6 +411,7 @@ fn dm_posting_area(
         }
 
         let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post {
+            blossom: app.dm_draft_data.blossom.clone(),
             content: app.dm_draft_data.draft.clone(),
             tags,
             in_reply_to: None,
@@ -789,6 +791,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
         match app.draft_data.replying_to {
             Some(replying_to_id) => {
                 let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post {
+                    blossom: app.draft_data.blossom.clone(),
                     content: replaced,
                     tags,
                     in_reply_to: Some(replying_to_id),
@@ -803,6 +806,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                         .send(ToOverlordMessage::Repost(event_id));
                 } else {
                     let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post {
+                        blossom: app.draft_data.blossom.clone(),
                         content: replaced,
                         tags,
                         in_reply_to: None,
@@ -1070,6 +1074,7 @@ fn offer_attachment(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, dm: bool) {
     // Attachment button
     if let Some(pathbuf) = &app.uploading {
         if let Some(blossom_servers) = GLOBALS.blossom_uploads.get(pathbuf) {
+            let mut blossom = IndexMap::new();
             for blossom_server in blossom_servers.value() {
                 match blossom_server {
                     Ok(bd) => {
@@ -1092,6 +1097,25 @@ fn offer_attachment(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, dm: bool) {
                                 }
                             }
                         }
+                        if blossom
+                            .insert(
+                                nostr_types::UncheckedUrl::from_str(bd.url.as_str()),
+                                bd.sha256.clone(),
+                            )
+                            .is_none()
+                        {
+                            tracing::debug!(
+                                "Insert blossom entry `{}` ({} total)",
+                                bd.url,
+                                blossom.len()
+                            )
+                        } else {
+                            tracing::warn!(
+                                "Duplicated blossom entry `{}` ({} total)",
+                                bd.url,
+                                blossom.len()
+                            )
+                        }
                         clear_uploading = true;
                     }
                     Err(e) => {
@@ -1106,13 +1130,19 @@ fn offer_attachment(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, dm: bool) {
                     }
                 }
             }
-            /*if !attachments.is_empty() {
+            if !blossom.is_empty() {
                 if dm {
-                    app.dm_draft_data.attachments = Some(attachments.into_values().collect());
+                    app.dm_draft_data
+                        .blossom
+                        .get_or_insert_with(IndexMap::new)
+                        .extend(blossom)
                 } else {
-                    app.draft_data.attachments = Some(attachments.into_values().collect());
+                    app.draft_data
+                        .blossom
+                        .get_or_insert_with(IndexMap::new)
+                        .extend(blossom)
                 }
-            }*/
+            }
         } else {
             ui.label("Uploading...");
         }

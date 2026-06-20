@@ -74,7 +74,7 @@ use gossip_lib::{
     RunState, ZapState, GLOBALS,
 };
 use handler::Handlers;
-use indexmap::IndexSet;
+use indexmap::{IndexMap, IndexSet};
 use nostr_types::ContentSegment;
 use nostr_types::RelayUrl;
 use nostr_types::{
@@ -374,6 +374,12 @@ pub struct DraftData {
 
     // If this is an annotation
     pub is_annotate: bool,
+
+    /// Fallback links could be uploaded to Blossom servers
+    /// but then manually removed from `content`.
+    /// * useful in the multi-net mirroring context (e.g. I2P, Yggdrasil, etc.)
+    /// * URL / sha256
+    blossom: Option<IndexMap<UncheckedUrl, String>>,
 }
 
 impl Default for DraftData {
@@ -402,6 +408,8 @@ impl Default for DraftData {
             tagging_search_results: Vec::new(),
 
             is_annotate: false,
+
+            blossom: None,
         }
     }
 }
@@ -426,6 +434,8 @@ impl DraftData {
         self.tagging_search_searched = None;
         self.tagging_search_results.clear();
         self.is_annotate = false;
+        self.blossom = None;
+        tracing::debug!("Clear DraftData.")
     }
 }
 
