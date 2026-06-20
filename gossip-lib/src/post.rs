@@ -364,7 +364,7 @@ async fn add_imeta_tag(
             let t = f.len();
             imeta.fallback = f
                 .into_iter()
-                .filter(|(_, h)| imeta.x.as_ref().is_some_and(|x| x == h))
+                .filter(|(u, h)| imeta.x.as_ref().is_some_and(|x| x == h && u != &imeta.url))
                 .map(|(u, _)| u)
                 .collect();
             tracing::debug!(
