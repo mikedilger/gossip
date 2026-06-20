@@ -1130,17 +1130,17 @@ fn offer_attachment(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, dm: bool) {
                     }
                 }
             }
-            if dm {
-                app.dm_draft_data.blossom = if blossom.is_empty() {
-                    None
+            if !blossom.is_empty() {
+                if dm {
+                    app.dm_draft_data
+                        .blossom
+                        .get_or_insert_with(IndexMap::new)
+                        .extend(blossom)
                 } else {
-                    Some(blossom)
-                }
-            } else {
-                app.draft_data.blossom = if blossom.is_empty() {
-                    None
-                } else {
-                    Some(blossom)
+                    app.draft_data
+                        .blossom
+                        .get_or_insert_with(IndexMap::new)
+                        .extend(blossom)
                 }
             }
         } else {
