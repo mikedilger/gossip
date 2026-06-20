@@ -930,10 +930,12 @@ pub fn render_note_inside_framing(
                                     }
 
                                     // Show the zap total
-                                    if ui
-                                        .add(Label::new(format!("{}", note.zaptotal.0 / 1000)))
-                                        .on_hover_cursor(egui::CursorIcon::PointingHand)
-                                        .clicked()
+                                    let zt = note.zaptotal.0 / 1000;
+                                    if zt > 0
+                                        && ui
+                                            .add(Label::new(zt.to_string()))
+                                            .on_hover_cursor(egui::CursorIcon::PointingHand)
+                                            .clicked()
                                     {
                                         match app.note_showing_zaps {
                                             Some(id2) if note.event.id == id2 => {
@@ -1000,8 +1002,7 @@ pub fn render_note_inside_framing(
                                                                 can_sign,
                                                                 egui::Label::new(
                                                                     RichText::new(format!(
-                                                                        "{} {}",
-                                                                        ch, count
+                                                                        "{ch} {count}"
                                                                     ))
                                                                     .weak(),
                                                                 ),
@@ -1040,17 +1041,17 @@ pub fn render_note_inside_framing(
                                         .filter_map(|(c, s)| if *c == '+' { None } else { Some(s) })
                                         .sum();
 
-                                    if ui
-                                        .add(
-                                            Label::new(format!(
-                                                "{}+{}",
-                                                like_count, reaction_count
-                                            ))
-                                            .sense(Sense::hover()),
-                                        )
-                                        .on_hover_ui(hover_ui)
-                                        .on_disabled_hover_ui(hover_ui)
-                                        .clicked()
+                                    if !note.reactions.is_empty()
+                                        && ui
+                                            .add(
+                                                Label::new(format!(
+                                                    "{like_count}+{reaction_count}"
+                                                ))
+                                                .sense(Sense::hover()),
+                                            )
+                                            .on_hover_ui(hover_ui)
+                                            .on_disabled_hover_ui(hover_ui)
+                                            .clicked()
                                     {
                                         match app.note_showing_reactions {
                                             Some(id2) if note.event.id == id2 => {
