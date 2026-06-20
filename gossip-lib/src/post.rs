@@ -368,7 +368,7 @@ async fn add_imeta_tag(
                 .map(|(u, _)| u)
                 .collect();
             tracing::debug!(
-                "Add {} fallback addresses of {t} total for `{url}` (x `{:?}`)",
+                "Add {} fallback addresses of {t} total for `{url}` x {:?}",
                 imeta.fallback.len(),
                 imeta.x
             )
