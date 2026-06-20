@@ -19,14 +19,6 @@ pub enum ParsedTag {
         address: NAddr,
         marker: Option<String>,
     },
-    Attachment {
-        alt: Option<String>,
-        fallback: IndexSet<String>,
-        sha256: String,
-        mime: Option<String>,
-        size: u64,
-        url: String,
-    },
     ContentWarning(Option<String>),
     Delegation {
         pubkey: PublicKey,
@@ -343,30 +335,6 @@ impl ParsedTag {
                     tag.set_index(3, marker);
                 }
                 tag
-            }
-            Attachment {
-                alt,
-                fallback,
-                sha256,
-                mime,
-                size,
-                url,
-            } => {
-                let mut buf = Vec::with_capacity(6);
-                buf.push("imeta".to_owned());
-                buf.push(format!("url {url}"));
-                buf.push(format!("size {size}"));
-                buf.push(format!("x {sha256}"));
-                if let Some(m) = mime {
-                    buf.push(format!("m {m}"))
-                }
-                if let Some(a) = alt {
-                    buf.push(format!("alt {a}"))
-                }
-                for f in fallback {
-                    buf.push(format!("fallback {f}"))
-                }
-                Tag::from_strings(buf)
             }
             ContentWarning(optstr) => {
                 let mut tag = Tag::new(&["content-warning"]);

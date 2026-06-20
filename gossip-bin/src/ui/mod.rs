@@ -76,7 +76,6 @@ use gossip_lib::{
 use handler::Handlers;
 use indexmap::IndexSet;
 use nostr_types::ContentSegment;
-use nostr_types::ParsedTag;
 use nostr_types::RelayUrl;
 use nostr_types::{
     EventKind, FileMetadata, Id, Metadata, MilliSatoshi, Profile, PublicKey, UncheckedUrl, Url,
@@ -375,9 +374,6 @@ pub struct DraftData {
 
     // If this is an annotation
     pub is_annotate: bool,
-
-    // Blossom uploads
-    pub attachments: Option<Vec<ParsedTag>>,
 }
 
 impl Default for DraftData {
@@ -406,8 +402,6 @@ impl Default for DraftData {
             tagging_search_results: Vec::new(),
 
             is_annotate: false,
-
-            attachments: None,
         }
     }
 }

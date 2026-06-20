@@ -2511,6 +2511,7 @@ dependencies = [
  "indexmap 2.14.0",
  "lazy_static",
  "memoize",
+ "mime_guess",
  "nostr-types",
  "paste",
  "qrcode",

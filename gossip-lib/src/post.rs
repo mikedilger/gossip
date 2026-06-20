@@ -270,10 +270,21 @@ async fn add_tags_mirroring_content(content: &str, tags: &mut Vec<Tag>, direct_m
             }
             ContentSegment::Hyperlink(span) => {
                 if let Some(slice) = shattered_content.slice(span) {
-                    if let Some(mimetype) = crate::media_url_mimetype(slice) {
-                        add_imeta_tag(slice, mimetype, tags).await;
-                    }
-                }
+                    add_imeta_tag(
+                        slice,
+                        &match mime_guess::from_path(slice).first() {
+                            Some(m) => m.to_string(),
+                            None => {
+                                tracing::warn!(
+                                    "could not detect mime type for {slice}; imeta skipped."
+                                );
+                                "application/octet-stream".to_string()
+                            }
+                        },
+                        tags,
+                    )
+                    .await
+                } // @TODO else?
             }
             ContentSegment::Plain(_span) => {
                 // do nothing

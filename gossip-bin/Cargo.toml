@@ -52,6 +52,7 @@ url = { workspace = true }
 usvg = "0.35"
 zeroize = { workspace = true }
 indexmap = { version = "2.14" }
+mime_guess = "2.0.5"
 
 [package.metadata.deb]
 section = "web"

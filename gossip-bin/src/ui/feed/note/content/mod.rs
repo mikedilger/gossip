@@ -264,7 +264,10 @@ pub(super) fn render_hyperlink(
     let privacy_issue = note.direct_message;
 
     if let (Ok(url), Some(nurl)) = (url::Url::try_from(link), app.try_check_url(link)) {
-        if let Some(mimetype) = gossip_lib::media_url_mimetype(url.path()) {
+        if let Some(mimetype) = mime_guess::from_path(url.path())
+            .first()
+            .map(|m| m.to_string())
+        {
             if mimetype.starts_with("image/") {
                 media::show_image(app, ui, nurl, privacy_issue, note.volatile, file_metadata);
             } else if mimetype.starts_with("video/") {
