@@ -374,6 +374,11 @@ pub struct DraftData {
 
     // If this is an annotation
     pub is_annotate: bool,
+
+    /// Fallback links could be uploaded to Blossom servers
+    /// but then manually removed from `content`.
+    /// * useful in the multi-net mirroring context (e.g. I2P, Yggdrasil, etc.)
+    pub blossom: Option<IndexSet<UncheckedUrl>>,
 }
 
 impl Default for DraftData {
@@ -402,6 +407,8 @@ impl Default for DraftData {
             tagging_search_results: Vec::new(),
 
             is_annotate: false,
+
+            blossom: None,
         }
     }
 }

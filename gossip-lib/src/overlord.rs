@@ -715,12 +715,13 @@ impl Overlord {
             }
             ToOverlordMessage::Post {
                 content,
+                blossom,
                 tags,
                 in_reply_to,
                 annotation,
                 dm_channel,
             } => {
-                self.post(content, tags, in_reply_to, annotation, dm_channel)
+                self.post(content, blossom, tags, in_reply_to, annotation, dm_channel)
                     .await?;
             }
             ToOverlordMessage::PostAgain(event) => {
@@ -1956,6 +1957,7 @@ impl Overlord {
     pub async fn post(
         &mut self,
         content: String,
+        fallback: Option<IndexSet<UncheckedUrl>>,
         tags: Vec<Tag>,
         in_reply_to: Option<Id>,
         annotation: bool,
@@ -1973,8 +1975,10 @@ impl Overlord {
         let mut prepared_events = match dm_channel {
             Some(channel) => {
                 if channel.can_use_nip17() {
-                    crate::post::prepare_post_nip17(author, content, tags, channel, annotation)
-                        .await?
+                    crate::post::prepare_post_nip17(
+                        author, content, fallback, tags, channel, annotation,
+                    )
+                    .await?
                 } else {
                     crate::post::prepare_post_nip04(author, content, channel, annotation).await?
                 }
@@ -1990,18 +1994,23 @@ impl Overlord {
                         crate::post::prepare_post_normal(
                             author,
                             content,
+                            fallback,
                             tags,
                             Some(parent),
                             annotation,
                         )
                         .await?
                     } else {
-                        crate::post::prepare_post_comment(author, content, tags, parent, annotation)
-                            .await?
+                        crate::post::prepare_post_comment(
+                            author, content, fallback, tags, parent, annotation,
+                        )
+                        .await?
                     }
                 } else {
-                    crate::post::prepare_post_normal(author, content, tags, None, annotation)
-                        .await?
+                    crate::post::prepare_post_normal(
+                        author, content, fallback, tags, None, annotation,
+                    )
+                    .await?
                 }
             }
         };

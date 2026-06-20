@@ -15,6 +15,7 @@ use std::sync::mpsc;
 pub async fn prepare_post_normal(
     author: PublicKey,
     content: String,
+    fallback: Option<IndexSet<UncheckedUrl>>,
     mut tags: Vec<Tag>,
     in_reply_to: Option<Event>,
     annotation: bool,
@@ -29,7 +30,7 @@ pub async fn prepare_post_normal(
         add_thread_based_tags(author, &mut tags, parent)?;
     }
 
-    add_tags_mirroring_content(&content, &mut tags, false).await;
+    add_tags_mirroring_content(&content, fallback.as_ref(), &mut tags, false).await;
 
     let pre_event = PreEvent {
         pubkey: author,
@@ -63,6 +64,7 @@ pub async fn prepare_post_normal(
 pub async fn prepare_post_comment(
     author: PublicKey,
     content: String,
+    fallback: Option<IndexSet<UncheckedUrl>>,
     mut tags: Vec<Tag>,
     parent: Event,
     annotation: bool,
@@ -79,7 +81,7 @@ pub async fn prepare_post_comment(
 
     add_parent_tags(&mut tags, &parent, author);
 
-    add_tags_mirroring_content(&content, &mut tags, false).await;
+    add_tags_mirroring_content(&content, fallback.as_ref(), &mut tags, false).await;
 
     let pre_event = PreEvent {
         pubkey: author,
@@ -159,6 +161,7 @@ pub async fn prepare_post_nip04(
 pub async fn prepare_post_nip17(
     author: PublicKey,
     content: String,
+    fallback: Option<IndexSet<UncheckedUrl>>,
     mut tags: Vec<Tag>,
     dm_channel: DmChannel,
     annotation: bool,
@@ -176,7 +179,7 @@ pub async fn prepare_post_nip17(
 
     add_gossip_tag(&mut tags);
 
-    add_tags_mirroring_content(&content, &mut tags, true).await;
+    add_tags_mirroring_content(&content, fallback.as_ref(), &mut tags, true).await;
 
     // All recipients get 'p' tagged on the DM rumor
     for pk in dm_channel.keys() {
@@ -222,7 +225,12 @@ fn add_gossip_tag(tags: &mut Vec<Tag>) {
     }
 }
 
-async fn add_tags_mirroring_content(content: &str, tags: &mut Vec<Tag>, direct_message: bool) {
+async fn add_tags_mirroring_content(
+    content: &str,
+    fallback: Option<&IndexSet<UncheckedUrl>>,
+    tags: &mut Vec<Tag>,
+    direct_message: bool,
+) {
     let shattered_content = ShatteredContent::new(content.to_owned(), false);
     for segment in shattered_content.segments.iter() {
         match segment {
@@ -273,6 +281,7 @@ async fn add_tags_mirroring_content(content: &str, tags: &mut Vec<Tag>, direct_m
                     add_imeta_tag(
                         slice,
                         mime_guess::from_path(slice).first().map(|m| m.to_string()),
+                        fallback.cloned(),
                         tags,
                     )
                     .await
@@ -293,7 +302,12 @@ async fn add_tags_mirroring_content(content: &str, tags: &mut Vec<Tag>, direct_m
     // content = NostrUrl::urlize(&content);
 }
 
-async fn add_imeta_tag(urlstr: &str, mimetype: Option<String>, tags: &mut Vec<Tag>) {
+async fn add_imeta_tag(
+    urlstr: &str,
+    mimetype: Option<String>,
+    fallback: Option<IndexSet<UncheckedUrl>>,
+    tags: &mut Vec<Tag>,
+) {
     //turn into a nostr_types::Url
     let url = match Url::try_from_str(urlstr) {
         Ok(url) => url,
@@ -345,6 +359,13 @@ async fn add_imeta_tag(urlstr: &str, mimetype: Option<String>, tags: &mut Vec<Ta
                     imeta.dim = Some((w as usize, h as usize));
                 }
             }
+        }
+
+        if let Some(f) = fallback {
+            imeta.fallback = f
+                .into_iter()
+                .filter(|url| FileMetadata::new(url.clone()).x == imeta.x)
+                .collect();
         }
 
         imeta
