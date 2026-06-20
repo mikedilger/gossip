@@ -272,20 +272,11 @@ async fn add_tags_mirroring_content(content: &str, tags: &mut Vec<Tag>, direct_m
                 if let Some(slice) = shattered_content.slice(span) {
                     add_imeta_tag(
                         slice,
-                        &match mime_guess::from_path(slice).first() {
-                            Some(m) => m.to_string(),
-                            None => {
-                                tracing::warn!(
-                                    "could not detect mime type for {slice}; use `{}`.",
-                                    mime_guess::mime::APPLICATION_OCTET_STREAM
-                                );
-                                mime_guess::mime::APPLICATION_OCTET_STREAM.to_string()
-                            }
-                        },
+                        mime_guess::from_path(slice).first().map(|m| m.to_string()),
                         tags,
                     )
                     .await
-                } // @TODO else?
+                }
             }
             ContentSegment::Plain(_span) => {
                 // do nothing
@@ -302,7 +293,7 @@ async fn add_tags_mirroring_content(content: &str, tags: &mut Vec<Tag>, direct_m
     // content = NostrUrl::urlize(&content);
 }
 
-async fn add_imeta_tag(urlstr: &str, mimetype: &str, tags: &mut Vec<Tag>) {
+async fn add_imeta_tag(urlstr: &str, mimetype: Option<String>, tags: &mut Vec<Tag>) {
     //turn into a nostr_types::Url
     let url = match Url::try_from_str(urlstr) {
         Ok(url) => url,
@@ -325,7 +316,7 @@ async fn add_imeta_tag(urlstr: &str, mimetype: &str, tags: &mut Vec<Tag>) {
         let unchecked_url = url.to_unchecked_url();
         let mut imeta = FileMetadata::new(unchecked_url);
 
-        imeta.m = Some(mimetype.to_owned());
+        imeta.m = mimetype;
         imeta.size = Some(bytes.len() as u64);
 
         let hash = {
@@ -337,7 +328,7 @@ async fn add_imeta_tag(urlstr: &str, mimetype: &str, tags: &mut Vec<Tag>) {
         };
         imeta.x = Some(hash);
 
-        if mimetype.starts_with("image") {
+        if imeta.m.as_ref().is_some_and(|m| m.starts_with("image")) {
             use image::{DynamicImage, GenericImageView};
             if let Ok(dynamic_image) = image::load_from_memory(&bytes) {
                 let (w, h) = dynamic_image.dimensions();
