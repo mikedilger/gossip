@@ -434,6 +434,7 @@ impl DraftData {
         self.tagging_search_results.clear();
         self.is_annotate = false;
         self.blossom = None;
+        tracing::debug!("Clear DraftData.")
     }
 }
 

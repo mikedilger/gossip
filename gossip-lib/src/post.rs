@@ -362,10 +362,15 @@ async fn add_imeta_tag(
         }
 
         if let Some(f) = fallback {
+            let t = f.len();
             imeta.fallback = f
                 .into_iter()
                 .filter(|url| FileMetadata::new(url.clone()).x == imeta.x)
                 .collect();
+            tracing::debug!(
+                "Add {} fallback addresses of {t} total for `{url}`",
+                imeta.fallback.len()
+            )
         }
 
         imeta

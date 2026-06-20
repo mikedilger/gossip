@@ -1097,7 +1097,19 @@ fn offer_attachment(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, dm: bool) {
                                 }
                             }
                         }
-                        blossom.insert(nostr_types::UncheckedUrl::from_str(bd.url.as_str()));
+                        if blossom.insert(nostr_types::UncheckedUrl::from_str(bd.url.as_str())) {
+                            tracing::debug!(
+                                "Insert blossom entry `{}` ({} total)",
+                                bd.url,
+                                blossom.len()
+                            )
+                        } else {
+                            tracing::warn!(
+                                "Duplicated blossom entry `{}` ({} total)",
+                                bd.url,
+                                blossom.len()
+                            )
+                        }
                         clear_uploading = true;
                     }
                     Err(e) => {
@@ -1112,11 +1124,17 @@ fn offer_attachment(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, dm: bool) {
                     }
                 }
             }
-            if !blossom.is_empty() {
-                if dm {
-                    app.dm_draft_data.blossom = Some(blossom);
+            if dm {
+                app.dm_draft_data.blossom = if blossom.is_empty() {
+                    None
                 } else {
-                    app.draft_data.blossom = Some(blossom);
+                    Some(blossom)
+                }
+            } else {
+                app.draft_data.blossom = if blossom.is_empty() {
+                    None
+                } else {
+                    Some(blossom)
                 }
             }
         } else {
