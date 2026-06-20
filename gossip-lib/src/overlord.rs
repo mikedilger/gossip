@@ -1062,23 +1062,25 @@ impl Overlord {
             Uri,
         };
 
-        fn parse_base_url(blossom_server: &str) -> Result<Uri, Error> {
-            let uri = blossom_server.parse::<Uri>()?;
+        fn server_base(url: &str) -> Result<String, Error> {
+            let uri = url.parse::<Uri>()?;
             let mut parts: Parts = uri.into_parts();
             parts.path_and_query = Some(PathAndQuery::from_static("/")); // Force no path
             if parts.scheme.is_none() {
                 parts.scheme = Some(Scheme::HTTPS); // Default to https
             }
-            Ok(Uri::from_parts(parts)?)
+            Ok(Uri::from_parts(parts)?.to_string())
         }
 
-        fn alias_prefix_replacement(uri: &Uri) -> String {
-            format!(
+        fn alias_base(uri: &Uri) -> String {
+            let result = format!(
                 "{}://{}{}/",
                 uri.scheme_str().unwrap_or_default(),
                 uri.host().unwrap_or_default(),
                 uri.port().map(|p| format!(":{p}")).unwrap_or_default(),
-            )
+            );
+            tracing::debug!("Create replacement `{result}` for `{uri}`");
+            result
         }
 
         let blossom = match GLOBALS.blossom.get() {
@@ -1102,10 +1104,6 @@ impl Overlord {
 
             // only the first host per line to upload
             if let Some(upload_server) = servers.next() {
-                // build valid url entries
-                let upload_server_uri = parse_base_url(upload_server)?;
-                let upload_server_str = upload_server_uri.to_string();
-
                 // metadata
                 let metadata = tokio::fs::metadata(&pathbuf).await?;
 
@@ -1120,27 +1118,45 @@ impl Overlord {
 
                 // upload
                 match blossom
-                    .upload(file, &upload_server_str, hash, mime, metadata.len())
+                    .upload(
+                        file,
+                        &server_base(upload_server)?,
+                        hash,
+                        mime,
+                        metadata.len(),
+                    )
                     .await
                 {
                     Ok(bd) => {
-                        // firstable, insert the uploading server in list order
+                        // Firstable, insert result from the uploading server in list order
                         uploads.push(Ok(bd.clone()));
-                        tracing::debug!("Blossom upload: `{}` -> `{}`", pathbuf.display(), &bd.url);
+                        tracing::info!(
+                            "Blossom upload successful: `{}` -> `{}`",
+                            pathbuf.display(),
+                            &bd.url
+                        );
 
-                        // then, collect following alliasses in theirs line order (with scheme://host:port/ replaced)
-                        while let Some(alias_server) = servers.next() {
+                        // Then, collect alliasses in theirs line order (with scheme://host:port/ replaced)
+                        let bd_download_uri = bd.url.parse::<Uri>()?; // parse once
+                        for alias_server in servers {
+                            // Create new valid Uri from the upload server response (includes query postfix)
                             let mut bd_alias = bd.clone();
-                            // replace scheme://host:port only, but keep original upload query from bd response
-                            bd_alias.url = parse_base_url(&bd_alias.url.replace(
-                                &alias_prefix_replacement(&parse_base_url(&bd_alias.url)?),
-                                &alias_prefix_replacement(&parse_base_url(alias_server)?),
-                            ))?
-                            .to_string();
-                            tracing::debug!(
-                                    "Blossom alias `{}` for `{upload_server_uri}` created (imeta without uploading for `{}`)",
-                                    bd_alias.url, pathbuf.display()
+
+                            // Replace scheme://host:port, keep original query from bd response
+                            bd_alias.url = bd_alias
+                                .url
+                                .replace(
+                                    &alias_base(&bd_download_uri),
+                                    &alias_base(&alias_server.parse::<Uri>()?),
+                                )
+                                .parse::<Uri>()?
+                                .to_string();
+
+                            tracing::info!(
+                                    "Blossom alias `{}` for `{}` created (imeta without uploading `{}`)",
+                                    bd_alias.url, bd.url, pathbuf.display()
                                 );
+
                             uploads.push(Ok(bd_alias))
                         }
                     }
