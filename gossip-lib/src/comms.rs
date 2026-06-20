@@ -130,8 +130,8 @@ pub enum ToOverlordMessage {
     /// Calls [post](crate::Overlord::post)
     Post {
         content: String,
-        /// sha256 / URL
-        blossom: Option<IndexMap<String, UncheckedUrl>>,
+        /// URL / sha256
+        blossom: Option<IndexMap<UncheckedUrl, String>>,
         tags: Vec<Tag>,
         in_reply_to: Option<Id>,
         annotation: bool,

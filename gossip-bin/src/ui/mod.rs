@@ -74,8 +74,7 @@ use gossip_lib::{
     RunState, ZapState, GLOBALS,
 };
 use handler::Handlers;
-use indexmap::IndexMap;
-use indexmap::IndexSet;
+use indexmap::{IndexMap, IndexSet};
 use nostr_types::ContentSegment;
 use nostr_types::RelayUrl;
 use nostr_types::{
@@ -379,8 +378,8 @@ pub struct DraftData {
     /// Fallback links could be uploaded to Blossom servers
     /// but then manually removed from `content`.
     /// * useful in the multi-net mirroring context (e.g. I2P, Yggdrasil, etc.)
-    /// * sha256 / URL
-    blossom: Option<IndexMap<String, UncheckedUrl>>,
+    /// * URL / sha256
+    blossom: Option<IndexMap<UncheckedUrl, String>>,
 }
 
 impl Default for DraftData {

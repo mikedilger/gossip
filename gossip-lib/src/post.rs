@@ -15,7 +15,7 @@ use std::sync::mpsc;
 pub async fn prepare_post_normal(
     author: PublicKey,
     content: String,
-    fallback: Option<IndexMap<String, UncheckedUrl>>,
+    fallback: Option<IndexMap<UncheckedUrl, String>>,
     mut tags: Vec<Tag>,
     in_reply_to: Option<Event>,
     annotation: bool,
@@ -64,7 +64,7 @@ pub async fn prepare_post_normal(
 pub async fn prepare_post_comment(
     author: PublicKey,
     content: String,
-    fallback: Option<IndexMap<String, UncheckedUrl>>,
+    fallback: Option<IndexMap<UncheckedUrl, String>>,
     mut tags: Vec<Tag>,
     parent: Event,
     annotation: bool,
@@ -161,7 +161,7 @@ pub async fn prepare_post_nip04(
 pub async fn prepare_post_nip17(
     author: PublicKey,
     content: String,
-    fallback: Option<IndexMap<String, UncheckedUrl>>,
+    fallback: Option<IndexMap<UncheckedUrl, String>>,
     mut tags: Vec<Tag>,
     dm_channel: DmChannel,
     annotation: bool,
@@ -227,7 +227,7 @@ fn add_gossip_tag(tags: &mut Vec<Tag>) {
 
 async fn add_tags_mirroring_content(
     content: &str,
-    fallback: Option<&IndexMap<String, UncheckedUrl>>,
+    fallback: Option<&IndexMap<UncheckedUrl, String>>,
     tags: &mut Vec<Tag>,
     direct_message: bool,
 ) {
@@ -305,7 +305,7 @@ async fn add_tags_mirroring_content(
 async fn add_imeta_tag(
     urlstr: &str,
     mimetype: Option<String>,
-    fallback: Option<IndexMap<String, UncheckedUrl>>,
+    fallback: Option<IndexMap<UncheckedUrl, String>>,
     tags: &mut Vec<Tag>,
 ) {
     //turn into a nostr_types::Url
@@ -364,8 +364,8 @@ async fn add_imeta_tag(
             let t = f.len();
             imeta.fallback = f
                 .into_iter()
-                .filter(|(h, _)| imeta.x.as_ref().is_some_and(|x| x == h))
-                .map(|(_, u)| u)
+                .filter(|(_, h)| imeta.x.as_ref().is_some_and(|x| x == h))
+                .map(|(u, _)| u)
                 .collect();
             tracing::debug!(
                 "Add {} fallback addresses of {t} total for `{url}` (x `{:?}`)",

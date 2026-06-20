@@ -1957,7 +1957,7 @@ impl Overlord {
     pub async fn post(
         &mut self,
         content: String,
-        fallback: Option<IndexMap<String, UncheckedUrl>>,
+        fallback: Option<IndexMap<UncheckedUrl, String>>,
         tags: Vec<Tag>,
         in_reply_to: Option<Id>,
         annotation: bool,

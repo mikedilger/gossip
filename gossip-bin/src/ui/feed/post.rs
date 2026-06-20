@@ -1099,8 +1099,8 @@ fn offer_attachment(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, dm: bool) {
                         }
                         if blossom
                             .insert(
-                                bd.sha256.clone(),
                                 nostr_types::UncheckedUrl::from_str(bd.url.as_str()),
+                                bd.sha256.clone(),
                             )
                             .is_none()
                         {
