@@ -5,7 +5,7 @@ use nostr_types::Url;
 
 fn draw_open_and_copy(ui: &mut Ui, url_string: String) {
     if ui
-        .button(format!("Open in browser ({url_string})"))
+        .button(format!("Open in browser {url_string}"))
         .clicked()
     {
         let modifiers = ui.ctx().input(|i| i.modifiers);
@@ -23,7 +23,7 @@ fn draw_open_and_copy(ui: &mut Ui, url_string: String) {
             .write("Opening in browser...".to_owned());
     }
 
-    if ui.button(format!("Copy URL ({url_string})")).clicked() {
+    if ui.button(format!("Copy {url_string}")).clicked() {
         ui.output_mut(|o| {
             o.commands
                 .push(egui::OutputCommand::CopyText(url_string.clone()))
