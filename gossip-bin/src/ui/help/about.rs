@@ -42,12 +42,9 @@ We are storing data on your system in this directory: {}. This data is only used
         crate::ui::widgets::break_anywhere_hyperlink_to(ui, app,
             "Learn More about Nostr",
             "https://github.com/nostr-protocol/nostr");
+        ui.hyperlink_to("Legacy Source Code", app.about.homepage.clone()).on_hover_text(&app.about.homepage);
+        ui.hyperlink_to("Contribute / Feedback", app.about.contribution.clone()).on_hover_text(&app.about.contribution);
 
-        ui.add_space(30.0);
-
-        crate::ui::widgets::break_anywhere_hyperlink_to(ui, app,
-            "Source Code",
-            app.about.homepage.clone());
         ui.label(RichText::new("by").text_style(TextStyle::Small));
         ui.label(RichText::new(app.about.authors.replace(':', "\n")).text_style(TextStyle::Small));
 

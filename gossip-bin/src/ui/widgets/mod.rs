@@ -247,14 +247,22 @@ pub fn break_anywhere_hyperlink_to(
     text: impl Into<WidgetText>,
     url: impl ToString,
 ) {
-    let mut job = text.into().into_layout_job(
+    let widget: WidgetText = text.into();
+    let widget_string = widget.text().to_string();
+    let url_string = url.to_string();
+
+    let mut job = widget.into_layout_job(
         ui.style(),
         FontSelection::Default,
         ui.layout().vertical_align(),
     );
     job.wrap.break_anywhere = true;
-    let url_string = url.to_string();
-    ui.hyperlink_to(job, url).context_menu(|ui| {
+    if url_string == widget_string {
+        ui.hyperlink_to(job, url)
+    } else {
+        ui.hyperlink_to(job, url).on_hover_text(&url_string)
+    }
+    .context_menu(|ui| {
         show_link_context(ui, app, url_string);
     });
 }

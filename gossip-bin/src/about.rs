@@ -9,6 +9,7 @@ pub struct About {
     pub authors: String,
     //pub repository: String,
     pub homepage: String,
+    pub contribution: String,
     pub license: String,
     pub storage_path: String,
 }
@@ -36,9 +37,13 @@ impl About {
             name: env!("CARGO_PKG_NAME").to_string(),
             version,
             description: env!("CARGO_PKG_DESCRIPTION").to_string(),
-            authors: env!("CARGO_PKG_AUTHORS").to_string(),
+            authors: format!(
+                "{}\nYGGverse developers (github.com/YGGverse)",
+                env!("CARGO_PKG_AUTHORS")
+            ), // @TODO
             //repository: env!("CARGO_PKG_REPOSITORY").to_string(),
             homepage: env!("CARGO_PKG_HOMEPAGE").to_string(),
+            contribution: "https://github.com/YGGverse/gossip".to_string(), // @TODO
             license: env!("CARGO_PKG_LICENSE").to_string(),
             storage_path: data_dir,
         }
