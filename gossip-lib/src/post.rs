@@ -276,9 +276,10 @@ async fn add_tags_mirroring_content(content: &str, tags: &mut Vec<Tag>, direct_m
                             Some(m) => m.to_string(),
                             None => {
                                 tracing::warn!(
-                                    "could not detect mime type for {slice}; imeta skipped."
+                                    "could not detect mime type for {slice}; use `{}`.",
+                                    mime_guess::mime::APPLICATION_OCTET_STREAM
                                 );
-                                "application/octet-stream".to_string()
+                                mime_guess::mime::APPLICATION_OCTET_STREAM.to_string()
                             }
                         },
                         tags,
