@@ -1191,7 +1191,10 @@ impl Overlord {
                                 "[Blossom] server return unexpected MIME type {:?} for `{}` (expected: `{mime_string}`)",
                                 bd.mime_type, bd.sha256
                             );
-                            if GLOBALS.db().read_setting_blossom_servers_append_extension() {
+                            if GLOBALS
+                                .db()
+                                .read_setting_blossom_servers_prefer_local_meta()
+                            {
                                 tracing::info!(
                                     "[Blossom] replace MIME type from remote {:?} to locally resolved {mime_string:?} for `{}`",
                                     bd.mime_type, bd.sha256
