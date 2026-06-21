@@ -136,6 +136,7 @@ pub struct UnsavedSettings {
     pub blossom_servers: String,
     pub blossom_servers_append_to_content: String,
     pub blossom_servers_append_extension: bool,
+    pub blossom_servers_prefer_local_meta: bool,
 
     pub undo_send_seconds: u64,
 }
@@ -239,6 +240,7 @@ impl Default for UnsavedSettings {
             blossom_servers: default_setting!(blossom_servers),
             blossom_servers_append_to_content: default_setting!(blossom_servers_append_to_content),
             blossom_servers_append_extension: default_setting!(blossom_servers_append_extension),
+            blossom_servers_prefer_local_meta: default_setting!(blossom_servers_prefer_local_meta),
             undo_send_seconds: default_setting!(undo_send_seconds),
         }
     }
@@ -337,6 +339,7 @@ impl UnsavedSettings {
             blossom_servers: load_setting!(blossom_servers),
             blossom_servers_append_to_content: load_setting!(blossom_servers_append_to_content),
             blossom_servers_append_extension: load_setting!(blossom_servers_append_extension),
+            blossom_servers_prefer_local_meta: load_setting!(blossom_servers_prefer_local_meta),
             undo_send_seconds: load_setting!(undo_send_seconds),
         }
     }
@@ -423,6 +426,7 @@ impl UnsavedSettings {
         save_setting!(blossom_servers, self, txn);
         save_setting!(blossom_servers_append_to_content, self, txn);
         save_setting!(blossom_servers_append_extension, self, txn);
+        save_setting!(blossom_servers_prefer_local_meta, self, txn);
         save_setting!(undo_send_seconds, self, txn);
         txn.commit()?;
 

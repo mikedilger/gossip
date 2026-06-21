@@ -411,12 +411,13 @@ fn dm_posting_area(
         }
 
         let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post {
+            annotation: app.dm_draft_data.is_annotate,
             blossom: app.dm_draft_data.blossom.clone(),
             content: app.dm_draft_data.draft.clone(),
-            tags,
-            in_reply_to: None,
-            annotation: app.dm_draft_data.is_annotate,
             dm_channel: Some(dm_channel.to_owned()),
+            in_reply_to: None,
+            mimelist: app.dm_draft_data.mimelist.clone(),
+            tags,
         });
 
         app.reset_draft();
@@ -791,12 +792,13 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
         match app.draft_data.replying_to {
             Some(replying_to_id) => {
                 let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post {
+                    annotation: app.draft_data.is_annotate,
                     blossom: app.draft_data.blossom.clone(),
                     content: replaced,
-                    tags,
-                    in_reply_to: Some(replying_to_id),
-                    annotation: app.draft_data.is_annotate,
                     dm_channel: None,
+                    in_reply_to: Some(replying_to_id),
+                    mimelist: app.draft_data.mimelist.clone(),
+                    tags,
                 });
             }
             None => {
@@ -806,12 +808,13 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                         .send(ToOverlordMessage::Repost(event_id));
                 } else {
                     let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post {
+                        annotation: app.draft_data.is_annotate,
                         blossom: app.draft_data.blossom.clone(),
                         content: replaced,
-                        tags,
-                        in_reply_to: None,
-                        annotation: app.draft_data.is_annotate,
                         dm_channel: None,
+                        in_reply_to: None,
+                        mimelist: app.draft_data.mimelist.clone(),
+                        tags,
                     });
                 }
             }
@@ -1075,6 +1078,7 @@ fn offer_attachment(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, dm: bool) {
     if let Some(pathbuf) = &app.uploading {
         if let Some(blossom_servers) = GLOBALS.blossom_uploads.get(pathbuf) {
             let mut blossom = IndexMap::new();
+            let mut mimelist = IndexMap::new();
             for blossom_server in blossom_servers.value() {
                 match blossom_server {
                     Ok(bd) => {
@@ -1096,6 +1100,16 @@ fn offer_attachment(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, dm: bool) {
                                 bd.url,
                                 blossom.len()
                             )
+                        }
+
+                        if let Some(mime_type) = bd.mime_type.as_ref() {
+                            if mimelist.insert(bd.url.clone(), mime_type.clone()).is_none() {
+                                tracing::debug!(
+                                    "Register mime type `{mime_type}` for blossom entry `{}` ({} total)",
+                                    bd.url,
+                                    blossom.len()
+                                )
+                            }
                         }
 
                         clear_uploading = true;
@@ -1143,6 +1157,19 @@ fn offer_attachment(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, dm: bool) {
                         .blossom
                         .get_or_insert_with(IndexMap::new)
                         .extend(blossom)
+                }
+            }
+            if !mimelist.is_empty() {
+                if dm {
+                    app.dm_draft_data
+                        .mimelist
+                        .get_or_insert_with(IndexMap::new)
+                        .extend(mimelist)
+                } else {
+                    app.draft_data
+                        .mimelist
+                        .get_or_insert_with(IndexMap::new)
+                        .extend(mimelist)
                 }
             }
         } else {

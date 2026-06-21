@@ -380,6 +380,9 @@ pub struct DraftData {
     /// * useful in the multi-net mirroring context (e.g. I2P, Yggdrasil, etc.)
     /// * URL / sha256
     blossom: Option<IndexMap<UncheckedUrl, String>>,
+
+    // Locally parsed mime type array to map URLs without extension
+    mimelist: Option<IndexMap<String, String>>,
 }
 
 impl Default for DraftData {
@@ -410,6 +413,7 @@ impl Default for DraftData {
             is_annotate: false,
 
             blossom: None,
+            mimelist: None,
         }
     }
 }

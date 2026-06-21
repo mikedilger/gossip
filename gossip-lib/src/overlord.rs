@@ -716,13 +716,21 @@ impl Overlord {
             ToOverlordMessage::Post {
                 content,
                 blossom,
+                mimelist,
                 tags,
                 in_reply_to,
                 annotation,
                 dm_channel,
             } => {
-                self.post(content, blossom, tags, in_reply_to, annotation, dm_channel)
-                    .await?;
+                self.post(
+                    content,
+                    (mimelist, blossom),
+                    tags,
+                    in_reply_to,
+                    annotation,
+                    dm_channel,
+                )
+                .await?;
             }
             ToOverlordMessage::PostAgain(event) => {
                 self.post_again(event)?;
@@ -1154,30 +1162,44 @@ impl Overlord {
                     pathbuf.display()
                 );
 
-                // metadata
-                let metadata = tokio::fs::metadata(&pathbuf).await?;
-
-                // hash
-                let hash = HashOutput::from_file(&pathbuf)?;
-
-                // mime type
+                // Expect same MIME type with the server response
+                // * blossom-rs returns `application/octet-stream`
+                //   https://github.com/MonumentalSystems/blossom-rs/issues/34
                 let mime = crate::blossom::get_content_type(&pathbuf)?;
+                let mime_string = mime.to_string();
 
-                // open
-                let file = tokio::fs::File::open(&pathbuf).await?;
-
-                // upload
                 match blossom
                     .upload(
-                        file,
+                        tokio::fs::File::open(&pathbuf).await?,
                         &server_base(upload_server, false)?,
-                        hash,
+                        HashOutput::from_file(&pathbuf)?,
                         mime,
-                        metadata.len(),
+                        tokio::fs::metadata(&pathbuf).await?.len(),
                     )
                     .await
                 {
                     Ok(mut bd) => {
+                        tracing::info!(
+                            "[Blossom] upload successful (sha256: {}): `{}` -> `{}`",
+                            &bd.sha256,
+                            pathbuf.display(),
+                            &bd.url
+                        );
+
+                        if bd.mime_type.as_ref().is_none_or(|m| *m != mime_string) {
+                            tracing::warn!(
+                                "[Blossom] server return unexpected MIME type {:?} for `{}` (expected: `{mime_string}`)",
+                                bd.mime_type, bd.sha256
+                            );
+                            if GLOBALS.db().read_setting_blossom_servers_append_extension() {
+                                tracing::info!(
+                                    "[Blossom] replace MIME type from remote {:?} to locally resolved {mime_string:?} for `{}`",
+                                    bd.mime_type, bd.sha256
+                                );
+                                bd.mime_type = Some(mime_string)
+                            }
+                        }
+
                         // Append extension if enabled
                         if GLOBALS.db().read_setting_blossom_servers_append_extension() {
                             handle_extension(&mut bd, &pathbuf)?;
@@ -1185,13 +1207,6 @@ impl Overlord {
 
                         // Firstable, insert result from the uploading server in list order
                         uploads.push(Ok(bd.clone()));
-
-                        tracing::info!(
-                            "[Blossom] upload successful (sha256: {}): `{}` -> `{}`",
-                            &bd.sha256,
-                            pathbuf.display(),
-                            &bd.url
-                        );
 
                         // Then, collect alliasses in theirs line order (with scheme://host:port/ replaced)
                         let bd_download_uri = bd.url.parse::<Uri>()?; // parse once
@@ -2081,7 +2096,11 @@ impl Overlord {
     pub async fn post(
         &mut self,
         content: String,
-        fallback: Option<IndexMap<UncheckedUrl, String>>,
+        (mimelist, fallback): (
+            // @TODO make struct
+            Option<IndexMap<String, String>>,
+            Option<IndexMap<UncheckedUrl, String>>,
+        ),
         tags: Vec<Tag>,
         in_reply_to: Option<Id>,
         annotation: bool,
@@ -2100,7 +2119,7 @@ impl Overlord {
             Some(channel) => {
                 if channel.can_use_nip17() {
                     crate::post::prepare_post_nip17(
-                        author, content, fallback, tags, channel, annotation,
+                        author, content, mimelist, fallback, tags, channel, annotation,
                     )
                     .await?
                 } else {
@@ -2118,6 +2137,7 @@ impl Overlord {
                         crate::post::prepare_post_normal(
                             author,
                             content,
+                            mimelist,
                             fallback,
                             tags,
                             Some(parent),
@@ -2126,13 +2146,13 @@ impl Overlord {
                         .await?
                     } else {
                         crate::post::prepare_post_comment(
-                            author, content, fallback, tags, parent, annotation,
+                            author, content, mimelist, fallback, tags, parent, annotation,
                         )
                         .await?
                     }
                 } else {
                     crate::post::prepare_post_normal(
-                        author, content, fallback, tags, None, annotation,
+                        author, content, mimelist, fallback, tags, None, annotation,
                     )
                     .await?
                 }

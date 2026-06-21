@@ -132,6 +132,8 @@ pub enum ToOverlordMessage {
         content: String,
         /// URL / sha256
         blossom: Option<IndexMap<UncheckedUrl, String>>,
+        // Locally parsed mime type array to map URLs without extension
+        mimelist: Option<IndexMap<String, String>>,
         tags: Vec<Tag>,
         in_reply_to: Option<Id>,
         annotation: bool,

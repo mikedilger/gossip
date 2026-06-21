@@ -941,6 +941,12 @@ impl Storage {
         bool,
         false
     );
+    def_setting!(
+        blossom_servers_prefer_local_meta,
+        b"blossom_servers_prefer_local_meta",
+        bool,
+        true
+    );
     def_setting!(undo_send_seconds, b"undo_send_seconds", u64, 10);
 
     // -------------------------------------------------------------------

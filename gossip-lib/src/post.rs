@@ -4,17 +4,20 @@ use crate::fetcher::FetchResult;
 use crate::globals::GLOBALS;
 use crate::relay;
 use crate::relay::Relay;
+use http::Uri;
 use indexmap::{IndexMap, IndexSet};
 use nostr_types::{
     ContentEncryptionAlgorithm, ContentSegment, Event, EventKind, EventReference, FileMetadata, Id,
     NAddr, NostrBech32, ParsedTag, PreEvent, PublicKey, RelayUrl, ShatteredContent, Tag,
     UncheckedUrl, Unixtime, Url,
 };
+use std::str::FromStr;
 use std::sync::mpsc;
 
 pub async fn prepare_post_normal(
     author: PublicKey,
     content: String,
+    mimelist: Option<IndexMap<String, String>>,
     fallback: Option<IndexMap<UncheckedUrl, String>>,
     mut tags: Vec<Tag>,
     in_reply_to: Option<Event>,
@@ -30,7 +33,14 @@ pub async fn prepare_post_normal(
         add_thread_based_tags(author, &mut tags, parent)?;
     }
 
-    add_tags_mirroring_content(&content, fallback.as_ref(), &mut tags, false).await;
+    add_tags_mirroring_content(
+        &content,
+        mimelist.as_ref(),
+        fallback.as_ref(),
+        &mut tags,
+        false,
+    )
+    .await;
 
     let pre_event = PreEvent {
         pubkey: author,
@@ -64,6 +74,7 @@ pub async fn prepare_post_normal(
 pub async fn prepare_post_comment(
     author: PublicKey,
     content: String,
+    mimelist: Option<IndexMap<String, String>>,
     fallback: Option<IndexMap<UncheckedUrl, String>>,
     mut tags: Vec<Tag>,
     parent: Event,
@@ -81,7 +92,14 @@ pub async fn prepare_post_comment(
 
     add_parent_tags(&mut tags, &parent, author);
 
-    add_tags_mirroring_content(&content, fallback.as_ref(), &mut tags, false).await;
+    add_tags_mirroring_content(
+        &content,
+        mimelist.as_ref(),
+        fallback.as_ref(),
+        &mut tags,
+        false,
+    )
+    .await;
 
     let pre_event = PreEvent {
         pubkey: author,
@@ -161,6 +179,7 @@ pub async fn prepare_post_nip04(
 pub async fn prepare_post_nip17(
     author: PublicKey,
     content: String,
+    mimelist: Option<IndexMap<String, String>>,
     fallback: Option<IndexMap<UncheckedUrl, String>>,
     mut tags: Vec<Tag>,
     dm_channel: DmChannel,
@@ -179,7 +198,14 @@ pub async fn prepare_post_nip17(
 
     add_gossip_tag(&mut tags);
 
-    add_tags_mirroring_content(&content, fallback.as_ref(), &mut tags, true).await;
+    add_tags_mirroring_content(
+        &content,
+        mimelist.as_ref(),
+        fallback.as_ref(),
+        &mut tags,
+        true,
+    )
+    .await;
 
     // All recipients get 'p' tagged on the DM rumor
     for pk in dm_channel.keys() {
@@ -227,6 +253,7 @@ fn add_gossip_tag(tags: &mut Vec<Tag>) {
 
 async fn add_tags_mirroring_content(
     content: &str,
+    mimelist: Option<&IndexMap<String, String>>,
     fallback: Option<&IndexMap<UncheckedUrl, String>>,
     tags: &mut Vec<Tag>,
     direct_message: bool,
@@ -278,13 +305,7 @@ async fn add_tags_mirroring_content(
             }
             ContentSegment::Hyperlink(span) => {
                 if let Some(slice) = shattered_content.slice(span) {
-                    add_imeta_tag(
-                        slice,
-                        mime_guess::from_path(slice).first().map(|m| m.to_string()),
-                        fallback.cloned(),
-                        tags,
-                    )
-                    .await
+                    add_imeta_tag(slice, mimelist.cloned(), fallback.cloned(), tags).await
                 }
             }
             ContentSegment::Plain(_span) => {
@@ -304,13 +325,19 @@ async fn add_tags_mirroring_content(
 
 async fn add_imeta_tag(
     urlstr: &str,
-    mimetype: Option<String>,
+    mimelist: Option<IndexMap<String, String>>,
     fallback: Option<IndexMap<UncheckedUrl, String>>,
     tags: &mut Vec<Tag>,
 ) {
     //turn into a nostr_types::Url
     let url = match Url::try_from_str(urlstr) {
-        Ok(url) => url,
+        Ok(u) => u,
+        _ => return,
+    };
+
+    //turn into a http::Uri
+    let uri = match Uri::from_str(urlstr) {
+        Ok(u) => u,
         _ => return,
     };
 
@@ -329,7 +356,13 @@ async fn add_imeta_tag(
     let imeta = {
         let mut imeta = FileMetadata::new(url.to_unchecked_url());
 
-        imeta.m = mimetype;
+        imeta.m = match mimelist {
+            Some(l) => l.get(urlstr).map(|m| m.to_owned()),
+            None => mime_guess::from_path(uri.path())
+                .first()
+                .map(|m| m.to_string()),
+        };
+
         imeta.size = Some(bytes.len() as u64);
 
         let hash = {

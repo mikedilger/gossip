@@ -74,6 +74,18 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     ui.horizontal(|ui| {
         ui.checkbox(
+            &mut app.unsaved_settings.blossom_servers_prefer_local_meta,
+            "Prefer locally resolved imeta values",
+        )
+        .on_hover_text(concat!(
+            "Some servers (e.g. blossom-rs / #34) may return invalid meta (e.g. mime type) in response; ",
+            "it's recommended to prefer locally resolved values to create correct json / imeta tags to sign the message."
+        ));
+        reset_button!(app, ui, blossom_servers_prefer_local_meta);
+    });
+
+    ui.horizontal(|ui| {
+        ui.checkbox(
             &mut app.unsaved_settings.blossom_servers_append_extension,
             "Append extension to blossom URL if not returned by server"
         )

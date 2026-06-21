@@ -184,7 +184,7 @@ impl Blossom {
         let response = client_for(&url)?
             .put(url)
             .header(AUTHORIZATION, format!("Nostr {}", authorization))
-            .header(CONTENT_TYPE, format!("{}", content_type))
+            .header(CONTENT_TYPE, content_type.to_string())
             .header(CONTENT_LENGTH, content_length)
             .body(data)
             .send()
