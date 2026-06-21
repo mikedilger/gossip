@@ -1078,25 +1078,6 @@ fn offer_attachment(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, dm: bool) {
             for blossom_server in blossom_servers.value() {
                 match blossom_server {
                     Ok(bd) => {
-                        if dm {
-                            app.dm_draft_data.draft.push('\n');
-                            app.dm_draft_data.draft.push_str(&bd.url);
-                            if bd.url.len() > 5 && !bd.url[bd.url.len() - 5..].contains('.') {
-                                if let Some(ext) = pathbuf.extension() {
-                                    app.dm_draft_data.draft.push('.');
-                                    app.dm_draft_data.draft.push_str(&ext.to_string_lossy());
-                                }
-                            }
-                        } else {
-                            app.draft_data.draft.push('\n');
-                            app.draft_data.draft.push_str(&bd.url);
-                            if bd.url.len() > 5 && !bd.url[bd.url.len() - 5..].contains('.') {
-                                if let Some(ext) = pathbuf.extension() {
-                                    app.draft_data.draft.push('.');
-                                    app.draft_data.draft.push_str(&ext.to_string_lossy());
-                                }
-                            }
-                        }
                         if blossom
                             .insert(
                                 nostr_types::UncheckedUrl::from_str(bd.url.as_str()),
@@ -1116,7 +1097,28 @@ fn offer_attachment(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, dm: bool) {
                                 blossom.len()
                             )
                         }
+
                         clear_uploading = true;
+
+                        if GLOBALS
+                            .db()
+                            .read_setting_blossom_servers_append_to_content()
+                            .split_whitespace()
+                            .any(|l| regex::Regex::new(l).is_ok_and(|r| r.is_match(&bd.url)))
+                        {
+                            if dm {
+                                app.dm_draft_data.draft.push('\n');
+                                app.dm_draft_data.draft.push_str(&bd.url);
+                            } else {
+                                app.draft_data.draft.push('\n');
+                                app.draft_data.draft.push_str(&bd.url);
+                            }
+                        } else {
+                            tracing::debug!(
+                                "Skip blossom URL `{}` as does not match filter condition in settings (upload sucsessful)",
+                                &bd.url
+                            )
+                        }
                     }
                     Err(e) => {
                         if ui

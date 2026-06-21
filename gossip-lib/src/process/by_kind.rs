@@ -275,7 +275,7 @@ pub fn process_user_server_list(event: &Event, ours: bool) -> Result<(), Error> 
                 virgin = false;
             }
         }
-        GLOBALS.db().write_setting_blossom_servers(&servers, None)?;
+        GLOBALS.db().write_setting_blossom_servers(&servers, None)?; // @TODO may reset alias list separated by spaces (PR#5)
     }
 
     Ok(())
