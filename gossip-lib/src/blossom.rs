@@ -297,10 +297,10 @@ fn get_error(response: &Response) -> Error {
         if let Ok(error_message) = hval.to_str() {
             ErrorKind::BlossomError(error_message.to_owned()).into()
         } else {
-            ErrorKind::BlossomError(format!("{}", response.status())).into()
+            ErrorKind::BlossomError(response.status().to_string()).into()
         }
     } else {
-        ErrorKind::BlossomError(format!("{}", response.status())).into()
+        ErrorKind::BlossomError(response.status().to_string()).into()
     }
 }
 
@@ -308,12 +308,13 @@ fn get_error(response: &Response) -> Error {
 /// Then it uses the file extension
 /// It falls back to application/octet-stream
 pub fn get_content_type(path: &Path) -> Result<Mime, Error> {
-    if let Some(mime) = infer::get_from_path(path)? {
-        Ok(mime.mime_type().parse().unwrap())
-    } else {
-        let extension_guess = mime_guess::from_path(path);
-        Ok(extension_guess
+    Ok(match infer::get_from_path(path)? {
+        Some(mime) => mime
+            .mime_type()
+            .parse()
+            .unwrap_or(mime::APPLICATION_OCTET_STREAM),
+        None => mime_guess::from_path(path)
             .first()
-            .unwrap_or(mime::APPLICATION_OCTET_STREAM))
-    }
+            .unwrap_or(mime::APPLICATION_OCTET_STREAM),
+    })
 }
