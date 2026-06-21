@@ -134,6 +134,7 @@ pub struct UnsavedSettings {
     pub cache_prune_period_days: u64,
 
     pub blossom_servers: String,
+    pub blossom_servers_append_to_content: String,
     pub blossom_servers_append_extension: bool,
 
     pub undo_send_seconds: u64,
@@ -236,6 +237,7 @@ impl Default for UnsavedSettings {
             prune_period_days: default_setting!(prune_period_days),
             cache_prune_period_days: default_setting!(prune_period_days),
             blossom_servers: default_setting!(blossom_servers),
+            blossom_servers_append_to_content: default_setting!(blossom_servers_append_to_content),
             blossom_servers_append_extension: default_setting!(blossom_servers_append_extension),
             undo_send_seconds: default_setting!(undo_send_seconds),
         }
@@ -333,6 +335,7 @@ impl UnsavedSettings {
             prune_period_days: load_setting!(prune_period_days),
             cache_prune_period_days: load_setting!(cache_prune_period_days),
             blossom_servers: load_setting!(blossom_servers),
+            blossom_servers_append_to_content: load_setting!(blossom_servers_append_to_content),
             blossom_servers_append_extension: load_setting!(blossom_servers_append_extension),
             undo_send_seconds: load_setting!(undo_send_seconds),
         }
@@ -418,6 +421,7 @@ impl UnsavedSettings {
         save_setting!(prune_period_days, self, txn);
         save_setting!(cache_prune_period_days, self, txn);
         save_setting!(blossom_servers, self, txn);
+        save_setting!(blossom_servers_append_to_content, self, txn);
         save_setting!(blossom_servers_append_extension, self, txn);
         save_setting!(undo_send_seconds, self, txn);
         txn.commit()?;

@@ -2515,6 +2515,7 @@ dependencies = [
  "nostr-types",
  "paste",
  "qrcode",
+ "regex",
  "resvg 0.35.0",
  "rpassword",
  "sdl2",

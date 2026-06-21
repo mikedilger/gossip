@@ -930,6 +930,12 @@ impl Storage {
     );
     def_setting!(blossom_servers, b"blossom_servers", String, "".to_string());
     def_setting!(
+        blossom_servers_append_to_content,
+        b"blossom_servers_append_to_content",
+        String,
+        ".*".to_string()
+    );
+    def_setting!(
         blossom_servers_append_extension,
         b"blossom_servers_append_extension",
         bool,

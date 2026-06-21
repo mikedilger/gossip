@@ -59,6 +59,19 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
         );
     });
 
+    ui.add_space(10.0);
+
+    ui.horizontal(|ui| {
+        ui.label("Append to content only Blossom URL matches regex: ")
+            .on_hover_text(
+                "One regular expression per row; keep blank to not append any after upload or use `.*` to append all",
+            );
+        ui.add(
+            TextEdit::multiline(&mut app.unsaved_settings.blossom_servers_append_to_content)
+                .desired_width(f32::INFINITY),
+        );
+    });
+
     ui.horizontal(|ui| {
         ui.checkbox(
             &mut app.unsaved_settings.blossom_servers_append_extension,
