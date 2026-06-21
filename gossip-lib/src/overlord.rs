@@ -1086,8 +1086,10 @@ impl Overlord {
                 uri.host().unwrap_or_default(),
                 uri.port().map(|p| format!(":{p}")).unwrap_or_default(),
             );
+            let url = uri.to_string();
+            assert!(url.starts_with(&result.trim_end_matches('/')));
             if is_debug {
-                tracing::debug!("[Blossom] make `{target}` alias base `{result}` for `{uri}`")
+                tracing::debug!("[Blossom] make `{target}` alias base `{result}` for `{url}`")
             }
             result
         }
@@ -1156,7 +1158,7 @@ impl Overlord {
                         let bd_download_uri = bd.url.parse::<Uri>()?; // parse once
                         for alias_server in servers {
                             tracing::debug!(
-                                "[Blossom] creating alias `{}` for `{alias_server}` using `{upload_server}`...",
+                                "[Blossom] creating alias URL for `{}` on `{alias_server}` using upload response from `{upload_server}`...",
                                 pathbuf.display()
                             );
 
@@ -1168,11 +1170,12 @@ impl Overlord {
                             let to = alias_base(&alias_server.parse::<Uri>()?, "to", false);
                             let replaced_url = bd_alias.url.replace(&from, &to);
                             let alias_url = replaced_url.parse::<Uri>()?.to_string();
+                            assert_eq!(bd_alias.url, alias_url);
 
                             tracing::debug!(
-                                    "[Blossom] replacing `{}` to `{replaced_url}` (parsed as `{alias_url}`)...",
-                                    bd_alias.url,
-                                );
+                                "[Blossom] replacing `{}` to `{replaced_url}`...",
+                                bd_alias.url,
+                            );
 
                             bd_alias.url = alias_url;
 
