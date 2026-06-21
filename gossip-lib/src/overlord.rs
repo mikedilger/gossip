@@ -1065,7 +1065,7 @@ impl Overlord {
             Uri,
         };
 
-        fn server_base(url: &str) -> Result<String, Error> {
+        fn server_base(url: &str, is_debug: bool) -> Result<String, Error> {
             let uri = url.parse::<Uri>()?;
             let mut parts: Parts = uri.into_parts();
             parts.path_and_query = Some(PathAndQuery::from_static("/")); // Force no path
@@ -1073,18 +1073,22 @@ impl Overlord {
                 parts.scheme = Some(Scheme::HTTPS); // Default to https
             }
             let result = Uri::from_parts(parts)?.to_string();
-            tracing::debug!("[Blossom] make server base `{result}` for `{url}`");
+            if is_debug {
+                tracing::debug!("[Blossom] make server base `{result}` for `{url}`")
+            }
             Ok(result)
         }
 
-        fn alias_base(uri: &Uri, target: &str) -> String {
+        fn alias_base(uri: &Uri, target: &str, is_debug: bool) -> String {
             let result = format!(
                 "{}://{}{}/",
                 uri.scheme_str().unwrap_or_default(),
                 uri.host().unwrap_or_default(),
                 uri.port().map(|p| format!(":{p}")).unwrap_or_default(),
             );
-            tracing::debug!("[Blossom] make `{target}` alias base `{result}` for `{uri}`");
+            if is_debug {
+                tracing::debug!("[Blossom] make `{target}` alias base `{result}` for `{uri}`")
+            }
             result
         }
 
@@ -1130,7 +1134,7 @@ impl Overlord {
                 match blossom
                     .upload(
                         file,
-                        &server_base(upload_server)?,
+                        &server_base(upload_server, false)?,
                         hash,
                         mime,
                         metadata.len(),
@@ -1142,7 +1146,8 @@ impl Overlord {
                         uploads.push(Ok(bd.clone()));
 
                         tracing::info!(
-                            "[Blossom] upload successful: `{}` -> `{}`",
+                            "[Blossom] upload successful (sha256: {}): `{}` -> `{}`",
+                            &bd.sha256,
                             pathbuf.display(),
                             &bd.url
                         );
@@ -1159,8 +1164,8 @@ impl Overlord {
                             let mut bd_alias = bd.clone();
 
                             // Replace scheme://host:port, keep original query from bd response
-                            let from = alias_base(&bd_download_uri, "from");
-                            let to = alias_base(&alias_server.parse::<Uri>()?, "to");
+                            let from = alias_base(&bd_download_uri, "from", false);
+                            let to = alias_base(&alias_server.parse::<Uri>()?, "to", false);
                             let replaced_url = bd_alias.url.replace(&from, &to);
                             let alias_url = replaced_url.parse::<Uri>()?.to_string();
 
