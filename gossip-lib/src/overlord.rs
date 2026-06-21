@@ -1,4 +1,4 @@
-use crate::blossom::{Blossom, HashOutput};
+use crate::blossom::{BlobDescriptor, Blossom, HashOutput};
 use crate::comms::{
     RelayConnectionReason, RelayJob, ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail,
     ToOverlordMessage,
@@ -31,7 +31,7 @@ use nostr_types::{
 };
 use regex::Regex;
 use reqwest::{Client, Proxy};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 use std::sync::mpsc;
 use std::time::Duration;
@@ -1087,11 +1087,45 @@ impl Overlord {
                 uri.port().map(|p| format!(":{p}")).unwrap_or_default(),
             );
             let url = uri.to_string();
-            assert!(url.starts_with(&result.trim_end_matches('/')));
+            assert!(url.starts_with(result.trim_end_matches('/')));
             if is_debug {
                 tracing::debug!("[Blossom] make `{target}` alias base `{result}` for `{url}`")
             }
             result
+        }
+
+        fn handle_extension(bd: &mut BlobDescriptor, local_path: &Path) -> Result<(), Error> {
+            let uri = bd.url.parse::<Uri>()?;
+            let uri_extension = Path::new(uri.path())
+                .extension()
+                .map(|e| e.to_str().unwrap_or_default())
+                .unwrap_or_default();
+
+            if !uri_extension.is_empty() {
+                return Ok(());
+            }
+
+            if local_path.extension().is_none_or(|e| e.to_str().is_none()) {
+                tracing::error!(
+                    "[Blossom] source file does not contain extension `{}`",
+                    local_path.display()
+                );
+                return Ok(());
+            }
+
+            let extension = local_path.extension().unwrap().to_str().unwrap();
+
+            bd.url = bd
+                .url
+                .replace(uri.path(), &format!("{}.{extension}", uri.path(),));
+
+            tracing::info!(
+                "[Blossom] appending extension `{extension}` to `{uri}` using `{}` as the source; updated URL: {}",
+                local_path.display(),
+                bd.url,
+            );
+
+            Ok(())
         }
 
         let blossom = match GLOBALS.blossom.get() {
@@ -1143,7 +1177,12 @@ impl Overlord {
                     )
                     .await
                 {
-                    Ok(bd) => {
+                    Ok(mut bd) => {
+                        // Append extension if enabled
+                        if GLOBALS.db().read_setting_blossom_servers_append_extension() {
+                            handle_extension(&mut bd, &pathbuf)?;
+                        }
+
                         // Firstable, insert result from the uploading server in list order
                         uploads.push(Ok(bd.clone()));
 
@@ -1165,12 +1204,16 @@ impl Overlord {
                             // Create new valid Uri from the upload server response (includes query postfix)
                             let mut bd_alias = bd.clone();
 
+                            // Append extension if enabled
+                            if GLOBALS.db().read_setting_blossom_servers_append_extension() {
+                                handle_extension(&mut bd_alias, &pathbuf)?;
+                            }
+
                             // Replace scheme://host:port, keep original query from bd response
                             let from = alias_base(&bd_download_uri, "from", false);
                             let to = alias_base(&alias_server.parse::<Uri>()?, "to", false);
                             let replaced_url = bd_alias.url.replace(&from, &to);
                             let alias_url = replaced_url.parse::<Uri>()?.to_string();
-                            assert_eq!(bd_alias.url, alias_url);
 
                             tracing::debug!(
                                 "[Blossom] replacing `{}` to `{replaced_url}`...",
