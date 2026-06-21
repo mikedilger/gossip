@@ -75,7 +75,7 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     ui.horizontal(|ui| {
         ui.checkbox(
             &mut app.unsaved_settings.blossom_servers_append_extension,
-            "Append extension to blossom URLs"
+            "Append extension to blossom URL if not returned by server"
         )
         .on_hover_text("Some servers may not return it, when some clients may not parse content properly because of that");
         reset_button!(app, ui, blossom_servers_append_extension);
