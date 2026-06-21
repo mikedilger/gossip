@@ -1049,7 +1049,10 @@ impl Overlord {
     pub async fn blossom_upload(&mut self, pathbuf: PathBuf) -> Result<(), Error> {
         std::mem::drop(tokio::spawn(Box::pin(async move {
             if let Err(e) = Overlord::inner_blossom_upload(pathbuf.clone()).await {
-                tracing::error!("Could not upload `{}`: {e}", pathbuf.display())
+                tracing::error!(
+                    "Could not complete Blossom upload `{}`: {e}",
+                    pathbuf.display()
+                )
             }
         })));
 
@@ -1069,17 +1072,19 @@ impl Overlord {
             if parts.scheme.is_none() {
                 parts.scheme = Some(Scheme::HTTPS); // Default to https
             }
-            Ok(Uri::from_parts(parts)?.to_string())
+            let result = Uri::from_parts(parts)?.to_string();
+            tracing::debug!("[Blossom] make server base `{result}` for `{url}`");
+            Ok(result)
         }
 
-        fn alias_base(uri: &Uri) -> String {
+        fn alias_base(uri: &Uri, target: &str) -> String {
             let result = format!(
                 "{}://{}{}/",
                 uri.scheme_str().unwrap_or_default(),
                 uri.host().unwrap_or_default(),
                 uri.port().map(|p| format!(":{p}")).unwrap_or_default(),
             );
-            tracing::debug!("Create replacement `{result}` for `{uri}`");
+            tracing::debug!("[Blossom] make `{target}` alias base `{result}` for `{uri}`");
             result
         }
 
@@ -1104,6 +1109,11 @@ impl Overlord {
 
             // only the first host per line to upload
             if let Some(upload_server) = servers.next() {
+                tracing::debug!(
+                    "[Blossom] uploading `{}` to `{upload_server}`...",
+                    pathbuf.display()
+                );
+
                 // metadata
                 let metadata = tokio::fs::metadata(&pathbuf).await?;
 
@@ -1130,8 +1140,9 @@ impl Overlord {
                     Ok(bd) => {
                         // Firstable, insert result from the uploading server in list order
                         uploads.push(Ok(bd.clone()));
+
                         tracing::info!(
-                            "Blossom upload successful: `{}` -> `{}`",
+                            "[Blossom] upload successful: `{}` -> `{}`",
                             pathbuf.display(),
                             &bd.url
                         );
@@ -1139,21 +1150,29 @@ impl Overlord {
                         // Then, collect alliasses in theirs line order (with scheme://host:port/ replaced)
                         let bd_download_uri = bd.url.parse::<Uri>()?; // parse once
                         for alias_server in servers {
+                            tracing::debug!(
+                                "[Blossom] creating alias `{}` for `{alias_server}` using `{upload_server}`...",
+                                pathbuf.display()
+                            );
+
                             // Create new valid Uri from the upload server response (includes query postfix)
                             let mut bd_alias = bd.clone();
 
                             // Replace scheme://host:port, keep original query from bd response
-                            bd_alias.url = bd_alias
-                                .url
-                                .replace(
-                                    &alias_base(&bd_download_uri),
-                                    &alias_base(&alias_server.parse::<Uri>()?),
-                                )
-                                .parse::<Uri>()?
-                                .to_string();
+                            let from = alias_base(&bd_download_uri, "from");
+                            let to = alias_base(&alias_server.parse::<Uri>()?, "to");
+                            let replaced_url = bd_alias.url.replace(&from, &to);
+                            let alias_url = replaced_url.parse::<Uri>()?.to_string();
+
+                            tracing::debug!(
+                                    "[Blossom] replacing `{}` to `{replaced_url}` (parsed as `{alias_url}`)...",
+                                    bd_alias.url,
+                                );
+
+                            bd_alias.url = alias_url;
 
                             tracing::info!(
-                                    "Blossom alias `{}` for `{}` created (imeta without uploading `{}`)",
+                                    "[Blossom] alias `{}` for `{}` created (imeta without uploading `{}`)",
                                     bd_alias.url, bd.url, pathbuf.display()
                                 );
 
@@ -1161,7 +1180,7 @@ impl Overlord {
                         }
                     }
                     Err(e) => {
-                        tracing::error!("Could not upload `{}`: {e}", pathbuf.display());
+                        tracing::error!("[Blossom] could not upload `{}`: {e}", pathbuf.display());
                         uploads.push(Err(e))
                     }
                 }
