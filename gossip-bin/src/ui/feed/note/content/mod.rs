@@ -264,17 +264,22 @@ pub(super) fn render_hyperlink(
     let privacy_issue = note.direct_message;
 
     if let (Ok(url), Some(nurl)) = (url::Url::try_from(link), app.try_check_url(link)) {
-        if let Some(mimetype) = mime_guess::from_path(url.path())
-            .first()
-            .map(|m| m.to_string())
-        {
-            if mimetype.starts_with("image/") {
-                media::show_image(app, ui, nurl, privacy_issue, note.volatile, file_metadata);
-            } else if mimetype.starts_with("video/") {
-                media::show_video(app, ui, nurl, privacy_issue, note.volatile, file_metadata);
+        match match file_metadata {
+            Some(ref fm) => fm.m.clone(),
+            None => mime_guess::from_path(url.path())
+                .first()
+                .map(|m| m.to_string()),
+        } {
+            Some(m) => {
+                if m.starts_with("image/") {
+                    media::show_image(app, ui, nurl, privacy_issue, note.volatile, file_metadata)
+                } else if m.starts_with("video/") {
+                    media::show_video(app, ui, nurl, privacy_issue, note.volatile, file_metadata)
+                } else {
+                    crate::ui::widgets::break_anywhere_hyperlink_to(ui, app, link, link)
+                }
             }
-        } else {
-            crate::ui::widgets::break_anywhere_hyperlink_to(ui, app, link, link);
+            None => crate::ui::widgets::break_anywhere_hyperlink_to(ui, app, link, link),
         }
     } else {
         crate::ui::widgets::break_anywhere_hyperlink_to(ui, app, link, link);
