@@ -180,7 +180,7 @@ impl Blossom {
         )
         .await?;
 
-        let url = format!("{base_url}upload");
+        let url = format!("{}/upload", base_url.trim_end_matches('/'));
         let response = client_for(&url)?
             .put(url)
             .header(AUTHORIZATION, format!("Nostr {}", authorization))
