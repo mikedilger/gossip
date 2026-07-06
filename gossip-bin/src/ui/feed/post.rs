@@ -1173,7 +1173,7 @@ fn offer_attachment(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, dm: bool) {
                 }
             }
         } else {
-            ui.label("Uploading...");
+            ui.colored_label(egui::Color32::ORANGE, "Uploading...");
         }
 
         if clear_upload {
