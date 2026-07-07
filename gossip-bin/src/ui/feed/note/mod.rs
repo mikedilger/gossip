@@ -950,7 +950,7 @@ pub fn render_note_inside_framing(
 
                                 // Buttons to react and reaction counts
                                 if read_setting!(reactions) && !note.muted() {
-                                    if let Some(reaction) = note.our_reaction {
+                                    if let Some(reaction) = note.reactions.our_reaction {
                                         ui.label(RichText::new(reaction).size(16.0));
                                     } else if can_sign {
                                         let bar_id = ui.id().with(format!(
@@ -991,7 +991,7 @@ pub fn render_note_inside_framing(
                                     let hover_ui = |ui: &mut Ui| {
                                         ui.horizontal_wrapped(|ui| {
                                             let mut col = 0;
-                                            for (ch, count) in note.reactions.iter() {
+                                            for (ch, count) in note.reactions.total.iter() {
                                                 if *ch != '+' {
                                                     egui::Frame::NONE
                                                         .inner_margin(egui::Margin::from(
@@ -1023,6 +1023,7 @@ pub fn render_note_inside_framing(
                                     };
                                     let like_count = note
                                         .reactions
+                                        .total
                                         .iter()
                                         .find_map(
                                             |(ch, count)| {
@@ -1037,11 +1038,12 @@ pub fn render_note_inside_framing(
 
                                     let reaction_count: usize = note
                                         .reactions
+                                        .total
                                         .iter()
                                         .filter_map(|(c, s)| if *c == '+' { None } else { Some(s) })
                                         .sum();
 
-                                    if !note.reactions.is_empty()
+                                    if !note.reactions.total.is_empty()
                                         && ui
                                             .add(
                                                 Label::new(format!(

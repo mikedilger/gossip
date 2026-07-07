@@ -153,6 +153,13 @@ pub enum EncryptionType {
     Giftwrap,
 }
 
+pub struct Reactions {
+    pub list: IndexMap<PublicKey, char>,
+    /// Has the current user reacted to this post?
+    pub our_reaction: Option<char>,
+    pub total: Vec<(char, usize)>,
+}
+
 pub struct NoteData {
     /// Original Event object, as received from nostr
     pub event: Event,
@@ -182,10 +189,7 @@ pub struct NoteData {
     pub mentions: Vec<(usize, Id)>,
 
     /// Known reactions to this post
-    pub reactions: Vec<(char, usize)>,
-
-    /// Has the current user reacted to this post?
-    pub our_reaction: Option<char>,
+    pub reactions: Reactions,
 
     /// The total amount of MilliSatoshi zapped to this note
     pub zaptotal: MilliSatoshi,
@@ -248,10 +252,20 @@ impl NoteData {
         // This function checks the authors match
         let annotations = GLOBALS.db().get_annotations(&event).unwrap_or_default();
 
-        let (reactions, our_reaction) = GLOBALS
-            .db()
-            .get_reactions(event.id)
-            .unwrap_or((vec![], None));
+        let reactions = {
+            let (list, our_reaction) = GLOBALS
+                .db()
+                .get_reactions(event.id)
+                .unwrap_or((IndexMap::new(), None));
+
+            let total = GLOBALS.db().get_reaction_totals(&list).unwrap_or(vec![]);
+
+            Reactions {
+                list,
+                our_reaction,
+                total,
+            }
+        };
 
         let zaptotal = GLOBALS
             .db()
@@ -444,7 +458,7 @@ impl NoteData {
             }
         }
 
-        NoteData {
+        Self {
             event,
             delegation,
             author,
@@ -455,7 +469,6 @@ impl NoteData {
             embedded_event,
             mentions,
             reactions,
-            our_reaction,
             zaptotal,
             seen_on,
             shattered_content,
@@ -470,13 +483,15 @@ impl NoteData {
 
     pub fn update(&mut self) {
         // Update reactions
-        let (mut reactions, our_reaction) = GLOBALS
+
+        let (list, our_reaction) = GLOBALS
             .db()
             .get_reactions(self.event.id)
-            .unwrap_or((vec![], None));
-        self.reactions.clear();
-        self.reactions.append(&mut reactions);
-        self.our_reaction = our_reaction;
+            .unwrap_or((IndexMap::new(), None));
+
+        self.reactions.total = GLOBALS.db().get_reaction_totals(&list).unwrap_or(vec![]);
+        self.reactions.our_reaction = our_reaction;
+        self.reactions.list = list;
 
         // Update seen_on
         self.seen_on = GLOBALS
