@@ -1563,7 +1563,7 @@ impl GossipUi {
         // It will take all actions necessary to make the data eventually available.
         GLOBALS.people.person_of_interest(person.pubkey);
 
-        ui.horizontal_wrapped(|ui| {
+        ui.horizontal(|ui| {
             let followed = person.is_in_list(PersonList::Followed);
             let muted = person.is_in_list(PersonList::Muted);
             let is_self = if let Some(pubkey) = GLOBALS.identity.public_key() {
@@ -1581,7 +1581,7 @@ impl GossipUi {
                 RichText::new(if is_compact {
                     text
                 } else {
-                    format!("☰ {}", text)
+                    format!("☰ {text}")
                 })
             };
 

@@ -760,7 +760,7 @@ pub fn render_note_inside_framing(
                         })
                         .show(ui, |ui| {
                             ui.set_max_width(header_response.response.rect.width());
-                            ui.horizontal(|ui| {
+                            ui.horizontal_wrapped(|ui| {
                                 let can_sign = GLOBALS.identity.is_unlocked();
 
                                 // Button to reply
@@ -1051,41 +1051,61 @@ pub fn render_note_inside_framing(
                                         .on_hover_ui(hover_ui)
                                         .on_disabled_hover_ui(hover_ui);
 
-                                        if GLOBALS.db().read_setting_show_reactions_list() {
-                                            for (pubkey, reaction) in &note.reactions.list {
-                                                ui.separator();
-                                                GossipUi::render_person_name_line(
-                                                    app,
-                                                    ui,
-                                                    &match PersonTable::read_record(*pubkey, None) {
-                                                        Ok(Some(p)) => p,
-                                                        _ => Person::new(*pubkey),
-                                                    },
-                                                    false,
-                                                    true,
-                                                );
-                                                ui.add(Label::new(reaction.to_string()));
-                                            }
+                                        if read_setting!(show_reactions_list) {
+                                            ui.with_layout(
+                                                Layout::left_to_right(Align::Center)
+                                                    .with_main_wrap(true),
+                                                |ui| {
+                                                    const S: f32 = 6.0;
+                                                    ui.spacing_mut().item_spacing =
+                                                        egui::vec2(0.0, S);
+                                                    for (pubkey, reaction) in &note.reactions.list {
+                                                        ui.allocate_ui(
+                                                            egui::vec2(220.0, 20.0), // @TODO estimated
+                                                            |ui| {
+                                                                ui.separator();
+                                                                ui.add_space(S);
+                                                                GossipUi::render_person_name_line(
+                                                                    app,
+                                                                    ui,
+                                                                    &match PersonTable::read_record(
+                                                                        *pubkey, None,
+                                                                    ) {
+                                                                        Ok(Some(p)) => p,
+                                                                        _ => Person::new(*pubkey),
+                                                                    },
+                                                                    false,
+                                                                    true,
+                                                                );
+                                                                ui.add_space(S);
+                                                                ui.add(Label::new(
+                                                                    reaction.to_string(),
+                                                                ));
+                                                                ui.add_space(S);
+                                                            },
+                                                        );
+                                                    }
+                                                },
+                                            );
                                         } // @TODO implement zappers list here (see few lines below)
                                     }
                                 }
-
-                                if GLOBALS.delayed_posts.contains(&note.event.id) {
-                                    ui.add_space(24.0);
-                                    if widgets::Button::primary(&app.theme, "Undo Send")
-                                        .show(ui)
-                                        .clicked()
-                                    {
-                                        let _ =
-                                            GLOBALS.to_overlord.send(ToOverlordMessage::PostCancel);
-
-                                        // Create a draft with it again
-                                        app.draft_data = app.previous_draft_data.clone();
-                                        app.show_post_area = true;
-                                        app.draft_needs_focus = true;
-                                    }
-                                }
                             });
+
+                            if GLOBALS.delayed_posts.contains(&note.event.id) {
+                                ui.add_space(16.0);
+                                if widgets::Button::primary(&app.theme, "Undo Send")
+                                    .show(ui)
+                                    .clicked()
+                                {
+                                    let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PostCancel);
+
+                                    // Create a draft with it again
+                                    app.draft_data = app.previous_draft_data.clone();
+                                    app.show_post_area = true;
+                                    app.draft_needs_focus = true;
+                                }
+                            }
 
                             // Below the note who-zapped expose @TODO maybe deprecated (reactions moved inline)
                             if app.note_showing_zaps == Some(note.event.id) {
