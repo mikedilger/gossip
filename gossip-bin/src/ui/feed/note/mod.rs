@@ -1064,16 +1064,18 @@ pub fn render_note_inside_framing(
                                                 }
                                             }
                                         }
-                                        for (k, v) in &note.reactions.list {
-                                            ui.separator();
-                                            GossipUi::render_person_name_line(
-                                                app,
-                                                ui,
-                                                &gossip_lib::Person4::new(*k),
-                                                false,
-                                            );
-                                            ui.add_space(3.0);
-                                            ui.add(Label::new(v.to_string()));
+                                        if GLOBALS.db().read_setting_show_reactions_list() {
+                                            for (k, v) in &note.reactions.list {
+                                                ui.separator();
+                                                GossipUi::render_person_name_line(
+                                                    app,
+                                                    ui,
+                                                    &gossip_lib::Person4::new(*k),
+                                                    false,
+                                                );
+                                                ui.add_space(3.0);
+                                                ui.add(Label::new(v.to_string()));
+                                            }
                                         } // @TODO implement zappers list
                                     }
                                 }

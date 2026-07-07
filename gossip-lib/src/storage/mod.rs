@@ -707,6 +707,7 @@ impl Storage {
     def_setting!(num_relays_for_counting, b"num_relays_for_counting", u8, 15);
     def_setting!(load_more_count, b"load_more_count", u64, 35);
     def_setting!(reposts, b"reposts", bool, true);
+    def_setting!(show_reactions_list, b"show_reactions_list", bool, true);
     def_setting!(show_long_form, b"show_long_form", bool, false);
     def_setting!(show_mentions, b"show_mentions", bool, true);
     def_setting!(enable_picture_events, b"enable_picture_events", bool, true);

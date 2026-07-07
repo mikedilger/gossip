@@ -58,6 +58,7 @@ pub struct UnsavedSettings {
 
     // Event Selection
     pub reposts: bool,
+    pub show_reactions_list: bool,
     pub show_long_form: bool,
     pub show_mentions: bool,
     pub enable_picture_events: bool,
@@ -163,6 +164,7 @@ impl Default for UnsavedSettings {
             num_relays_for_counting: default_setting!(num_relays_for_counting),
             load_more_count: default_setting!(load_more_count),
             reposts: default_setting!(reposts),
+            show_reactions_list: default_setting!(show_reactions_list),
             show_long_form: default_setting!(show_long_form),
             show_mentions: default_setting!(show_mentions),
             enable_picture_events: default_setting!(enable_picture_events),
@@ -266,6 +268,7 @@ impl UnsavedSettings {
             num_relays_for_counting: load_setting!(num_relays_for_counting),
             load_more_count: load_setting!(load_more_count),
             reposts: load_setting!(reposts),
+            show_reactions_list: load_setting!(show_reactions_list),
             show_long_form: load_setting!(show_long_form),
             show_mentions: load_setting!(show_mentions),
             enable_picture_events: load_setting!(enable_picture_events),
@@ -363,6 +366,7 @@ impl UnsavedSettings {
         save_setting!(num_relays_for_counting, self, txn);
         save_setting!(load_more_count, self, txn);
         save_setting!(reposts, self, txn);
+        save_setting!(show_reactions_list, self, txn);
         save_setting!(show_long_form, self, txn);
         save_setting!(show_mentions, self, txn);
         save_setting!(enable_picture_events, self, txn);
