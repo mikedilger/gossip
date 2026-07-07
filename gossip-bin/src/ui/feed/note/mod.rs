@@ -1044,26 +1044,13 @@ pub fn render_note_inside_framing(
                                         .sum();
 
                                     if reaction_count > 0 {
-                                        if ui
-                                            .add(
-                                                Label::new(format!(
-                                                    "{like_count}+{reaction_count}"
-                                                ))
+                                        ui.add(
+                                            Label::new(format!("{like_count}+{reaction_count}"))
                                                 .sense(Sense::hover()),
-                                            )
-                                            .on_hover_ui(hover_ui)
-                                            .on_disabled_hover_ui(hover_ui)
-                                            .clicked()
-                                        {
-                                            match app.note_showing_reactions {
-                                                Some(id2) if note.event.id == id2 => {
-                                                    app.note_showing_reactions = None
-                                                }
-                                                _ => {
-                                                    app.note_showing_reactions = Some(note.event.id)
-                                                }
-                                            }
-                                        }
+                                        )
+                                        .on_hover_ui(hover_ui)
+                                        .on_disabled_hover_ui(hover_ui);
+
                                         if GLOBALS.db().read_setting_show_reactions_list() {
                                             for (pubkey, reaction) in &note.reactions.list {
                                                 ui.separator();
@@ -1079,7 +1066,7 @@ pub fn render_note_inside_framing(
                                                 );
                                                 ui.add(Label::new(reaction.to_string()));
                                             }
-                                        } // @TODO implement zappers list
+                                        } // @TODO implement zappers list here (see few lines below)
                                     }
                                 }
 
@@ -1100,51 +1087,7 @@ pub fn render_note_inside_framing(
                                 }
                             });
 
-                            // Below the note reaction detail
-                            if app.note_showing_reactions == Some(note.event.id) {
-                                ui.add_space(10.0);
-                                ui.horizontal_wrapped(|ui| {
-                                    if let Ok(mut data) =
-                                        GLOBALS.db().get_reactions_raw(note.event.id)
-                                    {
-                                        for (pubkey, reaction) in data.drain(..) {
-                                            let avatar = match app.try_get_avatar(ui.ctx(), &pubkey)
-                                            {
-                                                Some(avatar) => avatar,
-                                                None => app.placeholder_avatar.clone(),
-                                            };
-                                            let person =
-                                                match PersonTable::read_record(pubkey, None) {
-                                                    Ok(Some(p)) => p,
-                                                    _ => Person::new(pubkey),
-                                                };
-                                            let response = widgets::paint_avatar_only(
-                                                ui,
-                                                &avatar,
-                                                AvatarSize::Mini.get_size(),
-                                            );
-                                            if response
-                                                .on_hover_ui(|ui| {
-                                                    GLOBALS.people.person_of_interest(pubkey);
-                                                    ui.label(person.best_name());
-                                                })
-                                                .clicked()
-                                            {
-                                                app.set_page(ui.ctx(), Page::Person(pubkey));
-                                            }
-                                            ui.label(format!("{}  ", reaction));
-                                        }
-                                    } else {
-                                        ui.label("Cannot load reaction detail.");
-                                    }
-
-                                    if ui.button("close").clicked() {
-                                        app.note_showing_reactions = None;
-                                    }
-                                });
-                            }
-
-                            // Below the note who-zapped expose
+                            // Below the note who-zapped expose @TODO maybe deprecated (reactions moved inline)
                             if app.note_showing_zaps == Some(note.event.id) {
                                 ui.add_space(10.0);
                                 ui.horizontal_wrapped(|ui| {
