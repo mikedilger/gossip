@@ -53,6 +53,14 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
 
     ui.horizontal(|ui| {
         ui.checkbox(
+            &mut app.unsaved_settings.show_reactions_list,
+            "Enable personalized reactions list (if reactions enabled)",
+        );
+        reset_button!(app, ui, show_reactions_list);
+    });
+
+    ui.horizontal(|ui| {
+        ui.checkbox(
             &mut app.unsaved_settings.enable_zap_receipts,
             "Enable zap receipts",
         );

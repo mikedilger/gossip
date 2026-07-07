@@ -707,6 +707,7 @@ impl Storage {
     def_setting!(num_relays_for_counting, b"num_relays_for_counting", u8, 15);
     def_setting!(load_more_count, b"load_more_count", u64, 35);
     def_setting!(reposts, b"reposts", bool, true);
+    def_setting!(show_reactions_list, b"show_reactions_list", bool, true);
     def_setting!(show_long_form, b"show_long_form", bool, false);
     def_setting!(show_mentions, b"show_mentions", bool, true);
     def_setting!(enable_picture_events, b"enable_picture_events", bool, true);
@@ -2139,9 +2140,11 @@ impl Storage {
         Ok(output)
     }
 
-    /// Returns the list of reactions and whether or not this account has already reacted to this event
     #[allow(clippy::type_complexity)]
-    pub fn get_reactions(&self, id: Id) -> Result<(Vec<(char, usize)>, Option<char>), Error> {
+    pub fn get_reactions(
+        &self,
+        id: Id,
+    ) -> Result<(IndexMap<PublicKey, char>, Option<char>), Error> {
         // Whether or not the Gossip user already reacted to this event
         let mut our_reaction: Option<char> = None;
 
@@ -2149,8 +2152,10 @@ impl Storage {
         let maybe_target_event = self.read_event(id)?;
 
         // Collect up to one reaction per pubkey
-        let mut phase1: HashMap<PublicKey, char> = HashMap::new();
-        for (_, rel) in self.find_relationships_by_id(id)? {
+        let relationships_by_id = self.find_relationships_by_id(id)?;
+        let mut result: IndexMap<PublicKey, char> =
+            IndexMap::with_capacity(relationships_by_id.len());
+        for (_, rel) in relationships_by_id {
             if let RelationshipById::ReactsTo { by, reaction } = rel {
                 if let Some(target_event) = &maybe_target_event {
                     if target_event.pubkey == by {
@@ -2165,25 +2170,32 @@ impl Storage {
                 } else {
                     reaction.chars().next().unwrap()
                 };
-                phase1.insert(by, symbol);
+                result.insert(by, symbol);
                 if Some(by) == GLOBALS.identity.public_key() {
                     our_reaction = Some(symbol);
                 }
             }
         }
+        Ok((result, our_reaction))
+    }
 
+    /// Returns the list of reactions and whether or not this account has already reacted to this event
+    #[allow(clippy::type_complexity)]
+    pub fn get_reaction_totals(
+        &self,
+        reactions: &IndexMap<PublicKey, char>,
+    ) -> Result<Vec<(char, usize)>, Error> {
         // Collate by reaction
-        let mut output: HashMap<char, usize> = HashMap::new();
-        for (_, symbol) in phase1 {
+        let mut output: HashMap<char, usize> = HashMap::with_capacity(reactions.len());
+        for (_, symbol) in reactions {
             output
-                .entry(symbol)
+                .entry(*symbol)
                 .and_modify(|count| *count += 1)
                 .or_insert_with(|| 1);
         }
-
         let mut v: Vec<(char, usize)> = output.drain().collect();
         v.sort();
-        Ok((v, our_reaction))
+        Ok(v)
     }
 
     /// Get the zap total of a given event

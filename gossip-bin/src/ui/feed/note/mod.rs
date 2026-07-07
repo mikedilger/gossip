@@ -423,7 +423,7 @@ pub fn render_note_inside_framing(
                 ui.add_space(3.0);
 
                 if !render_data.hide_nameline {
-                    GossipUi::render_person_name_line(app, ui, &note.author, false);
+                    GossipUi::render_person_name_line(app, ui, &note.author, false, false);
 
                     ui.horizontal_wrapped(|ui| {
                         match note.event.replies_to() {
@@ -950,7 +950,7 @@ pub fn render_note_inside_framing(
 
                                 // Buttons to react and reaction counts
                                 if read_setting!(reactions) && !note.muted() {
-                                    if let Some(reaction) = note.our_reaction {
+                                    if let Some(reaction) = note.reactions.our_reaction {
                                         ui.label(RichText::new(reaction).size(16.0));
                                     } else if can_sign {
                                         let bar_id = ui.id().with(format!(
@@ -991,7 +991,7 @@ pub fn render_note_inside_framing(
                                     let hover_ui = |ui: &mut Ui| {
                                         ui.horizontal_wrapped(|ui| {
                                             let mut col = 0;
-                                            for (ch, count) in note.reactions.iter() {
+                                            for (ch, count) in &note.reactions.total {
                                                 if *ch != '+' {
                                                     egui::Frame::NONE
                                                         .inner_margin(egui::Margin::from(
@@ -1023,6 +1023,7 @@ pub fn render_note_inside_framing(
                                     };
                                     let like_count = note
                                         .reactions
+                                        .total
                                         .iter()
                                         .find_map(
                                             |(ch, count)| {
@@ -1037,12 +1038,13 @@ pub fn render_note_inside_framing(
 
                                     let reaction_count: usize = note
                                         .reactions
+                                        .total
                                         .iter()
                                         .filter_map(|(c, s)| if *c == '+' { None } else { Some(s) })
                                         .sum();
 
-                                    if !note.reactions.is_empty()
-                                        && ui
+                                    if reaction_count > 0 {
+                                        if ui
                                             .add(
                                                 Label::new(format!(
                                                     "{like_count}+{reaction_count}"
@@ -1052,13 +1054,32 @@ pub fn render_note_inside_framing(
                                             .on_hover_ui(hover_ui)
                                             .on_disabled_hover_ui(hover_ui)
                                             .clicked()
-                                    {
-                                        match app.note_showing_reactions {
-                                            Some(id2) if note.event.id == id2 => {
-                                                app.note_showing_reactions = None
+                                        {
+                                            match app.note_showing_reactions {
+                                                Some(id2) if note.event.id == id2 => {
+                                                    app.note_showing_reactions = None
+                                                }
+                                                _ => {
+                                                    app.note_showing_reactions = Some(note.event.id)
+                                                }
                                             }
-                                            _ => app.note_showing_reactions = Some(note.event.id),
                                         }
+                                        if GLOBALS.db().read_setting_show_reactions_list() {
+                                            for (pubkey, reaction) in &note.reactions.list {
+                                                ui.separator();
+                                                GossipUi::render_person_name_line(
+                                                    app,
+                                                    ui,
+                                                    &match PersonTable::read_record(*pubkey, None) {
+                                                        Ok(Some(p)) => p,
+                                                        _ => Person::new(*pubkey),
+                                                    },
+                                                    false,
+                                                    true,
+                                                );
+                                                ui.add(Label::new(reaction.to_string()));
+                                            }
+                                        } // @TODO implement zappers list
                                     }
                                 }
 
