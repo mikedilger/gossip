@@ -1065,16 +1065,19 @@ pub fn render_note_inside_framing(
                                             }
                                         }
                                         if GLOBALS.db().read_setting_show_reactions_list() {
-                                            for (k, v) in &note.reactions.list {
+                                            for (pubkey, reaction) in &note.reactions.list {
                                                 ui.separator();
                                                 GossipUi::render_person_name_line(
                                                     app,
                                                     ui,
-                                                    &gossip_lib::Person4::new(*k),
+                                                    &match PersonTable::read_record(*pubkey, None) {
+                                                        Ok(Some(p)) => p,
+                                                        _ => Person::new(*pubkey),
+                                                    },
                                                     false,
                                                 );
                                                 ui.add_space(3.0);
-                                                ui.add(Label::new(v.to_string()));
+                                                ui.add(Label::new(reaction.to_string()));
                                             }
                                         } // @TODO implement zappers list
                                     }
