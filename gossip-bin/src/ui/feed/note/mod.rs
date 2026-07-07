@@ -1076,7 +1076,6 @@ pub fn render_note_inside_framing(
                                                     },
                                                     false,
                                                 );
-                                                ui.add_space(3.0);
                                                 ui.add(Label::new(reaction.to_string()));
                                             }
                                         } // @TODO implement zappers list
