@@ -1061,7 +1061,7 @@ pub fn render_note_inside_framing(
                                                         egui::vec2(0.0, S);
                                                     for (pubkey, reaction) in &note.reactions.list {
                                                         ui.allocate_ui(
-                                                            egui::vec2(220.0, 20.0), // @TODO estimated
+                                                            egui::vec2(250.0, 20.0), // @TODO estimated
                                                             |ui| {
                                                                 ui.separator();
                                                                 ui.add_space(S);
