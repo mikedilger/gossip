@@ -991,7 +991,7 @@ pub fn render_note_inside_framing(
                                     let hover_ui = |ui: &mut Ui| {
                                         ui.horizontal_wrapped(|ui| {
                                             let mut col = 0;
-                                            for (ch, count) in note.reactions.total.iter() {
+                                            for (ch, count) in &note.reactions.total {
                                                 if *ch != '+' {
                                                     egui::Frame::NONE
                                                         .inner_margin(egui::Margin::from(
@@ -1043,7 +1043,7 @@ pub fn render_note_inside_framing(
                                         .filter_map(|(c, s)| if *c == '+' { None } else { Some(s) })
                                         .sum();
 
-                                    if !note.reactions.total.is_empty()
+                                    if reaction_count > 0
                                         && ui
                                             .add(
                                                 Label::new(format!(
