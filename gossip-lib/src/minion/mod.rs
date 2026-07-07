@@ -298,7 +298,9 @@ impl Minion {
                     .split_whitespace()
                     .any(|l| Regex::new(l).is_ok_and(|r| r.is_match(&url)))
             {
-                tracing::debug!("Begin proxied ({socks5_proxy_address}) connection to `{url}`...");
+                tracing::debug!(
+                    "Begin proxied ({socks5_proxy_address}) WebSocket connection to `{url}`..."
+                );
                 match socks5_proxy_address.parse::<std::net::SocketAddr>() {
                     Ok(proxy_addr) => Stream::Socks5(
                         Socks5Stream::connect(proxy_addr, (socket_host(host), port))
@@ -310,7 +312,7 @@ impl Minion {
                     Err(e) => panic!("Unexpected SOCKS5 proxy address: {e}"), // validate form on save this value
                 }
             } else {
-                tracing::debug!("Begin direct connection to `{url}`...");
+                tracing::debug!("Begin direct WebSocket connection to `{url}`...");
                 Stream::Direct(
                     tokio::net::TcpStream::connect((socket_host(host), port))
                         .await
@@ -517,10 +519,12 @@ impl Minion {
                 .split_whitespace()
                 .any(|l| Regex::new(l).is_ok_and(|r| r.is_match(url.as_str())))
         {
-            tracing::debug!("Begin proxied ({socks5_proxy_address}) connection to `{url}`...");
+            tracing::debug!(
+                "Begin proxied ({socks5_proxy_address}) NIP-11 connection to `{url}`..."
+            );
             Client::builder().proxy(Proxy::all(format!("socks5h://{socks5_proxy_address}"))?)
         } else {
-            tracing::debug!("Begin direct connection to `{url}`...");
+            tracing::debug!("Begin direct NIP-11 connection to `{url}`...");
             Client::builder()
         }
         .timeout(fetcher_timeout)
