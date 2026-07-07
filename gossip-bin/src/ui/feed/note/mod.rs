@@ -423,7 +423,7 @@ pub fn render_note_inside_framing(
                 ui.add_space(3.0);
 
                 if !render_data.hide_nameline {
-                    GossipUi::render_person_name_line(app, ui, &note.author, false);
+                    GossipUi::render_person_name_line(app, ui, &note.author, false, false);
 
                     ui.horizontal_wrapped(|ui| {
                         match note.event.replies_to() {
@@ -1075,6 +1075,7 @@ pub fn render_note_inside_framing(
                                                         _ => Person::new(*pubkey),
                                                     },
                                                     false,
+                                                    true,
                                                 );
                                                 ui.add(Label::new(reaction.to_string()));
                                             }

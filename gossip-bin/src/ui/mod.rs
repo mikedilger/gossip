@@ -1559,7 +1559,8 @@ impl GossipUi {
         app: &mut GossipUi,
         ui: &mut Ui,
         person: &Person,
-        profile_page: bool,
+        is_profile_page: bool,
+        is_compact: bool,
     ) {
         // Let the 'People' manager know that we are interested in displaying this person.
         // It will take all actions necessary to make the data eventually available.
@@ -1575,16 +1576,20 @@ impl GossipUi {
             };
 
             let tag_name_menu = {
-                let text = if !profile_page {
+                let text = if !is_profile_page {
                     person.best_name()
                 } else {
                     "ACTIONS".to_string()
                 };
-                RichText::new(format!("☰ {}", text))
+                RichText::new(if is_compact {
+                    text
+                } else {
+                    format!("☰ {}", text)
+                })
             };
 
             ui.menu_button(tag_name_menu, |ui| {
-                if !profile_page {
+                if !is_profile_page {
                     if ui.button("View Person").clicked() {
                         app.set_page(ui.ctx(), Page::Person(person.pubkey));
                     }
@@ -1649,17 +1654,17 @@ impl GossipUi {
                 }
             });
 
-            if person.petname.is_some() {
+            if person.petname.is_some() && !is_compact {
                 ui.label(RichText::new("†").color(app.theme.accent_complementary_color()))
                     .on_hover_text("trusted petname");
             }
 
-            if followed {
+            if followed && !is_compact {
                 ui.label(RichText::new("🚶").small())
                     .on_hover_text("followed");
             }
 
-            if !profile_page {
+            if !is_profile_page && !is_compact {
                 if let Some(mut nip05) = person.nip05().map(|s| s.to_owned()) {
                     if nip05.starts_with("_@") {
                         nip05 = nip05.get(2..).unwrap().to_string();

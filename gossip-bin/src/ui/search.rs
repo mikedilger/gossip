@@ -166,7 +166,7 @@ fn render_searched_person(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, person
 
         ui.vertical(|ui| {
             ui.label(RichText::new(gossip_lib::names::pubkey_short(&person.pubkey)).weak());
-            GossipUi::render_person_name_line(app, ui, person, false);
+            GossipUi::render_person_name_line(app, ui, person, false, false);
         });
     });
 }
@@ -217,7 +217,7 @@ fn render_searched_note(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, event: &
         );
 
         if let Ok(Some(person)) = PersonTable::read_record(event.pubkey, None) {
-            GossipUi::render_person_name_line(app, ui, &person, false);
+            GossipUi::render_person_name_line(app, ui, &person, false, false);
         } else {
             ui.label(event.pubkey.as_bech32_string());
         }
