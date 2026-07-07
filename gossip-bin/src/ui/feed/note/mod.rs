@@ -1043,8 +1043,8 @@ pub fn render_note_inside_framing(
                                         .filter_map(|(c, s)| if *c == '+' { None } else { Some(s) })
                                         .sum();
 
-                                    if reaction_count > 0
-                                        && ui
+                                    if reaction_count > 0 {
+                                        if ui
                                             .add(
                                                 Label::new(format!(
                                                     "{like_count}+{reaction_count}"
@@ -1054,13 +1054,27 @@ pub fn render_note_inside_framing(
                                             .on_hover_ui(hover_ui)
                                             .on_disabled_hover_ui(hover_ui)
                                             .clicked()
-                                    {
-                                        match app.note_showing_reactions {
-                                            Some(id2) if note.event.id == id2 => {
-                                                app.note_showing_reactions = None
+                                        {
+                                            match app.note_showing_reactions {
+                                                Some(id2) if note.event.id == id2 => {
+                                                    app.note_showing_reactions = None
+                                                }
+                                                _ => {
+                                                    app.note_showing_reactions = Some(note.event.id)
+                                                }
                                             }
-                                            _ => app.note_showing_reactions = Some(note.event.id),
                                         }
+                                        for (k, v) in &note.reactions.list {
+                                            ui.separator();
+                                            GossipUi::render_person_name_line(
+                                                app,
+                                                ui,
+                                                &gossip_lib::Person4::new(*k),
+                                                false,
+                                            );
+                                            ui.add_space(3.0);
+                                            ui.add(Label::new(v.to_string()));
+                                        } // @TODO implement zappers list
                                     }
                                 }
 
