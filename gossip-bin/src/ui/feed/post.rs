@@ -1,5 +1,5 @@
 use super::FeedNoteParams;
-use crate::ui::widgets::{InformationPopup, MoreMenuButton, MoreMenuItem};
+use crate::ui::widgets::{Button, InformationPopup, MoreMenuButton, MoreMenuItem};
 use crate::ui::{widgets, you, FeedKind, GossipUi, HighlightType, Label, Page, Sense, Theme};
 use eframe::egui;
 use eframe::epaint::text::LayoutJob;
@@ -360,14 +360,14 @@ fn dm_posting_area(
 
             if app.dm_draft_data.are_you_sure_cancel {
                 ui.horizontal(|ui| {
-                    if widgets::Button::primary(&app.theme, "Keep Draft")
+                    if Button::secondary(&app.theme, "Keep Draft")
                         .show(ui)
                         .clicked()
                     {
                         app.dm_draft_data.are_you_sure_cancel = false;
                     }
 
-                    if widgets::Button::primary(&app.theme, "Erase Draft")
+                    if Button::bordered(&app.theme, "Erase Draft")
                         .show(ui)
                         .clicked()
                     {
@@ -375,9 +375,7 @@ fn dm_posting_area(
                     }
                 });
             } else {
-                if widgets::Button::primary(&app.theme, "Send")
-                    .show(ui)
-                    .clicked()
+                if Button::primary(&app.theme, "Send").show(ui).clicked()
                     && !app.dm_draft_data.draft.is_empty()
                 {
                     send_now = true;
@@ -713,14 +711,14 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
 
                 if app.draft_data.are_you_sure_cancel {
                     ui.horizontal(|ui| {
-                        if widgets::Button::primary(&app.theme, "Keep Draft")
+                        if Button::secondary(&app.theme, "Keep Draft")
                             .show(ui)
                             .clicked()
                         {
                             app.draft_data.are_you_sure_cancel = false;
                         }
 
-                        if widgets::Button::primary(&app.theme, "Erase Draft")
+                        if Button::bordered(&app.theme, "Erase Draft")
                             .show(ui)
                             .clicked()
                         {
@@ -729,9 +727,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                     });
                 } else {
                     ui.horizontal(|ui| {
-                        if widgets::Button::primary(&app.theme, send_label)
-                            .show(ui)
-                            .clicked()
+                        if Button::primary(&app.theme, send_label).show(ui).clicked()
                             && (!app.draft_data.draft.is_empty() || app.draft_data.repost.is_some())
                         {
                             send_now = true;
@@ -763,9 +759,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
 
             ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                 ui.add_space(12.0);
-                if widgets::Button::primary(&app.theme, send_label)
-                    .show(ui)
-                    .clicked()
+                if Button::primary(&app.theme, send_label).show(ui).clicked()
                     && (!app.draft_data.draft.is_empty() || app.draft_data.repost.is_some())
                 {
                     send_now = true;
