@@ -294,7 +294,7 @@ impl Button<'_> {
                         ),
                         ButtonType::Secondary => (
                             theme.neutral_200(),
-                            no_stroke,
+                            neutral_400_stroke,
                             theme.neutral_700(),
                             no_stroke,
                         ),
@@ -318,8 +318,8 @@ impl Button<'_> {
                                 ),
                                 ButtonType::Secondary => (
                                     theme.neutral_50(),
-                                    no_stroke,
-                                    theme.accent_dark(),
+                                    neutral_300_stroke,
+                                    theme.neutral_600(),
                                     no_stroke,
                                 ),
                                 ButtonType::Bordered => (
@@ -344,8 +344,8 @@ impl Button<'_> {
                                 ),
                                 ButtonType::Secondary => (
                                     theme.neutral_200(),
-                                    no_stroke,
-                                    theme.neutral_700(),
+                                    neutral_400_stroke,
+                                    theme.neutral_600(),
                                     no_stroke,
                                 ),
                                 ButtonType::Bordered => (
@@ -381,9 +381,9 @@ impl Button<'_> {
                                 ),
                                 ButtonType::Secondary => (
                                     theme.neutral_50(),
-                                    no_stroke,
-                                    theme.accent_dark(),
-                                    neutral_400_stroke,
+                                    neutral_300_stroke,
+                                    theme.neutral_600(),
+                                    neutral_500_stroke,
                                 ),
                                 ButtonType::Bordered => (
                                     theme.neutral_950(),
