@@ -762,7 +762,18 @@ pub fn render_note_inside_framing(
 
                         if GLOBALS.delayed_posts.contains(&note.event.id) {
                             ui.add_space(6.0);
-                            if Button::bordered(&app.theme, "Undo Send").show(ui).clicked() {
+                            if Button::bordered(
+                                &app.theme,
+                                format!(
+                                    "Undo Send ({}s left)",
+                                    GLOBALS.db().read_setting_undo_send_seconds() as i64
+                                        - (nostr_types::Unixtime::now().0
+                                            - note.event.created_at.0)
+                                ),
+                            )
+                            .show(ui)
+                            .clicked()
+                            {
                                 let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PostCancel);
 
                                 // Create a draft with it again
