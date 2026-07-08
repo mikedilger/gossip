@@ -14,7 +14,7 @@ use crate::ui::widgets::{
 use crate::ui::{GossipUi, Page};
 use crate::{AVATAR_SIZE, AVATAR_SIZE_REPOST};
 
-use eframe::egui::{self, vec2, Align2, Margin, Response};
+use eframe::egui::{self, vec2, Align2, Margin, Rect, Response};
 use egui::{
     Align, Context, Frame, Label, Layout, RichText, Sense, Separator, Stroke, TextStyle, Ui,
     UiBuilder,
@@ -285,151 +285,196 @@ pub fn render_note_inside_framing(
         pub tooltip_ui: Box<dyn FnOnce(&mut Ui)>,
     }
 
-    if let Ok(note) = note_ref.try_borrow() {
-        let collapsed = app.collapsed.contains(&note.event.id);
+    let note = match note_ref.try_borrow() {
+        Ok(n) => n,
+        Err(_) => {
+            return;
+        }
+    };
 
-        let is_dm_feed = matches!(app.page, Page::Feed(FeedKind::DmChat(_)));
+    let collapsed = app.collapsed.contains(&note.event.id);
 
-        // Load avatar texture
-        let avatar = if note.muted() {
-            // no avatars for muted people
-            app.placeholder_avatar.clone()
-        } else if let Some(avatar) = app.try_get_avatar(ui.ctx(), &note.author.pubkey) {
-            avatar
-        } else {
-            app.placeholder_avatar.clone()
-        };
+    let is_dm_feed = matches!(app.page, Page::Feed(FeedKind::DmChat(_)));
 
-        let inner_margin = app.theme.feed_frame_inner_margin(render_data);
+    // Load avatar texture
+    let avatar = if note.muted() {
+        // no avatars for muted people
+        app.placeholder_avatar.clone()
+    } else if let Some(avatar) = app.try_get_avatar(ui.ctx(), &note.author.pubkey) {
+        avatar
+    } else {
+        app.placeholder_avatar.clone()
+    };
 
-        // Determine avatar size
-        let (avatar_size, avatar_margin_left, content_margin_left): (AvatarSize, i8, i8) =
+    let inner_margin = app.theme.feed_frame_inner_margin(render_data);
+
+    // Determine avatar size
+    let (avatar_size, avatar_margin_left, content_margin_left): (AvatarSize, i8, i8) = if is_dm_feed
+    {
+        (
+            AvatarSize::Mini,
+            0,
+            AVATAR_SIZE_REPOST as i8 + inner_margin.left + 5,
+        )
+    } else if parent_repost.is_none() {
+        match note.repost {
+            None | Some(RepostType::CommentMention) => {
+                (AvatarSize::Feed, 0, AVATAR_SIZE as i8 + inner_margin.left)
+            }
+            Some(_) => (
+                AvatarSize::Mini,
+                ((AVATAR_SIZE - AVATAR_SIZE_REPOST) / 2) as i8,
+                AVATAR_SIZE as i8 + inner_margin.left,
+            ),
+        }
+    } else {
+        match parent_repost {
+            None | Some(RepostType::CommentMention) => (
+                AvatarSize::Mini,
+                ((AVATAR_SIZE - AVATAR_SIZE_REPOST) / 2) as i8,
+                AVATAR_SIZE as i8 + inner_margin.left,
+            ),
+            Some(_) => (AvatarSize::Feed, 0, AVATAR_SIZE as i8 + inner_margin.left),
+        }
+    };
+
+    let hide_footer = if render_data.hide_footer {
+        true
+    } else if parent_repost.is_none() {
+        match note.repost {
+            None | Some(RepostType::CommentMention) => false,
+            Some(_) => true,
+        }
+    } else {
+        match parent_repost {
+            None | Some(RepostType::CommentMention) => true,
+            Some(_) => false,
+        }
+    };
+
+    let content_pull_top = if !render_data.hide_nameline {
+        inner_margin.top + ui.style().spacing.item_spacing.y as i8 * 4 - avatar_size.y() as i8
+    } else {
+        -avatar_size.y() as i8 - ui.style().spacing.item_spacing.y as i8 * 2
+    };
+
+    let content_margin_right = if render_data.hide_nameline {
+        CONTENT_MARGIN_RIGHT
+    } else {
+        0
+    };
+    let footer_margin_left = content_margin_left;
+
+    let content_inner_margin = Margin {
+        left: content_margin_left,
+        right: content_margin_right,
+        top: 0,
+        bottom: 0,
+    };
+
+    let content_outer_margin = Margin {
+        left: 0,
+        bottom: 0,
+        right: 0,
+        top: content_pull_top,
+    };
+
+    // TODO remove dependency on GossipUi struct for this decision
+    let encryption_indicator = if let Page::Feed(FeedKind::DmChat(_)) = app.page {
+        // show an icon that shows the encryption standard
+        match note.encryption {
+            EncryptionType::None => Some(EncryptionIndicator {
+                color: egui::Color32::RED,
+                tooltip_ui: Box::new(|ui: &mut Ui| {
+                    ui.label("Error: Encyption in DM Channel should never be 'None'");
+                }),
+            }),
+            EncryptionType::Nip04 => Some(EncryptionIndicator {
+                color: app.theme.amber_400(),
+                tooltip_ui: Box::new(|ui: &mut Ui| {
+                    ui.label("NIP-04 encryption. It is recomended to upgrade [link to help page] to Giftwrap (NIP-44) encryption.");
+                }),
+            }),
+            EncryptionType::Giftwrap => None, // Giftwrap is the new good default, we won't show an indicator
+        }
+    } else {
+        None
+    };
+
+    let seen_location = if is_dm_feed {
+        Align2::RIGHT_BOTTOM
+    } else {
+        Align2::RIGHT_TOP
+    };
+
+    ui.vertical(|ui| {
+        // First row
+
+        let header_response = ui.with_layout(Layout::left_to_right(Align::TOP), |ui| {
+            ui.add_space(avatar_margin_left as f32);
+
+            // render avatar
             if is_dm_feed {
-                (
-                    AvatarSize::Mini,
-                    0,
-                    AVATAR_SIZE_REPOST as i8 + inner_margin.left + 5,
-                )
-            } else if parent_repost.is_none() {
-                match note.repost {
-                    None | Some(RepostType::CommentMention) => {
-                        (AvatarSize::Feed, 0, AVATAR_SIZE as i8 + inner_margin.left)
-                    }
-                    Some(_) => (
-                        AvatarSize::Mini,
-                        ((AVATAR_SIZE - AVATAR_SIZE_REPOST) / 2) as i8,
-                        AVATAR_SIZE as i8 + inner_margin.left,
-                    ),
-                }
+                if widgets::paint_avatar_only(ui, &avatar, avatar_size.get_size()).clicked() {
+                    app.set_page(ui.ctx(), Page::Person(note.author.pubkey));
+                };
             } else {
-                match parent_repost {
-                    None | Some(RepostType::CommentMention) => (
-                        AvatarSize::Mini,
-                        ((AVATAR_SIZE - AVATAR_SIZE_REPOST) / 2) as i8,
-                        AVATAR_SIZE as i8 + inner_margin.left,
-                    ),
-                    Some(_) => (AvatarSize::Feed, 0, AVATAR_SIZE as i8 + inner_margin.left),
-                }
-            };
-
-        let hide_footer = if render_data.hide_footer {
-            true
-        } else if parent_repost.is_none() {
-            match note.repost {
-                None | Some(RepostType::CommentMention) => false,
-                Some(_) => true,
+                if widgets::paint_avatar(ui, &note.author, &avatar, avatar_size).clicked() {
+                    app.set_page(ui.ctx(), Page::Person(note.author.pubkey));
+                };
             }
-        } else {
-            match parent_repost {
-                None | Some(RepostType::CommentMention) => true,
-                Some(_) => false,
-            }
-        };
 
-        let content_pull_top = if !render_data.hide_nameline {
-            inner_margin.top + ui.style().spacing.item_spacing.y as i8 * 4 - avatar_size.y() as i8
-        } else {
-            -avatar_size.y() as i8 - ui.style().spacing.item_spacing.y as i8 * 2
-        };
+            ui.add_space(avatar_margin_left as f32);
 
-        let content_margin_right = if render_data.hide_nameline {
-            CONTENT_MARGIN_RIGHT
-        } else {
-            0
-        };
-        let footer_margin_left = content_margin_left;
+            ui.add_space(3.0);
 
-        let content_inner_margin = Margin {
-            left: content_margin_left,
-            right: content_margin_right,
-            top: 0,
-            bottom: 0,
-        };
+            if !render_data.hide_nameline {
+                GossipUi::render_person_name_line(app, ui, &note.author, false, false);
 
-        let content_outer_margin = Margin {
-            left: 0,
-            bottom: 0,
-            right: 0,
-            top: content_pull_top,
-        };
+                ui.horizontal_wrapped(|ui| {
+                    match note.event.replies_to() {
+                        Some(EventReference::Id { id: irt, .. }) => {
+                            let muted =
+                                if let Some(note_ref) = app.notecache.try_update_and_get(&irt) {
+                                    if let Ok(note_data) = note_ref.try_borrow() {
+                                        note_data.muted()
+                                    } else {
+                                        false
+                                    }
+                                } else {
+                                    false
+                                };
 
-        // TODO remove dependency on GossipUi struct for this decision
-        let encryption_indicator = if let Page::Feed(FeedKind::DmChat(_)) = app.page {
-            // show an icon that shows the encryption standard
-            match note.encryption {
-                EncryptionType::None => Some(EncryptionIndicator {
-                    color: egui::Color32::RED,
-                    tooltip_ui: Box::new(|ui: &mut Ui| {
-                        ui.label("Error: Encyption in DM Channel should never be 'None'");
-                    }),
-                }),
-                EncryptionType::Nip04 => Some(EncryptionIndicator {
-                    color: app.theme.amber_400(),
-                    tooltip_ui: Box::new(|ui: &mut Ui| {
-                        ui.label("NIP-04 encryption. It is recomended to upgrade [link to help page] to Giftwrap (NIP-44) encryption.");
-                    }),
-                }),
-                EncryptionType::Giftwrap => None, // Giftwrap is the new good default, we won't show an indicator
-            }
-        } else {
-            None
-        };
-
-        let seen_location = if is_dm_feed {
-            Align2::RIGHT_BOTTOM
-        } else {
-            Align2::RIGHT_TOP
-        };
-
-        ui.vertical(|ui| {
-            // First row
-
-            let header_response = ui.with_layout(Layout::left_to_right(Align::TOP), |ui| {
-                ui.add_space(avatar_margin_left as f32);
-
-                // render avatar
-                if is_dm_feed {
-                    if widgets::paint_avatar_only(ui, &avatar, avatar_size.get_size()).clicked() {
-                        app.set_page(ui.ctx(), Page::Person(note.author.pubkey));
-                    };
-                } else {
-                    if widgets::paint_avatar(ui, &note.author, &avatar, avatar_size).clicked() {
-                        app.set_page(ui.ctx(), Page::Person(note.author.pubkey));
-                    };
-                }
-
-                ui.add_space(avatar_margin_left as f32);
-
-                ui.add_space(3.0);
-
-                if !render_data.hide_nameline {
-                    GossipUi::render_person_name_line(app, ui, &note.author, false, false);
-
-                    ui.horizontal_wrapped(|ui| {
-                        match note.event.replies_to() {
-                            Some(EventReference::Id { id: irt, .. }) => {
+                            ui.add_space(8.0);
+                            ui.style_mut().override_text_style = Some(TextStyle::Small);
+                            let idhex: IdHex = irt.into();
+                            if muted {
+                                let name = "▲ (parent is muted)".to_string();
+                                let _ = ui.link(&name);
+                            } else {
+                                let name =
+                                    format!("▲ #{}", gossip_lib::names::hex_id_short(&idhex));
+                                if ui.link(&name).clicked() {
+                                    app.set_page(
+                                        ui.ctx(),
+                                        Page::Feed(FeedKind::Thread {
+                                            id: irt,
+                                            referenced_by: note.event.id,
+                                            author: Some(note.event.pubkey),
+                                        }),
+                                    );
+                                };
+                            }
+                            ui.reset_style();
+                        }
+                        Some(EventReference::Addr(ea)) => {
+                            // Link to this parent only if we can get that event
+                            if let Ok(Some(e)) = GLOBALS
+                                .db()
+                                .get_replaceable_event(ea.kind, ea.author, &ea.d)
+                            {
                                 let muted = if let Some(note_ref) =
-                                    app.notecache.try_update_and_get(&irt)
+                                    app.notecache.try_update_and_get(&e.id)
                                 {
                                     if let Ok(note_data) = note_ref.try_borrow() {
                                         note_data.muted()
@@ -442,7 +487,7 @@ pub fn render_note_inside_framing(
 
                                 ui.add_space(8.0);
                                 ui.style_mut().override_text_style = Some(TextStyle::Small);
-                                let idhex: IdHex = irt.into();
+                                let idhex: IdHex = e.id.into();
                                 if muted {
                                     let name = "▲ (parent is muted)".to_string();
                                     let _ = ui.link(&name);
@@ -453,7 +498,7 @@ pub fn render_note_inside_framing(
                                         app.set_page(
                                             ui.ctx(),
                                             Page::Feed(FeedKind::Thread {
-                                                id: irt,
+                                                id: e.id,
                                                 referenced_by: note.event.id,
                                                 author: Some(note.event.pubkey),
                                             }),
@@ -462,762 +507,699 @@ pub fn render_note_inside_framing(
                                 }
                                 ui.reset_style();
                             }
-                            Some(EventReference::Addr(ea)) => {
-                                // Link to this parent only if we can get that event
-                                if let Ok(Some(e)) = GLOBALS
-                                    .db()
-                                    .get_replaceable_event(ea.kind, ea.author, &ea.d)
-                                {
-                                    let muted = if let Some(note_ref) =
-                                        app.notecache.try_update_and_get(&e.id)
-                                    {
-                                        if let Ok(note_data) = note_ref.try_borrow() {
-                                            note_data.muted()
-                                        } else {
-                                            false
-                                        }
-                                    } else {
-                                        false
-                                    };
-
-                                    ui.add_space(8.0);
-                                    ui.style_mut().override_text_style = Some(TextStyle::Small);
-                                    let idhex: IdHex = e.id.into();
-                                    if muted {
-                                        let name = "▲ (parent is muted)".to_string();
-                                        let _ = ui.link(&name);
-                                    } else {
-                                        let name = format!(
-                                            "▲ #{}",
-                                            gossip_lib::names::hex_id_short(&idhex)
-                                        );
-                                        if ui.link(&name).clicked() {
-                                            app.set_page(
-                                                ui.ctx(),
-                                                Page::Feed(FeedKind::Thread {
-                                                    id: e.id,
-                                                    referenced_by: note.event.id,
-                                                    author: Some(note.event.pubkey),
-                                                }),
-                                            );
-                                        };
-                                    }
-                                    ui.reset_style();
-                                }
-                            }
-                            None => (),
                         }
+                        None => (),
+                    }
 
-                        ui.add_space(8.0);
+                    ui.add_space(8.0);
 
-                        if note.event.pow() > 0 {
+                    if note.event.pow() > 0 {
+                        let color = app.theme.notice_marker_text_color();
+                        ui.label(
+                            RichText::new(format!("POW={}", note.event.pow()))
+                                .color(color)
+                                .text_style(TextStyle::Small),
+                        );
+                    }
+
+                    match &note.delegation {
+                        EventDelegation::InvalidDelegation(why) => {
+                            let color = app.theme.warning_marker_text_color();
+                            ui.add(Label::new(
+                                RichText::new("INVALID DELEGATION")
+                                    .color(color)
+                                    .text_style(TextStyle::Small),
+                            ))
+                            .on_hover_text(why);
+                        }
+                        EventDelegation::DelegatedBy(_) => {
                             let color = app.theme.notice_marker_text_color();
                             ui.label(
-                                RichText::new(format!("POW={}", note.event.pow()))
+                                RichText::new("DELEGATED")
                                     .color(color)
                                     .text_style(TextStyle::Small),
                             );
                         }
+                        _ => {}
+                    }
 
-                        match &note.delegation {
-                            EventDelegation::InvalidDelegation(why) => {
-                                let color = app.theme.warning_marker_text_color();
-                                ui.add(Label::new(
-                                    RichText::new("INVALID DELEGATION")
+                    if !note.deletions.is_empty() {
+                        let color = app.theme.warning_marker_text_color();
+                        ui.label(
+                            RichText::new("DELETED")
+                                .color(color)
+                                .text_style(TextStyle::Small),
+                        );
+                    }
+
+                    if note.repost.is_some() {
+                        let color = app.theme.notice_marker_text_color();
+                        ui.label(
+                            RichText::new("REPOSTED")
+                                .color(color)
+                                .text_style(TextStyle::Small),
+                        );
+                    }
+
+                    if let Page::Feed(FeedKind::DmChat(_)) = app.page {
+                        // in dm_channel view, highlight the encryption standard
+                        // this will be done later in this function
+                    } else {
+                        // in the other feeds, show a text that describes the message type
+                        // we will not show the content itself in other feeds
+                        if note.event.kind.is_direct_message_related() {
+                            let color = app.theme.notice_marker_text_color();
+                            if note.encryption == EncryptionType::Giftwrap {
+                                ui.label(
+                                    RichText::new("PRIVATE CHAT (GIFT WRAPPED)")
                                         .color(color)
                                         .text_style(TextStyle::Small),
-                                ))
-                                .on_hover_text(why);
-                            }
-                            EventDelegation::DelegatedBy(_) => {
-                                let color = app.theme.notice_marker_text_color();
+                                );
+                            } else {
                                 ui.label(
-                                    RichText::new("DELEGATED")
+                                    RichText::new("PRIVATE CHAT")
                                         .color(color)
                                         .text_style(TextStyle::Small),
                                 );
                             }
-                            _ => {}
                         }
+                    }
 
-                        if !note.deletions.is_empty() {
-                            let color = app.theme.warning_marker_text_color();
-                            ui.label(
-                                RichText::new("DELETED")
-                                    .color(color)
-                                    .text_style(TextStyle::Small),
-                            );
-                        }
+                    if let Some(itag) = &note.itag {
+                        let color = app.theme.notice_marker_text_color();
+                        ui.label(
+                            RichText::new(format!("Comments on: {itag}"))
+                                .color(color)
+                                .text_style(TextStyle::Small),
+                        );
+                    }
+                });
+            }
 
-                        if note.repost.is_some() {
-                            let color = app.theme.notice_marker_text_color();
-                            ui.label(
-                                RichText::new("REPOSTED")
-                                    .color(color)
-                                    .text_style(TextStyle::Small),
-                            );
-                        }
+            let mut next_page = None;
+            ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
+                // show "more actions" menu
+                note_actions(app, ui, &note, render_data);
 
-                        if let Page::Feed(FeedKind::DmChat(_)) = app.page {
-                            // in dm_channel view, highlight the encryption standard
-                            // this will be done later in this function
-                        } else {
-                            // in the other feeds, show a text that describes the message type
-                            // we will not show the content itself in other feeds
-                            if note.event.kind.is_direct_message_related() {
-                                let color = app.theme.notice_marker_text_color();
-                                if note.encryption == EncryptionType::Giftwrap {
-                                    ui.label(
-                                        RichText::new("PRIVATE CHAT (GIFT WRAPPED)")
-                                            .color(color)
-                                            .text_style(TextStyle::Small),
-                                    );
-                                } else {
-                                    ui.label(
-                                        RichText::new("PRIVATE CHAT")
-                                            .color(color)
-                                            .text_style(TextStyle::Small),
-                                    );
-                                }
-                            }
-                        }
+                ui.add_space(4.0);
 
-                        if let Some(itag) = &note.itag {
-                            let color = app.theme.notice_marker_text_color();
-                            ui.label(
-                                RichText::new(format!("Comments on: {itag}"))
-                                    .color(color)
-                                    .text_style(TextStyle::Small),
-                            );
-                        }
-                    });
-                }
+                let is_thread_view: bool = {
+                    let feed_kind = GLOBALS.feed.get_feed_kind();
+                    matches!(feed_kind, FeedKind::Thread { .. })
+                };
 
-                let mut next_page = None;
-                ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
-                    // show "more actions" menu
-                    note_actions(app, ui, &note, render_data);
-
-                    ui.add_space(4.0);
-
-                    let is_thread_view: bool = {
-                        let feed_kind = GLOBALS.feed.get_feed_kind();
-                        matches!(feed_kind, FeedKind::Thread { .. })
-                    };
-
-                    if is_thread_view && note.event.replies_to().is_some() {
-                        if collapsed {
-                            let color = app.theme.warning_marker_text_color();
-                            if Button::secondary(
-                                &app.theme,
-                                RichText::new("▼").size(13.0).color(color),
-                            )
+                if is_thread_view && note.event.replies_to().is_some() {
+                    if collapsed {
+                        let color = app.theme.warning_marker_text_color();
+                        if Button::secondary(&app.theme, RichText::new("▼").size(13.0).color(color))
                             .small(true)
                             .show(ui)
                             .on_hover_text("Expand thread")
                             .clicked()
-                            {
-                                app.collapsed.retain(|&id| id != note.event.id);
-                            }
-                        } else {
-                            if Button::secondary(&app.theme, RichText::new("△").size(13.0))
-                                .small(true)
-                                .show(ui)
-                                .on_hover_text("Collapse thread")
-                                .clicked()
-                            {
-                                app.collapsed.push(note.event.id);
-                            }
+                        {
+                            app.collapsed.retain(|&id| id != note.event.id);
                         }
-                        ui.add_space(4.0);
-                    }
-
-                    if !render_data.is_main_event && render_data.can_load_thread {
-                        if Button::secondary(&app.theme, RichText::new("◉").size(13.0))
+                    } else {
+                        if Button::secondary(&app.theme, RichText::new("△").size(13.0))
                             .small(true)
                             .show(ui)
-                            .on_hover_text("View Thread")
+                            .on_hover_text("Collapse thread")
                             .clicked()
                         {
-                            if note.event.kind.is_direct_message_related() {
-                                let option = GLOBALS.runtime.block_on(async {
-                                    DmChannel::from_event(&note.event, None).await
-                                });
-                                if let Some(channel) = option {
-                                    next_page = Some(Page::Feed(FeedKind::DmChat(channel)));
-                                } else {
-                                    GLOBALS.status_queue.write().write(
-                                        "Could not determine DM channel for that note.".to_string(),
-                                    );
-                                }
-                            } else {
-                                next_page = Some(Page::Feed(FeedKind::Thread {
-                                    id: note.event.id,
-                                    referenced_by: note.event.id,
-                                    author: Some(note.event.pubkey),
-                                }));
-                            }
+                            app.collapsed.push(note.event.id);
                         }
                     }
-
                     ui.add_space(4.0);
+                }
 
-                    if seen_location == Align2::RIGHT_TOP {
-                        draw_seen_on(app, ui, &note);
+                if !render_data.is_main_event && render_data.can_load_thread {
+                    if Button::secondary(&app.theme, RichText::new("◉").size(13.0))
+                        .small(true)
+                        .show(ui)
+                        .on_hover_text("View Thread")
+                        .clicked()
+                    {
+                        if note.event.kind.is_direct_message_related() {
+                            let option = GLOBALS
+                                .runtime
+                                .block_on(async { DmChannel::from_event(&note.event, None).await });
+                            if let Some(channel) = option {
+                                next_page = Some(Page::Feed(FeedKind::DmChat(channel)));
+                            } else {
+                                GLOBALS.status_queue.write().write(
+                                    "Could not determine DM channel for that note.".to_string(),
+                                );
+                            }
+                        } else {
+                            next_page = Some(Page::Feed(FeedKind::Thread {
+                                id: note.event.id,
+                                referenced_by: note.event.id,
+                                author: Some(note.event.pubkey),
+                            }));
+                        }
                     }
-                });
+                }
 
-                if let Some(next_page) = next_page {
-                    app.set_page(ui.ctx(), next_page);
+                ui.add_space(4.0);
+
+                if seen_location == Align2::RIGHT_TOP {
+                    draw_seen_on(app, ui, &note);
                 }
             });
 
-            ui.add_space(2.0);
+            if let Some(next_page) = next_page {
+                app.set_page(ui.ctx(), next_page);
+            }
+        });
 
-            // MAIN CONTENT
-            if !collapsed {
-                render_note_between_header_and_footer(
-                    app,
-                    ui,
-                    note_ref.clone(),
-                    !note.deletions.is_empty(),
-                    content_inner_margin,
-                    content_outer_margin,
-                );
+        ui.add_space(2.0);
 
-                // annotations
-                for (created_at, content) in note.annotations.iter() {
-                    ui.label(
-                        RichText::new(crate::date_ago::date_ago(*created_at))
-                            .italics()
-                            .weak(),
-                    )
-                    .on_hover_ui(|ui| {
-                        if let Ok(stamp) = time::OffsetDateTime::from_unix_timestamp(created_at.0) {
-                            if let Ok(formatted) =
-                                stamp.format(&time::format_description::well_known::Rfc2822)
-                            {
-                                ui.label(formatted);
-                            }
+        // MAIN CONTENT
+        if !collapsed {
+            render_note_between_header_and_footer(
+                app,
+                ui,
+                note_ref.clone(),
+                !note.deletions.is_empty(),
+                content_inner_margin,
+                content_outer_margin,
+            );
+
+            // annotations
+            for (created_at, content) in note.annotations.iter() {
+                ui.label(
+                    RichText::new(crate::date_ago::date_ago(*created_at))
+                        .italics()
+                        .weak(),
+                )
+                .on_hover_ui(|ui| {
+                    if let Ok(stamp) = time::OffsetDateTime::from_unix_timestamp(created_at.0) {
+                        if let Ok(formatted) =
+                            stamp.format(&time::format_description::well_known::Rfc2822)
+                        {
+                            ui.label(formatted);
                         }
-                    });
+                    }
+                });
 
-                    ui.label(format!("EDIT: {}", content));
-                }
+                ui.label(format!("EDIT: {}", content));
+            }
 
-                // deleted?
-                for delete_reason in &note.deletions {
-                    Frame::NONE
-                        .inner_margin(Margin {
-                            left: footer_margin_left,
-                            bottom: 0,
-                            right: 0,
-                            top: 8,
-                        })
-                        .show(ui, |ui| {
-                            ui.label(
-                                RichText::new(format!("Deletion Reason: {}", delete_reason))
-                                    .italics(),
-                            );
-                        });
-                }
-
-                // proxied?
-                if let Some((proxy, id)) = note.event.proxy() {
-                    Frame::NONE
-                        .inner_margin(Margin {
-                            left: footer_margin_left,
-                            bottom: 0,
-                            right: 0,
-                            top: 8,
-                        })
-                        .show(ui, |ui| {
-                            let color = app.theme.accent_complementary_color();
-                            ui.horizontal_wrapped(|ui| {
-                                ui.add(Label::new(
-                                    RichText::new(format!("proxied from {}: ", proxy)).color(color),
-                                ));
-                                crate::ui::widgets::break_anywhere_hyperlink_to(ui, app, &id, &id);
-                            });
-                        });
-                }
-
-                // Footer
-                if !hide_footer {
-                    let ft_inner_margin = Margin {
+            // deleted?
+            for delete_reason in &note.deletions {
+                Frame::NONE
+                    .inner_margin(Margin {
                         left: footer_margin_left,
                         bottom: 0,
                         right: 0,
                         top: 8,
-                    };
-                    let footer_response = Frame::NONE
-                        .inner_margin(ft_inner_margin)
-                        .outer_margin(Margin {
-                            left: 0,
-                            bottom: 0,
-                            right: 0,
-                            top: 0,
-                        })
-                        .show(ui, |ui| {
-                            ui.set_max_width(header_response.response.rect.width());
+                    })
+                    .show(ui, |ui| {
+                        ui.label(
+                            RichText::new(format!("Deletion Reason: {}", delete_reason)).italics(),
+                        );
+                    });
+            }
 
-                            if GLOBALS.delayed_posts.contains(&note.event.id) {
-                                ui.add_space(6.0);
-                                if Button::bordered(&app.theme, "Undo Send")
-                                    .show(ui)
+            // proxied?
+            if let Some((proxy, id)) = note.event.proxy() {
+                Frame::NONE
+                    .inner_margin(Margin {
+                        left: footer_margin_left,
+                        bottom: 0,
+                        right: 0,
+                        top: 8,
+                    })
+                    .show(ui, |ui| {
+                        let color = app.theme.accent_complementary_color();
+                        ui.horizontal_wrapped(|ui| {
+                            ui.add(Label::new(
+                                RichText::new(format!("proxied from {}: ", proxy)).color(color),
+                            ));
+                            crate::ui::widgets::break_anywhere_hyperlink_to(ui, app, &id, &id);
+                        });
+                    });
+            }
+
+            // Footer
+            if !hide_footer {
+                let ft_inner_margin = Margin {
+                    left: footer_margin_left,
+                    bottom: 0,
+                    right: 0,
+                    top: 8,
+                };
+                let footer_response = Frame::NONE
+                    .inner_margin(ft_inner_margin)
+                    .outer_margin(Margin {
+                        left: 0,
+                        bottom: 0,
+                        right: 0,
+                        top: 0,
+                    })
+                    .show(ui, |ui| {
+                        ui.set_max_width(header_response.response.rect.width());
+
+                        if GLOBALS.delayed_posts.contains(&note.event.id) {
+                            ui.add_space(6.0);
+                            if Button::bordered(&app.theme, "Undo Send").show(ui).clicked() {
+                                let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PostCancel);
+
+                                // Create a draft with it again
+                                app.draft_data = app.previous_draft_data.clone();
+                                app.show_post_area = true;
+                                app.draft_needs_focus = true;
+                            }
+                            ui.add_space(6.0);
+                        } else {
+                            ui.horizontal_wrapped(|ui| {
+                                let can_sign = GLOBALS.identity.is_unlocked();
+
+                                // Button to reply
+                                if note.event.kind.is_direct_message_related() {
+                                    if widgets::clickable_label(
+                                        ui,
+                                        can_sign,
+                                        RichText::new("⏎").size(18.0),
+                                    )
+                                    .on_hover_text("Reply")
                                     .clicked()
+                                    {
+                                        let option = GLOBALS.runtime.block_on(async {
+                                            DmChannel::from_event(&note.event, None).await
+                                        });
+                                        if let Some(channel) = option {
+                                            app.draft_needs_focus = true;
+                                            app.show_post_area = true;
+
+                                            app.set_page(
+                                                ui.ctx(),
+                                                Page::Feed(FeedKind::DmChat(channel.clone())),
+                                            );
+                                        }
+                                        // FIXME: else error
+                                    }
+                                } else {
+                                    if widgets::clickable_label(
+                                        ui,
+                                        can_sign,
+                                        RichText::new("💬").size(18.0),
+                                    )
+                                    .on_hover_text("Reply")
+                                    .clicked()
+                                    {
+                                        app.draft_needs_focus = true;
+                                        app.show_post_area = true;
+
+                                        app.draft_data.replying_to = Some(note.event.id);
+                                        if let Some(subject) = note.event.subject() {
+                                            let mut subject = subject.to_owned();
+                                            if !subject.starts_with("Re: ") {
+                                                subject = format!("Re: {}", subject);
+                                            }
+                                            subject = subject.chars().take(80).collect();
+                                            app.draft_data.subject = subject;
+                                            app.draft_data.include_subject = true;
+                                        }
+                                    }
+                                };
+
+                                ui.add_space(24.0);
+
+                                if note.event.kind != EventKind::EncryptedDirectMessage
+                                    && note.event.kind != EventKind::DmChat
                                 {
-                                    let _ = GLOBALS.to_overlord.send(ToOverlordMessage::PostCancel);
+                                    // Button to Repost
+                                    if widgets::clickable_label(
+                                        ui,
+                                        can_sign,
+                                        RichText::new("↻").size(18.0),
+                                    )
+                                    .on_hover_text("Repost")
+                                    .clicked()
+                                    {
+                                        app.show_post_area = true;
+                                        app.draft_data.repost = Some(note.event.id);
+                                        app.draft_data.replying_to = None;
+                                    }
 
-                                    // Create a draft with it again
-                                    app.draft_data = app.previous_draft_data.clone();
-                                    app.show_post_area = true;
-                                    app.draft_needs_focus = true;
+                                    ui.add_space(24.0);
+
+                                    // Button to quote note
+                                    if widgets::clickable_label(
+                                        ui,
+                                        can_sign,
+                                        RichText::new("“…”").size(18.0),
+                                    )
+                                    .on_hover_text("Quote")
+                                    .clicked()
+                                    {
+                                        let relays: IndexSet<UncheckedUrl> = note
+                                            .seen_on
+                                            .keys()
+                                            .map(|url| url.to_unchecked_url())
+                                            .take(3)
+                                            .collect();
+
+                                        if !app.draft_data.draft.ends_with(' ')
+                                            && !app.draft_data.draft.is_empty()
+                                        {
+                                            app.draft_data.draft.push(' ');
+                                        }
+                                        let nostr_url: NostrUrl =
+                                            if note.event.kind.is_replaceable() {
+                                                let param = match note.event.parameter() {
+                                                    Some(p) => p,
+                                                    None => "".to_owned(),
+                                                };
+                                                let naddr = NAddr {
+                                                    d: param,
+                                                    relays: relays.clone(),
+                                                    kind: note.event.kind,
+                                                    author: note.event.pubkey,
+                                                };
+                                                naddr.into()
+                                            } else {
+                                                let nevent = NEvent {
+                                                    id: note.event.id,
+                                                    relays: relays.clone(),
+                                                    author: None,
+                                                    kind: None,
+                                                };
+                                                nevent.into()
+                                            };
+                                        app.draft_data.draft.push_str(&format!("{}", nostr_url));
+                                        app.draft_data.repost = None;
+                                        app.draft_data.replying_to = None;
+                                        app.show_post_area = true;
+                                        app.draft_needs_focus = true;
+                                    }
+
+                                    ui.add_space(24.0);
                                 }
-                                ui.add_space(6.0);
-                            } else {
-                                ui.horizontal_wrapped(|ui| {
-                                    let can_sign = GLOBALS.identity.is_unlocked();
 
-                                    // Button to reply
-                                    if note.event.kind.is_direct_message_related() {
+                                if read_setting!(enable_zap_receipts) && !note.muted() {
+                                    // To zap, the user must have a lnurl, and the event must have been
+                                    // seen on some relays
+                                    let mut zap_lnurl: Option<String> = None;
+                                    if let Some(ref metadata) = note.author.metadata() {
+                                        if let Some(lnurl) = metadata.lnurl() {
+                                            zap_lnurl = Some(lnurl);
+                                        }
+                                    }
+
+                                    if let Some(lnurl) = zap_lnurl {
                                         if widgets::clickable_label(
                                             ui,
                                             can_sign,
-                                            RichText::new("⏎").size(18.0),
+                                            RichText::new("⚡").size(18.0),
                                         )
-                                        .on_hover_text("Reply")
+                                        .on_hover_text("ZAP")
                                         .clicked()
                                         {
-                                            let option = GLOBALS.runtime.block_on(async {
-                                                DmChannel::from_event(&note.event, None).await
-                                            });
-                                            if let Some(channel) = option {
-                                                app.draft_needs_focus = true;
-                                                app.show_post_area = true;
-
-                                                app.set_page(
-                                                    ui.ctx(),
-                                                    Page::Feed(FeedKind::DmChat(channel.clone())),
+                                            if GLOBALS.identity.is_unlocked() {
+                                                let _ = GLOBALS.to_overlord.send(
+                                                    ToOverlordMessage::ZapStart(
+                                                        note.event.id,
+                                                        note.event.pubkey,
+                                                        UncheckedUrl(lnurl),
+                                                    ),
                                                 );
+                                            } else {
+                                                GLOBALS
+                                                    .status_queue
+                                                    .write()
+                                                    .write("Your key is not setup.".to_string());
                                             }
-                                            // FIXME: else error
                                         }
                                     } else {
-                                        if widgets::clickable_label(
+                                        widgets::clickable_label(
                                             ui,
-                                            can_sign,
-                                            RichText::new("💬").size(18.0),
+                                            false,
+                                            RichText::new("⚡").size(18.0),
                                         )
-                                        .on_hover_text("Reply")
-                                        .clicked()
-                                        {
-                                            app.draft_needs_focus = true;
-                                            app.show_post_area = true;
-
-                                            app.draft_data.replying_to = Some(note.event.id);
-                                            if let Some(subject) = note.event.subject() {
-                                                let mut subject = subject.to_owned();
-                                                if !subject.starts_with("Re: ") {
-                                                    subject = format!("Re: {}", subject);
-                                                }
-                                                subject = subject.chars().take(80).collect();
-                                                app.draft_data.subject = subject;
-                                                app.draft_data.include_subject = true;
-                                            }
-                                        }
-                                    };
-
-                                    ui.add_space(24.0);
-
-                                    if note.event.kind != EventKind::EncryptedDirectMessage
-                                        && note.event.kind != EventKind::DmChat
-                                    {
-                                        // Button to Repost
-                                        if widgets::clickable_label(
-                                            ui,
-                                            can_sign,
-                                            RichText::new("↻").size(18.0),
-                                        )
-                                        .on_hover_text("Repost")
-                                        .clicked()
-                                        {
-                                            app.show_post_area = true;
-                                            app.draft_data.repost = Some(note.event.id);
-                                            app.draft_data.replying_to = None;
-                                        }
-
-                                        ui.add_space(24.0);
-
-                                        // Button to quote note
-                                        if widgets::clickable_label(
-                                            ui,
-                                            can_sign,
-                                            RichText::new("“…”").size(18.0),
-                                        )
-                                        .on_hover_text("Quote")
-                                        .clicked()
-                                        {
-                                            let relays: IndexSet<UncheckedUrl> = note
-                                                .seen_on
-                                                .keys()
-                                                .map(|url| url.to_unchecked_url())
-                                                .take(3)
-                                                .collect();
-
-                                            if !app.draft_data.draft.ends_with(' ')
-                                                && !app.draft_data.draft.is_empty()
-                                            {
-                                                app.draft_data.draft.push(' ');
-                                            }
-                                            let nostr_url: NostrUrl =
-                                                if note.event.kind.is_replaceable() {
-                                                    let param = match note.event.parameter() {
-                                                        Some(p) => p,
-                                                        None => "".to_owned(),
-                                                    };
-                                                    let naddr = NAddr {
-                                                        d: param,
-                                                        relays: relays.clone(),
-                                                        kind: note.event.kind,
-                                                        author: note.event.pubkey,
-                                                    };
-                                                    naddr.into()
-                                                } else {
-                                                    let nevent = NEvent {
-                                                        id: note.event.id,
-                                                        relays: relays.clone(),
-                                                        author: None,
-                                                        kind: None,
-                                                    };
-                                                    nevent.into()
-                                                };
-                                            app.draft_data.draft.push_str(&format!("{}", nostr_url));
-                                            app.draft_data.repost = None;
-                                            app.draft_data.replying_to = None;
-                                            app.show_post_area = true;
-                                            app.draft_needs_focus = true;
-                                        }
-
-                                        ui.add_space(24.0);
+                                        .on_disabled_hover_text("Note is not zappable (no lnurl)");
                                     }
 
-                                    if read_setting!(enable_zap_receipts) && !note.muted() {
-                                        // To zap, the user must have a lnurl, and the event must have been
-                                        // seen on some relays
-                                        let mut zap_lnurl: Option<String> = None;
-                                        if let Some(ref metadata) = note.author.metadata() {
-                                            if let Some(lnurl) = metadata.lnurl() {
-                                                zap_lnurl = Some(lnurl);
-                                            }
-                                        }
-
-                                        if let Some(lnurl) = zap_lnurl {
-                                            if widgets::clickable_label(
-                                                ui,
-                                                can_sign,
-                                                RichText::new("⚡").size(18.0),
-                                            )
-                                            .on_hover_text("ZAP")
+                                    // Show the zap total
+                                    let zt = note.zaptotal.0 / 1000;
+                                    if zt > 0
+                                        && ui
+                                            .add(Label::new(zt.to_string()))
+                                            .on_hover_cursor(egui::CursorIcon::PointingHand)
                                             .clicked()
-                                            {
-                                                if GLOBALS.identity.is_unlocked() {
-                                                    let _ = GLOBALS.to_overlord.send(
-                                                        ToOverlordMessage::ZapStart(
-                                                            note.event.id,
-                                                            note.event.pubkey,
-                                                            UncheckedUrl(lnurl),
-                                                        ),
-                                                    );
-                                                } else {
-                                                    GLOBALS
-                                                        .status_queue
-                                                        .write()
-                                                        .write("Your key is not setup.".to_string());
-                                                }
+                                    {
+                                        match app.note_showing_zaps {
+                                            Some(id2) if note.event.id == id2 => {
+                                                app.note_showing_zaps = None
                                             }
-                                        } else {
-                                            widgets::clickable_label(
-                                                ui,
-                                                false,
-                                                RichText::new("⚡").size(18.0),
-                                            )
-                                            .on_disabled_hover_text("Note is not zappable (no lnurl)");
-                                        }
-
-                                        // Show the zap total
-                                        let zt = note.zaptotal.0 / 1000;
-                                        if zt > 0
-                                            && ui
-                                                .add(Label::new(zt.to_string()))
-                                                .on_hover_cursor(egui::CursorIcon::PointingHand)
-                                                .clicked()
-                                        {
-                                            match app.note_showing_zaps {
-                                                Some(id2) if note.event.id == id2 => {
-                                                    app.note_showing_zaps = None
-                                                }
-                                                _ => app.note_showing_zaps = Some(note.event.id),
-                                            }
+                                            _ => app.note_showing_zaps = Some(note.event.id),
                                         }
                                     }
-
-                                    ui.add_space(24.0);
-
-                                    // Buttons to react and reaction counts
-                                    if read_setting!(reactions) && !note.muted() {
-                                        if let Some(reaction) = note.reactions.our_reaction {
-                                            ui.label(RichText::new(reaction).size(16.0));
-                                        } else if can_sign {
-                                            let bar_id = ui.id().with(format!(
-                                                "emoji_picker_{}",
-                                                note.event.id.as_hex_string()
-                                            ));
-                                            let mut bar_state =
-                                                egui::menu::BarState::load(ui.ctx(), bar_id);
-
-                                            let button_response = ui
-                                                .add(
-                                                    Label::new(RichText::new('♡').size(20.0))
-                                                        .selectable(false)
-                                                        .sense(Sense::click()),
-                                                )
-                                                .on_hover_cursor(egui::CursorIcon::PointingHand);
-
-                                            bar_state.bar_menu(&button_response, |ui| {
-                                                if let Some(emoji) = crate::ui::emojis::emoji_picker(ui)
-                                                {
-                                                    let _ = GLOBALS.to_overlord.send(
-                                                        ToOverlordMessage::React(
-                                                            note.event.id,
-                                                            note.event.pubkey,
-                                                            emoji,
-                                                        ),
-                                                    );
-                                                }
-                                                if app.is_scrolling() {
-                                                    ui.close_menu();
-                                                }
-                                            });
-                                            bar_state.store(ui.ctx(), bar_id);
-                                        } else {
-                                            ui.label(RichText::new('♡').size(20.0));
-                                        }
-
-                                        let hover_ui = |ui: &mut Ui| {
-                                            ui.horizontal_wrapped(|ui| {
-                                                let mut col = 0;
-                                                for (ch, count) in &note.reactions.total {
-                                                    if *ch != '+' {
-                                                        egui::Frame::NONE
-                                                            .inner_margin(egui::Margin::from(
-                                                                ui.spacing().item_spacing,
-                                                            ))
-                                                            .show(ui, |ui| {
-                                                                ui.add_enabled(
-                                                                    can_sign,
-                                                                    egui::Label::new(
-                                                                        RichText::new(format!(
-                                                                            "{ch} {count}"
-                                                                        ))
-                                                                        .weak(),
-                                                                    ),
-                                                                )
-                                                                .on_hover_cursor(
-                                                                    egui::CursorIcon::Default,
-                                                                );
-                                                            });
-                                                    }
-
-                                                    col = col.add(1);
-                                                    if col > 5 {
-                                                        ui.end_row();
-                                                        col = 0;
-                                                    }
-                                                }
-                                            });
-                                        };
-                                        let like_count = note
-                                            .reactions
-                                            .total
-                                            .iter()
-                                            .find_map(
-                                                |(ch, count)| {
-                                                    if *ch == '+' {
-                                                        Some(*count)
-                                                    } else {
-                                                        None
-                                                    }
-                                                },
-                                            )
-                                            .unwrap_or_default();
-
-                                        let reaction_count: usize = note
-                                            .reactions
-                                            .total
-                                            .iter()
-                                            .filter_map(|(c, s)| if *c == '+' { None } else { Some(s) })
-                                            .sum();
-
-                                        if reaction_count > 0 {
-                                            ui.add(
-                                                Label::new(format!("{like_count}+{reaction_count}"))
-                                                    .sense(Sense::hover()),
-                                            )
-                                            .on_hover_ui(hover_ui)
-                                            .on_disabled_hover_ui(hover_ui);
-
-                                            if read_setting!(show_reactions_list) {
-                                                ui.with_layout(
-                                                    Layout::left_to_right(Align::Center)
-                                                        .with_main_wrap(true),
-                                                    |ui| {
-                                                        const S: f32 = 6.0;
-                                                        ui.spacing_mut().item_spacing =
-                                                            egui::vec2(0.0, S);
-                                                        for (pubkey, reaction) in &note.reactions.list {
-                                                            ui.allocate_ui(
-                                                                egui::vec2(250.0, 20.0), // @TODO estimated
-                                                                |ui| {
-                                                                    ui.separator();
-                                                                    ui.add_space(S);
-                                                                    GossipUi::render_person_name_line(
-                                                                        app,
-                                                                        ui,
-                                                                        &match PersonTable::read_record(
-                                                                            *pubkey, None,
-                                                                        ) {
-                                                                            Ok(Some(p)) => p,
-                                                                            _ => Person::new(*pubkey),
-                                                                        },
-                                                                        false,
-                                                                        true,
-                                                                    );
-                                                                    ui.add_space(S);
-                                                                    ui.add(Label::new(
-                                                                        reaction.to_string(),
-                                                                    ));
-                                                                    ui.add_space(S);
-                                                                },
-                                                            );
-                                                        }
-                                                    },
-                                                );
-                                            } // @TODO implement zappers list here (see few lines below)
-                                        }
-                                    }
-                                });
-
-                                // Below the note who-zapped expose @TODO maybe deprecated (reactions moved inline)
-                                if app.note_showing_zaps == Some(note.event.id) {
-                                    ui.add_space(10.0);
-                                    ui.horizontal_wrapped(|ui| {
-                                        if let Ok(mut data) = GLOBALS.db().get_zap_data(note.event.id) {
-                                            ui.label("Zappers: ");
-                                            for (pubkey, millisats) in data.drain(..) {
-                                                let avatar = match app.try_get_avatar(ui.ctx(), &pubkey)
-                                                {
-                                                    Some(avatar) => avatar,
-                                                    None => app.placeholder_avatar.clone(),
-                                                };
-                                                let person =
-                                                    match PersonTable::read_record(pubkey, None) {
-                                                        Ok(Some(p)) => p,
-                                                        _ => Person::new(pubkey),
-                                                    };
-                                                let response = widgets::paint_avatar_only(
-                                                    ui,
-                                                    &avatar,
-                                                    AvatarSize::Mini.get_size(),
-                                                );
-                                                if response
-                                                    .on_hover_ui(|ui| {
-                                                        GLOBALS.people.person_of_interest(pubkey);
-                                                        ui.label(person.best_name());
-                                                    })
-                                                    .clicked()
-                                                {
-                                                    app.set_page(ui.ctx(), Page::Person(pubkey));
-                                                }
-                                                ui.label(format!("{}  ", millisats.0 / 1000));
-                                            }
-                                        }
-                                        if ui.button("close").clicked() {
-                                            app.note_showing_zaps = None;
-                                        }
-                                    });
                                 }
 
-                                // Below the note zap area
-                                if app.note_being_zapped == Some(note.event.id) {
-                                    ui.horizontal_wrapped(|ui| {
-                                        app.render_zap_area(ui);
-                                    });
-                                    if ui
-                                        .add(CopyButton::new())
-                                        .on_hover_text("Copy Invoice")
-                                        .clicked()
-                                    {
-                                        ui.output_mut(|o| {
-                                            if let ZapState::ReadyToPay(_id, ref invoice) =
-                                                app.zap_state
+                                ui.add_space(24.0);
+
+                                // Buttons to react and reaction counts
+                                if read_setting!(reactions) && !note.muted() {
+                                    if let Some(reaction) = note.reactions.our_reaction {
+                                        ui.label(RichText::new(reaction).size(16.0));
+                                    } else if can_sign {
+                                        let bar_id = ui.id().with(format!(
+                                            "emoji_picker_{}",
+                                            note.event.id.as_hex_string()
+                                        ));
+                                        let mut bar_state =
+                                            egui::menu::BarState::load(ui.ctx(), bar_id);
+
+                                        let button_response = ui
+                                            .add(
+                                                Label::new(RichText::new('♡').size(20.0))
+                                                    .selectable(false)
+                                                    .sense(Sense::click()),
+                                            )
+                                            .on_hover_cursor(egui::CursorIcon::PointingHand);
+
+                                        bar_state.bar_menu(&button_response, |ui| {
+                                            if let Some(emoji) = crate::ui::emojis::emoji_picker(ui)
                                             {
-                                                o.commands.push(egui::OutputCommand::CopyText(
-                                                    invoice.to_owned(),
-                                                ));
+                                                let _ = GLOBALS.to_overlord.send(
+                                                    ToOverlordMessage::React(
+                                                        note.event.id,
+                                                        note.event.pubkey,
+                                                        emoji,
+                                                    ),
+                                                );
+                                            }
+                                            if app.is_scrolling() {
+                                                ui.close_menu();
                                             }
                                         });
+                                        bar_state.store(ui.ctx(), bar_id);
+                                    } else {
+                                        ui.label(RichText::new('♡').size(20.0));
+                                    }
+
+                                    let hover_ui = |ui: &mut Ui| {
+                                        ui.horizontal_wrapped(|ui| {
+                                            let mut col = 0;
+                                            for (ch, count) in &note.reactions.total {
+                                                if *ch != '+' {
+                                                    egui::Frame::NONE
+                                                        .inner_margin(egui::Margin::from(
+                                                            ui.spacing().item_spacing,
+                                                        ))
+                                                        .show(ui, |ui| {
+                                                            ui.add_enabled(
+                                                                can_sign,
+                                                                egui::Label::new(
+                                                                    RichText::new(format!(
+                                                                        "{ch} {count}"
+                                                                    ))
+                                                                    .weak(),
+                                                                ),
+                                                            )
+                                                            .on_hover_cursor(
+                                                                egui::CursorIcon::Default,
+                                                            );
+                                                        });
+                                                }
+
+                                                col = col.add(1);
+                                                if col > 5 {
+                                                    ui.end_row();
+                                                    col = 0;
+                                                }
+                                            }
+                                        });
+                                    };
+                                    let like_count = note
+                                        .reactions
+                                        .total
+                                        .iter()
+                                        .find_map(
+                                            |(ch, count)| {
+                                                if *ch == '+' {
+                                                    Some(*count)
+                                                } else {
+                                                    None
+                                                }
+                                            },
+                                        )
+                                        .unwrap_or_default();
+
+                                    let reaction_count: usize = note
+                                        .reactions
+                                        .total
+                                        .iter()
+                                        .filter_map(|(c, s)| if *c == '+' { None } else { Some(s) })
+                                        .sum();
+
+                                    if reaction_count > 0 {
+                                        ui.add(
+                                            Label::new(format!("{like_count}+{reaction_count}"))
+                                                .sense(Sense::hover()),
+                                        )
+                                        .on_hover_ui(hover_ui)
+                                        .on_disabled_hover_ui(hover_ui);
+
+                                        if read_setting!(show_reactions_list) {
+                                            ui.with_layout(
+                                                Layout::left_to_right(Align::Center)
+                                                    .with_main_wrap(true),
+                                                |ui| {
+                                                    const S: f32 = 6.0;
+                                                    ui.spacing_mut().item_spacing =
+                                                        egui::vec2(0.0, S);
+                                                    for (pubkey, reaction) in &note.reactions.list {
+                                                        ui.allocate_ui(
+                                                            egui::vec2(250.0, 20.0), // @TODO estimated
+                                                            |ui| {
+                                                                ui.separator();
+                                                                ui.add_space(S);
+                                                                GossipUi::render_person_name_line(
+                                                                    app,
+                                                                    ui,
+                                                                    &person_lookup(*pubkey),
+                                                                    false,
+                                                                    true,
+                                                                );
+                                                                ui.add_space(S);
+                                                                ui.add(Label::new(
+                                                                    reaction.to_string(),
+                                                                ));
+                                                                ui.add_space(S);
+                                                            },
+                                                        );
+                                                    }
+                                                },
+                                            );
+                                        } // @TODO implement zappers list here (see few lines below)
                                     }
                                 }
+                            });
+
+                            // Below the note who-zapped expose @TODO maybe deprecated (reactions moved inline)
+                            if app.note_showing_zaps == Some(note.event.id) {
+                                ui.add_space(10.0);
+                                ui.horizontal_wrapped(|ui| {
+                                    if let Ok(mut data) = GLOBALS.db().get_zap_data(note.event.id) {
+                                        ui.label("Zappers: ");
+                                        for (pubkey, millisats) in data.drain(..) {
+                                            let avatar = match app.try_get_avatar(ui.ctx(), &pubkey)
+                                            {
+                                                Some(avatar) => avatar,
+                                                None => app.placeholder_avatar.clone(),
+                                            };
+                                            let response = widgets::paint_avatar_only(
+                                                ui,
+                                                &avatar,
+                                                AvatarSize::Mini.get_size(),
+                                            );
+                                            if response
+                                                .on_hover_ui(|ui| {
+                                                    GLOBALS.people.person_of_interest(pubkey);
+                                                    ui.label(person_lookup(pubkey).best_name());
+                                                })
+                                                .clicked()
+                                            {
+                                                app.set_page(ui.ctx(), Page::Person(pubkey));
+                                            }
+                                            ui.label(format!("{}  ", millisats.0 / 1000));
+                                        }
+                                    }
+                                    if ui.button("close").clicked() {
+                                        app.note_showing_zaps = None;
+                                    }
+                                });
+                            }
+
+                            // Below the note zap area
+                            if app.note_being_zapped == Some(note.event.id) {
+                                ui.horizontal_wrapped(|ui| {
+                                    app.render_zap_area(ui);
+                                });
+                                if ui
+                                    .add(CopyButton::new())
+                                    .on_hover_text("Copy Invoice")
+                                    .clicked()
+                                {
+                                    ui.output_mut(|o| {
+                                        if let ZapState::ReadyToPay(_id, ref invoice) =
+                                            app.zap_state
+                                        {
+                                            o.commands.push(egui::OutputCommand::CopyText(
+                                                invoice.to_owned(),
+                                            ));
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                    });
+
+                // alternate seen_on location and encryption indicator
+                if seen_location == Align2::RIGHT_BOTTOM {
+                    let bottom_right = egui::pos2(
+                        header_response.response.rect.right() - content_margin_right as f32,
+                        footer_response.response.rect.bottom(),
+                    );
+                    let top_left = bottom_right
+                        + vec2(
+                            -150.0,
+                            -footer_response.response.rect.height()
+                                + ft_inner_margin.top as f32
+                                + ui.spacing().item_spacing.y,
+                        );
+                    let ui_rect = Rect::from_points(&[top_left, bottom_right]);
+                    ui.allocate_new_ui(UiBuilder::new().max_rect(ui_rect), |ui| {
+                        ui.with_layout(Layout::right_to_left(Align::default()), |ui| {
+                            let response = draw_seen_on(app, ui, &note);
+                            if let Some(indicator) = encryption_indicator {
+                                let pos = response.rect.left_center() + vec2(-5.0, 0.0);
+                                const RADIUS: f32 = 7.0;
+                                ui.interact(
+                                    Rect::from_min_size(
+                                        pos + vec2(-RADIUS * 2.0, -RADIUS),
+                                        vec2(RADIUS * 2.0, RADIUS * 2.0),
+                                    ),
+                                    ui.next_auto_id().with("enc_ind"),
+                                    Sense::hover(),
+                                )
+                                .on_hover_ui(indicator.tooltip_ui);
+
+                                ui.painter().circle_filled(
+                                    pos + vec2(-RADIUS, 0.0),
+                                    RADIUS,
+                                    indicator.color,
+                                );
                             }
                         });
-
-                    // alternate seen_on location and encryption indicator
-                    if seen_location == Align2::RIGHT_BOTTOM {
-                        let bottom_right = egui::pos2(
-                            header_response.response.rect.right() - content_margin_right as f32,
-                            footer_response.response.rect.bottom(),
-                        );
-                        let top_left = bottom_right
-                            + vec2(
-                                -150.0,
-                                -footer_response.response.rect.height()
-                                    + ft_inner_margin.top as f32
-                                    + ui.spacing().item_spacing.y,
-                            );
-                        let ui_rect = egui::Rect::from_points(&[top_left, bottom_right]);
-                        ui.allocate_new_ui(UiBuilder::new().max_rect(ui_rect), |ui| {
-                            ui.with_layout(
-                                egui::Layout::right_to_left(egui::Align::default()),
-                                |ui| {
-                                    let response = draw_seen_on(app, ui, &note);
-                                    if let Some(indicator) = encryption_indicator {
-                                        let pos = response.rect.left_center() + vec2(-5.0, 0.0);
-                                        const RADIUS: f32 = 7.0;
-                                        ui.interact(
-                                            egui::Rect::from_min_size(
-                                                pos + vec2(-RADIUS * 2.0, -RADIUS),
-                                                vec2(RADIUS * 2.0, RADIUS * 2.0),
-                                            ),
-                                            ui.next_auto_id().with("enc_ind"),
-                                            egui::Sense::hover(),
-                                        )
-                                        .on_hover_ui(indicator.tooltip_ui);
-
-                                        ui.painter().circle_filled(
-                                            pos + vec2(-RADIUS, 0.0),
-                                            RADIUS,
-                                            indicator.color,
-                                        );
-                                    }
-                                },
-                            );
-                        });
-                    }
+                    });
                 }
             }
-        });
-    }
+        }
+    });
 }
 
 fn thin_separator(ui: &mut Ui, stroke: Stroke) {
@@ -1929,4 +1911,11 @@ fn draw_seen_on(app: &mut GossipUi, ui: &mut Ui, note: &std::cell::Ref<NoteData>
     });
 
     response.unwrap_or(response2)
+}
+
+fn person_lookup(pubkey: nostr_types::PublicKey) -> Person {
+    match PersonTable::read_record(pubkey, None) {
+        Ok(Some(person)) => person,
+        _ => Person::new(pubkey),
+    }
 }
