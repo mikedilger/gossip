@@ -79,6 +79,10 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     });
 
     ui.horizontal(|ui| {
+        ui.separator();
+    });
+
+    ui.horizontal(|ui| {
         let hint = "Use [host]:port notation for IPv6";
         ui.label("SOCKS5 host:port for outgoing connections:")
             .on_hover_text(hint);
