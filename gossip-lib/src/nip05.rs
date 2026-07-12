@@ -182,7 +182,8 @@ async fn fetch_nip05(user: &str, domain: &str) -> Result<Nip05, Error> {
     // FIXME add user-agent if configured
 
     let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
-    let nip05_future = if !socks5_proxy_address.is_empty()
+    let nip05_future = if GLOBALS.db().read_setting_socks5_proxy_enabled()
+        && !socks5_proxy_address.is_empty()
         && !GLOBALS
             .db()
             .read_setting_socks5_proxy_ignore()

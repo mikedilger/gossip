@@ -690,6 +690,7 @@ impl Storage {
         bool,
         false
     );
+    def_setting!(socks5_proxy_enabled, b"socks5_proxy_enabled", bool, false);
     def_setting!(
         socks5_proxy_address,
         b"socks5_proxy_address",

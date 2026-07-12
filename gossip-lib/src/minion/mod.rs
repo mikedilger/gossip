@@ -291,7 +291,8 @@ impl Minion {
 
             let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
 
-            let stream = if !socks5_proxy_address.is_empty()
+            let stream = if GLOBALS.db().read_setting_socks5_proxy_enabled()
+                && !socks5_proxy_address.is_empty()
                 && !GLOBALS
                     .db()
                     .read_setting_socks5_proxy_ignore()
@@ -512,7 +513,8 @@ impl Minion {
 
         let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
 
-        let request_nip11_future = if !socks5_proxy_address.is_empty()
+        let request_nip11_future = if GLOBALS.db().read_setting_socks5_proxy_enabled()
+            && !socks5_proxy_address.is_empty()
             && !GLOBALS
                 .db()
                 .read_setting_socks5_proxy_ignore()

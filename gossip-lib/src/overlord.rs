@@ -4153,7 +4153,7 @@ impl Overlord {
 
         let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
 
-        let client = if !socks5_proxy_address.is_empty()
+        let client = if GLOBALS.db().read_setting_socks5_proxy_enabled() && !socks5_proxy_address.is_empty()
             && !GLOBALS
                 .db()
                 .read_setting_socks5_proxy_ignore()
@@ -4362,7 +4362,8 @@ impl Overlord {
 
         let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
 
-        let client = if !socks5_proxy_address.is_empty()
+        let client = if GLOBALS.db().read_setting_socks5_proxy_enabled()
+            && !socks5_proxy_address.is_empty()
             && !GLOBALS
                 .db()
                 .read_setting_socks5_proxy_ignore()

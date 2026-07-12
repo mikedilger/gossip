@@ -237,7 +237,8 @@ fn client_for(url: &str) -> Result<Client, Error> {
     let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
 
     Ok(
-        if !socks5_proxy_address.is_empty()
+        if GLOBALS.db().read_setting_socks5_proxy_enabled()
+            && !socks5_proxy_address.is_empty()
             && !GLOBALS
                 .db()
                 .read_setting_socks5_proxy_ignore()

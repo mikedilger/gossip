@@ -453,11 +453,12 @@ impl Fetcher {
 
         let mut socks5h_client = self.socks5h_client.write().unwrap();
 
-        if socks5_proxy_address.is_empty() {
+        if !GLOBALS.db().read_setting_socks5_proxy_enabled() || socks5_proxy_address.is_empty() {
+            tracing::debug!("Init direct client type for fetcher requests...");
             *socks5h_client = Some(None)
         } else {
             tracing::debug!(
-                "Init optional proxy `{socks5_proxy_address}` client type for proxied fetcher requests..."
+                "Init proxied `{socks5_proxy_address}` client type for fetcher requests..."
             );
             *socks5h_client = Some(Some(
                 client_builder(connect_timeout, timeout)
@@ -585,7 +586,8 @@ impl Fetcher {
             // (Client is internally an Arc so we can just clone it)
             let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
 
-            let client = if !socks5_proxy_address.is_empty()
+            let client = if GLOBALS.db().read_setting_socks5_proxy_enabled()
+                && !socks5_proxy_address.is_empty()
                 && !GLOBALS
                     .db()
                     .read_setting_socks5_proxy_ignore()
