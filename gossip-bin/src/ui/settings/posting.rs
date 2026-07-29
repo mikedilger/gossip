@@ -45,16 +45,55 @@ pub(super) fn update(app: &mut GossipUi, _ctx: &Context, _frame: &mut eframe::Fr
     });
 
     ui.add_space(20.0);
+    ui.heading("Blossom");
+    ui.add_space(10.0);
 
     ui.horizontal(|ui| {
-        ui.label("Blossom servers: ")
-            .on_hover_text("Specify your blossom servers (just the host and port if it is not 443). Separate then by spaces or newlines");
+        ui.label("Blossom servers: ").on_hover_text(concat!(
+            "Specify your blossom servers (just the scheme, host and port if it is not 443). ",
+            "Separate then by NEWLINES for SERVERS or SPACES for ALIASES (no upload)"
+        ));
         ui.add(
-            TextEdit::multiline(
-                &mut app.unsaved_settings.blossom_servers)
-                .desired_width(f32::INFINITY)
+            TextEdit::multiline(&mut app.unsaved_settings.blossom_servers)
+                .desired_width(f32::INFINITY),
         );
     });
+
+    ui.add_space(10.0);
+
+    ui.horizontal(|ui| {
+        ui.label("Append to content only Blossom URL matches regex: ")
+            .on_hover_text(
+                "One regular expression per row; keep blank to not append any after upload or use `.*` to append all",
+            );
+        ui.add(
+            TextEdit::multiline(&mut app.unsaved_settings.blossom_servers_append_to_content)
+                .desired_width(f32::INFINITY),
+        );
+    });
+
+    ui.horizontal(|ui| {
+        ui.checkbox(
+            &mut app.unsaved_settings.blossom_servers_prefer_local_meta,
+            "Prefer locally resolved imeta values",
+        )
+        .on_hover_text(concat!(
+            "Some servers (e.g. blossom-rs / #34) may return invalid meta (e.g. mime type) in response; ",
+            "it's recommended to prefer locally resolved values to create correct json / imeta tags to sign the message."
+        ));
+        reset_button!(app, ui, blossom_servers_prefer_local_meta);
+    });
+
+    ui.horizontal(|ui| {
+        ui.checkbox(
+            &mut app.unsaved_settings.blossom_servers_append_extension,
+            "Append extension to blossom URL if not returned by server"
+        )
+        .on_hover_text("Some servers may not return it, when some clients may not parse content properly because of that");
+        reset_button!(app, ui, blossom_servers_append_extension);
+    });
+
+    ui.add_space(10.0);
 
     ui.horizontal(|ui| {
         if ui.button("Publish Blossom Servers").clicked() {

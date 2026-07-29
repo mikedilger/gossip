@@ -1,6 +1,7 @@
 use crate::comms::ToOverlordMessage;
 use crate::globals::GLOBALS;
 use crate::{Error, ErrorKind};
+use indexmap::IndexSet;
 use nostr_types::{
     ContentEncryptionAlgorithm, Event, EventKind, ParsedTag, PreEvent, PrivateKey, PublicKey,
     RelayUrl, Tag, Unixtime,
@@ -13,11 +14,11 @@ use speedy::{Readable, Writable};
 pub struct Nip46UnconnectedServer {
     pub connect_secret: String,
     pub name: String,
-    pub relays: Vec<RelayUrl>,
+    pub relays: IndexSet<RelayUrl>,
 }
 
 impl Nip46UnconnectedServer {
-    pub fn new(name: String, relays: Vec<RelayUrl>) -> Nip46UnconnectedServer {
+    pub fn new(name: String, relays: IndexSet<RelayUrl>) -> Nip46UnconnectedServer {
         let mut connect_secret = textnonce::TextNonce::sized_urlsafe(32)
             .unwrap()
             .into_string();
@@ -93,7 +94,7 @@ impl Approval {
 pub struct Nip46Server {
     pub name: String,
     pub peer_pubkey: PublicKey,
-    pub relays: Vec<RelayUrl>,
+    pub relays: IndexSet<RelayUrl>,
     pub sign_approval: Approval,
     pub encrypt_approval: Approval,
     pub decrypt_approval: Approval,
@@ -404,7 +405,7 @@ async fn send_response(
     result: String,
     error: String,
     peer_pubkey: PublicKey,
-    relays: Vec<RelayUrl>,
+    relays: IndexSet<RelayUrl>,
     algo: ContentEncryptionAlgorithm,
 ) -> Result<(), Error> {
     use serde_json::json;
@@ -507,7 +508,7 @@ pub async fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<
                     "".to_owned(),
                     msg.clone(),
                     event.pubkey,
-                    vec![seen_on_relay],
+                    IndexSet::from([seen_on_relay]),
                     PrivateKey::detect_encryption_algorithm(&event.content),
                 )
                 .await?;
@@ -535,7 +536,7 @@ pub async fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<
                 "".to_owned(),
                 "Gossip is not configured to receive a connection".to_string(),
                 event.pubkey,
-                vec![seen_on_relay],
+                IndexSet::from([seen_on_relay]),
                 algo,
             )
             .await?;
@@ -545,9 +546,7 @@ pub async fn handle_command(event: &Event, seen_on: Option<RelayUrl>) -> Result<
 
     // Combine userver.relays and seen_on_relay
     let mut reply_relays = userver.relays.clone();
-    reply_relays.push(seen_on_relay);
-    reply_relays.sort();
-    reply_relays.dedup();
+    reply_relays.insert(seen_on_relay);
 
     if method != "connect" {
         send_response(

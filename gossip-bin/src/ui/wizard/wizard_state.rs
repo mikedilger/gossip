@@ -1,4 +1,5 @@
 use gossip_lib::{Person, PersonList, Relay, GLOBALS};
+use indexmap::IndexSet;
 use nostr_types::{Event, EventKind, Filter, PublicKey, RelayUrl};
 use std::{cell::RefCell, collections::HashSet, rc::Rc};
 
@@ -33,7 +34,7 @@ pub struct WizardState {
     pub metadata_events: Vec<Event>,
     pub contact_list_events: Vec<Event>,
     pub relay_list_events: Vec<Event>,
-    pub relays: Vec<Relay>,
+    pub relays: IndexSet<Relay>,
     pub relays_should_publish: bool,
     #[allow(clippy::type_complexity)]
     pub followed: Vec<(Option<PublicKey>, Option<Rc<RefCell<Person>>>)>,
@@ -64,7 +65,7 @@ impl Default for WizardState {
             metadata_events: Vec::new(),
             contact_list_events: Vec::new(),
             relay_list_events: Vec::new(),
-            relays: Vec::new(),
+            relays: IndexSet::new(),
             relays_should_publish: true,
             followed: Vec::new(),
             followed_last_try: 0.0,

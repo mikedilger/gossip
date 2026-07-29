@@ -5,7 +5,7 @@ use memmap2::Mmap;
 use mime::Mime;
 use nostr_types::{EventKind, ParsedTag, PreEvent, Tag, Unixtime};
 use reqwest::header::{AUTHORIZATION, CONTENT_LENGTH, CONTENT_TYPE};
-use reqwest::{Body, Client, Response};
+use reqwest::{Body, Client, Proxy, Response};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fmt;
@@ -88,27 +88,10 @@ pub struct BlobDescriptor {
     pub created: Option<u64>,
 }
 
-pub struct Blossom {
-    client: Client,
-}
+#[derive(Default)]
+pub struct Blossom;
 
 impl Blossom {
-    pub fn new() -> Result<Blossom, Error> {
-        let connect_timeout =
-            Duration::new(GLOBALS.db().read_setting_fetcher_connect_timeout_sec(), 0);
-        let timeout = Duration::new(GLOBALS.db().read_setting_fetcher_timeout_sec(), 0);
-
-        let client = Client::builder()
-            .gzip(false)
-            .brotli(false)
-            .deflate(false)
-            .connect_timeout(connect_timeout)
-            .timeout(timeout)
-            .build()?;
-
-        Ok(Blossom { client })
-    }
-
     /// BUD-01 HEAD /<sha256>
     /// Check if the data exists on the blossom server
     pub async fn check_exists(
@@ -118,7 +101,7 @@ impl Blossom {
         authorize: bool,
     ) -> Result<bool, Error> {
         let url = format!("{}{}", base_url, hash);
-        let mut req_builder = self.client.head(url);
+        let mut req_builder = client_for(&url)?.head(url);
 
         if authorize {
             let authorization = authorization(
@@ -151,7 +134,8 @@ impl Blossom {
         authorize: bool,
     ) -> Result<Response, Error> {
         let url = format!("{}{}", base_url, hash);
-        let mut req_builder = self.client.get(url);
+
+        let mut req_builder = client_for(&url)?.get(url);
 
         if authorize {
             let authorization = authorization(
@@ -183,7 +167,7 @@ impl Blossom {
     pub async fn upload<T: Into<Body>>(
         &self,
         data: T,
-        base_url: String,
+        base_url: &str,
         hash: HashOutput,
         content_type: Mime,
         content_length: u64,
@@ -196,12 +180,11 @@ impl Blossom {
         )
         .await?;
 
-        let url = format!("{}upload", base_url);
-        let response = self
-            .client
+        let url = format!("{}/upload", base_url.trim_end_matches('/'));
+        let response = client_for(&url)?
             .put(url)
             .header(AUTHORIZATION, format!("Nostr {}", authorization))
-            .header(CONTENT_TYPE, format!("{}", content_type))
+            .header(CONTENT_TYPE, content_type.to_string())
             .header(CONTENT_LENGTH, content_length)
             .body(data)
             .send()
@@ -236,6 +219,43 @@ impl Blossom {
     //pub async fn delete() {
     //    unimplemented!()
     //}
+}
+
+/// Shared client builder logic
+fn client_for(url: &str) -> Result<Client, Error> {
+    fn client_builder(connect_timeout: Duration, timeout: Duration) -> reqwest::ClientBuilder {
+        Client::builder()
+            .gzip(false)
+            .brotli(false)
+            .deflate(false)
+            .connect_timeout(connect_timeout)
+            .timeout(timeout)
+    }
+
+    let connect_timeout = Duration::new(GLOBALS.db().read_setting_fetcher_connect_timeout_sec(), 0);
+    let timeout = Duration::new(GLOBALS.db().read_setting_fetcher_timeout_sec(), 0);
+    let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
+
+    Ok(
+        if GLOBALS.db().read_setting_socks5_proxy_enabled()
+            && !socks5_proxy_address.is_empty()
+            && !GLOBALS
+                .db()
+                .read_setting_socks5_proxy_ignore()
+                .split_whitespace()
+                .any(|l| regex::Regex::new(l).is_ok_and(|r| r.is_match(url)))
+        {
+            tracing::debug!(
+                "Init proxied ({socks5_proxy_address}) Client type for blossom request `{url}`..."
+            );
+            client_builder(connect_timeout, timeout)
+                .proxy(Proxy::all(format!("socks5h://{socks5_proxy_address}"))?)
+                .build()?
+        } else {
+            tracing::debug!("Init direct Client type for blossom request `{url}`...");
+            client_builder(connect_timeout, timeout).build()?
+        },
+    )
 }
 
 // This returns the base64 encoded authorization event
@@ -278,10 +298,10 @@ fn get_error(response: &Response) -> Error {
         if let Ok(error_message) = hval.to_str() {
             ErrorKind::BlossomError(error_message.to_owned()).into()
         } else {
-            ErrorKind::BlossomError(format!("{}", response.status())).into()
+            ErrorKind::BlossomError(response.status().to_string()).into()
         }
     } else {
-        ErrorKind::BlossomError(format!("{}", response.status())).into()
+        ErrorKind::BlossomError(response.status().to_string()).into()
     }
 }
 
@@ -289,12 +309,13 @@ fn get_error(response: &Response) -> Error {
 /// Then it uses the file extension
 /// It falls back to application/octet-stream
 pub fn get_content_type(path: &Path) -> Result<Mime, Error> {
-    if let Some(mime) = infer::get_from_path(path)? {
-        Ok(mime.mime_type().parse().unwrap())
-    } else {
-        let extension_guess = mime_guess::from_path(path);
-        Ok(extension_guess
+    Ok(match infer::get_from_path(path)? {
+        Some(mime) => mime
+            .mime_type()
+            .parse()
+            .unwrap_or(mime::APPLICATION_OCTET_STREAM),
+        None => mime_guess::from_path(path)
             .first()
-            .unwrap_or(mime::APPLICATION_OCTET_STREAM))
-    }
+            .unwrap_or(mime::APPLICATION_OCTET_STREAM),
+    })
 }

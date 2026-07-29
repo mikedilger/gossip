@@ -5,6 +5,7 @@ use crate::nostr_connect_server::ParsedCommand;
 use crate::people::PersonList;
 use crate::relay::Relay;
 use crate::storage::Storage;
+use indexmap::IndexSet;
 use nostr_types::{EventKind, Filter, PublicKey, RelayList, RelayUrl, Unixtime};
 use parking_lot::RwLock as PRwLock;
 use parking_lot::RwLockReadGuard as PRwLockReadGuard;
@@ -81,7 +82,7 @@ impl Pending {
             self.pending.write().push((item, now));
             {
                 let mut list = self.pending.write();
-                list.sort_by(|a, b| b.1.cmp(&a.1));
+                list.sort_by_key(|b| std::cmp::Reverse(b.1));
                 *self.pending_hash.write() = calculate_pending_hash(&list);
             }
             true
@@ -181,22 +182,27 @@ impl Pending {
             self.remove(&PendingItem::RelayListNeverAdvertised); // remove if present
 
             let stored_relay_list = GLOBALS.db().load_effective_public_relay_list()?;
-            let event_relay_list = RelayList::from_event(&relay_lists[0]);
+
+            let event_relay_list = relay_lists
+                .first()
+                .map(RelayList::from_event)
+                .unwrap_or_default();
 
             let stored_dm_relays = {
                 let mut relays = Relay::choose_relay_urls(Relay::DM, |_| true)?;
                 relays.sort();
                 relays
             };
+
             let event_dm_relays = {
-                let mut relays: Vec<RelayUrl> = Vec::new();
+                let mut relays = IndexSet::new();
                 if !dm_relay_lists.is_empty() {
                     for tag in dm_relay_lists[0].tags.iter() {
                         if tag.tagname() == "relay" {
                             if let Ok(relay_url) = RelayUrl::try_from_str(tag.value()) {
                                 // Don't use banned relay URLs
                                 if !Storage::url_is_banned(&relay_url) {
-                                    relays.push(relay_url);
+                                    relays.insert(relay_url); // @TODO assert duplicates?
                                 }
                             }
                         }

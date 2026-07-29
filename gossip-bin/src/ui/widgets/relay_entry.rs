@@ -237,15 +237,11 @@ impl RelayEntry {
 
     pub fn set_detail(&mut self, detail: bool) {
         match self.view {
-            RelayEntryView::List => {
-                if detail {
-                    self.view = RelayEntryView::Detail;
-                }
+            RelayEntryView::List if detail => {
+                self.view = RelayEntryView::Detail;
             }
-            RelayEntryView::Detail => {
-                if !detail {
-                    self.view = RelayEntryView::List;
-                }
+            RelayEntryView::Detail if !detail => {
+                self.view = RelayEntryView::List;
             }
             _ => {}
         }
@@ -1230,7 +1226,7 @@ impl RelayEntry {
                 rect,
                 btn_round,
                 ui.visuals().extreme_bg_color,
-                Stroke::new(1.0, off_fill_color),
+                Stroke::new(1.0_f32, off_fill_color),
                 StrokeKind::Inside,
             );
             ui.painter().text(

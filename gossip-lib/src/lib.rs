@@ -102,7 +102,7 @@ pub use globals::{Globals, GLOBALS};
 pub mod manager;
 
 mod media;
-pub use media::{media_url_mimetype, Media, MediaLoadingResult};
+pub use media::{Media, MediaLoadingResult};
 
 mod minion;
 

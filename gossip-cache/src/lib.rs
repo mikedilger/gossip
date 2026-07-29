@@ -1,4 +1,5 @@
 use gossip_lib::{GLOBALS, Person, PersonList, PersonTable, Private, Table};
+use indexmap::{IndexMap, IndexSet};
 use nostr_types::{
     ContentSegment, Event, EventDelegation, EventKind, EventReference, Id, MilliSatoshi, NAddr,
     NostrBech32, ParsedTag, PublicKey, RelayUrl, ShatteredContent, Unixtime,
@@ -152,6 +153,13 @@ pub enum EncryptionType {
     Giftwrap,
 }
 
+pub struct Reactions {
+    pub list: IndexMap<PublicKey, char>,
+    /// Has the current user reacted to this post?
+    pub our_reaction: Option<char>,
+    pub total: Vec<(char, usize)>,
+}
+
 pub struct NoteData {
     /// Original Event object, as received from nostr
     pub event: Event,
@@ -181,16 +189,13 @@ pub struct NoteData {
     pub mentions: Vec<(usize, Id)>,
 
     /// Known reactions to this post
-    pub reactions: Vec<(char, usize)>,
-
-    /// Has the current user reacted to this post?
-    pub our_reaction: Option<char>,
+    pub reactions: Reactions,
 
     /// The total amount of MilliSatoshi zapped to this note
     pub zaptotal: MilliSatoshi,
 
     /// Relays this event was seen on and when, if any
-    pub seen_on: Vec<(RelayUrl, Unixtime)>,
+    pub seen_on: IndexMap<RelayUrl, Unixtime>,
 
     /// The content shattered into renderable elements
     pub shattered_content: ShatteredContent,
@@ -247,10 +252,20 @@ impl NoteData {
         // This function checks the authors match
         let annotations = GLOBALS.db().get_annotations(&event).unwrap_or_default();
 
-        let (reactions, our_reaction) = GLOBALS
-            .db()
-            .get_reactions(event.id)
-            .unwrap_or((vec![], None));
+        let reactions = {
+            let (list, our_reaction) = GLOBALS
+                .db()
+                .get_reactions(event.id)
+                .unwrap_or((IndexMap::new(), None));
+
+            let total = GLOBALS.db().get_reaction_totals(&list).unwrap_or(vec![]);
+
+            Reactions {
+                list,
+                our_reaction,
+                total,
+            }
+        };
 
         let zaptotal = GLOBALS
             .db()
@@ -443,7 +458,7 @@ impl NoteData {
             }
         }
 
-        NoteData {
+        Self {
             event,
             delegation,
             author,
@@ -454,7 +469,6 @@ impl NoteData {
             embedded_event,
             mentions,
             reactions,
-            our_reaction,
             zaptotal,
             seen_on,
             shattered_content,
@@ -469,22 +483,21 @@ impl NoteData {
 
     pub fn update(&mut self) {
         // Update reactions
-        let (mut reactions, our_reaction) = GLOBALS
+
+        let (list, our_reaction) = GLOBALS
             .db()
             .get_reactions(self.event.id)
-            .unwrap_or((vec![], None));
-        self.reactions.clear();
-        self.reactions.append(&mut reactions);
-        self.our_reaction = our_reaction;
+            .unwrap_or((IndexMap::new(), None));
+
+        self.reactions.total = GLOBALS.db().get_reaction_totals(&list).unwrap_or(vec![]);
+        self.reactions.our_reaction = our_reaction;
+        self.reactions.list = list;
 
         // Update seen_on
-        let mut seen_on = GLOBALS
+        self.seen_on = GLOBALS
             .db()
             .get_event_seen_on_relay(self.event.id)
             .unwrap_or_default();
-
-        self.seen_on.clear();
-        self.seen_on.append(&mut seen_on);
 
         // Update annotations
         self.annotations = GLOBALS
@@ -512,7 +525,7 @@ impl NoteData {
         if self.event.kind.is_replaceable() {
             EventReference::Addr(NAddr {
                 d: self.event.parameter().unwrap_or("".to_owned()),
-                relays: vec![],
+                relays: IndexSet::new(),
                 kind: self.event.kind,
                 author: self.event.pubkey,
             })
@@ -520,7 +533,7 @@ impl NoteData {
             EventReference::Id {
                 id: self.event.id,
                 author: None,
-                relays: vec![],
+                relays: IndexSet::new(),
                 marker: None,
             }
         }

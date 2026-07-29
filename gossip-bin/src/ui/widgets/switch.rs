@@ -204,7 +204,7 @@ pub fn switch_custom_at(
             center,
             0.875 * radius,
             knob_fill.unwrap_or(visuals.fg_stroke.color),
-            Stroke::new(0.7, fg_stroke.color),
+            Stroke::new(0.7_f32, fg_stroke.color),
         );
     }
 
@@ -265,7 +265,7 @@ fn draw_at(
         let how_on = ui.ctx().animate_bool(response.id, *value);
 
         let radius = 0.5 * size.y;
-        let stroke_width = 0.5;
+        let stroke_width = 0.5_f32;
         let (bg_fill, frame_stroke, knob_fill, knob_stroke, text_color) = if theme.dark_mode {
             if ui.is_enabled() {
                 if *value {
@@ -393,7 +393,7 @@ fn draw_at(
                 points,
                 false,
                 Color32::TRANSPARENT,
-                egui::Stroke::new(1.0, frame_stroke.color),
+                egui::Stroke::new(1.0_f32, frame_stroke.color),
             );
             ui.painter().add(ring);
         }

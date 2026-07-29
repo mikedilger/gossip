@@ -825,11 +825,11 @@ fn draw_menu_button(
     // draw
     let no_background = egui::Color32::TRANSPARENT;
     let no_stroke = Stroke::NONE;
-    let neutral_100_stroke = Stroke::new(1.0, theme.neutral_100());
-    let neutral_300_stroke = Stroke::new(1.0, theme.neutral_300());
-    let neutral_800_stroke = Stroke::new(1.0, theme.neutral_800());
-    let neutral_900_stroke = Stroke::new(1.0, theme.neutral_900());
-    let neutral_950_stroke = Stroke::new(1.0, theme.neutral_950());
+    let neutral_100_stroke = Stroke::new(1.0_f32, theme.neutral_100());
+    let neutral_300_stroke = Stroke::new(1.0_f32, theme.neutral_300());
+    let neutral_800_stroke = Stroke::new(1.0_f32, theme.neutral_800());
+    let neutral_900_stroke = Stroke::new(1.0_f32, theme.neutral_900());
+    let neutral_950_stroke = Stroke::new(1.0_f32, theme.neutral_950());
     let (bg_fill, text_color, separator_stroke, under_stroke) = if theme.dark_mode {
         match state {
             super::WidgetState::Default => (

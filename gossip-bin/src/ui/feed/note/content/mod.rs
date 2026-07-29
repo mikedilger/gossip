@@ -6,6 +6,7 @@ use egui::{Button, Color32, Margin, Pos2, RichText, Stroke, Ui};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::FeedKind;
 use gossip_lib::GLOBALS;
+use indexmap::IndexSet;
 use nostr_types::{
     ContentSegment, FileMetadata, Id, NAddr, NEvent, NostrBech32, NostrUrl, ParsedTag, PublicKey,
     RelayUrl, Span,
@@ -47,7 +48,8 @@ pub(super) fn render_content(
                     } else {
                         Color32::BLACK
                     };
-                    let button = Button::new("Show more ▼").stroke(Stroke::new(1.0, text_color));
+                    let button =
+                        Button::new("Show more ▼").stroke(Stroke::new(1.0_f32, text_color));
                     if ui.add(button).clicked() {
                         app.opened.insert(note.event.id);
                     }
@@ -182,7 +184,7 @@ pub(super) fn render_content(
                                         if let Some(rurl) = recommended_relay_url {
                                             let nevent = NEvent {
                                                 id,
-                                                relays: vec![rurl],
+                                                relays: IndexSet::from([rurl]),
                                                 kind: None,
                                                 author: None,
                                             };
@@ -263,14 +265,22 @@ pub(super) fn render_hyperlink(
     let privacy_issue = note.direct_message;
 
     if let (Ok(url), Some(nurl)) = (url::Url::try_from(link), app.try_check_url(link)) {
-        if let Some(mimetype) = gossip_lib::media_url_mimetype(url.path()) {
-            if mimetype.starts_with("image/") {
-                media::show_image(app, ui, nurl, privacy_issue, note.volatile, file_metadata);
-            } else if mimetype.starts_with("video/") {
-                media::show_video(app, ui, nurl, privacy_issue, note.volatile, file_metadata);
+        match match file_metadata {
+            Some(ref fm) => fm.m.clone(),
+            None => mime_guess::from_path(url.path())
+                .first()
+                .map(|m| m.to_string()),
+        } {
+            Some(m) => {
+                if m.starts_with("image/") {
+                    media::show_image(app, ui, nurl, privacy_issue, note.volatile, file_metadata)
+                } else if m.starts_with("video/") {
+                    media::show_video(app, ui, nurl, privacy_issue, note.volatile, file_metadata)
+                } else {
+                    crate::ui::widgets::break_anywhere_hyperlink_to(ui, app, link, link)
+                }
             }
-        } else {
-            crate::ui::widgets::break_anywhere_hyperlink_to(ui, app, link, link);
+            None => crate::ui::widgets::break_anywhere_hyperlink_to(ui, app, link, link),
         }
     } else {
         crate::ui::widgets::break_anywhere_hyperlink_to(ui, app, link, link);
@@ -304,7 +314,7 @@ pub(super) fn render_plain(
                 } else {
                     Color32::BLACK
                 };
-                let button = Button::new("Show more ▼").stroke(Stroke::new(1.0, text_color));
+                let button = Button::new("Show more ▼").stroke(Stroke::new(1.0_f32, text_color));
                 if ui.add(button).clicked() {
                     app.opened.insert(note.event.id);
                 }
@@ -345,7 +355,7 @@ pub fn render_relay_link(app: &mut GossipUi, ui: &mut Ui, relay_url: RelayUrl) {
 pub fn render_note_id_link(app: &mut GossipUi, ui: &mut Ui, referenced_by_id: Id, link_to_id: Id) {
     let nevent = NEvent {
         id: link_to_id,
-        relays: vec![],
+        relays: IndexSet::new(),
         kind: None,
         author: None,
     };
@@ -413,7 +423,7 @@ pub(super) fn render_hashtag(app: &mut GossipUi, ui: &mut Ui, s: &String) {
         app.set_page(ui.ctx(), Page::SearchLocal);
         let _ = GLOBALS
             .to_overlord
-            .send(ToOverlordMessage::SearchLocally(app.search.clone()));
+            .send(ToOverlordMessage::SearchLocally(app.search.clone(), None));
     }
 }
 

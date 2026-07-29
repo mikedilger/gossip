@@ -1,4 +1,4 @@
-use crate::blossom::{Blossom, HashOutput};
+use crate::blossom::{BlobDescriptor, Blossom, HashOutput};
 use crate::comms::{
     RelayConnectionReason, RelayJob, ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail,
     ToOverlordMessage,
@@ -23,13 +23,15 @@ use crate::storage::{PersonTable, Table};
 use crate::RunState;
 use heed::RwTxn;
 use http::StatusCode;
+use indexmap::{IndexMap, IndexSet};
 use nostr_types::{
     EncryptedPrivateKey, Event, EventKind, EventReference, Filter, Id, Metadata, MilliSatoshi,
     NAddr, NostrBech32, ParsedTag, PayRequestData, PreEvent, PrivateKey, Profile, PublicKey,
     RelayUrl, Tag, UncheckedUrl, Unixtime, Url,
 };
-use std::collections::HashMap;
-use std::path::PathBuf;
+use regex::Regex;
+use reqwest::{Client, Proxy};
+use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 use std::sync::mpsc;
 use std::time::Duration;
@@ -713,13 +715,22 @@ impl Overlord {
             }
             ToOverlordMessage::Post {
                 content,
+                blossom,
+                mimelist,
                 tags,
                 in_reply_to,
                 annotation,
                 dm_channel,
             } => {
-                self.post(content, tags, in_reply_to, annotation, dm_channel)
-                    .await?;
+                self.post(
+                    content,
+                    (mimelist, blossom),
+                    tags,
+                    in_reply_to,
+                    annotation,
+                    dm_channel,
+                )
+                .await?;
             }
             ToOverlordMessage::PostAgain(event) => {
                 self.post_again(event)?;
@@ -754,11 +765,11 @@ impl Overlord {
             ToOverlordMessage::Repost(id) => {
                 self.repost(id).await?;
             }
-            ToOverlordMessage::SearchLocally(text) => {
-                Self::search_locally(text)?;
+            ToOverlordMessage::SearchLocally(query, pk) => {
+                Self::search_locally(query, pk)?;
             }
-            ToOverlordMessage::SearchRelays(text) => {
-                Self::search_relays(text)?;
+            ToOverlordMessage::SearchRelays(query, pk) => {
+                Self::search_relays(query, pk)?;
             }
             ToOverlordMessage::SetActivePerson(pubkey) => {
                 Self::set_active_person(pubkey).await?;
@@ -864,7 +875,7 @@ impl Overlord {
         };
 
         let event = {
-            let inbox_or_outbox_relays: Vec<Relay> = GLOBALS.db().filter_relays(|r| {
+            let inbox_or_outbox_relays = GLOBALS.db().filter_relays(|r| {
                 r.has_usage_bits(Relay::INBOX) || r.has_usage_bits(Relay::OUTBOX)
             })?;
             let mut tags: Vec<Tag> = Vec::new();
@@ -901,7 +912,7 @@ impl Overlord {
         };
 
         let dmevent = {
-            let dm_relays: Vec<Relay> = GLOBALS
+            let dm_relays = GLOBALS
                 .db()
                 .filter_relays(|r| r.has_usage_bits(Relay::DM))?;
             let mut tags: Vec<Tag> = Vec::new();
@@ -1046,7 +1057,10 @@ impl Overlord {
     pub async fn blossom_upload(&mut self, pathbuf: PathBuf) -> Result<(), Error> {
         std::mem::drop(tokio::spawn(Box::pin(async move {
             if let Err(e) = Overlord::inner_blossom_upload(pathbuf.clone()).await {
-                GLOBALS.blossom_uploads.insert(pathbuf, Err(e));
+                tracing::error!(
+                    "Could not complete Blossom upload `{}`: {e}",
+                    pathbuf.display()
+                )
             }
         })));
 
@@ -1054,57 +1068,195 @@ impl Overlord {
     }
 
     async fn inner_blossom_upload(pathbuf: PathBuf) -> Result<(), Error> {
+        use http::{
+            uri::{Parts, PathAndQuery, Scheme},
+            Uri,
+        };
+
+        fn server_base(url: &str, is_debug: bool) -> Result<String, Error> {
+            let uri = url.parse::<Uri>()?;
+            let mut parts: Parts = uri.into_parts();
+            parts.path_and_query = Some(PathAndQuery::from_static("/")); // Force no path
+            if parts.scheme.is_none() {
+                parts.scheme = Some(Scheme::HTTPS); // Default to https
+            }
+            let result = Uri::from_parts(parts)?.to_string();
+            if is_debug {
+                tracing::debug!("[Blossom] make server base `{result}` for `{url}`")
+            }
+            Ok(result)
+        }
+
+        fn alias_base(uri: &Uri, target: &str, is_debug: bool) -> String {
+            let result = format!(
+                "{}://{}{}/",
+                uri.scheme_str().unwrap_or_default(),
+                uri.host().unwrap_or_default(),
+                uri.port().map(|p| format!(":{p}")).unwrap_or_default(),
+            );
+            let url = uri.to_string();
+            assert!(url.starts_with(result.trim_end_matches('/')));
+            if is_debug {
+                tracing::debug!("[Blossom] make `{target}` alias base `{result}` for `{url}`")
+            }
+            result
+        }
+
+        fn handle_extension(bd: &mut BlobDescriptor, local_path: &Path) -> Result<(), Error> {
+            let uri = bd.url.parse::<Uri>()?;
+            let uri_extension = Path::new(uri.path())
+                .extension()
+                .map(|e| e.to_str().unwrap_or_default())
+                .unwrap_or_default();
+
+            if !uri_extension.is_empty() {
+                return Ok(());
+            }
+
+            if local_path.extension().is_none_or(|e| e.to_str().is_none()) {
+                tracing::error!(
+                    "[Blossom] source file does not contain extension `{}`",
+                    local_path.display()
+                );
+                return Ok(());
+            }
+
+            let extension = local_path.extension().unwrap().to_str().unwrap();
+
+            bd.url = bd
+                .url
+                .replace(uri.path(), &format!("{}.{extension}", uri.path(),));
+
+            tracing::info!(
+                "[Blossom] appending extension `{extension}` to `{uri}` using `{}` as the source; updated URL: {}",
+                local_path.display(),
+                bd.url,
+            );
+
+            Ok(())
+        }
+
         let blossom = match GLOBALS.blossom.get() {
             Some(b) => b,
             None => {
-                let blossom = Blossom::new()?;
-                let _ = GLOBALS.blossom.set(blossom);
+                let _ = GLOBALS.blossom.set(Blossom);
                 GLOBALS.blossom.get().unwrap()
             }
         };
 
-        let base_url = {
-            let blossom_servers = GLOBALS.db().read_setting_blossom_servers();
-            let first = blossom_servers.split_whitespace().next();
-            match first {
-                Some(bs) => {
-                    use http::uri::{Parts, PathAndQuery, Scheme};
-                    use http::Uri;
+        let mut uploads = Vec::new();
 
-                    let uri = bs.parse::<Uri>()?;
-                    let mut parts: Parts = uri.into_parts();
-                    parts.path_and_query = Some(PathAndQuery::from_static("/")); // Force no path
-                    if parts.scheme.is_none() {
-                        // Default to https
-                        parts.scheme = Some(Scheme::HTTPS);
+        for blossom_servers in GLOBALS
+            .db()
+            .read_setting_blossom_servers()
+            .lines()
+            .filter(|s| !s.trim().is_empty())
+        {
+            // create inline iterator
+            let mut servers = blossom_servers.split_whitespace();
+
+            // only the first host per line to upload
+            if let Some(upload_server) = servers.next() {
+                tracing::debug!(
+                    "[Blossom] uploading `{}` to `{upload_server}`...",
+                    pathbuf.display()
+                );
+
+                // Expect same MIME type with the server response
+                // * blossom-rs returns `application/octet-stream`
+                //   https://github.com/MonumentalSystems/blossom-rs/issues/34
+                let mime = crate::blossom::get_content_type(&pathbuf)?;
+                let mime_string = mime.to_string();
+
+                match blossom
+                    .upload(
+                        tokio::fs::File::open(&pathbuf).await?,
+                        &server_base(upload_server, false)?,
+                        HashOutput::from_file(&pathbuf)?,
+                        mime,
+                        tokio::fs::metadata(&pathbuf).await?.len(),
+                    )
+                    .await
+                {
+                    Ok(mut bd) => {
+                        tracing::info!(
+                            "[Blossom] upload successful (sha256: {}): `{}` -> `{}`",
+                            &bd.sha256,
+                            pathbuf.display(),
+                            &bd.url
+                        );
+
+                        if bd.mime_type.as_ref().is_none_or(|m| *m != mime_string) {
+                            tracing::warn!(
+                                "[Blossom] server return unexpected MIME type {:?} for `{}` (expected: `{mime_string}`)",
+                                bd.mime_type, bd.sha256
+                            );
+                            if GLOBALS
+                                .db()
+                                .read_setting_blossom_servers_prefer_local_meta()
+                            {
+                                tracing::info!(
+                                    "[Blossom] replace MIME type from remote {:?} to locally resolved {mime_string:?} for `{}`",
+                                    bd.mime_type, bd.sha256
+                                );
+                                bd.mime_type = Some(mime_string)
+                            }
+                        }
+
+                        // Append extension if enabled
+                        if GLOBALS.db().read_setting_blossom_servers_append_extension() {
+                            handle_extension(&mut bd, &pathbuf)?;
+                        }
+
+                        // Firstable, insert result from the uploading server in list order
+                        uploads.push(Ok(bd.clone()));
+
+                        // Then, collect alliasses in theirs line order (with scheme://host:port/ replaced)
+                        let bd_download_uri = bd.url.parse::<Uri>()?; // parse once
+                        for alias_server in servers {
+                            tracing::debug!(
+                                "[Blossom] creating alias URL for `{}` on `{alias_server}` using upload response from `{upload_server}`...",
+                                pathbuf.display()
+                            );
+
+                            // Create new valid Uri from the upload server response (includes query postfix)
+                            let mut bd_alias = bd.clone();
+
+                            // Append extension if enabled
+                            if GLOBALS.db().read_setting_blossom_servers_append_extension() {
+                                handle_extension(&mut bd_alias, &pathbuf)?;
+                            }
+
+                            // Replace scheme://host:port, keep original query from bd response
+                            let from = alias_base(&bd_download_uri, "from", false);
+                            let to = alias_base(&alias_server.parse::<Uri>()?, "to", false);
+                            let replaced_url = bd_alias.url.replace(&from, &to);
+                            let alias_url = replaced_url.parse::<Uri>()?.to_string();
+
+                            tracing::debug!(
+                                "[Blossom] replacing `{}` to `{replaced_url}`...",
+                                bd_alias.url,
+                            );
+
+                            bd_alias.url = alias_url;
+
+                            tracing::info!(
+                                    "[Blossom] alias `{}` for `{}` created (imeta without uploading `{}`)",
+                                    bd_alias.url, bd.url, pathbuf.display()
+                                );
+
+                            uploads.push(Ok(bd_alias))
+                        }
                     }
-                    let uri = Uri::from_parts(parts)?;
-                    format!("{}", uri)
+                    Err(e) => {
+                        tracing::error!("[Blossom] could not upload `{}`: {e}", pathbuf.display());
+                        uploads.push(Err(e))
+                    }
                 }
-                None => return Err(ErrorKind::General("Blossom not configured".to_owned()).into()),
             }
-        };
-
-        // metadata
-        let metadata = tokio::fs::metadata(&pathbuf).await?;
-
-        // hash
-        let hash = HashOutput::from_file(&pathbuf)?;
-
-        // mime type
-        let mime = crate::blossom::get_content_type(&pathbuf)?;
-
-        // open
-        let file = tokio::fs::File::open(&pathbuf).await?;
-
-        // upload
-        let result = blossom
-            .upload(file, base_url, hash, mime, metadata.len())
-            .await;
-        if let Ok(ref bd) = result {
-            println!("UPLOADED:  {} -> {}", pathbuf.display(), &bd.url);
         }
-        GLOBALS.blossom_uploads.insert(pathbuf, result);
+
+        GLOBALS.blossom_uploads.insert(pathbuf, uploads);
 
         Ok(())
     }
@@ -1113,10 +1265,10 @@ impl Overlord {
         // Process this event locally (ignore any error)
         crate::process::process_new_event(&event, None, None, false, false).await?;
 
-        let config_relays: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
-
         manager::run_jobs_on_all_relays(
-            config_relays,
+            Relay::choose_relay_urls(Relay::WRITE, |_| true)?
+                .into_iter()
+                .collect(),
             vec![RelayJob {
                 reason: RelayConnectionReason::PostEvent,
                 payload: ToMinionPayload {
@@ -1320,7 +1472,7 @@ impl Overlord {
             // Include an "a" tag for the entire group
             let ea = NAddr {
                 d: metadata.dtag.clone(),
-                relays: vec![],
+                relays: IndexSet::new(),
                 kind: EventKind::FollowSets,
                 author: public_key,
             };
@@ -1359,31 +1511,25 @@ impl Overlord {
         crate::process::process_new_event(&event, None, None, false, false).await?;
 
         // Determine which relays to post this to
-        let mut relay_urls: Vec<RelayUrl> = Vec::new();
+        let mut relay_urls = IndexSet::new();
         {
             // Get all of the relays that we write to
-            let write_relays = relay::relays_to_post_to(&event)?;
-            relay_urls.extend(write_relays);
+            for r in relay::relays_to_post_to(&event)? {
+                relay_urls.insert(r);
+            }
 
             // Get all of the relays this events were seen on
             for bad_event in &bad_events {
-                let seen_on: Vec<RelayUrl> = GLOBALS
+                for url in GLOBALS
                     .db()
                     .get_event_seen_on_relay(bad_event.id)?
-                    .iter()
-                    .take(6) // Doesn't have to be everywhere
-                    .map(|(url, _time)| url.to_owned())
-                    .collect();
-
-                for url in &seen_on {
-                    tracing::error!("SEEN ON {}", &url);
+                    .into_keys()
+                    .take(6)
+                {
+                    tracing::error!("SEEN ON {url}");
+                    relay_urls.insert(url);
                 }
-
-                relay_urls.extend(seen_on);
             }
-
-            relay_urls.sort();
-            relay_urls.dedup();
         }
 
         // Send event to all these relays
@@ -1440,23 +1586,17 @@ impl Overlord {
         crate::process::process_new_event(&event, None, None, false, false).await?;
 
         // Determine which relays to post this to
-        let mut relay_urls: Vec<RelayUrl> = Vec::new();
+        let mut relay_urls = IndexSet::new();
         {
             // Get all of the relays that we write to
-            let write_relays = relay::relays_to_post_to(&event)?;
-            relay_urls.extend(write_relays);
+            for r in relay::relays_to_post_to(&event)? {
+                relay_urls.insert(r);
+            }
 
             // Get all of the relays this event was seen on
-            let seen_on: Vec<RelayUrl> = GLOBALS
-                .db()
-                .get_event_seen_on_relay(id)?
-                .iter()
-                .map(|(url, _time)| url.to_owned())
-                .collect();
-            relay_urls.extend(seen_on);
-
-            relay_urls.sort();
-            relay_urls.dedup();
+            for r in GLOBALS.db().get_event_seen_on_relay(id)?.into_keys() {
+                relay_urls.insert(r);
+            }
         }
 
         manager::run_jobs_on_all_relays(
@@ -1508,10 +1648,12 @@ impl Overlord {
     }
 
     /// Fetch an event from specific relays by event `Id`
-    pub fn fetch_event(&mut self, id: Id, mut relay_urls: Vec<RelayUrl>) -> Result<(), Error> {
+    pub fn fetch_event(&mut self, id: Id, mut relay_urls: IndexSet<RelayUrl>) -> Result<(), Error> {
         // Use READ relays if relays are unknown
         if relay_urls.is_empty() {
-            relay_urls = Relay::choose_relay_urls(Relay::READ, |_| true)?;
+            relay_urls = Relay::choose_relay_urls(Relay::READ, |_| true)?
+                .into_iter()
+                .collect();
         }
 
         // Don't do this if we already have the event
@@ -1538,14 +1680,11 @@ impl Overlord {
 
     /// Fetch an event based on an `NAddr`
     pub fn fetch_naddr(&mut self, ea: NAddr) -> Result<(), Error> {
-        let relays: Vec<RelayUrl> = ea
-            .relays
-            .iter()
-            .filter_map(|uu| RelayUrl::try_from_unchecked_url(uu).ok())
-            .collect();
-
         manager::run_jobs_on_all_relays(
-            relays,
+            ea.relays
+                .iter()
+                .filter_map(|uu| RelayUrl::try_from_unchecked_url(uu).ok())
+                .collect(),
             vec![RelayJob {
                 reason: RelayConnectionReason::FetchEvent,
                 payload: ToMinionPayload {
@@ -1744,10 +1883,10 @@ impl Overlord {
                 }
             }
             FeedKind::Inbox(_) => {
-                let relays: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::READ, |_| true)?;
-
                 manager::run_jobs_on_all_relays(
-                    relays,
+                    Relay::choose_relay_urls(Relay::READ, |_| true)?
+                        .into_iter()
+                        .collect(),
                     vec![RelayJob {
                         reason: RelayConnectionReason::FetchInbox,
                         payload: ToMinionPayload {
@@ -1761,7 +1900,7 @@ impl Overlord {
             }
             FeedKind::Person(pubkey) => {
                 // Get write relays for the person
-                let relays: Vec<RelayUrl> = relay::get_all_pubkey_outboxes(pubkey)?;
+                let relays = relay::get_all_pubkey_outboxes(pubkey)?;
                 let num = GLOBALS.db().read_setting_num_relays_per_person() as usize;
                 manager::run_jobs_on_some_relays(
                     relays,
@@ -1779,9 +1918,10 @@ impl Overlord {
                 );
             }
             FeedKind::Global => {
-                let relay_urls = Relay::choose_relay_urls(Relay::GLOBAL, |_| true)?;
                 manager::run_jobs_on_all_relays(
-                    relay_urls,
+                    Relay::choose_relay_urls(Relay::GLOBAL, |_| true)?
+                        .into_iter()
+                        .collect(),
                     vec![RelayJob {
                         reason: RelayConnectionReason::SubscribeGlobal,
                         payload: ToMinionPayload {
@@ -1933,7 +2073,7 @@ impl Overlord {
             }
         };
 
-        let relay_urls: Vec<RelayUrl> = relay::relays_to_post_to(&event)?;
+        let relay_urls = relay::relays_to_post_to(&event)?.into_iter().collect();
         for url in &relay_urls {
             tracing::debug!("Asking {} to post", url);
         }
@@ -1959,6 +2099,11 @@ impl Overlord {
     pub async fn post(
         &mut self,
         content: String,
+        (mimelist, fallback): (
+            // @TODO make struct
+            Option<IndexMap<String, String>>,
+            Option<IndexMap<UncheckedUrl, String>>,
+        ),
         tags: Vec<Tag>,
         in_reply_to: Option<Id>,
         annotation: bool,
@@ -1976,8 +2121,10 @@ impl Overlord {
         let mut prepared_events = match dm_channel {
             Some(channel) => {
                 if channel.can_use_nip17() {
-                    crate::post::prepare_post_nip17(author, content, tags, channel, annotation)
-                        .await?
+                    crate::post::prepare_post_nip17(
+                        author, content, mimelist, fallback, tags, channel, annotation,
+                    )
+                    .await?
                 } else {
                     crate::post::prepare_post_nip04(author, content, channel, annotation).await?
                 }
@@ -1993,18 +2140,24 @@ impl Overlord {
                         crate::post::prepare_post_normal(
                             author,
                             content,
+                            mimelist,
+                            fallback,
                             tags,
                             Some(parent),
                             annotation,
                         )
                         .await?
                     } else {
-                        crate::post::prepare_post_comment(author, content, tags, parent, annotation)
-                            .await?
+                        crate::post::prepare_post_comment(
+                            author, content, mimelist, fallback, tags, parent, annotation,
+                        )
+                        .await?
                     }
                 } else {
-                    crate::post::prepare_post_normal(author, content, tags, None, annotation)
-                        .await?
+                    crate::post::prepare_post_normal(
+                        author, content, mimelist, fallback, tags, None, annotation,
+                    )
+                    .await?
                 }
             }
         };
@@ -2042,8 +2195,10 @@ impl Overlord {
                 if GLOBALS.delayed_posts.contains(&event.id) {
                     GLOBALS.delayed_posts.remove(&event.id);
 
-                    for url in &relay_urls {
-                        tracing::debug!("Asking {} to post", url);
+                    let relay_urls_set = relay_urls.into_iter().collect();
+
+                    for url in &relay_urls_set {
+                        tracing::debug!("Asking {url} to post");
                     }
 
                     let events = match opt_relay_list_event {
@@ -2052,7 +2207,7 @@ impl Overlord {
                     };
 
                     manager::run_jobs_on_all_relays(
-                        relay_urls,
+                        relay_urls_set,
                         vec![RelayJob {
                             reason: RelayConnectionReason::PostEvent,
                             payload: ToMinionPayload {
@@ -2069,10 +2224,10 @@ impl Overlord {
     }
 
     pub fn post_again(&mut self, event: Event) -> Result<(), Error> {
-        let relay_urls = relay::relays_to_post_to(&event)?;
+        let relay_urls = relay::relays_to_post_to(&event)?.into_iter().collect();
 
         for url in &relay_urls {
-            tracing::debug!("Asking {} to post", url);
+            tracing::debug!("Asking {url} to post");
         }
 
         manager::run_jobs_on_all_relays(
@@ -2099,7 +2254,11 @@ impl Overlord {
         GLOBALS.feed.sync_recompute();
     }
 
-    pub fn post_nip46_event(&mut self, event: Event, relays: Vec<RelayUrl>) -> Result<(), Error> {
+    pub fn post_nip46_event(
+        &mut self,
+        event: Event,
+        relays: IndexSet<RelayUrl>,
+    ) -> Result<(), Error> {
         for url in &relays {
             tracing::debug!("Asking {} to post nostrconnect", url);
         }
@@ -2140,10 +2299,10 @@ impl Overlord {
 
         let event = GLOBALS.identity.sign_event(pre_event).await?;
 
-        let config_relays: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
-
         manager::run_jobs_on_all_relays(
-            config_relays,
+            Relay::choose_relay_urls(Relay::WRITE, |_| true)?
+                .into_iter()
+                .collect(),
             vec![RelayJob {
                 reason: RelayConnectionReason::PostBlossomServers,
                 payload: ToMinionPayload {
@@ -2170,7 +2329,9 @@ impl Overlord {
 
         // Push to all of the relays we post to
         // Send it the event to pull our followers
-        let relay_urls: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
+        let relay_urls = Relay::choose_relay_urls(Relay::WRITE, |_| true)?
+            .into_iter()
+            .collect();
         for url in &relay_urls {
             tracing::debug!("Pushing PersonList={} to {}", metadata.title, url);
         }
@@ -2207,7 +2368,9 @@ impl Overlord {
 
         // Push to all of the relays we post to
         // Send it the event to pull our followers
-        let relay_urls: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
+        let relay_urls = Relay::choose_relay_urls(Relay::WRITE, |_| true)?
+            .into_iter()
+            .collect();
         for url in &relay_urls {
             tracing::debug!("Pushing Metadata to {}", url);
         }
@@ -2246,7 +2409,7 @@ impl Overlord {
             pubkeys.push(pubkey)
         }
 
-        let mut map: HashMap<RelayUrl, Vec<PublicKey>> = HashMap::new();
+        let mut map: IndexMap<RelayUrl, Vec<PublicKey>> = IndexMap::new();
 
         // Sort the people into the relays we will find their metadata at
         for pubkey in &pubkeys {
@@ -2257,7 +2420,7 @@ impl Overlord {
             }
         }
 
-        for (url, pubkeys) in map.drain() {
+        for (url, pubkeys) in map {
             manager::engage_minion(
                 url.clone(),
                 vec![RelayJob {
@@ -2299,7 +2462,10 @@ impl Overlord {
                 // FIXME: is this the right way to pick this relay?
                 relay::recommended_relay_hint(id)?.map(|rr| rr.to_unchecked_url())
             } else {
-                seen_on.first().map(|(rurl, _)| rurl.to_unchecked_url())
+                seen_on
+                    .into_keys()
+                    .next()
+                    .map(|rurl| rurl.to_unchecked_url())
             }
         };
 
@@ -2330,8 +2496,8 @@ impl Overlord {
                 let ea = NAddr {
                     d: reposted_event.parameter().unwrap_or("".to_string()),
                     relays: match relay_url {
-                        Some(url) => vec![url.clone()],
-                        None => vec![],
+                        Some(url) => IndexSet::from([url.clone()]),
+                        None => IndexSet::new(),
                     },
                     kind: reposted_event.kind,
                     author: reposted_event.pubkey,
@@ -2395,18 +2561,11 @@ impl Overlord {
         crate::process::process_new_event(&event, None, None, false, false).await?;
 
         // Determine which relays to post this to
-        let mut relay_urls: Vec<RelayUrl> = Vec::new();
-        {
-            // Get all of the relays that we write to
-            let write_relay_urls: Vec<RelayUrl> = relay::relays_to_post_to(&event)?;
-            relay_urls.extend(write_relay_urls);
-            relay_urls.sort();
-            relay_urls.dedup();
-        }
+        let relay_urls = relay::relays_to_post_to(&event)?.into_iter().collect();
 
         // Send it the event to post
         for url in &relay_urls {
-            tracing::debug!("Asking {} to (re)post", url);
+            tracing::debug!("Asking {url} to (re)post");
         }
         manager::run_jobs_on_all_relays(
             relay_urls,
@@ -2424,7 +2583,10 @@ impl Overlord {
 
     /// Search people and notes in the local database.
     /// Search results eventually arrive in `GLOBALS.people_search_results` and `GLOBALS.note_search_results`
-    pub fn search_locally(mut text: String) -> Result<(), Error> {
+    pub fn search_locally(
+        mut text: String,
+        public_keys: Option<Vec<PublicKey>>,
+    ) -> Result<(), Error> {
         GLOBALS.people_search_results.write().clear();
         GLOBALS.note_search_results.write().clear();
 
@@ -2462,6 +2624,12 @@ impl Overlord {
                         .db()
                         .find_events_by_filter(&filter, |event| {
                             event.tags.iter().any(|tag| {
+                                if !public_keys
+                                    .as_ref()
+                                    .is_some_and(|pks| pks.iter().all(|pk| *pk == event.pubkey))
+                                {
+                                    return false;
+                                }
                                 if let Ok(ParsedTag::Identifier(d)) = tag.parse() {
                                     if d == ea.d {
                                         return true;
@@ -2486,9 +2654,14 @@ impl Overlord {
                 }
                 NostrBech32::NEvent(ne) => {
                     if let Some(event) = GLOBALS.db().read_event(ne.id)? {
-                        note_search_results.push(event);
+                        if public_keys
+                            .as_ref()
+                            .is_some_and(|pks| pks.iter().all(|pk| *pk == event.pubkey))
+                        {
+                            note_search_results.push(event)
+                        }
                     } else {
-                        let relays: Vec<RelayUrl> = ne
+                        let relays = ne
                             .relays
                             .iter()
                             .filter_map(|r| RelayUrl::try_from_unchecked_url(r).ok())
@@ -2505,7 +2678,12 @@ impl Overlord {
                 }
                 NostrBech32::Id(id) => {
                     if let Some(event) = GLOBALS.db().read_event(id)? {
-                        note_search_results.push(event);
+                        if public_keys
+                            .as_ref()
+                            .is_some_and(|pks| pks.iter().all(|pk| *pk == event.pubkey))
+                        {
+                            note_search_results.push(event)
+                        }
                     }
                     // else we can't go find it, we don't know which relays to ask.
                 }
@@ -2570,18 +2748,28 @@ impl Overlord {
             false
         })?);
 
-        // FIXME: stop at white space
         if let Some(hashtag) = text.strip_prefix('#') {
-            let hashtag = hashtag.to_string();
-            let ids = GLOBALS.db().get_event_ids_with_hashtag(&hashtag)?;
-            for id in ids {
+            for id in GLOBALS
+                .db()
+                .get_event_ids_with_hashtag(hashtag.split_whitespace().next().unwrap_or(hashtag))?
+            {
                 if let Some(event) = GLOBALS.db().read_event(id)? {
-                    note_search_results.push(event);
+                    if public_keys
+                        .as_ref()
+                        .is_some_and(|pks| pks.iter().all(|pk| *pk == event.pubkey))
+                    {
+                        note_search_results.push(event)
+                    }
                 }
             }
         } else {
-            // Full text search
-            note_search_results.extend(GLOBALS.db().search_events(&text)?);
+            note_search_results.extend(GLOBALS.db().search_events(&text)?.into_iter().filter(
+                |event| {
+                    public_keys
+                        .as_ref()
+                        .is_none_or(|pks| pks.iter().all(|pk| *pk == event.pubkey))
+                },
+            ));
         }
 
         *GLOBALS.people_search_results.write() = people_search_results;
@@ -2593,12 +2781,12 @@ impl Overlord {
     }
 
     /// Search all search relays for events matching the text
-    pub fn search_relays(text: String) -> Result<(), Error> {
+    pub fn search_relays(text: String, public_keys: Option<Vec<PublicKey>>) -> Result<(), Error> {
         GLOBALS.people_search_results.write().clear();
         GLOBALS.note_search_results.write().clear();
         GLOBALS.searching.store(true, Ordering::Relaxed);
 
-        let filter_set = FilterSet::Search(text);
+        let filter_set = FilterSet::Search(text, public_keys);
         let job = RelayJob {
             reason: RelayConnectionReason::Search,
             payload: ToMinionPayload {
@@ -2612,8 +2800,12 @@ impl Overlord {
             .search_job
             .store(job.payload.job_id, Ordering::Relaxed);
 
-        let search_relays: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::SEARCH, |_| true)?;
-        manager::run_jobs_on_all_relays(search_relays, vec![job]);
+        manager::run_jobs_on_all_relays(
+            Relay::choose_relay_urls(Relay::SEARCH, |_| true)?
+                .into_iter()
+                .collect(),
+            vec![job],
+        );
 
         Ok(())
     }
@@ -2629,12 +2821,11 @@ impl Overlord {
         // subscribe to channel on outbox and inbox relays
         //   outbox: you may have written them there. Other clients may have too.
         //   inbox: they may have put theirs here for you to pick up.
-        let mut relays: Vec<Relay> = GLOBALS
+        let mut relays = GLOBALS
             .db()
             .filter_relays(|r| r.has_usage_bits(Relay::OUTBOX) || r.has_usage_bits(Relay::INBOX))?;
-        let relay_urls: Vec<RelayUrl> = relays.drain(..).map(|r| r.url).collect();
         manager::run_jobs_on_all_relays(
-            relay_urls,
+            relays.drain(..).map(|r| r.url).collect(),
             vec![RelayJob {
                 reason: RelayConnectionReason::FetchDirectMessages,
                 payload: ToMinionPayload {
@@ -2650,9 +2841,10 @@ impl Overlord {
     }
 
     fn set_global_feed(&mut self, anchor: Unixtime) -> Result<(), Error> {
-        let relay_urls = Relay::choose_relay_urls(Relay::GLOBAL, |_| true)?;
         manager::run_jobs_on_all_relays(
-            relay_urls,
+            Relay::choose_relay_urls(Relay::GLOBAL, |_| true)?
+                .into_iter()
+                .collect(),
             vec![
                 RelayJob {
                     reason: RelayConnectionReason::SubscribeGlobal,
@@ -2679,9 +2871,10 @@ impl Overlord {
     }
 
     fn set_person_feed(&mut self, pubkey: PublicKey, anchor: Unixtime) -> Result<(), Error> {
-        let relays: Vec<RelayUrl> = relay::get_some_pubkey_outboxes(pubkey)?;
         manager::run_jobs_on_all_relays(
-            relays,
+            relay::get_some_pubkey_outboxes(pubkey)?
+                .into_iter()
+                .collect(),
             vec![
                 RelayJob {
                     reason: RelayConnectionReason::SubscribePerson,
@@ -2711,7 +2904,7 @@ impl Overlord {
 
     fn set_relay_feed(&mut self, relay_url: RelayUrl, anchor: Unixtime) -> Result<(), Error> {
         manager::run_jobs_on_all_relays(
-            vec![relay_url],
+            IndexSet::from([relay_url]),
             vec![
                 RelayJob {
                     reason: RelayConnectionReason::SubscribeGlobal,
@@ -2753,7 +2946,7 @@ impl Overlord {
         let mut eref = EventReference::Id {
             id,
             author,
-            relays: vec![],
+            relays: IndexSet::new(),
             marker: None,
         };
 
@@ -2783,7 +2976,7 @@ impl Overlord {
             // FIXME: keep climbing somehow once this comes in.
 
             // Let's first get additional relays the event might be on
-            let mut bonus_relays: Vec<RelayUrl> = Vec::new();
+            let mut bonus_relays = IndexSet::new();
 
             if let Some(highest_event) = ancestors.highest_connected_local {
                 // Include the relays where the event was seen
@@ -2791,19 +2984,16 @@ impl Overlord {
                     GLOBALS
                         .db()
                         .get_event_seen_on_relay(id)?
-                        .drain(..)
-                        .take(num_relays_per_person as usize + 1)
-                        .map(|(url, _time)| url),
+                        .into_keys()
+                        .take(num_relays_per_person as usize + 1),
                 );
 
                 // Include the OUTBOX relays of people tagged in the highest event
                 for (pk, opthint, _optmarker) in highest_event.people() {
                     if let Some(url) = opthint {
-                        bonus_relays.push(url);
+                        bonus_relays.insert(url);
                     } else {
-                        let tagged_person_relays: Vec<RelayUrl> =
-                            relay::get_some_pubkey_outboxes(pk)?;
-                        bonus_relays.extend(tagged_person_relays);
+                        bonus_relays.extend(relay::get_some_pubkey_outboxes(pk)?);
                     }
                 }
 
@@ -2827,21 +3017,15 @@ impl Overlord {
                     GLOBALS
                         .db()
                         .get_event_seen_on_relay(referenced_by)?
-                        .drain(..)
-                        .take(num_relays_per_person as usize + 1)
-                        .map(|(url, _time)| url),
+                        .into_keys()
+                        .take(num_relays_per_person as usize + 1),
                 );
 
                 // Include the relays of the author of the referencing event
                 if let Some(pk) = author {
-                    let author_relays: Vec<RelayUrl> = relay::get_some_pubkey_outboxes(pk)?;
-                    bonus_relays.extend(author_relays);
+                    bonus_relays.extend(relay::get_some_pubkey_outboxes(pk)?);
                 }
             }
-
-            // Clean up bonus_relays
-            bonus_relays.sort();
-            bonus_relays.dedup();
 
             match ancestors.highest_connected_remote {
                 Some(EventReference::Addr(ea)) => {
@@ -2849,8 +3033,6 @@ impl Overlord {
                     eaddr
                         .relays
                         .extend(bonus_relays.iter().map(|r| r.to_unchecked_url()));
-                    eaddr.relays.sort();
-                    eaddr.relays.dedup();
                     self.fetch_naddr(eaddr)?;
                 }
                 Some(EventReference::Id {
@@ -2861,8 +3043,6 @@ impl Overlord {
                 }) => {
                     if !relays.is_empty() {
                         relays.extend(bonus_relays);
-                        relays.sort();
-                        relays.dedup();
                         GLOBALS.seeker.seek_id_and_relays(id, relays, true);
                     } else if let Some(auth) = author {
                         GLOBALS
@@ -2886,7 +3066,7 @@ impl Overlord {
         });
 
         // Subscribe to replies to root
-        let mut root_eref_relays: Vec<RelayUrl> = Vec::new();
+        let mut root_eref_relays = IndexSet::new();
         if let Some(ref root_eref) = ancestors.root {
             let filter_set = match root_eref {
                 EventReference::Id { id, .. } => FilterSet::RepliesToId(*id),
@@ -2923,15 +3103,13 @@ impl Overlord {
                     GLOBALS
                         .db()
                         .get_event_seen_on_relay(referenced_by)?
-                        .drain(..)
-                        .take(num_relays_per_person as usize + 1)
-                        .map(|(url, _time)| url),
+                        .into_keys()
+                        .take(num_relays_per_person as usize + 1),
                 );
 
                 // Include the inbox relays of the author of the referencing event
                 if let Some(pk) = author {
-                    let author_relays: Vec<RelayUrl> = relay::get_some_pubkey_outboxes(pk)?;
-                    bonus_relays.extend(author_relays);
+                    bonus_relays.extend(relay::get_some_pubkey_outboxes(pk)?);
                 }
             }
 
@@ -3019,20 +3197,23 @@ impl Overlord {
                     handler_events[0].clone()
                 };
 
-                let mut seen_on = GLOBALS.db().get_event_seen_on_relay(handler_event.id)?;
+                let seen_on = GLOBALS.db().get_event_seen_on_relay(handler_event.id)?;
                 if seen_on.is_empty() {
                     tracing::warn!("Cannot determine a relay where the handler was seen.");
                     return Ok(());
                 }
 
                 // Get the most recent seen_on
-                seen_on.sort_by(|a, b| a.1.cmp(&b.1));
-                seen_on.pop().unwrap().0
+                seen_on
+                    .iter()
+                    .max_by_key(|&(_, time)| time)
+                    .map(|(relay, _)| relay.clone())
+                    .unwrap()
             };
 
             let naddr = NAddr {
                 d: handler_key.d,
-                relays: vec![url.to_unchecked_url()],
+                relays: IndexSet::from([url.to_unchecked_url()]),
                 kind: EventKind::HandlerInformation,
                 author: handler_key.pubkey,
             };
@@ -3066,9 +3247,8 @@ impl Overlord {
         crate::process::process_new_event(&event, None, None, false, false).await?;
 
         // Post the event to our outboxes
-        let write_relays = relay::relays_to_post_to(&event)?;
         manager::run_jobs_on_all_relays(
-            write_relays,
+            relay::relays_to_post_to(&event)?.into_iter().collect(),
             vec![RelayJob {
                 reason: RelayConnectionReason::PostEvent,
                 payload: ToMinionPayload {
@@ -3109,30 +3289,30 @@ impl Overlord {
         self.subscribe_discover(followed, None)?;
 
         // Separately subscribe to nostr-connect channels
-        let mut relays: Vec<RelayUrl> = Vec::new();
-        let servers = GLOBALS.db().read_all_nip46servers()?;
-        for server in &servers {
-            relays.extend(server.relays.clone());
+        let mut relays = IndexSet::new();
+        for server in GLOBALS.db().read_all_nip46servers()? {
+            for r in server.relays {
+                relays.insert(r);
+            }
         }
         // Also subscribe to any unconnected nostr-connect channel
         if let Some(nip46unconnected) = GLOBALS.db().read_nip46_unconnected_server()? {
             relays.extend(nip46unconnected.relays);
         }
-        relays.sort();
-        relays.dedup();
         self.subscribe_nip46(relays)?;
 
         Ok(())
     }
 
     /// Subscribe to the user's configuration events from the given relay
-    pub fn subscribe_config(&mut self, relays: Option<Vec<RelayUrl>>) -> Result<(), Error> {
-        let config_relays: Vec<RelayUrl> = match relays {
-            Some(r) => r,
-            None => Relay::choose_relay_urls(Relay::WRITE, |_| true)?,
-        };
+    pub fn subscribe_config(&mut self, relays: Option<IndexSet<RelayUrl>>) -> Result<(), Error> {
         manager::run_jobs_on_all_relays(
-            config_relays,
+            match relays {
+                Some(r) => r,
+                None => Relay::choose_relay_urls(Relay::WRITE, |_| true)?,
+            }
+            .into_iter()
+            .collect(),
             vec![RelayJob {
                 reason: RelayConnectionReason::Config,
                 payload: ToMinionPayload {
@@ -3155,7 +3335,7 @@ impl Overlord {
     pub fn subscribe_discover(
         &mut self,
         pubkeys: Vec<PublicKey>,
-        relays: Option<Vec<RelayUrl>>,
+        relays: Option<IndexSet<RelayUrl>>,
     ) -> Result<(), Error> {
         if pubkeys.is_empty() {
             return Ok(());
@@ -3170,13 +3350,14 @@ impl Overlord {
         }
         txn.commit()?;
 
-        // Discover their relays
-        let discover_relay_urls: Vec<RelayUrl> = match relays {
-            Some(r) => r,
-            None => Relay::choose_relay_urls(Relay::DISCOVER, |_| true)?,
-        };
         manager::run_jobs_on_all_relays(
-            discover_relay_urls,
+            // Discover their relays
+            match relays {
+                Some(r) => r,
+                None => Relay::choose_relay_urls(Relay::DISCOVER, |_| true)?,
+            }
+            .into_iter()
+            .collect(),
             vec![RelayJob {
                 reason: RelayConnectionReason::Discovery,
                 payload: ToMinionPayload {
@@ -3190,14 +3371,15 @@ impl Overlord {
     }
 
     /// Subscribe to the user's configuration events from the given relay
-    pub fn subscribe_inbox(&mut self, relays: Option<Vec<RelayUrl>>) -> Result<(), Error> {
+    pub fn subscribe_inbox(&mut self, relays: Option<IndexSet<RelayUrl>>) -> Result<(), Error> {
         let now = Unixtime::now();
-        let mention_relays: Vec<RelayUrl> = match relays {
-            Some(r) => r,
-            None => Relay::choose_relay_urls(Relay::READ, |_| true)?,
-        };
         manager::run_jobs_on_all_relays(
-            mention_relays,
+            match relays {
+                Some(r) => r,
+                None => Relay::choose_relay_urls(Relay::READ, |_| true)?,
+            }
+            .into_iter()
+            .collect(),
             vec![
                 RelayJob {
                     reason: RelayConnectionReason::FetchInbox,
@@ -3221,16 +3403,15 @@ impl Overlord {
 
     /// Subscribe to the user's giftwrap events on their DM and INBOX relays
     pub fn subscribe_giftwraps(&mut self) -> Result<(), Error> {
-        let mut relays: Vec<Relay> = GLOBALS
+        let mut relays = GLOBALS
             .db()
             .filter_relays(|r| r.has_usage_bits(Relay::DM) || r.has_usage_bits(Relay::INBOX))?;
-        let relay_urls: Vec<RelayUrl> = relays.drain(..).map(|r| r.url).collect();
 
         // 30 days worth (FIXME make this a setting?)
         let after = Unixtime::now() - Duration::new(3600 * 24 * 30, 0);
 
         manager::run_jobs_on_all_relays(
-            relay_urls,
+            relays.drain(..).map(|r| r.url).collect(),
             vec![RelayJob {
                 reason: RelayConnectionReason::Giftwraps,
                 payload: ToMinionPayload {
@@ -3246,7 +3427,7 @@ impl Overlord {
     }
 
     /// Subscribe to nip46 nostr connect relays
-    pub fn subscribe_nip46(&mut self, relays: Vec<RelayUrl>) -> Result<(), Error> {
+    pub fn subscribe_nip46(&mut self, relays: IndexSet<RelayUrl>) -> Result<(), Error> {
         manager::run_jobs_on_all_relays(
             relays,
             vec![RelayJob {
@@ -3312,9 +3493,8 @@ impl Overlord {
                 .unwrap()
         });
         relays.truncate(GLOBALS.db().read_setting_num_relays_for_counting() as usize);
-        let relays: Vec<RelayUrl> = relays.iter().map(|r| r.url.clone()).collect();
         manager::run_jobs_on_all_relays(
-            relays,
+            relays.iter().map(|r| r.url.clone()).collect(),
             vec![RelayJob {
                 reason: RelayConnectionReason::Counting,
                 payload: ToMinionPayload {
@@ -3427,15 +3607,13 @@ impl Overlord {
 
             tracing::debug!(target: "client", "post_event_and_wait_for_result...");
 
-            let lockable = GLOBALS.identity.inner_lockable()
+            let lockable = GLOBALS
+                .identity
+                .inner_lockable()
                 .ok_or(Error::from("identity not available for relay test"))?;
 
             let posted_outbox = match conn
-                .post_event_and_wait_for_result(
-                    outbox_event.clone(),
-                    timeout,
-                    Some(lockable),
-                )
+                .post_event_and_wait_for_result(outbox_event.clone(), timeout, Some(lockable))
                 .await
             {
                 Ok((true, _)) => RelayTestResult::Pass,
@@ -3524,15 +3702,13 @@ impl Overlord {
         let fetched_inbox = {
             tracing::debug!(target: "client", "Testing posting to the outbox as ourselves");
 
-            let lockable = GLOBALS.identity.inner_lockable()
+            let lockable = GLOBALS
+                .identity
+                .inner_lockable()
                 .ok_or(Error::from("identity not available for relay test"))?;
 
             match conn
-                .subscribe_and_wait_for_events(
-                    inbox_filter.clone(),
-                    timeout,
-                    Some(lockable),
-                )
+                .subscribe_and_wait_for_events(inbox_filter.clone(), timeout, Some(lockable))
                 .await
             {
                 Ok(events) => {
@@ -3590,13 +3766,13 @@ impl Overlord {
         // for it's retry logic
         GLOBALS.people.metadata_fetch_initiated(&[pubkey]);
 
-        let best_relays = relay::get_some_pubkey_outboxes(pubkey)?;
-
         // we do 1 more than num_relays_per_person, which is really for main posts,
         // since metadata is more important and I didn't want to bother with
         // another setting.
         manager::run_jobs_on_all_relays(
-            best_relays,
+            relay::get_some_pubkey_outboxes(pubkey)?
+                .into_iter()
+                .collect(),
             vec![RelayJob {
                 reason: RelayConnectionReason::FetchMetadata,
                 payload: ToMinionPayload {
@@ -3619,7 +3795,7 @@ impl Overlord {
         // for it's retry logic
         GLOBALS.people.metadata_fetch_initiated(&pubkeys);
 
-        let mut map: HashMap<RelayUrl, Vec<PublicKey>> = HashMap::new();
+        let mut map: IndexMap<RelayUrl, Vec<PublicKey>> = IndexMap::new();
         for pubkey in pubkeys.drain(..) {
             let best_relays = relay::get_some_pubkey_outboxes(pubkey)?;
             for relay_url in best_relays.iter() {
@@ -3628,7 +3804,7 @@ impl Overlord {
                     .or_insert_with(|| vec![pubkey]);
             }
         }
-        for (relay_url, pubkeys) in map.drain() {
+        for (relay_url, pubkeys) in map {
             manager::engage_minion(
                 relay_url.clone(),
                 vec![RelayJob {
@@ -3902,7 +4078,7 @@ impl Overlord {
                     )?;
 
                     // Subscribe to inbox on this inbox relay
-                    self.subscribe_inbox(Some(vec![new.url.clone()]))?;
+                    self.subscribe_inbox(Some(IndexSet::from([new.url.clone()])))?;
                 }
             }
             _ => (),
@@ -3921,7 +4097,7 @@ impl Overlord {
                     )?;
 
                     // Subscribe to config on this outbox relay
-                    self.subscribe_config(Some(vec![new.url.clone()]))?;
+                    self.subscribe_config(Some(IndexSet::from([new.url.clone()])))?;
                 }
             }
             _ => (),
@@ -3931,7 +4107,7 @@ impl Overlord {
             -1 => (), // Discover subscriptions are temp / short-lived, so no action needed.
             1 => {
                 let pubkeys = GLOBALS.people.get_subscribed_pubkeys_needing_relay_lists();
-                self.subscribe_discover(pubkeys, Some(vec![new.url.clone()]))?;
+                self.subscribe_discover(pubkeys, Some(IndexSet::from([new.url.clone()])))?;
             }
             _ => (),
         }
@@ -3946,7 +4122,7 @@ impl Overlord {
     /// WARNING: DO NOT CALL TOO OFTEN or relays will hate you.
     pub fn visible_notes_changed(&mut self, mut visible: Vec<Id>) -> Result<(), Error> {
         // Work out which relays to use to find augments for which ids
-        let mut augment_subs: HashMap<RelayUrl, Vec<Id>> = HashMap::new();
+        let mut augment_subs: IndexMap<RelayUrl, Vec<Id>> = IndexMap::new();
         for id in visible.drain(..) {
             if let Some(event) = GLOBALS.db().read_event(id)? {
                 let relays = relay::relays_for_seeking_replies(&event)?;
@@ -3964,7 +4140,7 @@ impl Overlord {
         }
 
         // Create jobs for minions
-        for (relay_url, ids) in augment_subs.drain() {
+        for (relay_url, ids) in augment_subs {
             manager::engage_minion(
                 relay_url,
                 vec![RelayJob {
@@ -4001,15 +4177,33 @@ impl Overlord {
 
         *GLOBALS.current_zap.write() = ZapState::CheckingLnurl(id, target_pubkey, lnurl.clone());
 
-        let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::new(15, 0))
-            .gzip(true)
-            .brotli(true)
-            .deflate(true)
-            .build()?;
-
         // Convert the lnurl UncheckedUrl to a Url
         let url = nostr_types::Url::try_from_unchecked_url(&lnurl)?;
+
+        let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
+
+        let client = if GLOBALS.db().read_setting_socks5_proxy_enabled() && !socks5_proxy_address.is_empty()
+            && !GLOBALS
+                .db()
+                .read_setting_socks5_proxy_ignore()
+                .split_whitespace()
+                .any(|l| Regex::new(l).is_ok_and(|r| r.is_match(url.as_str())))
+        {
+            tracing::debug!(
+                "Begin proxied ({socks5_proxy_address}) overlord::zap_start connection to `{url}`..."
+            );
+            Client::builder().proxy(Proxy::all(format!("socks5h://{socks5_proxy_address}"))?)
+        } else {
+            tracing::debug!(
+                "Begin direct overlord::zap_start connection to `{url}`..."
+            );
+            Client::builder()
+        }
+        .timeout(std::time::Duration::new(15, 0))
+        .gzip(true)
+        .brotli(true)
+        .deflate(true)
+        .build()?;
 
         // Read the PayRequestData from the lnurl
         let response = client.get(url.as_str()).send().await?;
@@ -4122,19 +4316,18 @@ impl Overlord {
         // Get the relays to have the receipt posted to
         let relays = {
             // Start with the relays the event was seen on
-            let mut relays: Vec<RelayUrl> = GLOBALS
+            let mut relays: IndexSet<RelayUrl> = GLOBALS
                 .db()
                 .get_event_seen_on_relay(id)?
-                .drain(..)
-                .map(|(url, _)| url)
+                .into_keys()
                 .collect();
 
             // Add the read relays of the target person
-            let target_read_relays: Vec<RelayUrl> = relay::get_all_pubkey_inboxes(target_pubkey)?;
+            let target_read_relays = relay::get_all_pubkey_inboxes(target_pubkey)?;
             relays.extend(target_read_relays);
 
             // Add all my write relays
-            let write_relay_urls: Vec<RelayUrl> = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
+            let write_relay_urls = Relay::choose_relay_urls(Relay::WRITE, |_| true)?;
             relays.extend(write_relay_urls);
 
             if relays.is_empty() {
@@ -4142,13 +4335,11 @@ impl Overlord {
                 return Err(ErrorKind::NoRelay.into());
             }
 
-            // Deduplicate
-            relays.sort();
-            relays.dedup();
-
             // Turn relays into strings for the event tag
-            let relays: Vec<String> = relays.iter().map(|r| r.as_str().to_owned()).collect();
             relays
+                .into_iter()
+                .map(|r| r.to_string())
+                .collect::<Vec<String>>()
         };
 
         let mut relays_tag = Tag::new(&["relays"]);
@@ -4184,13 +4375,6 @@ impl Overlord {
 
         let serialized_event = serde_json::to_string(&event)?;
 
-        let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::new(15, 0))
-            .gzip(true)
-            .brotli(true)
-            .deflate(true)
-            .build()?;
-
         let mut url = match url::Url::parse(callback.as_str()) {
             Ok(url) => url,
             Err(e) => {
@@ -4204,6 +4388,34 @@ impl Overlord {
             .clear()
             .append_pair("nostr", &serialized_event)
             .append_pair("amount", &msats_string);
+
+        let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
+
+        let client = if GLOBALS.db().read_setting_socks5_proxy_enabled()
+            && !socks5_proxy_address.is_empty()
+            && !GLOBALS
+                .db()
+                .read_setting_socks5_proxy_ignore()
+                .split_whitespace()
+                .any(|l| Regex::new(l).is_ok_and(|r| r.is_match(url.as_str())))
+        {
+            tracing::debug!(
+                "Begin proxied ({socks5_proxy_address}) overlord::zap connection to `{}`...",
+                url.as_str()
+            );
+            Client::builder().proxy(Proxy::all(format!("socks5h://{socks5_proxy_address}"))?)
+        } else {
+            tracing::debug!(
+                "Begin direct overlord::zap connection to `{}`...",
+                url.as_str()
+            );
+            Client::builder()
+        }
+        .timeout(std::time::Duration::new(15, 0))
+        .gzip(true)
+        .brotli(true)
+        .deflate(true)
+        .build()?;
 
         let response = client.get(url).send().await?;
         let text = response.text().await?;

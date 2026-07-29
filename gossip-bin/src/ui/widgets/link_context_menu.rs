@@ -4,7 +4,11 @@ use gossip_lib::GLOBALS;
 use nostr_types::Url;
 
 fn draw_open_and_copy(ui: &mut Ui, url_string: String) {
-    if ui.button("Open in browser").clicked() {
+    if ui
+        .button("Open in browser")
+        .on_hover_text(&url_string)
+        .clicked()
+    {
         let modifiers = ui.ctx().input(|i| i.modifiers);
         ui.ctx().output_mut(|o| {
             o.commands
@@ -20,11 +24,8 @@ fn draw_open_and_copy(ui: &mut Ui, url_string: String) {
             .write("Opening in browser...".to_owned());
     }
 
-    if ui.button("Copy URL").clicked() {
-        ui.output_mut(|o| {
-            o.commands
-                .push(egui::OutputCommand::CopyText(url_string.clone()))
-        });
+    if ui.button("Copy URL").on_hover_text(&url_string).clicked() {
+        ui.output_mut(|o| o.commands.push(egui::OutputCommand::CopyText(url_string)));
         ui.close_menu();
         GLOBALS
             .status_queue

@@ -394,7 +394,7 @@ fn add_media_menu(app: &mut GossipUi, ui: &mut Ui, url: Url, response: &Response
                         BTN_SIZE,
                         egui::Button::new(RichText::new("\u{1F310}").size(TXT_SIZE)),
                     )
-                    .on_hover_text("View in Browser")
+                    .on_hover_text(format!("Open in browser:\n\n{url}"))
                     .clicked()
                 {
                     let modifiers = ui.ctx().input(|i| i.modifiers);
@@ -412,7 +412,7 @@ fn add_media_menu(app: &mut GossipUi, ui: &mut Ui, url: Url, response: &Response
                         BTN_SIZE,
                         egui::Button::new(RichText::new("\u{1F4CB}").size(TXT_SIZE)),
                     )
-                    .on_hover_text("Copy URL")
+                    .on_hover_text(format!("Copy URL:\n\n{url}"))
                     .clicked()
                 {
                     ui.output_mut(|o| {

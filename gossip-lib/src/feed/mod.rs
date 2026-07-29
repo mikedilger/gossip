@@ -1,5 +1,6 @@
 mod feed_kind;
 pub use feed_kind::FeedKind;
+use indexmap::IndexSet;
 
 use crate::comms::{ToMinionMessage, ToMinionPayload, ToMinionPayloadDetail, ToOverlordMessage};
 use crate::error::{Error, ErrorKind};
@@ -12,7 +13,6 @@ use nostr_types::{
     Event, EventKind, EventReference, Filter, Id, NAddr, PublicKey, RelayUrl, Unixtime,
 };
 use parking_lot::RwLock;
-use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -521,16 +521,13 @@ impl Feed {
             let limit_inbox_seeking = GLOBALS
                 .db()
                 .read_setting_limit_inbox_seeking_to_inbox_relays();
-            let inbox_relays: HashSet<RelayUrl> = Relay::choose_relay_urls(Relay::INBOX, |_| true)?
-                .into_iter()
-                .collect();
+            let inbox_relays = Relay::choose_relay_urls(Relay::INBOX, |_| true)?;
             let screen_limit_inbox = |event: &Event| -> bool {
                 if limit_inbox_seeking {
                     match GLOBALS.db().get_event_seen_on_relay(event.id) {
                         Err(_) => false,
-                        Ok(mut seen_on_vec) => {
-                            let seen_on: HashSet<RelayUrl> =
-                                seen_on_vec.drain(..).map(|(r, _)| r).collect();
+                        Ok(seen_on_map) => {
+                            let seen_on: IndexSet<RelayUrl> = seen_on_map.into_keys().collect();
                             !inbox_relays.is_disjoint(&seen_on)
                         }
                     }

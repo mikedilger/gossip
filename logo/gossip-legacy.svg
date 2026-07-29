@@ -1,0 +1,15 @@
+<svg version="1.1" width="128" height="128" xmlns="http://www.w3.org/2000/svg">
+  <mask id="greymask">
+    <rect x="5" y="14" width="100" height="100" fill="white" />
+    <rect x="80" y="48" width="25" height="32" fill="black" />
+    <circle cx="55" cy="64" r="35" fill="black" />
+  </mask>
+  <mask id="greenmask">
+    <rect x="5" y="14" width="100" height="100" fill="white" />
+    <circle cx="55" cy="64" r="10" fill="black" />
+  </mask>
+  <circle cx="55" cy="64" r="50" mask="url(#greymask)" fill="#707070" />
+  <circle cx="55" cy="64" r="25" mask="url(#greenmask)" fill="#006A00" />
+  <rect x="77" y="58" width="45" height="12" fill="#006A00" />
+  <rect x="106" y="70" width="16" height="44" fill="#006A00" />
+</svg>

@@ -20,6 +20,7 @@ use crate::storage::{HandlersTable, Storage, Table};
 use crate::user_identity::UserIdentity;
 use crate::RunState;
 use dashmap::{DashMap, DashSet};
+use indexmap::IndexSet;
 use nostr_types::{Event, EventKind, Id, Profile, PublicKey, RelayUrl, UncheckedUrl};
 use parking_lot::RwLock as PRwLock;
 use regex::Regex;
@@ -202,8 +203,8 @@ pub struct Globals {
     /// Blossom (the uploader)
     pub blossom: OnceLock<Blossom>,
 
-    /// Blossom Uploads (Path to Url)
-    pub blossom_uploads: DashMap<PathBuf, Result<BlobDescriptor, Error>>,
+    /// Blossom Uploads (Paths to Url)
+    pub blossom_uploads: DashMap<PathBuf, Vec<Result<BlobDescriptor, Error>>>,
 
     /// Followers (we keep it in memory only, for just one person)
     pub followers: PRwLock<FollowList>,
@@ -341,7 +342,7 @@ impl Globals {
 
         let mut profile = Profile {
             pubkey: public_key,
-            relays: Vec::new(),
+            relays: IndexSet::new(),
         };
 
         match GLOBALS
@@ -349,12 +350,12 @@ impl Globals {
             .filter_relays(|ri| ri.has_usage_bits(Relay::OUTBOX))
         {
             Err(e) => {
-                tracing::error!("{}", e);
+                tracing::error!("{e}");
                 return None;
             }
             Ok(relays) => {
                 for relay in relays {
-                    profile.relays.push(relay.url.to_unchecked_url());
+                    profile.relays.insert(relay.url.to_unchecked_url()); // @TODO assert duplicates?
                 }
             }
         }

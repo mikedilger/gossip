@@ -1,5 +1,5 @@
 use super::FeedNoteParams;
-use crate::ui::widgets::{InformationPopup, MoreMenuButton, MoreMenuItem};
+use crate::ui::widgets::{Button, InformationPopup, MoreMenuButton, MoreMenuItem};
 use crate::ui::{widgets, you, FeedKind, GossipUi, HighlightType, Label, Page, Sense, Theme};
 use eframe::egui;
 use eframe::epaint::text::LayoutJob;
@@ -10,6 +10,7 @@ use egui_winit::egui::text_edit::TextEditOutput;
 use egui_winit::egui::{vec2, AboveOrBelow, Id};
 use gossip_lib::comms::ToOverlordMessage;
 use gossip_lib::{DmChannel, PersonTable, Relay, Table, GLOBALS};
+use indexmap::IndexMap;
 use memoize::memoize;
 use nostr_types::{ContentSegment, NostrBech32, NostrUrl, ParsedTag, ShatteredContent, Tag};
 use std::collections::HashMap;
@@ -76,7 +77,7 @@ pub fn textarea_highlighter(theme: Theme, text: String, interests: Vec<String>) 
                 }
 
                 // sort by position (so our indice access below will not crash)
-                found_interests.sort_by(|a, b| a.0.cmp(&b.0));
+                found_interests.sort_by_key(|a| a.0);
 
                 let mut pos = 0;
                 // loop all found interests in order
@@ -359,14 +360,14 @@ fn dm_posting_area(
 
             if app.dm_draft_data.are_you_sure_cancel {
                 ui.horizontal(|ui| {
-                    if widgets::Button::primary(&app.theme, "Keep Draft")
+                    if Button::secondary(&app.theme, "Keep Draft")
                         .show(ui)
                         .clicked()
                     {
                         app.dm_draft_data.are_you_sure_cancel = false;
                     }
 
-                    if widgets::Button::primary(&app.theme, "Erase Draft")
+                    if Button::bordered(&app.theme, "Erase Draft")
                         .show(ui)
                         .clicked()
                     {
@@ -374,9 +375,7 @@ fn dm_posting_area(
                     }
                 });
             } else {
-                if widgets::Button::primary(&app.theme, "Send")
-                    .show(ui)
-                    .clicked()
+                if Button::primary(&app.theme, "Send").show(ui).clicked()
                     && !app.dm_draft_data.draft.is_empty()
                 {
                     send_now = true;
@@ -410,11 +409,13 @@ fn dm_posting_area(
         }
 
         let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post {
-            content: app.dm_draft_data.draft.clone(),
-            tags,
-            in_reply_to: None,
             annotation: app.dm_draft_data.is_annotate,
+            blossom: app.dm_draft_data.blossom.clone(),
+            content: app.dm_draft_data.draft.clone(),
             dm_channel: Some(dm_channel.to_owned()),
+            in_reply_to: None,
+            mimelist: app.dm_draft_data.mimelist.clone(),
+            tags,
         });
 
         app.reset_draft();
@@ -710,14 +711,14 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
 
                 if app.draft_data.are_you_sure_cancel {
                     ui.horizontal(|ui| {
-                        if widgets::Button::primary(&app.theme, "Keep Draft")
+                        if Button::secondary(&app.theme, "Keep Draft")
                             .show(ui)
                             .clicked()
                         {
                             app.draft_data.are_you_sure_cancel = false;
                         }
 
-                        if widgets::Button::primary(&app.theme, "Erase Draft")
+                        if Button::bordered(&app.theme, "Erase Draft")
                             .show(ui)
                             .clicked()
                         {
@@ -726,9 +727,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                     });
                 } else {
                     ui.horizontal(|ui| {
-                        if widgets::Button::primary(&app.theme, send_label)
-                            .show(ui)
-                            .clicked()
+                        if Button::primary(&app.theme, send_label).show(ui).clicked()
                             && (!app.draft_data.draft.is_empty() || app.draft_data.repost.is_some())
                         {
                             send_now = true;
@@ -760,9 +759,7 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
 
             ui.with_layout(Layout::right_to_left(Align::TOP), |ui| {
                 ui.add_space(12.0);
-                if widgets::Button::primary(&app.theme, send_label)
-                    .show(ui)
-                    .clicked()
+                if Button::primary(&app.theme, send_label).show(ui).clicked()
                     && (!app.draft_data.draft.is_empty() || app.draft_data.repost.is_some())
                 {
                     send_now = true;
@@ -789,11 +786,13 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
         match app.draft_data.replying_to {
             Some(replying_to_id) => {
                 let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post {
-                    content: replaced,
-                    tags,
-                    in_reply_to: Some(replying_to_id),
                     annotation: app.draft_data.is_annotate,
+                    blossom: app.draft_data.blossom.clone(),
+                    content: replaced,
                     dm_channel: None,
+                    in_reply_to: Some(replying_to_id),
+                    mimelist: app.draft_data.mimelist.clone(),
+                    tags,
                 });
             }
             None => {
@@ -803,11 +802,13 @@ fn real_posting_area(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
                         .send(ToOverlordMessage::Repost(event_id));
                 } else {
                     let _ = GLOBALS.to_overlord.send(ToOverlordMessage::Post {
-                        content: replaced,
-                        tags,
-                        in_reply_to: None,
                         annotation: app.draft_data.is_annotate,
+                        blossom: app.draft_data.blossom.clone(),
+                        content: replaced,
                         dm_channel: None,
+                        in_reply_to: None,
+                        mimelist: app.draft_data.mimelist.clone(),
+                        tags,
                     });
                 }
             }
@@ -1060,8 +1061,7 @@ fn do_replacements(draft: &str, replacements: &HashMap<String, ContentSegment>) 
 
 fn offer_attachment(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, dm: bool) {
     // Skip if no blossom servers configured:
-    let blossom_servers = GLOBALS.db().read_setting_blossom_servers();
-    if blossom_servers.split_whitespace().next().is_none() {
+    if GLOBALS.db().read_setting_blossom_servers().is_empty() {
         return;
     }
 
@@ -1070,42 +1070,104 @@ fn offer_attachment(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, dm: bool) {
 
     // Attachment button
     if let Some(pathbuf) = &app.uploading {
-        if let Some(result) = GLOBALS.blossom_uploads.get(pathbuf) {
-            match result.value() {
-                Ok(bd) => {
-                    if dm {
-                        app.dm_draft_data.draft.push(' ');
-                        app.dm_draft_data.draft.push_str(&bd.url);
-                        if bd.url.len() > 5 && !bd.url[bd.url.len() - 5..].contains('.') {
-                            if let Some(ext) = pathbuf.extension() {
-                                app.dm_draft_data.draft.push('.');
-                                app.dm_draft_data.draft.push_str(&ext.to_string_lossy());
+        if let Some(blossom_servers) = GLOBALS.blossom_uploads.get(pathbuf) {
+            let mut blossom = IndexMap::new();
+            let mut mimelist = IndexMap::new();
+            for blossom_server in blossom_servers.value() {
+                match blossom_server {
+                    Ok(bd) => {
+                        if blossom
+                            .insert(
+                                nostr_types::UncheckedUrl::from_str(bd.url.as_str()),
+                                bd.sha256.clone(),
+                            )
+                            .is_none()
+                        {
+                            tracing::debug!(
+                                "Insert blossom entry `{}` ({} total)",
+                                bd.url,
+                                blossom.len()
+                            )
+                        } else {
+                            tracing::warn!(
+                                "Duplicated blossom entry `{}` ({} total)",
+                                bd.url,
+                                blossom.len()
+                            )
+                        }
+
+                        if let Some(mime_type) = bd.mime_type.as_ref() {
+                            if mimelist.insert(bd.url.clone(), mime_type.clone()).is_none() {
+                                tracing::debug!(
+                                    "Register mime type `{mime_type}` for blossom entry `{}` ({} total)",
+                                    bd.url,
+                                    blossom.len()
+                                )
                             }
                         }
-                    } else {
-                        app.draft_data.draft.push(' ');
-                        app.draft_data.draft.push_str(&bd.url);
-                        if bd.url.len() > 5 && !bd.url[bd.url.len() - 5..].contains('.') {
-                            if let Some(ext) = pathbuf.extension() {
-                                app.draft_data.draft.push('.');
-                                app.draft_data.draft.push_str(&ext.to_string_lossy());
+
+                        clear_uploading = true;
+
+                        if GLOBALS
+                            .db()
+                            .read_setting_blossom_servers_append_to_content()
+                            .split_whitespace()
+                            .any(|l| regex::Regex::new(l).is_ok_and(|r| r.is_match(&bd.url)))
+                        {
+                            if dm {
+                                app.dm_draft_data.draft.push('\n');
+                                app.dm_draft_data.draft.push_str(&bd.url);
+                            } else {
+                                app.draft_data.draft.push('\n');
+                                app.draft_data.draft.push_str(&bd.url);
                             }
+                        } else {
+                            tracing::debug!(
+                                "Skip blossom URL `{}` as does not match filter condition in settings (upload sucsessful)",
+                                &bd.url
+                            )
                         }
                     }
-                    clear_uploading = true;
-                }
-                Err(e) => {
-                    if ui
-                        .add(Label::new(format!("{e}")).sense(Sense::click()))
-                        .clicked()
-                    {
-                        clear_uploading = true;
-                        clear_upload = true;
+                    Err(e) => {
+                        if ui
+                            .add(Label::new(e.to_string()).sense(Sense::click()))
+                            .clicked()
+                        {
+                            clear_uploading = true;
+                            clear_upload = true;
+                            break;
+                        }
                     }
                 }
             }
+            if !blossom.is_empty() {
+                if dm {
+                    app.dm_draft_data
+                        .blossom
+                        .get_or_insert_with(IndexMap::new)
+                        .extend(blossom)
+                } else {
+                    app.draft_data
+                        .blossom
+                        .get_or_insert_with(IndexMap::new)
+                        .extend(blossom)
+                }
+            }
+            if !mimelist.is_empty() {
+                if dm {
+                    app.dm_draft_data
+                        .mimelist
+                        .get_or_insert_with(IndexMap::new)
+                        .extend(mimelist)
+                } else {
+                    app.draft_data
+                        .mimelist
+                        .get_or_insert_with(IndexMap::new)
+                        .extend(mimelist)
+                }
+            }
         } else {
-            ui.label("Uploading...");
+            ui.colored_label(egui::Color32::ORANGE, "Uploading...");
         }
 
         if clear_upload {

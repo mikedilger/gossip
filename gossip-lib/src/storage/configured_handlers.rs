@@ -3,6 +3,7 @@ use crate::error::Error;
 use crate::storage::{RawDatabase, Storage};
 use heed::types::Bytes;
 use heed::RwTxn;
+use indexmap::IndexSet;
 use nostr_types::{EventKind, Filter, ParsedTag, PublicKey};
 use std::collections::BTreeSet;
 use std::sync::Mutex;
@@ -149,7 +150,7 @@ impl Storage {
     ) -> Result<Vec<PublicKey>, Error> {
         let mut who: BTreeSet<PublicKey> = BTreeSet::new();
 
-        let naddr = key.as_naddr(vec![]);
+        let naddr = key.as_naddr(IndexSet::new());
         let atag = ParsedTag::Address {
             address: naddr,
             marker: None,

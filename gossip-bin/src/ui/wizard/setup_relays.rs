@@ -7,8 +7,9 @@ use eframe::egui;
 use egui::{Button, Color32, Context, RichText, Ui};
 use egui_winit::egui::vec2;
 use gossip_lib::comms::ToOverlordMessage;
-use gossip_lib::GLOBALS;
 use gossip_lib::{PersonList, Relay};
+use gossip_lib::{Relay3, GLOBALS};
+use indexmap::IndexSet;
 use nostr_types::RelayUrl;
 use std::collections::BTreeMap;
 
@@ -30,29 +31,29 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         .collect();
 
     // Get their relays
-    let relays: Vec<Relay> = GLOBALS
+    let relays = GLOBALS
         .db()
         .filter_relays(|relay| relay.has_any_usage_bit())
         .unwrap_or_default();
 
     // Add their relays to the relay_options
     for relay in &relays {
-        relay_options.insert(relay.url.clone(), relay.clone());
+        relay_options.insert(relay.url.clone(), relay.clone()); // @TODO assert duplicates?
     }
 
-    let outbox_relays: Vec<Relay> = relays
+    let outbox_relays: IndexSet<Relay3> = relays
         .iter()
         .filter(|relay| relay.has_usage_bits(Relay::OUTBOX))
         .cloned()
         .collect();
 
-    let inbox_relays: Vec<Relay> = relays
+    let inbox_relays: IndexSet<Relay3> = relays
         .iter()
         .filter(|relay| relay.has_usage_bits(Relay::INBOX))
         .cloned()
         .collect();
 
-    let discovery_relays: Vec<Relay> = relays
+    let discovery_relays: IndexSet<Relay3> = relays
         .iter()
         .filter(|relay| relay.has_usage_bits(Relay::DISCOVER))
         .cloned()
@@ -176,7 +177,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         }
         ui.label("or");
         ui.menu_button("▼ Pick from Top Relays", |ui| {
-            for (url, _relay) in relay_options.iter() {
+            for url in relay_options.keys() {
                 if ui
                     .add(Button::new(url.as_str()).wrap_mode(egui::TextWrapMode::Extend))
                     .clicked()

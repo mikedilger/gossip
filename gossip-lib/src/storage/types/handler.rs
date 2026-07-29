@@ -1,5 +1,6 @@
 use super::{ByteRep, Record};
 use crate::error::Error;
+use indexmap::IndexSet;
 use nostr_types::{Event, EventKind, Metadata, NAddr, PublicKey, UncheckedUrl};
 use serde::{Deserialize, Serialize};
 use speedy::{Readable, Writable};
@@ -19,7 +20,7 @@ pub struct HandlerKey {
 }
 
 impl HandlerKey {
-    pub fn as_naddr(&self, relays: Vec<UncheckedUrl>) -> NAddr {
+    pub fn as_naddr(&self, relays: IndexSet<UncheckedUrl>) -> NAddr {
         NAddr {
             d: self.d.clone(),
             relays,

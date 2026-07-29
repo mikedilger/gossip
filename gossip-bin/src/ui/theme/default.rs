@@ -242,43 +242,43 @@ impl ThemeDef for DefaultTheme {
                     noninteractive: WidgetVisuals {
                         weak_bg_fill: Color32::from_gray(27),
                         bg_fill: Color32::from_white_alpha(8),
-                        bg_stroke: Stroke::new(2.0, Color32::from_gray(48)), // separators, borders
-                        fg_stroke: Stroke::new(1.0, Color32::from_gray(200)), // normal text color
+                        bg_stroke: Stroke::new(2.0_f32, Color32::from_gray(48)), // separators, borders
+                        fg_stroke: Stroke::new(1.0_f32, Color32::from_gray(200)), // normal text color
                         corner_radius: CornerRadius::same(2),
                         expansion: 0.0,
                     },
                     inactive: WidgetVisuals {
                         weak_bg_fill: Color32::from_white_alpha(1), // button background
                         bg_fill: Color32::from_white_alpha(6),
-                        bg_stroke: Stroke::new(0.0, Color32::from_gray(72)), // separators, borders
+                        bg_stroke: Stroke::new(0.0_f32, Color32::from_gray(72)), // separators, borders
                         // The following is used for All buttons, any clickable text,
                         //    AND text inputs, whether they are inactive OR active. It's really
                         //    overloaded.
-                        fg_stroke: Stroke::new(1.0, Color32::from_gray(180)), // button text
+                        fg_stroke: Stroke::new(1.0_f32, Color32::from_gray(180)), // button text
                         corner_radius: CornerRadius::same(2),
                         expansion: 2.0,
                     },
                     hovered: WidgetVisuals {
                         weak_bg_fill: Color32::from_white_alpha(4),
                         bg_fill: Color32::from_white_alpha(20),
-                        bg_stroke: Stroke::new(0.0, Self::accent_color(dark_mode)), // e.g. hover over window edge or button
-                        fg_stroke: Stroke::new(1.5, Color32::from_white_alpha(240)),
+                        bg_stroke: Stroke::new(0.0_f32, Self::accent_color(dark_mode)), // e.g. hover over window edge or button
+                        fg_stroke: Stroke::new(1.5_f32, Color32::from_white_alpha(240)),
                         corner_radius: CornerRadius::same(3),
                         expansion: 2.0,
                     },
                     active: WidgetVisuals {
                         weak_bg_fill: Color32::from_gray(55),
                         bg_fill: Color32::from_gray(55),
-                        bg_stroke: Stroke::new(0.0, Self::accent_color(dark_mode)),
-                        fg_stroke: Stroke::new(2.0, Color32::from_gray(200)),
+                        bg_stroke: Stroke::new(0.0_f32, Self::accent_color(dark_mode)),
+                        fg_stroke: Stroke::new(2.0_f32, Color32::from_gray(200)),
                         corner_radius: CornerRadius::same(2),
                         expansion: 2.0,
                     },
                     open: WidgetVisuals {
                         weak_bg_fill: Color32::from_gray(27),
                         bg_fill: Color32::from_gray(27),
-                        bg_stroke: Stroke::new(1.0, Color32::from_gray(72)),
-                        fg_stroke: Stroke::new(1.0, Self::accent_color(dark_mode)),
+                        bg_stroke: Stroke::new(1.0_f32, Color32::from_gray(72)),
+                        fg_stroke: Stroke::new(1.0_f32, Self::accent_color(dark_mode)),
                         corner_radius: CornerRadius::same(2),
                         expansion: 0.0,
                     },
@@ -292,7 +292,7 @@ impl ThemeDef for DefaultTheme {
                 code_bg_color: Color32::from_gray(64),    // ???
 
                 // Foreground colors
-                window_stroke: Stroke::new(1.0, Color32::from_black_alpha(10)),
+                window_stroke: Stroke::new(1.0_f32, Color32::from_black_alpha(10)),
                 override_text_color: None,
                 warn_fg_color: Self::accent_complementary_color(true),
                 error_fg_color: Self::accent_complementary_color(true),
@@ -300,7 +300,7 @@ impl ThemeDef for DefaultTheme {
 
                 selection: Selection {
                     bg_fill: Self::accent_color(true),
-                    stroke: Stroke::new(0.0, Color32::from_gray(220)),
+                    stroke: Stroke::new(0.0_f32, Color32::from_gray(220)),
                 },
 
                 window_shadow: Visuals::dark().window_shadow,
@@ -316,7 +316,7 @@ impl ThemeDef for DefaultTheme {
                 resize_corner_size: 12.0,
 
                 text_cursor: TextCursorStyle {
-                    stroke: Stroke::new(2.0, Color32::from_rgb(192, 222, 255)),
+                    stroke: Stroke::new(2.0_f32, Color32::from_rgb(192, 222, 255)),
                     preview: false,
                     ..Default::default()
                 },
@@ -334,43 +334,43 @@ impl ThemeDef for DefaultTheme {
                     noninteractive: WidgetVisuals {
                         weak_bg_fill: Color32::from_gray(248),
                         bg_fill: Color32::from_black_alpha(20),
-                        bg_stroke: Stroke::new(2.0, Color32::from_gray(224)), // separators, borders
-                        fg_stroke: Stroke::new(1.0, Color32::from_gray(80)),  // normal text color
+                        bg_stroke: Stroke::new(2.0_f32, Color32::from_gray(224)), // separators, borders
+                        fg_stroke: Stroke::new(1.0_f32, Color32::from_gray(80)), // normal text color
                         corner_radius: CornerRadius::same(2),
                         expansion: 0.0,
                     },
                     inactive: WidgetVisuals {
                         weak_bg_fill: Color32::from_gray(230), // button background
                         bg_fill: Color32::from_black_alpha(20),
-                        bg_stroke: Stroke::new(0.0, Color32::from_gray(192)), // separators, borders
+                        bg_stroke: Stroke::new(0.0_f32, Color32::from_gray(192)), // separators, borders
                         // The following is used for All buttons, any clickable text,
                         //    AND text inputs, whether they are inactive OR active. It's really
                         //    overloaded.
-                        fg_stroke: Stroke::new(1.0, Color32::from_gray(60)), // button text
+                        fg_stroke: Stroke::new(1.0_f32, Color32::from_gray(60)), // button text
                         corner_radius: CornerRadius::same(2),
                         expansion: 2.0,
                     },
                     hovered: WidgetVisuals {
                         weak_bg_fill: Color32::from_black_alpha(10),
                         bg_fill: Color32::from_black_alpha(10),
-                        bg_stroke: Stroke::new(0.0, Self::accent_color(dark_mode)), // e.g. hover over window edge or button
-                        fg_stroke: Stroke::new(1.5, Color32::from_black_alpha(240)),
+                        bg_stroke: Stroke::new(0.0_f32, Self::accent_color(dark_mode)), // e.g. hover over window edge or button
+                        fg_stroke: Stroke::new(1.5_f32, Color32::from_black_alpha(240)),
                         corner_radius: CornerRadius::same(3),
                         expansion: 2.0,
                     },
                     active: WidgetVisuals {
                         weak_bg_fill: Color32::from_gray(165),
                         bg_fill: Color32::from_black_alpha(50),
-                        bg_stroke: Stroke::new(0.0, Self::accent_color(dark_mode)),
-                        fg_stroke: Stroke::new(2.0, Color32::from_gray(80)),
+                        bg_stroke: Stroke::new(0.0_f32, Self::accent_color(dark_mode)),
+                        fg_stroke: Stroke::new(2.0_f32, Color32::from_gray(80)),
                         corner_radius: CornerRadius::same(2),
                         expansion: 2.0,
                     },
                     open: WidgetVisuals {
                         weak_bg_fill: Color32::from_gray(220),
                         bg_fill: Color32::from_gray(220),
-                        bg_stroke: Stroke::new(1.0, Color32::from_gray(160)),
-                        fg_stroke: Stroke::new(1.0, Self::accent_color(dark_mode)),
+                        bg_stroke: Stroke::new(1.0_f32, Color32::from_gray(160)),
+                        fg_stroke: Stroke::new(1.0_f32, Self::accent_color(dark_mode)),
                         corner_radius: CornerRadius::same(2),
                         expansion: 0.0,
                     },
@@ -384,15 +384,15 @@ impl ThemeDef for DefaultTheme {
                 code_bg_color: Color32::from_gray(230),    // ???
 
                 // Foreground colors
-                window_stroke: Stroke::new(1.0, Color32::from_black_alpha(40)),
+                window_stroke: Stroke::new(1.0_f32, Color32::from_black_alpha(40)),
                 override_text_color: None,
                 warn_fg_color: Self::accent_complementary_color(false),
                 error_fg_color: Self::accent_complementary_color(false),
                 hyperlink_color: Self::accent_color(false),
 
                 selection: Selection {
-                    bg_fill: Self::accent_color(false),               // DONE
-                    stroke: Stroke::new(1.0, Color32::from_gray(40)), // DONE
+                    bg_fill: Self::accent_color(false),                   // DONE
+                    stroke: Stroke::new(1.0_f32, Color32::from_gray(40)), // DONE
                 },
 
                 window_shadow: Visuals::light().window_shadow,
@@ -407,7 +407,7 @@ impl ThemeDef for DefaultTheme {
                 window_highlight_topmost: false,
                 resize_corner_size: 12.0,
                 text_cursor: TextCursorStyle {
-                    stroke: Stroke::new(2.0, Color32::from_rgb(0, 83, 125)),
+                    stroke: Stroke::new(2.0_f32, Color32::from_rgb(0, 83, 125)),
                     preview: false,
                     ..Default::default()
                 },
@@ -428,26 +428,26 @@ impl ThemeDef for DefaultTheme {
             style.visuals.widgets.noninteractive.fg_stroke.color = style.visuals.window_fill;
             style.visuals.widgets.inactive.bg_fill = Color32::from_black_alpha(20);
             style.visuals.widgets.inactive.fg_stroke =
-                Stroke::new(0.0, style.visuals.panel_fill.gamma_multiply(0.6));
+                Stroke::new(0.0_f32, style.visuals.panel_fill.gamma_multiply(0.6));
             style.visuals.widgets.active.bg_fill = Color32::from_black_alpha(20);
             style.visuals.widgets.active.fg_stroke.color = style.visuals.window_fill;
             style.visuals.widgets.hovered.bg_fill = Color32::from_white_alpha(2);
             style.visuals.widgets.hovered.fg_stroke.color =
                 style.visuals.panel_fill.gamma_multiply(0.6);
             style.visuals.selection.bg_fill = Self::accent_color(dark_mode).gamma_multiply(1.0);
-            style.visuals.selection.stroke = Stroke::new(0.0, style.visuals.window_fill);
+            style.visuals.selection.stroke = Stroke::new(0.0_f32, style.visuals.window_fill);
         } else {
             style.visuals.widgets.noninteractive.fg_stroke.color = style.visuals.panel_fill;
             style.visuals.widgets.inactive.bg_fill = Color32::from_black_alpha(20);
             style.visuals.widgets.inactive.fg_stroke =
-                Stroke::new(0.0, style.visuals.panel_fill.gamma_multiply(0.6));
+                Stroke::new(0.0_f32, style.visuals.panel_fill.gamma_multiply(0.6));
             style.visuals.widgets.active.bg_fill = style.visuals.panel_fill.gamma_multiply(0.6);
             style.visuals.widgets.active.fg_stroke.color = style.visuals.window_fill;
             style.visuals.widgets.hovered.bg_fill = Color32::from_white_alpha(2);
             style.visuals.widgets.hovered.fg_stroke.color =
                 style.visuals.panel_fill.gamma_multiply(0.6);
             style.visuals.selection.bg_fill = Self::accent_color(dark_mode).gamma_multiply(1.0);
-            style.visuals.selection.stroke = Stroke::new(0.0, style.visuals.panel_fill);
+            style.visuals.selection.stroke = Stroke::new(0.0_f32, style.visuals.panel_fill);
         }
     }
 
@@ -455,17 +455,17 @@ impl ThemeDef for DefaultTheme {
         style.spacing.button_padding.x = Self::button_padding().x * 3.0;
         let accent_color = Self::accent_color(dark_mode);
         style.visuals.widgets.noninteractive.weak_bg_fill = accent_color;
-        style.visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+        style.visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0_f32, Color32::WHITE);
         style.visuals.widgets.inactive.weak_bg_fill = accent_color;
-        style.visuals.widgets.inactive.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+        style.visuals.widgets.inactive.fg_stroke = Stroke::new(1.0_f32, Color32::WHITE);
         style.visuals.widgets.hovered.weak_bg_fill = Self::darken_color(accent_color, 0.2);
-        style.visuals.widgets.hovered.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+        style.visuals.widgets.hovered.fg_stroke = Stroke::new(1.0_f32, Color32::WHITE);
         style.visuals.widgets.hovered.bg_stroke =
-            Stroke::new(1.0, Self::darken_color(accent_color, 0.2));
+            Stroke::new(1.0_f32, Self::darken_color(accent_color, 0.2));
         style.visuals.widgets.active.weak_bg_fill = Self::darken_color(accent_color, 0.4);
-        style.visuals.widgets.active.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+        style.visuals.widgets.active.fg_stroke = Stroke::new(1.0_f32, Color32::WHITE);
         style.visuals.widgets.active.bg_stroke =
-            Stroke::new(1.0, Self::darken_color(accent_color, 0.4));
+            Stroke::new(1.0_f32, Self::darken_color(accent_color, 0.4));
     }
 
     fn secondary_button_style(style: &mut Style, dark_mode: bool) {
@@ -473,35 +473,35 @@ impl ThemeDef for DefaultTheme {
         let accent_color = Self::accent_color(dark_mode);
         if dark_mode {
             style.visuals.widgets.noninteractive.weak_bg_fill = style.visuals.faint_bg_color;
-            style.visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0, Color32::WHITE);
-            style.visuals.widgets.noninteractive.bg_stroke = Stroke::new(1.0, Color32::WHITE);
+            style.visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0_f32, Color32::WHITE);
+            style.visuals.widgets.noninteractive.bg_stroke = Stroke::new(1.0_f32, Color32::WHITE);
             style.visuals.widgets.inactive.weak_bg_fill = style.visuals.faint_bg_color;
-            style.visuals.widgets.inactive.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+            style.visuals.widgets.inactive.fg_stroke = Stroke::new(1.0_f32, Color32::WHITE);
             style.visuals.widgets.inactive.bg_stroke =
-                Stroke::new(1.0, Color32::from_white_alpha(40));
+                Stroke::new(1.0_f32, Color32::from_white_alpha(40));
             style.visuals.widgets.hovered.weak_bg_fill = Self::darken_color(accent_color, 0.2);
-            style.visuals.widgets.hovered.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+            style.visuals.widgets.hovered.fg_stroke = Stroke::new(1.0_f32, Color32::WHITE);
             style.visuals.widgets.hovered.bg_stroke =
-                Stroke::new(1.0, Self::darken_color(accent_color, 0.2));
+                Stroke::new(1.0_f32, Self::darken_color(accent_color, 0.2));
             style.visuals.widgets.active.weak_bg_fill = Self::darken_color(accent_color, 0.4);
-            style.visuals.widgets.active.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+            style.visuals.widgets.active.fg_stroke = Stroke::new(1.0_f32, Color32::WHITE);
             style.visuals.widgets.active.bg_stroke =
-                Stroke::new(1.0, Self::darken_color(accent_color, 0.4));
+                Stroke::new(1.0_f32, Self::darken_color(accent_color, 0.4));
         } else {
             style.visuals.widgets.noninteractive.weak_bg_fill = Color32::WHITE;
-            style.visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0, accent_color);
-            style.visuals.widgets.noninteractive.bg_stroke = Stroke::new(1.0, accent_color);
+            style.visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0_f32, accent_color);
+            style.visuals.widgets.noninteractive.bg_stroke = Stroke::new(1.0_f32, accent_color);
             style.visuals.widgets.inactive.weak_bg_fill = Color32::WHITE;
-            style.visuals.widgets.inactive.fg_stroke = Stroke::new(1.0, accent_color);
-            style.visuals.widgets.inactive.bg_stroke = Stroke::new(1.0, accent_color);
+            style.visuals.widgets.inactive.fg_stroke = Stroke::new(1.0_f32, accent_color);
+            style.visuals.widgets.inactive.bg_stroke = Stroke::new(1.0_f32, accent_color);
             style.visuals.widgets.hovered.weak_bg_fill = Self::darken_color(accent_color, 0.2);
-            style.visuals.widgets.hovered.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+            style.visuals.widgets.hovered.fg_stroke = Stroke::new(1.0_f32, Color32::WHITE);
             style.visuals.widgets.hovered.bg_stroke =
-                Stroke::new(1.0, Self::darken_color(accent_color, 0.2));
+                Stroke::new(1.0_f32, Self::darken_color(accent_color, 0.2));
             style.visuals.widgets.active.weak_bg_fill = Self::darken_color(accent_color, 0.4);
-            style.visuals.widgets.active.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+            style.visuals.widgets.active.fg_stroke = Stroke::new(1.0_f32, Color32::WHITE);
             style.visuals.widgets.active.bg_stroke =
-                Stroke::new(1.0, Self::darken_color(accent_color, 0.4));
+                Stroke::new(1.0_f32, Self::darken_color(accent_color, 0.4));
         }
     }
 
@@ -510,47 +510,51 @@ impl ThemeDef for DefaultTheme {
         let accent_color = Self::accent_color(dark_mode);
         if dark_mode {
             style.visuals.widgets.noninteractive.weak_bg_fill = style.visuals.faint_bg_color;
-            style.visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0, Color32::WHITE);
-            style.visuals.widgets.noninteractive.bg_stroke = Stroke::new(1.0, Color32::WHITE);
+            style.visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0_f32, Color32::WHITE);
+            style.visuals.widgets.noninteractive.bg_stroke = Stroke::new(1.0_f32, Color32::WHITE);
             style.visuals.widgets.inactive.weak_bg_fill = style.visuals.faint_bg_color;
-            style.visuals.widgets.inactive.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+            style.visuals.widgets.inactive.fg_stroke = Stroke::new(1.0_f32, Color32::WHITE);
             style.visuals.widgets.inactive.bg_stroke =
-                Stroke::new(1.0, Color32::from_white_alpha(40));
+                Stroke::new(1.0_f32, Color32::from_white_alpha(40));
             style.visuals.widgets.hovered.weak_bg_fill = Self::darken_color(accent_color, 0.2);
-            style.visuals.widgets.hovered.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+            style.visuals.widgets.hovered.fg_stroke = Stroke::new(1.0_f32, Color32::WHITE);
             style.visuals.widgets.hovered.bg_stroke =
-                Stroke::new(1.0, Self::darken_color(accent_color, 0.2));
+                Stroke::new(1.0_f32, Self::darken_color(accent_color, 0.2));
             style.visuals.widgets.active.weak_bg_fill = Self::darken_color(accent_color, 0.4);
-            style.visuals.widgets.active.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+            style.visuals.widgets.active.fg_stroke = Stroke::new(1.0_f32, Color32::WHITE);
             style.visuals.widgets.active.bg_stroke =
-                Stroke::new(1.0, Self::darken_color(accent_color, 0.4));
+                Stroke::new(1.0_f32, Self::darken_color(accent_color, 0.4));
         } else {
             style.visuals.widgets.noninteractive.weak_bg_fill = Color32::WHITE;
-            style.visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0, accent_color);
-            style.visuals.widgets.noninteractive.bg_stroke = Stroke::new(1.0, accent_color);
+            style.visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0_f32, accent_color);
+            style.visuals.widgets.noninteractive.bg_stroke = Stroke::new(1.0_f32, accent_color);
             style.visuals.widgets.inactive.weak_bg_fill = Color32::WHITE;
-            style.visuals.widgets.inactive.fg_stroke = Stroke::new(1.0, accent_color);
-            style.visuals.widgets.inactive.bg_stroke = Stroke::new(1.0, accent_color);
+            style.visuals.widgets.inactive.fg_stroke = Stroke::new(1.0_f32, accent_color);
+            style.visuals.widgets.inactive.bg_stroke = Stroke::new(1.0_f32, accent_color);
             style.visuals.widgets.hovered.weak_bg_fill = Self::darken_color(accent_color, 0.2);
-            style.visuals.widgets.hovered.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+            style.visuals.widgets.hovered.fg_stroke = Stroke::new(1.0_f32, Color32::WHITE);
             style.visuals.widgets.hovered.bg_stroke =
-                Stroke::new(1.0, Self::darken_color(accent_color, 0.2));
+                Stroke::new(1.0_f32, Self::darken_color(accent_color, 0.2));
             style.visuals.widgets.active.weak_bg_fill = Self::darken_color(accent_color, 0.4);
-            style.visuals.widgets.active.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+            style.visuals.widgets.active.fg_stroke = Stroke::new(1.0_f32, Color32::WHITE);
             style.visuals.widgets.active.bg_stroke =
-                Stroke::new(1.0, Self::darken_color(accent_color, 0.4));
+                Stroke::new(1.0_f32, Self::darken_color(accent_color, 0.4));
         }
     }
 
     fn accent_button_danger_hover(style: &mut Style, dark_mode: bool) {
         style.visuals.widgets.hovered.weak_bg_fill = Self::danger_color(dark_mode);
-        style.visuals.widgets.hovered.fg_stroke = Stroke::new(1.0, Color32::WHITE);
-        style.visuals.widgets.hovered.bg_stroke =
-            Stroke::new(1.0, Self::darken_color(Self::danger_color(dark_mode), 0.2));
+        style.visuals.widgets.hovered.fg_stroke = Stroke::new(1.0_f32, Color32::WHITE);
+        style.visuals.widgets.hovered.bg_stroke = Stroke::new(
+            1.0_f32,
+            Self::darken_color(Self::danger_color(dark_mode), 0.2),
+        );
         style.visuals.widgets.active.weak_bg_fill = Self::danger_color(dark_mode);
-        style.visuals.widgets.active.fg_stroke = Stroke::new(1.0, Color32::WHITE);
-        style.visuals.widgets.active.bg_stroke =
-            Stroke::new(1.0, Self::darken_color(Self::danger_color(dark_mode), 0.4));
+        style.visuals.widgets.active.fg_stroke = Stroke::new(1.0_f32, Color32::WHITE);
+        style.visuals.widgets.active.bg_stroke = Stroke::new(
+            1.0_f32,
+            Self::darken_color(Self::danger_color(dark_mode), 0.4),
+        );
     }
 
     fn font_definitions() -> FontDefinitions {
@@ -806,7 +810,7 @@ impl ThemeDef for DefaultTheme {
                 }
                 let color: Color32 = hsva.into();
 
-                let thickness = 2.0;
+                let thickness = 2.0_f32;
                 ui.painter().add(Shape::line_segment(
                     [start_point, end_point],
                     Stroke::new(thickness, color),
@@ -866,13 +870,13 @@ impl ThemeDef for DefaultTheme {
                 hsva.s = 0.0;
                 hsva.v = 0.22;
                 let rgb: Color32 = hsva.into();
-                Stroke::new(1.0, rgb)
+                Stroke::new(1.0_f32, rgb)
             } else {
                 let mut hsva: ecolor::HsvaGamma = Self::highlighted_note_bgcolor(dark_mode).into();
                 hsva.s = 0.0;
                 hsva.v = 0.90;
                 let rgb: Color32 = hsva.into();
-                Stroke::new(1.0, rgb)
+                Stroke::new(1.0_f32, rgb)
             }
         } else {
             Stroke::NONE

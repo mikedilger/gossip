@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 // THIS IS HISTORICAL FOR MIGRATIONS AND THE STRUCTURES SHOULD NOT BE EDITED
 
 /// A relay record
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct Relay2 {
     /// The url
     pub url: RelayUrl,

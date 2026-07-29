@@ -1,4 +1,5 @@
 mod handle_websocket;
+mod stream;
 mod subscription;
 mod subscription_map;
 
@@ -19,15 +20,17 @@ use nostr_types::{
     ClientMessage, EventKind, Filter, Id, KeySigner, NAddr, PreEvent, PublicKey,
     RelayInformationDocument, RelayUrl, Signer, Tag, Unixtime,
 };
-use reqwest::Response;
+use regex::Regex;
+use reqwest::{redirect::Policy, Client, Proxy, Response};
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::Ordering;
 use std::time::Duration;
+use stream::Stream;
 use subscription_map::SubscriptionMap;
-use tokio::net::TcpStream;
 use tokio::sync::broadcast::Receiver;
 use tokio::sync::mpsc::UnboundedSender;
+use tokio_socks::tcp::Socks5Stream;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tungstenite::protocol::{Message as WsMessage, WebSocketConfig};
 use watcher::Receiver as WatchReceiver;
@@ -87,7 +90,7 @@ pub struct Minion {
     from_overlord: Receiver<ToMinionMessage>,
     dbrelay: Relay,
     nip11: Option<RelayInformationDocument>,
-    stream: Option<WebSocketStream<MaybeTlsStream<TcpStream>>>,
+    stream: Option<WebSocketStream<MaybeTlsStream<Stream>>>,
     subscription_map: SubscriptionMap,
     next_events_subscription_id: u32,
     posting_jobs: HashMap<u64, Vec<Id>>,
@@ -196,6 +199,16 @@ impl Minion {
 
         // Connect to the relay
         let websocket_stream = {
+            /// Format the IPv6 socket host notation,
+            /// returned with brackets from `http::Uri::host()`
+            fn socket_host(host: &str) -> &str {
+                if host.contains(':') {
+                    host.trim_start_matches('[').trim_end_matches(']')
+                } else {
+                    host
+                }
+            }
+
             // Fetch NIP-11 data (if not fetched recently)
             let last_nip11 = self.dbrelay.last_attempt_nip11.unwrap_or_default();
             if (last_nip11 as i64) + 3600 < Unixtime::now().0 {
@@ -241,7 +254,7 @@ impl Minion {
                     "Sec-WebSocket-Key",
                     base64::engine::general_purpose::STANDARD.encode(key),
                 )
-                .uri(uri)
+                .uri(&uri)
                 .body(())?;
 
             let config: WebSocketConfig = WebSocketConfig {
@@ -267,10 +280,123 @@ impl Minion {
                 GLOBALS.db().read_setting_websocket_connect_timeout_sec()
             };
 
-            let connect_future = tokio::time::timeout(
-                std::time::Duration::new(connect_timeout_secs, 0),
-                tokio_tungstenite::connect_async_with_config(req, Some(config), false),
-            );
+            let url = uri.to_string();
+
+            let is_tls = uri.scheme().is_some_and(|s| s == "wss");
+
+            let port = uri
+                .port()
+                .map(|p| p.as_u16())
+                .unwrap_or(if is_tls { 443 } else { 80 });
+
+            let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
+
+            let stream = if GLOBALS.db().read_setting_socks5_proxy_enabled()
+                && !socks5_proxy_address.is_empty()
+                && !GLOBALS
+                    .db()
+                    .read_setting_socks5_proxy_ignore()
+                    .split_whitespace()
+                    .any(|l| Regex::new(l).is_ok_and(|r| r.is_match(&url)))
+            {
+                tracing::debug!(
+                    "Begin proxied ({socks5_proxy_address}) WebSocket connection to `{url}`..."
+                );
+                match socks5_proxy_address.parse::<std::net::SocketAddr>() {
+                    Ok(proxy_addr) => Stream::Socks5(
+                        Socks5Stream::connect(proxy_addr, (socket_host(host), port))
+                            .await
+                            .map_err(|e| {
+                                tokio_tungstenite::tungstenite::Error::Io(std::io::Error::other(e))
+                            })?,
+                    ),
+                    Err(e) => panic!("Unexpected SOCKS5 proxy address: {e}"), // validate form on save this value
+                }
+            } else {
+                tracing::debug!("Begin direct WebSocket connection to `{url}`...");
+                Stream::Direct(
+                    tokio::net::TcpStream::connect((socket_host(host), port))
+                        .await
+                        .map_err(tokio_tungstenite::tungstenite::Error::Io)?,
+                )
+            };
+
+            let connect_future =
+                tokio::time::timeout(std::time::Duration::new(connect_timeout_secs, 0), async {
+                    use tokio_tungstenite::tungstenite::Error;
+
+                    let maybe_tls_stream = if is_tls {
+                        use std::io::{
+                            Error as E,
+                            ErrorKind::{InvalidInput, Other},
+                        };
+
+                        #[cfg(feature = "native-tls")]
+                        {
+                            MaybeTlsStream::NativeTls(
+                                tokio_native_tls::TlsConnector::from(
+                                    tokio_native_tls::native_tls::TlsConnector::new()
+                                        .map_err(|e| Error::Io(E::new(Other, e)))?,
+                                )
+                                .connect(&host, stream)
+                                .await
+                                .map_err(|e| Error::Io(E::new(Other, e)))?,
+                            )
+                        }
+                        #[cfg(not(feature = "native-tls"))]
+                        {
+                            let mut root_cert_store = tokio_rustls::rustls::RootCertStore::empty();
+
+                            #[cfg(feature = "rustls-tls")]
+                            {
+                                root_cert_store
+                                    .extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+                            }
+
+                            #[cfg(feature = "rustls-tls-native")]
+                            {
+                                for cert in rustls_native_certs::load_native_certs().certs {
+                                    root_cert_store
+                                        .add(cert)
+                                        .map_err(|e| Error::Io(E::new(Other, e)))?;
+                                }
+                            }
+
+                            MaybeTlsStream::Rustls(
+                                tokio_rustls::TlsConnector::from(std::sync::Arc::new(
+                                    tokio_rustls::rustls::ClientConfig::builder_with_provider(
+                                        std::sync::Arc::new(
+                                            tokio_rustls::rustls::crypto::ring::default_provider(),
+                                        ),
+                                    )
+                                    .with_safe_default_protocol_versions()
+                                    .map_err(|e| Error::Io(E::new(Other, e)))?
+                                    .with_root_certificates(root_cert_store)
+                                    .with_no_client_auth(),
+                                ))
+                                .connect(
+                                    rustls_pki_types::ServerName::try_from(host)
+                                        .map_err(|e| Error::Io(E::new(InvalidInput, e)))?
+                                        .to_owned(),
+                                    stream,
+                                )
+                                .await
+                                .map_err(|e| Error::Io(E::new(Other, e)))?,
+                            )
+                        }
+                    } else {
+                        MaybeTlsStream::Plain(stream)
+                    };
+
+                    let (ws_stream, response) = tokio_tungstenite::client_async_with_config(
+                        req,
+                        maybe_tls_stream,
+                        Some(config),
+                    )
+                    .await?;
+
+                    Ok::<_, Error>((ws_stream, response))
+                });
 
             let websocket_stream;
             let response;
@@ -382,18 +508,36 @@ impl Minion {
             },
             None => Some(Scheme::HTTPS),
         };
-        let uri = http::Uri::from_parts(parts)?;
 
-        let request_nip11_future = reqwest::Client::builder()
-            .timeout(fetcher_timeout)
-            .redirect(reqwest::redirect::Policy::none())
-            .gzip(true)
-            .brotli(true)
-            .deflate(true)
-            .build()?
-            .get(format!("{}", uri))
-            .header("Accept", "application/nostr+json")
-            .send();
+        let url = http::Uri::from_parts(parts)?.to_string();
+
+        let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
+
+        let request_nip11_future = if GLOBALS.db().read_setting_socks5_proxy_enabled()
+            && !socks5_proxy_address.is_empty()
+            && !GLOBALS
+                .db()
+                .read_setting_socks5_proxy_ignore()
+                .split_whitespace()
+                .any(|l| Regex::new(l).is_ok_and(|r| r.is_match(url.as_str())))
+        {
+            tracing::debug!(
+                "Begin proxied ({socks5_proxy_address}) NIP-11 connection to `{url}`..."
+            );
+            Client::builder().proxy(Proxy::all(format!("socks5h://{socks5_proxy_address}"))?)
+        } else {
+            tracing::debug!("Begin direct NIP-11 connection to `{url}`...");
+            Client::builder()
+        }
+        .timeout(fetcher_timeout)
+        .redirect(Policy::none())
+        .gzip(true)
+        .brotli(true)
+        .deflate(true)
+        .build()?
+        .get(url)
+        .header("Accept", "application/nostr+json")
+        .send();
 
         let response;
         tokio::select! {

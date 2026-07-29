@@ -66,7 +66,7 @@ impl Storage {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn get_event_ids_with_hashtag1(&self, hashtag: &String) -> Result<Vec<Id>, Error> {
+    pub(crate) fn get_event_ids_with_hashtag1(&self, hashtag: &str) -> Result<Vec<Id>, Error> {
         let key = key!(hashtag.as_bytes());
         if key.is_empty() {
             return Err(ErrorKind::Empty("hashtag".to_owned()).into());

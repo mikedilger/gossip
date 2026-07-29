@@ -8,6 +8,7 @@ use eframe::egui;
 use egui::{Context, Ui};
 use egui_winit::egui::{vec2, Id, RichText};
 use gossip_lib::{comms::ToOverlordMessage, Relay, ScoreFactors, GLOBALS};
+use indexmap::IndexSet;
 use nostr_types::RelayUrl;
 
 mod active;
@@ -32,7 +33,7 @@ pub(super) struct RelayUi {
     /// to edit, add the relay url here
     edit: Option<RelayUrl>,
     /// cache relay list for editing
-    edit_relays: Vec<Relay>,
+    edit_relays: IndexSet<Relay>,
     /// did we just finish editing an entry, add it here
     edit_done: Option<RelayUrl>,
     /// do we still need to scroll to the edit
@@ -52,7 +53,7 @@ impl RelayUi {
             show_hidden: false,
             show_details: false,
             edit: None,
-            edit_relays: Vec::new(),
+            edit_relays: IndexSet::new(),
             edit_done: None,
             edit_needs_scroll: false,
             add_dialog_step: AddRelayDialogStep::Inactive,
@@ -63,7 +64,7 @@ impl RelayUi {
     pub(super) fn enter_page(&mut self, edit_relay: Option<&RelayUrl>) {
         // preserve search and filter but reset edits and dialogues
         self.edit = edit_relay.cloned();
-        self.edit_relays = Vec::new();
+        self.edit_relays = IndexSet::new();
         self.edit_done = None;
         self.edit_needs_scroll = edit_relay.is_some();
         self.add_dialog_step = AddRelayDialogStep::Inactive;
@@ -165,7 +166,12 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, frame: &mut eframe::Fram
     }
 }
 
-pub(super) fn relay_scroll_list(app: &mut GossipUi, ui: &mut Ui, relays: Vec<Relay>, id_salt: Id) {
+pub(super) fn relay_scroll_list(
+    app: &mut GossipUi,
+    ui: &mut Ui,
+    relays: IndexSet<Relay>,
+    id_salt: Id,
+) {
     let scroll_size = ui.available_size_before_wrap();
     let is_editing = app.relays.edit.is_some();
     let enable_scroll = !is_editing && !egui::ScrollArea::is_scrolling(ui, id_salt);
@@ -367,7 +373,7 @@ fn entry_dialog_step1(ui: &mut Ui, ctx: &Context, app: &mut GossipUi) {
                             .send(ToOverlordMessage::AddRelay(url.clone()));
                         GLOBALS.status_queue.write().write(format!(
                             "I asked the overlord to add relay {}. Check for it below.",
-                            &app.relays.new_relay_url
+                            app.relays.new_relay_url
                         ));
 
                         // send user to known relays page (where the new entry should show up)

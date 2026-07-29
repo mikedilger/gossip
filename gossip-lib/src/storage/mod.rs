@@ -1,4 +1,4 @@
-include!("macros");
+include!("macros.rs");
 
 const MAX_LMDB_KEY: usize = 511;
 
@@ -10,6 +10,7 @@ pub mod types;
 
 // table definition
 pub mod table;
+use indexmap::{IndexMap, IndexSet};
 pub use table::Table;
 
 // new tables
@@ -95,7 +96,7 @@ type EmptyDatabase = Database<Bytes, Unit>;
 pub struct Storage {
     env: Env,
     volatile_events: DashMap<Id, Event>,
-    volatile_seen_on: DashMap<Id, Vec<(RelayUrl, Unixtime)>>,
+    volatile_seen_on: DashMap<Id, IndexMap<RelayUrl, Unixtime>>,
 }
 
 impl Storage {
@@ -689,11 +690,25 @@ impl Storage {
         bool,
         false
     );
+    def_setting!(socks5_proxy_enabled, b"socks5_proxy_enabled", bool, false);
+    def_setting!(
+        socks5_proxy_address,
+        b"socks5_proxy_address",
+        String,
+        "".to_string()
+    );
+    def_setting!(
+        socks5_proxy_ignore,
+        b"socks5_proxy_ignore",
+        String,
+        "".to_string()
+    );
     def_setting!(num_relays_per_person, b"num_relays_per_person", u8, 2);
     def_setting!(max_relays, b"max_relays", u8, 50);
     def_setting!(num_relays_for_counting, b"num_relays_for_counting", u8, 15);
     def_setting!(load_more_count, b"load_more_count", u64, 35);
     def_setting!(reposts, b"reposts", bool, true);
+    def_setting!(show_reactions_list, b"show_reactions_list", bool, true);
     def_setting!(show_long_form, b"show_long_form", bool, false);
     def_setting!(show_mentions, b"show_mentions", bool, true);
     def_setting!(enable_picture_events, b"enable_picture_events", bool, true);
@@ -916,6 +931,24 @@ impl Storage {
         false
     );
     def_setting!(blossom_servers, b"blossom_servers", String, "".to_string());
+    def_setting!(
+        blossom_servers_append_to_content,
+        b"blossom_servers_append_to_content",
+        String,
+        ".*".to_string()
+    );
+    def_setting!(
+        blossom_servers_append_extension,
+        b"blossom_servers_append_extension",
+        bool,
+        false
+    );
+    def_setting!(
+        blossom_servers_prefer_local_meta,
+        b"blossom_servers_prefer_local_meta",
+        bool,
+        true
+    );
     def_setting!(undo_send_seconds, b"undo_send_seconds", u64, 10);
 
     // -------------------------------------------------------------------
@@ -1011,20 +1044,25 @@ impl Storage {
     }
 
     pub fn add_event_seen_on_relay_volatile(&self, id: Id, url: RelayUrl, when: Unixtime) {
-        // Don't save banned relay URLs
-        if Self::url_is_banned(&url) {
-            return;
+        if !Self::url_is_banned(&url) {
+            match self.volatile_seen_on.get_mut(&id) {
+                Some(mut value) => {
+                    value.insert(url, when);
+                }
+                None => {
+                    // do not overwrite existing values for this event,
+                    // see: `fn get_event_seen_on_relay(&self, id: Id)` impl @TODO
+                    //
+                    // self.volatile_seen_on
+                    //    .insert(id, IndexMap::from_iter([(url, when)]));
+                }
+            }
         }
-
-        self.volatile_seen_on
-            .entry(id)
-            .and_modify(|v| v.push((url.clone(), when)))
-            .or_insert(vec![(url, when)]);
     }
 
     /// Get event seen on relay
     #[inline]
-    pub fn get_event_seen_on_relay(&self, id: Id) -> Result<Vec<(RelayUrl, Unixtime)>, Error> {
+    pub fn get_event_seen_on_relay(&self, id: Id) -> Result<IndexMap<RelayUrl, Unixtime>, Error> {
         if let Some(r) = self.volatile_seen_on.get(&id) {
             Ok(r.value().to_owned())
         } else {
@@ -1062,7 +1100,7 @@ impl Storage {
     /// Get events with a given hashtag
     #[inline]
     #[allow(dead_code)]
-    pub fn get_event_ids_with_hashtag(&self, hashtag: &String) -> Result<Vec<Id>, Error> {
+    pub fn get_event_ids_with_hashtag(&self, hashtag: &str) -> Result<Vec<Id>, Error> {
         self.get_event_ids_with_hashtag1(hashtag)
     }
 
@@ -1177,7 +1215,7 @@ impl Storage {
 
     /// Read matching relay records
     #[inline]
-    pub fn filter_relays<F>(&self, f: F) -> Result<Vec<Relay>, Error>
+    pub fn filter_relays<F>(&self, f: F) -> Result<IndexSet<Relay>, Error>
     where
         F: Fn(&Relay) -> bool,
     {
@@ -2008,7 +2046,7 @@ impl Storage {
         let mut output = self.get_non_replaceable_replies(event.id)?;
         output.extend(self.get_replaceable_replies(&NAddr {
             d: event.parameter().unwrap_or("".to_string()),
-            relays: vec![],
+            relays: IndexSet::new(),
             kind: event.kind,
             author: event.pubkey,
         })?);
@@ -2103,9 +2141,11 @@ impl Storage {
         Ok(output)
     }
 
-    /// Returns the list of reactions and whether or not this account has already reacted to this event
     #[allow(clippy::type_complexity)]
-    pub fn get_reactions(&self, id: Id) -> Result<(Vec<(char, usize)>, Option<char>), Error> {
+    pub fn get_reactions(
+        &self,
+        id: Id,
+    ) -> Result<(IndexMap<PublicKey, char>, Option<char>), Error> {
         // Whether or not the Gossip user already reacted to this event
         let mut our_reaction: Option<char> = None;
 
@@ -2113,8 +2153,10 @@ impl Storage {
         let maybe_target_event = self.read_event(id)?;
 
         // Collect up to one reaction per pubkey
-        let mut phase1: HashMap<PublicKey, char> = HashMap::new();
-        for (_, rel) in self.find_relationships_by_id(id)? {
+        let relationships_by_id = self.find_relationships_by_id(id)?;
+        let mut result: IndexMap<PublicKey, char> =
+            IndexMap::with_capacity(relationships_by_id.len());
+        for (_, rel) in relationships_by_id {
             if let RelationshipById::ReactsTo { by, reaction } = rel {
                 if let Some(target_event) = &maybe_target_event {
                     if target_event.pubkey == by {
@@ -2129,25 +2171,32 @@ impl Storage {
                 } else {
                     reaction.chars().next().unwrap()
                 };
-                phase1.insert(by, symbol);
+                result.insert(by, symbol);
                 if Some(by) == GLOBALS.identity.public_key() {
                     our_reaction = Some(symbol);
                 }
             }
         }
+        Ok((result, our_reaction))
+    }
 
+    /// Returns the list of reactions and whether or not this account has already reacted to this event
+    #[allow(clippy::type_complexity)]
+    pub fn get_reaction_totals(
+        &self,
+        reactions: &IndexMap<PublicKey, char>,
+    ) -> Result<Vec<(char, usize)>, Error> {
         // Collate by reaction
-        let mut output: HashMap<char, usize> = HashMap::new();
-        for (_, symbol) in phase1 {
+        let mut output: HashMap<char, usize> = HashMap::with_capacity(reactions.len());
+        for (_, symbol) in reactions {
             output
-                .entry(symbol)
+                .entry(*symbol)
                 .and_modify(|count| *count += 1)
                 .or_insert_with(|| 1);
         }
-
         let mut v: Vec<(char, usize)> = output.drain().collect();
         v.sort();
-        Ok((v, our_reaction))
+        Ok(v)
     }
 
     /// Get the zap total of a given event
@@ -2194,7 +2243,7 @@ impl Storage {
         if let Some(parameter) = maybe_deleted_event.parameter() {
             let addr = NAddr {
                 d: parameter,
-                relays: vec![],
+                relays: IndexSet::new(),
                 kind: maybe_deleted_event.kind,
                 author: maybe_deleted_event.pubkey,
             };

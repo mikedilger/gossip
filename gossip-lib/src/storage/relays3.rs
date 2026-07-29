@@ -3,6 +3,7 @@ use crate::storage::types::Relay3;
 use crate::storage::{RawDatabase, Storage};
 use heed::types::Bytes;
 use heed::RwTxn;
+use indexmap::IndexSet;
 use nostr_types::RelayUrl;
 use std::sync::Mutex;
 
@@ -181,18 +182,18 @@ impl Storage {
         }
     }
 
-    pub(crate) fn filter_relays3<F>(&self, f: F) -> Result<Vec<Relay3>, Error>
+    pub(crate) fn filter_relays3<F>(&self, f: F) -> Result<IndexSet<Relay3>, Error>
     where
         F: Fn(&Relay3) -> bool,
     {
         let txn = self.env.read_txn()?;
-        let mut output: Vec<Relay3> = Vec::new();
+        let mut output = IndexSet::new();
         let iter = self.db_relays3()?.iter(&txn)?;
         for result in iter {
             let (_key, val) = result?;
             let relay: Relay3 = serde_json::from_slice(val)?;
             if f(&relay) {
-                output.push(relay);
+                output.insert(relay); // @TODO assert duplicates?
             }
         }
         Ok(output)

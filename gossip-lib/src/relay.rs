@@ -20,10 +20,11 @@ pub use crate::storage::types::ScoreFactors;
 use crate::error::{Error, ErrorKind};
 use crate::person_relay::PersonRelay;
 use crate::GLOBALS;
+use indexmap::{IndexMap, IndexSet};
 use nostr_types::{Event, EventKind, Id, PublicKey, RelayUrl, RelayUsage, Unixtime};
 
 // Get `num_relays_per_prson` outboxes to subscribe to their events
-pub fn get_some_pubkey_outboxes(pubkey: PublicKey) -> Result<Vec<RelayUrl>, Error> {
+pub fn get_some_pubkey_outboxes(pubkey: PublicKey) -> Result<IndexSet<RelayUrl>, Error> {
     let num = GLOBALS.db().read_setting_num_relays_per_person() as usize;
     let relays =
         get_best_relays_with_score(pubkey, RelayUsage::Outbox, ScoreFactors::FULLY_ADJUSTED)?
@@ -35,7 +36,7 @@ pub fn get_some_pubkey_outboxes(pubkey: PublicKey) -> Result<Vec<RelayUrl>, Erro
 }
 
 // Get all person outboxes
-pub fn get_all_pubkey_outboxes(pubkey: PublicKey) -> Result<Vec<RelayUrl>, Error> {
+pub fn get_all_pubkey_outboxes(pubkey: PublicKey) -> Result<IndexSet<RelayUrl>, Error> {
     // Why 0.125?
     //   if declared they will get an association score of at least 1.0
     //   by default based on relay rank, they will get a relay score of 0.33333
@@ -52,7 +53,7 @@ pub fn get_all_pubkey_outboxes(pubkey: PublicKey) -> Result<Vec<RelayUrl>, Error
 }
 
 // Get all the inboxes to post something to them
-pub fn get_all_pubkey_inboxes(pubkey: PublicKey) -> Result<Vec<RelayUrl>, Error> {
+pub fn get_all_pubkey_inboxes(pubkey: PublicKey) -> Result<IndexSet<RelayUrl>, Error> {
     // Why 0.125?
     //   if declared they will get an association score of at least 1.0
     //   by default based on relay rank, they will get a relay score of 0.33333
@@ -72,8 +73,8 @@ pub fn get_all_pubkey_inboxes(pubkey: PublicKey) -> Result<Vec<RelayUrl>, Error>
 ///
 /// At the time of writing, not many people have these specified, in which case
 /// the caller should fallback to write relays and NIP-04.
-pub fn get_dm_relays(pubkey: PublicKey) -> Result<Vec<RelayUrl>, Error> {
-    let mut output: Vec<RelayUrl> = Vec::new();
+pub fn get_dm_relays(pubkey: PublicKey) -> Result<IndexSet<RelayUrl>, Error> {
+    let mut output = IndexSet::new();
     for pr in GLOBALS.db().get_person_relays(pubkey)?.drain(..) {
         let relay = GLOBALS.db().read_or_create_relay(&pr.url, None)?;
 
@@ -82,7 +83,7 @@ pub fn get_dm_relays(pubkey: PublicKey) -> Result<Vec<RelayUrl>, Error> {
         }
 
         if pr.dm {
-            output.push(pr.url)
+            output.insert(pr.url); // @TODO assert duplicates?
         }
     }
     Ok(output)
@@ -93,17 +94,15 @@ pub fn get_dm_relays(pubkey: PublicKey) -> Result<Vec<RelayUrl>, Error> {
 
 /// This tries to generate a single RelayUrl to use for an 'e' or 'a' tag hint
 pub fn recommended_relay_hint(reply_to: Id) -> Result<Option<RelayUrl>, Error> {
-    let seen_on_relays: Vec<(RelayUrl, Unixtime)> =
+    let seen_on_relays: IndexMap<RelayUrl, Unixtime> =
         GLOBALS.db().get_event_seen_on_relay(reply_to)?;
 
     let maybepubkey = GLOBALS.identity.public_key();
     if let Some(pubkey) = maybepubkey {
-        let my_inbox_relays: Vec<RelayUrl> = get_all_pubkey_inboxes(pubkey)?;
-
         // Find the first-best intersection
-        for mir in &my_inbox_relays {
-            for sor in &seen_on_relays {
-                if *mir == sor.0 {
+        for mir in &get_all_pubkey_inboxes(pubkey)? {
+            for sor in seen_on_relays.keys() {
+                if mir == sor {
                     return Ok(Some(mir.clone()));
                 }
             }
@@ -112,7 +111,7 @@ pub fn recommended_relay_hint(reply_to: Id) -> Result<Option<RelayUrl>, Error> {
         // Else fall through to seen on relays only
     }
 
-    if let Some(sor) = seen_on_relays.first() {
+    if let Some(sor) = seen_on_relays.iter().next() {
         return Ok(Some(sor.0.clone()));
     }
 
@@ -140,16 +139,11 @@ pub fn relays_for_seeking_replies(event: &Event) -> Result<Vec<RelayUrl>, Error>
         .read_setting_limit_inbox_seeking_to_inbox_relays()
     {
         // Seen on relays
-        let mut seen_on: Vec<RelayUrl> = GLOBALS
-            .db()
-            .get_event_seen_on_relay(event.id)?
-            .drain(..)
-            .map(|(url, _time)| url)
-            .collect();
+        let seen_on = GLOBALS.db().get_event_seen_on_relay(event.id)?;
 
         // Take all inbox relays, and up to 2 seen_on relays that aren't inbox relays
         let mut extra = 2;
-        for url in seen_on.drain(..) {
+        for url in seen_on.into_keys() {
             if extra == 0 {
                 break;
             }
@@ -166,8 +160,8 @@ pub fn relays_for_seeking_replies(event: &Event) -> Result<Vec<RelayUrl>, Error>
 
 // Which relays should an event be posted to (that it hasn't already been
 // seen on)?  DO NOT USE for NIP-17 (we can't tell the recipient)
-pub fn relays_to_post_to(event: &Event) -> Result<Vec<RelayUrl>, Error> {
-    let mut relays: Vec<RelayUrl> = Vec::new();
+pub fn relays_to_post_to(event: &Event) -> Result<IndexSet<RelayUrl>, Error> {
+    let mut relays = IndexSet::new();
 
     if event.kind == EventKind::GiftWrap || event.kind == EventKind::DmChat {
         return Err(ErrorKind::Internal(
@@ -196,16 +190,9 @@ pub fn relays_to_post_to(event: &Event) -> Result<Vec<RelayUrl>, Error> {
     }
 
     // Remove all the 'seen_on' relays for this event
-    let seen_on: Vec<RelayUrl> = GLOBALS
-        .db()
-        .get_event_seen_on_relay(event.id)?
-        .iter()
-        .map(|(url, _time)| url.to_owned())
-        .collect();
-    relays.retain(|r| !seen_on.contains(r));
-
+    let seen_on = GLOBALS.db().get_event_seen_on_relay(event.id)?;
+    relays.retain(|r| !seen_on.contains_key(r));
     relays.sort();
-    relays.dedup();
 
     Ok(relays)
 }
@@ -284,7 +271,7 @@ pub fn sort_relays(
     }
 
     // For each URL, keep the relay record and a score
-    let mut map: HashMap<RelayUrl, RelayData> = HashMap::new();
+    let mut map: IndexMap<RelayUrl, RelayData> = HashMap::new();
 
     // Load each hinted relay, gets 1 bonus point
     for url in hinted.drain(..) {

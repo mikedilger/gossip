@@ -45,6 +45,9 @@ pub struct UnsavedSettings {
     pub automatically_fetch_metadata: bool,
     pub relay_connection_requires_approval: bool,
     pub relay_auth_requires_approval: bool,
+    pub socks5_proxy_enabled: bool,
+    pub socks5_proxy_address: String,
+    pub socks5_proxy_ignore: String,
 
     // Relay settings
     pub num_relays_per_person: u8,
@@ -56,6 +59,7 @@ pub struct UnsavedSettings {
 
     // Event Selection
     pub reposts: bool,
+    pub show_reactions_list: bool,
     pub show_long_form: bool,
     pub show_mentions: bool,
     pub enable_picture_events: bool,
@@ -132,6 +136,9 @@ pub struct UnsavedSettings {
     pub cache_prune_period_days: u64,
 
     pub blossom_servers: String,
+    pub blossom_servers_append_to_content: String,
+    pub blossom_servers_append_extension: bool,
+    pub blossom_servers_prefer_local_meta: bool,
 
     pub undo_send_seconds: u64,
 }
@@ -151,11 +158,15 @@ impl Default for UnsavedSettings {
                 relay_connection_requires_approval
             ),
             relay_auth_requires_approval: default_setting!(relay_auth_requires_approval),
+            socks5_proxy_enabled: default_setting!(socks5_proxy_enabled),
+            socks5_proxy_address: default_setting!(socks5_proxy_address),
+            socks5_proxy_ignore: default_setting!(socks5_proxy_ignore),
             num_relays_per_person: default_setting!(num_relays_per_person),
             max_relays: default_setting!(max_relays),
             num_relays_for_counting: default_setting!(num_relays_for_counting),
             load_more_count: default_setting!(load_more_count),
             reposts: default_setting!(reposts),
+            show_reactions_list: default_setting!(show_reactions_list),
             show_long_form: default_setting!(show_long_form),
             show_mentions: default_setting!(show_mentions),
             enable_picture_events: default_setting!(enable_picture_events),
@@ -231,6 +242,9 @@ impl Default for UnsavedSettings {
             prune_period_days: default_setting!(prune_period_days),
             cache_prune_period_days: default_setting!(prune_period_days),
             blossom_servers: default_setting!(blossom_servers),
+            blossom_servers_append_to_content: default_setting!(blossom_servers_append_to_content),
+            blossom_servers_append_extension: default_setting!(blossom_servers_append_extension),
+            blossom_servers_prefer_local_meta: default_setting!(blossom_servers_prefer_local_meta),
             undo_send_seconds: default_setting!(undo_send_seconds),
         }
     }
@@ -249,11 +263,15 @@ impl UnsavedSettings {
             automatically_fetch_metadata: load_setting!(automatically_fetch_metadata),
             relay_connection_requires_approval: load_setting!(relay_connection_requires_approval),
             relay_auth_requires_approval: load_setting!(relay_auth_requires_approval),
+            socks5_proxy_enabled: load_setting!(socks5_proxy_enabled),
+            socks5_proxy_address: load_setting!(socks5_proxy_address),
+            socks5_proxy_ignore: load_setting!(socks5_proxy_ignore),
             num_relays_per_person: load_setting!(num_relays_per_person),
             max_relays: load_setting!(max_relays),
             num_relays_for_counting: load_setting!(num_relays_for_counting),
             load_more_count: load_setting!(load_more_count),
             reposts: load_setting!(reposts),
+            show_reactions_list: load_setting!(show_reactions_list),
             show_long_form: load_setting!(show_long_form),
             show_mentions: load_setting!(show_mentions),
             enable_picture_events: load_setting!(enable_picture_events),
@@ -325,6 +343,9 @@ impl UnsavedSettings {
             prune_period_days: load_setting!(prune_period_days),
             cache_prune_period_days: load_setting!(cache_prune_period_days),
             blossom_servers: load_setting!(blossom_servers),
+            blossom_servers_append_to_content: load_setting!(blossom_servers_append_to_content),
+            blossom_servers_append_extension: load_setting!(blossom_servers_append_extension),
+            blossom_servers_prefer_local_meta: load_setting!(blossom_servers_prefer_local_meta),
             undo_send_seconds: load_setting!(undo_send_seconds),
         }
     }
@@ -341,11 +362,15 @@ impl UnsavedSettings {
         save_setting!(automatically_fetch_metadata, self, txn);
         save_setting!(relay_connection_requires_approval, self, txn);
         save_setting!(relay_auth_requires_approval, self, txn);
+        save_setting!(socks5_proxy_enabled, self, txn);
+        save_setting!(socks5_proxy_address, self, txn);
+        save_setting!(socks5_proxy_ignore, self, txn);
         save_setting!(num_relays_per_person, self, txn);
         save_setting!(max_relays, self, txn);
         save_setting!(num_relays_for_counting, self, txn);
         save_setting!(load_more_count, self, txn);
         save_setting!(reposts, self, txn);
+        save_setting!(show_reactions_list, self, txn);
         save_setting!(show_long_form, self, txn);
         save_setting!(show_mentions, self, txn);
         save_setting!(enable_picture_events, self, txn);
@@ -407,6 +432,9 @@ impl UnsavedSettings {
         save_setting!(prune_period_days, self, txn);
         save_setting!(cache_prune_period_days, self, txn);
         save_setting!(blossom_servers, self, txn);
+        save_setting!(blossom_servers_append_to_content, self, txn);
+        save_setting!(blossom_servers_append_extension, self, txn);
+        save_setting!(blossom_servers_prefer_local_meta, self, txn);
         save_setting!(undo_send_seconds, self, txn);
         txn.commit()?;
 

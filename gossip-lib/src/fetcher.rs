@@ -5,7 +5,7 @@ use crate::USER_AGENT;
 use dashmap::DashMap;
 use nostr_types::{Unixtime, Url};
 use reqwest::header::ETAG;
-use reqwest::{Client, StatusCode};
+use reqwest::{Client, Proxy, StatusCode};
 use sha2::Digest;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -103,7 +103,14 @@ impl Fetcher {
     /// This is where a client attempts to get data synchronously
     pub fn try_get(&self, url: Url, use_cache: bool) -> Result<FetchResult, Error> {
         // Maybe initialize
-        if self.client.read().unwrap().is_none() {
+        if self.client.read().unwrap().is_none()
+            || self
+                .socks5h_client
+                .read()
+                .unwrap()
+                .as_ref()
+                .is_some_and(|this| this.is_none())
+        {
             self.init()?;
         }
 
@@ -162,7 +169,14 @@ impl Fetcher {
     /// This should never return FetchResult::Processing
     pub async fn get(&self, url: Url, use_cache: bool) -> Result<FetchResult, Error> {
         // Maybe initialize
-        if self.client.read().unwrap().is_none() {
+        if self.client.read().unwrap().is_none()
+            || self
+                .socks5h_client
+                .read()
+                .unwrap()
+                .as_ref()
+                .is_some_and(|this| this.is_none())
+        {
             self.init()?;
         }
 
@@ -381,6 +395,9 @@ pub struct Fetcher {
     /// HTTP client
     client: RwLock<Option<Client>>,
 
+    /// HTTP/SOCKS5 client
+    socks5h_client: RwLock<Option<Option<Client>>>,
+
     /// Persistent filesystem cache of network objects. This is faster than fetching
     /// over the network, but the data still needs to be loaded into memory
     cache_dir: RwLock<PathBuf>,
@@ -398,8 +415,25 @@ pub struct Fetcher {
 impl Fetcher {
     /// This initializes the fetcher, which is called internally when it is first used
     fn init(&self) -> Result<(), Error> {
+        /// Shared client build logic
+        fn client_builder(connect_timeout: Duration, timeout: Duration) -> reqwest::ClientBuilder {
+            Client::builder()
+                .gzip(true)
+                .brotli(true)
+                .deflate(true)
+                .connect_timeout(connect_timeout)
+                .timeout(timeout)
+        }
+
         // Do not init() if already initialized
-        if self.client.read().unwrap().is_some() {
+        if self.client.read().unwrap().is_some()
+            && self
+                .socks5h_client
+                .read()
+                .unwrap()
+                .as_ref()
+                .is_none_or(|this| this.is_some())
+        {
             return Ok(());
         }
 
@@ -412,15 +446,26 @@ impl Fetcher {
             std::time::Duration::new(GLOBALS.db().read_setting_fetcher_connect_timeout_sec(), 0);
         let timeout = std::time::Duration::new(GLOBALS.db().read_setting_fetcher_timeout_sec(), 0);
 
-        *self.client.write().unwrap() = Some(
-            Client::builder()
-                .gzip(true)
-                .brotli(true)
-                .deflate(true)
-                .connect_timeout(connect_timeout)
-                .timeout(timeout)
-                .build()?,
-        );
+        *self.client.write().unwrap() = Some(client_builder(connect_timeout, timeout).build()?);
+
+        // Create SOCKS5 client if configured
+        let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
+
+        let mut socks5h_client = self.socks5h_client.write().unwrap();
+
+        if !GLOBALS.db().read_setting_socks5_proxy_enabled() || socks5_proxy_address.is_empty() {
+            tracing::debug!("Init direct client type for fetcher requests...");
+            *socks5h_client = Some(None)
+        } else {
+            tracing::debug!(
+                "Init proxied `{socks5_proxy_address}` client type for fetcher requests..."
+            );
+            *socks5h_client = Some(Some(
+                client_builder(connect_timeout, timeout)
+                    .proxy(Proxy::all(format!("socks5h://{socks5_proxy_address}"))?)
+                    .build()?,
+            ));
+        }
 
         Ok(())
     }
@@ -539,7 +584,30 @@ impl Fetcher {
 
             // Get the client
             // (Client is internally an Arc so we can just clone it)
-            let client = self.client.read().unwrap().clone().unwrap();
+            let socks5_proxy_address = GLOBALS.db().read_setting_socks5_proxy_address();
+
+            let client = if GLOBALS.db().read_setting_socks5_proxy_enabled()
+                && !socks5_proxy_address.is_empty()
+                && !GLOBALS
+                    .db()
+                    .read_setting_socks5_proxy_ignore()
+                    .split_whitespace()
+                    .any(|l| regex::Regex::new(l).is_ok_and(|r| r.is_match(url.as_str())))
+            {
+                tracing::debug!(
+                    "Begin proxied ({socks5_proxy_address}) fetcher request to `{}`...",
+                    url.as_str()
+                );
+                self.socks5h_client
+                    .read()
+                    .unwrap()
+                    .clone()
+                    .unwrap()
+                    .unwrap()
+            } else {
+                tracing::debug!("Begin direct fetcher request to `{}`...", url.as_str());
+                self.client.read().unwrap().clone().unwrap()
+            };
 
             // Build the request
             let mut req = client.get(url.as_str());
@@ -735,10 +803,7 @@ impl Fetcher {
 
     async fn acquire_host(&self, host: &str) -> Arc<Semaphore> {
         // Wait for the host to be available if it is in the penalty box
-        loop {
-            let Some(time) = self.penalty_box.get(host).map(|r| *r.value()) else {
-                break;
-            };
+        while let Some(time) = self.penalty_box.get(host).map(|r| *r.value()) {
             let now = Unixtime::now();
             if time < now {
                 // Remove from penalty box

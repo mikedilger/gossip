@@ -4,20 +4,25 @@ use crate::fetcher::FetchResult;
 use crate::globals::GLOBALS;
 use crate::relay;
 use crate::relay::Relay;
+use http::Uri;
+use indexmap::{IndexMap, IndexSet};
 use nostr_types::{
     ContentEncryptionAlgorithm, ContentSegment, Event, EventKind, EventReference, FileMetadata, Id,
     NAddr, NostrBech32, ParsedTag, PreEvent, PublicKey, RelayUrl, ShatteredContent, Tag,
     UncheckedUrl, Unixtime, Url,
 };
+use std::str::FromStr;
 use std::sync::mpsc;
 
 pub async fn prepare_post_normal(
     author: PublicKey,
     content: String,
+    mimelist: Option<IndexMap<String, String>>,
+    fallback: Option<IndexMap<UncheckedUrl, String>>,
     mut tags: Vec<Tag>,
     in_reply_to: Option<Event>,
     annotation: bool,
-) -> Result<Vec<(Event, Vec<RelayUrl>)>, Error> {
+) -> Result<Vec<(Event, IndexSet<RelayUrl>)>, Error> {
     add_gossip_tag(&mut tags);
 
     if annotation {
@@ -28,7 +33,14 @@ pub async fn prepare_post_normal(
         add_thread_based_tags(author, &mut tags, parent)?;
     }
 
-    add_tags_mirroring_content(&content, &mut tags, false).await;
+    add_tags_mirroring_content(
+        &content,
+        mimelist.as_ref(),
+        fallback.as_ref(),
+        &mut tags,
+        false,
+    )
+    .await;
 
     let pre_event = PreEvent {
         pubkey: author,
@@ -62,10 +74,12 @@ pub async fn prepare_post_normal(
 pub async fn prepare_post_comment(
     author: PublicKey,
     content: String,
+    mimelist: Option<IndexMap<String, String>>,
+    fallback: Option<IndexMap<UncheckedUrl, String>>,
     mut tags: Vec<Tag>,
     parent: Event,
     annotation: bool,
-) -> Result<Vec<(Event, Vec<RelayUrl>)>, Error> {
+) -> Result<Vec<(Event, IndexSet<RelayUrl>)>, Error> {
     add_gossip_tag(&mut tags);
 
     if annotation {
@@ -78,7 +92,14 @@ pub async fn prepare_post_comment(
 
     add_parent_tags(&mut tags, &parent, author);
 
-    add_tags_mirroring_content(&content, &mut tags, false).await;
+    add_tags_mirroring_content(
+        &content,
+        mimelist.as_ref(),
+        fallback.as_ref(),
+        &mut tags,
+        false,
+    )
+    .await;
 
     let pre_event = PreEvent {
         pubkey: author,
@@ -114,7 +135,7 @@ pub async fn prepare_post_nip04(
     content: String,
     dm_channel: DmChannel,
     annotation: bool,
-) -> Result<Vec<(Event, Vec<RelayUrl>)>, Error> {
+) -> Result<Vec<(Event, IndexSet<RelayUrl>)>, Error> {
     if dm_channel.keys().len() > 1 {
         return Err(ErrorKind::GroupDmsNotSupported.into());
     }
@@ -158,10 +179,12 @@ pub async fn prepare_post_nip04(
 pub async fn prepare_post_nip17(
     author: PublicKey,
     content: String,
+    mimelist: Option<IndexMap<String, String>>,
+    fallback: Option<IndexMap<UncheckedUrl, String>>,
     mut tags: Vec<Tag>,
     dm_channel: DmChannel,
     annotation: bool,
-) -> Result<Vec<(Event, Vec<RelayUrl>)>, Error> {
+) -> Result<Vec<(Event, IndexSet<RelayUrl>)>, Error> {
     if !dm_channel.can_use_nip17() {
         return Err(ErrorKind::UsersCantUseNip17.into());
     }
@@ -175,7 +198,14 @@ pub async fn prepare_post_nip17(
 
     add_gossip_tag(&mut tags);
 
-    add_tags_mirroring_content(&content, &mut tags, true).await;
+    add_tags_mirroring_content(
+        &content,
+        mimelist.as_ref(),
+        fallback.as_ref(),
+        &mut tags,
+        true,
+    )
+    .await;
 
     // All recipients get 'p' tagged on the DM rumor
     for pk in dm_channel.keys() {
@@ -196,7 +226,7 @@ pub async fn prepare_post_nip17(
         content,
     };
 
-    let mut output: Vec<(Event, Vec<RelayUrl>)> = Vec::new();
+    let mut output: Vec<(Event, IndexSet<RelayUrl>)> = Vec::new();
 
     // To all recipients
     for pk in dm_channel.keys() {
@@ -221,7 +251,13 @@ fn add_gossip_tag(tags: &mut Vec<Tag>) {
     }
 }
 
-async fn add_tags_mirroring_content(content: &str, tags: &mut Vec<Tag>, direct_message: bool) {
+async fn add_tags_mirroring_content(
+    content: &str,
+    mimelist: Option<&IndexMap<String, String>>,
+    fallback: Option<&IndexMap<UncheckedUrl, String>>,
+    tags: &mut Vec<Tag>,
+    direct_message: bool,
+) {
     let shattered_content = ShatteredContent::new(content.to_owned(), false);
     for segment in shattered_content.segments.iter() {
         match segment {
@@ -269,9 +305,7 @@ async fn add_tags_mirroring_content(content: &str, tags: &mut Vec<Tag>, direct_m
             }
             ContentSegment::Hyperlink(span) => {
                 if let Some(slice) = shattered_content.slice(span) {
-                    if let Some(mimetype) = crate::media_url_mimetype(slice) {
-                        add_imeta_tag(slice, mimetype, tags).await;
-                    }
+                    add_imeta_tag(slice, mimelist.cloned(), fallback.cloned(), tags).await
                 }
             }
             ContentSegment::Plain(_span) => {
@@ -289,10 +323,21 @@ async fn add_tags_mirroring_content(content: &str, tags: &mut Vec<Tag>, direct_m
     // content = NostrUrl::urlize(&content);
 }
 
-async fn add_imeta_tag(urlstr: &str, mimetype: &str, tags: &mut Vec<Tag>) {
+async fn add_imeta_tag(
+    urlstr: &str,
+    mimelist: Option<IndexMap<String, String>>,
+    fallback: Option<IndexMap<UncheckedUrl, String>>,
+    tags: &mut Vec<Tag>,
+) {
     //turn into a nostr_types::Url
     let url = match Url::try_from_str(urlstr) {
-        Ok(url) => url,
+        Ok(u) => u,
+        _ => return,
+    };
+
+    //turn into a http::Uri
+    let uri = match Uri::from_str(urlstr) {
+        Ok(u) => u,
         _ => return,
     };
 
@@ -309,10 +354,15 @@ async fn add_imeta_tag(urlstr: &str, mimetype: &str, tags: &mut Vec<Tag>) {
     //         it will ever happen so I'm just writing this note instead.
 
     let imeta = {
-        let unchecked_url = url.to_unchecked_url();
-        let mut imeta = FileMetadata::new(unchecked_url);
+        let mut imeta = FileMetadata::new(url.to_unchecked_url());
 
-        imeta.m = Some(mimetype.to_owned());
+        imeta.m = match mimelist {
+            Some(l) => l.get(urlstr).map(|m| m.to_owned()),
+            None => mime_guess::from_path(uri.path())
+                .first()
+                .map(|m| m.to_string()),
+        };
+
         imeta.size = Some(bytes.len() as u64);
 
         let hash = {
@@ -324,7 +374,7 @@ async fn add_imeta_tag(urlstr: &str, mimetype: &str, tags: &mut Vec<Tag>) {
         };
         imeta.x = Some(hash);
 
-        if mimetype.starts_with("image") {
+        if imeta.m.as_ref().is_some_and(|m| m.starts_with("image")) {
             use image::{DynamicImage, GenericImageView};
             if let Ok(dynamic_image) = image::load_from_memory(&bytes) {
                 let (w, h) = dynamic_image.dimensions();
@@ -341,6 +391,20 @@ async fn add_imeta_tag(urlstr: &str, mimetype: &str, tags: &mut Vec<Tag>) {
                     imeta.dim = Some((w as usize, h as usize));
                 }
             }
+        }
+
+        if let Some(f) = fallback {
+            let t = f.len();
+            imeta.fallback = f
+                .into_iter()
+                .filter(|(u, h)| imeta.x.as_ref().is_some_and(|x| x == h && *u != imeta.url))
+                .map(|(u, _)| u)
+                .collect();
+            tracing::debug!(
+                "Add {} fallback addresses of {t} total for `{url}` x {:?}",
+                imeta.fallback.len(),
+                imeta.x
+            )
         }
 
         imeta
@@ -372,8 +436,9 @@ fn add_thread_based_tags(
     let parent_relay: Option<UncheckedUrl> = GLOBALS
         .db()
         .get_event_seen_on_relay(parent.id)?
-        .pop()
-        .map(|(rurl, _)| rurl.to_unchecked_url());
+        .into_keys()
+        .next()
+        .map(|rurl| rurl.to_unchecked_url());
 
     // Possibly add a tag to the 'root'
     let mut parent_is_root = true;
@@ -434,7 +499,7 @@ fn add_thread_based_tags(
             tags,
             &NAddr {
                 d,
-                relays: vec![],
+                relays: IndexSet::new(),
                 kind: parent.kind,
                 author: parent.pubkey,
             },
@@ -531,8 +596,8 @@ fn add_parent_tags(tags: &mut Vec<Tag>, parent: &Event, author: PublicKey) {
                 address: NAddr {
                     d: parent.parameter().unwrap_or_default(),
                     relays: match relay_hint {
-                        Some(ref h) => vec![h.clone()],
-                        None => vec![],
+                        Some(ref h) => IndexSet::from([h.clone()]),
+                        None => IndexSet::new(),
                     },
                     kind: parent.kind,
                     author: parent.pubkey,
@@ -603,8 +668,8 @@ fn set_parent_as_root_tags(tags: &mut Vec<Tag>, parent: &Event) {
                 address: NAddr {
                     d: parent.parameter().unwrap_or_default(),
                     relays: match relay_hint {
-                        Some(ref h) => vec![h.clone()],
-                        None => vec![],
+                        Some(ref h) => IndexSet::from([h.clone()]),
+                        None => IndexSet::new(),
                     },
                     kind: parent.kind,
                     author: parent.pubkey,

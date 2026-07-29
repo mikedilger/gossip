@@ -1,0 +1,96 @@
+[package]
+name = "nostr-types"
+version = "0.8.0-unstable"
+edition = "2021"
+authors = ["Mike Dilger <mike@mikedilger.com>"]
+description = "Types for nostr protocol handling"
+repository = "https://github.com/mikedilger/nostr-types"
+documentation = "https://docs.rs/nostr-types"
+readme = "README.md"
+keywords = [ "nostr" ]
+license = "MIT"
+
+[features]
+default = []
+nip46 = [
+   "client"
+]
+client = [
+   "futures-util",
+   "http",
+   "reqwest",
+   "textnonce",
+   "tokio",
+   "tokio-tungstenite",
+   "tungstenite",
+   # Note that you must also select one of the 3 TLS choices below.
+   # Cargo makes it hard to specify that, but without any of them,
+   # you won't get TLS support.
+]
+
+# Use Native TLS code and native root certs
+native-tls = [
+  "reqwest/native-tls",
+  "tungstenite/native-tls",
+  "tokio-tungstenite/native-tls"
+]
+
+# Use Rust TLS code with WebPKI compiled-in root certs
+rustls-tls = [
+  "reqwest/rustls-tls-webpki-roots",
+  "tungstenite/rustls-tls-webpki-roots",
+  "tokio-tungstenite/rustls-tls-webpki-roots"
+]
+
+# Use Rust TLS  code with native root certs
+rustls-tls-native = [
+  "reqwest/rustls-tls-native-roots",
+  "tungstenite/rustls-tls-native-roots",
+  "tokio-tungstenite/rustls-tls-native-roots"
+]
+
+[dependencies]
+aes = "0.8"
+aho-corasick = "1.1"
+async-trait = "0.1"
+base64 = "0.22"
+bech32 = "0.11"
+cbc = { version = "0.1", features = [ "std" ] }
+chacha20poly1305 = "0.10"
+chacha20 = "0.9"
+core-net = "0.1"
+derive_more = { version = "2.1", features = [ 'add', 'as_ref', 'deref', 'display', 'from', 'from_str', 'into'] }
+futures-util = { version = "0.3", optional = true, features = [ "sink" ] }
+hex = "0.4"
+hmac = "0.12"
+http = { version = "1.4", optional = true }
+lazy_static = "1.5"
+lightning-invoice = "0.34"
+linkify = { git = "https://github.com/YGGverse/linkify.git", rev="9485ce3c5d6f7e39d0521b35dc53e76cd7c18cc3" }
+nip44 = { git = "https://github.com/mikedilger/nip44", rev="61b72ea1c5bea60b1522f2cb6ea0166b92b39caf" }
+num_cpus = "1"
+pbkdf2 = { version = "0.12", default-features = false, features = [ "hmac", "sha2", "std" ] }
+rand_core = { version = "0.9", features = [ "os_rng" ] }
+rand = { version = "0.9", features = [ "thread_rng" ] }
+regex = "1.10"
+reqwest = { version = "0.12", default-features=false, features = ["brotli", "deflate", "gzip", "json", "stream"], optional = true }
+scrypt = "0.11"
+secp256k1 = { version = "0.31", features = [ "hashes", "global-context", "rand", "std", "serde" ] }
+serde = { version = "1.0", features = [ "derive", "rc" ] }
+serde_json = "1.0"
+sha2 = "0.10"
+speedy = { version = "0.8.7", optional = true , features = ["speedy-derive", "indexmap_v2"]}
+textnonce = { version = "1", optional = true }
+thiserror = "2.0"
+thread-priority = "1.0"
+tokio = { version = "1", features = ["full"], optional = true }
+tokio-tungstenite = { version = "0.28", default-features = false, features = [ "connect", "handshake" ], optional = true }
+tracing = "0.1"
+tungstenite = { version = "0.28", default-features = false, optional = true }
+unicode-normalization = "0.1"
+url = "2.5"
+zeroize = "1.8"
+indexmap = { version = "2.14", features = ["serde"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }

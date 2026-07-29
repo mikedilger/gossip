@@ -96,7 +96,7 @@ impl Minion {
                 tracing::warn!("{}: NOTICE: {}", &self.url, msg);
             }
             RelayMessage::Notify(msg) => {
-                let message = format!("{}: NOTIFY: {}", &self.url, msg);
+                let message = format!("{}: NOTIFY: {}", self.url, msg);
                 tracing::warn!(message);
 
                 GLOBALS

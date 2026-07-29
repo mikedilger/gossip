@@ -4,6 +4,7 @@ use crate::misc::Private;
 use crate::nostr_connect_server::{Approval, ParsedCommand};
 use crate::people::PersonList;
 use crate::relay::Relay;
+use indexmap::{IndexMap, IndexSet};
 use nostr_types::{
     Event, EventKind, EventReference, Id, Metadata, MilliSatoshi, NAddr, Profile, PublicKey,
     RelayUrl, Tag, UncheckedUrl, Unixtime, Url,
@@ -81,7 +82,7 @@ pub enum ToOverlordMessage {
     DropRelay(RelayUrl),
 
     /// Calls [fetch_event](crate::Overlord::fetch_event)
-    FetchEvent(Id, Vec<RelayUrl>),
+    FetchEvent(Id, IndexSet<RelayUrl>),
 
     /// Calls [fetch_naddr](crate::Overlord::fetch_naddr)
     FetchNAddr(NAddr),
@@ -129,6 +130,10 @@ pub enum ToOverlordMessage {
     /// Calls [post](crate::Overlord::post)
     Post {
         content: String,
+        /// URL / sha256
+        blossom: Option<IndexMap<UncheckedUrl, String>>,
+        // Locally parsed mime type array to map URLs without extension
+        mimelist: Option<IndexMap<String, String>>,
         tags: Vec<Tag>,
         in_reply_to: Option<Id>,
         annotation: bool,
@@ -142,7 +147,7 @@ pub enum ToOverlordMessage {
     PostCancel,
 
     /// Calls [post_nip46_event](crate::Overlord::post_nip46_event)
-    PostNip46Event(Event, Vec<RelayUrl>),
+    PostNip46Event(Event, IndexSet<RelayUrl>),
 
     /// Calls [push_blossom_servers](crate::Overlord::push_blossom_servers)
     PushBlossomServers,
@@ -172,10 +177,10 @@ pub enum ToOverlordMessage {
     Repost(Id),
 
     /// Calls [search](crate::Overlord::search_locally)
-    SearchLocally(String),
+    SearchLocally(String, Option<Vec<PublicKey>>),
 
     /// Calls [search](crate::Overlord::search_relays)
-    SearchRelays(String),
+    SearchRelays(String, Option<Vec<PublicKey>>),
 
     /// Calls [set_active_person](crate::Overlord::set_active_person)
     SetActivePerson(PublicKey),
@@ -209,16 +214,16 @@ pub enum ToOverlordMessage {
     StartLongLivedSubscriptions,
 
     /// Calls [subscribe_config](crate::Overlord::subscribe_config)
-    SubscribeConfig(Option<Vec<RelayUrl>>),
+    SubscribeConfig(Option<IndexSet<RelayUrl>>),
 
     /// Calls [subscribe_discover](crate::Overlord::subscribe_discover)
-    SubscribeDiscover(Vec<PublicKey>, Option<Vec<RelayUrl>>),
+    SubscribeDiscover(Vec<PublicKey>, Option<IndexSet<RelayUrl>>),
 
     /// Calls [subscribe_inbox](crate::Overlord::subscribe_inbox)
-    SubscribeInbox(Option<Vec<RelayUrl>>),
+    SubscribeInbox(Option<IndexSet<RelayUrl>>),
 
     /// Calls [subscribe_nip46](crate::Overlord::subscribe_nip46)
-    SubscribeNip46(Vec<RelayUrl>),
+    SubscribeNip46(IndexSet<RelayUrl>),
 
     /// Calls [test_relay](crate::Overlord::test_relay)
     TestRelay(RelayUrl),
