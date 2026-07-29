@@ -1100,7 +1100,7 @@ impl Storage {
     /// Get events with a given hashtag
     #[inline]
     #[allow(dead_code)]
-    pub fn get_event_ids_with_hashtag(&self, hashtag: &String) -> Result<Vec<Id>, Error> {
+    pub fn get_event_ids_with_hashtag(&self, hashtag: &str) -> Result<Vec<Id>, Error> {
         self.get_event_ids_with_hashtag1(hashtag)
     }
 

@@ -2748,11 +2748,11 @@ impl Overlord {
             false
         })?);
 
-        // FIXME: stop at white space
         if let Some(hashtag) = text.strip_prefix('#') {
-            let hashtag = hashtag.to_string();
-            let ids = GLOBALS.db().get_event_ids_with_hashtag(&hashtag)?;
-            for id in ids {
+            for id in GLOBALS
+                .db()
+                .get_event_ids_with_hashtag(hashtag.split_whitespace().next().unwrap_or(hashtag))?
+            {
                 if let Some(event) = GLOBALS.db().read_event(id)? {
                     if public_keys
                         .as_ref()
