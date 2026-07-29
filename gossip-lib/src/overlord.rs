@@ -2626,7 +2626,7 @@ impl Overlord {
                             event.tags.iter().any(|tag| {
                                 if !public_keys
                                     .as_ref()
-                                    .is_some_and(|pks| pks.iter().all(|pk| pk == &event.pubkey))
+                                    .is_some_and(|pks| pks.iter().all(|pk| *pk == event.pubkey))
                                 {
                                     return false;
                                 }
@@ -2656,7 +2656,7 @@ impl Overlord {
                     if let Some(event) = GLOBALS.db().read_event(ne.id)? {
                         if public_keys
                             .as_ref()
-                            .is_some_and(|pks| pks.iter().all(|pk| pk == &event.pubkey))
+                            .is_some_and(|pks| pks.iter().all(|pk| *pk == event.pubkey))
                         {
                             note_search_results.push(event)
                         }
@@ -2680,7 +2680,7 @@ impl Overlord {
                     if let Some(event) = GLOBALS.db().read_event(id)? {
                         if public_keys
                             .as_ref()
-                            .is_some_and(|pks| pks.iter().all(|pk| pk == &event.pubkey))
+                            .is_some_and(|pks| pks.iter().all(|pk| *pk == event.pubkey))
                         {
                             note_search_results.push(event)
                         }
@@ -2756,7 +2756,7 @@ impl Overlord {
                 if let Some(event) = GLOBALS.db().read_event(id)? {
                     if public_keys
                         .as_ref()
-                        .is_some_and(|pks| pks.iter().all(|pk| pk == &event.pubkey))
+                        .is_some_and(|pks| pks.iter().all(|pk| *pk == event.pubkey))
                     {
                         note_search_results.push(event)
                     }
@@ -2767,7 +2767,7 @@ impl Overlord {
                 |event| {
                     public_keys
                         .as_ref()
-                        .is_none_or(|pks| pks.iter().all(|pk| pk == &event.pubkey))
+                        .is_none_or(|pks| pks.iter().all(|pk| *pk == event.pubkey))
                 },
             ));
         }
