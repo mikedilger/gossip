@@ -51,7 +51,7 @@ impl CopyButton {
             stroke: if let Some(stroke) = &self.stroke {
                 stroke.clone()
             } else {
-                PathStroke::new(1.0, Color32::from_rgb(0x8d, 0x7f, 0x73)).middle()
+                PathStroke::new(1.0_f32, Color32::from_rgb(0x8d, 0x7f, 0x73)).middle()
             },
         }));
 
@@ -83,7 +83,7 @@ impl CopyButton {
             stroke: if let Some(stroke) = &self.stroke {
                 stroke.clone()
             } else {
-                PathStroke::new(1.0, Color32::from_rgb(0x8d, 0x7f, 0x73)).middle()
+                PathStroke::new(1.0_f32, Color32::from_rgb(0x8d, 0x7f, 0x73)).middle()
             },
         }));
     }

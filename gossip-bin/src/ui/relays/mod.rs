@@ -373,7 +373,7 @@ fn entry_dialog_step1(ui: &mut Ui, ctx: &Context, app: &mut GossipUi) {
                             .send(ToOverlordMessage::AddRelay(url.clone()));
                         GLOBALS.status_queue.write().write(format!(
                             "I asked the overlord to add relay {}. Check for it below.",
-                            &app.relays.new_relay_url
+                            app.relays.new_relay_url
                         ));
 
                         // send user to known relays page (where the new entry should show up)

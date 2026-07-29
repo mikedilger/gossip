@@ -231,7 +231,7 @@ pub(crate) fn draw_link_at(
             if response.hovered() {
                 (ui.visuals().text_color(), Stroke::NONE)
             } else {
-                (hover_color, Stroke::new(1.0, hover_color))
+                (hover_color, Stroke::new(1.0_f32, hover_color))
             }
         } else {
             (ui.visuals().weak_text_color(), Stroke::NONE)
@@ -243,7 +243,7 @@ pub(crate) fn draw_link_at(
             } else {
                 (
                     ui.visuals().text_color(),
-                    Stroke::new(1.0, ui.visuals().text_color()),
+                    Stroke::new(1.0_f32, ui.visuals().text_color()),
                 )
             }
         } else {

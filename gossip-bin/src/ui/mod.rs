@@ -570,7 +570,6 @@ struct GossipUi {
 
     // search result
     search_note_height: HashMap<Id, f32>,
-    search_person_height: HashMap<PublicKey, f32>,
 
     // Collapsed threads
     collapsed: Vec<Id>,
@@ -842,7 +841,6 @@ impl GossipUi {
             nostr_connect_relay1: "".to_owned(),
             nostr_connect_relay2: "".to_owned(),
             search_note_height: HashMap::new(),
-            search_person_height: HashMap::new(),
             collapsed: vec![],
             opened: HashSet::new(),
             visible_note_ids: vec![],
@@ -1395,18 +1393,18 @@ impl GossipUi {
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             let (_frame_stroke, active_color_override) = if self.theme.dark_mode && offline {
                 (
-                    egui::Stroke::new(1.0, Color32::TRANSPARENT),
+                    egui::Stroke::new(1.0_f32, Color32::TRANSPARENT),
                     Some(self.theme.neutral_900()),
                 )
             } else if self.theme.dark_mode && !offline {
                 (
-                    egui::Stroke::new(1.0, self.theme.neutral_900()),
+                    egui::Stroke::new(1.0_f32, self.theme.neutral_900()),
                     Some(self.theme.neutral_900()),
                 )
             } else if !self.theme.dark_mode && offline {
-                (egui::Stroke::new(1.0, Color32::TRANSPARENT), None)
+                (egui::Stroke::new(1.0_f32, Color32::TRANSPARENT), None)
             } else {
-                (egui::Stroke::new(1.0, self.theme.neutral_300()), None)
+                (egui::Stroke::new(1.0_f32, self.theme.neutral_300()), None)
             };
             let (color, text, text_color_override) = if offline {
                 (self.theme.amber_100(), "OFFLINE", active_color_override)

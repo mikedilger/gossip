@@ -168,23 +168,47 @@ impl<'t> TextEdit<'t> {
                 #[allow(clippy::if_same_then_else)]
                 let (bg_color, frame_stroke) = if ui.visuals().dark_mode {
                     if !response.sense.interactive() {
-                        (theme.neutral_800(), Stroke::new(1.0, theme.neutral_600()))
+                        (
+                            theme.neutral_800(),
+                            Stroke::new(1.0_f32, theme.neutral_600()),
+                        )
                     } else if response.is_pointer_button_down_on() || response.has_focus() {
-                        (theme.neutral_800(), Stroke::new(1.0, theme.neutral_400()))
+                        (
+                            theme.neutral_800(),
+                            Stroke::new(1.0_f32, theme.neutral_400()),
+                        )
                     } else if response.hovered() || response.highlighted() {
-                        (theme.neutral_800(), Stroke::new(1.0, theme.neutral_600()))
+                        (
+                            theme.neutral_800(),
+                            Stroke::new(1.0_f32, theme.neutral_600()),
+                        )
                     } else {
-                        (theme.neutral_800(), Stroke::new(1.0, theme.neutral_600()))
+                        (
+                            theme.neutral_800(),
+                            Stroke::new(1.0_f32, theme.neutral_600()),
+                        )
                     }
                 } else {
                     if !response.sense.interactive() {
-                        (theme.neutral_50(), Stroke::new(1.0, theme.neutral_300()))
+                        (
+                            theme.neutral_50(),
+                            Stroke::new(1.0_f32, theme.neutral_300()),
+                        )
                     } else if response.is_pointer_button_down_on() || response.has_focus() {
-                        (theme.neutral_50(), Stroke::new(1.0, theme.neutral_400()))
+                        (
+                            theme.neutral_50(),
+                            Stroke::new(1.0_f32, theme.neutral_400()),
+                        )
                     } else if response.hovered() || response.highlighted() {
-                        (theme.neutral_50(), Stroke::new(1.0, theme.neutral_300()))
+                        (
+                            theme.neutral_50(),
+                            Stroke::new(1.0_f32, theme.neutral_300()),
+                        )
                     } else {
-                        (theme.neutral_50(), Stroke::new(1.0, theme.neutral_300()))
+                        (
+                            theme.neutral_50(),
+                            Stroke::new(1.0_f32, theme.neutral_300()),
+                        )
                     }
                 };
 
@@ -324,7 +348,7 @@ impl TextEdit<'_> {
 
         // cursor (enabled)
         visuals.text_cursor = TextCursorStyle {
-            stroke: Stroke::new(3.0, theme.accent_color()),
+            stroke: Stroke::new(3.0_f32, theme.accent_color()),
             ..Default::default()
         };
 
@@ -334,14 +358,14 @@ impl TextEdit<'_> {
 
             // text selection
             visuals.selection.bg_fill = theme.accent_color();
-            visuals.selection.stroke = Stroke::new(1.0, Color32::WHITE);
+            visuals.selection.stroke = Stroke::new(1.0_f32, Color32::WHITE);
         } else {
             // text color (enabled)
             visuals.widgets.inactive.fg_stroke.color = theme.neutral_800();
 
             // text selection
             visuals.selection.bg_fill = theme.accent_color();
-            visuals.selection.stroke = Stroke::new(1.0, Color32::WHITE);
+            visuals.selection.stroke = Stroke::new(1.0_f32, Color32::WHITE);
         }
     }
 }

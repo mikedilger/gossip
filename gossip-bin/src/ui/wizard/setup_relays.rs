@@ -177,7 +177,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
         }
         ui.label("or");
         ui.menu_button("▼ Pick from Top Relays", |ui| {
-            for (url, _relay) in relay_options.iter() {
+            for url in relay_options.keys() {
                 if ui
                     .add(Button::new(url.as_str()).wrap_mode(egui::TextWrapMode::Extend))
                     .clicked()

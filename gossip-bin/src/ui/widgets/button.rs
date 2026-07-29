@@ -273,14 +273,14 @@ impl Button<'_> {
     ) {
         if ui.is_rect_visible(rect) {
             let no_stroke = Stroke::NONE;
-            let neutral_50_stroke = Stroke::new(1.0, theme.neutral_50());
-            let neutral_300_stroke = Stroke::new(1.0, theme.neutral_300());
-            let neutral_400_stroke = Stroke::new(1.0, theme.neutral_400());
-            let neutral_500_stroke = Stroke::new(1.0, theme.neutral_500());
-            let neutral_600_stroke = Stroke::new(1.0, theme.neutral_600());
+            let neutral_50_stroke = Stroke::new(1.0_f32, theme.neutral_50());
+            let neutral_300_stroke = Stroke::new(1.0_f32, theme.neutral_300());
+            let neutral_400_stroke = Stroke::new(1.0_f32, theme.neutral_400());
+            let neutral_500_stroke = Stroke::new(1.0_f32, theme.neutral_500());
+            let neutral_600_stroke = Stroke::new(1.0_f32, theme.neutral_600());
             let danger_color = theme.danger_color();
             let danger_stroke = Stroke::new(
-                1.0,
+                1.0_f32,
                 <DefaultTheme as ThemeDef>::darken_color(danger_color, 0.2),
             );
             let (frame_fill, frame_stroke, text_color, under_stroke) = if ui.visuals().dark_mode {

@@ -48,7 +48,8 @@ pub(super) fn render_content(
                     } else {
                         Color32::BLACK
                     };
-                    let button = Button::new("Show more ▼").stroke(Stroke::new(1.0, text_color));
+                    let button =
+                        Button::new("Show more ▼").stroke(Stroke::new(1.0_f32, text_color));
                     if ui.add(button).clicked() {
                         app.opened.insert(note.event.id);
                     }
@@ -313,7 +314,7 @@ pub(super) fn render_plain(
                 } else {
                     Color32::BLACK
                 };
-                let button = Button::new("Show more ▼").stroke(Stroke::new(1.0, text_color));
+                let button = Button::new("Show more ▼").stroke(Stroke::new(1.0_f32, text_color));
                 if ui.add(button).clicked() {
                     app.opened.insert(note.event.id);
                 }

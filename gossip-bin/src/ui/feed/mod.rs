@@ -271,7 +271,7 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, ui: &mut Ui) {
             ui.add_space(10.0);
             ui.horizontal(|ui| {
                 add_left_space(ui);
-                ui.heading(format!("{}", &relay_url));
+                ui.heading(relay_url.to_string());
                 recompute_btn(app, ui);
             });
             ui.add_space(6.0);
@@ -523,7 +523,7 @@ fn render_load_more(app: &mut GossipUi, ui: &mut Ui) {
             }
 
             // draw some nice lines left and right of the button
-            let stroke = egui::Stroke::new(1.5, ui.visuals().extreme_bg_color);
+            let stroke = egui::Stroke::new(1.5_f32, ui.visuals().extreme_bg_color);
             let width = (ui.available_width() - response.rect.width()) / 2.0 - 20.0;
             let left_start = response.rect.left_center() - egui::vec2(10.0, 0.0);
             let left_end = left_start - egui::vec2(width, 0.0);

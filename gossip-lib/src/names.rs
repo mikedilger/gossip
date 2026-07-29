@@ -6,9 +6,8 @@ pub fn pubkey_short(pk: &PublicKey) -> String {
     let npub = pk.as_bech32_string();
     format!(
         "{}...{}",
-        &npub.get(0..10).unwrap_or("??????????"),
-        &npub
-            .get(npub.len() - 10..npub.len())
+        npub.get(0..10).unwrap_or("??????????"),
+        npub.get(npub.len() - 10..npub.len())
             .unwrap_or("??????????")
     )
 }

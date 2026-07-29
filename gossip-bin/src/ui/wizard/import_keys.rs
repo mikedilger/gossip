@@ -16,9 +16,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     let selected = app.wizard_state.path == WizardPath::ImportFromKey(true);
     let response = list_entry::make_frame(ui, None)
         .stroke(if selected {
-            egui::Stroke::new(1.0, app.theme.accent_color())
+            egui::Stroke::new(1.0_f32, app.theme.accent_color())
         } else {
-            egui::Stroke::new(1.0, egui::Color32::TRANSPARENT)
+            egui::Stroke::new(1.0_f32, egui::Color32::TRANSPARENT)
         })
         .show(ui, |ui| {
             ui.set_width(ui.available_width());
@@ -43,9 +43,9 @@ pub(super) fn update(app: &mut GossipUi, ctx: &Context, _frame: &mut eframe::Fra
     let selected = app.wizard_state.path == WizardPath::ImportFromKey(false);
     let response = list_entry::make_frame(ui, None)
         .stroke(if selected {
-            egui::Stroke::new(1.0, app.theme.accent_color())
+            egui::Stroke::new(1.0_f32, app.theme.accent_color())
         } else {
-            egui::Stroke::new(1.0, egui::Color32::TRANSPARENT)
+            egui::Stroke::new(1.0_f32, egui::Color32::TRANSPARENT)
         })
         .show(ui, |ui| {
             ui.set_width(ui.available_width());

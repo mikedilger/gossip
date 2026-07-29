@@ -162,7 +162,7 @@ fn show_pub_key_detail(app: &mut GossipUi, ui: &mut Ui) {
 
             let nprofile = profile.as_bech32_string();
             ui.horizontal_wrapped(|ui| {
-                ui.label(format!("Your Profile: {}", &nprofile));
+                ui.label(format!("Your Profile: {nprofile}"));
                 if ui.add(CopyButton::new()).clicked() {
                     ui.output_mut(|o| {
                         o.commands

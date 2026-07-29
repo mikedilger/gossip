@@ -257,7 +257,7 @@ fn content(app: &mut GossipUi, ctx: &Context, ui: &mut Ui, pubkey: PublicKey, pe
                                 let right = switch_response.rect.left_center();
                                 let points = [left + vec2(10.0, 0.0), right + vec2(-10.0, 0.0)];
                                 ui.painter()
-                                    .line_segment(points, egui::Stroke::new(1.0, color));
+                                    .line_segment(points, egui::Stroke::new(1.0_f32, color));
                             }
                         });
                     }
@@ -690,7 +690,7 @@ fn profile_item(
     content: impl Into<String>,
 ) {
     let content: String = content.into();
-    let symbol = CopyButton::new().stroke(PathStroke::new(1.4, app.theme.accent_color()));
+    let symbol = CopyButton::new().stroke(PathStroke::new(1.4_f32, app.theme.accent_color()));
     let response = profile_item_frame(ui, width, label, &content, symbol).response;
 
     if response.clicked() {

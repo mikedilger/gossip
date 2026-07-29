@@ -1226,7 +1226,7 @@ impl RelayEntry {
                 rect,
                 btn_round,
                 ui.visuals().extreme_bg_color,
-                Stroke::new(1.0, off_fill_color),
+                Stroke::new(1.0_f32, off_fill_color),
                 StrokeKind::Inside,
             );
             ui.painter().text(
