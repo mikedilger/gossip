@@ -79,8 +79,6 @@ pub(super) fn update(
         }
     });
 
-    ui.add_space(12.0);
-
     if trigger_search {
         let public_keys = if app.is_search_by_me {
             GLOBALS
@@ -103,10 +101,10 @@ pub(super) fn update(
         }
     }
 
-    ui.add_space(12.0);
-
     let people = GLOBALS.people_search_results.read().clone(); // @TODO implement widgets
     let notes = GLOBALS.note_search_results.read().clone();
+
+    ui.add_space(12.0);
 
     app.vert_scroll_area().auto_shrink(false).show(ui, |ui| {
         /* @TODO implement compact view
