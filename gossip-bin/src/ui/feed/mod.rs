@@ -9,17 +9,17 @@ use gossip_lib::GLOBALS;
 use nostr_types::Id;
 use std::sync::atomic::Ordering;
 
-mod note;
+pub mod note;
 pub use note::NoteRenderData;
 pub(super) mod post;
 
 const LONG_WAIT_TIME: f64 = 5.0; // seconds until the user has waited a long time for the feed to load
 
-struct FeedNoteParams {
-    id: Id,
-    indent: usize,
-    as_reply_to: bool,
-    threaded: bool,
+pub struct FeedNoteParams {
+    pub id: Id,
+    pub indent: usize,
+    pub as_reply_to: bool,
+    pub threaded: bool,
 }
 
 #[derive(Default)]

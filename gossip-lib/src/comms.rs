@@ -177,10 +177,10 @@ pub enum ToOverlordMessage {
     Repost(Id),
 
     /// Calls [search](crate::Overlord::search_locally)
-    SearchLocally(String),
+    SearchLocally(String, Option<Vec<PublicKey>>),
 
     /// Calls [search](crate::Overlord::search_relays)
-    SearchRelays(String),
+    SearchRelays(String, Option<Vec<PublicKey>>),
 
     /// Calls [set_active_person](crate::Overlord::set_active_person)
     SetActivePerson(PublicKey),

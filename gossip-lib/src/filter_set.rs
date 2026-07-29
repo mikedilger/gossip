@@ -54,7 +54,7 @@ pub enum FilterSet {
     },
     RepliesToId(Id),
     RepliesToAddr(NAddr),
-    Search(String),
+    Search(String, Option<Vec<PublicKey>>),
 }
 
 impl FilterSet {
@@ -78,7 +78,7 @@ impl FilterSet {
             FilterSet::PersonFeedChunk { .. } => true,
             FilterSet::RepliesToId(_) => false,
             FilterSet::RepliesToAddr(_) => false,
-            FilterSet::Search(_) => true,
+            FilterSet::Search(..) => true,
         }
     }
 
@@ -122,7 +122,7 @@ impl FilterSet {
             FilterSet::PersonFeedChunk { .. } => "person_feed_chunk",
             FilterSet::RepliesToId(_) => "id_replies",
             FilterSet::RepliesToAddr(_) => "addr_replies",
-            FilterSet::Search(_) => "relay_search",
+            FilterSet::Search(..) => "relay_search",
         }
     }
 
@@ -442,15 +442,24 @@ impl FilterSet {
                 };
                 Some(filter)
             }
-            FilterSet::Search(what) => {
+            FilterSet::Search(what, public_keys) => {
                 // Explicitly ignore spam filtering during searches (for now)
                 // We may revisit this decision if spam becomes the main results.
 
                 let event_kinds = crate::feed::feed_displayable_event_kinds(false);
-                let filter = Filter {
-                    kinds: event_kinds,
-                    search: Some(what.to_string()),
-                    ..Default::default()
+
+                let filter = match public_keys {
+                    Some(pks) => Filter {
+                        authors: pks.clone(),
+                        kinds: event_kinds,
+                        search: Some(what.to_string()),
+                        ..Default::default()
+                    },
+                    None => Filter {
+                        kinds: event_kinds,
+                        search: Some(what.to_string()),
+                        ..Default::default()
+                    },
                 };
                 Some(filter)
             }

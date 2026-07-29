@@ -60,7 +60,7 @@ pub struct NoteRenderData {
     pub hide_nameline: bool,
 }
 
-pub(super) fn render_note(
+pub fn render_note(
     app: &mut GossipUi,
     ctx: &Context,
     ui: &mut Ui,

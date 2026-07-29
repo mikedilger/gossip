@@ -765,11 +765,11 @@ impl Overlord {
             ToOverlordMessage::Repost(id) => {
                 self.repost(id).await?;
             }
-            ToOverlordMessage::SearchLocally(text) => {
-                Self::search_locally(text)?;
+            ToOverlordMessage::SearchLocally(query, pk) => {
+                Self::search_locally(query, pk)?;
             }
-            ToOverlordMessage::SearchRelays(text) => {
-                Self::search_relays(text)?;
+            ToOverlordMessage::SearchRelays(query, pk) => {
+                Self::search_relays(query, pk)?;
             }
             ToOverlordMessage::SetActivePerson(pubkey) => {
                 Self::set_active_person(pubkey).await?;
@@ -2583,7 +2583,10 @@ impl Overlord {
 
     /// Search people and notes in the local database.
     /// Search results eventually arrive in `GLOBALS.people_search_results` and `GLOBALS.note_search_results`
-    pub fn search_locally(mut text: String) -> Result<(), Error> {
+    pub fn search_locally(
+        mut text: String,
+        public_keys: Option<Vec<PublicKey>>,
+    ) -> Result<(), Error> {
         GLOBALS.people_search_results.write().clear();
         GLOBALS.note_search_results.write().clear();
 
@@ -2621,6 +2624,12 @@ impl Overlord {
                         .db()
                         .find_events_by_filter(&filter, |event| {
                             event.tags.iter().any(|tag| {
+                                if !public_keys
+                                    .as_ref()
+                                    .is_some_and(|pks| pks.iter().all(|pk| pk == &event.pubkey))
+                                {
+                                    return false;
+                                }
                                 if let Ok(ParsedTag::Identifier(d)) = tag.parse() {
                                     if d == ea.d {
                                         return true;
@@ -2645,7 +2654,12 @@ impl Overlord {
                 }
                 NostrBech32::NEvent(ne) => {
                     if let Some(event) = GLOBALS.db().read_event(ne.id)? {
-                        note_search_results.push(event);
+                        if public_keys
+                            .as_ref()
+                            .is_some_and(|pks| pks.iter().all(|pk| pk == &event.pubkey))
+                        {
+                            note_search_results.push(event)
+                        }
                     } else {
                         let relays = ne
                             .relays
@@ -2664,7 +2678,12 @@ impl Overlord {
                 }
                 NostrBech32::Id(id) => {
                     if let Some(event) = GLOBALS.db().read_event(id)? {
-                        note_search_results.push(event);
+                        if public_keys
+                            .as_ref()
+                            .is_some_and(|pks| pks.iter().all(|pk| pk == &event.pubkey))
+                        {
+                            note_search_results.push(event)
+                        }
                     }
                     // else we can't go find it, we don't know which relays to ask.
                 }
@@ -2735,12 +2754,22 @@ impl Overlord {
             let ids = GLOBALS.db().get_event_ids_with_hashtag(&hashtag)?;
             for id in ids {
                 if let Some(event) = GLOBALS.db().read_event(id)? {
-                    note_search_results.push(event);
+                    if public_keys
+                        .as_ref()
+                        .is_some_and(|pks| pks.iter().all(|pk| pk == &event.pubkey))
+                    {
+                        note_search_results.push(event)
+                    }
                 }
             }
         } else {
-            // Full text search
-            note_search_results.extend(GLOBALS.db().search_events(&text)?);
+            note_search_results.extend(GLOBALS.db().search_events(&text)?.into_iter().filter(
+                |event| {
+                    public_keys
+                        .as_ref()
+                        .is_none_or(|pks| pks.iter().all(|pk| pk == &event.pubkey))
+                },
+            ));
         }
 
         *GLOBALS.people_search_results.write() = people_search_results;
@@ -2752,12 +2781,12 @@ impl Overlord {
     }
 
     /// Search all search relays for events matching the text
-    pub fn search_relays(text: String) -> Result<(), Error> {
+    pub fn search_relays(text: String, public_keys: Option<Vec<PublicKey>>) -> Result<(), Error> {
         GLOBALS.people_search_results.write().clear();
         GLOBALS.note_search_results.write().clear();
         GLOBALS.searching.store(true, Ordering::Relaxed);
 
-        let filter_set = FilterSet::Search(text);
+        let filter_set = FilterSet::Search(text, public_keys);
         let job = RelayJob {
             reason: RelayConnectionReason::Search,
             payload: ToMinionPayload {

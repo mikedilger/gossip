@@ -422,7 +422,7 @@ pub(super) fn render_hashtag(app: &mut GossipUi, ui: &mut Ui, s: &String) {
         app.set_page(ui.ctx(), Page::SearchLocal);
         let _ = GLOBALS
             .to_overlord
-            .send(ToOverlordMessage::SearchLocally(app.search.clone()));
+            .send(ToOverlordMessage::SearchLocally(app.search.clone(), None));
     }
 }
 
