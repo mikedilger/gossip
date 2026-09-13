@@ -19,7 +19,14 @@ impl BookmarkList {
 
     fn add_tags(&mut self, tags: &[Tag], private: bool) -> Result<(), Error> {
         for tag in tags.iter() {
-            let bookmark = match tag.parse()? {
+            let parsed = match tag.parse() {
+                Ok(parsed) => parsed,
+                Err(e) => {
+                    tracing::warn!("Skipping unparseable bookmark tag {:?}: {}", tag, e);
+                    continue;
+                }
+            };
+            let bookmark = match parsed {
                 ParsedTag::Event {
                     id,
                     recommended_relay_url,
