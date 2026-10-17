@@ -6,7 +6,7 @@ I haven't had time to spend on NOSTR development for many months now. This
 repository has become idle.
 
 YGGverse has continued development on a
-[fork](https://github.com/YGGverse/gossipfork) which I approve of but cannot
+[fork](https://github.com/YGGverse/gossip) which I approve of but cannot
 vouch for since I haven't had time to look at it. AFAIK it is the only
 active and continuing development on gossip. He can't promise to continue to
 develop it, maintain it or provide support, but it's got more features than
